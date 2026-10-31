@@ -27,6 +27,7 @@
   import NavierPage from './navier1823/NavierPage.svelte';
   import LeePage from './lee1968/LeePage.svelte';
   import ArchPage from './dadeppo1975/ArchPage.svelte';
+  import { archStrings as archStringsFor } from './dadeppo1975/i18n';
   import SpringsPage from './grossman2026/SpringsPage.svelte';
   import RiksCrisfieldPage from './riksCrisfield/RiksCrisfieldPage.svelte';
   import '../landing/landing.css';
@@ -42,7 +43,6 @@
     '/research/benchmarks/plastic-collapse': { title: 'Classic plastic collapse — Stabileo Research', description: 'First version: a portal frame compared with beam, sway and combined mechanism hand calculations.' },
     '/research/benchmarks/navier-plate': { title: 'Navier plate — Stabileo Research', description: 'First version: a simply supported plate compared with the Navier Fourier series.' },
     '/research/benchmarks/lee-frame-1968': { title: 'Lee frame (1968) — Stabileo Research', description: 'First version: pinned Lee frame with the production arc-length solver. Provisional reference.' },
-    '/research/benchmarks/dadeppo-arch-1975': { title: 'DaDeppo–Schmidt deep arch (1975) — Stabileo Research', description: 'First version: a clamped–hinged circular arch traced by the production arc-length solver.' },
     '/research': {
       title: 'Stabileo Research — research in structural engineering',
       description:
@@ -70,7 +70,7 @@
   };
 
   $effect(() => {
-    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : PAGES[route];
+    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/dadeppo-arch-1975' ? { title: `${archStringsFor(publicI18n.locale).title} — Stabileo Research`, description: archStringsFor(publicI18n.locale).hook } : PAGES[route];
     if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
     return () => restorePageMeta();
   });

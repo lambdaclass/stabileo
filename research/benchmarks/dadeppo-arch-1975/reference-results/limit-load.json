@@ -6,7 +6,13 @@
     "EI": 1000000,
     "load": 897
   },
-  "source": "Robert Schmidt (2000), discussion of Nonlinear Buckling and Postbuckling of Cable-Stiffened Prestressed Domes, Journal of Engineering Mechanics 126(12), p. 1308, quoting Table 1 of DaDeppo & Schmidt (1975).",
+  "crownAtLimitPoint": {
+    "uOverR": 0.6116,
+    "vOverR": 1.1372,
+    "rotation": 0.0498
+  },
+  "crownConvention": "u/R toward the pinned end, v/R downward; the quotation gives the rotation as 0.0498 and is compared with Stabileo's crown ry, which is positive at the limit point.",
+  "source": "Robert Schmidt (2000), discussion of Nonlinear Buckling and Postbuckling of Cable-Stiffened Prestressed Domes, Journal of Engineering Mechanics 126(12), p. 1308, quoting Table 1 (limit load and crown state at the limit point) of DaDeppo & Schmidt (1975).",
   "url": "https://userweb.eng.gla.ac.uk/sondipon.adhikari/fulltext/journal/ft7a.pdf",
   "originalTableDirectlyInspected": false
 }

@@ -16,7 +16,7 @@
   import { researchLocale } from './i18n';
   const navier = $derived(navierStrings(researchLocale()));
   import { strings as leeStrings } from './lee1968/i18n';
-  import { strings as dadeppoStrings } from './dadeppo1975/i18n';
+  import { archStrings as archStringsFor } from './dadeppo1975/i18n';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
   import { isHttpUrl } from './urls';
@@ -62,7 +62,7 @@
   const cqc = $derived(cqcStrings());
   const plastic = $derived(ps());
   const lee = $derived(leeStrings[researchLocale() as keyof typeof leeStrings] ?? leeStrings.en);
-  const arch = $derived(dadeppoStrings[researchLocale() as keyof typeof dadeppoStrings] ?? dadeppoStrings.en);
+  const arch = $derived(archStringsFor(publicI18n.locale));
 </script>
 
 <section class="sec sec--ink rs-g">

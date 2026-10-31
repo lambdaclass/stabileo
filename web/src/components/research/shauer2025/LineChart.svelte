@@ -18,6 +18,7 @@
     labels = [],
     log = false,
     rules = [],
+    ariaLabel = null,
   }: {
     series: Series[];
     xLabel: string;
@@ -31,6 +32,7 @@
     log?: boolean;
     /** Horizontal reference rules (tolerances), drawn dashed with their label. */
     rules?: { y: number; text: string }[];
+    ariaLabel?: string | null;
   } = $props();
 
   let width = $state(600);
@@ -100,7 +102,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label="{yLabel} against {xLabel}" onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={ariaLabel ?? `${yLabel} against ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="75%">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
