@@ -63,9 +63,9 @@
       <p class="rs-lead" lang={researchLocale()}>{lead}</p>
 {/snippet}
 
-<section class="sec sec--ink rs-shell">
+<section class="sec sec--ink rs-shell" class:rs-compact={compactHeader}>
   <div class="wrap rs-shell-wrap">
-    <header class="rs-shell-head" class:rs-compact={compactHeader}>
+    <header class="rs-shell-head">
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
       <h1 lang={researchLocale()}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
@@ -108,6 +108,15 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 500px) {
+    .rs-shell.rs-compact {
+      padding-top: 1.5rem;
+    }
+    .rs-compact .rs-shell-head h1 {
+      max-width: none;
+      font-size: 2rem;
+    }
   }
   .rs-crumb,
   .rs-cite {

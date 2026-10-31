@@ -351,8 +351,9 @@ for (const failure of ['constructor', 'unavailable', 'error']) {
     await page.locator('#rs-tab-parameters').click();
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.locator('#rs-tab-viewer').click();
-    await expect(page.locator('.rs-placeholder')).toContainText('test solver failure');
+    await expect(page.locator('.rs-placeholder')).toContainText('The solver failed. Retry or return to the replay in Parameters.');
     await expect(page.locator('.rs-placeholder')).not.toContainText('Loading the replay');
+    await expect(page.locator('body')).not.toContainText('test solver failure');
   });
 }
 
@@ -443,11 +444,15 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
       }
       await page.locator('#rs-tab-convergence').click();
       const readout = page.locator('#rs-panel-convergence .chart input[type=range]').last();
+      const shown = page.locator('#rs-panel-convergence .readout').last();
       await readout.focus();
+      await expect(shown).toBeVisible();
+      const first = await shown.innerText();
       await readout.press('ArrowRight');
-      await expect(page.locator('#rs-panel-convergence .readout').last()).toBeVisible();
-      await readout.dispatchEvent('input'); // Same input path used by touch dragging.
-      await expect(page.locator('#rs-panel-convergence .readout').last()).toBeVisible();
+      await expect(shown).not.toHaveText(first);
+      const second = await shown.innerText();
+      await readout.evaluate((el: HTMLInputElement) => { el.value = el.max; el.dispatchEvent(new Event('input', { bubbles: true })); });
+      await expect(shown).not.toHaveText(second);
     });
   }
 }

@@ -47,7 +47,7 @@
     {/each}
   </svg>
   <input type="range" min="0" max={Math.max(0, steps.length - 1)} bind:value={readIndex}
-    aria-label={strings.loadStepShown} oninput={() => hover = readIndex} onfocus={() => hover = readIndex} />
+    aria-label={strings.loadStepShown} oninput={(e) => hover = e.currentTarget.valueAsNumber} onfocus={() => hover = readIndex} />
   {#if hover !== null && steps[hover]}
     {@const s = steps[hover]}
     <div aria-live="polite" class="readout" style:left="{Math.min(M.l + hover * bw + 10, width - 240)}px">

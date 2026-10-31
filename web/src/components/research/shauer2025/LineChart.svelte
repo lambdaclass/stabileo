@@ -148,7 +148,7 @@
     {/each}
   </svg>
   <input type="range" min="0" max={Math.max(0, (series[0]?.points.length ?? 1) - 1)} bind:value={readIndex}
-    aria-label={xLabel} oninput={() => hoverX = series[0]?.points[readIndex]?.[0] ?? null}
+    aria-label={xLabel} oninput={(e) => hoverX = series[0]?.points[e.currentTarget.valueAsNumber]?.[0] ?? null}
     onfocus={() => hoverX = series[0]?.points[readIndex]?.[0] ?? null} />
   {#if readout}
     <div aria-live="polite" class="readout" style:left="{Math.min(sx(readout.x) + 10, width - 230)}px">

@@ -698,6 +698,7 @@
     font: 0.9375rem var(--st-sans);
   }
   .rs-check input {
+    flex: none;
     accent-color: var(--st-accent);
     width: 2.75rem;
     height: 2.75rem;
