@@ -461,6 +461,7 @@
     font-size: max(12px, 0.75rem);
   }
   .sfv-status {
+    font-size: 0.75rem;
     flex-wrap: wrap;
     row-gap: 0.2rem;
     border-top: 1px solid var(--st-hair, rgba(143, 163, 179, 0.22));
