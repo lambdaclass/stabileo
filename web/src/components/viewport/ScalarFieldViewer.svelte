@@ -1,3 +1,7 @@
+<script module lang="ts">
+  let viewerCount = 0;
+</script>
+
 <script lang="ts">
   import { t as appT, i18n } from '../../lib/i18n';
   import { tAt } from '../../lib/i18n/store.svelte';
@@ -325,7 +329,7 @@
     fit();
   });
 
-  const keysId = $props.id();
+  const keysId = `sfv-keys-${++viewerCount}`;
   const legendFormat = (value: number, min: number, max: number, bands = 0) => formatLocalizedContourLabel(value, min, max, bands, locale ?? i18n.locale);
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
