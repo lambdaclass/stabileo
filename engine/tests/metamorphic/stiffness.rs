@@ -80,7 +80,7 @@ fn expected(name: &str, base: &Resp, factor: f64) -> Resp {
             {
                 factor.sqrt()
             }
-            "buckling" => factor,
+            "buckling" if factor_tag(name, &item.tag) => factor,
             _ => 1.0, // reactions, forces, masses and plastic capacity unchanged
         };
         for v in &mut item.v {
@@ -91,26 +91,50 @@ fn expected(name: &str, base: &Resp, factor: f64) -> Resp {
     out
 }
 
+fn factor_tag(name: &str, tag: &str) -> bool {
+    match name {
+        "modal" => crate::response::frequency_index(tag).is_some(),
+        "buckling" => tag
+            .strip_prefix("lambda")
+            .is_some_and(|k| !k.is_empty() && k.bytes().all(|b| b.is_ascii_digit())),
+        "plastic collapse" => tag == "collapse_factor",
+        _ => false,
+    }
+}
+
 fn stiffness_witness(name: &str, r: &Resp) {
+    let nonzero = |tag: &str, member: bool| {
+        r.0.iter().any(|i| {
+            i.tag == tag && i.elem.is_some() == member && i.v.iter().any(|v| v.abs() > 0.0)
+        })
+    };
     if name == "linear" {
-        assert!(r
-            .0
-            .iter()
-            .any(|i| i.tag == "u" && i.v.iter().any(|v| v.abs() > 0.0)));
-    } else {
-        let tags: Vec<String> = match name {
-            "modal" => (0..6).map(|k| format!("f{k:02}")).collect(),
-            "buckling" => (0..3).map(|k| format!("lambda{k}")).collect(),
-            "plastic collapse" => vec!["collapse_factor".into()],
-            _ => unreachable!(),
-        };
-        for tag in tags {
-            let item = r.0.iter().find(|i| i.tag == tag).unwrap();
-            assert!(
-                item.v.iter().all(|v| v.is_finite() && *v > 0.0),
-                "{name} {tag} must be positive"
-            );
-        }
+        assert!(nonzero("u", false), "linear: no nonzero displacement");
+        assert!(nonzero("R", false), "linear: no nonzero reaction");
+        assert!(
+            ["N", "V", "M"].iter().any(|tag| nonzero(tag, true)),
+            "linear: no nonzero member force"
+        );
+        return;
+    }
+    let required = match name {
+        "modal" => 6,
+        "buckling" => 3,
+        "plastic collapse" => 1,
+        _ => unreachable!(),
+    };
+    let factors: Vec<_> = r.0.iter().filter(|i| factor_tag(name, &i.tag)).collect();
+    assert!(
+        factors.len() >= required,
+        "{name}: {} factors, expected at least {required}",
+        factors.len()
+    );
+    for item in factors {
+        assert!(
+            item.v.iter().all(|v| v.is_finite() && *v > 0.0),
+            "{name} {} must be positive",
+            item.tag
+        );
     }
 }
 
@@ -120,10 +144,11 @@ fn stiffness(
     label: &str,
     shape: &ResponseShape,
     solve: impl Fn(f64) -> (Resp, conditioning::Conditioning, f64),
-) {
+) -> u64 {
     let (base, cond, _) = solve(1.0);
     generated::validate_response(name, &base, shape).unwrap();
     stiffness_witness(name, &base);
+    let mut compared = 0;
     for factor in [0.25, 4.0] {
         let (got, other, floor) = solve(factor);
         generated::validate_response(name, &got, shape).unwrap();
@@ -142,38 +167,46 @@ fn stiffness(
             floor,
         )
         .unwrap_or_else(|e| panic!("{label} {name} E×{factor}: {e}"));
+        compared += 1;
     }
+    compared
 }
 
-fn check2(c: &Case2, geometry: bool, only: Option<&str>) {
+fn wanted(only: Option<&str>) -> Vec<&'static str> {
+    let mut wanted: Vec<_> = PRIORITY
+        .iter()
+        .copied()
+        .filter(|name| selected(name, only))
+        .collect();
+    wanted.sort_unstable();
+    wanted
+}
+
+fn check2(c: &Case2, only: Option<&str>) -> u64 {
     let analyses: Vec<_> = ana2::rows()
         .into_iter()
         .filter(|a| selected(a.name, only))
         .collect();
     let mut names: Vec<_> = analyses.iter().map(|a| a.name).collect();
     names.sort_unstable();
-    let mut wanted = PRIORITY.to_vec();
-    wanted.sort_unstable();
-    if only.is_none() {
-        assert_eq!(names, wanted, "missing or duplicate priority adapter");
-    }
+    assert_eq!(names, wanted(only), "missing or duplicate priority adapter");
+    let mut compared = 0;
     for a in analyses {
-        if geometry {
-            let t = Tally::default();
-            let inv = invariants(a.name, false);
-            checks2::check_case(
-                &checks2::Ctx {
-                    tally: &t,
-                    rng_seed: crate::seed(),
-                },
-                c,
-                std::slice::from_ref(&a),
-                &inv,
-            );
-            covered(&t, a.name, &inv);
-        }
-        if ["linear", "modal", "buckling", "plastic collapse"].contains(&a.name) {
-            stiffness(
+        let t = Tally::default();
+        let inv = invariants(a.name, false);
+        checks2::check_case(
+            &checks2::Ctx {
+                tally: &t,
+                rng_seed: crate::seed(),
+            },
+            c,
+            std::slice::from_ref(&a),
+            &inv,
+        );
+        covered(&t, a.name, &inv);
+        compared += inv.len() as u64;
+        if STIFFNESS.contains(&a.name) {
+            compared += stiffness(
                 a.name,
                 a.iter_tol,
                 &c.name,
@@ -190,20 +223,18 @@ fn check2(c: &Case2, geometry: bool, only: Option<&str>) {
             );
         }
     }
+    compared
 }
 
-fn check3(c: &Case3, only: Option<&str>) {
+fn check3(c: &Case3, only: Option<&str>) -> u64 {
     let analyses: Vec<_> = ana3::rows()
         .into_iter()
         .filter(|a| selected(a.name, only))
         .collect();
     let mut names: Vec<_> = analyses.iter().map(|a| a.name).collect();
     names.sort_unstable();
-    let mut wanted = PRIORITY.to_vec();
-    wanted.sort_unstable();
-    if only.is_none() {
-        assert_eq!(names, wanted, "missing or duplicate priority adapter");
-    }
+    assert_eq!(names, wanted(only), "missing or duplicate priority adapter");
+    let mut compared = 0;
     for a in analyses {
         let t = Tally::default();
         let inv = invariants(a.name, true);
@@ -217,8 +248,9 @@ fn check3(c: &Case3, only: Option<&str>) {
             &inv,
         );
         covered(&t, a.name, &inv);
-        if ["linear", "modal", "buckling", "plastic collapse"].contains(&a.name) {
-            stiffness(
+        compared += inv.len() as u64;
+        if STIFFNESS.contains(&a.name) {
+            compared += stiffness(
                 a.name,
                 a.iter_tol,
                 &c.name,
@@ -235,27 +267,50 @@ fn check3(c: &Case3, only: Option<&str>) {
             );
         }
     }
+    compared
 }
 
 fn selected(name: &str, only: Option<&str>) -> bool {
     PRIORITY.contains(&name) && only.map_or(true, |wanted| name == wanted)
 }
 
-fn sweep(count: u64) {
-    let only = crate::only();
-    let only = only.as_deref();
+const STIFFNESS: &[&str] = &["linear", "modal", "buckling", "plastic collapse"];
+
+fn expected_comparisons(count: u64, only: Option<&str>) -> u64 {
+    let geometric_per_seed: usize = wanted(only)
+        .iter()
+        .map(|name| invariants(name, false).len() + invariants(name, true).len())
+        .sum();
+    let portal_geometry: usize = wanted(only)
+        .iter()
+        .map(|name| invariants(name, false).len())
+        .sum();
+    let stiffness_per_dimension =
+        STIFFNESS.iter().filter(|name| selected(name, only)).count() as u64 * 2;
+    count * (geometric_per_seed as u64 + 2 * stiffness_per_dimension)
+        + portal_geometry as u64
+        + stiffness_per_dimension
+}
+
+fn sweep(count: u64, only: Option<&str>) {
+    if let Some(name) = only {
+        assert!(
+            PRIORITY.contains(&name),
+            "METAMORPHIC_ONLY={name:?} selects no priority analysis; the priority sweep would run nothing"
+        );
+    }
     let _strict = generated::Strict::enter();
+    let mut compared = 0;
     for k in 0..count {
         let seed = crate::seed().wrapping_add(k);
-        check2(
+        compared += check2(
             &Case2::new(
                 format!("stiffness/{seed}/2d"),
                 serde_json::from_value(generated::model(seed, false)).unwrap(),
             ),
-            true,
             only,
         );
-        check3(
+        compared += check3(
             &Case3::new(
                 format!("stiffness/{seed}/3d"),
                 serde_json::from_value(generated::model(seed, true)).unwrap(),
@@ -263,37 +318,45 @@ fn sweep(count: u64) {
             only,
         );
     }
-    // Existing symmetric portal corpus: redundant load paths, distributed load,
-    // and simultaneous plastic hinges complement the generated cantilevers.
     let s = serde_json::from_str(include_str!(
         "../fixtures/ex-frame-cirsoc-dl-case2-input.json"
     ))
     .unwrap();
-    check2(&Case2::new("corpus/cirsoc-portal", s), false, only);
-    let geometric_per_seed: usize = PRIORITY
-        .iter()
-        .filter(|name| selected(name, only))
-        .map(|name| invariants(name, false).len() + invariants(name, true).len())
-        .sum();
-    let stiffness_per_dimension = ["linear", "modal", "buckling", "plastic collapse"]
-        .iter()
-        .filter(|name| selected(name, only))
-        .count() as u64
-        * 2;
-    let comparisons =
-        count * (geometric_per_seed as u64 + 2 * stiffness_per_dimension) + stiffness_per_dimension;
-    println!("priority stiffness: {count} seeds × 2 dimensions + 1 corpus portal; {comparisons} comparisons");
+    compared += check2(&Case2::new("corpus/cirsoc-portal", s), only);
+    let expected = expected_comparisons(count, only);
+    if only.is_none() {
+        assert_eq!(
+            expected,
+            count * 84 + 37 + 8,
+            "priority comparison plan changed"
+        );
+    }
+    assert_eq!(compared, expected, "priority comparisons run");
+    println!("priority stiffness: {count} seeds × 2 dimensions + 1 corpus portal; {compared} comparisons");
 }
 
 #[test]
 fn metamorphic_fast_priority() {
-    sweep(8);
+    sweep(8, crate::only().as_deref());
 }
 
 #[test]
 #[ignore = "exhaustive priority invariances and stiffness scaling"]
 fn metamorphic_nightly_priority() {
-    sweep(cases());
+    sweep(cases(), crate::only().as_deref());
+}
+
+#[test]
+fn priority_sweep_rejects_empty_selection() {
+    for only in ["spectral", "", "Linear"] {
+        let failure = std::panic::catch_unwind(|| sweep(1, Some(only)))
+            .expect_err("priority sweep accepted a selection that runs nothing");
+        let message = failure.downcast_ref::<String>().unwrap();
+        assert!(
+            message.contains("selects no priority analysis"),
+            "unexpected rejection: {message}"
+        );
+    }
 }
 
 #[test]
@@ -333,16 +396,31 @@ fn stiffness_rejects_nonpositive_factors() {
                     )
                 }),
         );
+    let mut tested = std::collections::BTreeMap::new();
     for (name, tol, shape, response, cond) in responses {
-        for tag in response
+        let tags: Vec<_> = response
             .0
             .iter()
-            .filter(|i| {
-                i.tag.starts_with('f') || i.tag.starts_with("lambda") || i.tag == "collapse_factor"
-            })
-            .map(|i| &i.tag)
-        {
+            .filter(|i| factor_tag(name, &i.tag))
+            .map(|i| i.tag.clone())
+            .collect();
+        *tested.entry(name).or_insert(0) += tags.len();
+        for tag in &tags {
             for value in [0.0, -1.0] {
+                let mut faulty = response.clone();
+                faulty
+                    .0
+                    .iter_mut()
+                    .find(|i| &i.tag == tag)
+                    .unwrap()
+                    .v
+                    .fill(value);
+                let witness = format!("{name} {tag} must be positive");
+                let failure = std::panic::catch_unwind(|| stiffness_witness(name, &faulty))
+                    .expect_err("witness accepted nonpositive factor");
+                assert_eq!(failure.downcast_ref::<String>(), Some(&witness));
+                let validator =
+                    format!("{name}: mass/frequency must be positive and modes ordered");
                 for faulty_scale in [1.0, 0.25, 4.0] {
                     let failure = std::panic::catch_unwind(|| {
                         stiffness(name, tol, "faulty adapter", &shape, |scale| {
@@ -356,36 +434,42 @@ fn stiffness_rejects_nonpositive_factors() {
                                     .fill(value);
                             }
                             if name == "modal" {
-                                let frequencies: Vec<_> = (0..6)
-                                    .map(|k| {
-                                        got.0
-                                            .iter()
-                                            .find(|i| i.tag == format!("f{k:02}"))
-                                            .unwrap()
-                                            .v[0]
+                                let mut frequencies: Vec<_> = got
+                                    .0
+                                    .iter()
+                                    .filter_map(|i| {
+                                        crate::response::frequency_index(&i.tag)
+                                            .map(|k| (k, i.v[0]))
                                     })
                                     .collect();
+                                frequencies.sort_by_key(|(k, _)| *k);
+                                assert!(frequencies.iter().enumerate().all(|(n, (k, _))| n == *k));
                                 got.0.retain(|i| {
                                     i.tag.strip_prefix("meff").map_or(true, |k| {
                                         let k: usize = k.parse().unwrap();
-                                        frequencies[k + 1] > frequencies[k] * (1.0 + 1e-3)
+                                        frequencies.get(k + 1).is_some_and(|upper| {
+                                            crate::response::modal_gap(frequencies[k].1, upper.1)
+                                        })
                                     })
                                 });
                             }
-                            generated::validate_response(name, &got, &shape).unwrap();
                             (got, cond.clone(), 0.0)
                         })
                     })
                     .expect_err("accepted nonpositive factor");
                     let message = failure.downcast_ref::<String>().unwrap();
                     assert!(
-                        message.contains("must be positive"),
+                        message == &witness || (name == "modal" && message.contains(&validator)),
                         "unexpected rejection: {message}"
                     );
                 }
             }
         }
     }
+    assert_eq!(
+        tested,
+        [("buckling", 6), ("modal", 12), ("plastic collapse", 2)].into()
+    );
 }
 
 #[test]

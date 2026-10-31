@@ -16,7 +16,7 @@ analysis the engine has and on the whole model corpus.
 cd engine
 cargo test --locked --release --test metamorphic                       # PR tier (sampled)
 cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored # nightly tier (exhaustive)
-METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --locked --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture
+METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --locked --release --test metamorphic -- --ignored --nocapture metamorphic_nightly_2d metamorphic_nightly_3d
 UPDATE_METAMORPHIC_DOC=1 cargo test --locked --release --test metamorphic metamorphic_pr   # refresh the matrices below
 ```
 

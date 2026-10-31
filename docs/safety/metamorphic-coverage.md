@@ -5,7 +5,13 @@ Workstream 2, stacked on #813 (`safety/metamorphic-invariance`). Audit of
 ana2,ana3,modal_checks,symmetry,corpus,regressions,response}.rs` and
 [the existing suite documentation](../verification/METAMORPHIC.md).
 This is a coverage inventory, not a claim that every supported input is correct.
-No solver behavior, acceptance rules or numerical tolerances change in this slice.
+No solver behavior or numerical tolerance changes in this slice. The strict
+response validator does gain acceptance rules: a spectral response must report
+exactly one base shear, strictly positive (the solver's SRSS/CQC magnitude), and
+nonzero motion; strict 3D spectral analysis keeps every computed mode instead of
+the first six; and, with no independent modal reference, a modal response must
+report the cumulative effective-mass tensor at exactly the consecutive mode
+pairs the adapters separate (`modal_gap`, a relative gap above 1e-3).
 
 ## Matrix
 
@@ -97,15 +103,19 @@ builder, case adapters, dimensional responses, comparison tolerances and strict
 response-shape validator. Eight seeds in each dimension exercise linear,
 plastic collapse, time history, kinematics, modal and buckling analyses. Every
 requested cell must have exactly one pass and zero refusals, unrepresentable,
-inconclusive, ignored or failed outcomes. Missing cells cannot pass silently.
+inconclusive, ignored or failed outcomes. Missing cells cannot pass silently:
+the sweep counts the comparisons it actually ran and asserts the total (8 seeds:
+84 per seed plus 45 on the portal, 717), and a `METAMORPHIC_ONLY` value that names
+no priority analysis fails instead of running nothing.
 
 The new stiffness relation solves E×1, E×¼ and E×4. It checks full static
-translations/rotations and unchanged reactions/member forces, all three reported
+translations/rotations and unchanged reactions/member forces (requiring a nonzero
+displacement, reaction and member force), all three reported
 buckling factors, all six modal frequencies and returned cumulative effective
 mass tensors, and plastic collapse factors. Fixed density, loads and yield
 strength isolate E. The existing symmetric CIRSOC portal fixture adds redundant
 load paths, distributed loading and simultaneous plastic hinges to the generated
-cantilevers. This is bounded property testing; the generator randomizes dimensions
+cantilevers, and runs the same 2D geometry/linearity/reciprocity cells. This is bounded property testing; the generator randomizes dimensions
 and material/section values but does not randomly explore every topology or shrink
 failures. Case names include the seed for reproduction.
 
@@ -141,7 +151,8 @@ separate from the fast tier's <3 minute runtime budget.
 | Nightly entry point, seed 20754, `METAMORPHIC_CASES=32` | 65 | 2,696 | 1 test passed | 1.00 s |
 | Existing `safety_cases::` with `--ignored` | Existing adverse corpus | — | 4 expected failures (#758, #759, #760, #762) | 0.19 s |
 
-The 680 fast comparisons comprise 544 existing geometry/linearity/reciprocity/
+These runs predate the portal geometry cells (37 more comparisons; the fast
+total is now 717). The 680 fast comparisons comprise 544 existing geometry/linearity/reciprocity/
 orthogonality cells and 136 new E-scaling comparisons. No generated cell was
 refused or inconclusive. The nightly configuration was validated with a bounded
 32-case run, not the full default 512-case sweep. The initial cold release build

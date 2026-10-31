@@ -160,7 +160,7 @@ fn sweep(count: u64, only: Option<&str>) {
             serde_json::from_value(model(seed, true)).unwrap(),
         );
         for a in &a2 {
-            if a.name == "time history" {
+            if a.name.starts_with("time history") {
                 history_witness(seed, || (a.run)(&c2), &ResponseShape::of_2d(&c2));
             }
             let invs: Vec<_> = crate::INV_2D
@@ -886,6 +886,21 @@ pub(crate) fn validate_3d(name: &str, r: &crate::response::Resp, c: &Case3) -> R
     validate_response(name, r, &shape)
 }
 
+fn reported_frequencies(r: &crate::response::Resp) -> Vec<f64> {
+    (0..)
+        .map_while(|k| {
+            r.0.iter()
+                .find(|i| {
+                    i.node.is_none()
+                        && i.elem.is_none()
+                        && crate::response::frequency_index(&i.tag) == Some(k)
+                })
+                .and_then(|i| i.v.first())
+                .copied()
+        })
+        .collect()
+}
+
 pub(crate) fn validate_response(
     name: &str,
     r: &crate::response::Resp,
@@ -929,24 +944,15 @@ pub(crate) fn validate_response(
             // Stiffness scaling also uses this validator for shape-only checks;
             // full adapter validation supplies an independent modal reference.
             if shape.reference.0.is_empty() {
-                for k in 0..5 {
-                    let f = |k| {
-                        r.0.iter()
-                            .find(|i| {
-                                i.node.is_none() && i.elem.is_none() && i.tag == format!("f{k:02}")
-                            })
-                            .and_then(|i| i.v.first())
-                            .copied()
-                    };
-                    if let (Some(a), Some(b)) = (f(k), f(k + 1)) {
-                        if b > a * (1.0 + 1e-3) {
-                            add(
-                                None,
-                                None,
-                                format!("meff{k:02}"),
-                                if shape.spatial { 6 } else { 3 },
-                            );
-                        }
+                let frequencies = reported_frequencies(r);
+                for (k, pair) in frequencies.windows(2).enumerate() {
+                    if crate::response::modal_gap(pair[0], pair[1]) {
+                        add(
+                            None,
+                            None,
+                            format!("meff{k:02}"),
+                            if shape.spatial { 6 } else { 3 },
+                        );
                     }
                 }
             } else {
@@ -1043,7 +1049,9 @@ pub(crate) fn validate_response(
         ));
     }
     if name == "spectral" {
-        let positive_shear = r.0.iter().any(|i| i.tag == "base_shear" && i.v[0] > 0.0);
+        let positive_shear =
+            r.0.iter()
+                .any(|i| i.tag == "base_shear" && matches!(i.v.as_slice(), [v] if *v > 0.0));
         let motion =
             r.0.iter()
                 .any(|i| i.tag == "u" && i.v.iter().any(|v| v.abs() > 0.0));
@@ -1052,15 +1060,11 @@ pub(crate) fn validate_response(
         }
     }
     if matches!(name, "modal" | "certified modal") {
-        let frequencies: Vec<_> =
-            r.0.iter()
-                .filter(|i| i.tag.starts_with('f'))
-                .map(|i| i.v[0])
-                .collect();
-        if r.0
-            .iter()
-            .any(|i| (i.tag == "total_mass" || i.tag.starts_with('f')) && i.v[0] <= 0.0)
-            || frequencies.windows(2).any(|f| f[1] < f[0])
+        let frequencies = reported_frequencies(r);
+        if r.0.iter().any(|i| {
+            (i.tag == "total_mass" || crate::response::frequency_index(&i.tag).is_some())
+                && i.v.first().map_or(true, |v| *v <= 0.0)
+        }) || frequencies.windows(2).any(|f| f[1] < f[0])
         {
             return Err(format!(
                 "{name}: mass/frequency must be positive and modes ordered"
@@ -1744,5 +1748,80 @@ fn absolute_oracles_reject_zeroed_adapter_runs() {
                 tally.report()
             );
         }
+    }
+}
+
+#[test]
+fn strict_validator_rejects_bad_spectral_shear_and_modal_tensors() {
+    let _strict = Strict::enter();
+    let c2 = Case2::new(
+        "validator",
+        serde_json::from_value(model(1, false)).unwrap(),
+    );
+    let c3 = Case3::new("validator", serde_json::from_value(model(1, true)).unwrap());
+    let run2 = |name: &str| {
+        let a = ana2::rows().into_iter().find(|a| a.name == name).unwrap();
+        (a.run)(&c2).unwrap()
+    };
+    let run3 = |name: &str| {
+        let a = ana3::rows().into_iter().find(|a| a.name == name).unwrap();
+        (a.run)(&c3).unwrap()
+    };
+    let shapes = [ResponseShape::of_2d(&c2), ResponseShape::of_3d(&c3)];
+    for (spectral, shape) in [run2("spectral"), run3("spectral")]
+        .into_iter()
+        .zip(&shapes)
+    {
+        validate_response("spectral", &spectral, shape).unwrap();
+        for (shear, error) in [
+            (
+                vec![0.0],
+                "spectral: expected positive base shear and nonzero motion",
+            ),
+            (
+                vec![-1.0],
+                "spectral: expected positive base shear and nonzero motion",
+            ),
+            (vec![1.0, 1.0], "spectral: response shape mismatch"),
+        ] {
+            let mut r = spectral.clone();
+            r.0.iter_mut().find(|i| i.tag == "base_shear").unwrap().v = shear;
+            assert!(validate_response("spectral", &r, shape)
+                .unwrap_err()
+                .starts_with(error));
+        }
+    }
+    for (modal, shape) in [run2("modal"), run3("modal")].into_iter().zip(&shapes) {
+        validate_response("modal", &modal, shape).unwrap();
+        let last = modal
+            .0
+            .iter()
+            .rev()
+            .find(|i| i.tag.starts_with("meff"))
+            .unwrap()
+            .tag
+            .clone();
+        let mut missing = modal.clone();
+        missing.0.retain(|i| i.tag != last);
+        assert!(validate_response("modal", &missing, shape)
+            .unwrap_err()
+            .starts_with("modal: response shape mismatch"));
+        let k: usize = last.strip_prefix("meff").unwrap().parse().unwrap();
+        let mut clustered = modal.clone();
+        let lower = clustered
+            .0
+            .iter()
+            .find(|i| crate::response::frequency_index(&i.tag) == Some(k))
+            .unwrap()
+            .v[0];
+        clustered
+            .0
+            .iter_mut()
+            .find(|i| crate::response::frequency_index(&i.tag) == Some(k + 1))
+            .unwrap()
+            .v = vec![lower * (1.0 + 1e-3)];
+        assert!(validate_response("modal", &clustered, shape)
+            .unwrap_err()
+            .starts_with("modal: response shape mismatch"));
     }
 }

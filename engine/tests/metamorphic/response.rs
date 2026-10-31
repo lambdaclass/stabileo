@@ -388,3 +388,15 @@ pub fn disp_3d(r: &AnalysisResults3D) -> Resp {
     }
     o
 }
+
+pub fn frequency_index(tag: &str) -> Option<usize> {
+    tag.strip_prefix('f')
+        .filter(|k| !k.is_empty() && k.bytes().all(|b| b.is_ascii_digit()))
+        .and_then(|k| k.parse().ok())
+}
+
+/// Cumulative effective mass is compared only at a boundary with a known gap
+/// above; modes inside a cluster can mix.
+pub fn modal_gap(lower: f64, upper: f64) -> bool {
+    upper > lower * (1.0 + 1e-3)
+}
