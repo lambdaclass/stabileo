@@ -351,8 +351,9 @@ for (const failure of ['constructor', 'unavailable', 'error']) {
     await page.locator('#rs-tab-parameters').click();
     await page.getByRole('button', { name: 'Run', exact: true }).click();
     await page.locator('#rs-tab-viewer').click();
-    await expect(page.locator('.rs-placeholder')).toContainText('test solver failure');
+    await expect(page.locator('.rs-placeholder')).toContainText('The solver failed. Retry or return to the replay in Parameters.');
     await expect(page.locator('.rs-placeholder')).not.toContainText('Loading the replay');
+    await expect(page.locator('body')).not.toContainText('test solver failure');
   });
 }
 
@@ -410,3 +411,48 @@ test('@smoke public-page entry installs editor hooks after its lazy mount', asyn
   await expect(page.locator('canvas').first()).toBeVisible();
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin);
 });
+
+// Real layout coverage; run in CI with browsers available (no worker stub).
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 810, height: 1080 }]) {
+    test(`Shauer accessible reflow ${locale} ${viewport.width}x${viewport.height}`, async ({ page }) => {
+      await page.setViewportSize(viewport);
+      await page.goto(`/${locale}/research/fracture/shauer-2025/`);
+      const viewer = page.locator('.rs-viewer-slot');
+      await expect(viewer).toBeVisible();
+      await expect.poll(async () => (await viewer.boundingBox())?.y ?? Infinity).toBeLessThan(viewport.height - 44);
+      for (const tab of ['viewer', 'force', 'convergence', 'parameters']) {
+        await page.locator(`#rs-tab-${tab}`).click();
+        const metrics = await page.evaluate(() => {
+          const pane = document.querySelector('.rs-app') as HTMLElement;
+          const visible = (e: Element) => e.getBoundingClientRect().width > 0 && e.getBoundingClientRect().height > 0;
+          const controls = [...pane.querySelectorAll('button, select, input')].filter(visible);
+          return {
+            overflow: document.documentElement.scrollWidth - innerWidth,
+            paneOverflow: pane.scrollWidth - pane.clientWidth,
+            small: controls.filter(e => {
+              const r = e.getBoundingClientRect(); return r.width < 44 || r.height < 44;
+            }).map(e => e.outerHTML),
+            tiny: [...pane.querySelectorAll('button, input, select, label, .sfv-mark, .rs-seg-label, .rs-tog-label')].filter(visible)
+              .filter(e => parseFloat(getComputedStyle(e).fontSize) < 12).map(e => e.outerHTML),
+          };
+        });
+        expect(metrics.overflow).toBeLessThanOrEqual(1);
+        expect(metrics.paneOverflow).toBeLessThanOrEqual(1);
+        expect(metrics.small).toEqual([]);
+        expect(metrics.tiny).toEqual([]);
+      }
+      await page.locator('#rs-tab-convergence').click();
+      const readout = page.locator('#rs-panel-convergence .chart input[type=range]').last();
+      const shown = page.locator('#rs-panel-convergence .readout').last();
+      await readout.focus();
+      await expect(shown).toBeVisible();
+      const first = await shown.innerText();
+      await readout.press('ArrowRight');
+      await expect(shown).not.toHaveText(first);
+      const second = await shown.innerText();
+      await readout.evaluate((el: HTMLInputElement) => { el.value = el.max; el.dispatchEvent(new Event('input', { bubbles: true })); });
+      await expect(shown).not.toHaveText(second);
+    });
+  }
+}

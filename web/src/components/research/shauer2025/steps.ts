@@ -13,3 +13,9 @@ export function solverStepCount(dt: number, totalTime: number): number {
   }
   return count;
 }
+
+/** The requested upper bound is not necessarily a step reached by the reference loop. */
+export function finalLoad(dt: number, topDisplacement: number) {
+  const time = solverStepCount(dt, 0.8) * dt;
+  return { time, displacement: time * topDisplacement };
+}

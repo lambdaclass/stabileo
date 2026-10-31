@@ -339,6 +339,9 @@
 </div>
 
 <style>
+  .sfv :global(.shell-legend), .sfv :global(.legend-unit-inline) { font-size: 12px; }
+  .sfv .cam-item { min-height: 44px; font-size: 12px; }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);

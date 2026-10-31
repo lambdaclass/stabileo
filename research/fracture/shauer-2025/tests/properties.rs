@@ -124,3 +124,70 @@ fn invalid_spacing_and_jacobians_are_refused() {
         }
     }
 }
+
+// Independent rectangular-Q4 integration: no production shape/gradient/energy helpers.
+// Two Gauss points in each direction are the quadrature specified by the reference.
+fn independent_energies(solver: &Solver) -> (f64, f64) {
+    let m = solver.problem.material;
+    let lambda = m.e * m.nu / ((1.0 + m.nu) * (1.0 - 2.0 * m.nu));
+    let mu = m.e / (2.0 * (1.0 + m.nu));
+    let mut elastic = 0.0;
+    let mut fracture = 0.0;
+    let g = 1.0 / 3.0f64.sqrt();
+    for el in &solver.problem.mesh.elements {
+        let x = &solver.problem.mesh.nodes;
+        let width = x[el[1]][0] - x[el[0]][0];
+        let height = x[el[3]][1] - x[el[0]][1];
+        for xi in [-g, g] {
+            for eta in [-g, g] {
+                let mut d = 0.0;
+                let mut dx = 0.0;
+                let mut dy = 0.0;
+                let mut ex = 0.0;
+                let mut ey = 0.0;
+                let mut shear = 0.0;
+                for (a, (sx, sy)) in [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].iter().enumerate() {
+                    let n = (1.0 + sx * xi) * (1.0 + sy * eta) / 4.0;
+                    let nx = sx * (1.0 + sy * eta) / (2.0 * width);
+                    let ny = sy * (1.0 + sx * xi) / (2.0 * height);
+                    let node = el[a];
+                    d += n * solver.d[node];
+                    dx += nx * solver.d[node];
+                    dy += ny * solver.d[node];
+                    ex += nx * solver.u[2 * node];
+                    ey += ny * solver.u[2 * node + 1];
+                    shear += ny * solver.u[2 * node] + nx * solver.u[2 * node + 1];
+                }
+                let area = width * height / 4.0;
+                elastic += area * (1.0 - d).powi(2) * (lambda / 2.0 * (ex + ey).powi(2) + mu * (ex * ex + ey * ey + shear * shear / 2.0));
+                fracture += area * m.gc / 2.0 * (d * d / m.l0 + m.l0 * (dx * dx + dy * dy));
+            }
+        }
+    }
+    (elastic, fracture)
+}
+
+#[test]
+fn every_plate_energy_and_larger_length_peak_are_checked() {
+    let mut peaks = Vec::new();
+    for length in [0.0075, 0.015] {
+        let mut plate = NotchedPlate::reference();
+        plate.material.l0 = length;
+        let mut solver = Solver::new(plate.problem().unwrap()).unwrap();
+        let mut peak = 0.0f64;
+        let mut count = 0;
+        while let Some(step) = solver.advance().unwrap() {
+            assert!(step.converged);
+            let (elastic, fracture) = independent_energies(&solver);
+            assert!((step.elastic_energy - elastic).abs() <= 1e-12 * elastic.abs().max(1e-20), "elastic step {}", step.step);
+            assert!((step.fracture_energy - fracture).abs() <= 1e-12 * fracture.abs().max(1e-20), "fracture step {}", step.step);
+            assert!((step.displacement - step.pseudotime * 0.01).abs() < 1e-14);
+            peak = peak.max(step.reaction);
+            count += 1;
+        }
+        assert_eq!(count, 79);
+        peaks.push(peak);
+    }
+    assert!((peaks[0] - 0.7257947845).abs() < 1e-9);
+    assert!(peaks[1] < peaks[0], "length-scale peaks: {peaks:?}");
+}

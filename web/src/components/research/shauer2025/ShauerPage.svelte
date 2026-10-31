@@ -10,8 +10,10 @@
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
   import { rs, researchLocale } from '../i18n';
-  import { solverStepCount } from './steps';
+  import { solverStepCount, finalLoad } from './steps';
   import { compareReference, deepLinkStep } from './comparison';
+  import { comparisonFailureLabel } from './failure-labels';
+  import { checkLabel, metricLabel } from './validation-labels';
   import LineChart from './LineChart.svelte';
   import IterationsChart from './IterationsChart.svelte';
   import NumberField from './NumberField.svelte';
@@ -278,7 +280,7 @@
   const peakFrame = $derived(frames.length ? frames.reduce((a, f) => (f.step.reaction > a.step.reaction ? f : a), frames[0]) : null);
   const forceLabels = $derived(
     peakFrame
-      ? [{ x: peakFrame.step.displacement, y: peakFrame.step.reaction, anchor: 'end' as const, text: showsReference ? `${strings.peakReferenceLabel} ${peakFrame.step.reaction.toFixed(4)} kN` : `${strings.peakLabel} ${peakFrame.step.reaction.toFixed(4)} kN` }]
+      ? [{ x: peakFrame.step.displacement, y: peakFrame.step.reaction, anchor: 'end' as const, text: showsReference ? `${strings.peakReferenceLabel} ${num(peakFrame.step.reaction, { dp: 4 })} kN` : `${strings.peakLabel} ${num(peakFrame.step.reaction, { dp: 4 })} kN` }]
       : [],
   );
   const residualSeries = $derived.by<Series[]>(() => {
@@ -297,8 +299,8 @@
   const energySeries = $derived.by<Series[]>(() =>
     frames.length
       ? [
-          { name: strings.elasticEnergy, color: STABILEO, points: frames.map((f) => [f.step.displacement, f.step.elastic_energy]) },
-          { name: strings.fractureEnergy, color: REFERENCE, points: frames.map((f) => [f.step.displacement, f.step.fracture_energy]) },
+          { name: strings.elasticEnergy, color: '#259b86', points: frames.map((f) => [f.step.displacement, f.step.elastic_energy]) },
+          { name: strings.fractureEnergy, color: '#b77bce', points: frames.map((f) => [f.step.displacement, f.step.fracture_energy]) },
         ]
       : [],
   );
@@ -313,7 +315,7 @@
           { label: strings.step, value: `${frame.step.step} ${strings.of} ${Math.max(expectedSteps, frames.length) - 1}` },
           { label: 'u', value: qty(frame.step.displacement, 'mm', { dp: 5 }) },
           { label: 'F', value: qty(frame.step.reaction, 'kN', { sig: 4 }) },
-          { label: 'max d', value: num(frame.step.damage_max, { dp: 4 }) },
+          { label: strings.maxDamage, value: num(frame.step.damage_max, { dp: 4 }) },
         ]
       : [],
   );
@@ -325,6 +327,9 @@
   name={strings.shauerTitle}
   lead={strings.shauerLead}
   {checks}
+  introInArticle
+  compactHeader
+  verification={{ reference: { kind: 'checks', ...checks, href: '#checks' }, published: { kind: 'none', why: strings.paperNotCompared } }}
   {actions}
   sourcePath="research/fracture/shauer-2025"
 >
@@ -349,7 +354,7 @@
       <li><b>{strings.irreversibility}</b>{strings.noIrreversibility} <ExperimentLink params={{ history: true, run: true }}>{strings.enableHistory}</ExperimentLink> {strings.keepOnUnloading}</li>
     </ul>
     <p>
-      {strings.unitsAndPeak}<sub>c</sub> = √(27 E G<sub>c</sub> {strings.lengthStrength} <ExperimentLink params={{ l0: 0.015, run: true }}>{strings.tryLength}</ExperimentLink> {strings.meshMatters}
+      {strings.unitsAndPeak}<sub>c</sub> = √(27 E G<sub>c</sub> {strings.lengthStrength.replace('{strength}', num(Math.sqrt(27 * DEFAULTS.e * DEFAULTS.gc / (256 * DEFAULTS.l0)), { dp: 2 }))} <ExperimentLink params={{ l0: 0.015, run: true }}>{strings.tryLength.replace('{length}', num(0.015))}</ExperimentLink> {strings.meshMatters}
       <ExperimentLink params={{ mesh: 'coarse', run: true }}>{strings.tryCoarse}</ExperimentLink>.
     </p>
 
@@ -367,23 +372,23 @@
       <thead><tr><th scope="col">{strings.check}</th><th scope="col" class="num">{strings.observed}</th><th scope="col" class="num">{strings.tolerance}</th><th scope="col">{strings.result}</th></tr></thead>
       <tbody>
         {#each validation.checks as c (c.name)}
-          <tr><td>{c.name}</td><td class="num">{#if c.metric === 'exact'}{c.passed ? strings.equal : strings.differs}{:else}<Sci value={c.observed} />{/if}</td><td class="num">{#if c.metric === 'exact'}—{:else}<Sci value={c.tolerance} sig={1} />{/if}</td><td class={c.passed ? 'pass' : 'fail'}>{c.passed ? strings.pass : strings.fail}</td></tr>
+          <tr><td>{checkLabel(c.name)}</td><td class="num">{#if c.metric === 'exact'}{c.passed ? strings.equal : strings.differs}{:else}<Sci value={c.observed} />{/if}</td><td class="num">{#if c.metric === 'exact'}—{:else}<Sci value={c.tolerance} sig={1} />{/if}<br />{metricLabel(c.metric)}</td><td class={c.passed ? 'pass' : 'fail'}>{c.passed ? strings.pass : strings.fail}</td></tr>
         {/each}
       </tbody>
     </table>
     </div>
     <p>
-      {strings.symmetryFinding}<sup>−10</sup>{strings.toleranceMeaning}
+      {strings.symmetryFinding}<Sci value={validation.checks[20].observed} sig={3} />{strings.toleranceMeaning} {strings.fractureToleranceNote}
     </p>
 
     {#if frames.length}
       <details class="rs-table">
         <summary>{strings.stepTable}{frames.length} {strings.stepsParen}</summary>
         <table>
-          <thead><tr><th>{strings.step}</th><th>u, mm</th><th>F, kN</th><th>{strings.iterations}</th><th>{strings.residual}</th><th>max d</th>{#if showsReference}<th>{strings.referenceForce}</th>{/if}</tr></thead>
+          <thead><tr><th>{strings.step}</th><th>{strings.topDisplacementAxis}</th><th>{strings.forceAxis}</th><th>{strings.iterations}</th><th>{strings.residual}</th><th>{strings.maxDamage}</th><th>{strings.elasticEnergy} (kN·mm)</th><th>{strings.fractureEnergy} (kN·mm)</th>{#if showsReference}<th>{strings.referenceForce}</th>{/if}</tr></thead>
           <tbody>
             {#each frames as f, i (i)}
-              <tr><td class="num">{f.step.step}</td><td class="num">{num(f.step.displacement, { dp: 5 })}</td><td class="num">{num(f.step.reaction, { sig: 7 })}</td><td class="num">{f.step.iterations}</td><td class="num"><Sci value={f.step.residual} /></td><td class="num">{num(f.step.damage_max, { dp: 4 })}</td>{#if showsReference}<td class="num">{num(reference[i]?.reaction ?? NaN, { sig: 7 })}</td>{/if}</tr>
+              <tr><td class="num">{f.step.step}</td><td class="num">{num(f.step.displacement, { dp: 5 })}</td><td class="num">{num(f.step.reaction, { sig: 7 })}</td><td class="num">{f.step.iterations}</td><td class="num"><Sci value={f.step.residual} /></td><td class="num">{num(f.step.damage_max, { dp: 4 })}</td><td class="num">{num(f.step.elastic_energy, { sig: 7 })}</td><td class="num">{num(f.step.fracture_energy, { sig: 7 })}</td>{#if showsReference}<td class="num">{num(reference[i]?.reaction ?? NaN, { sig: 7 })}</td>{/if}</tr>
             {/each}
           </tbody>
         </table>
@@ -421,7 +426,7 @@
       {:else if !run && replay && !replayVerified}
         <p class="rs-compare-line" role="status">{strings.replayMismatch}</p>
       {:else if comparison || run?.status === 'unconverged'}
-        <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? strings.nonConverged : strings.referenceMismatch}: {comparison?.failures.join('; ') || run?.error}</p>
+        <p class="rs-compare-line" role="status">{run?.status === 'unconverged' ? strings.nonConverged : strings.referenceMismatch}: {comparison?.failures.map(comparisonFailureLabel).join('; ') || strings.comparisonFailure}</p>
       {/if}
       <PaneTabs oninteract={() => playback.interact()} tabs={TABS} bind:active={tab} flash={flashTab} />
 
@@ -449,6 +454,7 @@
           </div>
           <div class="rs-viewer-slot" onpointerdowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onclickcapture={() => playback.interact()}>
             <StabileoViewer
+              editorButton={false}
               xy={nodes}
               cells={elements}
               values={fieldValues}
@@ -489,9 +495,9 @@
           <div class="rs-compare" id="rs-compare-detail">
             <h3>{source === 'replay' ? strings.thisReplay : strings.thisRun} {strings.againstReferenceCode}</h3>
             <ul>
-              <li>{strings.peakForce} {comparison.peak.step.reaction.toFixed(6)} {strings.knAtStep} {comparison.peak.step.step}{strings.referenceSemicolon} {refPeak.reaction.toFixed(6)} {strings.knAtStep} {refPeak.step}.</li>
-              <li>{strings.relativeForceDifference} {comparison.worstPre.toExponential(1)} {strings.relativeTestTolerance}</li>
-              <li>{strings.absoluteForceDifference} {comparison.worstAll.toExponential(1)} {strings.absoluteTestTolerance}</li>
+              <li>{strings.peakForce} {num(comparison.peak.step.reaction, { dp: 6 })} {strings.knAtStep} {comparison.peak.step.step}{strings.referenceSemicolon} {num(refPeak.reaction, { dp: 6 })} {strings.knAtStep} {refPeak.step}.</li>
+              <li>{strings.relativeForceDifference} {num(comparison.worstPre, { sig: 2 })} {strings.relativeTestTolerance}</li>
+              <li>{strings.absoluteForceDifference} {num(comparison.worstAll, { sig: 2 })} {strings.absoluteTestTolerance}</li>
               <li>{strings.identicalIterations} {comparison.sameIterations} {strings.of} {reference.length} {strings.stepsPeriod}</li>
             </ul>
           </div>
@@ -511,24 +517,24 @@
       <div class="rs-panel rs-params" id="rs-panel-parameters" role="tabpanel" aria-labelledby="rs-tab-parameters" hidden={tab !== 'parameters'} oninputcapture={() => playback.interact()}>
         <div class="rs-params-list">
           <ParamRow id="p-e" name={strings.youngModulus} unit="kN/mm²" hint="10–400" invalid={invalid.e || !inRange(e, LIMITS.e)}>{#snippet symbol()}<var>E</var>{/snippet}<NumberField id="p-e" label={strings.youngModulusLabel} min={LIMITS.e[0]} max={LIMITS.e[1]} bind:value={e} bind:invalid={invalid.e} /></ParamRow>
-          <ParamRow id="p-nu" name={strings.poissonRatio} hint="0–0.45" invalid={invalid.nu || !inRange(nu, LIMITS.nu)}>{#snippet symbol()}<var>ν</var>{/snippet}<NumberField id="p-nu" label={strings.poissonRatioLabel} min={LIMITS.nu[0]} max={LIMITS.nu[1]} bind:value={nu} bind:invalid={invalid.nu} /></ParamRow>
-          <ParamRow id="p-gc" name={strings.fractureToughness} unit="kN/mm" hint="0.0001–0.01" invalid={invalid.gc || !inRange(gc, LIMITS.gc)}>{#snippet symbol()}<var>G</var><sub>c</sub>{/snippet}<NumberField id="p-gc" label={strings.fractureToughnessLabel} min={LIMITS.gc[0]} max={LIMITS.gc[1]} bind:value={gc} bind:invalid={invalid.gc} /></ParamRow>
-          <ParamRow id="p-l0" name={strings.lengthScale} unit="mm" hint="0.003–0.03" invalid={invalid.l0 || !inRange(l0, LIMITS.l0)}>{#snippet symbol()}<var>ℓ</var>{/snippet}<NumberField id="p-l0" label={strings.lengthScaleLabel} min={LIMITS.l0[0]} max={LIMITS.l0[1]} bind:value={l0} bind:invalid={invalid.l0} /></ParamRow>
-          <ParamRow id="p-u" name={strings.topDisplacement} unit="mm" hint="0.004–0.02" invalid={invalid.u || !inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label={strings.topDisplacementLabel} min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} bind:invalid={invalid.u} /></ParamRow>
+          <ParamRow id="p-nu" name={strings.poissonRatio} hint="0–{num(0.45)}" invalid={invalid.nu || !inRange(nu, LIMITS.nu)}>{#snippet symbol()}<var>ν</var>{/snippet}<NumberField id="p-nu" label={strings.poissonRatioLabel} min={LIMITS.nu[0]} max={LIMITS.nu[1]} bind:value={nu} bind:invalid={invalid.nu} /></ParamRow>
+          <ParamRow id="p-gc" name={strings.fractureToughness} unit="kN/mm" hint="{num(0.0001)}–{num(0.01)}" invalid={invalid.gc || !inRange(gc, LIMITS.gc)}>{#snippet symbol()}<var>G</var><sub>c</sub>{/snippet}<NumberField id="p-gc" label={strings.fractureToughnessLabel} min={LIMITS.gc[0]} max={LIMITS.gc[1]} bind:value={gc} bind:invalid={invalid.gc} /></ParamRow>
+          <ParamRow id="p-l0" name={strings.lengthScale} unit="mm" hint="{num(0.003)}–{num(0.03)}" invalid={invalid.l0 || !inRange(l0, LIMITS.l0)}>{#snippet symbol()}<var>ℓ</var>{/snippet}<NumberField id="p-l0" label={strings.lengthScaleLabel} min={LIMITS.l0[0]} max={LIMITS.l0[1]} bind:value={l0} bind:invalid={invalid.l0} /></ParamRow>
+          <ParamRow id="p-u" name={strings.topDisplacement} unit="mm" hint="{num(0.004)}–{num(0.02)}" invalid={invalid.u || !inRange(u, LIMITS.u)}>{#snippet symbol()}<var>u</var>{/snippet}<NumberField id="p-u" label={strings.topDisplacementLabel} min={LIMITS.u[0]} max={LIMITS.u[1]} bind:value={u} bind:invalid={invalid.u} /></ParamRow>
           <ParamRow id="p-dt" name={strings.loadStep}>{#snippet symbol()}Δ<var>t</var>{/snippet}
             <select id="p-dt" bind:value={dt}>
-              {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{v} ({solverStepCount(v, 0.8)} {strings.stepsParen}</option>{/each}
+              {#each [0.005, 0.01, 0.02, 0.03, 0.06] as v (v)}<option value={v}>{num(v)} ({num(solverStepCount(v, 0.8))} {strings.stepsParen}</option>{/each}
             </select>
           </ParamRow>
           <ParamRow id="p-mesh" name={strings.mesh}>
             <select id="p-mesh" bind:value={meshKey}>
-              {#each Object.entries(MESHES) as [k, m] (k)}<option value={k}>{strings[m.label]}</option>{/each}
+              {#each Object.entries(MESHES) as [k, m] (k)}<option value={k}>{strings[m.label]} · h = {qty(m.mesh.h_fine, 'mm', { sig: 3 })}</option>{/each}
             </select>
           </ParamRow>
           <label class="rs-check"><input type="checkbox" bind:checked={history} /> {strings.historyField}</label>
         </div>
         <p class="rs-derived">
-          {strings.planeStrainLoaded}{fmt(0.8 * u)} mm). σ<sub>c</sub> = {fmt(sigmaC, 3)} {strings.refinedRatio} {hOverL.toFixed(2)}{#if hOverL > 0.5}<strong class="warnt"> {strings.underResolved}</strong>{/if}.
+          {strings.planeStrainLoaded}{num(finalLoad(dt, u).time)} ({qty(finalLoad(dt, u).displacement, 'mm')}). σ<sub>c</sub> = {fmt(sigmaC, 3)} {strings.refinedRatio} {num(hOverL, { dp: 2 })}{#if hOverL > 0.5}<strong class="warnt"> {strings.underResolved}</strong>{/if}.
         </p>
         <div class="rs-buttons">
           {#if run?.status === 'running'}
@@ -547,11 +553,11 @@
           {:else if run?.status === 'running'}
             {strings.solvingStep} {frames.length + 1} {strings.of} {expectedSteps}…
           {:else if run?.status === 'done'}
-            {strings.done} {frames.length} {strings.steps}{run.seconds ? ` ${strings.inTime} ${run.seconds.toFixed(1)} s` : ''}{strings.completedRunsKept}
+            {strings.done} {frames.length} {strings.steps}{run.seconds ? ` ${strings.inTime} ${num(run.seconds, { dp: 1 })} s` : ''}{strings.completedRunsKept}
           {:else if run?.status === 'stopped'}
             {strings.stoppedAfter} {frames.length} {strings.stepsPeriod}
           {:else if run?.status === 'error'}
-            <span class="warnt">{strings.solverRefused} {run.error}</span>
+            <span class="warnt">{strings.solverRefused} {strings.meshFailed}</span>
           {:else if isReference}
             {strings.runReuseNote}
           {:else}
@@ -572,6 +578,13 @@
 </ExperimentShell>
 
 <style>
+  .rs-app :global(button), .rs-app :global(select), .rs-app :global(input) { min-height: 44px; }
+  .rs-app :global(button) { min-width: 44px; }
+  .rs-app :global(.rs-scrub) { flex-wrap: wrap; }
+  @media (max-width: 69.999rem) {
+    .rs-mode, .rs-compare-line { order: 1; }
+    .rs-viewer-slot { order: -1; }
+  }
   .rs-app {
     display: flex;
     flex-direction: column;
@@ -664,7 +677,8 @@
   }
   .rs-scrub input[type='range'] {
     flex: 1 1 auto;
-    height: 1.5rem;
+    min-width: 0;
+    height: 2.75rem;
     accent-color: var(--st-accent);
   }
   .rs-ribbon {
@@ -684,15 +698,16 @@
     font: 0.9375rem var(--st-sans);
   }
   .rs-check input {
+    flex: none;
     accent-color: var(--st-accent);
-    width: 1.125rem;
-    height: 1.125rem;
+    width: 2.75rem;
+    height: 2.75rem;
   }
   .rs-check {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    min-height: 2rem;
+    min-height: 2.75rem;
     font-size: var(--rs-ui);
   }
   .rs-placeholder {

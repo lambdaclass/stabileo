@@ -155,3 +155,66 @@ For mixed strain `[0.001, -0.1, 0]`, E=30 and ν=0.2 in plane stress, the refere
 Browser comparison reads the committed `reference-results/ex2_damage_step{056,057,078}.csv` and `ex2_displacement_step056.csv` snapshots, allowing the native mirror case, Float32 roundoff for live fields and half a quantization bin for replay fields; no reference stress snapshot exists for example 2, so stress is checked independently from Q4 displacement gradients and interpolated damage and is excluded from the reference-agreement wording.
 
 `wasm/build.sh` publishes JS, WASM, replay and viewer assets under immutable `research-wasm/builds/<SHA256>/` paths, retaining existing build directories locally; deployment artifacts should retain those directories for old tabs (a removed old build fails to load rather than loading a newer solver). The identity includes solver/glue/viewer bytes, research sources and committed reference data; replay headers carry it and their configuration, and Vite rejects stale build inputs before bundling the identity into the page and worker.
+
+## Review round 2 — 2026-10-30
+
+Reviewers: kimi, codex, claude. The consolidated verified review is addressed without changing
+production engine numerics or the reference model. Rejected findings remain rejected.
+
+- The live page identifies its comparison as the pinned Python reference outputs and the 1D
+  AT2 bar solution. It makes no claim of reproducing the published article's figures. This
+  resolves the Shauer entry in the roadmap's “Open items shown on live research pages”.
+  The upstream [README](https://github.com/nathanshauer/phasefield-jr-py) distinguishes its
+  earlier pure-tensile preprint/branch from the hybrid code used here; those are not interchangeable
+  evidence for the published hybrid model. The pinned scripts' numerical outputs are already
+  committed and compared by `tests/reference.rs`.
+- `tests/properties.rs::every_plate_energy_and_larger_length_peak_are_checked` independently
+  integrates both energies from all nodal fields at every one of 79 steps, for both the reference
+  length and ℓ = 0.015 mm. It uses explicit rectangular basis derivatives and Lamé energy, without
+  calling the solver's energy, shape, gradient or stress helpers. Relative tolerance: 1e-12.
+  Both runs must converge; the larger length must give a lower peak. These are numerical integral
+  checks, not comparisons against published energy curves.
+- Final loads follow the upstream accumulated-time loop: dt 0.005/0.01/0.02/0.03/0.06 reaches
+  t 0.795/0.79/0.78/0.78/0.78 respectively. Web tests and native step-count tests cover all choices.
+  The browser comparison also rejects incorrect finite pseudotime and displacement values.
+- Every validation row displays its metric and units in the selected language. Step 57 permits
+  1e-4 absolute nodal damage difference at the unstable crack jump; settled fields retain 1e-8.
+  Force budgets remain 1e-5 kN and 1e-4 kN, independently justified by force scales and fracture
+  sensitivity rather than the residual stopping rule. No tolerance was increased.
+- The article labels σc as a 1D uniaxial-stress estimate, explains negative mixed-state driving
+  energy and the nonnegative history maximum, and avoids implying a nodal bound constraint.
+  Coarse element dimensions outside the refined box are 0.0253 × 0.02 mm (3.4ℓ × 2.7ℓ).
+- Numeric narrative landmarks and translated validation names/metrics are checked against
+  the committed CSV and `VALIDATION.json` in `shauer2025/__tests__/evidence.test.ts`. The symmetry
+  discrepancy is rendered from validation data to three significant figures. Unnecessary long
+  decimal damage extrema were removed from live copy; their evidence remains above and is tested.
+- The energy curves use separate colours, chart readouts have a keyboard/touch range control,
+  and the step table includes both energies. The introduction follows the viewer on narrow
+  screens; tabs wrap, controls are at least 44 px, and the reviewed small text is at least 12 px.
+  E2E cases cover all six locales at 360, 390, 844×390 and 810 px, including viewer position,
+  overflow, target sizes and text. Playwright execution is unavailable in this environment.
+- German, French and Turkish translations cover this article and its shared controls; check
+  labels, loading/failure messages and displayed decimal values are localized.
+
+## Open questions
+
+- Which mesh and code revision generated the published article's plate figures: the sparse
+  hybrid example used here or a different configuration? The earlier pure-tensile preprint
+  cannot establish this. These questions are research correspondence, not live-page placeholders.
+
+Round-2 verification in this worktree:
+
+- Web: `npx vitest run --project unit src/components/research src/lib/i18n/__tests__/hardcoded-text.test.ts`
+  — 43 files, 205 tests passed, including the hardcoded-text guard.
+- `npm run typecheck` — no new errors (247 existing baseline errors, unchanged).
+  Full Svelte checking reports no errors in the changed components; unrelated repository errors remain.
+- Isolated native crate: 23 tests passed with
+  `CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-shauer-2025-target CARGO_BUILD_JOBS=4`.
+- Browser WASM checker: all 79 steps, identical iteration counts; maximum relative force
+  difference to peak 1.5606483340127005e-12 and absolute difference 2.194403730101718e-7 kN.
+  Its three adversarial checker tests also pass.
+- Replay verification against a fresh native run: all 79 scalar records match exactly;
+  damage and displacement errors are within half a quantization bin.
+- Catalogue export, offline validation (48 papers, zero problems), and catalogue regression tests pass.
+  Viewer translations were rebuilt and the immutable asset identity republished locally.
+- WASM wrapper native test: oversized configurations are rejected before mesh allocation (1 passed).

@@ -1,3 +1,4 @@
+import { rs } from '../i18n';
 import type { PlateConfig, Step, WorkerIn, WorkerOut } from './protocol';
 
 export type Frame = { step: Step; damage: Float32Array; displacement: Float32Array; syy?: Float32Array };
@@ -78,7 +79,7 @@ export class SimulationController {
       run.frames = [...run.frames, { step: m.step, damage: m.damage, displacement: m.displacement, syy: m.syy }];
       if (!m.step.converged) {
         run.status = 'unconverged';
-        run.error = `Step ${m.step.step} did not converge`;
+        run.error = 'nonconverged';
         this.runs.delete(run.key);
         this.live.delete(m.runId);
         this.worker?.terminate();
@@ -148,8 +149,9 @@ export class SimulationController {
 }
 
 export function pendingMeshMessage(run: Run | null, replayError: string | null): string {
-  if (run?.status === 'stopped') return 'Stopped. Press Recompute live to restart.';
-  if (run?.error) return `The solver failed: ${run.error}. Retry or return to the replay in Parameters.`;
-  if (replayError) return 'The precomputed replay couldn’t be loaded. Press Recompute live to compute it in your browser.';
-  return run ? 'Loading the solver…' : 'Loading the replay…';
+  const s = rs();
+  if (run?.status === 'stopped') return s.meshStopped;
+  if (run?.error) return s.meshFailed;
+  if (replayError) return s.meshReplayFailed;
+  return run ? s.meshLoadingSolver : s.meshLoadingReplay;
 }
