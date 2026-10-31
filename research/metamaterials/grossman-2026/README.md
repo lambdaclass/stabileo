@@ -186,8 +186,9 @@ force and prescribed displacement at eta = 0, 0.3 and 0.5 against those frames.
 Published web inputs are `VALIDATION.json`, `reference-results/published_comparison.json`,
 `results/stabileo_results.json`, `reference-results/replay.json`, and the reference data.
 
-Responsive and real-worker Playwright regressions are committed but must run in
-browser CI; Playwright is unavailable in this review environment.
+Responsive, keyboard-camera and real-worker Playwright regressions
+(`web/e2e/research-springs.spec.ts`) cover 360 × 780, 390 × 844, 844 × 390 and 810 × 1080:
+no horizontal overflow, 44 px targets, 12 px text and the viewer above the fold.
 
 The 1% finite-strain comparison is recorded separately in `NONLINEAR_COMPARISON.json`:
 for seed 11, the perfect strip gives linear/nonlinear ν = 0.371283/0.368853;
@@ -200,12 +201,10 @@ floppy at mean z = 3.6221, mixed at 3.8177, and all rigid at 4.0168.
 
 - Research Rust suite: 22 tests pass, including 31 named validation checks,
   direct strip comparisons, nonlinear comparisons, clamp rows and full series/replay freshness.
-- Built research WASM: native displacement/force/Poisson parity passes.
-- Web unit suite for `src/components/research`, the hardcoded-text guard and the
-  shared viewer fit regressions: 209 tests pass in 44 files.
-- Typecheck: no new errors against the existing baseline.
-- Catalogue validation and production route-size gate pass. Landing bytes are
-  unchanged; the shared legend description adds 65 app bytes, within the existing
-  128-byte allowance. No tolerance was changed.
-- Viewer and web builds pass. Playwright cases were added but not run here.
-- No production engine source or numerics were changed; no git write commands were run.
+- Built research WASM: native displacement/force/Poisson parity passes (`wasm/check.mjs`).
+- Web unit tests for `src/components/research`, `src/components/viewport` and the
+  hardcoded-text guard: 229 tests pass in 46 files.
+- Playwright smoke: `research-springs.spec.ts` and `research.spec.ts`, 46 tests pass.
+- Typecheck: 247 errors, equal to the baseline.
+- Catalogue check and research isolation check pass. No tolerance was changed.
+- No production engine source or numerics were changed.

@@ -36,7 +36,9 @@ test.describe('@smoke research', () => {
       await expect(heading).toBeVisible();
       const title = (await heading.innerText()).trim();
       expect(title.length).toBeGreaterThan(0);
-      await expect(card.getByText('First version · 1 review round', { exact: true })).toBeVisible();
+      const paper = catalog.papers.find((p) => p.id === experiment.paperId)!;
+      const rounds = new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size;
+      await expect(card.getByText(`First version · ${rounds} review round${rounds === 1 ? '' : 's'}`, { exact: true })).toBeVisible();
       // Every runnable experiment shows its build-time thumbnail, never the field icon.
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
       await expect(card.locator('a.rs-g-thumb')).toHaveAttribute('href', path);

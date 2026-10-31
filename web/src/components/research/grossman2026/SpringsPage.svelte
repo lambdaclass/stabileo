@@ -368,7 +368,7 @@
       <p> {s.springsFoamComparison} </p>
       <PlotXY series={foamSeries} xLabel={s.springsDisorderAxis} yLabel={s.springsPoissonAxis} xDomain={[0, 0.5]} current={family === 'foam' && cell ? { x: eta, y: cellAlong?.[1] ?? NaN, label: s.springsThisPeriodic } : null} ariaLabel={s.springsFoamPlot} />
       <p class="sp-note"> {s.springsStripBias} </p>
-      <table class="sp-checks">
+      <table class="sp-checks sp-strip">
         <caption>{s.springsStripSeries} · {s.springsFigureSeries}</caption>
         <thead><tr><th>η</th><th>{s.springsObserved}</th><th>{s.springsFigureSeries} ± {nf(0.003)}</th><th>{s.springsResult}</th></tr></thead>
         <tbody>{#each stripComparison as row (row.eta)}<tr><td>{nf(row.eta, 2)}</td><td>{nf(row.mean, 4)}</td><td>{nf(row.lo - row.digitisation, 4)} … {nf(row.hi + row.digitisation, 4)}</td><td>{row.passed ? s.pass : s.fail}</td></tr>{/each}</tbody>
@@ -453,15 +453,17 @@
             </div>
           </div>
         <div role="tabpanel" id="rs-panel-experiment" aria-labelledby="rs-tab-experiment" hidden={tab !== 'experiment'}>
-        <button type="button" onclick={() => { touch(); solve(); }}>{simulation.busy ? s.springsLoadingSolver : s.benchmark.recompute}</button>
-        <button type="button" onclick={() => { touch(); solve(); }}>{s.benchmark.restart}</button>
-        <button type="button" onclick={() => { touch(); simulation.stop(); }}>{s.stop}</button>
+        <div class="sp-run">
+          <button class="sp-pause" type="button" onclick={() => { touch(); solve(); }}>{simulation.busy ? s.springsLoadingSolver : s.benchmark.recompute}</button>
+          <button class="sp-pause" type="button" onclick={() => { touch(); solve(); }}>{s.benchmark.restart}</button>
+          <button class="sp-pause" type="button" onclick={() => { touch(); simulation.stop(); }}>{s.stop}</button>
+        </div>
         <p class="sp-source" aria-live="polite">
           {#if loadError}
             <span class="warnt">{s.springsBundleMissing}{loadError}{s.springsBuildBundle}</span>
           {:else if !glue} {s.springsLoadingSolver} {:else if autoplaying} {s.springsLiveSweep} <button class="sp-pause" type="button" onclick={touch}>{s.springsPauseSweep}</button>
           {:else}
-            {simulation.source === 'replay' ? s.replaySource : s.liveSource} · {nf(solveMs, 0)} ms
+            {#if simulation.source === 'replay'}{s.replaySource}{:else}{s.liveSource} · {nf(solveMs, 0)} ms{/if}
           {/if}
         </p>
         <div class="sp-viewer" data-nodes={strip?.nodes.length ?? 0}>
@@ -539,7 +541,11 @@
   .sp-app { min-width: 0; }
   .sp-app button, .sp-app input, .sp-app select { min-height: 44px; min-width: 44px; }
   .sp-tabbar { flex-wrap: wrap; }
-  .sp-checks { table-layout: fixed; overflow-wrap: anywhere; }
+  .sp-checks { table-layout: fixed; }
+  .sp-checks td:first-child { overflow-wrap: break-word; }
+  .sp-checks th:first-child { width: 40%; }
+  .sp-checks th:last-child { width: 16%; }
+  .sp-strip th:first-child { width: 14%; }
   .sp-checks td:nth-child(2), .sp-checks td:nth-child(3) { white-space: normal; }
   @media (max-width: 440px) {
     .sp-controls label { grid-template-columns: minmax(0, 1fr) minmax(44px, 1fr) 3rem; }
@@ -592,6 +598,7 @@
   .sp-checks td:nth-child(2),
   .sp-checks td:nth-child(3) {
     font-family: var(--lp-mono);
+    font-size: 12px;
     white-space: normal;
   }
   .sp-source {
@@ -657,6 +664,15 @@
   .sp-controls input.seed {
     grid-column: 2 / 3;
     width: 6rem;
+  }
+  .sp-run {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
+  }
+  .sp-run .sp-pause {
+    margin-left: 0;
   }
   .sp-pause {
     margin-left: 0.5rem;
