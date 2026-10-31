@@ -401,13 +401,14 @@
     color: var(--st-text-3);
     pointer-events: none;
   }
+  .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
   .sfv-status :global(.status-value) {
     font-family: var(--st-sans);
     font-variant-numeric: tabular-nums;
   }
   .sfv-status :global(.status-label) {
     color: var(--st-text-2);
-    font-size: 0.75rem;
+    font-size: max(12px, 0.75rem);
   }
   .sfv-status {
     flex-wrap: wrap;
@@ -421,7 +422,7 @@
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     color: var(--st-text-2);
-    font: 0.7rem var(--st-sans);
+    font: 12px var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
   }

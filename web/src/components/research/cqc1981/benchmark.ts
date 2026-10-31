@@ -46,3 +46,17 @@ export function projection(result: SpectrumResult, amplitude = 1) {
     values: nodes.map(n => 1000 * (displacements.get(n.id) ?? 0)),
   };
 }
+
+export function modalShears(results: Results): number[] {
+  const sa = shared.spectrum.points[0].sa;
+  return results.modal.modes.map(m => m.effectiveMassX * sa);
+}
+
+export function impliedRho(results: Results): number {
+  const [v1, v2] = modalShears(results);
+  return (results.CQC.baseShear ** 2 - results.SRSS.baseShear ** 2) / (2 * v1 * v2);
+}
+
+export function roof(result: SpectrumResult): number[] {
+  return [5, 6].map(id => Math.abs(result.displacements.find(d => d.nodeId === id)!.ux));
+}
