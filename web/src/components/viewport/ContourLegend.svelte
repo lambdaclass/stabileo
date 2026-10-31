@@ -12,7 +12,7 @@
     max,
     bands = 0,
     footer = '',
-    ariaLabel,
+    ariaLabel = title,
     colourMap = 'shell',
     format = formatContourLabel,
   }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap; format?: typeof formatContourLabel } = $props();
@@ -41,10 +41,9 @@
 
   const fmt = (value: number) => format(value, min, max, bands);
   const mid = $derived((min + max) / 2);
-  const label = $derived(ariaLabel ?? `${title}${unit ? ` [${unit}]` : ''}: ${fmt(min)} – ${fmt(max)}`);
 </script>
 
-<div class="shell-legend" role="img" aria-label={label}>
+<div class="shell-legend" role="img" aria-label={ariaLabel}>
   <div class="legend-title">{title}{#if unit} <span class="legend-unit-inline">[{unit}]</span>{/if}</div>
   <div class="legend-body">
     <div class="legend-bar" style="background:{gradient}"></div>

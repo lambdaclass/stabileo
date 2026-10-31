@@ -326,6 +326,7 @@
   });
 
   const keysId = $props.id();
+  const legendFormat = (value: number, min: number, max: number, bands = 0) => formatLocalizedContourLabel(value, min, max, bands, locale ?? i18n.locale);
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -361,7 +362,7 @@
       <span id={keysId} class="sfv-keys">{t('scalarViewer.keyboard')}</span>
       <canvas bind:this={gizmo} class="axis-gizmo" class:sfv-hidden={!showAxes} width="80" height="80" aria-hidden="true"></canvas>
       {#if displayMode === 'field' && values && !geometryOnly}
-        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={(value, min, max, bands) => formatLocalizedContourLabel(value, min, max, bands, locale ?? i18n.locale)} />
+        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={legendFormat} ariaLabel={`${title}${unit ? ` [${unit}]` : ''}: ${legendFormat(range.min, range.min, range.max, bands)} – ${legendFormat(range.max, range.min, range.max, bands)}`} />
       {/if}
       <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
     </div>
