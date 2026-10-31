@@ -384,8 +384,8 @@
   }
   .sfv :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-mode {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--st-hair-strong);
     border-radius: var(--st-radius);
     background: color-mix(in srgb, var(--st-surface) 90%, transparent);
@@ -413,7 +413,10 @@
   .sfv-wrap :global(.cam-two small),
   .sfv-wrap :global(.status-bar),
   .sfv-wrap :global(.status-label) { font-size: 12px; }
+  .sfv-wrap :global(.cam-btn), .sfv-wrap :global(.cam-item) { min-width: 44px; min-height: 44px; font-size: 12px; }
+  .sfv-wrap :global(.shell-legend), .sfv-wrap :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-status :global(.status-value) {
+    font-size: 12px;
     font-family: var(--st-sans);
     font-variant-numeric: tabular-nums;
   }
@@ -433,6 +436,7 @@
     border: 1px solid var(--st-hair-strong);
     border-radius: 4px;
     color: var(--st-text-2);
+    min-height: 44px;
     font: 12px var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
