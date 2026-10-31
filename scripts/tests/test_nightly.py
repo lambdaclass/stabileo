@@ -3,6 +3,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 from pathlib import Path
 import runpy
 import subprocess
@@ -310,6 +311,24 @@ class Workflow(unittest.TestCase):
         ci = (ROOT / '.github/workflows/ci.yml').read_text().split('            ci_scripts:\n', 1)[1].split('\n\n', 1)[0]
         for path in ('scripts/nightly-*.py', '.github/workflows/nightly.yml', 'scripts/tests/**', '.github/scripts/**'):
             self.assertIn(f"- '{path}'", ci)
+
+    def test_exact_cargo_filters_name_an_ignored_test_of_their_harness(self):
+        workflow = (ROOT / '.github/workflows/nightly.yml').read_text()
+        cargo = (ROOT / 'engine/Cargo.toml').read_text()
+        commands = re.findall(r'cargo test [^\n]*--test (\S+) (\S+) -- [^\n]*--exact[^\n]*', workflow)
+        self.assertTrue(commands)
+        for harness, name in commands:
+            main = re.search(rf'\[\[test\]\]\nname = "{harness}"\npath = "([^"]+)"', cargo)
+            self.assertIsNotNone(main, harness)
+            source = ROOT / 'engine' / main.group(1)
+            *mods, fn = name.split('::')
+            for mod in mods:
+                text = source.read_text()
+                decl = re.search(rf'(?:#\[path = "([^"]+)"\]\n)?mod {mod};', text)
+                self.assertIsNotNone(decl, f'{harness}: mod {mod}')
+                source = source.parent / (decl.group(1) or f'{mod}.rs')
+            self.assertRegex(source.read_text(), rf'(?m)^#\[test\]\n#\[ignore\]\nfn {fn}\(\)', name)
+            self.assertIn('--ignored', workflow.split(name, 1)[1].split('\n', 1)[0])
 
 
 if __name__ == '__main__':

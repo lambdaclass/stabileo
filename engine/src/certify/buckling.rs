@@ -74,6 +74,14 @@ impl BucklingCertificate {
         BucklingCertificate::Uncertified { reason: reason.into(), refusal: None }
     }
 
+    /// The coded refusal carries only finite factors, since serde_json writes non-finite ones as `null`.
+    fn computed_above_upper(lambda_computed: f64, lambda_upper: f64) -> Self {
+        let reason = format!("computed load factor {lambda_computed} exceeds certified upper bound {lambda_upper}");
+        let refusal = (lambda_computed.is_finite() && lambda_upper.is_finite())
+            .then_some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper });
+        BucklingCertificate::Uncertified { reason, refusal }
+    }
+
     pub fn is_certified(&self) -> bool {
         matches!(self, BucklingCertificate::Certified { .. })
     }
@@ -244,13 +252,7 @@ pub fn certify_critical_factor_enclosed(
     let lambda_upper = rayleigh_upper(k, kv, n_mat, nv, phi);
     if let Some(upper) = lambda_upper {
         if lambda_hat > upper {
-            return BucklingCertificate::Uncertified {
-                reason: format!("computed load factor {lambda_hat} exceeds certified upper bound {upper}"),
-                refusal: Some(BucklingRefusal::ComputedAboveUpperBound {
-                    lambda_computed: lambda_hat,
-                    lambda_upper: upper,
-                }),
-            };
+            return BucklingCertificate::computed_above_upper(lambda_hat, upper);
         }
     }
 
@@ -440,6 +442,42 @@ mod tests {
         assert_eq!(wire["refusal"]["lambdaComputed"], factor);
         assert_eq!(wire["refusal"]["lambdaUpper"], *lambda_upper);
         assert_eq!(serde_json::from_value::<BucklingCertificate>(wire).unwrap(), c);
+    }
+
+    #[test]
+    fn non_finite_factors_refuse_without_a_code() {
+        for (computed, upper) in [(f64::INFINITY, 2.0), (f64::NAN, 2.0), (3.0, f64::NAN), (3.0, f64::NEG_INFINITY)] {
+            let c = BucklingCertificate::computed_above_upper(computed, upper);
+            let BucklingCertificate::Uncertified { reason, refusal: None } = &c else { panic!("{c:?}") };
+            assert!(reason.contains("exceeds certified upper bound"), "{reason}");
+            assert!(!super::super::finite::guard(&mut c.clone()));
+            let wire = serde_json::to_value(&c).unwrap();
+            assert_eq!(wire, serde_json::json!({ "status": "uncertified", "reason": reason }));
+            assert_eq!(serde_json::from_value::<BucklingCertificate>(wire).unwrap(), c);
+        }
+        let c = certify_critical_factor(&diag(&[4.0]), &diag(&[1.0]), f64::INFINITY, &[1.0]);
+        let BucklingCertificate::Uncertified { refusal: None, .. } = c else { panic!("{c:?}") };
+    }
+
+    #[test]
+    fn a_non_finite_coded_refusal_does_not_round_trip() {
+        let c = BucklingCertificate::Uncertified {
+            reason: String::new(),
+            refusal: Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed: f64::INFINITY, lambda_upper: 2.0 }),
+        };
+        let json = serde_json::to_string(&c).unwrap();
+        assert!(serde_json::from_str::<BucklingCertificate>(&json).is_err(), "{json}");
+    }
+
+    #[test]
+    fn guard_matches_the_guarded_enum_macro() {
+        use super::super::finite::Guarded;
+        let refused = BucklingCertificate::computed_above_upper(3.0, 2.0);
+        assert!(!refused.claims());
+        let mut certified = BucklingCertificate::Certified { lambda_lower: 1.0, lambda_upper: Some(f64::NAN), lambda_computed: 2.0 };
+        assert!(certified.claims());
+        assert!(super::super::finite::guard(&mut certified));
+        let BucklingCertificate::Uncertified { refusal: None, .. } = certified else { panic!("{certified:?}") };
     }
 
     #[test]

@@ -128,7 +128,7 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
 
 fn buckling_741_input() -> dedaliano_engine::types::SolverInput3D {
     let bytes = include_bytes!("../fuzz/regressions/json_dynamics/issue-741");
-    assert_eq!(bytes[0] % 20, 7);
+    assert_eq!(bytes[0], 0x07);
     assert_eq!(bytes[1], b'R');
     serde_json::from_slice(&bytes[2..]).unwrap()
 }
@@ -166,7 +166,7 @@ fn exact_pencil_positive(
 
 #[test]
 fn buckling_741_certificate_contains_reported_and_reference_factors() {
-    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate, BucklingRefusal};
+    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
     use dedaliano_engine::solver::buckling::buckling_system_3d;
     let input = buckling_741_input();
     let out = certify_buckling_3d(&input, 3).unwrap();
@@ -183,20 +183,64 @@ fn buckling_741_certificate_contains_reported_and_reference_factors() {
     assert!(lo > 4688.9203 && hi < 4688.9204);
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4644.4835783707595));
     assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
-    if let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = out.certificate {
-        let upper = lambda_upper.unwrap();
-        assert!(lambda_lower <= hi && lo <= upper, "reference [{lo}, {hi}] does not overlap certificate [{lambda_lower}, {upper}]");
-        assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, lambda_lower));
-        assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, upper));
-        assert!(lambda_lower <= lambda_computed && lambda_computed <= upper, "reported {lambda_computed} outside [{lambda_lower}, {upper}]");
-    } else if let BucklingCertificate::Uncertified { reason, refusal } = out.certificate {
-        assert!(reason.contains("exceeds certified upper bound"), "{reason}");
-        assert!(matches!(refusal, Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, .. }) if lambda_computed == out.results.modes[0].load_factor), "{refusal:?}");
+    let factor = out.results.modes[0].load_factor;
+    refusal_741_holds(&out.certificate, factor, &sys, hi).unwrap();
+    let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&out.certificate).unwrap();
+    let doctored = |lambda_computed, lambda_upper| BucklingCertificate::Uncertified {
+        reason: "computed load factor exceeds certified upper bound".into(),
+        refusal: Some(ComputedAboveUpperBound { lambda_computed, lambda_upper }),
+    };
+    for wrong in [
+        doctored(factor, lo),
+        doctored(factor, factor * 2.0),
+        doctored(lambda_upper, lambda_upper),
+        doctored(factor.next_up(), lambda_upper),
+        BucklingCertificate::Uncertified { reason: "computed load factor exceeds certified upper bound".into(), refusal: None },
+        BucklingCertificate::Certified { lambda_lower: lo, lambda_upper: Some(lambda_upper), lambda_computed: factor },
+    ] {
+        assert!(refusal_741_holds(&wrong, factor, &sys, hi).is_err(), "{wrong:?}");
     }
 }
 
+fn refusal_of(
+    certificate: &dedaliano_engine::certify::buckling::BucklingCertificate,
+) -> Option<dedaliano_engine::certify::buckling::BucklingRefusal> {
+    match certificate {
+        dedaliano_engine::certify::buckling::BucklingCertificate::Uncertified { refusal, .. } => *refusal,
+        _ => None,
+    }
+}
+
+fn refusal_741_holds(
+    certificate: &dedaliano_engine::certify::buckling::BucklingCertificate,
+    factor: f64,
+    sys: &dedaliano_engine::solver::buckling::BucklingSystem3D,
+    exact_hi: f64,
+) -> Result<(), String> {
+    use dedaliano_engine::certify::buckling::{BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
+    let BucklingCertificate::Uncertified { reason, refusal: Some(ComputedAboveUpperBound { lambda_computed, lambda_upper }) } = certificate else {
+        return Err(format!("not a computedAboveUpperBound refusal: {certificate:?}"));
+    };
+    if !reason.contains("exceeds certified upper bound") {
+        return Err(format!("reason: {reason}"));
+    }
+    if *lambda_computed != factor {
+        return Err(format!("refusal cites {lambda_computed}, solver reported {factor}"));
+    }
+    if !(*lambda_computed > *lambda_upper) {
+        return Err(format!("{lambda_computed} does not exceed {lambda_upper}"));
+    }
+    if !(*lambda_upper >= exact_hi && *lambda_upper - exact_hi <= 1e-6 * exact_hi) {
+        return Err(format!("upper bound {lambda_upper} is not a tight bound over the exact bracket top {exact_hi}"));
+    }
+    if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, *lambda_upper) {
+        return Err(format!("K - {lambda_upper} N is positive definite in exact arithmetic"));
+    }
+    Ok(())
+}
+
 fn generated_buckling_enclosures(cases: u64) {
-    use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate};
+    use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::StdRng::seed_from_u64(741);
     let mut certified = [0; 2];
@@ -237,7 +281,13 @@ fn generated_buckling_enclosures(cases: u64) {
                             assert!(factor <= upper, "seed {seed}: {certificate:?}");
                         }
                     }
-                    BucklingCertificate::Uncertified { .. } => refused[dimension] += 1,
+                    BucklingCertificate::Uncertified { refusal, .. } => {
+                        refused[dimension] += 1;
+                        if let Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }) = refusal {
+                            assert_eq!(lambda_computed, factor, "seed {seed}");
+                            assert!(lambda_computed > lambda_upper, "seed {seed}: {refusal:?}");
+                        }
+                    }
                 },
                 Err(reason) => *errors[dimension].entry(reason).or_insert(0u64) += 1,
             }
