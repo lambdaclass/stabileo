@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { keyboardInstructions } from '../../lib/i18n/scalar-viewer';
   import { t, tp } from '../../lib/i18n';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
@@ -292,6 +293,27 @@
     fit();
   });
 
+  function keyboardCamera(event: KeyboardEvent) {
+    if (!camera || !controls) return;
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '=', '-', 'Home'].includes(event.key)) return;
+    event.preventDefault();
+    if (event.key === 'Home') { fit(); return; }
+    const offset = camera.position.clone().sub(controls.target);
+    if (['+', '=', '-'].includes(event.key)) {
+      camera.position.copy(controls.target).add(offset.multiplyScalar(event.key === '-' ? 1.15 : 1 / 1.15));
+    } else if (event.shiftKey) {
+      const axis = new THREE.Vector3(event.key === 'ArrowUp' || event.key === 'ArrowDown' ? 1 : 0, 0, event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? 1 : 0);
+      offset.applyAxisAngle(axis, event.key === 'ArrowLeft' || event.key === 'ArrowDown' ? 0.1 : -0.1);
+      camera.position.copy(controls.target).add(offset);
+    } else {
+      const amount = offset.length() * 0.04;
+      const move = new THREE.Vector3(event.key === 'ArrowLeft' ? -amount : event.key === 'ArrowRight' ? amount : 0, event.key === 'ArrowDown' ? -amount : event.key === 'ArrowUp' ? amount : 0, 0);
+      controls.target.add(move);
+      camera.position.add(move);
+    }
+    invalidate();
+  }
+
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -315,12 +337,12 @@
           </div>
         {/if}
       </div>
-      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
+      <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')} aria-label={t(projection === 'plan' ? 'scalarViewer.orbit' : 'scalarViewer.plan')}>{projection === 'plan' ? '2D' : '3D'}</button>
       <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
     </div>
   </div>
   <div class="sfv viewport-container" style:height>
-    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
+    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={keyboardCamera} aria-label={`${ariaLabel}. ${keyboardInstructions()}`}></div>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
@@ -339,6 +361,7 @@
 </div>
 
 <style>
+  .sfv button { min-width: 44px; min-height: 44px; }
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);
@@ -412,6 +435,7 @@
     color: var(--st-text-2);
     font-size: 0.75rem;
   }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-status {
     flex-wrap: wrap;
     row-gap: 0.2rem;

@@ -1,0 +1,82 @@
+[
+  {
+    "digitisation": 0.003,
+    "eta": 0.0,
+    "hi": 0.3382,
+    "lo": 0.3237,
+    "mean": 0.37128256487657824,
+    "passed": false
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.05,
+    "hi": 0.3404,
+    "lo": 0.3181,
+    "mean": 0.36918722178308716,
+    "passed": false
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.1,
+    "hi": 0.3404,
+    "lo": 0.3003,
+    "mean": 0.361468746126353,
+    "passed": false
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.15,
+    "hi": 0.3459,
+    "lo": 0.287,
+    "mean": 0.3476829923335011,
+    "passed": true
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.2,
+    "hi": 0.3026,
+    "lo": 0.218,
+    "mean": 0.32701648524382726,
+    "passed": false
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.25,
+    "hi": 0.317,
+    "lo": 0.1958,
+    "mean": 0.2980473243219697,
+    "passed": true
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.3,
+    "hi": 0.2948,
+    "lo": 0.1524,
+    "mean": 0.2582985098610045,
+    "passed": true
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.35,
+    "hi": 0.2147,
+    "lo": 0.0501,
+    "mean": 0.20349685556062877,
+    "passed": true
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.4,
+    "hi": 0.1568,
+    "lo": -0.0656,
+    "mean": 0.1267521354684184,
+    "passed": true
+  },
+  {
+    "digitisation": 0.003,
+    "eta": 0.45,
+    "hi": 0.0934,
+    "lo": -0.1146,
+    "mean": 0.018646818803923042,
+    "passed": true
+  }
+]

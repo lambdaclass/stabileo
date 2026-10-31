@@ -278,16 +278,19 @@ impl StripResult {
 }
 
 pub fn run_strip(spec: &StripSpec) -> Result<StripResult, String> {
+    let mut reference = spec.network.clone();
+    reference.eta = 0.0;
+    let reference = reference.strip(spec.width, spec.height, spec.theta)?;
     let net = spec.network.strip(spec.width, spec.height, spec.theta)?;
     if net.nodes.len() < 4 {
         return Err("strip has fewer than 4 nodes".into());
     }
-    let (ymin, ymax) = net.nodes.iter().fold((f64::MAX, f64::MIN), |(lo, hi), p| (lo.min(p[1]), hi.max(p[1])));
-    let held: Vec<bool> = net.nodes.iter().map(|p| p[1] <= ymin + spec.clamp_band || p[1] >= ymax - spec.clamp_band).collect();
+    let (ymin, ymax) = reference.nodes.iter().fold((f64::MAX, f64::MIN), |(lo, hi), p| (lo.min(p[1]), hi.max(p[1])));
+    let held: Vec<bool> = reference.nodes.iter().map(|p| p[1] <= ymin + spec.clamp_band || p[1] >= ymax - spec.clamp_band).collect();
     let (pos, relaxation) = relaxed(&net, &held)?;
     let lift = spec.strain * spec.height;
     let prescribed: Vec<[f64; 2]> =
-        pos.iter().zip(&held).map(|(p, &h)| if h && p[1] >= ymax - spec.clamp_band { [0.0, lift] } else { [0.0, 0.0] }).collect();
+        reference.nodes.iter().zip(&held).map(|(p, &h)| if h && p[1] >= ymax - spec.clamp_band { [0.0, lift] } else { [0.0, 0.0] }).collect();
     let resp = solve::finite_response(&net, &pos, &held, &prescribed)?;
     let tangents = solve::bond_tangents(&net, &pos);
     let prestress_force: Vec<f64> = tangents.iter().map(|t| t.1).collect();

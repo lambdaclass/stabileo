@@ -161,6 +161,9 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
 - id: andreassen-2011
   doi: 10.1007/s00158-010-0594-7
   crossref:

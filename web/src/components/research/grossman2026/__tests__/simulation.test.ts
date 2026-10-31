@@ -34,3 +34,32 @@ it.each([1, 2, 3, 4])('clears every result when solve stage %i fails after succe
   next.label.strain = 0.03;
   expect(sim.result?.input.label.strain).toBe(0.02);
 });
+
+it('terminates superseded workers, ignores late results and can restart after Stop', () => {
+  const workers: { terminate: ReturnType<typeof vi.fn>; postMessage: ReturnType<typeof vi.fn>; onmessage: ((event: {data: unknown}) => void) | null; onerror: unknown }[] = [];
+  class FakeWorker {
+    terminate = vi.fn(); postMessage = vi.fn(); onmessage = null; onerror = null;
+    constructor() { workers.push(this); }
+  }
+  vi.stubGlobal('Worker', FakeWorker);
+  try {
+    const sim = new Simulation();
+    sim.runLive(input);
+    expect(sim.busy).toBe(true);
+    sim.runLive(input);
+    expect(workers[0].terminate).toHaveBeenCalledOnce();
+    workers[0].onmessage!({data: {result: {obsolete: true}}});
+    expect(sim.result).toBeNull();
+    sim.stop();
+    expect(workers[1].terminate).toHaveBeenCalledOnce();
+    expect(sim.busy).toBe(false);
+    sim.runLive(input);
+    workers[2].onmessage!({data: {error: 'failed'}});
+    expect(sim.error).toBe('failed');
+    expect(sim.busy).toBe(false);
+    sim.runLive(input);
+    workers[3].onmessage!({data: {result: {input}}});
+    expect(sim.result?.input).toEqual(input);
+    expect(sim.error).toBeNull();
+  } finally { vi.unstubAllGlobals(); }
+});
