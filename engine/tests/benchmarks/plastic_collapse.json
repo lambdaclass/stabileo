@@ -11,6 +11,35 @@
     "combined": 85.71428571428571
   },
   "tolerance": 1e-06,
+  "events": [
+    {
+      "elementId": 4,
+      "end": "end",
+      "momentSign": -1,
+      "loadFactor": 74.60071771370318
+    },
+    {
+      "elementId": 4,
+      "end": "start",
+      "momentSign": 1,
+      "loadFactor": 77.06767986256833
+    },
+    {
+      "elementId": 3,
+      "end": "start",
+      "momentSign": 1,
+      "loadFactor": 77.78765432098447
+    },
+    {
+      "elementId": 1,
+      "end": "start",
+      "momentSign": 1,
+      "loadFactor": 85.71428571427153
+    }
+  ],
+  "leftCornerMoment": 42.857142857142854,
+  "yieldTolerance": 1e-09,
+  "equilibriumTolerance": 1e-09,
   "input": {
     "materials": {
       "1": {

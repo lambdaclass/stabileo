@@ -1,3 +1,24 @@
+# Review round 2 fixes — 2026-10-31
+
+Reviews: round 1 (Codex, Kimi) and round 2 (Kimi, Codex, Claude), both 2026-10-30.
+No engine/src change, no tolerance loosened, no test removed.
+
+- Native test now asserts the four hinge events (element, end, order, My sign, |My| = Mp,
+  event λ against the case JSON), that node 2 never yields, yield admissibility at every
+  member end, global equilibrium of the summed reactions, and the left-corner moment
+  3Mp − λHh = 300/7 from statics. A fresh native run was bit-identical to
+  `results/stabileo_results.json`.
+- Web: the replay is checked against the same event list and the six checks; the live WASM
+  test compares every event λ (1e-6) and every nodal ux/uz (1e-9 m) with the replay; the
+  model parameters are asserted against the solver input.
+- Page: runs live on load (replay as fallback); six-check verification line against the
+  hand calculation; "Cite this" says "worked example of the mechanism method in", not
+  "reproduction of"; Horne is cited as background (no unchecked section numbers); per-event
+  hinge table and nodal displacement table; polite status region; six locales; 44 px
+  targets and 12 px text in the viewer chrome; axis triad hidden for the XZ drawing.
+
+The first-version record below is kept as it was.
+
 # First-version verification — 2026-10-29
 
 Stage: `first-version`. Reviews: 0. No git write commands; no engine/src changes;
