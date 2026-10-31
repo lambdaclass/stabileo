@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { t as appT } from '../../lib/i18n';
+  import { t as appT, i18n } from '../../lib/i18n';
   import { tAt } from '../../lib/i18n/store.svelte';
+  import { navigateScalarField, SCALAR_FIELD_SHORTCUTS } from './scalar-field-navigation';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
@@ -112,19 +113,6 @@
   const tp = (key: string, params: Record<string, string | number>) => t(key).replace(/\{(\w+)\}/g, (match, key) => String(params[key] ?? match));
   let menuTrigger: HTMLButtonElement;
   function closeMenu() { menuOpen = false; menuTrigger?.focus(); }
-  function navigate(event: KeyboardEvent) {
-    if (!camera || !controls) return;
-    const delta = new THREE.Vector3();
-    const step = camera.position.distanceTo(controls.target) * .05;
-    if (event.key === 'ArrowLeft') delta.x = -step;
-    else if (event.key === 'ArrowRight') delta.x = step;
-    else if (event.key === 'ArrowUp') delta.y = step;
-    else if (event.key === 'ArrowDown') delta.y = -step;
-    else if (['+', '=', '-', '−'].includes(event.key)) {
-      camera.position.sub(controls.target).multiplyScalar(event.key === '+' || event.key === '=' ? .9 : 1 / .9).add(controls.target);
-    } else return;
-    event.preventDefault(); camera.position.add(delta); controls.target.add(delta); updateZoom(); invalidate();
-  }
   let container: HTMLDivElement;
   let gizmo: HTMLCanvasElement;
   let renderer: THREE.WebGLRenderer | null = null;
@@ -235,7 +223,16 @@
     const r = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
     const p = new THREE.Vector3();
-    if (ray.ray.intersectPlane(plane, p)) pointer = `(${p.x.toFixed(4)}, ${p.y.toFixed(4)})`;
+    if (!ray.ray.intersectPlane(plane, p)) return;
+    const f = new Intl.NumberFormat(locale ?? i18n.locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    pointer = `(${f.format(p.x)}; ${f.format(p.y)})`;
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if (!renderer) return;
+    const action = navigateScalarField(e, camera, controls);
+    if (action === 'fit') fit();
+    else if (action === 'moved') { updateZoom(); invalidate(); }
   }
 
   function updateZoom() {
@@ -312,6 +309,7 @@
     fit();
   });
 
+  const keysId = $props.id();
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -342,10 +340,10 @@
       </div>
     </div>
     <div class="sfv viewport-container" style:height>
-      <!-- Interactive graphics surface: arrow pan and +/- zoom need focus on the canvas region. -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-      <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={navigate} aria-label={ariaLabel}></div>
-      <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
+      <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={onKey} aria-label={ariaLabel} title={t('scalarViewer.keyboard')} aria-describedby={keysId} aria-keyshortcuts={SCALAR_FIELD_SHORTCUTS}></div>
+      <span id={keysId} class="sfv-keys">{t('scalarViewer.keyboard')}</span>
+      <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80" aria-hidden="true"></canvas>
       {#if displayMode === 'field' && values && !geometryOnly}
         <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
       {/if}
@@ -402,6 +400,18 @@
   .sfv-canvas {
     position: absolute;
     inset: 0;
+  }
+  .sfv-canvas:focus-visible {
+    outline: 2px solid var(--st-accent, #4ea1ff);
+    outline-offset: -2px;
+  }
+  .sfv-keys {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .sfv-canvas :global(canvas) {
     display: block;

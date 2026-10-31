@@ -26,6 +26,7 @@
   import CqcPage from './cqc1981/CqcPage.svelte';
   import PlasticPage from './plastic-collapse/PlasticPage.svelte';
   import NavierPage from './navier1823/NavierPage.svelte';
+  import { navierStrings } from './navier1823/strings';
   import LeePage from './lee1968/LeePage.svelte';
   import ArchPage from './dadeppo1975/ArchPage.svelte';
   import { archStrings as archStringsFor } from './dadeppo1975/i18n';
@@ -42,7 +43,6 @@
     '/research/benchmarks/newmark-1959': { title: 'Newmark (1959) — Stabileo Research', description: 'First version: production Newmark average acceleration against the exact SDOF step response.' },
     '/research/benchmarks/cqc-1981': { title: 'SRSS vs CQC (1981) — Stabileo Research', description: 'First version: closely spaced building modes compared with a closed-form reference.' },
     '/research/benchmarks/plastic-collapse': { title: 'Classic plastic collapse — Stabileo Research', description: 'First version: a portal frame compared with beam, sway and combined mechanism hand calculations.' },
-    '/research/benchmarks/navier-plate': { title: 'Navier plate — Stabileo Research', description: 'First version: a simply supported plate compared with the Navier Fourier series.' },
     '/research/benchmarks/lee-frame-1968': { title: 'Lee frame (1968) — Stabileo Research', description: 'First version: pinned Lee frame with the production arc-length solver. Provisional reference.' },
     '/research': {
       title: 'Stabileo Research — research in structural engineering',
@@ -70,7 +70,7 @@
   };
 
   $effect(() => {
-    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/optimization/andreassen-2011' ? { title: topoptStrings(publicI18n.locale).title, description: topoptStrings(publicI18n.locale).lead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/dadeppo-arch-1975' ? { title: `${archStringsFor(publicI18n.locale).title} — Stabileo Research`, description: archStringsFor(publicI18n.locale).hook } : PAGES[route];
+    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/optimization/andreassen-2011' ? { title: topoptStrings(publicI18n.locale).title, description: topoptStrings(publicI18n.locale).lead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/dadeppo-arch-1975' ? { title: `${archStringsFor(publicI18n.locale).title} — Stabileo Research`, description: archStringsFor(publicI18n.locale).hook } : route === '/research/benchmarks/navier-plate' ? { title: `${navierStrings(publicI18n.locale).title} — Stabileo Research`, description: navierStrings(publicI18n.locale).lead } : PAGES[route];
     if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
     return () => restorePageMeta();
   });
