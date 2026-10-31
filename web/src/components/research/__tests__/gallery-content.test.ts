@@ -25,14 +25,16 @@ it('renders citations without empty separators and descriptive leads for every l
     }
   }
 });
-it.each(EXPERIMENTS)('$paperId has authors, publication, year and one completed review round', e => {
+/** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
+const SECOND_ROUND = new Set(['mattiasson-elastica']);
+it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
   expect(b.authors.length).toBeGreaterThan(0);
   expect(b.venue.trim()).not.toBe('');
   expect(b.year).toBeGreaterThan(1800);
   expect(citation(paper)).not.toMatch(/,\s*,/);
-  expect(reviewCount(e.paperId)).toBe(1);
+  expect(reviewCount(e.paperId)).toBe(SECOND_ROUND.has(e.paperId) ? 2 : 1);
   expect(paper.reviews).toContainEqual({ round: 1, reviewers: ['codex', 'kimi'], date: '2026-10-30' });
 });
 it('omits absent bibliographic fields without dangling separators', () => {
