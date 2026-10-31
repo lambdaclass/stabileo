@@ -19,7 +19,7 @@ export type Experiment = {
 };
 
 export const EXPERIMENTS: Experiment[] = [
-  { paperId: 'lee-frame-1968', path: '/research/benchmarks/lee-frame-1968', name: 'Lee frame (1968)', hook: 'First version · 0 reviews', thumbnail: 'research-thumbs/lee-frame-1968.svg', thumbnailAlt: 'Lee frame from the production engine', thumbnailQuery: '', code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/lee-frame-1968' },
+  { paperId: 'lee-frame-1968', path: '/research/benchmarks/lee-frame-1968', name: 'Lee frame (1968)', hook: 'A pinned L-frame traced through its first limit point.', thumbnail: 'research-thumbs/lee-frame-1968.svg', thumbnailAlt: 'Lee frame from the production engine', thumbnailQuery: '', code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/lee-frame-1968' },
   {
     paperId: 'ferrari-2025',
     path: '/research/stability/ferrari-sigmund-2025',
@@ -73,13 +73,13 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'newmark-1959', path: '/research/benchmarks/newmark-1959',
-    name: 'Newmark average acceleration', hook: 'One SDOF step response and period elongation. First version · 0 reviews.',
+    name: 'Newmark average acceleration', hook: 'One SDOF step response and period elongation.',
     thumbnail: 'research-thumbs/newmark-1959.svg', thumbnailAlt: 'Production Newmark displacement history', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/newmark-1959',
   },
   {
     paperId: 'horne-1979', path: '/research/benchmarks/plastic-collapse',
-    name: 'Classic plastic collapse', hook: 'First version · 0 reviews',
+    name: 'Classic plastic collapse', hook: 'A fixed-base portal compared with three hand-calculated plastic-collapse mechanisms.',
     thumbnail: 'research-thumbs/plastic-collapse.svg', thumbnailAlt: 'Portal frame from the production solver run', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/plastic-collapse',
   },
@@ -128,7 +128,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'cqc-1981', path: '/research/benchmarks/cqc-1981',
-    name: 'SRSS vs CQC', hook: 'Closely spaced building modes — first version, 0 reviews.',
+    name: 'SRSS vs CQC', hook: 'Closely spaced building modes.',
     thumbnail: 'research-thumbs/cqc-1981.webp', thumbnailAlt: 'Base shear from our SRSS and CQC runs', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/cqc-1981',
   },

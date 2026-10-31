@@ -9,7 +9,7 @@ import { test, expect, type Page } from './fixtures';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
 }
 async function openCatalog(page: Page) {
   // Closing a document goes back to the Advanced panel, and the ribbon command toggles it.
@@ -18,8 +18,8 @@ async function openCatalog(page: Page) {
   await expect(page.getByTestId('steps-catalog')).toBeVisible();
 }
 
-test.describe('@smoke explained step by step', () => {
-  test('the catalog: groups in order, help, requirements, and why a method is not available', async ({ page }) => {
+test.describe('explained step by step', () => {
+  test('@smoke the catalog: groups in order, help, requirements, and why a method is not available', async ({ page }) => {
     await boot(page);
     await openCatalog(page);
     const groups = await page.locator('[data-testid^=steps-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
@@ -36,7 +36,7 @@ test.describe('@smoke explained step by step', () => {
     await expect(first).toContainText(/draw one|dibujá una|desenhe uma/);
   });
 
-  test('every method opens from its example and walks to the end, comparing with the matrix method', async ({ page }) => {
+  test('@slow every method opens from its example and walks to the end, comparing with the matrix method', async ({ page }) => {
     test.setTimeout(600_000);
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
@@ -68,7 +68,7 @@ test.describe('@smoke explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
-  test('the stiffness method from its example: classification and fixed-end actions', async ({ page }) => {
+  test('@smoke the stiffness method from its example: classification and fixed-end actions', async ({ page }) => {
     await boot(page);
     await openCatalog(page);
     await page.getByTestId('steps-example-dsm').click();
@@ -76,7 +76,7 @@ test.describe('@smoke explained step by step', () => {
     await expect(page.locator('.wizard .katex').filter({ hasText: /GH\s*=\s*3/ }).first()).toBeVisible();
   });
 
-  test('an assumption can be switched: Castigliano without the axial term', async ({ page }) => {
+  test('@smoke an assumption can be switched: Castigliano without the axial term', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
@@ -97,7 +97,7 @@ test.describe('@smoke explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
-  test('the compatibility matrix with the frame members held at their length', async ({ page }) => {
+  test('@smoke the compatibility matrix with the frame members held at their length', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
@@ -124,7 +124,7 @@ test.describe('@smoke explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
-  test('every step-by-step view opens in Advanced, with the same back row, title, tabs and footer', async ({ page }) => {
+  test('@smoke every step-by-step view opens in Advanced, with the same back row, title, tabs and footer', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
@@ -152,7 +152,7 @@ test.describe('@smoke explained step by step', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Advanced lists its functions by group, and leaves the envelope to the results view', async ({ page }) => {
+  test('@smoke Advanced lists its functions by group, and leaves the envelope to the results view', async ({ page }) => {
     await boot(page);
     await page.getByTestId('rb-cmd-advanced').click();
     const panel = page.locator('.advanced-grid');
@@ -169,7 +169,7 @@ test.describe('@smoke explained step by step', () => {
     await expect(panel).not.toContainText(/Envolvente|Envelope|Envoltória/);
   });
 
-  test('a document offers to refresh after changing self-weight in the loads panel', async ({ page }) => {
+  test('@smoke a document offers to refresh after changing self-weight in the loads panel', async ({ page }) => {
     await boot(page);
     await openCatalog(page);
     await page.getByTestId('steps-example-threeMoments').click();
@@ -187,7 +187,7 @@ test.describe('@smoke explained step by step', () => {
     await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
   });
 
-  test('a document says when the model has changed, and updates', async ({ page }) => {
+  test('@smoke a document says when the model has changed, and updates', async ({ page }) => {
     await boot(page);
     await openCatalog(page);
     await page.getByTestId('steps-example-threeMoments').click();
@@ -205,7 +205,7 @@ test.describe('@smoke explained step by step', () => {
     await expect(page.getByTestId('steps-refresh')).toHaveCount(0);
   });
 
-  test('methods that work on a chosen member or node take the selection', async ({ page }) => {
+  test('@smoke methods that work on a chosen member or node take the selection', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);

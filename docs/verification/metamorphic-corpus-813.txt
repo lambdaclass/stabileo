@@ -1,0 +1,136 @@
+Corpus failure comparison, METAMORPHIC_SEED=20261018
+Base: 417d112f949300766c40aea8f862f97135c2e6f9
+Head source identity and reproduction: metamorphic-review-813.txt
+Counts are failed cases per analysis/invariant, not passing-test counts.
+
+Dimension | Analysis / invariant | Base | Head
+2d | [P-Delta × mirror] | 3 | 3
+2d | [P-Delta × rotation] | 1 | 1
+2d | [P-Delta × units] | 2 | 2
+2d | [SSI (no soil springs) × mirror] | 5 | 5
+2d | [SSI (no soil springs) × relabel] | 1 | 1
+2d | [SSI (no soil springs) × units] | 2 | 2
+2d | [Winkler (no foundation) × energy] | 1 | 1
+2d | [Winkler (no foundation) × mirror] | 4 | 4
+2d | [Winkler (no foundation) × relabel] | 1 | 1
+2d | [Winkler (no foundation) × rotation] | 2 | 2
+2d | [Winkler (no foundation) × units] | 1 | 1
+2d | [buckling × mirror] | 1 | 1
+2d | [buckling × rotation] | 3 | 3
+2d | [cable solver × relabel] | 2 | 2
+2d | [cable solver × units] | 1 | 1
+2d | [certified linear × energy] | 1 | 1
+2d | [certified linear × mirror] | 2 | 2
+2d | [certified linear × relabel] | 1 | 1
+2d | [certified linear × rotation] | 2 | 2
+2d | [certified linear × units] | 1 | 1
+2d | [certified modal × mirror] | 1 | 1
+2d | [certified modal × rotation] | 1 | 1
+2d | [certified modal × units] | 1 | 1
+2d | [constrained × energy] | 1 | 1
+2d | [constrained × mirror] | 5 | 5
+2d | [constrained × relabel] | 1 | 1
+2d | [constrained × rotation] | 5 | 5
+2d | [constrained × units] | 2 | 2
+2d | [contact (no gaps) × mirror] | 5 | 5
+2d | [contact (no gaps) × rotation] | 3 | 3
+2d | [contact (no gaps) × units] | 2 | 2
+2d | [corotational × mirror] | 3 | 3
+2d | [corotational × rotation] | 2 | 2
+2d | [corotational × units] | 1 | 1
+2d | [creep & shrinkage (t = t0) × mirror] | 3 | 3
+2d | [creep & shrinkage (t = t0) × rotation] | 4 | 4
+2d | [creep & shrinkage (t = t0) × units] | 4 | 4
+2d | [fiber nonlinear × mirror] | 4 | 4
+2d | [fiber nonlinear × relabel] | 1 | 4
+2d | [fiber nonlinear × rotation] | 3 | 3
+2d | [fiber nonlinear × units] | 1 | 1
+2d | [harmonic × mirror] | 2 | 2
+2d | [harmonic × relabel] | 1 | 1
+2d | [harmonic × rotation] | 3 | 3
+2d | [harmonic × units] | 2 | 2
+2d | [linear (PCG) × energy] | 1 | 1
+2d | [linear (PCG) × mirror] | 4 | 4
+2d | [linear (PCG) × relabel] | 1 | 1
+2d | [linear (PCG) × rotation] | 3 | 3
+2d | [linear (PCG) × units] | 2 | 2
+2d | [linear (dense reference) × mirror] | 5 | 5
+2d | [linear (dense reference) × relabel] | 1 | 1
+2d | [linear (dense reference) × rotation] | 2 | 2
+2d | [linear (dense reference) × units] | 1 | 1
+2d | [linear (sparse path) × energy] | 1 | 1
+2d | [linear (sparse path) × mirror] | 4 | 4
+2d | [linear (sparse path) × relabel] | 2 | 2
+2d | [linear (sparse path) × rotation] | 3 | 3
+2d | [linear (sparse path) × units] | 2 | 2
+2d | [linear × energy] | 1 | 1
+2d | [linear × mirror] | 3 | 3
+2d | [linear × rotation] | 3 | 3
+2d | [linear × units] | 3 | 3
+2d | [load combinations × energy] | 1 | 1
+2d | [load combinations × mirror] | 3 | 3
+2d | [load combinations × rotation] | 1 | 1
+2d | [load combinations × units] | 4 | 4
+2d | [material nonlinear × mirror] | 4 | 4
+2d | [material nonlinear × rotation] | 2 | 2
+2d | [material nonlinear × units] | 1 | 1
+2d | [modal × mirror] | 1 | 1
+2d | [modal × rotation] | 1 | 1
+2d | [modal × units] | 1 | 1
+2d | [plastic collapse × mirror] | 1 | 1
+2d | [plastic collapse × relabel] | 2 | 2
+2d | [plastic collapse × reversal] | 1 | 1
+2d | [plastic collapse × rotation] | 1 | 1
+2d | [plastic collapse × superposition] | 1 | 1
+2d | [plastic collapse × units] | 1 | 1
+2d | [spectral × symmetry] | 2 | 2
+2d | [spectral × units] | 1 | 1
+2d | [staged (loads in two stages) × relabel] | 1 | 1
+2d | [staged (loads in two stages) × rotation] | 4 | 4
+2d | [staged (one stage) × relabel] | 1 | 1
+2d | [staged (one stage) × rotation] | 4 | 4
+2d | [staged (one stage) × units] | 2 | 2
+2d | [time history × mirror] | 10 | 10
+2d | [time history × relabel] | 2 | 2
+2d | [time history × reversal] | 1 | 1
+2d | [time history × rotation] | 9 | 9
+2d | [time history × units] | 2 | 2
+3d | [P-Delta × relabel] | 2 | 2
+3d | [P-Delta × reversal] | 2 | 3
+3d | [P-Delta × rotation] | 4 | 4
+3d | [SSI (no soil springs) × relabel] | 5 | 5
+3d | [SSI (no soil springs) × rotation] | 2 | 2
+3d | [Winkler (no foundation) × relabel] | 10 | 10
+3d | [Winkler (no foundation) × rotation] | 1 | 1
+3d | [cable solver × relabel] | 10 | 10
+3d | [certified linear × relabel] | 10 | 10
+3d | [certified linear × rotation] | 3 | 3
+3d | [constrained × relabel] | 10 | 10
+3d | [constrained × rotation] | 2 | 2
+3d | [contact (no gaps) × relabel] | 10 | 10
+3d | [contact (no gaps) × rotation] | 2 | 2
+3d | [corotational × rotation] | 3 | 3
+3d | [fiber nonlinear × relabel] | 1 | 0
+3d | [fiber nonlinear × units] | 1 | 1
+3d | [linear (PCG) × relabel] | 9 | 9
+3d | [linear (PCG) × units] | 1 | 1
+3d | [linear (sparse path) × relabel] | 9 | 9
+3d | [linear × relabel] | 10 | 10
+3d | [linear × rotation] | 3 | 3
+3d | [linear × units] | 1 | 1
+3d | [material nonlinear × rotation] | 1 | 1
+3d | [material nonlinear × units] | 1 | 1
+3d | [modal × modal orthogonality] | 1 | 1
+3d | [plastic collapse × reversal] | 1 | 0
+3d | [plastic collapse × rotation] | 1 | 1
+3d | [plastic collapse × superposition] | 2 | 2
+
+Head-only case identities in the complete runs:
+[fiber nonlinear × relabel] differential/frame2d-5: translation u@n889[1]: got 1.1498636222e-5, expected 2.0268272536e-5, |diff| 8.770e-6 > tol 4.114e-13 (scale 2.027e-5, rel 2.03e-8)
+[fiber nonlinear × relabel] fuzz_rich_2d/20261045: translation u@n244[0]: got -1.1682974491e0, expected -1.1393485189e1, |diff| 1.023e1 > tol 2.833e-6 (scale 3.875e1, rel 7.31e-8)
+[fiber nonlinear × relabel] fuzz_rich_2d/20261118: translation u@n191[0]: got 7.4471611037e-5, expected 8.0975134090e-5, |diff| 6.504e-6 > tol 4.737e-9 (scale 2.328e-1, rel 2.03e-8)
+[P-Delta × reversal] feature_matrix/3d-solid-shell-strip-cantilever------0-equiv: original solved but transformed model failed: did not converge
+
+Base-only case identities (absence is not evidence of a fix):
+[fiber nonlinear × relabel] differential/pdelta3d-0: translation u@n206[0]: got 1.8186690114e-2, expected -4.7900554101e-2, |diff| 6.609e-2 > tol 1.735e-8 (scale 7.993e-1, rel 2.17e-8)
+[plastic collapse × reversal] feature_matrix/3d-curved-beam-arch-with: scalar collapse_factor[0]: got 1.0245184844e2, expected 1.0242963878e2, |diff| 2.221e-2 > tol 1.029e-4 (scale 1.024e2, rel 1.00e-6)

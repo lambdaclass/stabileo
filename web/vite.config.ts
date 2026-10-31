@@ -6,6 +6,7 @@ import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { loadedPreloads } from './scripts/loaded-preloads';
 import { isComplete } from './src/lib/i18n/offered';
+import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -90,6 +91,8 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
 const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
 
 const PRODUCTION_BUILD_TESTS = [
+  'src/lib/utils/__tests__/benchmark-build.test.ts',
+  'src/lib/provenance/__tests__/notice-bundle.test.ts',
   // Wall-clock budgets must not compete with the parallel unit workers. Keep the full
   // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
   'src/lib/engine/__tests__/scale-budget.test.ts',
@@ -206,7 +209,7 @@ if (researchBuildId !== 'unavailable') {
 const preloads = loadedPreloads();
 
 export default defineConfig({
-  plugins: [preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
