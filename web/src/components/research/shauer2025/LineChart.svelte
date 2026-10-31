@@ -1,8 +1,8 @@
 <script lang="ts">
   /**
    * Lines on one shared y axis. Reference series are drawn first as a wide translucent underlay and
-   * ours on top as a thin line, so agreement reads as a line inside a halo. Series are labelled on
-   * the plot (`labels`), not in a legend box. A crosshair tooltip reads every series at the nearest x.
+   * ours on top as a thin line, so agreement reads as a line inside a halo. A legend and a data table
+   * sit below the plot; a crosshair tooltip reads every series at the nearest x.
    */
   import { chartStrings } from '../shell/chart-strings';
   import type { Series } from './protocol';
