@@ -207,15 +207,17 @@ const RESULT_SET = /^(?:base|case\[[^\]]*\]|combo\[[^\]]*\])(?:\.(.*))?$/;
 
 /**
  * Whether a registered change declares that it moves this value. A model count never: the same
- * file must open as the same model whatever the solver does.
+ * file must open as the same model whatever the solver does. `*` covers a result set's values,
+ * not whether the solve refuses, raises an error or finds a combination unstable.
  */
 export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: string): boolean {
   const declared = change.quantities ?? [];
-  if (path === 'solve.ok') return declared.includes('solve.ok');
+  if (path === 'solve.ok' || path === 'unstableCombinations') return declared.includes(path);
   const set = RESULT_SET.exec(path);
-  if (!set && path !== 'unstableCombinations') return false;
+  if (!set) return false;
+  const rest = set[1] ?? '';
+  if (rest === 'errorCodes') return declared.includes('errorCodes');
   if (declared.includes('*')) return true;
-  const rest = set?.[1] ?? '';
   const collection = /^[A-Za-z0-9]+/.exec(rest)?.[0];
   const field = /\]\.([A-Za-z0-9]+)$/.exec(rest)?.[1];
   return !!collection && (declared.includes(collection) || (!!field && declared.includes(`${collection}.${field}`)));
@@ -223,6 +225,8 @@ export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: str
 
 export interface Verdict {
   kind: 'same' | 'explained' | 'unexplained';
+  /** Set when one side solved and the other refused: then only that refusal and the model counts are judged. */
+  solve: 'now refuses' | 'now solves' | null;
   /** What moved, for a person (the snapshot gate's report). Empty when the same. */
   report: string;
   /** The registry entries that declare a value that moved, by id and the version that introduced each. */
@@ -240,11 +244,27 @@ interface Diff {
   differs: boolean;
 }
 
+const OUTSIDE_RESULTS = /^(model\.|solve\.ok$)/;
+
+function outsideResults(v: Values): Values {
+  return Object.fromEntries(Object.entries(v).filter(([k]) => OUTSIDE_RESULTS.test(k)));
+}
+
+function report(name: string, diff: Diff, solve: Verdict['solve'], current: Values): string {
+  const lines = [formatCaseReport(name, diff) as string];
+  for (const p of diff.added) lines.push(`    ${p}: newly produced, ${JSON.stringify(current[p])}`);
+  if (solve === 'now refuses') lines.push(`    the solve now refuses (${JSON.stringify(current['solve.refusal'] ?? '')}); no result value is compared`);
+  if (solve === 'now solves') lines.push('    the solve refused then and solves now; no result value is compared');
+  return lines.join('\n');
+}
+
 /**
  * Judge the current results of a legacy file against a reference (what the version showed, or
- * what the current example gives) under the snapshot gate's tolerance. A value recorded now and
- * not then is not a difference (a quantity added since); a value that changed, or is no longer
- * produced, is. Pass no changes when both sides were solved by the current code.
+ * what the current example gives) under the snapshot gate's tolerance. A value that changed, is
+ * no longer produced, or is produced now and not then is a difference, explained only by an
+ * applicable change that declares it. When one side refused, that refusal (`solve.ok`) is the
+ * difference, not every value the refused side lacks. Pass no changes when both sides were solved
+ * by the current code.
  */
 export function judge(name: string, reference: Values, current: Values, changes: readonly ResultChange[]): Verdict {
   const [refGated, refInfo] = split(reference);
@@ -253,20 +273,27 @@ export function judge(name: string, reference: Values, current: Values, changes:
     .map((k) => `${k}: ${JSON.stringify(refInfo[k] ?? null)} → ${JSON.stringify(curInfo[k] ?? null)}`);
   const label = (c: ResultChange) => `${c.id} (results v${c.resultsVersion})`;
   const applicable = changes.map(label);
-  const diff = compareValues(refGated, curGated) as Diff;
-  if (!diff.differs) return { kind: 'same', report: '', explainedBy: [], applicable, notes };
+  const solve: Verdict['solve'] = refGated['solve.ok'] === curGated['solve.ok'] ? null
+    : curGated['solve.ok'] === false ? 'now refuses' : refGated['solve.ok'] === false ? 'now solves' : null;
+  const diff = (solve ? compareValues(outsideResults(refGated), outsideResults(curGated)) : compareValues(refGated, curGated)) as Diff;
+  if (!diff.differs && diff.added.length === 0) return { kind: 'same', solve, report: '', explainedBy: [], applicable, notes };
   const used = new Set<ResultChange>();
   const explained = (path: string) => {
     const by = changes.filter((c) => declaresMove(c, path));
     for (const c of by) used.add(c);
     return by.length > 0;
   };
-  const left: Diff = { ...diff, changed: diff.changed.filter((c) => !explained(c.path)), removed: diff.removed.filter((p) => !explained(p)) };
+  const left: Diff = {
+    ...diff,
+    changed: diff.changed.filter((c) => !explained(c.path)),
+    removed: diff.removed.filter((p) => !explained(p)),
+    added: diff.added.filter((p) => !explained(p)),
+  };
   const explainedBy = changes.filter((c) => used.has(c)).map(label);
-  if (left.changed.length > 0 || left.removed.length > 0) {
-    return { kind: 'unexplained', report: formatCaseReport(name, left) as string, explainedBy, applicable, notes };
+  if (left.changed.length > 0 || left.removed.length > 0 || left.added.length > 0) {
+    return { kind: 'unexplained', solve, report: report(name, left, solve, { ...current, ...curGated }), explainedBy, applicable, notes };
   }
-  return { kind: 'explained', report: formatCaseReport(name, diff) as string, explainedBy, applicable, notes };
+  return { kind: 'explained', solve, report: report(name, diff, solve, { ...current, ...curGated }), explainedBy, applicable, notes };
 }
 
 /** The failure message of an unexplained difference: what moved, and what to do. */

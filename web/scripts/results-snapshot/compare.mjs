@@ -26,13 +26,14 @@
  *   1e-13 kN·m), and its relative change between two builds is meaningless. A change of one
  *   ten-millionth of the largest moment in the model is not a result.
  *
- *   The peak of a component is taken over its whole vector (UNIT_FAMILIES): the x, y and z
- *   components of a reaction force, a member's N, Vy and Vz at both ends, the components of a
- *   shell's stress tensor. Round-off in a component is relative to the size of the vector it
- *   belongs to, which a rotation of the axes redistributes among the components. A component
- *   that statics makes zero everywhere (a horizontal reaction under vertical loads, a truss
- *   member's shear) otherwise has round-off as its own peak, and 5e-14 → 7e-14 kN reads as a
- *   25 % change. Families never mix units: forces with forces, moments with moments.
+ *   The peak of a component is also taken over its own vector (UNIT_FAMILIES): the x, y and z
+ *   components of that node's reaction force, that member's N, Vy and Vz at both its ends, the
+ *   components of that shell's stress tensor; never over another node's or member's.
+ *   Round-off in a component is relative to the size of the vector it belongs to, which a
+ *   rotation of the axes redistributes among the components. A component that statics makes
+ *   zero everywhere (a horizontal reaction under vertical loads, a truss member's shear)
+ *   otherwise has round-off as its own peak, and 5e-14 → 7e-14 kN reads as a 25 % change.
+ *   Families never mix units: forces with forces, moments with moments.
  *
  * Against last-bit noise: the WASM engine is bit-for-bit deterministic for one build
  * (docs/verification/PROVENANCE.md, "Determinism"), so the same build reproduces the snapshot
@@ -83,14 +84,18 @@ const FAMILY_OF = new Map(
     .flatMap(([family, fields]) => fields.map((f) => [`${collection}.${f}`, family]))),
 );
 
-/** The vector a quantity is a component of (`base.reactions[].<force>`), or null when it is not one. */
+/**
+ * The vector instance a quantity is a component of (`base.reactions[n3].<force>`: that node's
+ * reaction force), or null when it is not one. Indices are kept: a component is floored only by
+ * its own vector, never by a larger one elsewhere in the model.
+ */
 export function familyOf(path) {
-  const m = /^(.*?)([A-Za-z0-9]+)\[\]\.([A-Za-z0-9]+)$/.exec(groupOf(path));
-  const family = m && FAMILY_OF.get(`${m[2]}.${m[3]}`);
-  return family ? `${m[1]}${m[2]}[].<${family}>` : null;
+  const m = /^(.*?)([A-Za-z0-9]+)(\[[^\]]*\])\.([A-Za-z0-9]+)$/.exec(path);
+  const family = m && FAMILY_OF.get(`${m[2]}.${m[4]}`);
+  return family ? `${m[1]}${m[2]}${m[3]}.<${family}>` : null;
 }
 
-/** The largest magnitude of each quantity group, and of each vector family, across the given value maps. */
+/** The largest magnitude of each quantity group, and of each vector instance, across the given value maps. */
 export function peaks(...maps) {
   const out = new Map();
   const raise = (k, a) => { if (!(out.get(k) >= a)) out.set(k, a); };
@@ -106,7 +111,7 @@ export function peaks(...maps) {
   return out;
 }
 
-/** The magnitude ATOL is a fraction of for this path: its group's peak, or its vector's when larger. */
+/** The magnitude ATOL is a fraction of for this path: its group's peak, or its own vector's when larger. */
 export function scaleOf(path, peak) {
   const f = familyOf(path);
   return Math.max(peak.get(groupOf(path)) ?? 0, (f && peak.get(f)) ?? 0);

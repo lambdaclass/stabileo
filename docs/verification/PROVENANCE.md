@@ -14,7 +14,7 @@ give different numbers. Each entry has:
 | `date`, `prs` | when it reached main, and the pull requests |
 | `area` | `analysis`, `design` or `loads` |
 | `when` | which models it concerns, in feature ids (`any`: one of; `all`: each of; `allOf`: groups that must all hold) |
-| `quantities` | optional: the solve results it can move, `*` (all), `solve.ok`, a collection (`reactions`) or one field (`quadStresses.sigmaXx`). The legacy-projects test (#718) accepts a difference in an old project file only in values an applicable entry declares; without it, the entry explains none |
+| `quantities` | optional: the solve results it can move, `*` (every result value), `solve.ok`, `errorCodes`, `unstableCombinations`, a collection (`reactions`) or one field (`quadStresses.sigmaXx`). `*` does not cover a refusal (`solve.ok`), a new error (`errorCodes`) or a newly unstable combination (`unstableCombinations`): each must be named. The legacy-projects test (#718) accepts a difference in an old project file (a value changed, no longer produced, or newly produced) only in values an applicable entry declares; without it, the entry explains none |
 | `title`, `explanation` | what to tell the engineer, in `en`, `es` and `pt` |
 | `changelog` | a file and one of its headings (checked by `registry.test.ts`) |
 

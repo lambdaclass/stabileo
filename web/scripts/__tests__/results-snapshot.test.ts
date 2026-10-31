@@ -39,11 +39,25 @@ describe('the tolerance', () => {
       expect(compareValues(truss, { ...truss, 'base.reactions[n1].my': 1e-9 }).differs).toBe(true);
       expect(compareValues(truss, { ...truss, 'base.elementForces[e1].mStart': 1e-9 }).differs).toBe(true);
     });
-    it('groups by collection, unit and result set', () => {
-      expect(familyOf('case[3].reactions[n1].fx')).toBe('case[].reactions[].<force>');
-      expect(familyOf('base.reactions[n1].rz')).toBe(familyOf('base.reactions[n2].fz'));
-      expect(familyOf('base.displacements[n1].rz')).toBe('base.displacements[].<rotation>');
-      expect(familyOf('base.reactions[n1].my')).not.toBe(familyOf('base.reactions[n1].rx'));
+    it('NEGATIVE: never takes the floor from another member\'s or node\'s vector', () => {
+      const frame = {
+        'base.elementForces[e1].nStart': 5000, 'base.elementForces[e1].vStart': 1e-12,
+        'base.elementForces[e2].nStart': 1e-3, 'base.elementForces[e2].vStart': 2,
+        'base.reactions[n1].fz': 5000, 'base.reactions[n2].fx': 3,
+      };
+      const shear = compareValues(frame, { ...frame, 'base.elementForces[e2].vStart': 2 * (1 + 2e-6) });
+      expect(shear.changed.map((c: { path: string }) => c.path)).toEqual(['base.elementForces[e2].vStart']);
+      expect(compareValues(frame, { ...frame, 'base.reactions[n2].fx': 3 * (1 + 2e-6) }).differs).toBe(true);
+      expect(compareValues(frame, { ...frame, 'base.elementForces[e1].vStart': -2e-12 }).differs).toBe(false);
+    });
+    it('groups by vector instance: collection, record, unit and result set', () => {
+      expect(familyOf('case[3].reactions[n1].fx')).toBe('case[3].reactions[n1].<force>');
+      expect(familyOf('base.reactions[n1].rz')).toBe('base.reactions[n1].<force>');
+      expect(familyOf('base.reactions[n1].fz')).toBe('base.reactions[n1].<force>');
+      expect(familyOf('base.reactions[n2].fz')).toBe('base.reactions[n2].<force>');
+      expect(familyOf('base.elementForces[e4].vzEnd')).toBe('base.elementForces[e4].<force>');
+      expect(familyOf('base.displacements[n1].rz')).toBe('base.displacements[n1].<rotation>');
+      expect(familyOf('base.reactions[n1].my')).toBe('base.reactions[n1].<moment>');
       expect(familyOf('base.quadStresses[e1].nodeIndex')).toBeNull();
       expect(familyOf('base.resultSummary.displacementX.maxValue')).toBeNull();
     });

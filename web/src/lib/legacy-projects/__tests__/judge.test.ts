@@ -31,9 +31,11 @@ const reference: Values = {
 const moved = (patch: Values): Values => ({ ...reference, ...patch });
 
 describe('which values a registered change declares it moves', () => {
-  it('reads "*", a collection, one field of it, and solve.ok', () => {
+  it('reads "*", a collection, one field of it, solve.ok, errorCodes and unstableCombinations', () => {
     expect(declaresMove(everything, 'case[2].displacements[n3].uz')).toBe(true);
-    expect(declaresMove(everything, 'unstableCombinations')).toBe(true);
+    expect(declaresMove(everything, 'base.allZero')).toBe(true);
+    expect(declaresMove(change('u', ['unstableCombinations']), 'unstableCombinations')).toBe(true);
+    expect(declaresMove(change('e', ['errorCodes']), 'combo[2].errorCodes')).toBe(true);
     expect(declaresMove(shellStresses, 'combo[1].quadStresses[e9].sigmaXx')).toBe(true);
     expect(declaresMove(change('c', ['reactions']), 'base.reactions[n1].fz')).toBe(true);
     expect(declaresMove(refusals, 'solve.ok')).toBe(true);
@@ -43,6 +45,10 @@ describe('which values a registered change declares it moves', () => {
     expect(declaresMove(shellStresses, 'base.elementForces[e1].mStart')).toBe(false);
     expect(declaresMove(designOnly, 'base.elementForces[e1].mStart')).toBe(false);
     expect(declaresMove(everything, 'solve.ok')).toBe(false);
+    expect(declaresMove(everything, 'base.errorCodes')).toBe(false);
+    expect(declaresMove(everything, 'case[1].errorCodes')).toBe(false);
+    expect(declaresMove(everything, 'unstableCombinations')).toBe(false);
+    expect(declaresMove(change('r', ['reactions']), 'unstableCombinations')).toBe(false);
     expect(declaresMove(everything, 'model.nodes')).toBe(false);
     expect(declaresMove(refusals, 'base.reactions[n1].rz')).toBe(false);
   });
@@ -82,19 +88,63 @@ describe('judge', () => {
     expect(judge('removed', reference, without, [everything]).kind).toBe('explained');
   });
 
-  it('NEGATIVE: a model count or a solve that now refuses is not explained by a change to the numbers', () => {
+  it('NEGATIVE: a model count is not explained by a change to the numbers', () => {
     expect(judge('count', reference, moved({ 'model.nodes': 3 }), [everything]).kind).toBe('unexplained');
-    expect(judge('refuses', reference, moved({ 'solve.ok': false, 'solve.refusal': 'unstable' }), [everything]).kind).toBe('unexplained');
-    expect(judge('refuses', reference, moved({ 'solve.ok': false, 'solve.refusal': 'unstable' }), [refusals]).kind).toBe('explained');
   });
 
-  it('NEGATIVE: a new error diagnostic fails with the same numbers; a new warning is a note', () => {
-    const err = judge('error', reference, moved({ 'base.diagnosticCodes': 'error:E1 warning:W1' }), []);
-    expect(err.kind).toBe('unexplained');
-    expect(err.report).toContain('base.errorCodes: "" → "error:E1"');
-    const warn = judge('warning', reference, moved({ 'base.diagnosticCodes': 'warning:W1 warning:W2' }), []);
-    expect(warn.kind).toBe('same');
-    expect(warn.notes).toEqual(['base.diagnosticCodes: "warning:W1" → "warning:W1 warning:W2"']);
+  describe('a solve that now refuses, as capture records it (no result values)', () => {
+    const refused: Values = { 'model.nodes': 4, 'solve.ok': false, 'solve.refusal': 'unstable' };
+    it('NEGATIVE: is one refusal, unexplained by "*" or by a change to the numbers', () => {
+      for (const changes of [[], [everything], [shellStresses, change('r', ['reactions', 'elementForces'])]]) {
+        const v = judge('refuses', reference, refused, changes);
+        expect(v).toMatchObject({ kind: 'unexplained', solve: 'now refuses' });
+        expect(v.report).toContain('solve.ok: true → false');
+        expect(v.report).toContain('the solve now refuses ("unstable")');
+        expect(v.report).not.toContain('no longer produced');
+      }
+    });
+    it('is explained by an entry that declares solve.ok, without listing every value it no longer gives', () => {
+      const v = judge('refuses', reference, refused, [refusals]);
+      expect(v).toMatchObject({ kind: 'explained', solve: 'now refuses', explainedBy: ['refusals (results v1)'] });
+      expect(v.report).not.toContain('reactions');
+    });
+    it('NEGATIVE: a declared refusal does not excuse a model count', () => {
+      expect(judge('refuses', reference, { ...refused, 'model.nodes': 3 }, [refusals]).kind).toBe('unexplained');
+    });
+    it('a solve that refused then and solves now is the same kind of verdict', () => {
+      expect(judge('solves', refused, reference, [everything])).toMatchObject({ kind: 'unexplained', solve: 'now solves' });
+      expect(judge('solves', refused, reference, [refusals])).toMatchObject({ kind: 'explained', solve: 'now solves' });
+    });
+  });
+
+  describe('NEGATIVE: a value produced now and not then is a difference', () => {
+    it('a combination that becomes unstable, unexplained by "*"', () => {
+      for (const changes of [[], [everything]]) {
+        const v = judge('unstable', reference, moved({ unstableCombinations: '3' }), changes);
+        expect(v.kind).toBe('unexplained');
+        expect(v.report).toContain('unstableCombinations: newly produced, "3"');
+      }
+      expect(judge('unstable', reference, moved({ unstableCombinations: '3' }), [change('u', ['unstableCombinations'])]).kind).toBe('explained');
+    });
+    it('a new result set with an error, unexplained by "*"', () => {
+      const v = judge('new set', reference, moved({ 'case[2].diagnosticCodes': 'error:E9', 'case[2].reactions[n1].rz': 1 }), [everything]);
+      expect(v.kind).toBe('unexplained');
+      expect(v.report).toContain('case[2].errorCodes: newly produced, "error:E9"');
+      expect(v.report).not.toContain('case[2].reactions');
+    });
+    it('a new numeric quantity, unless an applicable entry declares it', () => {
+      const added = moved({ 'base.reactions[n1].mz': 7 });
+      expect(judge('new value', reference, added, []).kind).toBe('unexplained');
+      expect(judge('new value', reference, added, [shellStresses]).kind).toBe('unexplained');
+      expect(judge('new value', reference, added, [change('r', ['reactions'])]).kind).toBe('explained');
+    });
+  });
+
+  it('NEGATIVE: "*" does not excuse a new error diagnostic', () => {
+    const v = judge('error', reference, moved({ 'base.diagnosticCodes': 'error:E1 warning:W1' }), [everything]);
+    expect(v.kind).toBe('unexplained');
+    expect(v.report).toContain('base.errorCodes: "" → "error:E1"');
+    expect(judge('error', reference, moved({ 'base.diagnosticCodes': 'error:E1 warning:W1' }), [change('e', ['errorCodes'])]).kind).toBe('explained');
   });
 
   it('notes a refusal message present on one side only', () => {
@@ -110,7 +160,7 @@ describe('against real corpus files', () => {
     const opened = await openAndSolve(readCorpusText('v0.2.0/truss.ded'));
     expect(opened.changes.length).toBeGreaterThan(20);
     const then = readResults('v0.2.0/truss.results.json');
-    expect(judge('truss', then, opened.values, opened.changes).kind).not.toBe('unexplained');
+    expect(judge('truss', then, opened.values, opened.changes).kind).toBe('same');
     const wrong = { ...then, 'base.elementForces[e1].nStart': (then['base.elementForces[e1].nStart'] as number) * 1.01 };
     const v = judge('truss, wrong force', wrong, opened.values, opened.changes);
     expect(v.kind).toBe('unexplained');
