@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { axis } from './plot-axis';
   /**
    * A small SVG chart: lines, bands, points with optional vertical error bars, a highlighted
@@ -48,7 +49,7 @@
   const Y = $derived(yDomain ? axis(yDomain[0], yDomain[1], true) : axis(Math.min(...ys), Math.max(...ys), false));
   const sx = (x: number) => M.l + ((x - X.domain[0]) / (X.domain[1] - X.domain[0])) * (width - M.l - M.r);
   const sy = (y: number) => M.t + (1 - (y - Y.domain[0]) / (Y.domain[1] - Y.domain[0])) * (height - M.t - M.b);
-  const fmt = (v: number, d: number) => (Math.abs(v) < 1e-12 ? '0' : v.toFixed(d).replace('-', '−'));
+  const fmt = (v: number, d: number) => (Math.abs(v) < 1e-12 ? '0' : new Intl.NumberFormat(publicI18n.locale, { minimumFractionDigits: d, maximumFractionDigits: d }).format(v));
   const path = (pts: { x: number; y: number }[]) =>
     pts
       .filter((p) => Number.isFinite(p.y))
@@ -109,18 +110,26 @@
     <text x={width - M.r} y={height - 2} text-anchor="end" class="axis">{xLabel}</text>
   </svg>
   <ul class="legend">
-    {#each series.filter((s) => s.kind !== 'band') as s (s.name)}
+    {#each series as s (s.name)}
       <li>
         <svg width="18" height="12" aria-hidden="true">
-          {#if s.kind === 'line'}<line x1="0" x2="18" y1="6" y2="6" stroke={s.color} stroke-width="2" stroke-dasharray={s.dashed ? '4 3' : undefined} />{:else}{@render mark(s.shape, 9, 7, s.color)}{/if}
+          {#if s.kind === 'band'}<rect x="0" y="1" width="18" height="10" fill={s.color} opacity="0.3" />{:else if s.kind === 'line'}<line x1="0" x2="18" y1="6" y2="6" stroke={s.color} stroke-width="2" stroke-dasharray={s.dashed ? '4 3' : undefined} />{:else}{@render mark(s.shape, 9, 7, s.color)}{/if}
         </svg>{s.name}
       </li>
     {/each}
     {#if current}<li><svg width="18" height="14" aria-hidden="true"><circle cx="9" cy="7" r="5" fill="none" stroke="var(--fg, #fff)" stroke-width="2" /></svg>{current.label}</li>{/if}
   </ul>
+  <div class="sr-only">
+    {#each series as s (s.name)}
+      <table><caption>{s.name}</caption><thead><tr><th>{xLabel}</th><th>{yLabel}</th></tr></thead>
+        <tbody>{#each s.points as p, i (i)}<tr><td>{fmt(p.x, 4)}</td><td>{fmt(p.y, 4)}{#if p.lo !== undefined && p.hi !== undefined} ({fmt(p.lo, 4)} – {fmt(p.hi, 4)}){/if}</td></tr>{/each}</tbody>
+      </table>
+    {/each}
+  </div>
 </figure>
 
 <style>
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   .plot {
     width: 100%;
     margin: 0.5rem 0 1rem;

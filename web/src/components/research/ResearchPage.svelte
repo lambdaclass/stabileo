@@ -59,9 +59,9 @@
         'AT2 phase-field fracture run in the browser by a Rust re-implementation validated step by step against the author’s Python reference code.',
     },
     '/research/metamaterials/grossman-2026': {
-      title: 'Auxetic spring networks (Grossman & Boudaoud 2026) — Stabileo Research',
+      title: rs().springsTitle,
       description:
-        'Spring networks solved in the browser as trusses: the auxetic transition of a disordered lattice, a re-entrant honeycomb and ordered lattices, compared with the paper’s published values.',
+        rs().springsLead,
     },
     '/research/benchmarks/riks-crisfield': {
       title: 'Arc-length benchmarks: Riks and Crisfield — Stabileo Research',

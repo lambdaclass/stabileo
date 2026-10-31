@@ -26,6 +26,8 @@
     padding: 0;
     min-height: 44px;
     min-width: 44px;
+    display: inline-flex;
+    align-items: center;
     font: inherit;
     color: var(--lp-accent, #e5482a);
     text-decoration: underline dotted;

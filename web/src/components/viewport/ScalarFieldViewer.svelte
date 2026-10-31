@@ -351,7 +351,7 @@
             </div>
           {/if}
         </div>
-        <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')}>{projection === 'plan' ? '2D' : '3D'}</button>
+        <button class="sfv-mode" onclick={() => setProjection(projection === 'plan' ? 'orbit' : 'plan')} title={t('scalarViewer.switchProjection')} aria-label={t(projection === 'plan' ? 'scalarViewer.orbit' : 'scalarViewer.plan')}>{projection === 'plan' ? '2D' : '3D'}</button>
         <button class="sfv-mode" onclick={() => fit()} title={t('scalarViewer.fit')} aria-label={t('scalarViewer.fit')}>⤢</button>
       </div>
     </div>
@@ -384,6 +384,7 @@
   .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
   .sfv-editor { min-height: 44px; }
 
+  .sfv button { min-width: 44px; min-height: 44px; }
   .sfv-wrap {
     width: 100%;
     background: var(--st-surface, #0f1e2b);
@@ -483,6 +484,7 @@
     color: var(--st-text-2);
     font-size: max(12px, 0.75rem);
   }
+  .sfv-status :global(.status-value) { font-size: 12px; }
   .sfv-status {
     font-size: 0.75rem;
     flex-wrap: wrap;
