@@ -15,49 +15,87 @@ it('wires the prefetch action to the crawlable PublicLink anchor', () => {
 });
 
 it.each(['pointerenter', 'focus', 'touchstart'])('prefetches on %s, deduplicates, updates and cleans up', async event => {
-  const { prefetchPublicLink, loadPublicPage } = await import('../../../lib/public-navigation');
+  const { prefetchPublicLink } = await import('../../../lib/public-navigation');
   const anchor = new EventTarget();
   const action = prefetchPublicLink(anchor as HTMLAnchorElement, '/research');
+  anchor.dispatchEvent(new Event(event === 'focus' ? 'blur' : 'click'));
+  await vi.dynamicImportSettled();
   expect(research).not.toHaveBeenCalled();
   anchor.dispatchEvent(new Event(event));
-  await loadPublicPage('/research');
-  expect(research).toHaveBeenCalledTimes(1);
+  await vi.dynamicImportSettled();
+  expect(research).toHaveBeenCalledExactlyOnceWith('/research');
   anchor.dispatchEvent(new Event(event));
-  await loadPublicPage('/research');
-  expect(research).toHaveBeenCalledTimes(1);
+  await vi.dynamicImportSettled();
+  expect(research).toHaveBeenCalledOnce();
   action.update('/tools');
   anchor.dispatchEvent(new Event(event));
-  await loadPublicPage('/tools');
-  expect(tools).toHaveBeenCalledTimes(1);
+  await vi.dynamicImportSettled();
+  expect(tools).toHaveBeenCalledExactlyOnceWith('/tools');
   action.update('/research/unknown');
   action.destroy();
   anchor.dispatchEvent(new Event(event));
-  expect(research).toHaveBeenCalledTimes(1);
+  await vi.dynamicImportSettled();
+  expect(research).toHaveBeenCalledOnce();
 });
 
 it('honors saveData for speculative loads but still permits navigation', async () => {
   vi.stubGlobal('navigator', { connection: { saveData: true } });
-  const { prefetchPublicPage, idlePrefetchPublicPages, loadPublicPage } = await import('../../../lib/public-navigation');
-  prefetchPublicPage('/research');
-  idlePrefetchPublicPages();
+  const requestIdleCallback = vi.fn();
+  vi.stubGlobal('window', { requestIdleCallback, setTimeout: vi.fn() });
+  const { prefetchPublicLink, idlePrefetchPublicPages, loadPublicPage } = await import('../../../lib/public-navigation');
+  const anchor = new EventTarget();
+  prefetchPublicLink(anchor as HTMLAnchorElement, '/research');
+  anchor.dispatchEvent(new Event('pointerenter'));
+  expect(idlePrefetchPublicPages()).toBeUndefined();
+  expect(requestIdleCallback).not.toHaveBeenCalled();
+  await vi.dynamicImportSettled();
   expect(research).not.toHaveBeenCalled();
   await loadPublicPage('/research');
   expect(research).toHaveBeenCalledOnce();
 });
 
-it('warms both index chunks at idle and cancels on teardown', async () => {
+it('warms both index chunks only when the idle callback fires, and cancels on teardown', async () => {
   let idle: () => void = () => {};
   const cancel = vi.fn();
   vi.stubGlobal('window', { requestIdleCallback: vi.fn(fn => { idle = fn; return 42; }), cancelIdleCallback: cancel });
-  const { idlePrefetchPublicPages, loadPublicPage } = await import('../../../lib/public-navigation');
+  const { idlePrefetchPublicPages } = await import('../../../lib/public-navigation');
   const cleanup = idlePrefetchPublicPages();
+  await vi.dynamicImportSettled();
   expect(research).not.toHaveBeenCalled();
+  expect(tools).not.toHaveBeenCalled();
   idle();
-  await Promise.all([loadPublicPage('/research'), loadPublicPage('/tools')]);
+  await vi.dynamicImportSettled();
+  expect(research).toHaveBeenCalledExactlyOnceWith('/research');
+  expect(tools).toHaveBeenCalledExactlyOnceWith('/tools');
+  cleanup?.();
+  expect(cancel).toHaveBeenCalledWith(42);
+});
+
+it('falls back to a timer when requestIdleCallback is missing', async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('window', { setTimeout, clearTimeout });
+  const { idlePrefetchPublicPages } = await import('../../../lib/public-navigation');
+  const cleanup = idlePrefetchPublicPages();
+  await vi.dynamicImportSettled();
+  expect(research).not.toHaveBeenCalled();
+  vi.runAllTimers();
+  vi.useRealTimers();
+  await vi.dynamicImportSettled();
   expect(research).toHaveBeenCalledOnce();
   expect(tools).toHaveBeenCalledOnce();
   cleanup?.();
-  expect(cancel).toHaveBeenCalledWith(42);
+});
+
+it('a cancelled idle warm-up loads nothing', async () => {
+  vi.useFakeTimers();
+  vi.stubGlobal('window', { setTimeout, clearTimeout });
+  const { idlePrefetchPublicPages } = await import('../../../lib/public-navigation');
+  idlePrefetchPublicPages()?.();
+  vi.runAllTimers();
+  vi.useRealTimers();
+  await vi.dynamicImportSettled();
+  expect(research).not.toHaveBeenCalled();
+  expect(tools).not.toHaveBeenCalled();
 });
 
 it('retries failed prefetches', async () => {
