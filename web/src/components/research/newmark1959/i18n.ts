@@ -68,6 +68,6 @@ const pt: Strings = {
   displacement: 'Deslocamento axial', time: 'Tempo (s)', scaled: 'Deformação ×10; nó esquerdo fixo, nó direito guiado axialmente.', tryCoarse: 'Testar o maior passo de tempo', failure: 'O cálculo falhou; o resultado anterior foi mantido.', paper: 'O artigo descreve um procedimento de integração temporal para dinâmica estrutural. Aqui testamos sua especialização de aceleração média em um pequeno ensaio linear; não afirmamos reproduzir uma figura do artigo.', alt: 'Histórico de deslocamento axial da nossa execução de Newmark de produção',
 };
 export const translations = { en, es, pt };
-export const strings = () => translations[researchLocale() as keyof typeof translations];
+export const strings = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;
 export const fill = (template: string, values: Record<string, string>) =>
   template.replace(/\{(\w+)\}/g, (match, key: string) => values[key] ?? match);

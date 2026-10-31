@@ -6,7 +6,7 @@
   import { Playback, type Source } from '../shell/playback.svelte';
   import { num } from '../shell/format';
   import Sci from '../shell/Sci.svelte';
-  import { rs, researchLocale } from '../i18n';
+  import { rs, researchTextLocale } from '../i18n';
   import { projection, editorUrl, type Form } from './form';
   import frames from '../../../../../research/form-finding/pastrana-2026/results/stabileo_results.json';
   import validation from '../../../../../research/form-finding/pastrana-2026/VALIDATION.json';
@@ -66,7 +66,7 @@
   });
 </script>
 
-<div class="pastrana-page" lang={researchLocale()}>
+<div class="pastrana-page" lang={researchTextLocale()}>
 <ExperimentShell introInArticle={true} compactHeader={true} paperId="pastrana-2026" name={s.formTitle} lead={s.formLead} {checks}
   actions={{ goToStep: (i) => { stop(); live = null; source = 'replay'; playback.seek(i); }, setParams: () => restart(), showTab: () => {} }}
   referenceLabel={s.formCheckLabel}

@@ -10,6 +10,7 @@
    */
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicI18n } from '../../lib/i18n/store.svelte';
+  import { routeLocales } from './locales';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -72,7 +73,7 @@
 
   $effect(() => {
     const meta = route === '/research/benchmarks/cqc-1981' ? { title: cqcStrings().metaTitle, description: cqcStrings().metaDescription } : route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/optimization/andreassen-2011' ? { title: topoptStrings(publicI18n.locale).title, description: topoptStrings(publicI18n.locale).lead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/dadeppo-arch-1975' ? { title: `${archStringsFor(publicI18n.locale).title} — Stabileo Research`, description: archStringsFor(publicI18n.locale).hook } : route === '/research/benchmarks/navier-plate' ? { title: `${navierStrings(publicI18n.locale).title} — Stabileo Research`, description: navierStrings(publicI18n.locale).lead } : route === '/research/benchmarks/newmark-1959' ? { title: newmarkStrings().metaTitle, description: newmarkStrings().metaDescription } : route === '/research/benchmarks/macneal-harder-1985' ? { title: macnealStrings[macnealLocale(publicI18n.locale)].metaTitle, description: macnealStrings[macnealLocale(publicI18n.locale)].metaDescription } : route === '/research/benchmarks/plastic-collapse' ? { title: ps().metaTitle, description: ps().metaDescription } : PAGES[route];
-    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
+    if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route, written: routeLocales(route) });
     return () => restorePageMeta();
   });
   const s = $derived(rs());

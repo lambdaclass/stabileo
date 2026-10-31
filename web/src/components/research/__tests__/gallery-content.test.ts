@@ -26,7 +26,7 @@ it('renders citations without empty separators and descriptive leads for every l
   }
 });
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
-const SECOND_ROUND = new Set(['mattiasson-elastica', 'shauer-2025', 'grossman-2026', 'fairclough-2026', 'zmyslony-2026', 'pastrana-2026', 'riks-1979', 'horne-1979', 'macneal-harder-1985', 'cqc-1981', 'newmark-1959', 'navier-plate', 'dadeppo-arch-1975', 'lee-frame-1968', 'andreassen-2011']);
+const SECOND_ROUND = new Set(['mattiasson-elastica', 'ferrari-2025', 'shauer-2025', 'grossman-2026', 'fairclough-2026', 'zmyslony-2026', 'pastrana-2026', 'riks-1979', 'horne-1979', 'macneal-harder-1985', 'cqc-1981', 'newmark-1959', 'navier-plate', 'dadeppo-arch-1975', 'lee-frame-1968', 'andreassen-2011']);
 const ROUNDS: Record<string, number> = { 'mattiasson-elastica': 3 };
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
@@ -37,6 +37,11 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
   expect(citation(paper)).not.toMatch(/,\s*,/);
   expect(reviewCount(e.paperId)).toBe(ROUNDS[e.paperId] ?? (SECOND_ROUND.has(e.paperId) ? 2 : 1));
   expect(paper.reviews).toContainEqual({ round: 1, reviewers: ['codex', 'kimi'], date: '2026-10-30' });
+  if (SECOND_ROUND.has(e.paperId)) {
+    const second = (paper.reviews ?? []).filter(r => r.round === 2);
+    expect(second.every(r => r.date === '2026-10-30')).toBe(true);
+    expect(new Set(second.flatMap(r => r.reviewers ?? [r.reviewer]))).toEqual(new Set(['kimi', 'codex', 'claude']));
+  }
 });
 it('omits absent bibliographic fields without dangling separators', () => {
   expect(citation({ crossref: { title: 'Book', authors: [], venue: '', year: 1979 } })).toBe('1979');

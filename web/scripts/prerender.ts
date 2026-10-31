@@ -45,6 +45,7 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { declaredLocales } from './hreflang';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -128,8 +129,17 @@ const POST_DATE = new Map<string, string>();
 /** The languages always written; the others count for a post or standing page only once its translation file exists. */
 const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 
+/** A research route's languages, read from the hreflang set its English page declares (research/locales.ts). */
+const RESEARCH_WRITTEN = new Map<string, Locale[]>();
+const isResearch = (path: string) => path === '/research' || path.startsWith('/research/');
+
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
+  if (isResearch(path)) {
+    const written = RESEARCH_WRITTEN.get(path);
+    if (!written) throw new Error(`prerender: ${path} has not declared its languages yet`);
+    return written;
+  }
   if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
@@ -356,10 +366,8 @@ async function main() {
   const posts: PostHead[] = [];
 
   try {
-    const routes = LOCALES.flatMap(locale => paths.map(path => ({
-      locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
-    })));
-    const captures = await routePool(routes, concurrency,
+    const route = (locale: Locale, path: string) => ({ locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/` });
+    const render = (list: { locale: Locale; path: string; href: string }[]) => routePool(list, concurrency,
       () => newCapturePage(browser), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
@@ -370,6 +378,19 @@ async function main() {
         await writeFile(out, page(head, body, lang));
         return { head, href };
       });
+    // Research pages exist only in the languages their English capture declares in its hreflang set.
+    const english = paths.filter(isResearch).map((path) => route('en', path));
+    const englishCaptures = await render(english);
+    for (const [index, { head, href }] of englishCaptures.entries()) {
+      const written = declaredLocales(head, LOCALES);
+      if (!written.includes('en')) throw new Error(`prerender: ${href} declares no hreflang set including itself`);
+      RESEARCH_WRITTEN.set(english[index].path, written);
+    }
+    const rest = LOCALES.flatMap((locale) => paths
+      .filter((path) => !isResearch(path) || (locale !== 'en' && writtenIn(path).includes(locale)))
+      .map((path) => route(locale, path)));
+    const routes = [...english, ...rest];
+    const captures = [...englishCaptures, ...await render(rest)];
     // Pool results retain the original route order, including feed date ties.
     // The sitemap below likewise uses paths/locales, never completion order.
     for (const [index, { head, href }] of captures.entries()) {

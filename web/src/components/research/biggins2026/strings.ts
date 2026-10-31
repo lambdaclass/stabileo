@@ -180,5 +180,5 @@ const tr: Strings = {
     "Euler f1 relative error": "İkinci Euler yükü"
   }
 };
-const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
+export const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
 export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

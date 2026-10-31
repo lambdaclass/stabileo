@@ -54,3 +54,28 @@ it('preserves topology article numbers and translates every research string', ()
   }
   expect(topoptStrings('de')).not.toBe(english);
 });
+
+it('formats numbers in all six public locales', async () => {
+  const { researchLocale } = await import('../i18n');
+  const original = publicI18n.locale;
+  try {
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      setLocale(locale);
+      expect(researchLocale()).toBe(locale);
+      expect(new Intl.NumberFormat(researchLocale()).format(2.4313)).toBe(new Intl.NumberFormat(locale).format(2.4313));
+    }
+  } finally { setLocale(original); }
+});
+
+it('publishes each research route only in the locales its own dictionary defines', async () => {
+  const { routeLocales, supportsResearchRoute, researchRoutes } = await import('../locales');
+  const { EXPERIMENTS } = await import('../experiments');
+  expect(routeLocales('/research')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr']);
+  expect(supportsResearchRoute('/research/stability/ferrari-sigmund-2025', 'de')).toBe(false);
+  expect(routeLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt']);
+  expect(supportsResearchRoute('/research/benchmarks/navier-plate', 'de')).toBe(true);
+  expect(supportsResearchRoute('/research/benchmarks/navier-plate/', 'de')).toBe(true);
+  expect(routeLocales('/research/unknown-paper')).toEqual(['en']);
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) expect(supportsResearchRoute('/tools', locale)).toBe(true);
+  expect(researchRoutes().sort()).toEqual(['/research', ...EXPERIMENTS.map(e => e.path)].sort());
+});
