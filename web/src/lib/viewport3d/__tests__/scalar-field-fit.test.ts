@@ -22,7 +22,7 @@ it.each([[0, 0], [0, 400], [600, 0]])('defers fitting a hidden %s×%s container 
   const api = runInNewContext(`let pendingFit = true; let zoomText = ''; ${js}; ({ fit, resize })`, {
     THREE, camera, container, controls, renderer: { setSize }, field: null,
     bounds: () => [-0.5, -0.5, 0.5, 0.5], projection: 'plan', invalidate: vi.fn(),
-    scalarFieldScale: () => '',
+    scalarFieldScale: () => '', lengthUnit: undefined,
   }) as { fit(): void; resize(): void };
   api.fit();
   expect(camera.position.toArray()).toEqual([0, 0, 0]);
@@ -51,7 +51,7 @@ it('fits displaced corners at the chosen scale and preserves explicit cropping',
     THREE, camera, container: { clientWidth: 600, clientHeight: 400 },
     controls: { target: new THREE.Vector3(), enableRotate: true }, renderer: {},
     xy: [0, 0, 1, 1], displacement: [-3, -2, 4, 5], deformScale: 2,
-    view: null as number[] | null, projection: 'plan', invalidate: vi.fn(), scalarFieldScale: () => '',
+    view: null as number[] | null, projection: 'plan', invalidate: vi.fn(), scalarFieldScale: () => '', lengthUnit: undefined,
   };
   const api = runInNewContext(`let pendingFit = false; let zoomText = ''; ${boundsJs}; ${js}; ({ fit, bounds })`, context);
   expect(api.bounds()).toEqual([-6, -4, 9, 11]);

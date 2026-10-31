@@ -8,7 +8,6 @@ import { bibliography, citation } from '../catalogue';
 import { reviewCount, reviewLabel } from '../reviews';
 import { rs } from '../i18n';
 
-const SECOND_ROUND = new Set(['horne-1979']);
 const original = publicI18n.locale;
 afterEach(() => setLocale(original));
 it('renders citations without empty separators and descriptive leads for every live card', () => {
@@ -27,7 +26,7 @@ it('renders citations without empty separators and descriptive leads for every l
   }
 });
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
-const SECOND_ROUND = new Set(['mattiasson-elastica']);
+const SECOND_ROUND = new Set(['mattiasson-elastica', 'horne-1979']);
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
