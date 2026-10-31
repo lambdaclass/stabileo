@@ -115,3 +115,13 @@ it('keeps a selected sample while live worker frames continue arriving', () => {
   p.setCount(2);
   expect(p.shown).toBe(1);
 });
+
+it('allows seeking while a run is active and retains completed steps after cancellation', () => {
+  const p = new Playback();
+  p.setCount(20);
+  p.seek(8); expect(p.shown).toBe(8);
+  p.pause(); p.setCount(4);
+  p.seek(2); expect(p.shown).toBe(2);
+  p.play(); expect(p.playing).toBe(true);
+  p.dispose();
+});
