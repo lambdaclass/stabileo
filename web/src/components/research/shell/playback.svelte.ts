@@ -23,7 +23,7 @@ export class Playback {
   private count = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private loop = true;
-  constructor(private stepMs = 110, private holdMs = 2000) {}
+  constructor(public stepMs = 110, private holdMs = 2000) {}
 
   /** Tell the playback how many steps there are now. */
   setCount(n: number) {

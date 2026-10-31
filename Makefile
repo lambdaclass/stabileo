@@ -175,7 +175,7 @@ routes:
 
 test: test.engine test.backend test.web
 
-.PHONY: audit.810 audit.810.run test.engine.targeted
+.PHONY: audit.810 audit.810.run test.engine.targeted research.newmark.replay
 
 audit.810:
 	$(NIX_RUN) python3 docs/audits/810-reproduce.py $(MODES)
@@ -185,6 +185,11 @@ audit.810.run:
 
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture
+
+NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
+research.newmark.replay:
+	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
+		$(MAKE) test.engine.targeted TEST=integration FILTER=newmark_1959
 
 test.engine.benchmark-protocol:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test validation $(or $(FILTER),benchmark_protocol) -- --nocapture --test-threads=2

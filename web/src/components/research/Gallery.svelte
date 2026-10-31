@@ -81,7 +81,7 @@
         <li class="rs-g-runcard">
           <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}>
             {#if e.thumbnail && !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.thumbnailAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.paperId === "newmark-1959" ? nm.alt : e.thumbnailAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}

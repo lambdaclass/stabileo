@@ -37,8 +37,9 @@
     compactHeader?: boolean;
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
+    citeAs?: 'reproduction' | 'benchmark';
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true, citeAs = 'reproduction' }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -76,7 +77,7 @@
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
         <p class="rs-citebox">
-          {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
+          {s.citationTitle}{name}{citeAs === 'benchmark' ? s.benchmarkAfter : s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
       <aside class="rs-shell-app" aria-label={s.theExperiment}>
@@ -108,6 +109,10 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 500px) {
+    .rs-shell-head.rs-compact { margin-bottom: 0.75rem; }
+    .rs-compact h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
   }
   .rs-crumb,
   .rs-cite {
