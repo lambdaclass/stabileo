@@ -1833,3 +1833,5 @@ export const statusName = (s: string) => STATUS_NAMES[publicI18n.locale]?.[s] ??
 
 /** Numeric formatting follows the visitor’s locale, including untranslated routes. */
 export const researchLocale = () => publicI18n.locale;
+/** The language of the research copy itself, for `lang` attributes: untranslated locales show English. */
+export const researchTextLocale = () => (publicI18n.locale in STRINGS ? publicI18n.locale : 'en');

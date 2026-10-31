@@ -9,7 +9,7 @@
   import { snapshots } from './reference-fields';
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
-  import { rs, researchLocale } from '../i18n';
+  import { rs, researchTextLocale } from '../i18n';
   import { solverStepCount } from './steps';
   import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
@@ -410,7 +410,7 @@
   {/snippet}
 
   {#snippet app()}
-    <div class="rs-app" lang={researchLocale()} bind:this={pane} data-steps={frames.length} data-source={source}>
+    <div class="rs-app" lang={researchTextLocale()} bind:this={pane} data-steps={frames.length} data-source={source}>
       <p class="rs-mode" data-testid="rs-mode"><span class="dot dot-{source}"></span>{source === 'replay' ? strings.replaySource : source === 'live' ? strings.liveSource : strings.cachedSource}</p>
       {#if comparison?.matches && (!run || run.status === 'done')}
         <p class="rs-compare-line" role="status">

@@ -1,6 +1,11 @@
 import { test, expect, type Page } from '@playwright/test';
 import replay from '../../research/stability/ferrari-sigmund-2025/results/stabileo_results.json' with { type: 'json' };
 
+const disclaimer: Record<string, string> = {
+  en: 'Research, not a design tool.',
+  es: 'Investigación, no una herramienta de diseño.',
+  pt: 'Pesquisa, não uma ferramenta de projeto.',
+};
 const canvas = (page: Page) => page.locator('.sfv-canvas canvas');
 async function expectFrame(page: Page, displacement: number[]) {
   // These diagnostics are written only after a WebGL render: fat frame lines submit triangles.
@@ -87,6 +92,13 @@ test.describe('Ferrari research', () => {
           await expect(control).toBeInViewport({ ratio: 1 });
         }
         await expect(canvas(page)).toBeInViewport({ ratio: 0.5 });
+        await expect(experiment.getByText(disclaimer[locale], { exact: true })).toBeInViewport();
+        const run = await experiment.locator('.run').boundingBox();
+        const view = await canvas(page).boundingBox();
+        expect(run && view).toBeTruthy();
+        const overlap = Math.max(0, Math.min(run!.x + run!.width, view!.x + view!.width) - Math.max(run!.x, view!.x))
+          * Math.max(0, Math.min(run!.y + run!.height, view!.y + view!.height) - Math.max(run!.y, view!.y));
+        expect(overlap).toBe(0);
         const content = page.locator('.ferrari-page');
         async function checkTargetsAndText() {
           const violations = await content.evaluate(root => {

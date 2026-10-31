@@ -36,6 +36,7 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
   expect(citation(paper)).not.toMatch(/,\s*,/);
   expect(reviewCount(e.paperId)).toBe(SECOND_ROUND.has(e.paperId) ? 2 : 1);
   expect(paper.reviews).toContainEqual({ round: 1, reviewers: ['codex', 'kimi'], date: '2026-10-30' });
+  if (SECOND_ROUND.has(e.paperId)) expect(paper.reviews).toContainEqual({ round: 2, reviewers: ['kimi', 'codex', 'claude'], date: '2026-10-30' });
 });
 it('omits absent bibliographic fields without dangling separators', () => {
   expect(citation({ crossref: { title: 'Book', authors: [], venue: '', year: 1979 } })).toBe('1979');
