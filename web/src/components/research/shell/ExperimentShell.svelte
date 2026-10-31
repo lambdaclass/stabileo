@@ -3,7 +3,7 @@
    * The page of one runnable paper: a header, then two panes. Left, the article (our words: what
    * the paper shows, the model, how we reproduced it, the comparison, limitations, Cite this).
    * Right, sticky, the app: Stabileo's viewer, the controls, the step player, the plots. On narrow
-   * screens the article comes first and the app follows. Badges come from the catalogue, whose
+   * screens the app comes first and the article follows. Badges come from the catalogue, whose
    * statuses CI derives from evidence files.
    */
   import { bibliography } from '../catalogue';
@@ -110,6 +110,11 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 30rem) and (orientation: landscape) {
+    .sec.rs-shell { padding-top: 1rem; }
+    .rs-shell-head { margin-bottom: 0.5rem; }
+    .rs-shell-head h1 { font-size: 1.5rem; max-width: none; margin: 0.15rem 0 0.25rem; }
   }
   .rs-crumb,
   .rs-cite {

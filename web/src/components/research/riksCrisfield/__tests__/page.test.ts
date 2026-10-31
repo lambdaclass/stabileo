@@ -1,18 +1,24 @@
-import { expect, it } from 'vitest';
+import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import Page from '../RiksCrisfieldPage.svelte';
 import Chart from '../PathChart.svelte';
 import { articleStrings, translations } from '../article';
-import { publicI18n } from '../../../../lib/i18n/store.svelte';
+import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
+
+const original = publicI18n.locale;
+afterEach(() => setLocale(original));
 
 it.each(['en','es','pt','de','fr','tr'] as const)('renders the complete %s page with an honest reference scope', locale => {
-  publicI18n.locale = locale;
+  setLocale(locale);
   const copy = articleStrings(locale);
   const { body } = render(Page);
   expect(body).toContain(copy.arcLengthSnapThroughRiksAndCrisfield);
   expect(body).toContain(copy.scopeText);
   expect(body).toContain(copy.limitHeadline);
-  expect(body).toContain(copy.citationRelation);
+  expect(body).toContain(`${copy.arcLengthSnapThroughRiksAndCrisfield}${copy.citationRelation} `);
+  expect(body).toContain('https://doi.org/10.1016/0020-7683(79)90081-7');
+  expect(body).toContain('https://doi.org/10.1016/0045-7949(81)90108-5');
+  expect(body.match(/<td class="pass[ "]/g)).toHaveLength(6);
   expect(body).toContain(`lang="${locale}"`);
   expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
   expect(body).not.toMatch(/Questions for the authors|Not compared:|full text|pending|provisional/);

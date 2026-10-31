@@ -2,7 +2,7 @@
 
 These are production-solver method benchmarks against analytical equilibrium and native/WASM
 parity, not reproductions of numerical examples in Riks (1979) or Crisfield (1981). The page
-states this comparison directly; it has no pending paper-comparison badge or author questions.
+states this comparison directly.
 The derivations are in [BENCHMARK_REFERENCES.md](../../../engine/tests/BENCHMARK_REFERENCES.md).
 
 ## Models and references
@@ -61,13 +61,13 @@ iteration count, convergence flag, peak and residual against the committed evide
 ## Reproduce and verify
 
 ```sh
-CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-riks-crisfield-target CARGO_BUILD_JOBS=4 \
-  cargo run --release --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- generate
-CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-riks-crisfield-target CARGO_BUILD_JOBS=4 \
-  cargo run --release --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
-CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-riks-crisfield-target CARGO_BUILD_JOBS=4 \
-  cargo test --release --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml
-node research/numerical-methods/riks-crisfield/wasm/check.mjs web/src/lib/wasm \
+nix develop -c cargo run --release --locked \
+  --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- generate
+nix develop -c cargo run --release --locked \
+  --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
+nix develop -c cargo test --release \
+  --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml
+nix develop -c node research/numerical-methods/riks-crisfield/wasm/check.mjs web/src/lib/wasm \
   research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json \
   research/numerical-methods/riks-crisfield/reference-results/native-results.json
 ```
@@ -82,11 +82,15 @@ and convergence flags match exactly. No tolerance was loosened.
 
 ## Review record
 
-Round 2: kimi, codex, claude, 2026-10-30. Confirmed findings addressed in the page, research
-harness, native evidence, component tests and browser specification. Rejected findings remain
-rejected. Playwright specifications require execution in a browser-capable environment.
+Round 1: codex, kimi. Round 2: kimi, codex, claude, 2026-10-30. Confirmed findings are addressed
+in the page, research harness, native evidence, component tests and the Playwright specification
+(`web/e2e/research-riks.spec.ts`, including phone and tablet layouts and all six locales).
+Rejected findings remain rejected.
 
 ## Open questions
 
-No author questions were present on this page. Published example reproduction is outside the
-claim: the actual references are the analytical equilibria above and production native output.
+- Reproduce a numerical example from Riks (1979) or Crisfield (1981) against its published
+  values. The page currently states what it is compared with instead: the analytical equilibria
+  above and the production native output.
+- Extend the von Mises run through inversion and the lower limit point, or add the truss case in
+  `engine/tests/BENCHMARK_REFERENCES.md` that crosses both limits.

@@ -136,7 +136,7 @@ export const EXPERIMENTS: Experiment[] = [
   {
     paperId: 'riks-1979',
     path: '/research/benchmarks/riks-crisfield',
-    name: 'Arc-length snap-through: Riks and Crisfield',
+    name: 'Arc-length benchmarks: Riks and Crisfield',
     hook: 'Compare two-bar frame equilibrium paths with analytical references; the slender von Mises case passes its upper limit point.',
     thumbnail: 'research-thumbs/riks-crisfield.webp',
     thumbnailAlt: 'Two-bar benchmark geometry and computed displacement',

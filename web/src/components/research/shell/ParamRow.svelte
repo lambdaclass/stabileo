@@ -1,6 +1,7 @@
 <script lang="ts">
   /** One parameter: its name and symbol, the field, the unit, and its allowed range below. */
   import type { Snippet } from 'svelte';
+  import { rs } from '../i18n';
   let { id, name, unit = '', hint = '', invalid = false, symbol, children }: { id: string; name: string; unit?: string; hint?: string; invalid?: boolean; symbol?: Snippet; children: Snippet } = $props();
 </script>
 
@@ -8,7 +9,7 @@
   <label for={id}><span class="rs-param-name">{name}</span>{#if symbol} {@render symbol()}{/if}</label>
   <div class="rs-param-field">{@render children()}</div>
   <span class="rs-param-unit">{unit}</span>
-  {#if hint}<p id="{id}-hint" class="rs-param-hint">{hint}</p>{/if}
+  {#if hint}<p id="{id}-hint" class="rs-param-hint">{invalid ? `${rs().mustBe} ${hint}` : hint}</p>{/if}
 </div>
 
 <style>

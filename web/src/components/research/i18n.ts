@@ -420,6 +420,7 @@ export type ResearchStrings = {
   theExperiment: string;
   experiment: string;
   viewerUnavailable: string;
+  mustBe: string;
   sourceLabel: Record<'crossref-abstract' | 'publisher-abstract' | 'repository-readme' | 'full-text' | 'reference-code', string>;
   resetParameters: string;
   summaryIntro: string;
@@ -869,6 +870,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     theExperiment: "The experiment",
     experiment: "Experiment",
     viewerUnavailable: "Stabileo’s viewer couldn’t be loaded in this build.",
+    mustBe: "Must be",
     resetParameters: 'Reset to the reference-code parameters',
     sourceLabel: { 'crossref-abstract': 'from the abstract', 'publisher-abstract': 'from the abstract', 'repository-readme': 'from the code’s README', 'full-text': 'from the paper', 'reference-code': 'from the reference code' },
     summaryIntro: 'Summary in our words,',
@@ -1321,6 +1323,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     theExperiment: "El experimento",
     experiment: "Experimento",
     viewerUnavailable: "No se pudo cargar el visor de Stabileo en esta compilación.",
+    mustBe: "Debe estar entre",
     resetParameters: 'Restablecer los parámetros del código de referencia',
     sourceLabel: { 'crossref-abstract': 'a partir del resumen', 'publisher-abstract': 'a partir del resumen', 'repository-readme': 'a partir del README del código', 'full-text': 'a partir del artículo', 'reference-code': 'a partir del código de referencia' },
     summaryIntro: 'Resumen en nuestras palabras,',
@@ -1773,6 +1776,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     theExperiment: "O experimento",
     experiment: "Experimento",
     viewerUnavailable: "Não foi possível carregar o visualizador do Stabileo nesta compilação.",
+    mustBe: "Deve estar entre",
     resetParameters: 'Restaurar os parâmetros do código de referência',
     sourceLabel: { 'crossref-abstract': 'a partir do resumo', 'publisher-abstract': 'a partir do resumo', 'repository-readme': 'a partir do README do código', 'full-text': 'a partir do artigo', 'reference-code': 'a partir do código de referência' },
     summaryIntro: 'Resumo em nossas palavras,',
@@ -1830,6 +1834,7 @@ const SHELL_TRANSLATIONS = {
     "seeChecks": "Prüfungen ansehen",
     "disclaimer": "Forschung, kein Bemessungswerkzeug.",
     "viewerUnavailable": "Die Ansicht konnte nicht geladen werden.",
+    "mustBe": "Zulässig:",
     "benchmark": {
       "viewer": "Ansicht",
       "path": "Lastpfad",
@@ -1871,6 +1876,7 @@ const SHELL_TRANSLATIONS = {
     "seeChecks": "voir les vérifications",
     "disclaimer": "Recherche, pas un outil de dimensionnement.",
     "viewerUnavailable": "Le visualiseur n’a pas pu être chargé.",
+    "mustBe": "Valeurs admises :",
     "benchmark": {
       "viewer": "Vue",
       "path": "Chemin",
@@ -1912,6 +1918,7 @@ const SHELL_TRANSLATIONS = {
     "seeChecks": "kontrolleri gör",
     "disclaimer": "Araştırmadır, tasarım aracı değildir.",
     "viewerUnavailable": "Görüntüleyici yüklenemedi.",
+    "mustBe": "İzin verilen:",
     "benchmark": {
       "viewer": "Görünüm",
       "path": "Yol",

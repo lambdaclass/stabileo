@@ -5,7 +5,6 @@
   import { onDestroy, onMount } from 'svelte';
   import caseJson from '../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
-  import ExperimentLink from '../shell/ExperimentLink.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import PaneTabs from '../shell/PaneTabs.svelte';
   import ParamRow from '../shell/ParamRow.svelte';
@@ -15,7 +14,7 @@
   import { num, qty } from '../shell/format';
   import { rs } from '../i18n';
   import PathChart, { type LimitMarker, type PathSeries } from './PathChart.svelte';
-  import { compareFrameRun, frameReferenceLoadAt, compareRun, interpolatedLimit, DEFAULT_PARAMETERS, inputFor, limitPoint, measuredLimitFrame, referencePath, type BenchmarkRun, type CaseFile, type RunParameters } from './benchmark';
+  import { compareFrameRun, frameReferenceLoadAt, compareRun, interpolatedLimit, DEFAULT_PARAMETERS, inputFor, limitPoint, referencePath, type BenchmarkRun, type CaseFile, type RunParameters } from './benchmark';
   import { nativeReplay } from './replay';
   import { ArcRunner } from './runner.svelte';
   import { editorSnapshot } from './editor';
@@ -115,6 +114,12 @@
     return markers;
   });
 
+  function checkLabel(id: string) {
+    return id === 'limit-load' ? copy.limitLoad : id === 'limit-displacement' ? copy.limitDisplacement : copy.pathError;
+  }
+    function parameterEdited(event: Event) {
+    if ((event.target as HTMLElement).id !== 'p-case') scheduleLive();
+  }
   function scheduleLive() {
     playback.interact();
     clearTimeout(runTimer);
@@ -178,7 +183,7 @@
   contentLocale={publicI18n.locale}
   verification={{ reference: { kind: 'checks', ...checkCount, href: '#checks' }, published: { kind: 'none', why: copy.scopeText } }}
   name={copy.arcLengthSnapThroughRiksAndCrisfield}
-  lead={copy.twoBarEquilibriumPathsWithTheProduction}
+  lead={copy.lead}
   checks={checkCount}
   referenceLabel={strings.againstBenchmark}
   {actions}
@@ -186,9 +191,16 @@
 >
   {#snippet article()}
     <h2>{copy.method}</h2><p>{copy.methodText}</p>
+    <p>{copy.papersBefore}<a href="https://doi.org/10.1016/0020-7683(79)90081-7" rel="noreferrer" target="_blank">{copy.riksTitle}</a>{copy.papersBetween}<a href="https://doi.org/10.1016/0045-7949(81)90108-5" rel="noreferrer" target="_blank">{copy.crisfieldTitle}</a>{copy.papersAfter}</p>
     <h2>{copy.models}</h2><p>{copy.modelsText}</p>
     <p>{copy.formula}</p>
     <h2 id="checks">{copy.comparison}</h2><p>{headline}</p>
+    <div class="rs-table-scroll" role="region" aria-label={copy.benchmarkChecks}>
+      <table class="rs-checks">
+        <thead><tr><th>{copy.check}</th><th class="num">{strings.benchmark.error}</th><th class="num">{copy.tolerance}</th><th>{strings.benchmark.result}</th></tr></thead>
+        <tbody>{#each checks as check (check.id)}<tr><td>{checkLabel(check.id)}</td><td class="num">{#if Number.isFinite(check.error)}<Sci value={check.error} />{:else}{copy.notEvaluated}{/if}</td><td class="num"><Sci value={check.tolerance} sig={1} /></td><td class={check.passed ? 'pass' : 'fail'}>{check.passed ? copy.pass : check.reached ? copy.fail : copy.notEvaluated}</td></tr>{/each}</tbody>
+      </table>
+    </div>
     <p>{copy.accuracy}</p>
     <h2>{copy.scope}</h2><p>{copy.scopeText}</p>
     <p>{copy.isolation}</p>
@@ -234,13 +246,13 @@
         <div class="rs-table-scroll" role="region" aria-label={copy.referenceAndStabileoComparisonValues}>
           <table>
             <thead><tr><th>{copy.check}</th><th class="num">{strings.benchmark.reference}</th><th class="num">{strings.benchmark.stabileo}</th><th class="num">{strings.benchmark.error}</th><th>{strings.benchmark.result}</th></tr></thead>
-            <tbody>{#each checks as check (check.id)}<tr><td>{check.id === 'limit-load' ? copy.limitLoad : check.id === 'limit-displacement' ? copy.limitDisplacement : copy.pathError}</td><td class="num">{check.id === 'equilibrium-path' ? '0' : num(check.reference, { sig: 6 })}</td><td class="num">{Number.isNaN(check.observed) ? '—' : num(check.observed, { sig: 6 })}</td><td class="num">{Number.isFinite(check.error) ? `${num(check.error * 100, { sig: 3 })}%` : copy.notEvaluated}</td><td class={check.passed ? 'pass' : 'fail'}>{check.passed ? copy.pass : check.reached ? copy.fail : copy.notEvaluated}</td></tr>{/each}</tbody>
+            <tbody>{#each checks as check (check.id)}<tr><td>{checkLabel(check.id)}</td><td class="num">{check.id === 'equilibrium-path' ? '0' : num(check.reference, { sig: 6 })}</td><td class="num">{Number.isNaN(check.observed) ? '—' : num(check.observed, { sig: 6 })}</td><td class="num">{Number.isFinite(check.error) ? `${num(check.error * 100, { sig: 3 })}%` : copy.notEvaluated}</td><td class={check.passed ? 'pass' : 'fail'}>{check.passed ? copy.pass : check.reached ? copy.fail : copy.notEvaluated}</td></tr>{/each}</tbody>
           </table>
         </div>
         <p class="rs-note">{live && runner.status !== 'done' ? copy.partial : ''} {shown.totalIterations}{copy.totalNewtonIterations}{frames.length}{copy.convergedPathPointsFinalLoadFactor}{num(shown.finalLoadFactor, { sig: 7 })}{copy.solverConvergedFlag}{shown.converged ? copy.yes : copy.no}.</p>
       </div>
 
-      <div class="rs-panel rs-params" id="rs-panel-parameters" role="tabpanel" aria-labelledby="rs-tab-parameters" hidden={tab !== 'parameters'} oninputcapture={scheduleLive} onchangecapture={scheduleLive}>
+      <div class="rs-panel rs-params" id="rs-panel-parameters" role="tabpanel" aria-labelledby="rs-tab-parameters" hidden={tab !== 'parameters'} oninputcapture={parameterEdited} onchangecapture={parameterEdited}>
         <ParamRow id="p-case" name={strings.benchmark.case}>
           <select id="p-case" value={caseId} onchange={(event) => selectCase((event.currentTarget as HTMLSelectElement).value)}>
             {#each data.cases as c (c.id)}<option value={c.id}>{c.id === 'shallow-toggle' ? copy.shallowCase : copy.vonMisesCase}</option>{/each}
@@ -266,8 +278,7 @@
           {#if live}<button class="btn btn-ghost btn-sm" type="button" onclick={backToReplay}>{strings.benchmark.backToReplay}</button>{/if}
           <button class="btn btn-ghost btn-sm" type="button" onclick={reset}>{strings.benchmark.reset}</button>
         </div>
-        <p class="rs-status" aria-live="polite">{copy[runner.status]}</p>
-
+        <p class="rs-status" aria-live="polite">{copy[runner.status]}{#if runner.status === 'error' && runner.error} <span class="fail">{runner.error}</span>{/if}</p>
       </div>
 
       {#if frames.length}
@@ -317,4 +328,5 @@
   .rs-app :global(.rs-param) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .rs-app :global(.rs-param-unit) { display: none; }
   .rs-app :global(td), .rs-app :global(th) { white-space: normal; overflow-wrap: anywhere; }
+  .rs-app :global(.status-value), .rs-app :global(.status-label) { font-size: 12px; }
 </style>
