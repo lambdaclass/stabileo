@@ -1,14 +1,18 @@
 import data from '../../../../../engine/tests/benchmarks/mattiasson_elastica.json';
 import type { SolverInput } from '../../../lib/engine/types';
+import { BUILD_COMMIT } from '../../../lib/build-info';
 
 export const cases = data.cases;
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
+export const meshErrorCeilings = data.meshErrorCeilings;
+export const axialExtensionBound = data.axialExtensionBound;
 export type Case = typeof cases[number];
 export type Displacement = { nodeId: number; ux: number; uz: number; ry: number };
 export type Output = { converged: boolean; loadFactor: number; results: { displacements: Displacement[] } };
 export type Result = { id: string; u: number | null; v: number | null; errors: number[] | null; pass: boolean | null; failure?: string; displacement?: Displacement[] };
 export const issue = 'https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#mattiasson-reference-and-accuracy';
+export const evidence = `https://github.com/lambdaclass/stabileo/blob/${BUILD_COMMIT === 'dev' ? 'main' : BUILD_COMMIT}/research/benchmarks/mattiasson-elastica/README.md`;
 
 export function inputFor(c: Case): SolverInput {
   return { ...c.input, ...Object.fromEntries(['nodes', 'materials', 'sections', 'elements', 'supports', 'connectors'].map(key => [key, new Map(Object.entries(c.input[key as keyof typeof c.input]).map(([id, value]) => [Number(id), value]))])) } as unknown as SolverInput;

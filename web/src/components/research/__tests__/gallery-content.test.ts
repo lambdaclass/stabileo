@@ -5,7 +5,7 @@ import { publicI18n, setLocale } from '../../../lib/i18n/store.svelte';
 import { EXPERIMENTS } from '../experiments';
 import catalog from '../../../../../research/papers.json';
 import { bibliography, citation } from '../catalogue';
-import { reviewCount, reviewLabel } from '../reviews';
+import { finalReview, reviewCount, reviewLabel } from '../reviews';
 import { rs } from '../i18n';
 
 const original = publicI18n.locale;
@@ -25,8 +25,7 @@ it('renders citations without empty separators and descriptive leads for every l
     }
   }
 });
-/** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
-const SECOND_ROUND = new Set(['mattiasson-elastica']);
+const ROUNDS: Record<string, number> = { 'mattiasson-elastica': 3 };
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
@@ -34,7 +33,7 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
   expect(b.venue.trim()).not.toBe('');
   expect(b.year).toBeGreaterThan(1800);
   expect(citation(paper)).not.toMatch(/,\s*,/);
-  expect(reviewCount(e.paperId)).toBe(SECOND_ROUND.has(e.paperId) ? 2 : 1);
+  expect(reviewCount(e.paperId)).toBe(ROUNDS[e.paperId] ?? 1);
   expect(paper.reviews).toContainEqual({ round: 1, reviewers: ['codex', 'kimi'], date: '2026-10-30' });
 });
 it('omits absent bibliographic fields without dangling separators', () => {
@@ -51,4 +50,20 @@ it('translates the gallery scope and review labels in all six locales', () => {
     expect(reviewLabel('tools-batch-2', locale)).toContain('1');
   }
   expect(titles.size).toBe(6);
+});
+it('shows the first-version review note on a card unless the catalogue marks its final review', () => {
+  expect(finalReview('mattiasson-elastica')).toBe(true);
+  expect(EXPERIMENTS.some(e => !finalReview(e.paperId))).toBe(true);
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    setLocale(locale);
+    const { body } = render(Gallery);
+    const cards = [...body.matchAll(/<li class="rs-g-runcard[^>]*>([\s\S]*?)<\/li>/g)].map(m => m[1]);
+    for (const e of EXPERIMENTS) {
+      const card = cards.find(c => [...c.matchAll(/href="([^"]*)"/g)].some(m => m[1].replace(/\/$/, '').endsWith(e.path)));
+      expect(card, e.paperId).toBeDefined();
+      const note = card!.match(/<span class="rs-g-status rs-g-first[^>]*>([\s\S]*?)<\/span>/);
+      if (finalReview(e.paperId)) expect(note, e.paperId).toBeNull();
+      else expect(note![1].replace(/<[^>]*>|<!--[^>]*-->/g, ''), e.paperId).toContain(reviewLabel(e.paperId, locale));
+    }
+  }
 });

@@ -12,3 +12,7 @@ export function reviewLabel(id: string, locale: string): string {
   const s = galleryStrings[locale] ?? galleryStrings.en;
   return (count === 1 ? s.reviewOne : s.reviewMany).replace('{count}', String(count));
 }
+export function finalReview(id: string): boolean {
+  const entry = catalog.papers.find(p => p.id === id) ?? tools.batches.find(b => b.id === id);
+  return Boolean(entry && 'final_review' in entry && entry.final_review === true);
+}

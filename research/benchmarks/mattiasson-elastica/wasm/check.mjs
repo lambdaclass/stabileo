@@ -21,6 +21,9 @@ try {
     catch { ref = { pass: false, failure: true }; }
     const row = rows.find(r => r.id === c.id);
     const stored = evidence.cases.find(r => r.id === c.id);
+    assert.ok(!raw.failure && raw.result.converged === true && raw.result.loadFactor === 1, `${c.id}: native solve did not reach full load`);
+    assert.ok(row && !row.failure, `${c.id}: WASM solve did not reach full load`);
+    assert.equal(row.pass, c.reference ? true : null, `${c.id}: classification`);
     assert.ok(stored, `${c.id}: missing evidence`);
     assert.deepEqual(stored.reference, c.reference);
     assert.equal(stored.source, c.source);

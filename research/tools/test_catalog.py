@@ -140,6 +140,8 @@ def main():
         "summary from reference code": lambda p: p.update(summary="unsupported summary", summary_source="reference-code"),
         "summary from memory": lambda p: p.update(summary="unsupported summary", summary_source="title and prior knowledge"),
         "summary without source": lambda p: p.update(summary="unsupported summary", summary_source=None),
+        "non-boolean final review": lambda p: p.update(final_review="yes"),
+        "final review without a numbered round": lambda p: p.update(final_review=True, reviews=[]),
     }
     if online:
         cases["wrong year"] = lambda p: p["crossref"].update(year=1999)

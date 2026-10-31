@@ -38,7 +38,8 @@ test.describe('@smoke research', () => {
       expect(title.length).toBeGreaterThan(0);
       const paper = catalog.papers.find((p) => p.id === experiment.paperId)!;
       const rounds = new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size;
-      await expect(card.getByText(`First version · ${rounds} review round${rounds === 1 ? '' : 's'}`, { exact: true })).toBeVisible();
+      if ('final_review' in paper && paper.final_review === true) await expect(card.locator('.rs-g-first')).toHaveCount(0);
+      else await expect(card.getByText(`First version · ${rounds} review round${rounds === 1 ? '' : 's'}`, { exact: true })).toBeVisible();
       // Every runnable experiment shows its build-time thumbnail, never the field icon.
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
       await expect(card.locator('a.rs-g-thumb')).toHaveAttribute('href', path);
@@ -50,6 +51,7 @@ test.describe('@smoke research', () => {
       await link.click();
       await expect(page).toHaveURL(new URL(path, page.url()).href);
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      if ('final_review' in paper && paper.final_review === true) await expect(page.locator('.rs-review')).toHaveCount(0);
       await page.goto('/en/research/');
     }
   });
