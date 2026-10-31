@@ -92,13 +92,15 @@ for this symmetric case does not establish agreement for arbitrary nets.
 reproduced. It identifies the section/figure/equation used without turning derived values into
 published observations. Catalogue status must not claim published-figure agreement or full DFDM.
 
-## Limits and questions for the authors
+## Limits
 
 No adjoints/gradients, inverse optimization, shells, mixed signs, pressure/self-weight updates,
 nonlinear elastic cables, buckling, published optimized geometries or performance comparisons.
 The shared scalar viewer shows labelled projections; the editor preserves all 3D coordinates.
 Agreement with reference software is not experimental validation or certification.
 Research, not a design tool.
+
+## Open questions
 
 Questions (not sent):
 
@@ -142,3 +144,53 @@ The sandbox required a writable Nix cache and a scratch copy of the unchanged pi
   `web/public/research-thumbs/pastrana-2026.svg`, `web/e2e/research-pastrana.spec.ts`;
   `Makefile`, `.github/workflows/ci.yml`, `.github/workflows/research.yml`,
   `changelog.d/pastrana-form-finding.md`.
+
+## Review round 2 (2026-10-30)
+
+Reviewers: kimi, codex, claude. All confirmed should-fix findings addressed; production engine
+numerics and acceptance tolerances unchanged. Committed validation is now compared with fresh
+results (metric, count, tolerance and pass flag exact; observed errors within 32 float64 epsilons
+at unit scale for cross-platform roundoff). Every replay load, density, node, edge, force and
+residual is checked. The decoded editor payload is solved through the production WASM input
+builder, including its pinned supports, material, section and all signed member forces.
+
+Tolerance rationale: coordinates/lengths are about 3 m, forces about 3–12 kN and EA = 200000 kN.
+Float64 epsilon is 2.22e-16. The 1e-12 coordinate/FDM budget leaves several hundred operations
+of assembly/factorization roundoff at these scales. Elastic force recovery multiplies small
+relative displacements by large stiffness and permits cancellation; 1e-9 kN is a conservative
+absolute recovery budget (roughly 1e-10 relative), not a relaxed FDM criterion. Displacement
+checks remain 1e-12 m. Evidence roundoff comparison is far tighter than these acceptance limits.
+
+The pinned public source archive is available in the reference scratch environment. Its examples
+include larger cable nets, arches and gridshells, but no identifiable Fig. 2 numerical dataset.
+The committed reference and published-comparison evidence therefore remain explicitly about
+our chosen inputs, Eq. (7), and jax_fdm, not paper figure agreement. The live page states that
+comparison directly and contains no author questions or pending comparison badges.
+
+Research translations are explicitly scoped to English, Spanish and Portuguese; every public
+locale is tested, and other locale routes identify their research content as English.
+Browser regressions cover restart from the middle, validation recovery, status announcements,
+failed WASM requests retaining the labelled result, and responsive targets/text/viewer position.
+Playwright execution is unavailable in this environment.
+
+### Round 2 validation results
+
+- `npx vitest run --project unit src/components/research src/lib/i18n/__tests__/hardcoded-text.test.ts`:
+  42 files, 194 tests passed, including all five decoded editor cases and both axial-force ends.
+- `npm run typecheck`: 247 existing diagnostics, no new errors; baseline unchanged.
+- Full `svelte-check`: 343 diagnostics elsewhere, none in the changed Pastrana component or
+  research translations; the final Pastrana component also compiles without warnings.
+- Native paper crate: 5 tests passed, including the 30 regenerated validation checks and all
+  25 replay frames. WASM wrapper crate passes (no native unit tests); browser WASM smoke check
+  passes five equilibria and invalid inputs. Both Cargo runs used
+  `CARGO_TARGET_DIR=/private/tmp/claude-501/rfix-pastrana-2026-target CARGO_BUILD_JOBS=4`.
+- Pastrana catalogue/evidence check passes; offline catalogue: 48 papers, zero problems.
+  Online Crossref refresh could not run because network DNS was unavailable.
+- Playwright cases strengthened but not executed; no claim of browser-verified responsive layout.
+
+### Follow-ups
+
+- Catalogue breadcrumb still groups this paper under Optimization; introduce a translated
+  form-finding category in the catalogue taxonomy.
+- Move the shared numeric field out of the Shauer paper folder into the research shell.
+- Execute the responsive and interaction Playwright regressions in a browser-capable environment.

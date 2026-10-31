@@ -42,6 +42,12 @@ export type ResearchStrings = {
   formInputs: string;
   formEvidenceTitle: string;
   formEvidence: string;
+  formCheckLabel: string;
+  formComparison: string;
+  formDensityHint: string;
+  formLoadHint: string;
+  researchLanguages: string;
+
   formReference: string;
   formEngineTitle: string;
   formEngine: string;
@@ -493,7 +499,12 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     formMethod: "Force density is axial tension divided by member length. Positive densities give an anchored network a positive-definite equilibrium matrix. The research crate assembles this matrix and uses the production engine’s sparse Cholesky factorization for the three coordinates. Forces follow from f = qℓ.",
     formInputs: "Supports are (±2, ±2, 0) m. The baseline downward load is 4 kN and every density is 1 kN/m. Eq. (7) then gives z = −1 m, length = 3 m and tension = 3 kN. These are derived targets for our inputs, not published numerical observations.",
     formEvidenceTitle: "Evidence and tolerances",
-    formEvidence: "Five input cases compare every coordinate and cable force with unmodified jax_fdm in float64. Absolute tolerances are 1e-12 m for coordinates, 1e-12 kN for reference forces and equilibrium residuals, and 1e-9 kN for production truss forces. The validation file records each observed error. The replay is a load sweep computed by the same Rust solver, not convergence iterations.",
+    formCheckLabel: "Against jax_fdm (10 checks); 20 analytical/engine checks below",
+    formComparison: "Our own inputs: compared with Eq. (7) and jax_fdm; the paper’s numerical results are not reproduced.",
+    formDensityHint: "Enter 0.5–2 kN/m.",
+    formLoadHint: "Enter 1–8 kN.",
+    researchLanguages: "Research content is available in English, Spanish and Portuguese. Other site languages display the English research content.",
+    formEvidence: "Five input cases compare every coordinate and cable force with unmodified jax_fdm in float64. Absolute tolerances are 1e-12 m for coordinates, 1e-12 kN for reference forces and equilibrium residuals, and 1e-9 kN for production truss forces. The validation file records each observed error. The replay is a load sweep computed by the same Rust solver, not convergence iterations. Scales are about 3 m, 3–12 kN and EA = 200000 kN. The 1e-12 budget allows float64 assembly and Cholesky roundoff; 1e-9 kN allows cancellation in recovering elastic forces from small displacements at this large stiffness.",
     formReference: "Reference: jax_fdm, MIT, revision 9a17fd379071fb3511ca914f46e8d1e8c286460e. The manifest records the source archive SHA-256, output hashes and installed environment. This revision has not been confirmed as the publication revision.",
     formEngineTitle: "What the production engine checks",
     formEngine: "The editor receives the found geometry, fixed support translations and the same vertical load as a 3D linear elastic truss. With equal member stiffnesses, symmetry makes its axial forces match FDM. Tests also check its vertical displacement against the elastic closed form. This is a separate analysis of initially unstressed bars: cable prestress and geometric stiffness are not transferred.",
@@ -945,7 +956,12 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     formMethod: "La densidad de fuerza es la tracción axial dividida por la longitud. Densidades positivas dan una matriz de equilibrio definida positiva a una red anclada. El crate de investigación ensambla la matriz y usa Cholesky disperso del motor de producción para las tres coordenadas. Las fuerzas resultan de f = qℓ.",
     formInputs: "Los apoyos están en (±2, ±2, 0) m. La carga base hacia abajo es 4 kN y cada densidad es 1 kN/m. La Ec. (7) da z = −1 m, longitud = 3 m y tracción = 3 kN. Son valores derivados para nuestros datos, no observaciones numéricas publicadas.",
     formEvidenceTitle: "Evidencia y tolerancias",
-    formEvidence: "Cinco casos comparan cada coordenada y fuerza con jax_fdm sin modificar en float64. Las tolerancias absolutas son 1e-12 m para coordenadas, 1e-12 kN para fuerzas de referencia y residuos, y 1e-9 kN para fuerzas de la cercha de producción. El archivo de validación registra cada error observado. La reproducción recorre cargas con el mismo solver Rust; no representa iteraciones de convergencia.",
+    formCheckLabel: "Frente a jax_fdm (10 verificaciones); 20 analíticas/del motor abajo",
+    formComparison: "Datos propios: comparados con la Ec. (7) y jax_fdm; no se reproducen resultados numéricos del artículo.",
+    formDensityHint: "Introduce 0.5–2 kN/m.",
+    formLoadHint: "Introduce 1–8 kN.",
+    researchLanguages: "El contenido de investigación está disponible en inglés, español y portugués. Los demás idiomas muestran el contenido en inglés.",
+    formEvidence: "Cinco casos comparan cada coordenada y fuerza con jax_fdm sin modificar en float64. Las tolerancias absolutas son 1e-12 m para coordenadas, 1e-12 kN para fuerzas de referencia y residuos, y 1e-9 kN para fuerzas de la cercha de producción. El archivo de validación registra cada error observado. La reproducción recorre cargas con el mismo solver Rust; no representa iteraciones de convergencia. Las escalas son unos 3 m, 3–12 kN y EA = 200000 kN. El margen de 1e-12 admite redondeo float64 del ensamblaje y Cholesky; 1e-9 kN admite cancelación al recuperar fuerzas elásticas desde desplazamientos pequeños con esta rigidez elevada.",
     formReference: "Referencia: jax_fdm, MIT, revisión 9a17fd379071fb3511ca914f46e8d1e8c286460e. El manifiesto registra SHA-256 del archivo fuente, hashes de resultados y entorno instalado. No se ha confirmado que esta revisión corresponda a la publicación.",
     formEngineTitle: "Qué verifica el motor de producción",
     formEngine: "El editor recibe la geometría, las traslaciones fijas de los apoyos y la misma carga vertical como cercha elástica lineal 3D. Con rigideces iguales, la simetría hace que sus fuerzas axiales coincidan con FDM. Los tests también verifican el desplazamiento vertical con la solución elástica exacta. Es un análisis separado de barras inicialmente sin tensión: no se transfieren pretensión ni rigidez geométrica.",
@@ -1397,7 +1413,12 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     formMethod: "A densidade de força é a tração axial dividida pelo comprimento. Densidades positivas dão uma matriz de equilíbrio definida positiva a uma rede ancorada. O crate de pesquisa monta a matriz e usa Cholesky esparso do motor de produção para as três coordenadas. As forças resultam de f = qℓ.",
     formInputs: "Os apoios estão em (±2, ±2, 0) m. A carga base para baixo é 4 kN e cada densidade é 1 kN/m. A Eq. (7) dá z = −1 m, comprimento = 3 m e tração = 3 kN. São valores derivados para nossos dados, não observações numéricas publicadas.",
     formEvidenceTitle: "Evidências e tolerâncias",
-    formEvidence: "Cinco casos comparam cada coordenada e força com jax_fdm sem modificações em float64. As tolerâncias absolutas são 1e-12 m para coordenadas, 1e-12 kN para forças de referência e resíduos, e 1e-9 kN para forças da treliça de produção. O arquivo de validação registra cada erro observado. A reprodução percorre cargas com o mesmo solver Rust; não representa iterações de convergência.",
+    formCheckLabel: "Frente ao jax_fdm (10 verificações); 20 analíticas/do motor abaixo",
+    formComparison: "Dados próprios: comparados com a Eq. (7) e jax_fdm; os resultados numéricos do artigo não são reproduzidos.",
+    formDensityHint: "Insira 0.5–2 kN/m.",
+    formLoadHint: "Insira 1–8 kN.",
+    researchLanguages: "O conteúdo de pesquisa está disponível em inglês, espanhol e português. Os outros idiomas exibem o conteúdo em inglês.",
+    formEvidence: "Cinco casos comparam cada coordenada e força com jax_fdm sem modificações em float64. As tolerâncias absolutas são 1e-12 m para coordenadas, 1e-12 kN para forças de referência e resíduos, e 1e-9 kN para forças da treliça de produção. O arquivo de validação registra cada erro observado. A reprodução percorre cargas com o mesmo solver Rust; não representa iterações de convergência. As escalas são cerca de 3 m, 3–12 kN e EA = 200000 kN. A margem de 1e-12 admite arredondamento float64 da montagem e Cholesky; 1e-9 kN admite cancelamento ao recuperar forças elásticas de pequenos deslocamentos com esta rigidez elevada.",
     formReference: "Referência: jax_fdm, MIT, revisão 9a17fd379071fb3511ca914f46e8d1e8c286460e. O manifesto registra SHA-256 do arquivo fonte, hashes de resultados e ambiente instalado. Não foi confirmado que esta revisão corresponda à publicação.",
     formEngineTitle: "O que o motor de produção verifica",
     formEngine: "O editor recebe a geometria, as translações fixas dos apoios e a mesma carga vertical como treliça elástica linear 3D. Com rigidezes iguais, a simetria faz suas forças axiais coincidirem com FDM. Os testes também verificam o deslocamento vertical com a solução elástica exata. É uma análise separada de barras inicialmente sem tensão: pré-tensão e rigidez geométrica não são transferidas.",
