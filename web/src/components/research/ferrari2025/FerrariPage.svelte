@@ -21,6 +21,7 @@
   const shown = $derived(frames[Math.min(playback.shown, frames.length - 1)]);
   const format = (value: number) => new Intl.NumberFormat(researchLocale(), { maximumFractionDigits: 6 }).format(value);
   const scientific = (value: number) => new Intl.NumberFormat(researchLocale(), { notation: 'scientific', maximumSignificantDigits: 4 }).format(value);
+  const paperChecks = validation.checks.filter(c => c.category === 'paper');
   const sourceLabel = $derived(source === 'replay' ? s.ferrariReplay : source === 'live' ? s.ferrariLive : s.ferrariCached);
   function stop() {
     playback.interact();
@@ -65,13 +66,13 @@
 <ExperimentShell introInArticle paperId="ferrari-2025" name={s.ferrariTitle} lead={s.ferrariLead}
   sourcePath="research/stability/ferrari-sigmund-2025"
   referenceLabel={s.ferrariReplay}
-  verification={{ reference: { kind: 'none', why: s.ferrariComparison }, published: { kind: 'checks', passed: validation.checks.filter(c => c.category === 'paper' && c.passed).length, total: validation.checks.slice(4).length, href: '#checks' } }}
+  verification={{ reference: { kind: 'none', why: s.ferrariComparison }, published: { kind: 'checks', passed: paperChecks.filter(c => c.passed).length, total: paperChecks.length, href: '#checks' } }}
   actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: () => host.scrollIntoView({ block: 'nearest' }) }}>
   {#snippet article()}
     <h2>{s.ferrariScope}</h2><p>{s.ferrariScopeText}</p><p data-testid="ferrari-model">{s.ferrariModel.replace('{length}', format(replay.model.nodes['21'].x)).replace('{young}', format(replay.model.materials['1'].e)).replace('{area}', format(replay.model.sections['1'].a)).replace('{inertia}', scientific(replay.model.sections['1'].iz)).replace('{force}', format(-replay.model.loads[0].data.fz)).replace('{moment}', format(replay.model.loads[0].data.my)).replace('{elements}', format(Object.keys(replay.model.elements).length / 2))}</p>
     <h2>{s.ferrariReference}</h2><p data-testid="ferrari-reference">{s.ferrariReferenceText.replace('{closed}', [paper.closed_form.lambda_1, paper.closed_form.alpha, paper.closed_form.beta].map(format).join('; ')).replace('{numerical}', [paper.numerical.lambda_1, paper.numerical.alpha, paper.numerical.beta].map(format).join('; '))}</p>
     <h2 id="checks">{s.ferrariEvidence}</h2><p>{s.ferrariEvidenceText}</p>
-    <p data-testid="ferrari-checks">{s.ferrariNumbers.replace('{elements}', format(Object.keys(replay.model.elements).length / 2)).replace('{reference}', format(paper.numerical.lambda_1)).replace('{error}', scientific(validation.checks[4].observed)).replace('{tolerance}', scientific(validation.checks[4].tolerance)).replace('{derivative}', scientific(Math.max(...validation.checks.slice(0, 4).map(c => c.observed)))).replace('{derivativeTolerance}', scientific(validation.checks[0].tolerance))}</p><p>{s.ferrariMissing}</p>
+    <p data-testid="ferrari-checks">{s.ferrariNumbers.replace('{elements}', format(Object.keys(replay.model.elements).length / 2)).replace('{reference}', format(paper.numerical.lambda_1)).replace('{error}', scientific(validation.checks[4].observed)).replace('{tolerance}', scientific(validation.checks[4].tolerance)).replace('{derivative}', scientific(Math.max(...validation.checks.slice(0, 4).map(c => c.observed)))).replace('{derivativeTolerance}', scientific(validation.checks[0].tolerance))}</p><p data-testid="ferrari-blocker">{s.ferrariBlocker}</p><p>{s.ferrariMissing}</p>
   {/snippet}
   {#snippet app()}
     <div bind:this={host} class="experiment" data-testid="ferrari-experiment">
@@ -121,12 +122,13 @@
     .ferrari-page :global(.rs-shell-head h1) { font-size: 1.25rem; margin: 0; max-width: none; }
     .ferrari-page :global(.rs-crumb) { margin: 0; font-size: 12px; }
     .experiment > p, .run p { margin: 0.25rem 0; }
-    .experiment > .notice:first-child { display: none; }
+    .experiment > .notice:first-child { padding-left: 0.5rem; font-size: 12px; line-height: 1.25; }
   }
   @media (max-height: 500px) and (min-width: 600px) and (max-width: 900px) {
-    .experiment { display: grid; grid-template-columns: minmax(0, 1fr) 13rem; column-gap: 0.75rem; }
+    .experiment { display: grid; grid-template-columns: minmax(0, 1fr) 13rem; grid-template-rows: auto 1fr; column-gap: 0.75rem; }
     .experiment > :global(*) { grid-column: 1 / -1; }
-    .experiment > :global(.rs-viewer-host) { grid-column: 1; grid-row: 1; }
-    .run { grid-column: 2; grid-row: 1; align-self: start; }
+    .experiment > :global(.rs-viewer-host) { grid-column: 1; grid-row: 1 / span 2; }
+    .experiment > .notice:first-child { grid-column: 2; grid-row: 1; }
+    .experiment > .run { grid-column: 2; grid-row: 2; align-self: start; }
   }
 </style>

@@ -27,13 +27,39 @@ for (const locale of ['en', 'es', 'pt']) {
     }
     const model = body.match(/data-testid="ferrari-model"[^>]*>(.*?)<\/p>/s)![1];
     for (const value of [paper.parameters.length_m, paper.parameters.young_MPa, paper.parameters.area_m2,
-      -paper.parameters.corner_force_N / 1000, paper.parameters.eccentricity_m, Object.keys(replay.model.elements).length / 2]) {
+      -paper.parameters.corner_force_N / 1000, Object.keys(replay.model.elements).length / 2]) {
       expect(model).toContain(format(value));
     }
+    const moment = -paper.parameters.corner_force_N / 1000 * paper.parameters.eccentricity_m;
+    expect(model).toContain(`+${format(moment)} kN·m`);
+    expect(replay.model.loads[0].data.my).toBe(moment);
+    expect(body.match(/data-testid="ferrari-blocker"[^>]*>(.*?)<\/p>/s)![1]).toBe(rs().ferrariBlocker);
+    const paperChecks = validation.checks.filter(c => c.category === 'paper');
+    const published = body.match(new RegExp(`<dt[^>]*>${rs().againstPaper}</dt>\\s*<dd[^>]*>(.*?)</dd>`, 's'))![1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
+    expect(published).toContain(`${paperChecks.filter(c => c.passed).length} ${rs().of} ${paperChecks.length} ${rs().checksPass}`);
     expect(body).not.toMatch(/\{\w+\}/);
     expect(body).not.toContain(rs().ferrariAuthors);
     expect(body).not.toMatch(/pending|pendiente|pendente|unfinished|provisional/i);
     expect(body).toContain(rs().ferrariComparison);
+  });
+}
+
+for (const locale of ['de', 'fr', 'tr']) {
+  it(`renders English copy with ${locale} numbers`, () => {
+    setLocale(locale);
+    const body = render(FerrariPage).body.replace(/<!--.*?-->/g, '');
+    const english = (setLocale('en'), rs());
+    setLocale(locale);
+    expect(rs().ferrariTitle).toBe(english.ferrariTitle);
+    expect(body).toContain(english.ferrariComparison);
+    expect(body).toContain(english.ferrariDisclaimer);
+    expect(body).not.toMatch(/\{\w+\}|undefined/);
+    expect(body).toMatch(/<article[^>]*lang="en"/);
+    expect(body).not.toMatch(/lang="(de|fr|tr)"/);
+    const ref = body.match(/data-testid="ferrari-reference"[^>]*>(.*?)<\/p>/s)![1];
+    const format = (v: number) => new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(v);
+    expect(ref).toContain([paper.numerical.lambda_1, paper.numerical.alpha, paper.numerical.beta].map(format).join('; '));
+    expect(body).toContain(`λ₁ = ${format(replay.lambda)}`);
   });
 }
 
