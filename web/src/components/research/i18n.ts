@@ -1812,8 +1812,6 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   },
 };
 
-
-// Shared shell translations; unrelated legacy articles retain their English fallback.
 const SHELL_STRINGS: Record<string, Partial<ResearchStrings>> = {
   "de": {
     "viewerUnavailable": "Der Viewer ist nicht verfügbar. Die numerischen Ergebnisse stehen im Artikel.",

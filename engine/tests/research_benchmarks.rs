@@ -743,7 +743,6 @@ fn fairclough_model(curves: &[Vec<[f64; 4]>]) -> serde_json::Value {
 }
 
 #[test]
-// Bookkeeping regression for the exported frame, not a catenary stress validation.
 fn fairclough_frame_equilibrium() {
     let curves: Vec<Vec<[f64; 4]>> =
         serde_json::from_str(include_str!("fixtures/research-fairclough-curves.json")).unwrap();

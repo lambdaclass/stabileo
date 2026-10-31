@@ -677,8 +677,8 @@ export function installE2EHooks(): void {
     armedKinds: () => [...uiStore.selectKinds].sort(),
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
-    verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     cameraState: () => readCamera(),
 
     viewportPick: () => ({

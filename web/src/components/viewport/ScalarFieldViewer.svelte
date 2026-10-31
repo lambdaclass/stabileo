@@ -293,7 +293,6 @@
     fit();
   });
 
-
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -322,7 +321,6 @@
     </div>
   </div>
   <div class="sfv viewport-container" style:height>
-    <!-- The interactive 3D canvas implements orbit, pan and zoom as keyboard application controls. -->
     <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
     <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={(event) => { navigateScalarField(event, camera, controls); render(); }} aria-label={`${ariaLabel}. ${t('scalarViewer.keyboard')}`}></div>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>

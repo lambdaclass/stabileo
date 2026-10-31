@@ -6,7 +6,6 @@ export function navigateScalarField(event: Pick<KeyboardEvent, 'key' | 'shiftKey
   const direction = directions[event.key];
   if (!direction && !['+', '=', '-', '_'].includes(event.key)) return;
   event.preventDefault();
-
   const offset = camera.position.clone().sub(controls.target);
   if (direction && event.shiftKey) {
     const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
@@ -24,5 +23,4 @@ export function navigateScalarField(event: Pick<KeyboardEvent, 'key' | 'shiftKey
     camera.position.copy(controls.target).add(offset.multiplyScalar(['+', '='].includes(event.key) ? 0.9 : 1 / 0.9));
   }
   controls.update();
-
-  }
+}

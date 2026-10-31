@@ -94,7 +94,7 @@
         <button aria-pressed={!author} onclick={()=>{stop();author=false;}}>{text.own}</button>
         <button aria-pressed={author} onclick={()=>{stop();author=true;}}>{text.author}</button>
       </div>
-      {#if editor}<a id="edit" class="editor" href={editor || undefined} onclick={stop}>{text.open} · {text.own}</a>{/if}
+      {#if editor}<a id="edit" class="editor" href={editor} onclick={stop}>{text.open} · {text.own}</a>{/if}
       {#if exportFailed}<p role="alert">{text.exportFailed}</p>{/if}
       {#if failed}<p role="alert">{text.failed}</p>{/if}
     </div>
@@ -128,7 +128,7 @@
   @media(max-width:900px) and (max-height:500px) {
     .fairclough :global(.rs-shell) {padding-top:0.5rem;}
     .fairclough :global(.rs-shell-head) {display:flex;flex-wrap:wrap;align-items:baseline;column-gap:1rem;margin-bottom:0.25rem;}
-    .fairclough :global(.rs-shell-head h1) {margin:0;}
+    .fairclough :global(.rs-shell-head h1) {margin:0;flex:1 1 20rem;min-width:0;max-width:none;}
     .status {display:flex;flex-wrap:wrap;align-items:baseline;column-gap:1rem;}
     .status p {margin:0.25rem 0;}
   }
