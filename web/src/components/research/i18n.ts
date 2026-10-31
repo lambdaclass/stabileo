@@ -421,6 +421,7 @@ export type ResearchStrings = {
   theExperiment: string;
   experiment: string;
   viewerUnavailable: string;
+  mustBe: string;
   sourceLabel: Record<'crossref-abstract' | 'publisher-abstract' | 'repository-readme' | 'full-text' | 'reference-code', string>;
   resetParameters: string;
   summaryIntro: string;
@@ -871,6 +872,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     theExperiment: "The experiment",
     experiment: "Experiment",
     viewerUnavailable: "Stabileo’s viewer couldn’t be loaded in this build.",
+    mustBe: "Must be",
     resetParameters: 'Reset to the reference-code parameters',
     sourceLabel: { 'crossref-abstract': 'from the abstract', 'publisher-abstract': 'from the abstract', 'repository-readme': 'from the code’s README', 'full-text': 'from the paper', 'reference-code': 'from the reference code' },
     summaryIntro: 'Summary in our words,',
@@ -1324,6 +1326,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     theExperiment: "El experimento",
     experiment: "Experimento",
     viewerUnavailable: "No se pudo cargar el visor de Stabileo en esta compilación.",
+    mustBe: "Debe estar entre",
     resetParameters: 'Restablecer los parámetros del código de referencia',
     sourceLabel: { 'crossref-abstract': 'a partir del resumen', 'publisher-abstract': 'a partir del resumen', 'repository-readme': 'a partir del README del código', 'full-text': 'a partir del artículo', 'reference-code': 'a partir del código de referencia' },
     summaryIntro: 'Resumen en nuestras palabras,',
@@ -1777,6 +1780,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     theExperiment: "O experimento",
     experiment: "Experimento",
     viewerUnavailable: "Não foi possível carregar o visualizador do Stabileo nesta compilação.",
+    mustBe: "Deve estar entre",
     resetParameters: 'Restaurar os parâmetros do código de referência',
     sourceLabel: { 'crossref-abstract': 'a partir do resumo', 'publisher-abstract': 'a partir do resumo', 'repository-readme': 'a partir do README do código', 'full-text': 'a partir do artigo', 'reference-code': 'a partir do código de referência' },
     summaryIntro: 'Resumo em nossas palavras,',
@@ -1833,7 +1837,32 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "of": "von",
     "seeChecks": "Prüfungen ansehen",
     "disclaimer": "Forschung, kein Bemessungswerkzeug. Dies sind keine technischen Nachweise.",
-    "viewerUnavailable": "Die Ansicht konnte nicht geladen werden."
+    "viewerUnavailable": "Die Ansicht konnte nicht geladen werden.",
+    "againstBenchmark": "Analytische Referenz und native Engine",
+    "mustBe": "Zulässig:",
+    "benchmark": {
+      "viewer": "Ansicht",
+      "path": "Lastpfad",
+      "parameters": "Parameter",
+      "case": "Fall",
+      "riseSpan": "Stich / Spannweite",
+      "loadDirection": "Lastrichtung",
+      "downward": "Abwärts",
+      "upward": "Aufwärts",
+      "arcLengthStep": "Anfangsschritt der Bogenlänge",
+      "recompute": "Live neu berechnen",
+      "stop": "Stoppen",
+      "restart": "Neu starten",
+      "backToReplay": "Zur Wiedergabe",
+      "play": "Abspielen",
+      "pause": "Pause",
+      "step": "Lastschritt",
+      "reference": "Referenz",
+      "stabileo": "Stabileo",
+      "error": "Fehler",
+      "result": "Ergebnis",
+      "reset": "Parameter zurücksetzen"
+    }
   },
   "fr": {
     "afterAuthors": "D’après",
@@ -1851,7 +1880,32 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "of": "sur",
     "seeChecks": "voir les vérifications",
     "disclaimer": "Recherche, pas un outil de dimensionnement. Aucun résultat ne constitue une justification technique.",
-    "viewerUnavailable": "Impossible de charger la vue."
+    "viewerUnavailable": "Impossible de charger la vue.",
+    "againstBenchmark": "Référence analytique et moteur natif",
+    "mustBe": "Valeurs admises :",
+    "benchmark": {
+      "viewer": "Vue",
+      "path": "Chemin",
+      "parameters": "Paramètres",
+      "case": "Cas",
+      "riseSpan": "Flèche / portée",
+      "loadDirection": "Direction de charge",
+      "downward": "Vers le bas",
+      "upward": "Vers le haut",
+      "arcLengthStep": "Pas initial de longueur d’arc",
+      "recompute": "Recalculer en direct",
+      "stop": "Arrêter",
+      "restart": "Redémarrer",
+      "backToReplay": "Retour à la relecture",
+      "play": "Lire",
+      "pause": "Pause",
+      "step": "Pas de charge",
+      "reference": "Référence",
+      "stabileo": "Stabileo",
+      "error": "Erreur",
+      "result": "Résultat",
+      "reset": "Réinitialiser les paramètres"
+    }
   },
   "tr": {
     "afterAuthors": "Kaynak",
@@ -1869,7 +1923,32 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "of": "/",
     "seeChecks": "kontrollere bakın",
     "disclaimer": "Araştırma amaçlıdır, tasarım aracı değildir. Buradaki sonuçlar mühendislik onayı değildir.",
-    "viewerUnavailable": "Görüntüleyici yüklenemedi."
+    "viewerUnavailable": "Görüntüleyici yüklenemedi.",
+    "againstBenchmark": "Analitik referans ve yerel motor",
+    "mustBe": "İzin verilen:",
+    "benchmark": {
+      "viewer": "Görünüm",
+      "path": "Yol",
+      "parameters": "Parametreler",
+      "case": "Durum",
+      "riseSpan": "Yükseklik / açıklık",
+      "loadDirection": "Yük yönü",
+      "downward": "Aşağı",
+      "upward": "Yukarı",
+      "arcLengthStep": "Başlangıç yay uzunluğu adımı",
+      "recompute": "Canlı yeniden hesapla",
+      "stop": "Durdur",
+      "restart": "Yeniden başlat",
+      "backToReplay": "Tekrara dön",
+      "play": "Oynat",
+      "pause": "Duraklat",
+      "step": "Yük adımı",
+      "reference": "Referans",
+      "stabileo": "Stabileo",
+      "error": "Hata",
+      "result": "Sonuç",
+      "reset": "Parametreleri sıfırla"
+    }
   }
 };
 
