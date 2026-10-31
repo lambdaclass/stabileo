@@ -9,7 +9,7 @@ The scripts that run Stabileo's fix and review agents on the shared agent host. 
 
 | Work | Order | Out when |
 |---|---|---|
-| Write: research papers, Tools, docs | claude, codex, kimi, grok | Claude: every `cswap` account at 100 % (5h or 7d) |
+| Write: research papers, Tools, docs | claude, codex, kimi (Grok never writes code) | Claude: every `cswap` account at 100 % (5h or 7d) |
 | Review | codex, kimi, grok | Codex: weekly window at 100 % (no paid credits unless `STABILEO_ALLOW_CODEX_CREDITS=1`) |
 
 - The second reviewer is always a different model from the first and from the author (`AUTHOR_ENGINE`).

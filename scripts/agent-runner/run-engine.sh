@@ -10,7 +10,7 @@ case "$engine:$mode" in
   codex:review) cmd=(codex exec --skip-git-repo-check -C "$dir" -) ; input=stdin ;;
   kimi:write)   cmd=(kimi --auto -p "$(head -c 125000 "$prompt")") ; input=none ;;
   kimi:review)  cmd=(kimi -p "$(head -c 125000 "$prompt")") ; input=none ;;
-  grok:write)   cmd=(grok --permission-mode auto --prompt-file "$prompt") ; input=none ;;
+  grok:write)   echo "run-engine: grok never writes code (review only)" >&2; exit 2 ;;
   grok:review)  cmd=(grok --permission-mode plan -p "Read the file $prompt with your file tool: it is a complete request. Do exactly what it asks. Do not run shell commands; read only that file.") ; input=none ;;
   *) echo "run-engine: no engine for $engine:$mode" >&2; exit 2 ;;
 esac

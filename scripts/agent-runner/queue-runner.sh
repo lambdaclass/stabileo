@@ -15,6 +15,7 @@ run_one() {
   case "$TYPE" in fixpaper) mode=write ;; *) mode=review ;; esac
   if [ -n "$ENGINE" ]; then engine=$ENGINE; else engine=$(pick_engine "$mode" "$( [ $mode = review ] && echo "$AUTHOR_ENGINE")"); fi
   [ "$engine" != none ] || { log "queue: $name waits (no $mode engine)"; return; }
+  [ "$mode:$engine" != write:grok ] || { log "queue: $name: grok never writes code, job refused"; mv "$f" "$J/failed/"; return; }
   scope_allows "$engine" "$SCOPE" || { log "queue: $name ($SCOPE) waits for claude"; return; }
   [ -n "$ENGINE" ] && { python3 "$ST/bin/engines.py" status 2>/dev/null | grep -qE "^$mode +$ENGINE +yes" || [ -n "${STABILEO_FORCE_ENGINE:-}" ] || { log "queue: $name waits for $ENGINE"; return; }; }
   mv "$f" "$J/running/"; log "queue: $name start ($TYPE $ARG, $SCOPE, $engine)"

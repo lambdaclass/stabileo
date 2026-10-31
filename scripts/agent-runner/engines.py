@@ -5,7 +5,7 @@
   engines.py pick <write|review> [EXCLUDE...]  first available engine in policy order, or "none"
 
 Policy:
-- write (fixing research papers, Tools, docs): claude, codex, kimi, grok
+- write (fixing research papers, Tools, docs): claude, codex, kimi (Grok never writes code: review only)
 - review: codex, kimi, grok (the caller excludes the author and the first reviewer, so the second
   review is always a different model)
 - Claude is out when every cswap account shows its 5h or 7d window at 100 %.
@@ -20,7 +20,7 @@ import glob, json, os, re, subprocess, sys, time
 
 ST = os.path.expanduser("~/projects/stabileo-state")
 CACHE = os.path.join(ST, "state")
-ORDER = {"write": ["claude", "codex", "kimi", "grok"], "review": ["codex", "kimi", "grok"]}
+ORDER = {"write": ["claude", "codex", "kimi"], "review": ["codex", "kimi", "grok"]}
 
 
 def claude_status():
