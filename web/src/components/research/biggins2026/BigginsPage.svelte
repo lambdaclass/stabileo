@@ -106,7 +106,7 @@
       <label for="arch-step">{shared.step} {playback.shown}</label>
       <input id="arch-step" type="range" min="0" max={run.frames.length - 1} value={playback.shown} oninput={e => playback.seek(Number(e.currentTarget.value))} />
       <p>{s.jump}</p><p>{s.parameterNotice}</p>
-      <LineChart {series} xLabel={s.width} yLabel={s.normalized} height={180} marker={run.width} />
+      <LineChart dataTable {series} xLabel={s.width} yLabel={s.normalized} height={180} marker={run.width} />
     </div>
   {/snippet}
 </ExperimentShell>

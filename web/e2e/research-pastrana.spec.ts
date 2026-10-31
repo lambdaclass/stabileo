@@ -44,7 +44,7 @@ for (const locale of PUBLIC_LOCALES) for (const viewport of [{ width: 360, heigh
 test('recovery, restart, accessible output and failed recomputation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/en/research/form-finding/pastrana-2026?e2e=1');
-  await expect(page.getByRole('img', { name: 'Projection of our four-cable equilibrium result' })).toBeVisible();
+  await expect(page.getByRole('application', { name: 'Projection of our four-cable equilibrium result' })).toBeVisible();
   const density = page.getByRole('textbox', { name: 'Force density (kN/m)', exact: true });
   await density.fill('0');
   await expect(density).toHaveAttribute('aria-invalid', 'true');

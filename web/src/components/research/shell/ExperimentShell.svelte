@@ -113,9 +113,9 @@
     .rs-compact .rs-cite { display: none; }
   }
   @media (max-height: 30rem) {
-    .rs-shell:has(.rs-compact) { padding-top: 1.5rem; }
-    .rs-shell-head.rs-compact { margin-bottom: 0.75rem; }
-    .rs-shell-head.rs-compact h1 { font-size: 1.5rem; margin: 0.25rem 0; }
+    .rs-shell:has(.rs-compact) { padding-top: 1rem; }
+    .rs-shell-head.rs-compact { margin-bottom: 0.5rem; }
+    .rs-shell-head.rs-compact h1 { font-size: 1.5rem; margin: 0.15rem 0 0.25rem; max-width: none; }
   }
   .rs-crumb,
   .rs-cite {

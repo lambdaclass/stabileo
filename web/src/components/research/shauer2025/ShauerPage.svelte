@@ -482,9 +482,9 @@
       <div class="rs-panel" id="rs-panel-force" role="tabpanel" aria-labelledby="rs-tab-force" hidden={tab !== 'force'} bind:clientHeight={forceH}>
         <figure>
           <figcaption>{strings.reactionCaption}</figcaption>
-          <LineChart series={forceSeries} xLabel={strings.topDisplacementAxis} yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `${strings.step} ${frame.step.step}` : ''} labels={forceLabels} height={Math.max(170, forceH - 190)} />
+          <LineChart scrubber series={forceSeries} xLabel={strings.topDisplacementAxis} yLabel="F (kN)" marker={frame ? frame.step.displacement : null} markerLabel={frame ? `${strings.step} ${frame.step.step}` : ''} labels={forceLabels} height={Math.max(170, forceH - 190)} />
           {#if residualSeries.length}
-            <LineChart series={residualSeries} xLabel={strings.topDisplacementAxis} yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: strings.forceComparisonTolerance }]} marker={frame ? frame.step.displacement : null} height={110} />
+            <LineChart scrubber series={residualSeries} xLabel={strings.topDisplacementAxis} yLabel="|F − F_ref| (kN)" log rules={[{ y: 1e-5, text: strings.forceComparisonTolerance }]} marker={frame ? frame.step.displacement : null} height={110} />
           {/if}
           {#if !showsReference}<p class="rs-note">{strings.referenceCurveNote}</p>{/if}
         </figure>
@@ -509,7 +509,7 @@
           </figure>
           <figure>
             <figcaption>{strings.energies}</figcaption>
-            <LineChart series={energySeries} xLabel={strings.topDisplacementAxis} yLabel={strings.energyAxis} marker={frame ? frame.step.displacement : null} labels={energyLabels} height={Math.max(150, convH - (comparison ? 420 : 260))} />
+            <LineChart scrubber series={energySeries} xLabel={strings.topDisplacementAxis} yLabel={strings.energyAxis} marker={frame ? frame.step.displacement : null} labels={energyLabels} height={Math.max(150, convH - (comparison ? 420 : 260))} />
           </figure>
         {/if}
       </div>

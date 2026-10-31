@@ -23,6 +23,8 @@
     ariaLabel = null,
     point = null,
     nearest = 'x',
+    dataTable = false,
+    scrubber = false,
   }: {
     series: Series[];
     xLabel: string;
@@ -41,6 +43,10 @@
     point?: [number, number] | null;
     /** 'xy' reads the point nearest the pointer in both directions, so a path that turns back in x reads one branch. */
     nearest?: 'x' | 'xy';
+    /** A legend and a data table below the plot. */
+    dataTable?: boolean;
+    /** A range input that moves the readout along the first series from the keyboard or by touch. */
+    scrubber?: boolean;
   } = $props();
 
   const strings = $derived(chartStrings());
@@ -154,15 +160,19 @@
       <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'}>{l.text}</text>
     {/each}
   </svg>
+  {#if dataTable}
   <ul class="legend">{#each series as s}<li><span class="sw" style:background={s.color}></span>{s.name}</li>{/each}</ul>
   <details><summary>{strings.table}</summary>
     {#each series as s}<table><caption>{s.name}</caption><thead><tr><th>{xLabel}</th><th>{yLabel}</th></tr></thead><tbody>
       {#each s.points as p}<tr><td>{fmtVal(p[0])}</td><td>{fmtVal(p[1])}</td></tr>{/each}
     </tbody></table>{/each}
   </details>
+  {/if}
+  {#if scrubber}
   <input type="range" min="0" max={Math.max(0, (series[0]?.points.length ?? 1) - 1)} bind:value={readIndex}
     aria-label={xLabel} oninput={(e) => hoverX = series[0]?.points[e.currentTarget.valueAsNumber]?.[0] ?? null}
     onfocus={() => hoverX = series[0]?.points[readIndex]?.[0] ?? null} />
+  {/if}
   {#if readout}
     <div aria-live="polite" class="readout" style:left="{Math.max(0, Math.min(sx(readout.x) + 10, width - 230))}px">
       <div class="rx">{xLabel}: {fmtVal(readout.x)}</div>
