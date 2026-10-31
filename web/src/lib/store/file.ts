@@ -37,6 +37,32 @@ import {
  */
 export const DEDAL_FILE_VERSION = '2.0' as const;
 const KNOWN_VERSIONS = new Set(['1.0', '2.0']);
+/** The session envelope (`DedalSessionFile`): every release so far has written 1.0. */
+export const SESSION_FILE_VERSION = '1.0' as const;
+
+/**
+ * Whether `version` is a format NEWER than `newest`, which this build reads up to.
+ *
+ * Such a file is refused with its own message (`newerVersionError`) rather than the generic
+ * "invalid format": it is a valid file, and the engineer needs to know that a newer Stabileo
+ * opens it. Never read partially: fields this build does not know would be dropped in silence,
+ * and saving it back would overwrite the newer file with less than it had (#718).
+ */
+export function isNewerFileVersion(version: unknown, newest: string = DEDAL_FILE_VERSION): boolean {
+  if (typeof version !== 'string' || !/^\d+(\.\d+)*$/.test(version)) return false;
+  const a = version.split('.').map(Number);
+  const b = newest.split('.').map(Number);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+    if (d !== 0) return d > 0;
+  }
+  return false;
+}
+
+/** The refusal of a file written by a newer version, saying which format and which this build reads. */
+export function newerVersionError(version: string, supported: string): Error {
+  return new Error(t('file.newerVersion').replace('{version}', version).replace('{supported}', supported));
+}
 
 export interface DedalFile {
   version: typeof DEDAL_FILE_VERSION;
@@ -610,9 +636,10 @@ export function saveProject(): void {
 
 export async function loadProject(file: File): Promise<void> {
   const text = await file.text();
-  if (!deserializeProject(text)) {
-    throw new Error(t('file.invalidFormat'));
-  }
+  let version: unknown;
+  try { version = (JSON.parse(text) as { version?: unknown } | null)?.version; } catch { /* not JSON: invalid format */ }
+  if (isNewerFileVersion(version)) throw newerVersionError(String(version), DEDAL_FILE_VERSION);
+  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));
   // Members lying over each other: ask about each, as drawing one would.
   askAboutOverlapsInModel();
 }
@@ -650,7 +677,9 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
     throw new Error(t('file.invalidJson'));
   }
 
+  const version = (data as { version?: unknown } | null)?.version;
   if (isSessionFile(data)) {
+    if (isNewerFileVersion(version, SESSION_FILE_VERSION)) throw newerVersionError(String(version), SESSION_FILE_VERSION);
     // Session file: restore its tabs — through the same gate a single-tab file passes.
     //
     // The tabs that pass are opened and the others named, rather than refusing the file over
@@ -664,6 +693,8 @@ export async function loadFile(file: File): Promise<{ type: 'tab' | 'session'; c
       uiStore.toast(t('file.sessionTabsDropped').replace('{names}', droppedTabNames(dropped)), 'error');
     }
     return { type: 'session', count: tabs.length };
+  } else if (isNewerFileVersion(version)) {
+    throw newerVersionError(String(version), DEDAL_FILE_VERSION);
   } else if (deserializeProject(text)) {
     askAboutOverlapsInModel();
     return { type: 'tab', count: 1 };

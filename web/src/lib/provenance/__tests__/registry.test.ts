@@ -54,6 +54,16 @@ describe('result-change registry', () => {
     expect(problems.some((p) => p.includes('resultsVersion 99'))).toBe(true);
   });
 
+  it('refuses a malformed list of the quantities a change moves', () => {
+    const entry = RESULT_CHANGES.changes.find((c) => c.resultsVersion === RESULT_CHANGES.currentResultsVersion)!;
+    for (const quantities of [[], [''], ['reactions[].fx'], ['a.b.c'], [7]]) {
+      const bad = { ...RESULT_CHANGES, changes: [{ ...entry, quantities: quantities as string[] }] };
+      expect(validateRegistry(bad, new Set(FEATURE_IDS)), JSON.stringify(quantities)).toContain(`change ${entry.id}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
+    }
+    const good = { ...RESULT_CHANGES, changes: [{ ...entry, quantities: ['*', 'solve.ok', 'reactions', 'quadStresses.sigmaXx'] }] };
+    expect(validateRegistry(good, new Set(FEATURE_IDS))).toEqual([]);
+  });
+
   it('slugs headings the way GitHub anchors them', () => {
     expect(githubSlug('CIRSOC 301 steel checks in the engine, re-checked and certified (2026-10-17)'))
       .toBe('cirsoc-301-steel-checks-in-the-engine-re-checked-and-certified-2026-10-17');

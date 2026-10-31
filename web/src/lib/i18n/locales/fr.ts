@@ -3411,6 +3411,7 @@ const fr: Translations = {
   'file.workspaceBackupKept': 'Une copie complète de l\'espace de travail précédent a été conservée dans ce navigateur (clé stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'La place manquait pour conserver une copie : l\'espace de travail stocké ne sera donc pas écrasé tant que cette page est ouverte. Utilisez Enregistrer la session pour conserver ce que vous ouvrez.',
   'file.invalidFormat': 'Format de fichier invalide. Assurez-vous qu\'il s\'agit d\'un fichier .ded de Stabileo.',
+  'file.newerVersion': 'Ce fichier a été enregistré par une version plus récente de Stabileo (format de fichier {version} ; cette version lit jusqu\'à {supported}). Il n\'a pas été ouvert et rien n\'a été modifié : ouvrez-le avec une version plus récente.',
   'file.loadedNoAxisConvention': 'Chargé sans métadonnées de convention d\'axes locaux : le modèle est maintenant évalué avec la convention d\'axes locaux corrigée, Z vers le haut. Relancez le calcul et revoyez les diagrammes et vérifications des barres.',
   'file.supportFixed': 'Encastré',
   'file.supportPinned': 'Articulé',

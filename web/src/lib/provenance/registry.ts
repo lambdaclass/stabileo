@@ -38,6 +38,13 @@ export interface ResultChange {
   prs: number[];
   area: 'analysis' | 'design' | 'loads';
   when: ChangeCondition;
+  /**
+   * The solve results it can move, for the legacy-projects test (#718): `*` (every result of a
+   * solve), `solve.ok` (a solve that now refuses or now succeeds), a collection
+   * (`quadNodalStresses`) or one field of it (`quadStresses.sigmaXx`). Absent: it explains no
+   * difference in a solve's results, which is right for a design change and strict for any other.
+   */
+  quantities?: string[];
   title: Localised;
   explanation: Localised;
   /** Where the change is written up: a repository file and one of its headings. */
@@ -75,6 +82,8 @@ export function conditionGroups(w: ChangeCondition): string[][] {
   return groups;
 }
 
+const QUANTITY = /^(\*|solve\.ok|[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)?)$/;
+
 /**
  * Refuse a malformed registry rather than read it partially: a change that silently fails to
  * load is a change nobody is told about. Returns the problems (empty: valid).
@@ -98,6 +107,10 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
       if (!c.explanation?.[loc]?.trim()) problems.push(`${where}: missing explanation.${loc}`);
     }
     if (!c.changelog?.file || !c.changelog?.heading) problems.push(`${where}: missing changelog link`);
+    if (c.quantities !== undefined && (!Array.isArray(c.quantities) || c.quantities.length === 0
+      || c.quantities.some((q) => typeof q !== 'string' || !QUANTITY.test(q)))) {
+      problems.push(`${where}: quantities must be a non-empty list of "*", "solve.ok", a collection or collection.field`);
+    }
     const groups = conditionGroups(c.when ?? {});
     for (const g of groups) {
       if (g.length === 0) problems.push(`${where}: empty condition group`);

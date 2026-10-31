@@ -3180,6 +3180,7 @@ const pt: Translations = {
   'file.htmlLang': 'pt',
   'file.internalForces': 'Esforços internos',
   'file.invalidFormat': 'Formato de arquivo inválido. Certifique-se de que é um arquivo .ded do Stabileo.',
+  'file.newerVersion': 'Este arquivo foi salvo por uma versão mais nova do Stabileo (formato de arquivo {version}; esta versão lê até {supported}). Ele não foi aberto e nada foi alterado: abra-o com uma versão mais nova.',
   'file.invalidJson': 'O arquivo não é um JSON válido',
   'file.loadDistributed': 'Distribuída',
   'file.loadNodal': 'Nodal',

@@ -14,6 +14,7 @@ give different numbers. Each entry has:
 | `date`, `prs` | when it reached main, and the pull requests |
 | `area` | `analysis`, `design` or `loads` |
 | `when` | which models it concerns, in feature ids (`any`: one of; `all`: each of; `allOf`: groups that must all hold) |
+| `quantities` | optional: the solve results it can move, `*` (every result value), `solve.ok`, `errorCodes`, `unstableCombinations`, a collection (`reactions`) or one field (`quadStresses.sigmaXx`). `*` does not cover a refusal (`solve.ok`), a new error (`errorCodes`) or a newly unstable combination (`unstableCombinations`): each must be named. The legacy-projects test (#718) accepts a difference in an old project file (a value changed, no longer produced, or newly produced) only in values an applicable entry declares; without it, the entry explains none |
 | `title`, `explanation` | what to tell the engineer, in `en`, `es` and `pt` |
 | `changelog` | a file and one of its headings (checked by `registry.test.ts`) |
 
@@ -107,7 +108,9 @@ search with a wall-clock cap, whose answer depends on the machine). The whole co
 
 **Tolerance.** Two numbers of one quantity are the same result when
 `|a − b| ≤ 1e-6·max(|a|, |b|) + 1e-7·peak`, `peak` being the largest magnitude of that quantity
-in the case. One part per million is a thousand times tighter than any engineering difference
+in the case, or of the vector it is a component of when larger (a reaction's force components, a
+member's N and V at both ends; never across units), so round-off in a component statics makes
+zero is measured against the forces that produce it. One part per million is a thousand times tighter than any engineering difference
 (a code's rounding, a 0.1 % load factor); 1e-7 of the peak absorbs values that should be zero and
 come out as round-off. The WASM build is bit-for-bit deterministic, so the same build reproduces
 the snapshot exactly; what the tolerance absorbs is a refactor that reorders floating-point

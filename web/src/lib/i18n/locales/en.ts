@@ -3451,6 +3451,7 @@ const en: Record<string, string> = {
   'file.workspaceBackupKept': 'A full copy of the previous workspace was kept in this browser (key stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'There was no room to keep a copy, so the stored workspace will not be overwritten while this page is open. Use Save session to keep what you open.',
   'file.invalidFormat': 'Invalid file format. Make sure it is a .ded file from Stabileo.',
+  'file.newerVersion': 'This file was saved by a newer version of Stabileo (file format {version}; this version reads up to {supported}). It was not opened, and nothing was changed: open it with a newer version.',
   'file.loadedNoAxisConvention': 'Loaded without local-axis convention metadata — now evaluated with the corrected Z-up local-axis convention. Re-solve and review member diagrams/checks.',
   'file.supportFixed': 'Fixed',
   'file.supportPinned': 'Pinned',

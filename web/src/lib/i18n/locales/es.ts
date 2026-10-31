@@ -3444,6 +3444,7 @@ const es: Record<string, string> = {
   'file.workspaceBackupKept': 'Se guardó una copia completa del espacio de trabajo anterior en este navegador (clave stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'No hubo lugar para guardar una copia, así que el espacio de trabajo guardado no se va a sobrescribir mientras esta página esté abierta. Usá Guardar sesión para conservar lo que abras.',
   'file.invalidFormat': 'Formato de archivo inválido. Verificá que sea un archivo .ded de Stabileo.',
+  'file.newerVersion': 'Este archivo fue guardado por una versión más nueva de Stabileo (formato de archivo {version}; esta versión lee hasta {supported}). No se abrió y no se cambió nada: abrilo con una versión más nueva.',
   'file.loadedNoAxisConvention': 'Cargado sin metadatos de convención de ejes locales — ahora se evalúa con la convención corregida de ejes locales Z-up. Recalculá y revisá los diagramas/verificaciones de las barras.',
   'file.supportFixed': 'Empotrado',
   'file.supportPinned': 'Articulado',
