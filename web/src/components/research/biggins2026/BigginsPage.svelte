@@ -24,7 +24,7 @@
   let source = $state<'replay' | 'live'>('replay');
   let busy = $state(false);
   let failed = $state(false);
-  let viewportWidth = $state(1024);
+  let narrow = $state(false);
   let host: HTMLDivElement;
   let worker: Worker | null = null;
   const frame = $derived(run.frames[playback.shown]);
@@ -58,12 +58,14 @@
     playback.startAutoplay({ reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, narrow: innerWidth < 640 });
     const observer = new IntersectionObserver(([entry]) => playback.setVisible(entry.isIntersecting));
     observer.observe(host);
-    return () => observer.disconnect();
+    const phone = matchMedia('(max-width: 639px)');
+    const syncNarrow = () => { narrow = phone.matches; };
+    syncNarrow();
+    phone.addEventListener('change', syncNarrow);
+    return () => { observer.disconnect(); phone.removeEventListener('change', syncNarrow); };
   });
   onDestroy(() => { stop(); playback.dispose(); });
 </script>
-
-<svelte:window bind:innerWidth={viewportWidth} />
 
 <ExperimentShell paperId="zmyslony-2026" name={s.title} lead={s.lead} introInArticle compactHeader wide contentLocale={publicI18n.locale}
   sourcePath="research/mechanics/biggins-2026"
@@ -89,7 +91,7 @@
       onpointerdowncapture={() => playback.interact()} onkeydowncapture={() => playback.interact()} onwheelcapture={() => playback.interact()} onclickcapture={() => playback.interact()} role="group" aria-label={s.title}>
       <p>{source === 'replay' ? shared.replaySource : shared.liveSource}</p>
       <StabileoViewer editorButton={false} {xy} {cells} cellSize={2} values={heights} {displacement} deformScale={1}
-        range={{ min: -0.12, max: 0.12 }} title={showMode ? s.mode : s.arch} height="17rem" view={[-0.05, viewportWidth < 640 ? -0.5 : -0.3, 1.05, 0.13]} lineWidth={5} />
+        range={{ min: -0.12, max: 0.12 }} title={showMode ? s.mode : s.arch} height="17rem" view={[-0.05, narrow ? -0.5 : -0.3, 1.05, 0.13]} lineWidth={5} />
       <p>{s.coordinates}</p>
       <label class="mode-toggle"><input type="checkbox" bind:checked={showMode} />{s.mode}</label>
       <label for="arch-width">{s.width} {num(width, { dp: 2 })}</label>
