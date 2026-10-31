@@ -27,11 +27,7 @@ const IZ: f64 = 1e-4;
 // 1. Pure End Moment on Cantilever — Corotational Curling
 // ================================================================
 //
-// A cantilever beam loaded with a pure end moment M should curl.
-// For M = PI*EI/L, the linear theory gives tip rotation = PI (half circle).
-// Corotational should capture the geometric effect and yield a different
-// displacement pattern than linear (tip displaces laterally).
-
+// M=EI/L gives a circular arc with tip rotation 1 rad.
 #[test]
 fn validation_corotational_cantilever_end_moment() {
     let data: serde_json::Value = serde_json::from_str(include_str!("../../benchmarks/mattiasson_elastica.json")).unwrap();
@@ -57,22 +53,15 @@ fn validation_corotational_cantilever_end_moment() {
     let corot_disp = corot.results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
 
-    // Linear theory: pure moment produces zero transverse displacement for
-    // a beam without shear (pure rotation at tip). But with many elements,
-    // the corotational curling effect produces non-trivial uy.
-    // The corotational solution should differ from linear.
-    let lin_rz = lin_disp.ry.abs();
-    let corot_rz = corot_disp.ry.abs();
-
-    assert!(lin_rz > 0.1, "Linear should produce significant rotation: got {:.6}", lin_rz);
-    assert!(corot_rz > 0.1, "Corotational should produce significant rotation: got {:.6}", corot_rz);
-
-    // For large rotations, corotational shortens the beam (ux should be
-    // non-zero in corotational but near-zero in linear for pure moment)
-    let corot_ux = corot_disp.ux.abs();
-    // The beam tip should have some axial displacement due to curling
-    // (geometric coupling). Just verify it is non-negative (it converged).
-    assert!(corot_ux >= 0.0, "Corotational axial displacement should be non-negative");
+    // Linear theory gives uz=ML²/(2EI)=1 m and rotation ML/EI=1 rad.
+    assert!((lin_disp.uz - 1.).abs() < 1e-8);
+    assert!((lin_disp.ry - 1.).abs() < 1e-8);
+    assert!((corot_disp.ry - 1.).abs() < 1e-8);
+    // 16 chord elements: circular-arc shortening error 0.087%, transverse 0.017%.
+    let u = 1. - 1_f64.sin();
+    let v = 1_f64.cos() - 1.;
+    assert!((-corot_disp.ux / 2. / u - 1.).abs() < 0.001);
+    assert!((-corot_disp.uz / 2. / v - 1.).abs() < 0.001);
 }
 
 // ================================================================
