@@ -25,10 +25,11 @@ it.each(['en','es','pt','de','fr','tr'] as const)('renders the complete %s page 
   expect(body).not.toContain('role="status"');
   if (locale !== 'en') expect(body).not.toContain('Upper limit load');
 });
-it('gives adjacent limit labels separate vertical boxes and an accessible value summary', () => {
+it('lists adjacent limit labels outside the plot area, with an accessible value summary', () => {
   const {body} = render(Chart,{props:{series:[{name:'reference',color:'orange',points:[[0,0],[1,2]]}],limits:[{x:.9,y:2,label:'reference limit'},{x:.901,y:2,label:'measured limit'}],current:{x:.8,y:1.9},xLabel:'v (m)',yLabel:'P (kN)'}});
-  const labels = [...body.matchAll(/<text x="([^"]+)" y="([^"]+)" class="limit-label/g)];
-  expect(labels).toHaveLength(2);
-  expect(Math.abs(Number(labels[0][2])-Number(labels[1][2]))).toBeGreaterThanOrEqual(22);
+  const legend = body.match(/<ul class="path-legend[^"]*">([\s\S]*?)<\/ul>/)![1].replace(/<!--[\s\S]*?-->/g, '');
+  expect([...legend.matchAll(/<li class="limit-label[^"]*">[\s\S]*?<\/svg>([^<]*)<\/li>/g)].map(m => m[1])).toEqual(['reference limit', 'measured limit']);
+  expect(legend).toContain('reference');
+  expect(body.split('</svg>')[0]).not.toContain('reference limit<');
   expect(body).toMatch(/aria-label="[^"]*reference limit:[^"]*measured limit:/);
 });

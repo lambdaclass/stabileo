@@ -47,7 +47,7 @@ test.describe('@smoke research riks-crisfield', () => {
     const labels = await page.locator('#rs-panel-path .limit-label').evaluateAll((els) => els.map((el) => { const b = el.getBoundingClientRect(); return { top: b.top, bottom: b.bottom, text: el.textContent }; }));
     expect(labels.map((l) => l.text)).toEqual([copy.referenceLimit, copy.measuredLimit]);
     expect(labels[0].bottom <= labels[1].top || labels[1].bottom <= labels[0].top).toBe(true);
-    await expect(page.locator('#rs-panel-path svg')).toHaveAttribute('aria-label', new RegExp(`${copy.referenceLimit}: `));
+    await expect(page.locator('#rs-panel-path svg[role="img"]')).toHaveAttribute('aria-label', new RegExp(`${copy.referenceLimit}: `));
 
     await page.locator('#rs-tab-parameters').click();
     await page.locator('#p-case').selectOption('shallow-toggle');
@@ -115,6 +115,11 @@ test.describe('@smoke research riks-crisfield', () => {
       await expect(page.locator('.sfv canvas').first()).toBeVisible();
       const viewer = (await page.locator('.rs-viewer-slot').boundingBox())!;
       expect(viewer.y + 120).toBeLessThanOrEqual(viewport.height);
+      const legend = (await page.locator('.rs-viewer-slot .shell-legend').boundingBox())!;
+      for (const button of await page.locator('.rs-viewer-slot .sfv-mode, .rs-viewer-slot .camera-controls button').all()) {
+        const b = (await button.boundingBox())!;
+        expect(legend.x >= b.x + b.width || b.x >= legend.x + legend.width || legend.y >= b.y + b.height || b.y >= legend.y + legend.height).toBe(true);
+      }
       await page.screenshot({ path: testInfo.outputPath(`riks-${viewport.width}x${viewport.height}-page.png`) });
 
       await page.locator('#rs-tab-viewer').focus();

@@ -136,7 +136,7 @@
   }
   .research :global(sub),
   .research :global(sup) {
-    font-size: 0.75em;
+    font-size: max(12px, 0.75em);
     line-height: 0;
   }
 </style>

@@ -64,13 +64,19 @@
     {/each}
     {#each limits as limit, i (limit.label)}
       <circle cx={sx(limit.x)} cy={sy(limit.y)} r={i ? 4 : 8} class="limit" class:limit-ring={!i} />
-      <circle cx={M.l + 14} cy={M.t + 14 + i * 22} r={i ? 4 : 6} class="limit" class:limit-ring={!i} />
-      <text x={M.l + 26} y={M.t + 18 + i * 22} class="limit-label" text-anchor="start">{limit.label}</text>
     {/each}
     {#if current}
       <circle cx={sx(current.x)} cy={sy(current.y)} r="5" class="current" />
     {/if}
   </svg>
+  <ul class="path-legend">
+    {#each ordered as item (item.name)}
+      <li class="series-label"><svg width="22" height="12" aria-hidden="true"><line x1="2" x2="20" y1="6" y2="6" style:stroke={item.color} stroke-width={item.reference ? 7 : 2} stroke-opacity={item.reference ? 0.35 : 1} stroke-linecap="round" /></svg>{item.name}</li>
+    {/each}
+    {#each limits as limit, i (limit.label)}
+      <li class="limit-label"><svg width="22" height="16" aria-hidden="true"><circle cx="11" cy="8" r={i ? 4 : 6} class="limit" class:limit-ring={!i} /></svg>{limit.label}</li>
+    {/each}
+  </ul>
 </div>
 
 <style>
@@ -78,9 +84,11 @@
   svg { display: block; overflow: visible; }
   .grid { stroke: var(--rs-plot-grid); stroke-width: 1; }
   .axis { stroke: var(--rs-plot-axis); stroke-width: 1.25; }
-  .tick, .label, .limit-label { fill: var(--fg-2); font: var(--rs-micro) var(--st-sans); font-variant-numeric: tabular-nums; }
+  .tick, .label { fill: var(--fg-2); font: var(--rs-micro) var(--st-sans); font-variant-numeric: tabular-nums; }
   .limit { fill: var(--st-warn); stroke: var(--lp-ink); stroke-width: 2; }
-  .limit-label { fill: var(--st-warn); }
+  .path-legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: .5rem 0 0; padding: 0; list-style: none; color: var(--fg-2); font: var(--rs-micro) var(--st-sans); }
+  .path-legend li { display: flex; align-items: center; gap: .35rem; }
+  .limit-label { color: var(--st-warn); }
   .limit-ring { fill: none; stroke: var(--st-warn); stroke-width: 2.5; }
   .current { fill: var(--rs-plot-ours); stroke: var(--lp-ink); stroke-width: 2; }
 </style>

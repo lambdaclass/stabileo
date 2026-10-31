@@ -12,7 +12,4 @@
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }
-  .sci sup {
-    font-size: max(12px, 0.75em);
-  }
 </style>

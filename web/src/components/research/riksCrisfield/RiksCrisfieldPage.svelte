@@ -302,7 +302,7 @@
   .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
   .dot-replay { background: #8fa3b3; } .dot-live { background: #2aa869; } .dot-cached { background: #4a8fd4; }
   .rs-viewer-panel { display: flex; flex-direction: column; min-height: 0; }
-  .rs-viewer-slot { height: clamp(19rem, 62vw, 28rem); min-height: 0; }
+  .rs-viewer-slot { height: clamp(25rem, 80vw, 30rem); min-height: 0; }
   .rs-viewer-slot :global(.rs-viewer-host), .rs-viewer-slot :global(.sfv-wrap) { height: 100%; display: flex; flex-direction: column; }
   .rs-viewer-slot :global(.sfv) { flex: 1; min-height: 0; }
   .rs-scrub { display: flex; align-items: center; gap: .65rem; }
@@ -327,6 +327,6 @@
   .rs-app :global(.rs-tabs button) { min-height: 44px; flex: 1; min-width: 0; padding-inline: .35rem; }
   .rs-app :global(.rs-param) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .rs-app :global(.rs-param-unit) { display: none; }
-  .rs-app :global(td), .rs-app :global(th) { white-space: normal; overflow-wrap: anywhere; }
+  .rs-app :global(td.num), .rs-app :global(th.num) { white-space: nowrap; }
   .rs-app :global(.status-value), .rs-app :global(.status-label) { font-size: 12px; }
 </style>
