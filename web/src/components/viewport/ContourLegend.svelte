@@ -14,7 +14,8 @@
     footer = '',
     ariaLabel = title,
     colourMap = 'shell',
-  }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap } = $props();
+    format = formatContourLabel,
+  }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap; format?: typeof formatContourLabel } = $props();
   const shellContourColor = (v: number, lo: number, hi: number) => colourFor(colourMap, v, lo, hi);
 
   function hex(n: number): string {
@@ -38,11 +39,11 @@
     return `linear-gradient(to top, ${stops.join(', ')})`;
   });
 
-  const fmt = (value: number) => formatContourLabel(value, min, max, bands);
+  const fmt = (value: number) => format(value, min, max, bands);
   const mid = $derived((min + max) / 2);
 </script>
 
-<div class="shell-legend" role="img" aria-label={`${ariaLabel}: ${fmt(min)} – ${fmt(max)} ${unit}`}>
+<div class="shell-legend" role="img" aria-label={ariaLabel}>
   <div class="legend-title">{title}{#if unit} <span class="legend-unit-inline">[{unit}]</span>{/if}</div>
   <div class="legend-body">
     <div class="legend-bar" style="background:{gradient}"></div>

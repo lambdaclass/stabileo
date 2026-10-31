@@ -5,8 +5,7 @@ const fr: Translations = {
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
-  "scalarViewer.keyboard": "Flèches : orbite. Maj + flèches : déplacement. Plus/moins : zoom.",
-  "scalarViewer.viewOptions": 'Options d’affichage',
+  'scalarViewer.viewOptions': 'Options d’affichage',
   'scalarViewer.close': 'Fermer',
   'scalarViewer.fit': 'Ajuster à l’étendue',
   'scalarViewer.plan': '2D (plan, orbite verrouillée)',
