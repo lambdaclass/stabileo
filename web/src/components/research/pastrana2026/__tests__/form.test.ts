@@ -6,7 +6,7 @@ import { compactModel, editorUrl, projection } from '../form';
 import reference from '../../../../../../research/form-finding/pastrana-2026/reference-results/four_bar.json';
 import frames from '../../../../../../research/form-finding/pastrana-2026/results/stabileo_results.json';
 import { setLocale, publicI18n, PUBLIC_LOCALES } from '../../../../lib/i18n/store.svelte';
-import { rs, researchLocale } from '../../i18n';
+import { rs, researchLocale, researchTextLocale } from '../../i18n';
 const baseline = frames.at(-1)!;
 
 describe('four-cable model handoff', () => {
@@ -65,7 +65,8 @@ describe('four-cable model handoff', () => {
     try {
       for (const locale of PUBLIC_LOCALES) {
         setLocale(locale);
-        expect(researchLocale()).toBe(['es', 'pt'].includes(locale) ? locale : 'en');
+        expect(researchTextLocale()).toBe(['es', 'pt'].includes(locale) ? locale : 'en');
+        expect(researchLocale()).toBe(locale);
         expect(rs().researchLanguages.length).toBeGreaterThan(40);
         expect(rs().formScope).toContain('2.1');
         expect(rs().formReference).toContain('9a17fd379071fb3511ca914f46e8d1e8c286460e');
