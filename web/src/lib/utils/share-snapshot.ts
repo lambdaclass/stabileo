@@ -18,6 +18,30 @@ function records(value: unknown): value is RecordValue[] {
   return Array.isArray(value) && value.every(record);
 }
 
+function finiteThroughout(value: unknown): boolean {
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (value === null || typeof value !== 'object') return true;
+  return Object.values(value).every(finiteThroughout);
+}
+
+const NODE_LOADS = new Set(['nodal', 'nodal3d', 'displacement3d']);
+const MEMBER_LOADS = new Set(['distributed', 'pointOnElement', 'thermal', 'distributed3d', 'pointOnElement3d', 'prestress3d']);
+
+function referencesResolve(value: RecordValue): boolean {
+  const nodes = value.nodes as Entry[], elements = value.elements as Entry[];
+  const nodeIds = new Set(nodes.map(([key]) => key)), elementIds = new Set(elements.map(([key]) => key));
+  const coordinate = (v: unknown) => typeof v === 'number';
+  if (!nodes.every(([, n]) => coordinate(n.x) && coordinate(n.y) && (n.z === undefined || coordinate(n.z)))) return false;
+  if (!elements.every(([, e]) => nodeIds.has(e.nodeI as number) && nodeIds.has(e.nodeJ as number))) return false;
+  if (!(value.supports as Entry[]).every(([, s]) => nodeIds.has(s.nodeId as number))) return false;
+  return (value.loads as RecordValue[]).every(load => {
+    const data = load.data as RecordValue;
+    if (NODE_LOADS.has(load.type as string)) return nodeIds.has(data.nodeId as number);
+    if (MEMBER_LOADS.has(load.type as string)) return elementIds.has(data.elementId as number);
+    return true;
+  });
+}
+
 function entries(value: unknown): value is Entry[] {
   if (!Array.isArray(value)) return false;
   const seen = new Set<number>();
@@ -64,6 +88,8 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
       || !assumptions.every(a => typeof a === 'string'))) return null;
     if (layerMappings !== undefined && !records(layerMappings)) return null;
   }
+
+  if (!finiteThroughout(value) || !referencesResolve(value)) return null;
 
   // Counters are bookkeeping, not model properties. Recover missing, malformed
   // or stale counters without changing any existing entity's ID. Keep larger

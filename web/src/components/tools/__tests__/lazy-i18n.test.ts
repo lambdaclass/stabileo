@@ -10,6 +10,15 @@ describe('Tools route translations', () => {
       expect(PUBLIC_KEY_PREFIXES.some((prefix) => key.startsWith(prefix))).toBe(false);
     }
   });
+  it('translates every calculator key in all six locales, with matching placeholders', () => {
+    const keys = Object.keys(dictionaries.en).sort();
+    for (const locale of ['es', 'pt', 'de', 'fr', 'tr']) {
+      expect(Object.keys(dictionaries[locale]).sort()).toEqual(keys);
+      for (const key of keys) expect(dictionaries[locale][key].match(/\{\w+\}/g)?.sort() ?? []).toEqual(dictionaries.en[key].match(/\{\w+\}/g)?.sort() ?? []);
+    }
+    for (const key of ['tools.firstVersion', 'tools.calculate']) expect(dictionaries.en[key]).toBeUndefined();
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) expect(dictionaries[locale]['tools.lead']).not.toMatch(/^(First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm)/);
+  });
   it('registers the calculator and shared viewer strings for all six locales', () => {
     const before = publicI18n.locale;
     registerFeatureDictionaries(dictionaries);

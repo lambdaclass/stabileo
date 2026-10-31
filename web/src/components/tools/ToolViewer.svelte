@@ -30,8 +30,10 @@
     for (const support of result.model.supports.values()) {
       const x = result.model.nodes.get(support.nodeId)!.x;
       if (support.type === 'fixed' || String(support.type) === 'guidedX') {
+        const side = x > 0 ? 1 : -1, gap = String(support.type) === 'guidedX' ? h * .4 : 0;
         line(x, -h, x, h);
-        for (const z of [-h, 0, h]) line(x, z, x - h * .6, z - h * .6);
+        if (gap) line(x + side * gap, -h, x + side * gap, h);
+        for (const z of [-h, 0, h]) line(x + side * gap, z, x + side * (gap + h * .6), z - h * .6);
       } else {
         line(x, 0, x - h, -h); line(x - h, -h, x + h, -h); line(x + h, -h, x, 0);
         if (support.type === 'rollerX') line(x - h, -1.3 * h, x + h, -1.3 * h);
@@ -57,13 +59,15 @@
   <ScalarFieldViewer xy={mesh.xy} cells={mesh.cells} cellSize={2} lineWidth={3} values={mesh.values} perCell={true} colourMap="diverging" geometryOnly={true} range={{ min: -1, max: 1 }} title={t(column ? 'tools.mode' : 'tools.structure')} view={[-p.length * .12, -p.length * .25, p.length * 1.2, p.length * .25]} height="clamp(15rem, 32vh, 24rem)" editorButton={false} />
   <p class="note">{t(column ? 'tools.modeNote' : 'tools.deformedNote')} · {column ? `KL = ${number(p.k * p.length)} m` : `${t('tools.load')}: ${number(p.load)} ${p.uniform ? 'kN/m' : 'kN'}`}</p>
   {#if !column}
-    <PaneTabs tabs={['deflection', 'shear', 'moment'].map(id => ({ id, label: t(`tools.${id}`) }))} bind:active />
+    <PaneTabs tabs={['deflection', 'shear', 'moment'].map(id => ({ id, label: t(`tools.${id}`) }))} bind:active label={t('tools.structure')} />
     {#each ['deflection', 'shear', 'moment'] as tab}
       {#if active === tab}
         <div role="tabpanel" id={`rs-panel-${tab}`} aria-labelledby={`rs-tab-${tab}`} tabindex="0" class="chart">
           <p>|max| = {number(Math.abs(result.maxima[metric][1]))} {unit} · {t('tools.at')} x = {number(result.maxima[metric][0])} m</p>
-          <LineChart series={[{ name: t(`tools.${metric}`), color: 'var(--lp-accent)', points: result.charts[metric] }]} xLabel="x (m)" yLabel={`${t(`tools.${metric}`)} (${unit})`} height={220} marker={result.maxima[metric][0]} markerLabel={number(Math.abs(result.maxima[metric][1]))} />
+          <LineChart ariaLabel={t(`tools.${metric}`)} series={[{ name: t(`tools.${metric}`), color: 'var(--lp-accent)', points: result.charts[metric] }]} xLabel="x (m)" yLabel={`${t(`tools.${metric}`)} (${unit})`} height={220} marker={result.maxima[metric][0]} markerLabel={number(Math.abs(result.maxima[metric][1]))} />
         </div>
+      {:else}
+        <div role="tabpanel" id={`rs-panel-${tab}`} aria-labelledby={`rs-tab-${tab}`} hidden></div>
       {/if}
     {/each}
   {/if}
