@@ -21,6 +21,7 @@
     padding: 0.2rem 0;
   }
   label {
+    overflow-wrap: anywhere;
     font: var(--rs-ui) var(--st-sans);
     color: var(--fg);
   }

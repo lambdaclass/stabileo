@@ -45,6 +45,7 @@
 
   const strings = $derived(chartStrings());
   let width = $state(600);
+  let readIndex = $state(0);
   let hoverX = $state<number | null>(null);
   let hoverY = $state(0);
   const M = { l: 48, r: 28, t: 22, b: 36 };
@@ -104,7 +105,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label={ariaLabel ?? strings.axes.replace('{y}', yLabel).replace('{x}', xLabel)} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={ariaLabel ?? strings.axes.replace('{y}', yLabel).replace('{x}', xLabel)} onpointerdown={onMove} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="12px">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
@@ -159,8 +160,11 @@
       {#each s.points as p}<tr><td>{fmtVal(p[0])}</td><td>{fmtVal(p[1])}</td></tr>{/each}
     </tbody></table>{/each}
   </details>
+  <input type="range" min="0" max={Math.max(0, (series[0]?.points.length ?? 1) - 1)} bind:value={readIndex}
+    aria-label={xLabel} oninput={(e) => hoverX = series[0]?.points[e.currentTarget.valueAsNumber]?.[0] ?? null}
+    onfocus={() => hoverX = series[0]?.points[readIndex]?.[0] ?? null} />
   {#if readout}
-    <div class="readout" style:left="{Math.max(0, Math.min(sx(readout.x) + 10, width - 230))}px">
+    <div aria-live="polite" class="readout" style:left="{Math.max(0, Math.min(sx(readout.x) + 10, width - 230))}px">
       <div class="rx">{xLabel}: {fmtVal(readout.x)}</div>
       {#each readout.rows as r (r.s.name)}
         {#if r.p}<div><span class="sw" style:background={r.s.color}></span>{r.s.name}: {fmtVal(r.p[1])}</div>{/if}
@@ -177,6 +181,7 @@
     position: relative;
     width: 100%;
   }
+  input { width: 100%; height: 44px; }
   svg {
     display: block;
     overflow: visible;
@@ -214,8 +219,8 @@
     font: max(12px, var(--rs-micro)) var(--st-sans);
   }
   .readout {
-    position: absolute;
-    top: 8px;
+    position: relative;
+    left: 0 !important;
     pointer-events: none;
     background: var(--lp-ink, #0c1620);
     border: 1px solid var(--hair);

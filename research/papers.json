@@ -67,6 +67,27 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "reviewer": "kimi",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility.",
+     "resolution": "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
+    },
+    {
+     "reviewer": "codex",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility.",
+     "resolution": "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
+    },
+    {
+     "reviewer": "claude",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Verified consolidated review: evidence, load coordinates, energies, localization and responsive accessibility.",
+     "resolution": "Addressed in research page, tests and README; engine numerics unchanged. Playwright cases await browser execution."
     }
    ]
   },
