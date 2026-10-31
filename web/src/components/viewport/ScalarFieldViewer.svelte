@@ -10,9 +10,10 @@
    * bar styles.
    *
    * Navigation as in the app: left drag orbits (in 3D), right drag pans, the wheel zooms to the
-   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked.
+   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked. With the
+   * canvas focused, arrows pan, Shift+arrows orbit in 3D, + and - zoom, 0 or Home fits.
    */
-  import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
+  import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
   import * as THREE from 'three';
   import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import '../../styles/viewer-chrome.css';
@@ -202,6 +203,14 @@
     fit();
   }
 
+  let menu = $state<HTMLDivElement>();
+  async function toggleMenu() {
+    menuOpen = !menuOpen;
+    if (!menuOpen) return;
+    await tick();
+    menu?.querySelector<HTMLButtonElement>('.cam-item')?.focus();
+  }
+
   function resize() {
     if (!renderer) return;
     const w = container.clientWidth;
@@ -321,13 +330,13 @@
     <div class="sfv-navigation">
       <div class="camera-controls">
         <div class="cam-menu-wrap">
-          <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
+          <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={toggleMenu} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
             <Icon name="viewCube" size={17} />
             <span class="cam-caret" aria-hidden="true"></span>
           </button>
           {#if menuOpen}
             <button class="cam-backdrop" onclick={closeMenu} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
-            <div class="cam-menu">
+            <div class="cam-menu" bind:this={menu}>
               <button class="cam-item" onclick={() => { closeMenu(); fit(); }}><span class="cam-glyph" aria-hidden="true">⤢</span><span>{t('scalarViewer.fit')}</span></button>
               <div class="cam-sep"></div>
               <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph" aria-hidden="true">⊤</span><span>{t('scalarViewer.plan')}</span></button>
