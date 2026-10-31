@@ -18,6 +18,7 @@ const es: Record<string, string> = {
   "scalarViewer.openEditor": "Abrir en el editor",
   "scalarViewer.soon": " (próximamente)",
   "scalarViewer.editorNote": "La apertura de experimentos en el editor llega con el modo investigación",
+  "scalarViewer.keyboard": "Teclado: las flechas desplazan, Mayús+flechas orbitan en 3D, + y - hacen zoom, 0 ajusta la vista",
 
   // ─── Auth / Login ───
   'account.signIn': 'Iniciar sesión',

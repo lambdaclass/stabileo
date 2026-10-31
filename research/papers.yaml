@@ -864,6 +864,9 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
 - id: mattiasson-elastica
   doi: 10.1002/nme.1620170113
   crossref:

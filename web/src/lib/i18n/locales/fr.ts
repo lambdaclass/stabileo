@@ -20,6 +20,7 @@ const fr: Translations = {
   'scalarViewer.openEditor': 'Ouvrir dans l’éditeur',
   'scalarViewer.soon': ' (bientôt)',
   'scalarViewer.editorNote': 'L’ouverture des expériences dans l’éditeur arrive avec le mode recherche',
+  'scalarViewer.keyboard': 'Clavier : les flèches déplacent, Maj+flèches font orbiter en 3D, + et - zooment, 0 ajuste la vue',
   // ─── Auth / Login ───
   'account.signIn': 'Se connecter',
   'account.register': 'Créer un compte',

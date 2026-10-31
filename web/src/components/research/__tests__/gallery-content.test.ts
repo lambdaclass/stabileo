@@ -25,6 +25,7 @@ it('renders citations without empty separators and descriptive leads for every l
     }
   }
 });
+const SECOND_ROUND = new Set(['macneal-harder-1985']);
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and one completed review round', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
@@ -32,7 +33,7 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and one completed 
   expect(b.venue.trim()).not.toBe('');
   expect(b.year).toBeGreaterThan(1800);
   expect(citation(paper)).not.toMatch(/,\s*,/);
-  expect(reviewCount(e.paperId)).toBe(1);
+  expect(reviewCount(e.paperId)).toBe(SECOND_ROUND.has(e.paperId) ? 2 : 1);
   expect(paper.reviews).toContainEqual({ round: 1, reviewers: ['codex', 'kimi'], date: '2026-10-30' });
 });
 it('omits absent bibliographic fields without dangling separators', () => {

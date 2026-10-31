@@ -66,8 +66,8 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'macneal-harder-1985', path: '/research/benchmarks/macneal-harder-1985',
-    name: 'MacNeal–Harder: production engine benchmarks',
-    hook: 'Run the production engine on shared accuracy cases; inspect every result, including failures.',
+    name: 'MacNeal–Harder (1985): engine benchmarks',
+    hook: 'Run the production engine on MacNeal–Harder cantilever cases; inspect every result, including failures.',
     thumbnail: 'research-thumbs/macneal-harder-1985.svg', thumbnailAlt: 'Geometry schematic of the cantilever accuracy benchmark', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/engine/tests/benchmarks',
   },
