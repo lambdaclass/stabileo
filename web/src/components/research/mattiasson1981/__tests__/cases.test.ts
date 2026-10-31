@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cases, tolerance, withinTolerance, compare, inputFor, runCases, viewerData, type Output } from '../cases';
+import { cases, tolerance, withinTolerance, compare, inputFor, runCases, viewerData, meshErrorCeilings, axialExtensionBound, type Output } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput2D, type ModelData } from '../../../../lib/engine/solver-service';
@@ -54,7 +54,7 @@ describe('Mattiasson evidence', () => {
       expect(load.nodeId).toBe(17); expect(load.fx).toBe(0);
       expect(load.fz).toBe(c.kind === 'force' ? -5000 * c.parameter : 0);
       expect(load.my).toBe(c.kind === 'moment' ? 10000 : 0);
-      if (c.kind === 'force') expect(c.solver).toEqual({ maxIter: 50, tolerance: 1e-8, nIncrements: 100 });
+      expect(c.solver).toEqual(c.kind === 'force' ? { maxIter: 50, tolerance: 1e-8, nIncrements: 100 } : { maxIter: 50, tolerance: 1e-6, nIncrements: 10 });
     }
   });
   it('uses a strict boundary and rejects nonfinite errors', () => {
@@ -76,6 +76,20 @@ describe('Mattiasson evidence', () => {
       if (locale !== 'en') for (const key of ['lead', 'modelDescription', 'solverDescription', 'publishedWhy', 'momentDescription'] as const) expect(dictionary[key]).not.toBe(strings.en[key]);
     }
   });
+  it('states exactly the mesh-error ceilings and extension bound that the native refinement tests enforce', () => {
+    const percent = (x: number) => String(+(x * 100).toPrecision(3));
+    expect(meshErrorCeilings.map(c => c.elements)).toEqual([16, 32, 64]);
+    expect(meshErrorCeilings.every((c, i) => c.relativeError < (meshErrorCeilings[i - 1]?.relativeError ?? tolerance))).toBe(true);
+    const stated = `${meshErrorCeilings.map(c => c.elements).join('/')}`;
+    const values = `${meshErrorCeilings.map(c => percent(c.relativeError)).join('/')}%`;
+    expect(values).toBe('0.0801/0.0384/0.0281%');
+    for (const dictionary of Object.values(strings)) {
+      expect(dictionary.solverDescription).toContain(stated);
+      expect(dictionary.solverDescription).toContain(values);
+      expect(dictionary.solverDescription).toContain(`${percent(axialExtensionBound)}%`);
+      expect(dictionary.solverDescription.match(/\d+(?:\.\d+)?%/g)).toEqual(['0.1%', '0.0281%', '0.025%']);
+    }
+  });
   it('round trips the shared input through the editor without changing the solve', async () => {
     await initSolver();
     for (const c of [cases[1], cases.at(-1)!]) {
@@ -83,6 +97,7 @@ describe('Mattiasson evidence', () => {
       expect(JSON.parse(LZString.decompressFromEncodedURIComponent(editorURL(c, '/app').split('#data=')[1]))).toEqual(snap);
       expect(prepareSharedSnapshot(snap)).not.toBeNull();
       expect(snap.includeSelfWeight).toBe(false);
+      expect(snap._shareMeta).toEqual({ includeSelfWeight: false, autoSolve: false });
       const model = { ...snap, connectors: new Map(), plates: new Map(), quads: new Map() } as unknown as ModelData;
       for (const key of ['nodes','materials','sections','elements','supports'] as const) (model as unknown as Record<string, unknown>)[key] = new Map(snap[key] as [number, unknown][]);
       const input = buildSolverInput2D(model, false)!;
@@ -101,6 +116,9 @@ describe('Mattiasson evidence', () => {
     expect(rows.filter(r => r.pass).map(r => r.id)).toEqual(['force-1', 'force-2', 'force-5', 'force-10', 'moment-1']);
     expect(rows.find(r => r.id === 'force-1')!.u).toBeCloseTo(.056390264074, 9);
     expect(rows.every(r => r.failure ? r.pass === false && r.displacement === undefined : Number.isFinite(r.u) && Number.isFinite(r.v))).toBe(true);
+    expect(rows.filter(r => r.failure || !r.displacement).map(r => r.id)).toEqual([]);
+    expect(rows.map(r => r.id)).toEqual(cases.map(c => c.id));
+    expect(rows.filter(r => r.pass === false).map(r => r.id)).toEqual([]);
     expect(await runCases(undefined, () => true)).toEqual([]);
   });
 });

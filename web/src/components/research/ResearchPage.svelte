@@ -49,7 +49,7 @@
       description:
         'Classic and recent papers, benchmarks and methods you can run and check in Stabileo, the structural engineering software with AI. Each page states what is reproduced and how it was checked.',
     },
-    '/research/benchmarks/mattiasson-elastica': { title: 'Mattiasson elastica — Stabileo engine benchmarks', description: 'Production corotational cantilever with provisional references and explicit failures.' },
+    '/research/benchmarks/mattiasson-elastica': { title: 'Mattiasson elastica — Stabileo engine benchmarks', description: 'Production corotational cantilever compared with independent elliptic-integral references and a one-radian circular arc.' },
     '/research/benchmarks/shell-obstacle-course': { title: 'Shell obstacle course — Stabileo Research', description: 'Live shell mesh refinement, accuracy references and failures in the production engine.' },
     '/research/benchmarks/macneal-harder-1985': { title: 'MacNeal–Harder (1985) — Stabileo engine benchmarks', description: 'Live production-engine accuracy benchmarks with explicit references, tolerances and failures.' },
     '/research/fracture/shauer-2025': {
