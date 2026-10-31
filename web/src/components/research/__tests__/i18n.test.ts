@@ -43,14 +43,14 @@ it('preserves numeric values and interpolation tokens in research translations',
 it('preserves topology article numbers and translates every research string', () => {
   const english = topoptStrings('en');
   const numbers = (s: string) => s.match(/\d+(?:\.\d+)*(?:e[+-]?\d+)?/g) ?? [];
-  for (const locale of ['es', 'pt']) {
+  for (const locale of ['es', 'pt', 'de', 'fr', 'tr']) {
     const translated = topoptStrings(locale);
     expect(Object.keys(translated).sort()).toEqual(Object.keys(english).sort());
     for (const key of Object.keys(english) as (keyof typeof english)[]) {
-      expect(numbers(translated[key]), `${locale}.${key}`).toEqual(numbers(english[key]));
+      expect(numbers(String(translated[key])), `${locale}.${key}`).toEqual(numbers(String(english[key])));
     }
     expect(translated.overview).not.toBe(english.overview);
     expect(translated.title).not.toBe(english.title);
   }
-  expect(topoptStrings('de')).toBe(english);
+  expect(topoptStrings('de')).not.toBe(english);
 });

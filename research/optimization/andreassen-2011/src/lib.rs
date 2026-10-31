@@ -186,15 +186,8 @@ impl Optimizer {
             return Err("Iteration limit reached without convergence".into());
         }
         let c = &self.config;
-        let nd = 2 * (c.nelx + 1) * (c.nely + 1);
-        let mut dofs = vec![usize::MAX; nd];
-        let mut nf = 0;
-        for (d, id) in dofs.iter_mut().enumerate() {
-            if !(d < 2 * (c.nely + 1) && d % 2 == 0 || d == nd - 1) {
-                *id = nf;
-                nf += 1;
-            }
-        }
+        let (dofs, force) = mbb_boundary(c);
+        let nf = force.len();
         let ke = stiffness();
         let mut rows = Vec::new();
         let mut cols = Vec::new();
@@ -216,8 +209,6 @@ impl Optimizer {
             edofs.push(ds);
         }
         let matrix = CscMatrix::from_triplets(nf, &rows, &cols, &vals);
-        let mut force = vec![0.; nf];
-        force[dofs[1]] = -1.;
         let free_u = sparse_cholesky_solve_full(&matrix, &force).ok_or("Cholesky failed")?;
         let u: Vec<f64> = dofs
             .iter()
@@ -289,5 +280,48 @@ impl Optimizer {
             change: self.change,
             density: self.physical.clone(),
         })
+    }
+}
+
+fn mbb_boundary(c: &Config) -> (Vec<usize>, Vec<f64>) {
+    let nd = 2 * (c.nelx + 1) * (c.nely + 1);
+    let mut dofs = vec![usize::MAX; nd];
+    let mut nf = 0;
+    for (d, id) in dofs.iter_mut().enumerate() {
+        if !(d < 2 * (c.nely + 1) && d % 2 == 0 || d == nd - 1) {
+            *id = nf;
+            nf += 1;
+        }
+    }
+    let mut force = vec![0.; nf];
+    force[dofs[1]] = -1.;
+    (dofs, force)
+}
+
+#[cfg(test)]
+mod boundary_tests {
+    use super::*;
+    #[test]
+    fn half_mbb_supports_and_downward_unit_load() {
+        for c in [
+            Config::default(),
+            Config {
+                nelx: 2,
+                nely: 3,
+                ..Config::default()
+            },
+        ] {
+            let (dofs, force) = mbb_boundary(&c);
+            let fixed: Vec<_> = dofs
+                .iter()
+                .enumerate()
+                .filter_map(|(i, &d)| (d == usize::MAX).then_some(i))
+                .collect();
+            let mut expected: Vec<_> = (0..=c.nely).map(|node| node * 2).collect();
+            expected.push(2 * (c.nelx + 1) * (c.nely + 1) - 1);
+            assert_eq!(fixed, expected);
+            assert_eq!(force[dofs[1]], -1.);
+            assert_eq!(force.iter().filter(|&&v| v != 0.).count(), 1);
+        }
     }
 }

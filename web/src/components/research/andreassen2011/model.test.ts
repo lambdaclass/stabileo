@@ -38,7 +38,7 @@ describe('topology optimization data contract', () => {
     view.setUint32(4, 99, true); expect(() => decodeReplay(bytes.buffer)).toThrow();
   });
   it('provides complete translations and black material on a sequential ramp', () => {
-    for (const locale of ['es', 'pt'] as const) expect(Object.keys(text[locale]).sort()).toEqual(Object.keys(text.en).sort());
+    for (const locale of ['es', 'pt', 'de', 'fr', 'tr'] as const) expect(Object.keys(text[locale]).sort()).toEqual(Object.keys(text.en).sort());
     expect(colourFor('sequential-grey', 1, 0, 1)).toBe(0x000000);
     expect(colourFor('sequential-grey', 0, 0, 1)).toBe(0xffffff);
   });

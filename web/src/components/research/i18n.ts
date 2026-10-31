@@ -865,7 +865,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reproduction of",
     implementationLabel: ". Implementation:",
     atCommit: "at commit",
-    engineCitation: ". Engine: the Stabileo engine at the same commit. Permanent links to this exact build are planned.",
+    engineCitation: ". Engine: the Stabileo engine at the same commit.",
     theExperiment: "The experiment",
     experiment: "Experiment",
     viewerUnavailable: "Stabileo’s viewer couldn’t be loaded in this build.",
@@ -1317,7 +1317,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reproducción de",
     implementationLabel: ". Implementación:",
     atCommit: "en el commit",
-    engineCitation: ". Motor: el motor de Stabileo en el mismo commit. Se prevén enlaces permanentes a esta compilación exacta.",
+    engineCitation: ". Motor: el motor de Stabileo en el mismo commit.",
     theExperiment: "El experimento",
     experiment: "Experimento",
     viewerUnavailable: "No se pudo cargar el visor de Stabileo en esta compilación.",
@@ -1769,7 +1769,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reprodução de",
     implementationLabel: ". Implementação:",
     atCommit: "no commit",
-    engineCitation: ". Motor: o motor do Stabileo no mesmo commit. Estão previstos links permanentes para esta compilação exata.",
+    engineCitation: ". Motor: o motor do Stabileo no mesmo commit.",
     theExperiment: "O experimento",
     experiment: "Experimento",
     viewerUnavailable: "Não foi possível carregar o visualizador do Stabileo nesta compilação.",
@@ -1812,11 +1812,71 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   },
 };
 
+const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
+  "de": {
+    "afterAuthors": "Nach",
+    "citeThis": "Zitieren",
+    "citationTitle": "Stabileo Research, „",
+    "reproductionOf": "“, Reproduktion von",
+    "implementationLabel": ". Implementierung:",
+    "atCommit": "im Commit",
+    "engineCitation": ". Engine: Stabileo im selben Commit.",
+    "theExperiment": "Das Experiment",
+    "checksPass": "Prüfungen bestanden",
+    "research": "Forschung",
+    "againstCode": "Vergleich mit dem Autorencode",
+    "againstPaper": "Vergleich mit Abbildungen",
+    "of": "von",
+    "seeChecks": "Prüfungen ansehen",
+    "disclaimer": "Forschung, kein Bemessungswerkzeug. Dies sind keine technischen Nachweise.",
+    "viewerUnavailable": "Die Ansicht konnte nicht geladen werden."
+  },
+  "fr": {
+    "afterAuthors": "D’après",
+    "citeThis": "Citer ce travail",
+    "citationTitle": "Stabileo Research, « ",
+    "reproductionOf": " », reproduction de",
+    "implementationLabel": ". Implémentation :",
+    "atCommit": "au commit",
+    "engineCitation": ". Moteur : Stabileo au même commit.",
+    "theExperiment": "L’expérience",
+    "checksPass": "vérifications réussies",
+    "research": "Recherche",
+    "againstCode": "Comparaison avec le code des auteurs",
+    "againstPaper": "Comparaison avec les figures",
+    "of": "sur",
+    "seeChecks": "voir les vérifications",
+    "disclaimer": "Recherche, pas un outil de dimensionnement. Aucun résultat ne constitue une justification technique.",
+    "viewerUnavailable": "Impossible de charger la vue."
+  },
+  "tr": {
+    "afterAuthors": "Kaynak",
+    "citeThis": "Alıntıla",
+    "citationTitle": "Stabileo Research, “",
+    "reproductionOf": "”, yeniden üretim:",
+    "implementationLabel": ". Uygulama:",
+    "atCommit": "commit:",
+    "engineCitation": ". Çözücü: aynı commit içindeki Stabileo.",
+    "theExperiment": "Deney",
+    "checksPass": "kontrol geçti",
+    "research": "Araştırma",
+    "againstCode": "Yazarların koduyla karşılaştırma",
+    "againstPaper": "Makale şekilleriyle karşılaştırma",
+    "of": "/",
+    "seeChecks": "kontrollere bakın",
+    "disclaimer": "Araştırma amaçlıdır, tasarım aracı değildir. Buradaki sonuçlar mühendislik onayı değildir.",
+    "viewerUnavailable": "Görüntüleyici yüklenemedi."
+  }
+};
+
 export function rs(): ResearchStrings {
-  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...(galleryStrings[publicI18n.locale] ?? galleryStrings.en) };
+  const locale = publicI18n.locale;
+  const base = STRINGS[locale as keyof typeof STRINGS] ?? { ...STRINGS.en, ...SHELL_TRANSLATIONS[locale] };
+  return { ...base, ...(galleryStrings[locale] ?? galleryStrings.en) };
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
+  de: { optimization: 'Optimierung' }, fr: { optimization: 'Optimisation' }, tr: { optimization: 'Optimizasyon' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },
