@@ -414,6 +414,7 @@ export type ResearchStrings = {
   citeThis: string;
   citationTitle: string;
   reproductionOf: string;
+  benchmarkAfter: string;
   implementationLabel: string;
   atCommit: string;
   engineCitation: string;
@@ -863,6 +864,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     citeThis: "Cite this",
     citationTitle: "Stabileo Research, “",
     reproductionOf: "”, reproduction of",
+    benchmarkAfter: "”, benchmark after",
     implementationLabel: ". Implementation:",
     atCommit: "at commit",
     engineCitation: ". Engine: the Stabileo engine at the same commit. Permanent links to this exact build are planned.",
@@ -1315,6 +1317,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     citeThis: "Citar esto",
     citationTitle: "Stabileo Research, “",
     reproductionOf: "”, reproducción de",
+    benchmarkAfter: "”, ensayo basado en",
     implementationLabel: ". Implementación:",
     atCommit: "en el commit",
     engineCitation: ". Motor: el motor de Stabileo en el mismo commit. Se prevén enlaces permanentes a esta compilación exacta.",
@@ -1767,6 +1770,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     citeThis: "Citar isto",
     citationTitle: "Stabileo Research, “",
     reproductionOf: "”, reprodução de",
+    benchmarkAfter: "”, ensaio baseado em",
     implementationLabel: ". Implementação:",
     atCommit: "no commit",
     engineCitation: ". Motor: o motor do Stabileo no mesmo commit. Estão previstos links permanentes para esta compilação exata.",

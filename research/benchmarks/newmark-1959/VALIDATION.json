@@ -1,62 +1,104 @@
 {
-  "stage": "first-version",
-  "reviews": [],
-  "reference": "Exact SDOF step response and discrete average-acceleration closed form, independently evaluated from native solver histories",
-  "test": "engine/tests/benchmarks/newmark_1959.rs",
   "checks": [
     {
       "metric": "dt/T=0.025: maximum discrete displacement error (m)",
       "observed": 1.1726730697603216e-15,
-      "tolerance": 1e-10,
-      "passed": true
+      "passed": true,
+      "tolerance": 1e-10
     },
     {
       "metric": "dt/T=0.025: measured period relative difference from discrete prediction",
-      "observed": 2.45153894629091e-06,
-      "tolerance": 0.005,
-      "passed": true
+      "observed": 2.45153894629091e-6,
+      "passed": true,
+      "tolerance": 0.005
     },
     {
-      "metric": "dt/T=0.05: maximum discrete displacement error (m)",
-      "observed": 1.0512424264419451e-15,
-      "tolerance": 1e-10,
-      "passed": true
-    },
-    {
-      "metric": "dt/T=0.05: measured period relative difference from discrete prediction",
-      "observed": 1.3877934491257626e-05,
-      "tolerance": 0.005,
-      "passed": true
-    },
-    {
-      "metric": "dt/T=0.1: maximum discrete displacement error (m)",
-      "observed": 1.0408340855860843e-16,
-      "tolerance": 1e-10,
-      "passed": true
-    },
-    {
-      "metric": "dt/T=0.1: measured period relative difference from discrete prediction",
-      "observed": 3.619414046607261e-05,
-      "tolerance": 0.005,
-      "passed": true
-    },
-    {
-      "metric": "dt/T=0.2: maximum discrete displacement error (m)",
-      "observed": 3.8163916471489756e-17,
-      "tolerance": 1e-10,
-      "passed": true
-    },
-    {
-      "metric": "dt/T=0.2: measured period relative difference from discrete prediction",
-      "observed": 0.0006678298479381173,
-      "tolerance": 0.005,
-      "passed": true
+      "metric": "dt/T=0.025: maximum continuous displacement error (m) within the phase-lag bound",
+      "observed": 0.00048250043984137715,
+      "passed": true,
+      "tolerance": 0.0005148671419043544
     },
     {
       "metric": "dt/T=0.025: maximum continuous displacement error (m)",
       "observed": 0.00048250043984137715,
-      "tolerance": 0.0005,
-      "passed": true
+      "passed": true,
+      "tolerance": 0.0005
+    },
+    {
+      "metric": "dt/T=0.05: maximum discrete displacement error (m)",
+      "observed": 1.0512424264419451e-15,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "metric": "dt/T=0.05: measured period relative difference from discrete prediction",
+      "observed": 0.000013877934491257626,
+      "passed": true,
+      "tolerance": 0.005
+    },
+    {
+      "metric": "dt/T=0.05: maximum continuous displacement error (m) within the phase-lag bound",
+      "observed": 0.0018981125827873535,
+      "passed": true,
+      "tolerance": 0.002037012435916666
+    },
+    {
+      "metric": "dt/T=0.1: maximum discrete displacement error (m)",
+      "observed": 1.0408340855860843e-16,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "metric": "dt/T=0.1: measured period relative difference from discrete prediction",
+      "observed": 0.00003619414046607261,
+      "passed": true,
+      "tolerance": 0.005
+    },
+    {
+      "metric": "dt/T=0.1: maximum continuous displacement error (m) within the phase-lag bound",
+      "observed": 0.007239455714233801,
+      "passed": true,
+      "tolerance": 0.007810774495491382
+    },
+    {
+      "metric": "dt/T=0.2: maximum discrete displacement error (m)",
+      "observed": 3.8163916471489756e-17,
+      "passed": true,
+      "tolerance": 1e-10
+    },
+    {
+      "metric": "dt/T=0.2: measured period relative difference from discrete prediction",
+      "observed": 0.0006678298479381173,
+      "passed": true,
+      "tolerance": 0.005
+    },
+    {
+      "metric": "dt/T=0.2: maximum continuous displacement error (m) within the phase-lag bound",
+      "observed": 0.01901256283348757,
+      "passed": true,
+      "tolerance": 0.020000000100000002
     }
-  ]
+  ],
+  "reference": "Exact SDOF step response, the discrete average-acceleration closed form and the phase-lag bound it implies, independently evaluated from native solver histories",
+  "reviews": [
+    {
+      "date": "2026-10-30",
+      "reviewers": [
+        "codex",
+        "kimi"
+      ],
+      "round": 1
+    },
+    {
+      "date": "2026-10-30",
+      "reviewers": [
+        "kimi",
+        "codex",
+        "claude"
+      ],
+      "round": 2
+    }
+  ],
+  "stage": "first-version",
+  "test": "engine/tests/benchmarks/newmark_1959.rs"
 }
