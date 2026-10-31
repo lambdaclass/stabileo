@@ -113,3 +113,13 @@ it('uses a step duration changed after construction on the next tick', () => {
     p.dispose();
   } finally { vi.useRealTimers(); }
 });
+
+it('allows seeking while a run is active and retains completed steps after cancellation', () => {
+  const p = new Playback();
+  p.setCount(20);
+  p.seek(8); expect(p.shown).toBe(8);
+  p.pause(); p.setCount(4);
+  p.seek(2); expect(p.shown).toBe(2);
+  p.play(); expect(p.playing).toBe(true);
+  p.dispose();
+});
