@@ -53,3 +53,43 @@ it('preserves an explicitly requested E2E gate across the shared-model handoff',
     expect(editorUrl(model, 'beam')).toMatch(/^\/app\/basic#data=2\./);
   } finally { vi.unstubAllGlobals(); }
 });
+
+import { deflateSync, inflateSync } from 'fflate';
+import { calculateBatch } from '../batch-solve';
+const encode = (payload: string) => `2.${Buffer.from(deflateSync(new TextEncoder().encode(payload))).toString('base64url')}`;
+const toolLink = () => editorUrl(batchModel('truss-2d', DEFAULT_BATCH), 'truss').split('#data=')[1];
+const compactOf = (link: string) => JSON.parse(new TextDecoder().decode(inflateSync(Buffer.from(link.slice(2), 'base64url'))));
+
+it('rejects malformed, oversized, non-finite and dangling tool links', () => {
+  const link = toolLink(), compact = compactOf(link);
+  expect(decompressSnapshot(link)).not.toBeNull();
+  const rejected = {
+    version: `9.${link.slice(2)}`,
+    base64: '2.%%%***',
+    deflate: `2.${Buffer.from('not a deflate stream').toString('base64url')}`,
+    json: encode('{"n":[[1,0,'),
+    oversized: encode(JSON.stringify({ ...compact, pad: ' '.repeat(60_000_000) })),
+    nonfinite: encode(JSON.stringify(compact).replace('[1,0,0]', '[1,1e999,0]')),
+    nonnumeric: encode(JSON.stringify({ ...compact, n: compact.n.map((n: unknown[], j: number) => j ? n : [n[0], 'x', n[2]]) })),
+    danglingMember: encode(JSON.stringify({ ...compact, e: [...compact.e, [99, 1, 1, 99, 1, 1]] })),
+    danglingSupport: encode(JSON.stringify({ ...compact, s: [...compact.s, [9, 77, 'pinned']] })),
+    danglingLoad: encode(JSON.stringify({ ...compact, l: [...compact.l, { type: 'nodal', data: { id: 9, caseId: 1, nodeId: 55, fx: 0, fz: -1, my: 0 } }] })),
+  };
+  for (const [name, data] of Object.entries(rejected)) expect(decompressSnapshot(data), name).toBeNull();
+});
+
+it('keeps a hostile tool name as inert text', () => {
+  const name = '<img src=x onerror="alert(1)">';
+  const snapshot = decompressSnapshot(editorUrl(batchModel('truss-2d', DEFAULT_BATCH), name).split('#data=')[1]);
+  expect(snapshot!.name).toBe(name);
+  modelStore.restore(snapshot!);
+  expect(modelStore.model.name).toBe(name);
+});
+
+it('imports the calculated influence-line model with its critical axle', async () => {
+  const result = await calculateBatch('influence-line', DEFAULT_BATCH);
+  modelStore.restore(decompressSnapshot(editorUrl(result.model, 'influence').split('#data=')[1])!);
+  const imported = modelStore.buildSolverInput(false)!;
+  expect(imported.loads).toHaveLength(1);
+  expect(solve(imported).reactions).toEqual(result.linear.reactions);
+});

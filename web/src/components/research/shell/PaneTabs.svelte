@@ -9,7 +9,8 @@
     active = $bindable(),
     flash = null,
     oninteract,
-  }: { tabs: { id: string; label: string }[]; active: string; flash?: string | null; oninteract?: () => void } = $props();
+    label = '',
+  }: { tabs: { id: string; label: string }[]; active: string; flash?: string | null; oninteract?: () => void; label?: string } = $props();
 
   function onKey(e: KeyboardEvent, i: number) {
     const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
@@ -23,7 +24,7 @@
   const strings = $derived(rs());
 </script>
 
-<div class="rs-tabs" role="tablist" aria-label={strings.experiment}>
+<div class="rs-tabs" role="tablist" aria-label={label || strings.experiment}>
   {#each tabs as t, i (t.id)}
     <button
       id="rs-tab-{t.id}"
