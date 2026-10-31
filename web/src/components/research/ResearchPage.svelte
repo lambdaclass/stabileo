@@ -29,6 +29,7 @@
   import { strings as newmarkStrings } from './newmark1959/i18n';
   import CqcPage from './cqc1981/CqcPage.svelte';
   import PlasticPage from './plastic-collapse/PlasticPage.svelte';
+  import { ps } from './plastic-collapse/i18n';
   import NavierPage from './navier1823/NavierPage.svelte';
   import { navierStrings } from './navier1823/strings';
   import LeePage from './lee1968/LeePage.svelte';
@@ -44,7 +45,6 @@
   const route = $derived(path.replace(/\/+$/, '') || '/research');
 
   const PAGES: Record<string, { title: string; description: string }> = {
-    '/research/benchmarks/plastic-collapse': { title: 'Classic plastic collapse — Stabileo Research', description: 'First version: a portal frame compared with beam, sway and combined mechanism hand calculations.' },
     '/research/benchmarks/lee-frame-1968': { title: 'Lee frame (1968) — Stabileo Research', description: 'First version: pinned Lee frame with the production arc-length solver. Provisional reference.' },
     '/research': {
       title: 'Stabileo Research — research in structural engineering',
@@ -71,7 +71,7 @@
   };
 
   $effect(() => {
-    const meta = route === '/research/benchmarks/cqc-1981' ? { title: cqcStrings().metaTitle, description: cqcStrings().metaDescription } : route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/optimization/andreassen-2011' ? { title: topoptStrings(publicI18n.locale).title, description: topoptStrings(publicI18n.locale).lead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/dadeppo-arch-1975' ? { title: `${archStringsFor(publicI18n.locale).title} — Stabileo Research`, description: archStringsFor(publicI18n.locale).hook } : route === '/research/benchmarks/navier-plate' ? { title: `${navierStrings(publicI18n.locale).title} — Stabileo Research`, description: navierStrings(publicI18n.locale).lead } : route === '/research/benchmarks/newmark-1959' ? { title: newmarkStrings().metaTitle, description: newmarkStrings().metaDescription } : route === '/research/benchmarks/macneal-harder-1985' ? { title: macnealStrings[macnealLocale(publicI18n.locale)].metaTitle, description: macnealStrings[macnealLocale(publicI18n.locale)].metaDescription } : PAGES[route];
+    const meta = route === '/research/benchmarks/cqc-1981' ? { title: cqcStrings().metaTitle, description: cqcStrings().metaDescription } : route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/optimization/andreassen-2011' ? { title: topoptStrings(publicI18n.locale).title, description: topoptStrings(publicI18n.locale).lead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/dadeppo-arch-1975' ? { title: `${archStringsFor(publicI18n.locale).title} — Stabileo Research`, description: archStringsFor(publicI18n.locale).hook } : route === '/research/benchmarks/navier-plate' ? { title: `${navierStrings(publicI18n.locale).title} — Stabileo Research`, description: navierStrings(publicI18n.locale).lead } : route === '/research/benchmarks/newmark-1959' ? { title: newmarkStrings().metaTitle, description: newmarkStrings().metaDescription } : route === '/research/benchmarks/macneal-harder-1985' ? { title: macnealStrings[macnealLocale(publicI18n.locale)].metaTitle, description: macnealStrings[macnealLocale(publicI18n.locale)].metaDescription } : route === '/research/benchmarks/plastic-collapse' ? { title: ps().metaTitle, description: ps().metaDescription } : PAGES[route];
     if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
     return () => restorePageMeta();
   });

@@ -78,6 +78,10 @@
     editorButton?: boolean;
     /** Geometry overlays use colour categories, not a physical scalar field. */
     geometryOnly?: boolean;
+    /** Length unit of the coordinates, for the zoom readout. */
+    lengthUnit?: string;
+    /** Hide the axis triad when the drawn plane is not the global XY plane. */
+    showAxes?: boolean;
   };
   let {
     locale,
@@ -108,6 +112,8 @@
     openEditorNote,
     editorButton = true,
     geometryOnly = false,
+    lengthUnit,
+    showAxes = true,
   }: Props = $props();
 
   const t = (key: string) => locale ? tAt(key, locale) : appT(key);
@@ -247,7 +253,7 @@
   function updateZoom() {
     if (!renderer) return;
     const d = camera.position.distanceTo(controls.target);
-    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov);
+    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov, lengthUnit);
   }
 
   onMount(() => {
@@ -352,7 +358,7 @@
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
       <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={onKey} aria-label={ariaLabel} title={t('scalarViewer.keyboard')} aria-describedby={keysId} aria-keyshortcuts={SCALAR_FIELD_SHORTCUTS}></div>
       <span id={keysId} class="sfv-keys">{t('scalarViewer.keyboard')}</span>
-      <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80" aria-hidden="true"></canvas>
+      <canvas bind:this={gizmo} class="axis-gizmo" class:sfv-hidden={!showAxes} width="80" height="80" aria-hidden="true"></canvas>
       {#if displayMode === 'field' && values && !geometryOnly}
         <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
       {/if}
@@ -455,10 +461,16 @@
     font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--st-text-3);
+    color: var(--st-text-2);
     pointer-events: none;
   }
   .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
+  .sfv-hidden { display: none !important; }
+  .sfv-wrap :global(.cam-item) { min-height: 44px; font-size: 12px; }
+  .sfv-wrap :global(.cam-group-title),
+  .sfv-wrap :global(.cam-two small),
+  .sfv-wrap :global(.status-bar),
+  .sfv-wrap :global(.status-label) { font-size: 12px; }
   .sfv-wrap :global(.cam-btn), .sfv-wrap :global(.cam-item) { min-width: 44px; min-height: 44px; font-size: 12px; }
   .sfv-wrap :global(.shell-legend), .sfv-wrap :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-status :global(.status-value) {
