@@ -20,6 +20,7 @@ const de: Translations = {
   'scalarViewer.openEditor': 'Im Editor öffnen',
   'scalarViewer.soon': ' (bald)',
   'scalarViewer.editorNote': 'Das Öffnen von Experimenten im Editor kommt mit dem Forschungsmodus',
+  'scalarViewer.keys': 'Pfeiltasten verschieben die Ansicht, + und − zoomen, 0 zeigt das ganze Modell; in 3D dreht Umschalt mit Pfeil links und rechts die Ansicht.',
   // ─── Auth / Login ───
   'account.signIn': 'Anmelden',
   'account.register': 'Konto erstellen',

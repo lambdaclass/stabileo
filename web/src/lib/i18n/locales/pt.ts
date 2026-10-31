@@ -19,6 +19,7 @@ const pt: Translations = {
   "scalarViewer.openEditor": "Abrir no editor",
   "scalarViewer.soon": " (em breve)",
   "scalarViewer.editorNote": "A abertura de experimentos no editor chega com o modo pesquisa",
+  "scalarViewer.keys": "As setas deslocam a vista, + e − fazem zoom, 0 enquadra o modelo; em 3D, Shift com as setas esquerda e direita gira a vista.",
 
   'account.signIn': 'Entrar',
   'account.register': 'Criar conta',
