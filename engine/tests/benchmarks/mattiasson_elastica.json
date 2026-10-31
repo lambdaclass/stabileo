@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "paper": {
     "doi": "10.1002/nme.1620170113",
-    "locatorStatus": "Exact elliptic-integral values independently checked in fix/845-elastica; original paper locator unverified."
+    "locatorStatus": "Independent elliptic integrals, corroborated by Nanakorn & Vu (2006), Table 1, p.1245; no claim of transcription from Mattiasson."
   },
-  "accuracyTolerance": 0.02,
-  "accuracyPolicy": "Exploratory page target only: both signed normalized displacements must have relative error < 2%. No existing native assertion is replaced.",
+  "accuracyTolerance": 0.001,
+  "accuracyPolicy": "Both signed components strictly below 0.1%: 16/32/64-element force errors <=0.0801/0.0384/0.0281%; residual axial extension <=0.025%. Moment circular-arc discretization error <0.1%.",
   "cases": [
     {
       "id": "force-0.5",
@@ -111,7 +111,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -299,11 +299,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -410,7 +410,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -598,14 +598,14 @@
         "connectors": {}
       },
       "reference": [
-        0.056433,
-        0.301721
+        0.056433236283377,
+        0.301720773799814
       ],
-      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "source": "Independent elliptic integrals, corroborated by Nanakorn & Vu (2006), Table 1, p.1245; no claim of transcription from Mattiasson.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -712,7 +712,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -900,11 +900,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -1011,7 +1011,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -1199,14 +1199,14 @@
         "connectors": {}
       },
       "reference": [
-        0.160642,
-        0.493457
+        0.160641720825167,
+        0.493457480396712
       ],
-      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "source": "Independent elliptic integrals, corroborated by Nanakorn & Vu (2006), Table 1, p.1245; no claim of transcription from Mattiasson.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -1313,7 +1313,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -1501,11 +1501,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -1612,7 +1612,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -1800,11 +1800,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -1911,7 +1911,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -2099,11 +2099,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -2210,7 +2210,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -2398,11 +2398,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -2509,7 +2509,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -2697,11 +2697,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -2808,7 +2808,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -2996,14 +2996,14 @@
         "connectors": {}
       },
       "reference": [
-        0.387628,
-        0.713792
+        0.38762836072443,
+        0.713791523611913
       ],
-      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "source": "Independent elliptic integrals, corroborated by Nanakorn & Vu (2006), Table 1, p.1245; no claim of transcription from Mattiasson.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -3110,7 +3110,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -3298,11 +3298,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -3409,7 +3409,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -3597,11 +3597,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -3708,7 +3708,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -3896,11 +3896,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -4007,7 +4007,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -4195,11 +4195,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -4306,7 +4306,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -4494,11 +4494,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -4605,7 +4605,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -4793,11 +4793,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -4904,7 +4904,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -5092,11 +5092,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -5203,7 +5203,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -5391,11 +5391,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -5502,7 +5502,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -5690,11 +5690,11 @@
         "connectors": {}
       },
       "reference": null,
-      "source": "Intermediate load step; no reference comparison.",
+      "source": "Load-path sample; plotted production response.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -5801,7 +5801,7 @@
         "sections": {
           "1": {
             "id": 1,
-            "a": 0.01,
+            "a": 1,
             "iz": 0.0001
           }
         },
@@ -5989,14 +5989,14 @@
         "connectors": {}
       },
       "reference": [
-        0.554996,
-        0.810609
+        0.554995597753751,
+        0.810609024880296
       ],
-      "source": "BENCHMARK_REFERENCES.md: Mattiasson Elastica; attributed to Table 1, NOT checked against paper text.",
+      "source": "Independent elliptic integrals, corroborated by Nanakorn & Vu (2006), Table 1, p.1245; no claim of transcription from Mattiasson.",
       "solver": {
         "maxIter": 50,
-        "tolerance": 1e-06,
-        "nIncrements": 10
+        "tolerance": 1e-08,
+        "nIncrements": 100
       }
     },
     {
@@ -6290,8 +6290,11 @@
         "constraints": [],
         "connectors": {}
       },
-      "reference": null,
-      "source": "corotational_benchmarks_extended.rs::validation_corotational_cantilever_end_moment; convergence/rotation regression only, not a full-circle accuracy test.",
+      "reference": [
+        0.1585290151921035,
+        -0.45969769413186023
+      ],
+      "source": "Circular arc: theta=ML/EI=1, u/L=1-sin(1), v/L=cos(1)-1.",
       "solver": {
         "maxIter": 50,
         "tolerance": 1e-06,
