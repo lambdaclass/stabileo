@@ -8,11 +8,12 @@
  * through `solveNow` (Calcular's entry point), and judges the difference:
  *
  *   same         within the results snapshot gate's tolerance (`compare.mjs`, #716);
- *   explained    it differs, and the registry (`result-changes.json`) has entries introduced
- *                after the version that solved it which apply to this model: the app's own
- *                assessment on open (`recheckStore.assessment`, `provenance/applicability.ts`),
- *                the same list the engineer is shown;
- *   unexplained  it differs and nothing registered says why: the test fails.
+ *   explained    every value that moved is one that an applicable registry entry declares it
+ *                moves (`quantities` in `result-changes.json`). Applicable: introduced after the
+ *                version that solved it, and concerning this model, the app's own assessment on
+ *                open (`recheckStore.assessment`, `provenance/applicability.ts`), the same list
+ *                the engineer is shown;
+ *   unexplained  a value moved that no applicable entry declares: the test fails.
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
@@ -115,7 +116,7 @@ export function reset(workspace: Workspace): void {
 export async function solveAndRecord(values: Values): Promise<void> {
   const outcome = await solveNow();
   values['solve.ok'] = outcome.ok;
-  if (!outcome.ok) values['solve.refusal'] = outcome.error;
+  if (!outcome.ok) values['solve.refusal'] = outcome.error ?? '';
   else resultValues(resultsStore as never, uiStore.is3DWorkspace, values);
 }
 
@@ -185,43 +186,87 @@ export function committedSnapshot(id: string, workspace: Workspace): { name: str
 
 /**
  * Values compared for information only, never failing the test: a refusal's wording and the
- * warning codes a solve raises (a new warning is not a different result).
+ * warning codes a solve raises (a new warning is not a different result). Its error codes are
+ * gated, as `<set>.errorCodes`.
  */
 const REPORT_ONLY = /(^solve\.refusal$|\.diagnosticCodes$)/;
 
 function split(v: Values): [Values, Values] {
   const gated: Values = {};
   const info: Values = {};
-  for (const [k, x] of Object.entries(v)) (REPORT_ONLY.test(k) ? info : gated)[k] = x;
+  for (const [k, x] of Object.entries(v)) {
+    (REPORT_ONLY.test(k) ? info : gated)[k] = x;
+    if (k.endsWith('.diagnosticCodes') && typeof x === 'string') {
+      gated[k.replace(/diagnosticCodes$/, 'errorCodes')] = x.split(/[\s|]+/).filter((c) => c.startsWith('error:')).sort().join(' ');
+    }
+  }
   return [gated, info];
+}
+
+const RESULT_SET = /^(?:base|case\[[^\]]*\]|combo\[[^\]]*\])(?:\.(.*))?$/;
+
+/**
+ * Whether a registered change declares that it moves this value. A model count never: the same
+ * file must open as the same model whatever the solver does.
+ */
+export function declaresMove(change: Pick<ResultChange, 'quantities'>, path: string): boolean {
+  const declared = change.quantities ?? [];
+  if (path === 'solve.ok') return declared.includes('solve.ok');
+  const set = RESULT_SET.exec(path);
+  if (!set && path !== 'unstableCombinations') return false;
+  if (declared.includes('*')) return true;
+  const rest = set?.[1] ?? '';
+  const collection = /^[A-Za-z0-9]+/.exec(rest)?.[0];
+  const field = /\]\.([A-Za-z0-9]+)$/.exec(rest)?.[1];
+  return !!collection && (declared.includes(collection) || (!!field && declared.includes(`${collection}.${field}`)));
 }
 
 export interface Verdict {
   kind: 'same' | 'explained' | 'unexplained';
   /** What moved, for a person (the snapshot gate's report). Empty when the same. */
   report: string;
-  /** The registry entries that explain it (`explained`), by id and the version that introduced each. */
+  /** The registry entries that declare a value that moved, by id and the version that introduced each. */
   explainedBy: string[];
+  /** Every registry entry that applies to the model, whether or not it declares what moved. */
+  applicable: string[];
   /** Report-only values that differ (refusal wording, warning codes). */
   notes: string[];
+}
+
+interface Diff {
+  changed: Array<{ path: string }>;
+  removed: string[];
+  added: string[];
+  differs: boolean;
 }
 
 /**
  * Judge the current results of a legacy file against a reference (what the version showed, or
  * what the current example gives) under the snapshot gate's tolerance. A value recorded now and
  * not then is not a difference (a quantity added since); a value that changed, or is no longer
- * produced, is.
+ * produced, is. Pass no changes when both sides were solved by the current code.
  */
 export function judge(name: string, reference: Values, current: Values, changes: readonly ResultChange[]): Verdict {
   const [refGated, refInfo] = split(reference);
   const [curGated, curInfo] = split(current);
-  const notes = Object.keys(refInfo).filter((k) => k in curInfo && refInfo[k] !== curInfo[k])
-    .map((k) => `${k}: ${JSON.stringify(refInfo[k])} → ${JSON.stringify(curInfo[k])}`);
-  const diff = compareValues(refGated, curGated);
-  if (!diff.differs) return { kind: 'same', report: '', explainedBy: [], notes };
-  const report = formatCaseReport(name, diff) as string;
-  if (changes.length === 0) return { kind: 'unexplained', report, explainedBy: [], notes };
-  return { kind: 'explained', report, explainedBy: changes.map((c) => `${c.id} (results v${c.resultsVersion})`), notes };
+  const notes = [...new Set([...Object.keys(refInfo), ...Object.keys(curInfo)])].filter((k) => refInfo[k] !== curInfo[k])
+    .map((k) => `${k}: ${JSON.stringify(refInfo[k] ?? null)} → ${JSON.stringify(curInfo[k] ?? null)}`);
+  const label = (c: ResultChange) => `${c.id} (results v${c.resultsVersion})`;
+  const applicable = changes.map(label);
+  const diff = compareValues(refGated, curGated) as Diff;
+  if (!diff.differs) return { kind: 'same', report: '', explainedBy: [], applicable, notes };
+  const used = new Set<ResultChange>();
+  const explained = (path: string) => {
+    const by = changes.filter((c) => declaresMove(c, path));
+    for (const c of by) used.add(c);
+    return by.length > 0;
+  };
+  const left: Diff = { ...diff, changed: diff.changed.filter((c) => !explained(c.path)), removed: diff.removed.filter((p) => !explained(p)) };
+  const explainedBy = changes.filter((c) => used.has(c)).map(label);
+  if (left.changed.length > 0 || left.removed.length > 0) {
+    return { kind: 'unexplained', report: formatCaseReport(name, left) as string, explainedBy, applicable, notes };
+  }
+  return { kind: 'explained', report: formatCaseReport(name, diff) as string, explainedBy, applicable, notes };
 }
 
 /** The failure message of an unexplained difference: what moved, and what to do. */
@@ -229,7 +274,21 @@ export function unexplainedMessage(v: Verdict, version: string): string {
   return [
     v.report,
     '',
-    `No registered result change explains it: result-changes.json lists none introduced after ${version} that applies to this model.`,
-    'If the change is deliberate, register it (docs/verification/PROVENANCE.md, "Adding a change"). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
+    v.applicable.length === 0
+      ? `No registered result change explains it: result-changes.json lists none introduced after ${version} that applies to this model.`
+      : `No registered result change explains these values: of the entries introduced after ${version} that apply to this model (${v.applicable.join(', ')}), none declares in its "quantities" that it moves them.`,
+    'If the change is deliberate, register it, or declare the quantities an existing entry moves (docs/verification/PROVENANCE.md). If not, it is a regression, or a migration that reads the old file wrongly: fix the code, not the corpus.',
+  ].join('\n');
+}
+
+/**
+ * The failure message of a legacy file that differs from today's example: both were solved by
+ * the current code, so no registered change can explain it.
+ */
+export function migrationMessage(v: Verdict, version: string): string {
+  return [
+    v.report,
+    '',
+    `The ${version} file, opened and solved by the current code, differs from the same example opened by the current code. Both solves ran the same code, so no registered result change explains it: the migration reads the old file as another model. Fix the migration, not the corpus.`,
   ].join('\n');
 }

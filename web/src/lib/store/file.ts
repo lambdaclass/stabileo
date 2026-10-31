@@ -636,12 +636,10 @@ export function saveProject(): void {
 
 export async function loadProject(file: File): Promise<void> {
   const text = await file.text();
-  if (!deserializeProject(text)) {
-    let version: unknown;
-    try { version = (JSON.parse(text) as { version?: unknown } | null)?.version; } catch { /* not JSON: invalid format */ }
-    if (isNewerFileVersion(version)) throw newerVersionError(String(version), DEDAL_FILE_VERSION);
-    throw new Error(t('file.invalidFormat'));
-  }
+  let version: unknown;
+  try { version = (JSON.parse(text) as { version?: unknown } | null)?.version; } catch { /* not JSON: invalid format */ }
+  if (isNewerFileVersion(version)) throw newerVersionError(String(version), DEDAL_FILE_VERSION);
+  if (!deserializeProject(text)) throw new Error(t('file.invalidFormat'));
   // Members lying over each other: ask about each, as drawing one would.
   askAboutOverlapsInModel();
 }

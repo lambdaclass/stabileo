@@ -10,8 +10,8 @@ import { loadFile } from '../store/file';
 import { tabManager } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
 import {
-  assessedChanges, captureExample, committedSnapshot, currentFixtureBlob, judge, modelCounts, openAndSolve, readCorpusText,
-  readManifest, readResults, reset, solveAndRecord, unexplainedMessage, type Verdict,
+  assessedChanges, captureExample, committedSnapshot, currentFixtureBlob, judge, migrationMessage, modelCounts, openAndSolve,
+  readCorpusText, readManifest, readResults, reset, solveAndRecord, unexplainedMessage, type Verdict,
 } from './legacy';
 
 export function runLegacyVersion(tag: string): void {
@@ -50,9 +50,9 @@ export function runLegacyVersion(tag: string): void {
         if (e.fixtureBlob !== currentFixtureBlob(e.example)) return;
         const snap = committedSnapshot(e.example, e.workspace);
         const now = snap?.values ?? await captureExample(e.example, e.workspace);
-        const vsNow = judge(`${tag}/${e.example} against ${snap ? snap.name : `today's ${e.example}`}`, now, opened.values, opened.changes);
+        const vsNow = judge(`${tag}/${e.example} against ${snap ? snap.name : `today's ${e.example}`}`, now, opened.values, []);
         record(`${e.example} vs current`, vsNow);
-        if (vsNow.kind === 'unexplained') throw new Error(unexplainedMessage(vsNow, tag));
+        if (vsNow.kind !== 'same') throw new Error(migrationMessage(vsNow, tag));
       }, 120_000);
     }
 

@@ -16,6 +16,7 @@
           "shells"
         ]
       },
+      "quantities": ["quadStresses.sigmaXx", "quadStresses.sigmaYy", "quadStresses.tauXy", "quadStresses.vonMises"],
       "title": {
         "en": "Solid-shell stresses use local shell axes",
         "es": "Las tensiones del sólido-lámina usan ejes locales",
@@ -456,6 +457,7 @@
       "prs": [401],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Solid shell (SHB8) no longer too stiff in thin plates",
         "es": "El sólido-lámina (SHB8) ya no es demasiado rígido en placas delgadas",
@@ -917,6 +919,7 @@
       "prs": [289, 307],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Shells: warped MITC4 corrected, solid shells frame-invariant",
         "es": "Cáscaras: MITC4 alabeado corregido, cáscaras sólidas invariantes",
@@ -936,6 +939,7 @@
       "prs": [],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Shell elements: rigid motions, the DKT triangle and three sign conventions",
         "es": "Elementos de cáscara: movimientos rígidos, el triángulo DKT y tres convenciones de signo",

@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
+import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, familyOf, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { decide, isBreakingResultsFragment, newRegistryEntries } from '../results-snapshot/gate.mjs';
 
@@ -21,6 +21,32 @@ describe('the tolerance', () => {
     expect(d.changed.map((c: { path: string }) => c.path)).toEqual(['r.m[e2].my']);
     // A zero that becomes a small fraction of the peak.
     expect(compareValues(ref, { ...ref, 'r.m[e3].my': 1e-4 }).differs).toBe(true);
+  });
+  describe('a component statics makes zero, against the size of its vector', () => {
+    const truss = {
+      'base.reactions[n1].rx': 5.684341886e-14, 'base.reactions[n1].rz': 35, 'base.reactions[n5].rx': 0, 'base.reactions[n5].rz': 35,
+      'base.reactions[n1].my': 0, 'base.elementForces[e1].nStart': 35, 'base.elementForces[e1].vStart': 2e-15, 'base.elementForces[e1].mStart': 0,
+    };
+    it('takes round-off in it as the same result, though it is 25 % of its own peak', () => {
+      expect(compareValues(truss, { ...truss, 'base.reactions[n1].rx': 7.105427358e-14, 'base.elementForces[e1].vStart': -3e-15 }).differs).toBe(false);
+    });
+    it('NEGATIVE: catches a real value in it, a millionth of the vector', () => {
+      const d = compareValues(truss, { ...truss, 'base.reactions[n1].rx': 35e-6 });
+      expect(d.changed.map((c: { path: string }) => c.path)).toEqual(['base.reactions[n1].rx']);
+      expect(compareValues(truss, { ...truss, 'base.elementForces[e1].vStart': 35e-6 }).differs).toBe(true);
+    });
+    it('NEGATIVE: never takes the floor from another unit (a moment from forces)', () => {
+      expect(compareValues(truss, { ...truss, 'base.reactions[n1].my': 1e-9 }).differs).toBe(true);
+      expect(compareValues(truss, { ...truss, 'base.elementForces[e1].mStart': 1e-9 }).differs).toBe(true);
+    });
+    it('groups by collection, unit and result set', () => {
+      expect(familyOf('case[3].reactions[n1].fx')).toBe('case[].reactions[].<force>');
+      expect(familyOf('base.reactions[n1].rz')).toBe(familyOf('base.reactions[n2].fz'));
+      expect(familyOf('base.displacements[n1].rz')).toBe('base.displacements[].<rotation>');
+      expect(familyOf('base.reactions[n1].my')).not.toBe(familyOf('base.reactions[n1].rx'));
+      expect(familyOf('base.quadStresses[e1].nodeIndex')).toBeNull();
+      expect(familyOf('base.resultSummary.displacementX.maxValue')).toBeNull();
+    });
   });
   it('is the stated rule', () => {
     expect(RTOL).toBe(1e-6);

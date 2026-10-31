@@ -26,6 +26,14 @@
  *   1e-13 kN·m), and its relative change between two builds is meaningless. A change of one
  *   ten-millionth of the largest moment in the model is not a result.
  *
+ *   The peak of a component is taken over its whole vector (UNIT_FAMILIES): the x, y and z
+ *   components of a reaction force, a member's N, Vy and Vz at both ends, the components of a
+ *   shell's stress tensor. Round-off in a component is relative to the size of the vector it
+ *   belongs to, which a rotation of the axes redistributes among the components. A component
+ *   that statics makes zero everywhere (a horizontal reaction under vertical loads, a truss
+ *   member's shear) otherwise has round-off as its own peak, and 5e-14 → 7e-14 kN reads as a
+ *   25 % change. Families never mix units: forces with forces, moments with moments.
+ *
  * Against last-bit noise: the WASM engine is bit-for-bit deterministic for one build
  * (docs/verification/PROVENANCE.md, "Determinism"), so the same build reproduces the snapshot
  * exactly. What the tolerance absorbs is a refactor that reorders floating-point operations
@@ -58,18 +66,50 @@ export function storeNumber(v) {
   return Number(v.toPrecision(STORED_DIGITS));
 }
 
-/** The largest magnitude of each quantity group across the given value maps. */
+/** A record's fields that are components of one vector or tensor, in one unit, by collection. */
+export const UNIT_FAMILIES = {
+  displacements: { translation: ['ux', 'uy', 'uz'], rotation: ['rx', 'ry', 'rz'] },
+  reactions: { force: ['rx', 'ry', 'rz', 'fx', 'fy', 'fz'], moment: ['mx', 'my', 'mz'] },
+  elementForces: {
+    force: ['nStart', 'nEnd', 'vStart', 'vEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd'],
+    moment: ['mStart', 'mEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd'],
+  },
+  quadStresses: { stress: ['sigmaXx', 'sigmaYy', 'tauXy', 'vonMises'], moment: ['mx', 'my', 'mxy'], shear: ['qx', 'qy'] },
+  quadNodalStresses: { stress: ['sigmaXx', 'sigmaYy', 'tauXy', 'vonMises'], moment: ['mx', 'my', 'mxy'] },
+};
+
+const FAMILY_OF = new Map(
+  Object.entries(UNIT_FAMILIES).flatMap(([collection, families]) => Object.entries(families)
+    .flatMap(([family, fields]) => fields.map((f) => [`${collection}.${f}`, family]))),
+);
+
+/** The vector a quantity is a component of (`base.reactions[].<force>`), or null when it is not one. */
+export function familyOf(path) {
+  const m = /^(.*?)([A-Za-z0-9]+)\[\]\.([A-Za-z0-9]+)$/.exec(groupOf(path));
+  const family = m && FAMILY_OF.get(`${m[2]}.${m[3]}`);
+  return family ? `${m[1]}${m[2]}[].<${family}>` : null;
+}
+
+/** The largest magnitude of each quantity group, and of each vector family, across the given value maps. */
 export function peaks(...maps) {
   const out = new Map();
+  const raise = (k, a) => { if (!(out.get(k) >= a)) out.set(k, a); };
   for (const m of maps) {
     for (const [path, v] of Object.entries(m)) {
       if (typeof v !== 'number') continue;
-      const g = groupOf(path);
       const a = Math.abs(v);
-      if (!(out.get(g) >= a)) out.set(g, a);
+      raise(groupOf(path), a);
+      const f = familyOf(path);
+      if (f) raise(f, a);
     }
   }
   return out;
+}
+
+/** The magnitude ATOL is a fraction of for this path: its group's peak, or its vector's when larger. */
+export function scaleOf(path, peak) {
+  const f = familyOf(path);
+  return Math.max(peak.get(groupOf(path)) ?? 0, (f && peak.get(f)) ?? 0);
 }
 
 /** Whether two leaves are the same result under the tolerance. */
@@ -94,7 +134,7 @@ export function compareValues(reference, current) {
   for (const [path, a] of Object.entries(reference)) {
     if (!(path in current)) { removed.push(path); continue; }
     const b = current[path];
-    if (!sameLeaf(a, b, peak.get(groupOf(path)) ?? 0)) changed.push({ path, before: a, after: b });
+    if (!sameLeaf(a, b, scaleOf(path, peak))) changed.push({ path, before: a, after: b });
   }
   for (const path of Object.keys(current)) if (!(path in reference)) added.push(path);
   return { changed, removed, added, differs: changed.length > 0 || removed.length > 0 };
@@ -111,7 +151,7 @@ export function mergeValues(reference, current) {
   for (const path of Object.keys(current).sort()) {
     const b = current[path];
     const a = reference?.[path];
-    out[path] = a !== undefined && sameLeaf(a, b, peak.get(groupOf(path)) ?? 0) ? a : b;
+    out[path] = a !== undefined && sameLeaf(a, b, scaleOf(path, peak)) ? a : b;
   }
   return out;
 }
