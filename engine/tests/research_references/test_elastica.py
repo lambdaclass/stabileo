@@ -21,7 +21,7 @@ class ElasticaEvidence(unittest.TestCase):
                 limit = extensible(case['parameter'], np.inf, 1e-11)
                 self.assertLess(np.max(np.abs(limit - reference)), 1e-11)
                 finite = extensible(case['parameter'], 1., 1e-11)
-                self.assertLess(np.max(np.abs(finite / reference - 1)), .00025)
+                self.assertLess(np.max(np.abs(finite / reference - 1)), data['axialExtensionBound'])
                 self.assertLess(np.max(np.abs(finite - extensible(case['parameter'], 1., 1e-10))), 1e-11)
 
 

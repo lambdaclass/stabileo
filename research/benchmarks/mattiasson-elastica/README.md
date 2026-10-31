@@ -12,7 +12,8 @@ The sole live case definition is `engine/tests/benchmarks/mattiasson_elastica.js
 Twenty independent downward dead-force solves cover q=PL²/EI=0.5…10.
 L=2 m, 16 Euler–Bernoulli frame elements, full root clamp, E=200000 MPa,
 I=0.0001 m⁴, A=1 m², P=5000q kN. The increased area approximates the
-inextensible analytical model; residual extension contributes at most 0.025%.
+inextensible analytical model; residual extension contributes at most 0.025%
+(`axialExtensionBound`, asserted by `test_elastica.py`).
 Each force solve uses 50 Newton iterations, tolerance 1e-8 and 100 increments.
 No production engine numerics changed.
 
@@ -23,9 +24,10 @@ with a SciPy BVP in `engine/tests/research_references/elastica.py`. Nanakorn & V
 This is not a transcription of Mattiasson's original table.
 
 Both signed tip components must have relative error **strictly below 0.1%**.
-The existing same-model native refinement tests now enforce the measured bounds
-0.0801%, 0.0384%, 0.0281% at 16, 32, 64 elements. Both components improve on
-refinement. Separate tests retain A=0.01 and compare it to an extensible-rod BVP,
+The native refinement tests `research_benchmarks::mattiasson_{1,2,5,10}` read
+the ceilings 0.0801%, 0.0384%, 0.0281% at 16, 32, 64 elements from
+`meshErrorCeilings` in the case file and fail above them; a unit test fails if
+any locale states other values. Both components improve on refinement. Separate tests retain A=0.01 and compare it to an extensible-rod BVP,
 and check 20 versus 100 load increments. Intermediate loads are response samples.
 
 The moment case retains its original A=0.01 m² and solver settings. M=EI/L=10000
@@ -35,7 +37,9 @@ arc. Full-circle and frame examples are outside the live page's scope.
 
 ## Measured outcome
 
-All 21 native cases reach full load; all five analytical checks pass. `RESULTS.json`
+All 21 native cases reach full load; all five analytical checks pass. The parity
+runner and the unit suite fail unless every case reaches full load and every
+analytical check passes, independently of `RESULTS.json`. `RESULTS.json`
 is regenerated from the current native inputs. The research parity runner compares every stored u/L,
 v/L, error, reference, classification and source with a fresh WASM solve, and
 compares every nodal displacement and rotation with fresh native output.
@@ -80,6 +84,22 @@ tightened the comparison, added moment accuracy and input/sign/boundary/evidence
 checks, aligned six locales and provenance, repaired playback, compacted the
 viewer layout and enlarged targets/text. E2E covers four viewport sizes and all
 six locales; Playwright cannot run in this environment.
+
+## Review round 3 — 2026-10-31
+
+Codex and Grok final review. The page's 16/32/64-element ceilings and the
+0.025% extension bound now live in the case file and are read by the native and
+SciPy tests; a unit test ties every locale to them. The parity runner and unit
+suite require all 21 cases at full load. The slider label keeps the force step
+while the moment case is shown, the status line counts accuracy failures, the
+evidence link points to this README at the built commit, and E2E covers moment
+selection, Stop with seekable computed steps, exported editor settings and pane
+overflow. The open questions below stay here, off the live page.
+
+Validation: native Mattiasson filter 9 passed, corotational regressions 13
+passed; fresh native/WASM parity all 21 cases at full load, 5/5 checks; SciPy
+references passed; unit suite 44 files, 221 tests; TypeScript 247 existing, no
+new; Playwright Mattiasson and Research specs 57 passed, Pastrana 4 passed.
 
 ## Historical results
 

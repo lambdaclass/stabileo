@@ -7,7 +7,7 @@
    * statuses CI derives from evidence files.
    */
   import { bibliography } from '../catalogue';
-  import { reviewLabel } from '../reviews';
+  import { finalReview, reviewLabel } from '../reviews';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
@@ -59,7 +59,7 @@
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
         {referenceLabel}
       />
-      <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
+      {#if !finalReview(paperId)}<p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>{/if}
       <p class="rs-lead" lang={researchLocale()}>{lead}</p>
 {/snippet}
 
@@ -108,6 +108,11 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 30rem) {
+    .rs-shell:has(.rs-compact) { padding-top: 1.5rem; }
+    .rs-shell-head.rs-compact { margin-bottom: 0.75rem; }
+    .rs-shell-head.rs-compact h1 { font-size: 1.5rem; margin: 0.25rem 0; }
   }
   .rs-crumb,
   .rs-cite {

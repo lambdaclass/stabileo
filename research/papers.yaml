@@ -896,6 +896,7 @@ papers:
   - cantilever tip moment
   implementation: benchmarks/mattiasson-elastica
   stage: first-version
+  final_review: true
   contacts: []
   reviews:
   - round: 1
@@ -916,6 +917,9 @@ papers:
     date: "2026-10-30"
     findings: Consolidated verified model, accuracy, provenance, playback, responsive and locale findings.
     resolution: Corrected inputs and analytical comparisons; strengthened tests, evidence and six locales.
+  - round: 3
+    reviewers: [codex, grok]
+    date: "2026-10-31"
 - id: newmark-1959
   doi: 10.1061/jmcea3.0000098
   crossref:

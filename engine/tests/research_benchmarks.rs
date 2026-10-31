@@ -213,13 +213,20 @@ fn elastica_response(parameter: f64, n: usize, area: f64, steps: usize) -> (f64,
 }
 
 fn elastica(parameter: f64, u: f64, w: f64) {
-    // A=1 reduces P/EA to <=0.00025; residual extensibility changes either
-    // reference by <=0.025%. Retain the original A=.01 model separately below.
-    // Measured worst errors at 16/32/64 elements: .0801/.0384/.0281%.
-    // All tolerances are tighter than the former 2%; refinement must improve
-    // BOTH signed displacements, not merely land inside an acceptance band.
+    // The page states these ceilings: change them only in the shared case file.
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("benchmarks/mattiasson_elastica.json")).unwrap();
+    let ceilings: Vec<(usize, f64)> = data["meshErrorCeilings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["elements"].as_u64().unwrap() as usize, c["relativeError"].as_f64().unwrap()))
+        .collect();
+    assert_eq!(ceilings.iter().map(|c| c.0).collect::<Vec<_>>(), [16, 32, 64]);
+    assert!(ceilings.windows(2).all(|w| w[1].1 < w[0].1));
+    assert!(ceilings[0].1 < data["accuracyTolerance"].as_f64().unwrap());
     let mut previous = (f64::INFINITY, f64::INFINITY);
-    for (n, tolerance) in [(16, 0.000801), (32, 0.000384), (64, 0.000281)] {
+    for (n, tolerance) in ceilings {
         let actual = elastica_response(parameter, n, 1., 100);
         relative(actual.0, u, tolerance);
         relative(actual.1, w, tolerance);
