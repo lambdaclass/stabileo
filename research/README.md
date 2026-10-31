@@ -31,7 +31,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
 | `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
 | `benchmarks/cqc-1981/` | First version, 1 review round: close building modes, production modal + spectrum solvers versus closed form |
-| `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT/MITC4 vs Navier series; published `results/stabileo_results.json` |
+| `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT vs the thin-plate Navier series and MITC4 (hard support) vs the Reissner–Mindlin series; published `results/stabileo_results.json` |
 | `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay and provisional limit-load comparison (1 review round) |
 | `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |

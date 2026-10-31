@@ -18,6 +18,7 @@ const en: Record<string, string> = {
   "scalarViewer.openEditor": "Open in the editor",
   "scalarViewer.soon": " (soon)",
   "scalarViewer.editorNote": "Opening experiments in the editor comes with research mode",
+  "scalarViewer.keys": "Arrow keys pan, + and − zoom, 0 fits the model; in 3D, Shift with the left and right arrows orbits.",
 
   // ─── Auth / Login ───
   'account.signIn': 'Sign in',

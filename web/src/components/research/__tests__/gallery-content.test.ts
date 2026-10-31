@@ -26,7 +26,7 @@ it('renders citations without empty separators and descriptive leads for every l
   }
 });
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
-const SECOND_ROUND = new Set(['mattiasson-elastica']);
+const SECOND_ROUND = new Set(['mattiasson-elastica', 'navier-plate']);
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);

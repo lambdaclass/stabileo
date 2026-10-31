@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { t, tp } from '../../lib/i18n';
+  import { i18n, t, tp } from '../../lib/i18n';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
@@ -215,7 +215,35 @@
     const r = renderer.domElement.getBoundingClientRect();
     ray.setFromCamera(new THREE.Vector2(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1), camera);
     const p = new THREE.Vector3();
-    if (ray.ray.intersectPlane(plane, p)) pointer = `(${p.x.toFixed(4)}, ${p.y.toFixed(4)})`;
+    if (!ray.ray.intersectPlane(plane, p)) return;
+    const f = new Intl.NumberFormat(i18n.locale, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    pointer = `(${f.format(p.x)}; ${f.format(p.y)})`;
+  }
+
+  function onKey(e: KeyboardEvent) {
+    if (!renderer || e.altKey || e.ctrlKey || e.metaKey) return;
+    const offset = camera.position.clone().sub(controls.target);
+    const step = 0.1 * offset.length();
+    const arrows: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+    const arrow = arrows[e.key];
+    if (arrow && e.shiftKey && projection === 'orbit') {
+      offset.applyAxisAngle(camera.up, (-arrow[0] * Math.PI) / 18);
+      camera.position.copy(controls.target).add(offset);
+    } else if (arrow) {
+      const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+      const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+      const shift = right.multiplyScalar(arrow[0] * step).add(up.multiplyScalar(arrow[1] * step));
+      camera.position.add(shift);
+      controls.target.add(shift);
+    } else if (e.key === '+' || e.key === '=' || e.key === '-') {
+      camera.position.copy(controls.target).add(offset.multiplyScalar(e.key === '-' ? 1.25 : 0.8));
+    } else if (e.key === '0') {
+      fit();
+    } else return;
+    e.preventDefault();
+    controls.update();
+    updateZoom();
+    invalidate();
   }
 
   function updateZoom() {
@@ -292,6 +320,7 @@
     fit();
   });
 
+  const keysId = $props.id();
   const nodeCount = $derived(xy.length / 2);
   const cellCount = $derived(cells.length / cellSize);
 </script>
@@ -320,8 +349,9 @@
     </div>
   </div>
   <div class="sfv viewport-container" style:height>
-    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
-    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
+    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" aria-label={ariaLabel} aria-describedby={keysId} aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Shift+ArrowLeft Shift+ArrowRight 0" onkeydown={onKey}></div>
+    <span id={keysId} class="sfv-keys">{t('scalarViewer.keys')}</span>
+    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80" aria-hidden="true"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
@@ -364,6 +394,18 @@
   .sfv-canvas {
     position: absolute;
     inset: 0;
+  }
+  .sfv-canvas:focus-visible {
+    outline: 2px solid var(--st-accent, #4ea1ff);
+    outline-offset: -2px;
+  }
+  .sfv-keys {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .sfv-canvas :global(canvas) {
     display: block;
