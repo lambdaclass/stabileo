@@ -1,5 +1,7 @@
 <script lang="ts">
   import { t, tp } from '../../lib/i18n';
+  import { navigateScalarField } from './scalar-field-navigation';
+  import { formatLocalizedContourLabel, scalarFieldKeyboardHint } from './scalar-field-labels';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
@@ -320,10 +322,11 @@
     </div>
   </div>
   <div class="sfv viewport-container" style:height>
-    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+    <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={(event) => { navigateScalarField(event, camera, controls); render(); }} aria-label={`${ariaLabel}. ${scalarFieldKeyboardHint()}`}></div>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
-      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
+      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={formatLocalizedContourLabel} ariaLabel={`${title}: ${formatLocalizedContourLabel(range.min, range.min, range.max, bands)} – ${formatLocalizedContourLabel(range.max, range.min, range.max, bands)} ${unit}`} />
     {/if}
     <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
   </div>

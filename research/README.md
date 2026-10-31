@@ -60,7 +60,7 @@ Statuses in `papers.yaml` are assigned from evidence in the repository, not by h
 | `reference-reproduced` | The authors' code ran here; its outputs are committed with the exact environment |
 | `implementation-in-progress` | A Stabileo implementation exists but its validation tests do not yet pass |
 | `numerically-validated` | Tests compare our implementation with the reproduced reference within documented tolerances, and pass in CI. When the authors publish no code, the reference is the paper's published values plus exact results (see that experiment's README). Whether published numbers were reproduced is the separate `reproduced_published_results` field |
-| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `PUBLISHED_COMPARISON.json` with passing checks naming published sources, metrics, observations and tolerances |
+| `published-figures-compared` | Numerical validation plus `reproduced_published_results: true` and `reference-results/published_comparison.json` (or legacy `PUBLISHED_COMPARISON.json`) with passing checks naming published sources, metrics, observations and tolerances |
 | `interactive` | Numerical validation plus an existing repository-relative `page` file; this does not imply published-results agreement |
 
 `summary_source` is declared provenance for human review, not machine-verified summary content.

@@ -1,3 +1,4 @@
+import result from '../../../../../research/optimisation/fairclough-2026/results/stabileo_results.json';
 export type Layout = {
   volume: number;
   nodes: number[][];
@@ -10,15 +11,22 @@ export type Layout = {
 
 export function validateLayout(value: unknown): Layout {
   const v = value as Layout;
-  if (!v || !Number.isFinite(v.volume) || Math.abs(v.volume - 13.8394) > 0.00005
+  if (!v || !Number.isFinite(v.volume) || Math.abs(v.volume - result.layout.volume) > 1e-8
     || !Array.isArray(v.nodes) || v.nodes.length !== 5
     || !v.nodes.every(p=>p.length===3 && p.every(Number.isFinite))
-    || !Array.isArray(v.edges) || v.edges.length!==10
+    || !Array.isArray(v.edges) || v.edges.length!==10 || !v.edges.every(e=>Array.isArray(e) && e.length===2 && e.every(n=>Number.isInteger(n) && n>=0 && n<5))
     || !Array.isArray(v.forces) || v.forces.length!==10 || !v.forces.every(p=>p.length===3 && p.every(Number.isFinite))
     || !Array.isArray(v.curves) || v.curves.length !== 4
-    || !v.curves.every(c => c.length === 33 && c.every(p => p.length === 4 && p.every(Number.isFinite)))
-    || !Number.isFinite(v.primal_residual) || v.primal_residual > 1e-8
-    || !Number.isFinite(v.dual_residual) || v.dual_residual > 1e-8) throw new Error('Invalid five-node layout');
+    || !v.curves.every(c => c.length === 33 && c.every(p => p.length === 4 && p.every(Number.isFinite) && p[3] > 0))
+    || !Number.isFinite(v.primal_residual) || v.primal_residual < 0 || v.primal_residual > 1e-8
+    || !Number.isFinite(v.dual_residual) || v.dual_residual < 0 || v.dual_residual > 1e-8) throw new Error('Invalid five-node layout');
+  function matches(actual: unknown, expected: unknown): boolean {
+    if (typeof expected === 'number') return typeof actual === 'number' && Number.isFinite(actual) && Math.abs(actual - expected) <= 1e-8 * Math.max(1, Math.abs(expected));
+    return Array.isArray(expected) && Array.isArray(actual) && actual.length === expected.length && expected.every((e, i) => matches(actual[i], e));
+  }
+  for (const key of ['nodes', 'edges', 'forces', 'curves'] as const) {
+    if (!matches(v[key], result.layout[key])) throw new Error('Layout differs from committed solver result');
+  }
   return v;
 }
 

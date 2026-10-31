@@ -1812,11 +1812,72 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   },
 };
 
+const SHELL_STRINGS: Record<string, Partial<ResearchStrings>> = {
+  "de": {
+    "viewerUnavailable": "Der Viewer ist nicht verfügbar. Die numerischen Ergebnisse stehen im Artikel.",
+    "afterAuthors": "Nach",
+    "citeThis": "Diese Reproduktion zitieren",
+    "citationTitle": "Stabileo: ",
+    "reproductionOf": " — Reproduktion von",
+    "implementationLabel": "; Implementierung:",
+    "atCommit": "bei Commit",
+    "engineCitation": "; berechnet mit Stabileo.",
+    "theExperiment": "Das Experiment",
+    "notDesign": "Forschung, kein Bemessungswerkzeug",
+    "research": "Forschung",
+    "againstCode": "Vergleich mit Autorencode",
+    "againstPaper": "Vergleich mit dem Artikel",
+    "of": "von",
+    "checksPass": "Prüfungen bestanden",
+    "seeChecks": "Prüfungen ansehen",
+    "disclaimer": "Forschung, kein Bemessungswerkzeug. Keine Ergebnisse für die Baupraxis."
+  },
+  "fr": {
+    "viewerUnavailable": "Le visualiseur est indisponible. Les résultats numériques figurent dans l’article.",
+    "afterAuthors": "D’après",
+    "citeThis": "Citer cette reproduction",
+    "citationTitle": "Stabileo : ",
+    "reproductionOf": " — reproduction de",
+    "implementationLabel": " ; implémentation :",
+    "atCommit": "au commit",
+    "engineCitation": " ; calculé avec Stabileo.",
+    "theExperiment": "L’expérience",
+    "notDesign": "Recherche, pas un outil de dimensionnement",
+    "research": "Recherche",
+    "againstCode": "Comparaison au code des auteurs",
+    "againstPaper": "Comparaison à l’article",
+    "of": "sur",
+    "checksPass": "vérifications réussies",
+    "seeChecks": "voir les vérifications",
+    "disclaimer": "Recherche, pas un outil de dimensionnement. Aucun résultat destiné à la construction."
+  },
+  "tr": {
+    "viewerUnavailable": "Görüntüleyici kullanılamıyor. Sayısal sonuçlar makalede yer alır.",
+    "afterAuthors": "Kaynak",
+    "citeThis": "Bu çalışmayı alıntıla",
+    "citationTitle": "Stabileo: ",
+    "reproductionOf": " — yeniden üretimi",
+    "implementationLabel": "; uygulama:",
+    "atCommit": "commit",
+    "engineCitation": "; Stabileo ile hesaplanmıştır.",
+    "theExperiment": "Deney",
+    "notDesign": "Araştırma, tasarım aracı değildir",
+    "research": "Araştırma",
+    "againstCode": "Yazar koduyla karşılaştırma",
+    "againstPaper": "Makaleyle karşılaştırma",
+    "of": "/",
+    "checksPass": "denetim başarılı",
+    "seeChecks": "denetimleri gör",
+    "disclaimer": "Araştırma, tasarım aracı değildir. Buradaki sonuçlar inşaat için kullanılamaz."
+  }
+};
+
 export function rs(): ResearchStrings {
-  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...(galleryStrings[publicI18n.locale] ?? galleryStrings.en) };
+  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...SHELL_STRINGS[publicI18n.locale], ...(galleryStrings[publicI18n.locale] ?? galleryStrings.en) };
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
+  de: { optimization: 'Optimierung' }, fr: { optimization: 'Optimisation' }, tr: { optimization: 'Optimizasyon' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },
@@ -1832,4 +1893,4 @@ export const fieldName = (f: string) => FIELD_NAMES[publicI18n.locale]?.[f] ?? F
 export const statusName = (s: string) => STATUS_NAMES[publicI18n.locale]?.[s] ?? STATUS_NAMES.en[s] ?? s;
 
 /** The language actually used by the research strings, including fallback. */
-export const researchLocale = () => ['es', 'pt'].includes(publicI18n.locale) ? publicI18n.locale : 'en';
+export const researchLocale = () => ['es', 'pt', 'de', 'fr', 'tr'].includes(publicI18n.locale) ? publicI18n.locale : 'en';

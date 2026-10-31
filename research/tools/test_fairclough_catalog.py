@@ -21,7 +21,7 @@ assert manifest['source_sha256'] == '030f30b6ef42a1a038b42bc251be6206d9909e65d9c
 assert not list(folder.rglob('vaultopt.py'))
 for name, digest in manifest['files_sha256'].items():
     assert hashlib.sha256((folder / 'reference-results' / name).read_bytes()).hexdigest() == digest
-published = json.loads((folder / 'PUBLISHED_COMPARISON.json').read_text())['checks']
+published = json.loads((folder / 'reference-results/published_comparison.json').read_text())['checks']
 assert len(published) == 1
 assert published[0]['reference'] == 13.8394
 assert 'Table 1' in published[0]['source']

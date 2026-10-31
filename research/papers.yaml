@@ -440,6 +440,9 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
 - id: turner-1956
   doi: 10.2514/8.3664
   crossref:

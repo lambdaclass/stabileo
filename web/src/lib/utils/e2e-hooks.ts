@@ -202,6 +202,7 @@ export interface StabileoTestHooks {
   diagramType(): string;
   /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
   hasDrawnResults(): boolean;
+  verticalReaction3D(): number | null;
   /**
    * What a click on the canvas would currently mean, and whether the viewport
    * has anything to answer it with.
@@ -677,6 +678,7 @@ export function installE2EHooks(): void {
     diagramType: () => String(resultsStore.diagramType),
     /** Whether the workspace has results on screen (2D or 3D, as the mode reads them). */
     hasDrawnResults: () => (uiStore.is3DWorkspace ? resultsStore.results3D : resultsStore.results) !== null,
+    verticalReaction3D: () => resultsStore.results3D?.reactions.reduce((sum, reaction) => sum + reaction.fz, 0) ?? null,
     cameraState: () => readCamera(),
 
     viewportPick: () => ({

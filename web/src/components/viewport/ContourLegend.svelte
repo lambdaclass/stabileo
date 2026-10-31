@@ -14,7 +14,8 @@
     footer = '',
     ariaLabel = title,
     colourMap = 'shell',
-  }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap } = $props();
+    format = formatContourLabel,
+  }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap; format?: typeof formatContourLabel } = $props();
   const shellContourColor = (v: number, lo: number, hi: number) => colourFor(colourMap, v, lo, hi);
 
   function hex(n: number): string {
@@ -38,7 +39,7 @@
     return `linear-gradient(to top, ${stops.join(', ')})`;
   });
 
-  const fmt = (value: number) => formatContourLabel(value, min, max, bands);
+  const fmt = (value: number) => format(value, min, max, bands);
   const mid = $derived((min + max) / 2);
 </script>
 
@@ -69,7 +70,7 @@
     border-radius: 6px;
     padding: 8px 10px;
     color: #e6e9f0;
-    font-size: 11px;
+    font-size: 12px;
     pointer-events: none;
     z-index: 20;
     user-select: none;
@@ -89,5 +90,5 @@
     font-variant-numeric: tabular-nums;
   }
   .legend-unit { margin-top: 5px; text-align: center; opacity: 0.7; }
-  .legend-unit-inline { font-weight: 400; opacity: 0.6; font-size: 10px; }
+  .legend-unit-inline { font-weight: 400; opacity: 0.6; font-size: 12px; }
 </style>
