@@ -229,7 +229,7 @@ fn validation_macneal_harder_straight_cantilever() {
         let input: SolverInput = serde_json::from_value(c["input"].clone()).unwrap();
         let results = linear::solve_2d(&input).unwrap();
         let d_tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
-        assert_close(d_tip.uz.abs(), c["reference"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap(),
+        assert_close(d_tip.uz, c["reference"].as_f64().unwrap(), c["nativeBounds"]["relativeErrorLessThan"].as_f64().unwrap(),
             &format!("MacNeal-Harder straight beam (n={n}): tip deflection"));
     }
 }
@@ -247,10 +247,10 @@ fn validation_macneal_harder_tip_moment() {
     let input: SolverInput = serde_json::from_value(c["input"].clone()).unwrap();
     let results = linear::solve_2d(&input).unwrap();
     let d_tip = results.displacements.iter().find(|d| d.node_id == 5).unwrap();
-    assert_close(d_tip.uz.abs(), c["reference"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap(),
+    assert_close(d_tip.uz, c["reference"].as_f64().unwrap(), c["nativeBounds"]["relativeErrorLessThan"].as_f64().unwrap(),
         "MacNeal-Harder tip moment: deflection");
     let c = mh::case("frame-moment-4-ry");
-    assert_close(d_tip.ry.abs(), c["reference"].as_f64().unwrap(), c["tolerance"].as_f64().unwrap(),
+    assert_close(d_tip.ry, c["reference"].as_f64().unwrap(), c["nativeBounds"]["relativeErrorLessThan"].as_f64().unwrap(),
         "MacNeal-Harder tip moment: rotation");
 }
 

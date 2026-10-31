@@ -28,7 +28,6 @@ const tr: Translations = {
   'scalarViewer.openEditor': 'Düzenleyicide aç',
   'scalarViewer.soon': ' (yakında)',
   'scalarViewer.editorNote': 'Deneyleri düzenleyicide açma, araştırma moduyla gelecek',
-  'scalarViewer.keyboard': 'Klavye: oklar kaydırır, Shift+oklar 3B’de döndürür, + ve - yakınlaştırır, 0 görünümü sığdırır',
   // ─── Auth / Login ───
   'account.signIn': 'Oturum aç',
   'account.register': 'Hesap oluştur',
