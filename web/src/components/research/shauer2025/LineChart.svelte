@@ -19,6 +19,9 @@
     labels = [],
     log = false,
     rules = [],
+    ariaLabel = null,
+    point = null,
+    nearest = 'x',
   }: {
     series: Series[];
     xLabel: string;
@@ -32,10 +35,16 @@
     log?: boolean;
     /** Horizontal reference rules (tolerances), drawn dashed with their label. */
     rules?: { y: number; text: string }[];
+    ariaLabel?: string | null;
+    /** A point to mark on the curve itself, for paths that turn back in x. */
+    point?: [number, number] | null;
+    /** 'xy' reads the point nearest the pointer in both directions, so a path that turns back in x reads one branch. */
+    nearest?: 'x' | 'xy';
   } = $props();
 
   let width = $state(600);
   let hoverX = $state<number | null>(null);
+  let hoverY = $state(0);
   const M = { l: 48, r: 28, t: 22, b: 36 };
 
   function niceTicks(lo: number, hi: number, n = 5): { ticks: number[]; step: number } {
@@ -76,7 +85,7 @@
   }
   const ordered = $derived([...series].sort((a, b) => Number(!!b.dashed) - Number(!!a.dashed)));
 
-  const readout = $derived(chartReadout(series, hoverX));
+  const readout = $derived(chartReadout(series, hoverX, nearest === 'xy' ? (p) => Math.hypot(sx(p[0]) - sx(hoverX!), sy(p[1]) - hoverY) : undefined));
   const atMarker = $derived(
     marker === null ? [] : series.filter((s) => !s.dashed).map((s) => ({ s, p: s.points.reduce<[number, number] | null>((b, p) => (!b || Math.abs(p[0] - marker!) < Math.abs(b[0] - marker!) ? p : b), null) })),
   );
@@ -84,6 +93,7 @@
   function onMove(e: PointerEvent) {
     const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
     const px = e.clientX - r.left;
+    hoverY = e.clientY - r.top;
     hoverX = px < M.l || px > width - M.r ? null : x0 + ((px - M.l) / (width - M.l - M.r)) * (x1 - x0);
   }
   const fmtX = (v: number) => num(v, { dp: tickDecimals(xt.step) });
@@ -92,7 +102,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label={`${yLabel} / ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={ariaLabel ?? `${yLabel} / ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="12px">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
@@ -126,6 +136,9 @@
         {#each atMarker as m (m.s.name)}
           {#if m.p}<circle cx={sx(m.p[0])} cy={sy(m.p[1])} r="4" style:fill={m.s.color} stroke="var(--st-surface, #0f1e2b)" stroke-width="2" />{/if}
         {/each}
+      {/if}
+      {#if point}
+        <circle cx={sx(point[0])} cy={sy(point[1])} r="5" style:fill={series.find((s) => !s.dashed)?.color ?? 'var(--fg)'} stroke="var(--st-surface, #0f1e2b)" stroke-width="2" data-testid="chart-point" />
       {/if}
       {#if readout}
         <line x1={sx(readout.x)} x2={sx(readout.x)} y1={M.t} y2={height - M.b} class="cross" />
