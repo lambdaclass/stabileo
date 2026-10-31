@@ -2,6 +2,7 @@
   import { archStrings } from './biggins2026/strings';
   import BigginsPage from './biggins2026/BigginsPage.svelte';
   import { rs } from './i18n';
+  import { cqcStrings } from './cqc1981/strings';
   /**
    * Stabileo Research: the gallery at /research and one page per runnable paper. Loaded as its own
    * chunk by Root.svelte; the experiment's WASM is fetched only when a simulation is started.
@@ -38,7 +39,6 @@
 
   const PAGES: Record<string, { title: string; description: string }> = {
     '/research/benchmarks/newmark-1959': { title: 'Newmark (1959) — Stabileo Research', description: 'First version: production Newmark average acceleration against the exact SDOF step response.' },
-    '/research/benchmarks/cqc-1981': { title: 'SRSS vs CQC (1981) — Stabileo Research', description: 'First version: closely spaced building modes compared with a closed-form reference.' },
     '/research/benchmarks/plastic-collapse': { title: 'Classic plastic collapse — Stabileo Research', description: 'First version: a portal frame compared with beam, sway and combined mechanism hand calculations.' },
     '/research/benchmarks/navier-plate': { title: 'Navier plate — Stabileo Research', description: 'First version: a simply supported plate compared with the Navier Fourier series.' },
     '/research/benchmarks/lee-frame-1968': { title: 'Lee frame (1968) — Stabileo Research', description: 'First version: pinned Lee frame with the production arc-length solver. Provisional reference.' },
@@ -70,7 +70,7 @@
   };
 
   $effect(() => {
-    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : PAGES[route];
+    const meta = route === '/research/benchmarks/cqc-1981' ? { title: cqcStrings().metaTitle, description: cqcStrings().metaDescription } : route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : PAGES[route];
     if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
     return () => restorePageMeta();
   });

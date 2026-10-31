@@ -982,6 +982,9 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
   reproduced_published_results: false
   benchmarks:
   - two close modes

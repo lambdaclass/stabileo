@@ -401,6 +401,7 @@
     color: var(--st-text-3);
     pointer-events: none;
   }
+  .sfv-wrap :global(.status-item), .sfv-wrap :global(.status-value) { font-size: 12px; }
   .sfv-wrap :global(.cam-btn), .sfv-wrap :global(.cam-item) { min-width: 44px; min-height: 44px; font-size: 12px; }
   .sfv-wrap :global(.shell-legend), .sfv-wrap :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-status :global(.status-value) {
@@ -410,7 +411,7 @@
   }
   .sfv-status :global(.status-label) {
     color: var(--st-text-2);
-    font-size: 0.75rem;
+    font-size: max(12px, 0.75rem);
   }
   .sfv-status {
     flex-wrap: wrap;
@@ -425,7 +426,7 @@
     border-radius: 4px;
     color: var(--st-text-2);
     min-height: 44px;
-    font: 0.75rem var(--st-sans);
+    font: 12px var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
   }
