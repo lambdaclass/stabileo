@@ -3,7 +3,6 @@ const es: Record<string, string> = {
 
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
-  "scalarViewer.keyboard": "Flechas: orbitar. Mayús + flechas: desplazar. Más/menos: zoom.",
   "scalarViewer.viewOptions": "Opciones de vista",
   "scalarViewer.close": "Cerrar",
   "scalarViewer.fit": "Ajustar a la extensión",
