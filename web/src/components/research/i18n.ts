@@ -1883,7 +1883,11 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
       "error": "Fehler",
       "result": "Ergebnis",
       "reset": "Parameter zurücksetzen"
-    }
+    },
+    "replaySource": "Aufzeichnung einer mit diesem Löser vorberechneten Ausführung",
+    "liveSource": "Live-Berechnung im Browser",
+    "step": "Schritt",
+    "tolerance": "Toleranz"
   },
   "fr": {
     "afterAuthors": "D’après",
@@ -1926,7 +1930,11 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
       "error": "Erreur",
       "result": "Résultat",
       "reset": "Réinitialiser les paramètres"
-    }
+    },
+    "replaySource": "Séquence précalculée avec ce solveur",
+    "liveSource": "Calcul en direct dans votre navigateur",
+    "step": "étape",
+    "tolerance": "Tolérance"
   },
   "tr": {
     "afterAuthors": "Kaynak",
@@ -1969,7 +1977,11 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
       "error": "Hata",
       "result": "Sonuç",
       "reset": "Parametreleri sıfırla"
-    }
+    },
+    "replaySource": "Bu çözücüyle önceden hesaplanan kaydın oynatımı",
+    "liveSource": "Tarayıcınızda canlı hesaplama",
+    "step": "adım",
+    "tolerance": "Tolerans"
   }
 };
 
@@ -1980,7 +1992,7 @@ export function rs(): ResearchStrings {
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
-  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik' },
+  de: { optimization: 'Optimierung', seismic: 'Erdbeben und Dynamik', metamaterials: 'Metamaterialien' }, fr: { optimization: 'Optimisation', seismic: 'Séismes et dynamique', metamaterials: 'Métamatériaux' }, tr: { optimization: 'Optimizasyon', seismic: 'Deprem ve dinamik', metamaterials: 'Metamalzemeler' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },

@@ -53,6 +53,11 @@
 </div>
 
 <style>
+  .rs-viewer-host :global(button), .rs-viewer-host :global(input) { min-width: 44px; min-height: 44px; }
+  .rs-viewer-host :global(.sfv-wrap *) { font-size: max(12px, 0.75rem); }
+  .rs-viewer-host :global(.sfv-toolbar) { flex-wrap: wrap; }
+  .rs-viewer-host :global(.shell-legend) { max-width: calc(100% - 24px); }
+
   .rs-viewer-failed {
     color: var(--fg-2);
     font-size: 0.9rem;

@@ -82,7 +82,7 @@
           {s.citationTitle}{name}{citationRelation ?? s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
-      <aside class="rs-shell-app" aria-label={s.theExperiment}>
+      <aside lang={locale} class="rs-shell-app" aria-label={s.theExperiment}>
         {@render app()}
       </aside>
     </div>
@@ -177,6 +177,7 @@
     display: none;
   }
   .rs-shell-article {
+    overflow-wrap: anywhere;
     max-width: var(--rs-measure);
   }
   .rs-shell-article :global(a) {

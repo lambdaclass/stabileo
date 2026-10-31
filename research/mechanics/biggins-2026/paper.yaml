@@ -25,6 +25,6 @@ solver:
 tolerances:
   reference_curve_relative: 0.003
   refinement_relative: 0.001
-  published_threshold_absolute: 0.02
+  published_threshold_absolute: 0.005
   eigenvalue_relative: 0.00001
 excluded: [finite-angle elastica, experimental snap validation, dynamics, offset patterns]
