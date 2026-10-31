@@ -1,5 +1,9 @@
+import { render } from 'svelte/server';
+import { createRawSnippet } from 'svelte';
+import ContainmentBanner from '../../../components/ContainmentBanner.svelte';
+import { readFileSync } from 'node:fs';
 import { describe, it, expect, afterEach } from 'vitest';
-import { knownIssueMessage } from '../known-issues';
+import { knownIssueMessage, knownIssueDisposition, knownIssueRefusal, knownIssueResultDisposition } from '../known-issues';
 import { setLocale } from '../../i18n';
 
 afterEach(() => setLocale('en'));
@@ -42,11 +46,69 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('has a sentence for every finding the engine contains, in es, en and pt', () => {
-    for (const id of ['NL-5']) {
+    const registry = readFileSync('../engine/src/known_issues.rs', 'utf8');
+    const ids = [...registry.matchAll(/Entry \{ id: "([^"]+)"/g)].map(match => match[1]);
+    expect(ids.length).toBeGreaterThan(1);
+    for (const id of ids) {
       for (const loc of ['es', 'en', 'pt'] as const) {
         setLocale(loc);
         expect(knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' }), `${id} ${loc}`).not.toBe('ENGINE');
       }
     }
   });
+});
+
+
+describe('containment modes', () => {
+  const warning = { code: 'known_issue', severity: 'warning', phase: 'NL-5', value: 428, message: 'Approximate' };
+  it('WARN keeps results visible and provides an issue banner', () => {
+    const state = knownIssueDisposition([warning]);
+    expect(state.refused).toBe(false);
+    expect(state.messages[0]).toContain('#428');
+    const html = render(ContainmentBanner, { props: { disposition: state, children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })) } }).body;
+    expect(html).toContain('role="alert"');
+    expect(html).toContain('#428');
+    expect(html).toContain('123.45');
+    expect(knownIssueResultDisposition({ results: { structuredDiagnostics: [warning] } }).messages[0]).toContain('#428');
+  });
+  it('REFUSE hides results and translates the structured engine refusal', () => {
+    const refusal = { ...warning, severity: 'error' };
+    expect(knownIssueDisposition([refusal]).refused).toBe(true);
+    const html = render(ContainmentBanner, { props: { disposition: knownIssueDisposition([refusal]), children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })) } }).body;
+    expect(html).toContain('#428');
+    expect(html).not.toContain('123.45');
+    expect(knownIssueResultDisposition({ steps: [{ results: { structuredDiagnostics: [refusal] } }] }).refused).toBe(true);
+    expect(knownIssueRefusal(JSON.stringify({ structuredDiagnostics: [refusal] }))).toContain('#428');
+    expect(knownIssueRefusal('ordinary error')).toBeNull();
+  });
+});
+
+for (const key of ['results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) {
+  it(`collects and renders diagnostics in ${key}`, () => {
+    const leaf = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
+    const result = { [key]: ['steps', 'stages', 'caseResults', 'combinationResults'].includes(key) ? [{ results: leaf }] : leaf };
+    const disposition = knownIssueResultDisposition(result);
+    expect(disposition.messages).toHaveLength(1);
+    const html = render(ContainmentBanner, { props: { disposition } }).body;
+    expect(html).toContain('#759');
+    expect(disposition.refused).toBe(false);
+  });
+}
+it('collects both spectral directions, deduplicates, and tolerates cycles', () => {
+  const X = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
+  const Y = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'NL-DYNAMIC-GAPS', value: 370, message: 'ENGINE' }] };
+  const result: Record<string, unknown> = { X, Y, results: X };
+  expect(knownIssueResultDisposition(result).messages).toHaveLength(2);
+  result.results = result;
+  expect(knownIssueResultDisposition(result).messages).toHaveLength(2);
+});
+it('withholds the spectral panel when only Y carries a refusal', () => {
+  const disposition = knownIssueResultDisposition({
+    X: { structuredDiagnostics: [] },
+    Y: { structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' }] },
+  });
+  const html = render(ContainmentBanner, { props: { disposition, children: createRawSnippet(() => ({ render: () => '<span>123.45</span>' })) } }).body;
+  expect(disposition.refused).toBe(true);
+  expect(html).toContain('#741');
+  expect(html).not.toContain('123.45');
 });

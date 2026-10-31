@@ -5,7 +5,9 @@ test('production engine benchmark results and rerun @smoke', async ({ page }) =>
   await expect(page.getByTestId('benchmark-summary')).toContainText(/\d+\/12/, { timeout: 120_000 }); // slow-ok: The production WASM engine runs all 12 MacNeal-Harder benchmark cases.
   await page.getByRole('tab', { name: /Results|Resultados/ }).click();
   await expect(page.getByTestId('frame-shear-1-uz')).toContainText(/0[.,]0036/);
-  await expect(page.getByTestId('mitc4-trapezoidal-in').getByRole('link')).toHaveAttribute('href', /KNOWN_ISSUES.md#mh-mitc4-distortion/);
+  await expect(page.getByTestId('mitc4-trapezoidal-out').getByRole('link')).toHaveAttribute('href', /KNOWN_ISSUES.md#mh-mitc4-distortion/);
+  await expect(page.getByTestId('mitc4-trapezoidal-in').getByRole('link')).toHaveAttribute('href', /issues\/798$/);
+  await expect(page.getByTestId('mitc4-trapezoidal-in')).toContainText(/#798/);
   await page.getByRole('button', { name: /Run again|Ejecutar de nuevo|Executar novamente/ }).click();
   await expect(page.getByTestId('benchmark-summary')).toContainText(/\d+\/12/);
 });

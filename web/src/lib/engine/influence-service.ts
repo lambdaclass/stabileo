@@ -97,8 +97,15 @@ export function computeInfluenceLine(
   if (gate) return gate;
   solver.loads = [];
 
-  const solveWith = (loads: SolverLoad[]): number =>
-    quantityOf(quantity, solve({ ...solver, loads }), targetNodeId, targetElementId, targetPosition);
+  const diagnostics = new Map<string, NonNullable<AnalysisResults['structuredDiagnostics']>[number]>();
+  const collect = (result: Pick<AnalysisResults, 'structuredDiagnostics'>) => {
+    for (const d of result.structuredDiagnostics ?? []) diagnostics.set(JSON.stringify(d), d);
+  };
+  const solveWith = (loads: SolverLoad[]): number => {
+    const result = solve({ ...solver, loads });
+    collect(result);
+    return quantityOf(quantity, result, targetNodeId, targetElementId, targetPosition);
+  };
 
   let points: ILPoint[];
   try {
@@ -106,15 +113,19 @@ export function computeInfluenceLine(
     // point is solved on the full input instead.
     const coupled = (solver.constraints?.length ?? 0) > 0 || (solver.connectors?.size ?? 0) > 0;
     const dir = UNIT_LOAD_DIR[direction];
-    points = coupled || direction !== 'vertical'
-      ? sweepPointByPoint(solver, nPointsPerElement, solveWith, dir)
-      : (computeInfluenceLineWasm({ solver, quantity, targetNodeId, targetElementId, targetPosition, nPointsPerElement }) as InfluenceLineResult).points;
+    if (coupled || direction !== 'vertical') {
+      points = sweepPointByPoint(solver, nPointsPerElement, solveWith, dir);
+    } else {
+      const result = computeInfluenceLineWasm({ solver, quantity, targetNodeId, targetElementId, targetPosition, nPointsPerElement }) as InfluenceLineResult;
+      collect(result);
+      points = result.points;
+    }
     points = withTrussOrdinates(solver, points, solveWith, dir);
   } catch (err) {
     return t('influence.calcError').replace('{n}', errorText(err));
   }
 
-  return { quantity, targetNodeId, targetElementId, targetPosition, points, ...(direction !== 'vertical' ? { direction } : {}) };
+  return { structuredDiagnostics: [...diagnostics.values()], quantity, targetNodeId, targetElementId, targetPosition, points, ...(direction !== 'vertical' ? { direction } : {}) };
 }
 
 /** The sweep, one solve per point, for inputs the engine's sweep cannot take whole. */

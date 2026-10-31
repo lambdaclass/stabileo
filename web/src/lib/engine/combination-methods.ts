@@ -40,6 +40,7 @@
 import type { AnalysisResults3D, ElementForces3D, FullEnvelope3D, PlateStress, QuadStress } from './types-3d';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import type { ResultPiece } from './variable-members';
+import { mergeResultDiagnostics } from './result-diagnostics';
 import { envelopeOver, isMagnitudeCombination } from './result-scopes';
 import { SETTLEMENT_CASE_ID } from './settlement-case';
 import { combineShellStresses, type PlateThickness } from './shell-combos';
@@ -195,6 +196,7 @@ function scaledShell<T extends { vonMises: number; nodalVonMises?: number[]; sig
 function scaledResult(r: AnalysisResults3D, f: number): AnalysisResults3D {
   if (f === 1) return r;
   return {
+    ...mergeResultDiagnostics([r]),
     displacements: r.displacements.map((d) => scaledRow(d, f, NODE_KEEP)),
     reactions: r.reactions.map((d) => scaledRow(d, f, NODE_KEEP)),
     elementForces: r.elementForces.map((ef) => scaledForces(ef, f)),
@@ -268,6 +270,7 @@ export function superposed(parts: ReadonlyArray<{ r: AnalysisResults3D; f: numbe
   delete first.magnitude;
   return {
     ...first,
+    ...mergeResultDiagnostics(parts.filter(({ f }) => f !== 0).map(({ r }) => r)),
     displacements: reduceById(sum, parts.map(({ r }) => r.displacements), 'nodeId', NODE_KEEP),
     reactions: reduceById(sum, parts.map(({ r }) => r.reactions), 'nodeId', NODE_KEEP),
     elementForces: [...elements.values()].map(summedForces),
@@ -345,6 +348,7 @@ export function magnitudeCombination(
     };
   });
   return {
+    ...mergeResultDiagnostics(parts),
     displacements: byId(method, parts.map((p) => p.displacements), 'nodeId', NODE_KEEP),
     reactions: byId(method, parts.map((p) => p.reactions), 'nodeId', NODE_KEEP),
     elementForces,

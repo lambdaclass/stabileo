@@ -278,7 +278,7 @@ check.results-snapshot-gate:
 # The WASM must give bit-identical results in Node, Chromium, Firefox and WebKit
 # (docs/verification/TRUSTED_BASE.md). Needs make wasm and make web.deps first.
 test.web.determinism:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium firefox webkit && node --test determinism/serve.test.mjs determinism/checks.test.mjs determinism/containment.test.mjs && node determinism/node-run.mjs && npx playwright test -c determinism/playwright.config.ts"
 
 e2e.web.setup:
 	$(NIX_RUN) bash -c "cd web && npx playwright install chromium"
@@ -351,6 +351,7 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 
 test.ci-scripts: test.nightly-scripts
+	python3 -B -I -m unittest discover -s scripts/tests -p test_check_containment.py -v
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 

@@ -36,8 +36,8 @@ pub struct Ctx<'a> {
 
 pub(crate) fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
     guarded(|| {
-        let r = (a.run)(c)?;
-        if crate::generated::strict() {
+        let r = crate::response::outcome((a.run)(c))?;
+        if crate::generated::strict() && r.1.is_empty() {
             crate::generated::validate_3d(a.name, &r, c)?;
         }
         Ok(r)

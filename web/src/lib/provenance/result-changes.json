@@ -1,8 +1,32 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 5,
+  "currentResultsVersion": 6,
   "changes": [
+    {
+      "id": "safety-containment-diagnostics",
+      "resultsVersion": 6,
+      "date": "2026-10-29",
+      "prs": [
+        807
+      ],
+      "area": "analysis",
+      "when": { "any": ["members", "shells", "connectors"] },
+      "title": {
+        "en": "Known-issue warnings and refusals",
+        "es": "Advertencias y rechazos por problemas conocidos",
+        "pt": "Avisos e recusas por problemas conhecidos"
+      },
+      "explanation": {
+        "en": "Known-issue warnings added; numerical values of retained results are unchanged. Affected unsafe results are withheld by structured refusals; see the containment ledger for predicates.",
+        "es": "Se agregan advertencias de problemas conocidos; los valores de resultados retenidos no cambian. Se retienen resultados inseguros mediante rechazos estructurados; los criterios figuran en el registro de contención.",
+        "pt": "Avisos de problemas conhecidos adicionados; os valores dos resultados mantidos não mudam. Resultados inseguros são retidos por recusas estruturadas; os critérios estão no registro de contenção."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-containment.md",
+        "heading": "Safety containment diagnostics"
+      }
+    },
     {
       "id": "solid-shell-local-stress-axes",
       "resultsVersion": 5,

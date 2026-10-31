@@ -1,0 +1,41 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html{font-size:16px}body{margin:0;padding:12px;box-sizing:border-box}#th,#moving{max-width:100%}</style></head><body><div id="th"></div><div id="moving"></div><pre id="checks"></pre><script type="module">
+import { mount, tick } from 'svelte';
+import TimeHistoryPanel from '/src/components/pro/dynamics/TimeHistoryPanel.svelte';
+import MovingLoads from '/src/components/pro/ProMovingLoadsPanel.svelte';
+import { modelStore, uiStore } from '/src/lib/store/index.ts';
+const requestedWidth = Number(new URL(location.href).searchParams.get('width'));
+if (requestedWidth) {
+  const frame = document.createElement('iframe');
+  frame.style.cssText = `width:${requestedWidth}px;height:1000px;border:0`;
+  window.addEventListener('message', e => {
+    if (e.source === frame.contentWindow) document.getElementById('checks').textContent = JSON.stringify(e.data);
+  });
+  frame.src = location.pathname;
+  document.body.append(frame);
+} else {
+uiStore.analysisMode = 'pro';
+const a=modelStore.addNode(0,0,0),b=modelStore.addNode(4,0,0);
+const member=modelStore.addElement(a,b);modelStore.addSupport(a,'fixed3d');uiStore.selectElement(member,false);
+mount(TimeHistoryPanel,{target:document.querySelector('#th'),props:{buildDynamicInput:()=>({input:{},densities:new Map()}),onError:()=>{}}});
+mount(MovingLoads,{target:document.querySelector('#moving')});
+await tick();
+// Include the force-amplitude QuantityInput and dynamic rows.
+const add=[...document.querySelectorAll('#th button')].find(b=>b.textContent.includes('+'));
+add?.click();await tick();
+const checks=[];
+for(const id of ['th','moving']) {
+ const root=document.getElementById(id);
+ const visible=e=>e.getBoundingClientRect().width>0&&e.getBoundingClientRect().height>0;
+ const text=[...root.querySelectorAll('*')].filter(e=>visible(e)&&[...e.childNodes].some(n=>n.nodeType===3&&n.textContent.trim()));
+ const controls=[...root.querySelectorAll('button,input,select,textarea,summary')].filter(visible);
+ const smallText=text.filter(e=>parseFloat(getComputedStyle(e).fontSize)<12).map(e=>e.outerHTML.slice(0,120));
+ const smallTargets=controls.filter(e=>{const r=e.getBoundingClientRect();return r.width<43.9||r.height<43.9}).map(e=>e.outerHTML.slice(0,120));
+ const outside=[...root.querySelectorAll('*')].filter(e=>visible(e)&&e.getBoundingClientRect().right>innerWidth+0.5).map(e=>e.outerHTML.slice(0,120));
+ const run=root.querySelector('[data-testid=th-run],[data-testid=moving-run]');run?.scrollIntoView();
+ checks.push({id,width:innerWidth,smallText,smallTargets,outside,runAccessible:!!run&&!run.disabled&&run.getBoundingClientRect().width>=44&&document.elementFromPoint(run.getBoundingClientRect().left+10,run.getBoundingClientRect().top+10)===run,controls:controls.length});
+}
+document.getElementById('checks').textContent=JSON.stringify(checks);
+document.title='checks-complete';
+if (parent !== window) parent.postMessage(checks, location.origin);
+}
+</script></body></html>

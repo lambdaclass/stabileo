@@ -1,7 +1,10 @@
 {
-  "error": 0.006523454273268392,
+  "error": null,
+  "failure": "{\"message\":\"Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence (known issue #798, SH-MITC4-DISTORTION)\",\"structuredDiagnostics\":[{\"code\":\"known_issue\",\"elementIds\":[241,242,243,244,245,246,247,248,249,250,251,252,253,254,255,256],\"elementKind\":\"quad\",\"message\":\"Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence (known issue #798, SH-MITC4-DISTORTION)\",\"phase\":\"SH-MITC4-DISTORTION\",\"severity\":\"error\",\"value\":798.0}]}",
   "id": "hemisphere-16",
-  "pass": true,
-  "reference": 0.185,
-  "value": 0.18620683904055466
+  "issue": 798,
+  "knownIssue": "SH-MITC4-DISTORTION",
+  "pass": false,
+  "refused": true,
+  "value": null
 }

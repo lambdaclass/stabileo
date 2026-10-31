@@ -1,3 +1,4 @@
+import { exportMessages, warningCanvas } from './containment';
 /**
  * "Exportar vista": the chosen figures as SVG or PNG files, or a picture on the clipboard.
  *
@@ -64,7 +65,7 @@ async function files(req: ViewExportRequest, onDrawn?: () => void): Promise<Arra
   const contents = await drawable(req.contents);
   // After the solve `drawable` may run: the state the figures are drawn from.
   onDrawn?.();
-  if (contents.length === 0) return [];
+  if (contents.length === 0 || exportMessages() === null) return [];
   const base = fileBase();
   const ps = plans(contents, req);
   const out: Array<{ name: string; blob: Blob }> = [];
@@ -76,7 +77,7 @@ async function files(req: ViewExportRequest, onDrawn?: () => void): Promise<Arra
       const jpg = req.format === 'jpg';
       // The canvas is kept inside what browsers encode (`toCanvas`); one that still gives no
       // picture is told, not left as a download that never comes.
-      const blob = await canvasToBlob(toCanvas(p), jpg ? 'image/jpeg' : 'image/png');
+      const blob = await canvasToBlob(warningCanvas(toCanvas(p)), jpg ? 'image/jpeg' : 'image/png');
       if (blob) out.push({ name: `${name}.${jpg ? 'jpg' : 'png'}`, blob });
       else failed++;
     }
@@ -133,7 +134,7 @@ export async function copyView(req: ViewExportRequest): Promise<boolean> {
     const contents = await drawable(req.contents);
     if (contents.length === 0) { told = req.contents.length > 0; throw new Error('empty'); }
     const ps = plans(contents, { ...req, sheet: true });
-    const blob = ps[0] ? await canvasToBlob(toCanvas(ps[0])) : null;
+    const blob = ps[0] ? await canvasToBlob(warningCanvas(toCanvas(ps[0]))) : null;
     if (!blob) throw new Error('empty');
     return blob;
   })();

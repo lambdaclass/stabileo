@@ -6,7 +6,7 @@ export type Case = typeof data.cases[number];
 export const cases = data.cases;
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
-export type Result = { id: string; value: number | null; error: number | null; pass: boolean; failure?: string; displacement?: Record<string, number>[] };
+export type Result = { id: string; value: number | null; error: number | null; pass: boolean; refused?: boolean; knownIssue?: string; issue?: number; failure?: string; displacement?: Record<string, number>[] };
 
 export function inputFor(c: Case): SolverInput | SolverInput3D {
   const input: Record<string, unknown> = { ...c.input };
@@ -24,6 +24,15 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
   return { id: c.id, value, error, pass: error < c.tolerance, displacement: displacements };
 }
 
+export function refusalFor(c: Case, e: unknown): Result {
+  const failure = String(e);
+  const expected = c.expectedRefusal;
+  const refused = !!expected && failure.includes('Results withheld:') &&
+    failure.includes(`known issue #${expected.issue}, ${expected.id}`);
+  return { id: c.id, value: null, error: null, pass: false, failure,
+    ...(refused ? { refused: true, knownIssue: expected!.id, issue: expected!.issue } : {}) };
+}
+
 export async function runCases(onResult?: (r: Result) => void): Promise<Result[]> {
   const engine = await import('../../../lib/engine/wasm-solver');
   await engine.initSolver();
@@ -33,9 +42,10 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
     try {
       const input = inputFor(c);
       const result = c.dimension === 2 ? engine.solve(input as SolverInput) : engine.solve3D(input as SolverInput3D);
+      if (c.expectedRefusal) throw new Error(`Expected containment refusal: ${c.id}`);
       row = compare(c, result.displacements as unknown as Record<string, number>[]);
     } catch (e) {
-      row = { id: c.id, value: null, error: null, pass: false, failure: String(e) };
+      row = refusalFor(c, e);
     }
     rows.push(row);
     onResult?.(row);

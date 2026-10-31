@@ -270,22 +270,17 @@ fn export_plastic<T: Serialize>(dir: &Path, name: &str, input: &T, b: PlasticBun
 #[test]
 fn export_plastic_bundles() {
     let dir = out_dir();
-    let input = plastic_portal_2d();
-    let b = export_plastic_bundle_2d(&input).unwrap();
-    // the enclosure contains the closed form 6 Mp / 7
-    let exact = 6.0 * MP / 7.0;
-    assert!(b.info.lambda_lower <= exact && exact <= b.info.lambda_upper, "{:?}", b.info);
-    assert!((b.info.lambda_upper - b.info.lambda_lower) / exact < 1e-9, "{:?}", b.info);
-    let mut w = b.clone();
-    w.provenance = wrong_hash(&b.provenance);
-    write_plastic(&dir, "plastic-2d-portal.wronghash", &w);
-    export_plastic(&dir, "plastic-2d-portal", &input, b);
-
-    let input = plastic_continuous_2d();
-    export_plastic(&dir, "plastic-2d-continuous", &input, export_plastic_bundle_2d(&input).unwrap());
+    for input in [plastic_portal_2d(), plastic_continuous_2d()] {
+        crate::common::assert_containment(export_plastic_bundle_2d(&input), "PL-2D-INVARIANCE");
+    }
 
     let input = plastic_cantilever_3d();
     let b = export_plastic_bundle_3d(&input).unwrap();
+    let results = dedaliano_engine::solver::plastic::solve_plastic_3d(&input).unwrap();
+    let diagnostics: Vec<_> = results.structured_diagnostics.iter().map(|d| serde_json::to_value(d).unwrap()).collect();
+    assert!(!diagnostics.is_empty(), "the solved increments carry diagnostics");
+    assert_eq!(b.structured_diagnostics, diagnostics);
+
     assert!(b.info.lambda_lower <= 8.0 && 8.0 <= b.info.lambda_upper && b.info.lambda_upper - b.info.lambda_lower < 1e-6, "{:?}", b.info);
     export_plastic(&dir, "plastic-3d-cantilever", &input, b);
 

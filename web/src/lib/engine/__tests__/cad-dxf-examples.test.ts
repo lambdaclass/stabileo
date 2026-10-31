@@ -1,3 +1,4 @@
+import { expectMembraneRefusal } from './containment-helper';
 /**
  * CAD → RC draft DXF examples (PR [9] stress tests) — fixture integrity and
  * solvability. Both fixtures are generated from real architectural DXFs by
@@ -146,6 +147,10 @@ describe.each(EXAMPLES)('%s — solves in the 3D engine', (name) => {
     const { model } = loadExample(name);
     const input = buildSolverInput3D(model as never);
     expect(input).not.toBeNull();
+    if (name === 'cad-arch-structure-dxf') {
+      expectMembraneRefusal(() => solve3D(input!));
+      return;
+    }
     const results = solve3D(input!);
     const disp = results.displacements ?? [];
     expect(disp.length).toBeGreaterThan(0);

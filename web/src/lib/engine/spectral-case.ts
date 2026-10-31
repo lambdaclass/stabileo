@@ -29,6 +29,7 @@
  */
 import type { AnalysisResults3D, ElementForces3D } from './types-3d';
 import type { ModalResult3D } from './result-types';
+import { mergeResultDiagnostics } from './result-diagnostics';
 import { cqcRho } from './loads/seismic-modal';
 import { reduceById, ELEMENT_KEEP } from './combination-methods';
 import { parseDecimal } from '../utils/numeric-input';
@@ -225,6 +226,7 @@ function reduceResults(reduce: (vs: readonly number[]) => number, results: reado
     ...s, vonMises: Math.abs(s.vonMises), ...(s.nodalVonMises ? { nodalVonMises: s.nodalVonMises.map(Math.abs) } : {}),
   });
   return {
+    ...mergeResultDiagnostics(results),
     displacements: reduceById(reduce, results.map((r) => r.displacements), 'nodeId', keepNode),
     reactions: reduceById(reduce, results.map((r) => r.reactions), 'nodeId', keepNode),
     elementForces,
@@ -251,12 +253,12 @@ export function combineDirections(rule: DirectionRule, parts: ReadonlyArray<{ fa
  * A spectral case's result: each direction it excites worked out from the modes on its own, then
  * the directions combined. `saOf`: Sa in m/s² at a period, before the case's scale.
  */
-export function spectralCaseResult(def: SpectralCaseDef, modal: Pick<ModalResult3D, 'modes'>, saOf: (t: number) => number, unit: readonly AnalysisResults3D[]): AnalysisResults3D {
+export function spectralCaseResult(def: SpectralCaseDef, modal: Pick<ModalResult3D, 'modes' | 'structuredDiagnostics'>, saOf: (t: number) => number, unit: readonly AnalysisResults3D[]): AnalysisResults3D {
   const dirs = excitedDirections(def);
-  // No direction: the case is zero, everywhere a mode reaches.
   const along = dirs.length ? dirs : (['x'] as Direction[]);
-  return combineDirections(def.directions ?? 'percentage', along.map((d) => ({
+  const result = combineDirections(def.directions ?? 'percentage', along.map((d) => ({
     factor: def.factors[d],
     result: combineModes(def.rule, def.xi, modeCoefficients(modal, d, saOf, def.scale), unit),
   })));
+  return { ...result, ...mergeResultDiagnostics([result, modal]) };
 }

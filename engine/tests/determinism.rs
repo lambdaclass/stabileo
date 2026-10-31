@@ -81,6 +81,15 @@ fn same_every_time<I: DeserializeOwned, R: Serialize>(json: &str, what: &str, so
             ),
         }
     }
+    if let Some(Err(error)) = &first {
+        if let Ok(value) = serde_json::from_str::<serde_json::Value>(error) {
+            if let Some(id) = value["structuredDiagnostics"].as_array().and_then(|ds| ds.iter().find(|d| d["code"] == "known_issue" && d["severity"] == "error")).and_then(|d| d["phase"].as_str()) {
+                crate::common::assert_containment::<()>(Err(error.clone()), id);
+                // A contained model now proves deterministic refusal instead of numbers.
+                return 1;
+            }
+        }
+    }
     matches!(first, Some(Ok(_))) as usize
 }
 
@@ -103,7 +112,7 @@ fn linear_3d_is_bit_identical_across_hash_orders() {
         let json = serde_json::to_string(&m).unwrap();
         solved += same_every_time::<SolverInput3D, _>(&json, &format!("3D seed {seed}"), solve_3d);
     }
-    assert!(solved > 20, "too few random 3D models solved ({solved})");
+    assert!(solved > 20, "too few random 3D models solved or explicitly contained ({solved})");
 }
 
 #[test]

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { knownIssueResultDisposition } from "../../lib/engine/known-issues";
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { captureAnalysisProvenance } from '../../lib/store/result-provenance';
   import type { ResultProvenance } from '../../lib/provenance/result-provenance';
@@ -148,9 +149,10 @@
         step: input.step, path2: input.path2, signal: controller.signal, onProgress: (done, total) => (progress = { done, total }),
       });
       if (result.positions === 0) { error = t('train.noPositionSolved'); result = null; }
+      if (result) notes = [...notes, ...knownIssueResultDisposition(result).messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
-      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : String((e as Error).message ?? e);
+      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, 'Error');
     } finally {
       running = false; controller = null;
     }
@@ -189,11 +191,11 @@
   }
 
   function csv() {
-    if (!result || !resultProvenance) return;
+    if (!result || !resultProvenance || knownIssueResultDisposition(result).refused) return;
     // SI, each column with its unit.
     const UNIT: Record<EnvelopeComponent, string> = { n: 'kN', vy: 'kN', vz: 'kN', my: 'kN·m', mz: 'kN·m', torsion: 'kN·m' };
     const head = [t('pro.elemLabel'), ...ENVELOPE_COMPONENTS.flatMap((c) => [`${LABEL[c]} max (${UNIT[c]})`, `${LABEL[c]} min (${UNIT[c]})`])];
-    void downloadResultText(toCsv(head, rows.map((r) => [r.id, ...ENVELOPE_COMPONENTS.flatMap((c) => [r.env[c].max.value, r.env[c].min.value])])),
+    void downloadResultText(toCsv([t('knownIssue.exportHeading')], knownIssueResultDisposition(result).messages.map(message => [message])) + '\n' + toCsv(head, rows.map((r) => [r.id, ...ENVELOPE_COMPONENTS.flatMap((c) => [r.env[c].max.value, r.env[c].min.value])])),
       'moving-load-envelope.csv', 'text/csv;charset=utf-8', resultProvenance);
   }
 </script>
@@ -314,4 +316,12 @@
   .ml-table tbody tr:hover { background: var(--st-surface-2); }
   .ml-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
   .ml-on td:first-child { color: var(--st-accent); }
+  @media (max-width: 810px) {
+    .ml { min-width: 0; max-width: 100%; }
+    .ml.ml :global(*) { font-size: max(12px, 0.75rem); min-width: 0; overflow-wrap: anywhere; }
+    .ml.ml :global(button), .ml.ml :global(input), .ml.ml :global(select), .ml.ml :global(textarea), .ml.ml :global(summary) { min-width: 44px; min-height: 44px; max-width: 100%; box-sizing: border-box; }
+    .ml.ml :global(label) { flex-wrap: wrap; white-space: normal; }
+    .ml.ml :global(label:has(input[type="file"])), .ml.ml :global(.pk-btn) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+    .ml.ml :global(table) { max-width: 100%; }
+  }
 </style>

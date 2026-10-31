@@ -73,8 +73,10 @@ fn plastic_2d_hinge_forms_at_a_rotational_spring() {
     input.loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -30.0, my: 0.0 }));
     let sections = [("1".to_string(), PlasticSectionData { a: 0.08, iz: 0.2 * 0.4f64.powi(3) / 12.0, material_id: 1, b: Some(0.2), h: Some(0.4) })].into();
     let materials = [("1".to_string(), PlasticMaterialData { fy: Some(250.0) })].into();
-    let r = plastic::solve_plastic_2d(&PlasticInput { solver: input, sections, materials, max_hinges: None, mp_overrides: None }).unwrap();
-    assert!((r.collapse_factor - 250.0 / 3.0).abs() < 1e-6, "collapse factor {}", r.collapse_factor);
+    crate::common::assert_containment(plastic::solve_plastic_2d(&PlasticInput { solver: input, sections, materials, max_hinges: None, mp_overrides: None }), "PL-2D-INVARIANCE");
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!((r.collapse_factor - 250.0 / 3.0).abs() < 1e-6, "collapse factor {}", r.collapse_factor);
+*/
 }
 
 /// Material-nonlinear 3D iterated on the unconstrained system: a node tied

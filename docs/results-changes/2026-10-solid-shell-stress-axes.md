@@ -59,5 +59,5 @@ not selected; those element families are numerically unaffected. The current
 web results corpus has no SHB8 models (the web shell selector still lists SHB8PS
 as planned); its other shell families must keep their committed snapshots.
 
-The #757 containment entry is not changed here. Remove the SH-GLOBAL-STRESS
-refusal when the containment branch and this fix have both landed.
+The SH-GLOBAL-STRESS refusal that #807 proposed for #757 was removed when #807
+merged this fix; the containment ledger lists #757 as corrected.

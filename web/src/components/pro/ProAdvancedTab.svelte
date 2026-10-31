@@ -1,4 +1,6 @@
 <script lang="ts">
+  import KnownIssueResult from "../KnownIssueResult.svelte";
+  import { knownIssueDisposition, knownIssueResultDisposition } from '../../lib/engine/known-issues';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
@@ -75,12 +77,8 @@
   // enforceConstraints3D removed — WASM solvers handle quads/constraints natively
 
   // Expose advanced results to parent via bindable props
-  interface AdvancedResults3D {
-    pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
-    buckling?: { factors: number[] };
-    spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
-  }
+  type AdvancedResults3D = NonNullable<import('../../lib/engine/pro-report').ReportData['advancedResults']>;
+
   let { advancedResults = $bindable({}) }: { advancedResults: AdvancedResults3D } = $props();
 
   let solving = $state(false);
@@ -177,7 +175,7 @@
   // ─── 1. P-Delta ─────────────────────────────────────────────────
 
   /** What the run gave: convergence, iterations, and the amplification and stability as `amplification` reads them. */
-  let pdeltaResult = $state<{ converged: boolean; iterations: number; b2: number; stable: boolean } | null>(null);
+  let pdeltaResult = $state<(import('../../lib/engine/result-types').PDeltaResult3D & { b2: number; stable: boolean }) | null>(null);
   /**
    * Why the run is not published as a P-Δ result, or null when it is. The criterion is the one the
    * combinations use (`solver-service.ts`, `amplification`): with no second-order equilibrium at
@@ -198,6 +196,7 @@
   }
 
   function handlePDelta() {
+    forgetPDelta();
     solveError = null;
     solving = true;
     pdeltaElapsed = null;
@@ -207,16 +206,16 @@
       const t0 = performance.now();
       res = wasmPDelta3D(input);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(res, 'Error') }); solving = false; return; }
       pdeltaElapsed = elapsed;
       const amp = res.results ? amplification(res) : { b2: Infinity, stable: false };
       const converged = !!res.converged;
-      pdeltaResult = { converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
-      pdeltaRefused = !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
+      pdeltaResult = { ...res, converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
+      pdeltaRefused = knownIssueResultDisposition(res).refused ? knownIssueResultDisposition(res).messages.join('\n') : !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
       if (pdeltaRefused === null) resultsStore.setPDeltaResult3D(res);
       // A result of an earlier run is not left on screen as if it were this one's.
       else if (resultsStore.pdeltaResult3D) resultsStore.clearPDelta3D();
-      advancedResults = { ...advancedResults, pdelta: { converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
+      advancedResults = { ...advancedResults, pdelta: { disposition: knownIssueResultDisposition(res), converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
     } catch (e: any) {
       forgetPDelta();
       solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, 'Error') });
@@ -245,7 +244,18 @@
   /** The model the modal result describes. Spectral reuses its modes and must not outlive it. */
   let modalModelVersion = $state<number | null>(null);
 
+  function forgetModal() {
+    modalResult = null;
+    modalModelVersion = null;
+    modalAutoNote = null;
+    spectralResult = null;
+    const { modal: _modal, spectral: _spectral, ...rest } = advancedResults;
+    advancedResults = rest;
+    if (resultsStore.modalResult3D) resultsStore.clearModal3D();
+  }
+
   function handleModal() {
+    forgetModal();
     solveError = null;
     solving = true;
     modalElapsed = null;
@@ -264,12 +274,12 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(res, 'Error') }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
       // PRO kept this result to itself: the table listed modes and none of them could be seen.
-      resultsStore.setModalResult3D(res);
+      if (!knownIssueResultDisposition(res).refused) resultsStore.setModalResult3D(res);
       modalModelVersion = modelStore.modelVersion;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
@@ -283,9 +293,10 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { disposition: knownIssueResultDisposition(res), modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
+      forgetModal();
       solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
     }
     solving = false;
@@ -319,6 +330,10 @@
   const codeSpectrum = $derived(previewCodeSpectrum({ zone: seismicZone, site: siteClass }));
 
   function handleSpectral() {
+    spectralResult = null;
+    resultsStore.clearSpectral3D();
+    const { spectral: _retired, ...remaining } = advancedResults;
+    advancedResults = remaining;
     solveError = null;
     solving = true;
     try {
@@ -354,11 +369,11 @@
       const byDir: Record<string, any> = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor, xi: spectralXi });
-        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${res}`; solving = false; return; }
+        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${errorText(res, 'Error')}`; solving = false; return; }
         byDir[direction] = res;
       }
       spectralResult = byDir;
-      advancedResults = { ...advancedResults, spectral: { baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
+      advancedResults = { ...advancedResults, spectral: { disposition: knownIssueResultDisposition(byDir), baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
     } catch (e: any) {
       solveError = `${t('pro.spectralTitle')}: ${errorText(e, 'Error')}`;
     }
@@ -370,7 +385,15 @@
   let bucklingResult = $state<any | null>(null);
   let numBucklingModes = $state(4);
 
+  function forgetBuckling() {
+    bucklingResult = null;
+    const { buckling: _buckling, ...rest } = advancedResults;
+    advancedResults = rest;
+    if (resultsStore.bucklingResult3D) resultsStore.clearBuckling3D();
+  }
+
   function handleBuckling() {
+    forgetBuckling();
     solveError = null;
     solving = true;
     bucklingElapsed = null;
@@ -380,13 +403,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(res, 'Error') }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
-      resultsStore.setBucklingResult3D(res);
+      if (!knownIssueResultDisposition(res).refused) resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
-      advancedResults = { ...advancedResults, buckling: { factors } };
+      advancedResults = { ...advancedResults, buckling: { disposition: knownIssueResultDisposition(res), factors } };
     } catch (e: any) {
+      forgetBuckling();
       solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
     }
     solving = false;
@@ -857,6 +881,7 @@
   const IL_QUANTITY = { moment: 'My_diag', shear: 'Vz', axial: 'N', reaction: 'Fz' } as const;
 
   function handleInfluenceLine3D() {
+    ilResult = null;
     solveError = null;
     if (hasVariable()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
@@ -1029,7 +1054,8 @@
         <button class="adv-run-btn" onclick={handlePDelta} disabled={!hasModel || solving} data-testid="adv-run-pdelta">P-Delta</button>
         <span class="adv-desc">{t('pro.pdeltaDesc')}</span>
       </div>
-      {#if pdeltaResult}
+      {#each knownIssueResultDisposition(pdeltaResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if pdeltaResult && !knownIssueResultDisposition(pdeltaResult).refused}
         <div class="adv-inline" data-testid="pdelta-summary">
           {pdeltaResult.converged ? t('pro.converged') : t('pro.notConverged')} — {pdeltaResult.iterations} {t('pro.iterationsAbbr')}
           — {pdeltaResult.stable ? t('advanced.stable') : t('advanced.unstable')}
@@ -1055,7 +1081,8 @@
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
-      {#if modalResult}
+      {#each knownIssueResultDisposition(modalResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if modalResult && !knownIssueResultDisposition(modalResult).refused}
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}
@@ -1148,7 +1175,8 @@
       {#if !modalResult}
         <div class="adv-hint">{t('pro.requiresModal')}</div>
       {/if}
-      {#if spectralResult}
+      {#each knownIssueResultDisposition(spectralResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if spectralResult && !knownIssueResultDisposition(spectralResult).refused}
         <div class="adv-inline" data-testid="spectral-base-shear">
           Vb: X={fmtNum(spectralResult.X?.baseShear ?? 0)}, Y={fmtNum(spectralResult.Y?.baseShear ?? 0)} kN ({spectralCombination})
         </div>
@@ -1182,7 +1210,8 @@
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
-      {#if bucklingResult}
+      {#each knownIssueResultDisposition(bucklingResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if bucklingResult && !knownIssueResultDisposition(bucklingResult).refused}
         {#if bucklingElapsed != null}
           <div class="adv-inline">{bucklingElapsed >= 1000 ? (bucklingElapsed / 1000).toFixed(2) + ' s' : bucklingElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}</div>
         {/if}
@@ -1261,7 +1290,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
-      {#if harmResult}
+      {#each knownIssueDisposition(harmResult?.structuredDiagnostics).messages as message}<div role="alert">{message}</div>{/each}
+      {#if harmResult && !knownIssueDisposition(harmResult.structuredDiagnostics).refused}
         <div class="adv-inline">
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
           {#if harmResult.peakFrequency != null} — f_res={fmtNum(harmResult.peakFrequency)} Hz{/if}
@@ -1324,7 +1354,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
-      {#if nlResult}
+      {#each knownIssueResultDisposition(nlResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if nlResult && !knownIssueResultDisposition(nlResult).refused}
         <!--
           Each of the three runs returns a different result type, and the panel
           read fields none of them has (`loadFactor`, `numHinges`), so a
@@ -1363,7 +1394,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
-      {#if imperfResult}
+      {#each knownIssueResultDisposition(imperfResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if imperfResult && !knownIssueResultDisposition(imperfResult).refused}
         <div class="adv-inline">
           <!-- The engine returns the solved model, not a summary of the
                imperfection: report the drift it actually produced. -->
@@ -1411,7 +1443,8 @@
         {/if}
         <button class="adv-run-btn" onclick={handleWinkler} disabled={!hasModel || solving || !wasmAvailable || winklerSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveWinkler')}</button>
       </div>
-      {#if winklerResult}
+      {#each knownIssueResultDisposition(winklerResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if winklerResult && !knownIssueResultDisposition(winklerResult).refused}
         <div class="adv-result-title">{t('pro.resultWinkler')}</div>
         <!-- Winkler is a linear solve on a modified stiffness: it returns the
              results themselves, with no iteration count to report. The panel
@@ -1496,7 +1529,8 @@
         </div>
         <button class="adv-run-btn" onclick={handleSSI} disabled={!hasModel || solving || !wasmAvailable || ssiSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveSsi')}</button>
       </div>
-      {#if ssiResult}
+      {#each knownIssueResultDisposition(ssiResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if ssiResult && !knownIssueResultDisposition(ssiResult).refused}
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
         <div class="adv-inline">
           <span>{t('pro.convergence')}: {ssiResult.converged ? t('pro.yes') : t('pro.no')}</span> — <span>{t('pro.iterations')}: {ssiResult.iterations ?? '?'}</span>
@@ -1563,7 +1597,8 @@
         {/each}
         <button class="adv-run-btn" onclick={handleStaged} disabled={!hasModel || solving || !wasmAvailable || stages.length === 0}>{solving ? t('pro.solving') : t('pro.solveStaged')}</button>
       </div>
-      {#if stagedResult}
+      {#each knownIssueResultDisposition(stagedResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if stagedResult && !knownIssueResultDisposition(stagedResult).refused}
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
         <div class="adv-inline">
           {#if stagedResult.stages}
@@ -1602,7 +1637,8 @@
         <button class="adv-btn-sm" onclick={addCreepStep}>{t('pro.addStep')}</button>
         <button class="adv-run-btn" onclick={handleCreep} disabled={!hasModel || solving || !wasmAvailable || creepTimeSteps.length === 0}>{solving ? t('pro.calculating') : t('pro.calcCreep')}</button>
       </div>
-      {#if creepResult}
+      {#each knownIssueResultDisposition(creepResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if creepResult && !knownIssueResultDisposition(creepResult).refused}
         <div class="adv-result-title">{t('pro.resultCreep')}</div>
         <!-- Creep is reported PER STEP; there is no single φ on the result. -->
         {#if creepResult.steps?.length}
@@ -1658,6 +1694,7 @@
           disabled={!hasModel || solving || !wasmAvailable || (ilResponse === 'reaction' ? ilNodeId == null : ilElementId == null)}
         >{solving ? t('pro.solving') : t('pro.computeIL')}</button>
       </div>
+      <KnownIssueResult result={ilResult}>
       {#if ilResult?.points?.length}
         <div class="adv-inline">
           {t('pro.maxPos')}: {fmtNum(Math.max(...ilResult.points.map((p: any) => p.value)))}
@@ -1678,6 +1715,7 @@
           </div>
         </details>
       {/if}
+      </KnownIssueResult>
       {/if}
 
     <!-- ── 17. Section Analyzer ── -->
@@ -1726,7 +1764,8 @@
         {/if}
         <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
       </div>
-      {#if secResult}
+      {#each knownIssueResultDisposition(secResult).messages as message}<div role="alert">{message}</div>{/each}
+      {#if secResult && !knownIssueResultDisposition(secResult).refused}
         <!-- The engine names these a / yc / zc / syTop / szRight, not
              area / centroidY / wy — so area and the centroid never printed. -->
         <div class="adv-inline">
@@ -1734,7 +1773,7 @@
           {#if secResult.iy != null} — Iy={fmtQ(secResult.iy, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
           {#if secResult.iz != null} — Iz={fmtQ(secResult.iz, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
         </div>
-        <div class="adv-inline" style="font-size:0.62rem; opacity:0.8">
+        <div class="adv-inline" style="font-size: 0.75rem; opacity:0.8">
           CG: y={fmtQ(secResult.yc ?? 0, 'sectionDim')} {unitQ('sectionDim')}, z={fmtQ(secResult.zc ?? 0, 'sectionDim')} {unitQ('sectionDim')}
           {#if secResult.j != null} — J={fmtQ(secResult.j, 'sectionInertia')} {unitQ('sectionInertia')}{/if}
           {#if secResult.syTop != null} — Wy={fmtQ(secResult.syTop, 'sectionModulus')} {unitQ('sectionModulus')}{/if}
@@ -1764,7 +1803,7 @@
     border-radius: var(--st-radius);
     color: var(--st-text-2);
     font-family: var(--st-sans);
-    font-size: 0.71rem;
+    font-size: 0.75rem;
     padding: 0.18rem 0.45rem;
     cursor: pointer;
     white-space: nowrap;
@@ -1812,26 +1851,26 @@
     border-bottom: 1px solid var(--st-hair);
     background: none;
     color: var(--st-text-3);
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-style: italic;
     text-align: left;
   }
 
   .adv-error {
     padding: 6px 12px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     color: var(--st-danger);
     background: rgba(229, 72, 42, 0.1);
     flex-shrink: 0;
   }
 
   .adv-wasm-warn {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     color: var(--st-warn);
   }
 
   .adv-check {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     color: var(--st-text-2);
     display: flex;
     align-items: center;
@@ -1864,7 +1903,7 @@
 
   .adv-group-details > summary::before {
     content: '▸ ';
-    font-size: 0.55rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
   }
 
@@ -1881,7 +1920,7 @@
 
   .adv-run-btn {
     padding: 5px 14px;
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text);
     background: linear-gradient(135deg, var(--st-surface-3), var(--st-hair-strong));
@@ -1896,7 +1935,7 @@
 
   .adv-btn-sm {
     padding: 3px 10px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-2);
     background: var(--st-surface-3);
@@ -1909,27 +1948,27 @@
   .adv-btn-sm:disabled { opacity: 0.35; cursor: not-allowed; }
 
   .adv-title {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-2);
     user-select: none;
   }
 
   .adv-desc {
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
     font-style: italic;
   }
 
   .adv-hint {
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
     font-style: italic;
   }
 
 
   .adv-inline {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--st-text-2);
     padding: 2px 0;
     font-family: monospace;
@@ -1937,7 +1976,7 @@
 
   .adv-divider {
     padding: 6px 12px;
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-3);
     text-transform: uppercase;
@@ -1955,7 +1994,7 @@
   }
 
   .adv-label {
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     color: var(--st-text-3);
     display: flex;
     align-items: center;
@@ -1966,7 +2005,7 @@
   .adv-num {
     width: 55px;
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: var(--st-surface);
     border: 1px solid var(--st-surface-3);
     border-radius: 3px;
@@ -1978,7 +2017,7 @@
 
   .adv-sel {
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: var(--st-surface);
     border: 1px solid var(--st-surface-3);
     border-radius: 3px;
@@ -1989,7 +2028,7 @@
   .adv-text {
     width: 120px;
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     background: var(--st-surface);
     border: 1px solid var(--st-surface-3);
     border-radius: 3px;
@@ -2004,6 +2043,8 @@
   }
 
   .adv-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
     max-height: 150px;
     overflow-y: auto;
   }
@@ -2011,13 +2052,13 @@
   .adv-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
   }
 
   .adv-table th {
     padding: 3px 5px;
     text-align: left;
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-3);
     text-transform: uppercase;
@@ -2032,11 +2073,11 @@
   }
 
   .col-id { color: var(--st-text-3); font-family: monospace; text-align: center; }
-  .col-num { font-family: monospace; text-align: right; font-size: 0.66rem; }
+  .col-num { font-family: monospace; text-align: right; font-size: 0.75rem; }
 
   .adv-rm {
     padding: 2px 6px;
-    font-size: 0.62rem;
+    font-size: 0.75rem;
     color: var(--st-accent);
     background: transparent;
     border: 1px solid var(--st-accent);
@@ -2056,7 +2097,7 @@
   .adv-textarea {
     width: 100%;
     padding: 4px 6px;
-    font-size: 0.64rem;
+    font-size: 0.75rem;
     font-family: monospace;
     background: var(--st-surface-2);
     border: 1px solid var(--st-surface-3);
@@ -2069,19 +2110,19 @@
   .adv-textarea::placeholder { color: var(--st-text-3); }
 
   .adv-steps-toggle {
-    font-size: 0.6rem;
+    font-size: 0.75rem;
     color: var(--st-ok);
     cursor: pointer;
   }
 
   .adv-step-line {
-    font-size: 0.58rem;
+    font-size: 0.75rem;
     color: var(--st-text-2);
     padding: 1px 0;
   }
 
   .adv-sub-title {
-    font-size: 0.66rem;
+    font-size: 0.75rem;
     font-weight: 600;
     color: var(--st-text-2);
     margin-top: 4px;
@@ -2107,7 +2148,7 @@
   .adv-stage-name {
     flex: 1;
     padding: 3px 5px;
-    font-size: 0.68rem;
+    font-size: 0.75rem;
     font-weight: 600;
     background: transparent;
     border: none;
@@ -2119,9 +2160,22 @@
 
   .cum-ok { color: var(--st-ok); }
   .cum-warn { color: var(--st-warn); }
-  .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.66rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
+  .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.75rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
   .adv-mode-row { cursor: pointer; }
   .adv-mode-row:hover td { background: var(--st-surface-2, rgba(255,255,255,0.04)); }
   .adv-mode-on td { color: var(--st-accent); }
-  .adv-refused { margin: 4px 0 0; font-size: 0.7rem; color: var(--st-warn); line-height: 1.4; }
+  .adv-refused { margin: 4px 0 0; font-size: 0.75rem; color: var(--st-warn); line-height: 1.4; }
+  @media (max-width: 810px) {
+    .adv-tab :global(*) { min-width: 0; font-size: max(12px, 0.75rem); overflow-wrap: anywhere; }
+    .adv-tab :global(button), .adv-tab :global(input), .adv-tab :global(select), .adv-tab :global(summary) { min-height: 44px; min-width: 44px; max-width: 100%; box-sizing: border-box; }
+    .adv-tab :global(label), .adv-tab :global(.row) { flex-wrap: wrap; white-space: normal; }
+
+    button, input, select, summary, .adv-check { min-height: 44px; min-width: 44px; font-size: max(12px, 0.75rem); }
+    input, select { max-width: 100%; box-sizing: border-box; }
+    .adv-row, .adv-label, .adv-stage-header { flex-wrap: wrap; }
+    .adv-label, .adv-run-btn, .adv-chip { white-space: normal; }
+    .adv-tab, .adv-scroll, .adv-group, .adv-stage-name { min-width: 0; }
+    .adv-error, .adv-inline, .adv-desc, .adv-limits { overflow-wrap: anywhere; }
+    .adv-mode-row { height: 44px; }
+  }
 </style>

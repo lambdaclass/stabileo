@@ -13,14 +13,14 @@ async function freshStore(complete: boolean): Promise<Store> {
 describe('a lazily loaded language', () => {
   beforeEach(() => vi.spyOn(console, 'warn').mockImplementation(() => {}));
   afterEach(() => {
-    vi.doUnmock('../locales/full/fr');
+    vi.doUnmock('../locales/browser/fr');
     for (const code of ['de', 'fr']) vi.doUnmock(`../locales/complete/${code}`);
     vi.restoreAllMocks();
   });
 
   it('is registered once ensureLocale resolves, and loaded only once', async () => {
     const store = await freshStore(true);
-    const { default: full } = await import('../locales/full/de');
+    const { default: full } = await import('../locales/browser/de');
     const [key, value] = Object.entries(full).find(([k]) => !k.startsWith('landing.'))!;
     const first = store.ensureLocale('de');
     expect(store.ensureLocale('de')).toBe(first);
@@ -29,7 +29,7 @@ describe('a lazily loaded language', () => {
   });
 
   it('that fails to load leaves English, does not reject, and is tried again', async () => {
-    vi.doMock('../locales/full/fr', () => {
+    vi.doMock('../locales/browser/fr', () => {
       throw new Error('offline');
     });
     const store = await freshStore(true);
@@ -37,8 +37,8 @@ describe('a lazily loaded language', () => {
     expect(store.tAt('lazy.probe', 'fr')).toBe('English text');
     expect(console.warn).toHaveBeenCalledOnce();
 
-    vi.doUnmock('../locales/full/fr');
-    const { default: full } = await import('../locales/full/fr');
+    vi.doUnmock('../locales/browser/fr');
+    const { default: full } = await import('../locales/browser/fr');
     const [key, value] = Object.entries(full)[0];
     await store.ensureLocale('fr');
     expect(store.tAt(key, 'fr')).toBe(value);
@@ -46,7 +46,7 @@ describe('a lazily loaded language', () => {
 
   it('is neither loaded nor shown while it is not complete', async () => {
     const store = await freshStore(false);
-    const { default: full } = await import('../locales/full/de');
+    const { default: full } = await import('../locales/browser/de');
     const [key, value] = Object.entries(full).find(([k, v]) => !k.startsWith('landing.') && v !== 'English text')!;
     await store.ensureLocale('de');
     expect(store.tAt(key, 'de')).not.toBe(value);

@@ -76,5 +76,35 @@
   "limitations": [
     "Chromium e2e not run; spec updated for corrected values and cylinder issue link.",
     "Original numerical paper table/page provenance remains unverified."
-  ]
+  ],
+  "containmentMerge": {
+    "date": "2026-10-30",
+    "scope": "PR #807 merge of origin/main (containment of #447 over the #810-corrected fixture); fixture unchanged",
+    "hemisphereDisposition": "Production withholds hemisphere 4/8/16 under SH-MITC4-DISTORTION (#798); results/hemisphere-*.json and wasm-results.json record the refusal from both runtimes. The earlier rows above predate the containment.",
+    "checks": [
+      {
+        "command": "cargo test --release --test validation shell_benchmark",
+        "passed": 84,
+        "failed": 0,
+        "ignored": 4
+      },
+      {
+        "command": "cargo test --release --test validation research",
+        "passed": 33,
+        "failed": 0,
+        "ignored": 9
+      },
+      {
+        "command": "node research/benchmarks/shell-obstacle-course/wasm/check.mjs <fresh native results>",
+        "matchedCases": 11,
+        "refusedCases": [
+          "hemisphere-4",
+          "hemisphere-8",
+          "hemisphere-16"
+        ],
+        "finestSelectedPassing": 1,
+        "finestSelectedTotal": 3
+      }
+    ]
+  }
 }

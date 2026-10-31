@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * Temperature, through every tool that reads it.
  *
@@ -353,16 +354,18 @@ describe('temperature in the advanced analyses', () => {
     sections: new Map([[1, { a: A, iz: IZ, materialId: 1, b: 0.1, h: 0.3464 }]]),
     materials: new Map([[1, { fy: 250 }]]),
   });
-  const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
+  // After #758: const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
 
   it('plastic, plane: collapse at 8Mp/(PL), with a uniform ΔT or a gradient on both halves', () => {
     for (const extra of [[], [th(1, 30)], [th(1, 0, 10), th(2, 0, 10)]]) {
-      expect(beam(extra).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+      expectPlasticRefusal(() => beam(extra));
+      // After #758 is fixed: expect(beam(extra).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
     }
   });
 
   it('plastic, plane: collapse at 8Mp/(PL), with a gradient on one half', () => {
-    expect(beam([th(1, 0, 30)]).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+    expectPlasticRefusal(() => beam([th(1, 0, 30)]));
+      // After #758 is fixed: expect(beam([th(1, 0, 30)]).collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
   });
 });
 

@@ -1,3 +1,5 @@
+import { isContainmentRefusal } from './containment-error';
+import type { StructuredDiagnostic } from './types';
 /**
  * Moving loads on a 3D model: a train of axles along a path of members, the envelope of every
  * member's forces over all positions.
@@ -47,6 +49,7 @@ export const ENVELOPE_COMPONENTS: readonly EnvelopeComponent[] = ['n', 'vy', 'vz
 export interface Extreme { value: number; x: number; position: number }
 
 export interface MovingEnvelope3D {
+  structuredDiagnostics: StructuredDiagnostic[];
   /** Per member, per component: the largest and the smallest value, where, and the reference axle's position. */
   elements: Map<number, Record<EnvelopeComponent, { max: Extreme; min: Extreme }>>;
   path: PathSegment3D[];
@@ -167,6 +170,7 @@ export async function sweepTrains3D(base: SolverInput3D, path: PathSegment3D[], 
         if (rec[c].min.value < mine[c].min.value) mine[c].min = rec[c].min;
       }
     }
+    out.structuredDiagnostics.push(...r.structuredDiagnostics);
     out = { ...out, positions: out.positions + r.positions, failed: out.failed + r.failed };
   }
   return out!;
@@ -197,6 +201,7 @@ export async function sweepMovingLoad3D(
   if (!isSymmetric(train)) passes.push({ train: reversedTrain(train), refs: forward.map((r) => total - r - maxOff) });
   const count = passes.reduce((n, p) => n + p.refs.length, 0);
   const env: MovingEnvelope3D['elements'] = new Map();
+  const structuredDiagnostics: StructuredDiagnostic[] = [];
   let done = 0, failed = 0;
   const session = prepareLoadSession3D(base);
   try {
@@ -208,8 +213,17 @@ export async function sweepMovingLoad3D(
           const loads = opts.path2
             ? [...trainLoads(base, path, half(p.train), r), ...trainLoads(base, opts.path2, half(p.train), r)]
             : trainLoads(base, path, p.train, r);
-          foldPosition(env, session.solve(loads), r);
-        } catch {
+          const result = session.solve(loads);
+          const diagnostics = result.structuredDiagnostics ?? [];
+          if (diagnostics.some(d => d.code === 'known_issue' && d.severity === 'error')) {
+            throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
+          }
+          for (const d of diagnostics) {
+            if (!structuredDiagnostics.some(existing => existing.code === d.code && existing.phase === d.phase)) structuredDiagnostics.push(d);
+          }
+          foldPosition(env, result, r);
+        } catch (error) {
+          if (isContainmentRefusal(error)) throw error;
           failed++;
         }
         done++;
@@ -217,6 +231,6 @@ export async function sweepMovingLoad3D(
         if (done % 8 === 0) await new Promise((res) => setTimeout(res, 0));
       }
     }
-    return { elements: env, path, train, positions: done - failed, failed };
+    return { structuredDiagnostics, elements: env, path, train, positions: done - failed, failed };
   } finally { session.free(); }
 }

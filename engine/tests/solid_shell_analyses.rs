@@ -472,3 +472,50 @@ fn frame_with_zero_torsion_constant_is_refused() {
     let r = linear::solve_3d(&s);
     assert!(r.as_ref().err().map_or(true, |e| !e.contains("torsion constant")), "{r:?}");
 }
+
+#[test]
+fn rotated_solid_shell_nonstress_analyses_remain_available() {
+    let mut s = strip(NX, 0.0);
+    for n in s.nodes.values_mut() { let y = n.y; n.y = -n.z; n.z = y; }
+    for j in 0..=NY {
+        nodal(&mut s, bot(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        nodal(&mut s, top(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+    let static_result = linear::solve_3d(&s).unwrap();
+    assert!(!static_result.quad_stresses.is_empty());
+    let modal = modal::solve_modal_3d(&s, &densities(), 2).unwrap();
+    assert!(modal.modes[0].frequency > 0.0);
+    let buckling = buckling::solve_buckling_3d(&s, 1).unwrap();
+    assert!(buckling.modes[0].load_factor > 0.0);
+    let harmonic = harmonic::solve_harmonic_3d(&harmonic::HarmonicInput3D {
+        solver: s, densities: densities(), frequencies: vec![0.1], damping_ratio: 0.05,
+        response_node_id: bot(NX, 0), response_dof: "x".into(),
+    }).unwrap();
+    for ds in [&static_result.structured_diagnostics, &modal.structured_diagnostics, &buckling.structured_diagnostics, &harmonic.structured_diagnostics] {
+        assert!(!ds.iter().any(|d| d.value == Some(757.0)));
+    }
+}
+
+#[test]
+fn buckling_recovery_keeps_colliding_mitc_and_curved_shell_ids() {
+    let mut s = strip(NX, 0.0);
+    for n in s.nodes.values_mut() { let y = n.y; n.y = -n.z; n.z = y; }
+    for j in 0..=NY {
+        nodal(&mut s, bot(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        nodal(&mut s, top(NX, j), [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    }
+    let id = s.solid_shells.values().next().unwrap().id;
+    let nodes = [9000, 9001, 9002, 9003];
+    for (nid, x, y) in [(9000, 10.0, 0.0), (9001, 11.0, 0.0), (9002, 11.0, 1.0), (9003, 10.0, 1.0)] {
+        node(&mut s, nid, x, y, 0.0);
+        sup(&mut s, nid, [true; 6]);
+        if x == 11.0 { s.supports.get_mut(&nid.to_string()).unwrap().dx = Some(-0.001); }
+    }
+    s.quads.insert(id.to_string(), SolverQuadElement { id, nodes, material_id: 1, thickness: T });
+    s.curved_shells.insert(id.to_string(), SolverCurvedShellElement { id, nodes, material_id: 1, thickness: T, normals: None });
+    let system = buckling::buckling_system_3d(&s).unwrap();
+    assert_eq!(system.linear.quad_stresses.len(), s.solid_shells.len() + 2);
+    let colliding: Vec<_> = system.linear.quad_stresses.iter().filter(|stress| stress.element_id == id).collect();
+    assert_eq!(colliding.len(), 3, "{colliding:?}");
+    assert!(colliding.iter().filter(|stress| stress.sigma_xx.abs() > 1.0).count() >= 2, "{colliding:?}");
+}

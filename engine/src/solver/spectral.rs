@@ -5,6 +5,8 @@ use super::dof::DofNumbering;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub displacements: Vec<Displacement>,
     pub element_forces: Vec<SpectralElementForce>,
     pub base_shear: f64,
@@ -339,6 +341,15 @@ pub fn solve_spectral_2d(input: &SpectralInput) -> Result<SpectralResult, String
     check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult {
+        structured_diagnostics: {
+            let mut diagnostics = crate::known_issues::for_2d(solver_input, crate::known_issues::Analysis::Modal);
+            let k = super::sparse_assembly::assemble_stiffness_sparse_2d(solver_input, &dof_num).k_ff;
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_conditioning(&k).into_iter().collect());
+            let cs = super::constraints::FreeConstraintSystem::build_2d(solver_input, &dof_num)?;
+            let reduced = cs.as_ref().map(|c| c.reduce_matrix_sparse(&k));
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_stiffness_conditioning(reduced.as_ref().unwrap_or(&k)).into_iter().collect());
+            diagnostics
+        },
         displacements,
         element_forces,
         base_shear,
@@ -373,6 +384,8 @@ fn interpolate_spectrum(spectrum: &DesignSpectrum, period: f64) -> f64 {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpectralResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub displacements: Vec<Displacement3D>,
     pub element_forces: Vec<SpectralElementForce3D>,
     pub base_shear: f64,
@@ -394,7 +407,7 @@ pub struct SpectralElementForce3D {
 
 /// Solve 3D spectral analysis using pre-computed modal data.
 pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, String> {
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::Modal)?;
     super::dynamic_validation::validate_mass_input_3d(&input.solver)?;
     if input.modes.is_empty() {
         return Err("Spectral analysis requires at least one mode (run modal analysis first)".to_string());
@@ -502,6 +515,15 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
     check_finite_output(&combined_disps, &forces, base_shear, &per_mode)?;
 
     Ok(SpectralResult3D {
+        structured_diagnostics: {
+            let mut diagnostics = crate::known_issues::for_3d(solver_input, crate::known_issues::Analysis::Modal);
+            let k = super::assembly::assemble_sparse_3d(solver_input, &dof_num, false).k_ff;
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_conditioning(&k).into_iter().collect());
+            let cs = super::constraints::FreeConstraintSystem::build_3d(solver_input, &dof_num)?;
+            let reduced = cs.as_ref().map(|c| c.reduce_matrix_sparse(&k));
+            crate::known_issues::attach(&mut diagnostics, crate::known_issues::sparse_stiffness_conditioning(reduced.as_ref().unwrap_or(&k)).into_iter().collect());
+            diagnostics
+        },
         displacements, element_forces, base_shear, per_mode, rule: rule.as_str().to_string(),
     })
 }

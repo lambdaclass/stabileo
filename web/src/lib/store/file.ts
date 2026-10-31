@@ -1,3 +1,4 @@
+import { exportMessages, warningImage, warningCanvas } from '../export/containment';
 // File operations: save/load projects, export results, autosave
 
 import { noteDesignHeldIfOff } from './design-presence';
@@ -783,7 +784,9 @@ export async function downloadResultsCSV(solveError?: string): Promise<void> {
 // ─── Export PNG ─────────────────────────────────────────────────
 
 /** A PNG given as a data URL, saved under the project's name. */
-export function downloadDataUrlPNG(dataUrl: string, embed?: (png: Uint8Array) => Uint8Array): void {
+export async function downloadDataUrlPNG(dataUrl: string, embed?: (png: Uint8Array) => Uint8Array): Promise<void> {
+  const warnings = exportMessages(); if (warnings === null) return;
+  dataUrl = await warningImage(dataUrl, warnings);
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
   const bin = atob(dataUrl.split(',')[1] ?? '');
   const bytes = new Uint8Array(bin.length);
@@ -792,6 +795,8 @@ export function downloadDataUrlPNG(dataUrl: string, embed?: (png: Uint8Array) =>
 }
 
 export function downloadCanvasPNG(canvas: HTMLCanvasElement, embed?: (png: Uint8Array) => Uint8Array): void {
+  const warnings = exportMessages(); if (warnings === null) return;
+  canvas = warningCanvas(canvas, warnings);
   canvas.toBlob((blob) => {
     if (!blob) return;
     const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');

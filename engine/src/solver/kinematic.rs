@@ -600,7 +600,7 @@ pub fn analyze_kinematics_3d(input: &SolverInput3D) -> KinematicResult {
     // dereferences ids directly. Validated on the expanded model, which is the
     // one assembly actually sees.
     // Same Spanish-only sentence as the 2D analyzer, for the same reason.
-    if let Err(reason) = super::linear::validate_input_3d(input) {
+    if let Err(reason) = super::linear::validate_input_3d_for_analysis(input, crate::known_issues::Analysis::StaticReduction) {
         return KinematicResult {
             degree,
             classification: if degree > 0 { "hyperstatic" } else if degree == 0 { "isostatic" } else { "hypostatic" }.into(),

@@ -309,7 +309,13 @@ fn solve_time_history_2d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let mut structured_diagnostics = crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_s).into_iter().collect());
+    let factor = match &factored { FactoredMatrix::Sparse(factor) => Some(factor), FactoredMatrix::Lu { .. } => None };
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_factor_conditioning(&k_eff, factor).into_iter().collect());
     Ok(TimeHistoryResult {
+        structured_diagnostics,
         time_steps,
         node_histories,
         peak_displacements,
@@ -1091,7 +1097,7 @@ fn solve_time_history_3d_inner(
     input: &TimeHistoryInput3D,
     mut trace: Option<&mut Option<DynamicTrace>>,
 ) -> Result<TimeHistoryResult3D, String> {
-    super::linear::validate_input_3d(&input.solver)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::TimeHistory)?;
     super::dynamic_validation::validate_mass_3d(&input.solver, &input.densities)?;
     super::dynamic_validation::validate_time_params(input.time_step, input.n_steps)?;
     validate_integration_params(input.beta, input.gamma, input.alpha, input.damping_xi)?;
@@ -1329,7 +1335,13 @@ fn solve_time_history_3d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let mut structured_diagnostics = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_stiffness_conditioning(&k_s).into_iter().collect());
+    let factor = match &factored { FactoredMatrix::Sparse(factor) => Some(factor), FactoredMatrix::Lu { .. } => None };
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_factor_conditioning(&k_eff, factor).into_iter().collect());
     Ok(TimeHistoryResult3D {
+        structured_diagnostics,
         time_steps,
         node_histories,
         peak_displacements,

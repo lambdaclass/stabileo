@@ -448,6 +448,8 @@ enum FactorizedKff {
 /// the structure, not on the loads. Build once with `prepare_static_2d`, then
 /// solve any number of load sets with `solve_loads`.
 pub struct PreparedStatic2D<'a> {
+    rotation_demand: crate::known_issues::RotationDemand2D,
+    known_model: Vec<StructuredDiagnostic>,
     input: Cow<'a, SolverInput>,
     dof_num: DofNumbering,
     n: usize,
@@ -748,6 +750,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
         };
 
         return Ok(PreparedStatic2D {
+            rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+            known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
             input: Cow::Borrowed(input),
             dof_num,
             n,
@@ -783,6 +787,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 vec![0.0; nf]
             };
             return Ok(PreparedStatic2D {
+                rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+                known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
                 input: Cow::Borrowed(input),
                 dof_num,
                 n,
@@ -828,6 +834,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                     vec![0.0; nf]
                 };
                 return Ok(PreparedStatic2D {
+                    rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+                    known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
                     input: Cow::Borrowed(input),
                     dof_num,
                     n,
@@ -866,6 +874,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
                 let piv = lu_factor(&mut lu, nf)
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
                 return Ok(PreparedStatic2D {
+                    rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+                    known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
                     input: Cow::Borrowed(input),
                     dof_num,
                     n,
@@ -941,6 +951,8 @@ fn prepare_static_2d_impl(input: &SolverInput, force_dense: bool) -> Result<Prep
     }
 
     Ok(PreparedStatic2D {
+        rotation_demand: crate::known_issues::RotationDemand2D::new(input),
+        known_model: crate::known_issues::for_2d_loads(input, &[], crate::known_issues::Analysis::Linear),
         input: Cow::Borrowed(input),
         dof_num,
         n,
@@ -960,6 +972,8 @@ impl PreparedStatic2D<'_> {
     /// Own the model for a session that outlives the constructor's input buffer.
     pub fn into_owned(self) -> PreparedStatic2D<'static> {
         PreparedStatic2D {
+            rotation_demand: self.rotation_demand,
+            known_model: self.known_model,
             input: Cow::Owned(self.input.into_owned()),
             dof_num: self.dof_num,
             n: self.n,
@@ -978,8 +992,12 @@ impl PreparedStatic2D<'_> {
     /// stored factorization, then runs the same postprocessing as `solve_2d`.
     pub fn solve_loads(&self, loads: &[SolverLoad]) -> Result<AnalysisResults, String> {
         let mut r = self.solve_loads_by_path(loads)?;
-        // Known issues of this load set.
+        if self.rotation_demand.demanded(loads) {
+            crate::known_issues::attach(&mut r.structured_diagnostics, vec![crate::known_issues::diagnostic("CERT-MECHANISM")]);
+        }
+        crate::known_issues::attach(&mut r.structured_diagnostics, self.known_model.clone());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
+        crate::known_issues::refuse(&r.structured_diagnostics)?;
         Ok(r)
     }
 
@@ -1925,6 +1943,18 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     Ok(r)
 }
 
+pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
+    let analysis = crate::known_issues::Analysis::Buckling;
+    if input.constraints.is_empty() {
+        return prepare_static_3d_for_analysis(input, analysis)?.solve_loads(&input.loads);
+    }
+    let ci = super::constraints::ConstrainedInput3D { solver: input.clone(), constraints: input.constraints.clone() };
+    let mut result = super::constraints::solve_constrained_3d_inner(&ci, analysis)?;
+    crate::known_issues::MembraneBendingGuard::for_analysis(input, analysis).check(&input.loads, &result)?;
+    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::for_3d(input, analysis));
+    Ok(result)
+}
+
 fn solve_3d_inner(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     // Expand curved beams BEFORE anything else: the constrained delegation below
     // used to bypass prepare_static_3d (the only expansion site), silently
@@ -1952,6 +1982,7 @@ fn solve_3d_inner(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 /// the structure, not on the loads. Build once with `prepare_static_3d`, then
 /// solve any number of load sets with `solve_loads`.
 pub struct PreparedStatic3D {
+    membrane_guard: crate::known_issues::MembraneBendingGuard,
     /// Curved-beam-expanded input (loads field unused by `solve_loads`).
     input: SolverInput3D,
     dof_num: DofNumbering,
@@ -2152,6 +2183,10 @@ pub(crate) fn prescribed_displacements_3d(input: &SolverInput3D, dof_num: &DofNu
 }
 
 pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, String> {
+    prepare_static_3d_for_analysis(input, crate::known_issues::Analysis::Linear)
+}
+
+fn prepare_static_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_issues::Analysis) -> Result<PreparedStatic3D, String> {
     // The prepared (factor-once) path assembles no constraints. Every caller
     // routes constrained models elsewhere today; refusing here keeps a new
     // caller from silently solving the model without them (the dense
@@ -2161,7 +2196,8 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
     }
     // Known issues of the model as given (an arch is only visible before its expansion); they
     // go with the pre-solve diagnostics into every result of this preparation.
-    let known_model = crate::known_issues::model_3d(input);
+    crate::known_issues::refuse(&crate::known_issues::for_3d(input, analysis))?;
+    let known_model: Vec<_> = crate::known_issues::for_3d(input, analysis).into_iter().filter(|d| d.code == DiagnosticCode::KnownIssue).collect();
     // Expand curved beams into frame elements before solving
     let input = expand_curved_beams_3d(input);
     let n_nodes = input.nodes.len();
@@ -2177,7 +2213,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
     validate_solver_options(&input.solver_options, &mut pre_solve_diags);
 
     // ── Input validation (before assembly) ──
-    validate_input_3d(&input)?;
+    validate_input_3d_for_analysis(&input, analysis)?;
 
     // An element that cannot be integrated over — collapsed, or folded onto
     // itself — is refused by name, before it fails downstream as "Singular
@@ -2211,6 +2247,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         };
 
         return Ok(PreparedStatic3D {
+            membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
             input,
             dof_num,
             n,
@@ -2270,6 +2307,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
             };
             let nnz_kff = stiff.k_ff.col_ptr[nf]; // total nnz in lower triangle
             return Ok(PreparedStatic3D {
+                membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
                 input,
                 dof_num,
                 n,
@@ -2366,6 +2404,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                     vec![0.0; nf]
                 };
                 Ok(PreparedStatic3D {
+                    membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
                     input,
                     dof_num,
                     n,
@@ -2417,6 +2456,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
                     .ok_or_else(|| "Singular stiffness matrix — structure is a mechanism".to_string())?;
                 let dense_fb_us = now_micros().saturating_sub(t0);
                 Ok(PreparedStatic3D {
+                    membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
                     input,
                     dof_num,
                     n,
@@ -2490,6 +2530,7 @@ pub fn prepare_static_3d(input: &SolverInput3D) -> Result<PreparedStatic3D, Stri
         };
 
         Ok(PreparedStatic3D {
+            membrane_guard: crate::known_issues::MembraneBendingGuard::for_analysis(&input, analysis),
             input,
             dof_num,
             n,
@@ -2527,6 +2568,7 @@ impl PreparedStatic3D {
         let mut r = self.solve_loads_by_path(loads)?;
         // Known issues of this load set (the model's are in the pre-solve diagnostics).
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_3d(loads));
+        self.membrane_guard.check(loads, &r)?;
         Ok(r)
     }
 
@@ -4581,6 +4623,10 @@ fn moment_lost_2d(node: usize, why: &str) -> String {
 }
 
 pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
+    validate_input_3d_for_analysis(input, crate::known_issues::Analysis::Linear)
+}
+
+pub(crate) fn validate_input_3d_for_analysis(input: &SolverInput3D, analysis: crate::known_issues::Analysis) -> Result<(), String> {
     // Left-handed member axes are refused. `compute_local_axes_3d` reverses ey,
     // which makes the triad (ex, ey, ez) improper, but the element kernels assume
     // the right-hand kinematics θz = v', θy = −w': the v–θz and w–θy coupling
@@ -4894,6 +4940,9 @@ pub(crate) fn validate_input_3d(input: &SolverInput3D) -> Result<(), String> {
         |id| node_xyz.get(&id).map(|n| [n.x, n.y, n.z]),
         DofNumbering::dofs_per_node_3d(input) >= 6,
     )?;
+
+    super::pre_solve_gates::refuse_broken_elements(&super::pre_solve_gates::check_shell_distortion_3d(input))?;
+    crate::known_issues::refuse(&crate::known_issues::for_3d(input, analysis))?;
 
     Ok(())
 }

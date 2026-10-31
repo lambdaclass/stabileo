@@ -55,6 +55,17 @@ export interface Snapshot {
 }
 
 type Values = Snapshot['values'];
+export const containmentFindings = new Set<string>();
+function collectContainment(value: unknown): void {
+  if (typeof value === 'string') {
+    try { collectContainment(JSON.parse(value)); } catch { /* Ordinary error text. */ }
+  } else if (Array.isArray(value)) value.forEach(collectContainment);
+  else if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (record.code === 'known_issue') containmentFindings.add(`${record.severity}:${record.phase}`);
+    for (const child of Object.values(record)) if (child && typeof child === 'object') collectContainment(child);
+  }
+}
 
 /** Every store a case writes to, back to a fresh session's state. */
 function reset(c: SnapshotCase): void {
@@ -89,6 +100,11 @@ async function open(c: SnapshotCase): Promise<void> {
 function analysis(prefix: string, r: unknown, out: Values): void {
   if (!r || typeof r !== 'object') { out[prefix] = null; return; }
   const { solverDiagnostics, structuredDiagnostics, diagnostics, ...rest } = r as Record<string, unknown>;
+  if (Array.isArray(structuredDiagnostics)) {
+    for (const d of structuredDiagnostics) {
+      if (d.code === 'known_issue') containmentFindings.add(`${d.severity}:${d.phase}`);
+    }
+  }
   const own: Values = {};
   flatten(rest, prefix, own);
   // A case with no loads gives zeros everywhere: one line says so. If it ever gives anything
@@ -158,12 +174,13 @@ function captureDesign(out: Values): void {
 /** The Advanced tab's runs, with its inputs and its reading of each result. */
 function captureAdvanced(c: SnapshotCase, out: Values): void {
   const guard = (name: string, run: () => void) => {
-    try { run(); } catch (e) { out[`${name}.refusal`] = errorText(e, 'Error'); }
+    try { run(); } catch (e) { collectContainment(e); out[`${name}.refusal`] = errorText(e, 'Error'); }
   };
   let modal: { modes?: unknown[] } | null = null;
   for (const a of c.advanced ?? []) {
     if (a === 'pdelta') guard('pdelta', () => {
       const res = solvePDelta3D(centerlineInput({ caseDisplacements: true }));
+      collectContainment(res);
       if (typeof res === 'string') { out['pdelta.refusal'] = res; return; }
       const amp = res.results ? amplification(res as never) : { b2: Infinity, stable: false };
       flatten({ converged: !!res.converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable }, 'pdelta', out);
@@ -172,6 +189,7 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
     if (a === 'modal') guard('modal', () => {
       const { input, densities } = dynamicInput();
       const res = solveModal3D(input, densities, 6);
+      collectContainment(res);
       if (typeof res === 'string') { out['modal.refusal'] = res; return; }
       modal = res as never;
       flatten((res as { totalMass?: number }).totalMass, 'modal.totalMass', out);
@@ -195,12 +213,14 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
       const modes = spectralModesFrom(modal as never);
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = solveSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: 'CQC', importanceFactor: RISK_FACTOR[group as keyof typeof RISK_FACTOR], reductionFactor: settingsR ?? 1, xi: 0.05 } as never);
-        if (typeof res === 'string') { out[`spectral.${direction}.refusal`] = res; continue; }
+        collectContainment(res);
+      if (typeof res === 'string') { out[`spectral.${direction}.refusal`] = res; continue; }
         analysis(`spectral.${direction}`, res, out);
       }
     });
     if (a === 'buckling') guard('buckling', () => {
       const res = solveBuckling3D(centerlineInput(), 4);
+      collectContainment(res);
       if (typeof res === 'string') { out['buckling.refusal'] = res; return; }
       const factors = (res as { factors?: number[]; eigenvalues?: number[]; modes?: Array<{ loadFactor?: number; factor?: number; eigenvalue?: number }> });
       flatten(factors.factors ?? factors.eigenvalues ?? factors.modes?.map((m) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? [], 'buckling.factors', out);
@@ -213,6 +233,7 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
  * the negative test's deliberate result change (`__tests__/negative.test.ts`).
  */
 export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void } = {}): Promise<Snapshot> {
+  containmentFindings.clear();
   setLocale('en');
   reset(c);
   await open(c);
@@ -222,6 +243,7 @@ export async function capture(c: SnapshotCase, opts: { afterOpen?: () => void } 
   values['model.elements'] = modelStore.elements.size;
   values['model.shells'] = modelStore.quads.size + modelStore.plates.size;
   const outcome = await solveNow();
+  collectContainment(outcome);
   values['solve.ok'] = outcome.ok;
   if (!outcome.ok) values['solve.refusal'] = outcome.error;
   else {

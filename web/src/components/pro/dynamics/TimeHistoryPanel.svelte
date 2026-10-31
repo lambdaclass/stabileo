@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { knownIssueDisposition } from '../../../lib/engine/known-issues';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * Time history: the ground motion, the run, and the response walked step by step.
@@ -95,6 +96,7 @@
 
   let running = $state(false);
   const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);
+  const containment = $derived(knownIssueDisposition(result?.structuredDiagnostics));
   const stale = $derived(!!result && timeHistoryView.modelVersion !== modelStore.modelVersion);
 
   /** Run a record through: enough steps at the current dt to reach its last sample. */
@@ -108,6 +110,8 @@
   }
 
   function run() {
+    timeHistoryView.clear();
+    nodeId = null;
     onError(null);
     running = true;
     try {
@@ -192,7 +196,8 @@
 
   <button class="adv-run-btn" onclick={run} disabled={disabled || running} data-testid="th-run">{t('pro.run')}</button>
 
-  {#if result}
+  {#each containment.messages as message}<div role="alert">{message}</div>{/each}
+  {#if result && !containment.refused}
     <div class="adv-inline" data-testid="th-summary">
       {#if peakDisp != null}δmax = {fmt(peakDisp * 1000)} mm{/if}
       {#if result.peakReactions?.length} — {t('pro.thBaseShearAtPeak')} = {fmt(peakBaseShear(result.peakReactions))} kN{/if}
@@ -286,4 +291,12 @@
   .adv-run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
   .th-viewer { display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--st-surface-3); }
   .th-slider { width: 100%; accent-color: var(--st-value); }
+  @media (max-width: 810px) {
+    .adv-panel { min-width: 0; max-width: 100%; }
+    .adv-panel.adv-panel :global(*) { font-size: max(12px, 0.75rem); min-width: 0; overflow-wrap: anywhere; }
+    .adv-panel.adv-panel :global(button), .adv-panel.adv-panel :global(input), .adv-panel.adv-panel :global(select), .adv-panel.adv-panel :global(textarea), .adv-panel.adv-panel :global(summary) { min-width: 44px; min-height: 44px; max-width: 100%; box-sizing: border-box; }
+    .adv-panel.adv-panel :global(label) { flex-wrap: wrap; white-space: normal; }
+    .adv-panel.adv-panel :global(label:has(input[type="file"])), .adv-panel.adv-panel :global(.pk-btn) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; box-sizing: border-box; }
+    .adv-panel.adv-panel :global(table) { max-width: 100%; }
+  }
 </style>

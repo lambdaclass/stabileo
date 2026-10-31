@@ -18,7 +18,7 @@ export const MUST_SUCCEED = [
   /\/certify_modal_[23]d$/, /\/solve_harmonic_[23]d$/, /\/certify_harmonic_[23]d$/,
   /\/certify_pdelta_[23]d$/, /\/certify_spectral_[23]d$/, /\/certify_time_history_[23]d$/,
   /\/certify_multi_case_[23]d$/, /\/certify_steel_multi_case_[23]d$/,
-  /^combo-2d\//, /^bundle-3d\//, /^plastic-/,
+  /^combo-2d\//, /^bundle-3d\//, /^plastic-3d-/,
 ];
 
 const certifiedStatus = (c) => c?.status === 'certified';
@@ -55,7 +55,7 @@ export const MUST_CERTIFY = [
     if (c?.residualReason !== null || !c?.residual) out.push(`residual not certified: ${c?.residualReason}`);
     return out;
   }],
-  [/^plastic-.*\/certify_plastic_[23]d$/, (v) => (v?.certificate?.certified === true ? [] : ['plastic certificate not certified'])],
+  [/^plastic-.*\/certify_plastic_3d$/, (v) => (v?.certificate?.certified === true ? [] : ['plastic certificate not certified'])],
   [/\/certify_multi_case_[23]d$/, multiCaseProblems],
   [/\/certify_steel_multi_case_[23]d$/, (v) => {
     const out = multiCaseProblems(v?.analysis).map((p) => `analysis: ${p}`);
@@ -74,6 +74,17 @@ export function requirementProblems(reference) {
   }
   for (const [re] of MUST_CERTIFY) {
     if (![...names].some((n) => re.test(n))) problems.push(`no case matches ${re}`);
+  }
+  const refusedNames = ['plastic-2d-portal', 'plastic-2d-continuous'].flatMap(id =>
+    ['solve_plastic_2d', 'certify_plastic_2d', 'export_plastic_bundle_2d'].map(entry => `${id}/${entry}`));
+  for (const name of refusedNames) {
+    const r = reference.find(r => r.name === name);
+    let valid = false;
+    try {
+      const d = JSON.parse(r.text.slice(5)).structuredDiagnostics;
+      valid = r.text.startsWith('ERR: ') && d.some(d => d.code === 'known_issue' && d.severity === 'error' && d.phase === 'PL-2D-INVARIANCE' && d.value === 758);
+    } catch {}
+    if (!valid) problems.push(`${name}: expected structured PL-2D-INVARIANCE refusal (#758)`);
   }
   for (const r of reference) {
     const failed = r.text.startsWith('ERR');

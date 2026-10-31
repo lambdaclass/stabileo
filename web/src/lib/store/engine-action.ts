@@ -8,6 +8,7 @@
  * or the engine's message as an error toast and returns `undefined`. Any other error is rethrown:
  * it is a defect, not an engine state.
  */
+import { knownIssueRefusal } from '../engine/known-issues';
 import { uiStore } from './ui.svelte';
 import { tp } from '../i18n';
 import { engineFailureMessage } from '../engine/engine-unavailable';
@@ -51,6 +52,8 @@ export function engineGuarded<T>(compute: () => T): { value: T; error: null } | 
 
 /** The text of any error for a panel: an engine error in the reader's language, anything else as raised. */
 export function errorText(e: unknown): string {
+  const refusal = knownIssueRefusal(e);
+  if (refusal) return refusal;
   const m = engineFailureMessage(e);
   return m ? tp(m.key, m.params ?? {}) : String(e instanceof Error ? e.message : e);
 }

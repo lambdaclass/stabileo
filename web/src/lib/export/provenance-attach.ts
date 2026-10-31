@@ -15,6 +15,7 @@
  *   XLSX    a status line on the summary and a Provenance sheet (`export/excel.ts`)
  *   reports (DOCX, XLSX, CSV of a report) as `report-formats.ts` carries `reportProvenanceLines`
  */
+import { exportMessages, requiredExportMessages, warningHtml } from './containment';
 import { uiStore } from '../store/ui.svelte';
 import { downloadText } from '../store/file';
 import {
@@ -28,6 +29,7 @@ import { provenanceBlockHtml, provenanceTextLines, type ResultProvenance } from 
  * reader, when the project moved while the engine hashes were awaited.
  */
 export async function prepareExportProvenance(): Promise<ResultProvenance | null> {
+  if (exportMessages() === null) return null;
   const token = captureProvenanceToken();
   try {
     return await provenanceForExport(token);
@@ -43,22 +45,37 @@ export function provenanceLines(p: ResultProvenance): Array<[string, string]> {
 }
 
 export function csvWithProvenance(csv: string, p: ResultProvenance): string {
+  const warnings = requiredExportMessages();
+  csv = warnings.map(w => `# ${w.replace(/[\r\n]+/g, ' ')}`).join('\n') + (warnings.length ? '\n' : '') + csv;
   const head = provenanceLines(p).map(([k, v]) => `# ${k}: ${v.replace(/[\r\n]+/g, ' ')}`).join('\n');
   return `${head}\n${csv}`;
 }
 
 /** The record's title and its `key: value` lines, the status line first, for a format that prints them. */
 export function reportProvenanceLines(p: ResultProvenance): { title: string; lines: Array<[string, string]> } {
-  return { title: provenanceLabels().title, lines: provenanceLines(p) };
+  return { title: provenanceLabels().title, lines: [...requiredExportMessages().map(w => ['⚠', w] as [string, string]), ...provenanceLines(p)] };
 }
 
 export function htmlWithProvenance(html: string, p: ResultProvenance): string {
+  html = warningHtml(html);
   const block = provenanceBlockHtml(p, provenanceLabels());
   const i = html.lastIndexOf('</body>');
   return i >= 0 ? html.slice(0, i) + block + html.slice(i) : html + block;
 }
 
 export function dxfWithProvenance(dxf: string, p: ResultProvenance): string {
+  const warnings = requiredExportMessages();
+  // TEXT entities are visible in CAD; comments alone are not a warning.
+  const ys = [...dxf.matchAll(/(?:^|\n)20\r?\n([^\r\n]+)/g)].map(m => Number(m[1])).filter(Number.isFinite);
+  const minY = ys.reduce((a, y) => Math.min(a, y), 0), span = ys.reduce((a, y) => Math.max(a, y), 0) - minY;
+  const textHeight = span > 0 ? span / 80 : 3;
+  const lines = warnings.flatMap(w => w.split(/[\r\n]+/).flatMap(line => line.match(/.{1,90}/gu) ?? []));
+  const entities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n0\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${line}\n`).join('');
+  if (entities) {
+    const section = /0\r?\nSECTION\r?\n2\r?\nENTITIES\r?\n/.exec(dxf);
+    if (section) { const at = section.index + section[0].length; dxf = dxf.slice(0, at) + entities + dxf.slice(at); }
+    else dxf = dxf.replace(/0\r?\nEOF/, `0\nSECTION\n2\nENTITIES\n${entities}0\nENDSEC\n0\nEOF`);
+  }
   // Group code 999 is a comment: every reader skips it, and it survives a text round trip.
   const comments = provenanceLines(p).map(([k, v]) => `999\n${`stabileo provenance ${k}: ${v}`.replace(/[\r\n]+/g, ' ')}`).join('\n');
   return `${comments}\n${dxf}`;
@@ -68,12 +85,24 @@ const xmlComment = (s: string) => s.replace(/--/g, '- -');
 const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export function svgWithProvenance(svg: string, p: ResultProvenance): string {
+  const warnings = requiredExportMessages();
   const m = /<svg\b[^>]*>/.exec(svg);
   if (!m) return svg;
   const comment = `<!--\n${xmlComment(provenanceLines(p).map(([k, v]) => `${k}: ${v}`).join('\n'))}\n-->`;
   const meta = `<metadata id="stabileo-provenance">${xmlText(JSON.stringify(p))}</metadata>`;
   const at = m.index + m[0].length;
-  return svg.slice(0, at) + comment + meta + svg.slice(at);
+  const annotated = svg.slice(0, at) + comment + meta + svg.slice(at);
+  if (!warnings.length) return annotated;
+  const vb = /viewBox=["']([^"']+)["']/.exec(m[0])?.[1]?.split(/[ ,]+/).map(Number);
+  const width = vb?.[2] || parseFloat(/width=["']([\d.]+)/.exec(m[0])?.[1] ?? '800');
+  const height = vb?.[3] || parseFloat(/height=["']([\d.]+)/.exec(m[0])?.[1] ?? '600');
+  const font = Math.max(12, width / 80), chars = Math.max(1, Math.floor(width / (font * 0.65)) - 4);
+  const lines = warnings.flatMap(w => w.match(new RegExp(`.{1,${chars}}`, 'gu')) ?? [w]);
+  const band = (lines.length + 2) * font * 1.5;
+  // Keep the original styling, namespaces and viewBox while moving the whole drawing.
+  const originalTag = m[0].replace(/\s(?:x|y|width|height)=["'][^"']*["']/g, '');
+  const nested = annotated.replace(m[0], originalTag.slice(0, -1) + ` x="0" y="${band}" width="${width}" height="${height}">`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + band}" viewBox="0 0 ${width} ${height + band}"><rect width="${width}" height="${band}" fill="white"/>${lines.map((line, i) => `<text x="12" y="${(i + 1.5) * font * 1.5}" font-size="${font}" fill="#742d00">${xmlText(line)}</text>`).join('')}${nested.replace(/<\?xml[^>]*>/g, '')}</svg>`;
 }
 
 // ─── PNG tEXt chunk ──────────────────────────────────────────────
@@ -96,6 +125,7 @@ function crc32(bytes: Uint8Array): number {
 
 /** The PNG with a `tEXt` chunk `stabileo-provenance` = the JSON record, right after IHDR. */
 export function pngWithProvenance(png: Uint8Array, p: ResultProvenance): Uint8Array {
+  requiredExportMessages();
   // Signature (8) + IHDR chunk (4 length + 4 type + 13 data + 4 crc) = 33.
   if (png.length < 33 || png[12] !== 0x49 || png[13] !== 0x48 || png[14] !== 0x44 || png[15] !== 0x52) return png;
   // tEXt is Latin-1: the record is ASCII once non-ASCII is escaped.
@@ -116,6 +146,7 @@ export function pngWithProvenance(png: Uint8Array, p: ResultProvenance): Uint8Ar
 
 /** The JPEG with a COM segment (FF FE) carrying the JSON record, right after SOI. */
 export function jpegWithProvenance(jpg: Uint8Array, p: ResultProvenance): Uint8Array {
+  requiredExportMessages();
   if (jpg.length < 2 || jpg[0] !== 0xff || jpg[1] !== 0xd8) return jpg;
   const text = new TextEncoder().encode(`stabileo-provenance ${JSON.stringify(p)}`).subarray(0, 65533);
   const seg = new Uint8Array(4 + text.length);
@@ -159,6 +190,8 @@ export function provenanceFromPng(png: Uint8Array): string | null {
  * record captured with its own inputs and results, rather than borrowing the viewport's record.
  */
 export async function downloadResultText(content: string, filename: string, mime: string, record?: ResultProvenance): Promise<boolean> {
+  const warnings = exportMessages();
+  if (warnings === null) return false;
   const p = record ? analysisProvenanceForExport(record) : await prepareExportProvenance();
   if (!p) return false;
   const ext = filename.toLowerCase().split('.').pop();

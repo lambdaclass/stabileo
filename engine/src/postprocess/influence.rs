@@ -21,6 +21,8 @@ pub struct InfluenceLinePoint {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfluenceLineResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub quantity: String,
     pub target_node_id: Option<usize>,
     pub target_element_id: Option<usize>,
@@ -165,9 +167,10 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     // Prepare once. A prepare failure is the model's, and it is returned: it
     // used to be `.ok()`-ed into an influence line of zeros, handed back as
     // `Ok` — a structure the solver refused (E ≤ 0, a collapsed shell)
-    // presented as one that nothing loads. Per-point failures still yield 0.0.
+    // presented as one that nothing loads. Ordinary per-point failures still yield 0.0; diagnostic refusals propagate.
     // The prepared (factor-once) path has no constraint reduction: a model
     // with constraints is solved point by point through `solve_2d`, which has.
+    let mut structured_diagnostics = Vec::new();
     let prepared = if base.constraints.is_empty() { Some(prepare_static_2d(&base)?) } else { None };
     let solve_at = |loads: &[SolverLoad]| -> Result<AnalysisResults, String> {
         match &prepared {
@@ -216,8 +219,9 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
 
             let loads = influence_unit_loads_2d(elem, a, t, cos_theta, sin_theta);
 
-            let value = match solve_at(&loads).ok() {
+            let value = match crate::known_issues::optional_solve(solve_at(&loads))? {
                 Some(result) => {
+                    crate::known_issues::attach(&mut structured_diagnostics, result.structured_diagnostics.clone());
                     extract_value(&input.quantity, input.target_node_id, input.target_element_id, input.target_position, &result)
                 }
                 None => 0.0,
@@ -234,6 +238,7 @@ pub fn compute_influence_line(input: &InfluenceLineInput) -> Result<InfluenceLin
     }
 
     Ok(InfluenceLineResult {
+        structured_diagnostics: { crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Linear)); structured_diagnostics },
         quantity: input.quantity.clone(),
         target_node_id: input.target_node_id,
         target_element_id: input.target_element_id,
@@ -350,6 +355,8 @@ pub struct InfluenceLinePoint3D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InfluenceLineResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub quantity: String,
     pub target_node_id: Option<usize>,
     pub target_element_id: Option<usize>,
@@ -441,8 +448,9 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
     // Prepare once. A prepare failure is the model's, and it is returned: it
     // used to be `.ok()`-ed into an influence line of zeros, handed back as
     // `Ok` — a structure the solver refused (E ≤ 0, a collapsed shell)
-    // presented as one that nothing loads. Per-point failures still yield 0.0.
+    // presented as one that nothing loads. Ordinary per-point failures still yield 0.0; diagnostic refusals propagate.
     // As in 2D: constraints are solved point by point through `solve_3d`.
+    let mut structured_diagnostics = Vec::new();
     let prepared = if base.constraints.is_empty() { Some(prepare_static_3d(&base)?) } else { None };
     let solve_at = |loads: &[SolverLoad3D]| -> Result<AnalysisResults3D, String> {
         match &prepared {
@@ -503,14 +511,16 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
 
             let loads = influence_unit_loads_3d(elem.id, a, g_local_y, g_local_z);
 
-            let value = match solve_at(&loads).ok() {
-                Some(result) => extract_value_3d(
+            let value = match crate::known_issues::optional_solve(solve_at(&loads))? {
+                Some(result) => {
+                    crate::known_issues::attach(&mut structured_diagnostics, result.structured_diagnostics.clone());
+                    extract_value_3d(
                     &input.quantity,
                     input.target_node_id,
                     input.target_element_id,
                     input.target_position,
                     &result,
-                ),
+                ) },
                 None => 0.0,
             };
 
@@ -526,6 +536,7 @@ pub fn compute_influence_line_3d(input: &InfluenceLineInput3D) -> Result<Influen
     }
 
     Ok(InfluenceLineResult3D {
+        structured_diagnostics: { crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear)); structured_diagnostics },
         quantity: input.quantity.clone(),
         target_node_id: input.target_node_id,
         target_element_id: input.target_element_id,

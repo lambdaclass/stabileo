@@ -1,23 +1,26 @@
 # Benchmark accuracy findings
 
-This test-owned ledger records accuracy failures without changing runtime diagnostics.
+This test-owned ledger records accuracy failures and production containment outcomes.
 The production registry is [`engine/src/known_issues.rs`](../../src/known_issues.rs).
-It currently has no open shell entry. These findings need solver-owner triage before any
-runtime registry entry is added; no runtime issue number is implied here.
+Distorted MITC4 membrane bending is contained by SH-MITC4-DISTORTION, known issue #798.
 
 ## MH-MITC4-DISTORTION
 
 On the MacNeal–Harder straight cantilever (6 × 1, full root clamp), production MITC4 misses
-the page's strict 2% accuracy target for both trapezoidal and parallelogram meshes:
+the page's strict 2% accuracy target for distorted out-of-plane meshes. The two
+distorted in-plane cases are now withheld by the engine (known issue #798):
 
 | Mesh | Load | Reference | Computed | Relative error |
 |---|---|---:|---:|---:|
 | Trapezoidal | Out of plane | 0.4321 | 0.4162053612497649 | 3.678463% |
-| Trapezoidal | In plane | 0.1081 | 0.008443013508022026 | 92.189627% |
+| Trapezoidal | In plane | 0.1081 | Withheld (#798) | — |
 | Parallelogram | Out of plane | 0.4321 | 0.42257240188170075 | 2.204952% |
-| Parallelogram | In plane | 0.1081 | 0.010379694543545988 | 90.398062% |
+| Parallelogram | In plane | 0.1081 | Withheld (#798) | — |
 
-Native and production WASM agree. Reproduce with `shells macneal_harder::browser_cases`
+The 12 live cases comprise eight accuracy passes, two numeric failures, and two
+expected containment refusals. Refusals are not accuracy passes and retain their
+cases, inputs, references and tolerances. Native and production WASM must both
+refuse with #798 and SH-MITC4-DISTORTION. Reproduce with `shells macneal_harder::browser_cases`
 and `research/benchmarks/macneal-harder-1985/wasm/check.mjs`. Inputs, references and the
 accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
@@ -67,17 +70,21 @@ Fresh native measurements (signed, with direction-aware relative error):
 | cylinder | 8 | -1.8248e-05 | -1.37558255336e-05 | 24.617352% | Fail |
 | cylinder | 12 | -1.8248e-05 | -1.60504470647e-05 | 12.042706% | Fail |
 | cylinder | 16 | -1.8248e-05 | -1.70116168007e-05 | 6.775445% | Fail |
-| hemisphere | 4 | 0.185 | 0.185219186992 | 0.118479% | Pass |
-| hemisphere | 8 | 0.185 | 0.185741984976 | 0.401073% | Pass |
-| hemisphere | 16 | 0.185 | 0.186206839041 | 0.652345% | Pass |
+| hemisphere | 4 | 0.185 | Withheld (#798) | — | Withheld |
+| hemisphere | 8 | 0.185 | Withheld (#798) | — | Withheld |
+| hemisphere | 16 | 0.185 | Withheld (#798) | — | Withheld |
 | cylinder | 32 | -1.8248e-05 | -1.80643677592e-05 | 1.006314% | Pass |
 
 All four roof meshes pass the unchanged strict 2% gate. Cylinder error decreases
 with refinement; the four 6–16 checks remain ignored because they still exceed 2%.
 The native-only 32×32 cylinder passes at 1.006314% error. The browser retains its
-16×16 cap and reports 2/3 finest selected meshes passing. The old roof plateau and
+16×16 cap and reports 1/3 finest selected meshes passing (the hemisphere is withheld). The old roof plateau and
 cylinder over-compliance were model-definition errors, not engine failures.
 See [replay evidence](../../../research/benchmarks/shell-obstacle-course/README.md).
+Production withholds the hemisphere meshes under SH-MITC4-DISTORTION (#798), and
+their tests assert that refusal. Without containment they measured 0.185219186992,
+0.185741984976 and 0.186206839041 (errors 0.118479%, 0.401073%, 0.652345%). These obstacle-course accuracy findings have no assigned runtime
+issue numbers; the separate distorted membrane-bending containment is #798.
 
 The live hemisphere is the NAFEMS LE3-labelled 18°-hole case in
 `benchmark_hemisphere_hole_convergence`: quarter loads ±2, reference 0.185. The solid-shell

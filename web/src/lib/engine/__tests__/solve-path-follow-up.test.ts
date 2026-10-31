@@ -1,7 +1,7 @@
 /**
  * The manual solve's guarantees #588 left open: the combination path refuses NaN displacements as
  * the single solve does, every manual solve cancels the pending live calc, and the fallback's
- * message is information when the single solve stands.
+ * message reports failure even when an independent single solve stands.
  */
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { modelStore } from '../../store/model.svelte';
@@ -72,16 +72,17 @@ describe('the pending live calc', () => {
 });
 
 describe("the fallback's message", () => {
-  it('is information when the single solve stands in for failed combinations (Basic)', async () => {
+  it('reports failed combinations while retaining the clean single solve (Basic)', async () => {
     uiStore.analysisMode = '3d';
     portal();
     vi.spyOn(modelStore, 'solveCombinations3DParallel').mockRejectedValue(new Error('worker crashed'));
     const toasts: string[] = [];
     vi.spyOn(uiStore, 'toast').mockImplementation((_message, kind) => { toasts.push(kind ?? 'info'); });
     const outcome = await ensureResults();
-    expect(outcome.ok).toBe(true);
+    expect(outcome.ok).toBe(false);
+    expect(resultsStore.results3D).not.toBeNull();
     expect(resultsStore.perCombo3D.size).toBe(0);
-    expect(toasts).not.toContain('error');
-    expect(toasts).toContain('success');
+    expect(toasts).toContain('error');
+    expect(toasts).not.toContain('success');
   });
 });

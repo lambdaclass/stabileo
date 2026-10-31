@@ -47,24 +47,30 @@ fn portal_with_axial_beam_load() -> PlasticInput {
 #[test]
 fn plastic_split_at_an_interior_hinge_keeps_the_whole_axial_span_load() {
     let input = portal_with_axial_beam_load();
-    let r = solve_plastic_2d(&input).unwrap();
+    crate::common::assert_containment(solve_plastic_2d(&input), "PL-2D-INVARIANCE");
     // The beam (element 2) takes a hinge inside its span, and a step is solved after it.
-    let interior = r
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+let interior = r
         .hinges
         .iter()
         .find(|hg| hg.element_id == 2 && hg.position > 1e-6 && hg.position < 1.0 - 1e-6)
         .expect("an interior hinge in the beam");
-    assert!(interior.step + 1 < r.steps.len(), "a step after the interior hinge: {:?}", r.hinges);
+*/
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+assert!(interior.step + 1 < r.steps.len(), "a step after the interior hinge: {:?}", r.hinges);
+*/
 
     // Horizontal equilibrium of every step increment: Σ Rx = −Δλ·(H + q_x·L).
     let total_h = 20.0 + 5.0 * 6.0;
     let mut lambda_prev = 0.0;
-    for (k, s) in r.steps.iter().enumerate() {
+    /* Numerical expectations retained for the #758 fix (no result while refused):
+for (k, s) in r.steps.iter().enumerate() {
         let dl = s.load_factor - lambda_prev;
         lambda_prev = s.load_factor;
         let rx: f64 = s.results.reactions.iter().map(|x| x.rx).sum();
         assert!((rx + dl * total_h).abs() < 1e-6 * (1.0 + dl * total_h), "step {k}: ΣRx = {rx}, expected {}", -dl * total_h);
     }
+*/
 }
 
 /// A bar fixed at both ends under an axial load that changes sign along a part of its span:

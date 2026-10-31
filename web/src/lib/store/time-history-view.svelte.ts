@@ -13,6 +13,7 @@
  * the deformed scale and counts as a structural solve. Nothing here touches the static results.
  */
 
+import { knownIssueResultDisposition } from '../engine/known-issues';
 import type { Displacement3D } from '../engine/types-3d';
 
 export interface NodeTimeHistory3D {
@@ -22,6 +23,7 @@ export interface NodeTimeHistory3D {
 }
 
 export interface TimeHistoryResult3D {
+  structuredDiagnostics?: import('../engine/types').StructuredDiagnostic[];
   timeSteps: number[];
   nodeHistories: NodeTimeHistory3D[];
   peakDisplacements: Array<{ nodeId: number; ux: number; uy: number; uz: number }>;
@@ -117,7 +119,7 @@ function createTimeHistoryView() {
 
     /** The displacement field at the current step, rotations included, as the renderer reads it. */
     frame(): Displacement3D[] | null {
-      if (!result) return null;
+      if (!result || knownIssueResultDisposition(result).refused) return null;
       const k = step;
       return result.nodeHistories.map((h) => ({
         nodeId: h.nodeId,

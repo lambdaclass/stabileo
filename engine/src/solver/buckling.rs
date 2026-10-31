@@ -12,6 +12,8 @@ use super::constraints::FreeConstraintSystem;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BucklingResult {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<BucklingMode>,
     pub n_dof: usize,
     pub element_data: Vec<ElementBucklingData>,
@@ -151,8 +153,13 @@ pub fn solve_buckling_2d(
     } else {
         (&k_ff, &neg_kg_csc, nf)
     };
-    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
-        .ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
+    let mut structured_diagnostics = linear.structured_diagnostics.clone();
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_2d(input, crate::known_issues::Analysis::Buckling));
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -234,6 +241,7 @@ pub fn solve_buckling_2d(
     }
 
     Ok(BucklingResult {
+        structured_diagnostics,
         modes,
         n_dof: nf,
         element_data,
@@ -260,7 +268,7 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
     // the unexpanded model has no elements for (an index panic).
     let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
     let input = expanded.as_ref().unwrap_or(input);
-    let linear = super::linear::solve_3d(input)?;
+    let linear = super::linear::buckling_preload_3d(input)?;
     let dof_num = DofNumbering::build_3d(input);
     let nf = dof_num.n_free;
     let n = dof_num.n_total;
@@ -340,6 +348,8 @@ pub fn buckling_system_3d(input: &SolverInput3D) -> Result<BucklingSystem3D, Str
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BucklingResult3D {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
     pub modes: Vec<BucklingMode3D>,
     pub n_dof: usize,
     pub element_data: Vec<ElementBucklingData3D>,
@@ -401,8 +411,13 @@ pub fn solve_buckling_3d(
     } else {
         (&k_ff, &neg_kg_csc, nf)
     };
-    let result = lanczos_buckling_eigen_sparse(k_solve, kg_solve, num_modes)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    let mut structured_diagnostics = linear.structured_diagnostics.clone();
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Buckling));
+    let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
+        crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
+    });
+    crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
+    let result = result.ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -471,5 +486,5 @@ pub fn solve_buckling_3d(
         });
     }
 
-    Ok(BucklingResult3D { modes, n_dof: nf, element_data })
+    Ok(BucklingResult3D { structured_diagnostics, modes, n_dof: nf, element_data })
 }

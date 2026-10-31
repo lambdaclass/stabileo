@@ -20,7 +20,7 @@ use super::linear::{
 use super::prestress::prestress_fef_2d;
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{
-    SparseSymbolicCache, tangent_free_sparse, tangent_free_sparse_triplets, solve_tangent_sparse,
+    SparseSymbolicCache, tangent_free_sparse, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed,
 };
 use crate::element::cable::cable_self_weight;
 
@@ -72,6 +72,18 @@ pub fn parse_staged_3d(json: &str) -> Result<StagedInput3D, String> {
 /// 5. Accumulate displacements
 /// 6. Compute element forces using cumulative displacements
 pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, String> {
+    let mut r = solve_staged_2d_contained(input)?;
+    let mut diagnostics = crate::known_issues::for_2d(&staged_to_full_solver_input(input), crate::known_issues::Analysis::Linear);
+    for stage in &mut r.stages {
+        crate::known_issues::attach(&mut stage.results.structured_diagnostics, diagnostics.clone());
+        diagnostics = stage.results.structured_diagnostics.clone();
+    }
+    crate::known_issues::attach(&mut r.final_results.structured_diagnostics, diagnostics);
+    crate::known_issues::refuse(&r.final_results.structured_diagnostics)?;
+    Ok(r)
+}
+
+fn solve_staged_2d_contained(input: &StagedInput) -> Result<StagedAnalysisResults, String> {
     if input.stages.is_empty() {
         return Err("No construction stages defined".into());
     }
@@ -114,6 +126,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
     let mut active_supports: HashSet<usize> = HashSet::new();
     let mut cumulative_loads: Vec<SolverLoad> = Vec::new();
     let mut stage_results = Vec::new();
+    let mut cumulative_diagnostics = Vec::new();
 
     // Sparse symbolic Cholesky cache, reused across stages where the active
     // set keeps the same sparsity pattern (the fingerprinted cache rebuilds
@@ -254,6 +267,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         }
 
         // Solve for incremental displacements in (possibly reduced) space
+        let mut conditioning = None;
         let u_s_inc = if use_sparse {
             // Sparse path: CSC free block filtered straight from the stage
             // triplets (constraint reduction in sparse form) + sparse
@@ -261,7 +275,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             let t = asm_trips.as_ref().unwrap();
             let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&t.rows, &t.cols, &t.vals, nf, &cs);
-            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_csc, &f_s, &mut sparse_sym_cache, &mut conditioning)?
         } else {
             let k_ff = k_ff_dense.unwrap();
             // Reduce with constraint system if present
@@ -271,7 +285,9 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
                 (k_ff, f_f)
             };
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &f_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &f_s, ns);
+            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -308,7 +324,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
             iterate_cables_staged_2d(
                 &stage_solver_input, &dof_num, input, &active_elements, stage,
                 &mut cumulative_u, &u_r, nf, nr, n,
-                asm_trips.as_ref(),
+                asm_trips.as_ref(), &mut cumulative_diagnostics,
             );
         }
 
@@ -346,6 +362,9 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
                 nf,
             ),
         });
+        crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
+        crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
+        crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
     }
 
     let final_results = stage_results.last()
@@ -969,6 +988,7 @@ fn iterate_cables_staged_2d(
     nr: usize,
     n: usize,
     base_trips: Option<&StagedTriplets2D>,
+    diagnostics: &mut Vec<StructuredDiagnostic>,
 ) {
     const MAX_CABLE_ITER: usize = 30;
     const CABLE_TOL: f64 = 1e-4;
@@ -1101,7 +1121,10 @@ fn iterate_cables_staged_2d(
                 f_f[i] -= k_fr_ur[i];
             }
             let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &None);
-            match solve_tangent_sparse(&k_csc, &f_f, &mut sparse_sym_cache) {
+            let mut conditioning = None;
+            let solved = solve_tangent_sparse_diagnosed(&k_csc, &f_f, &mut sparse_sym_cache, &mut conditioning);
+            crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
+            match solved {
                 Ok(u) => u,
                 Err(_) => break, // Can't solve, keep current state
             }
@@ -1169,13 +1192,18 @@ fn iterate_cables_staged_2d(
         if nf >= super::linear::SPARSE_THRESHOLD {
             // Sparse path: CSC + sparse Cholesky with cached symbolic.
             let k_csc = tangent_free_sparse(&k_ff, nf, &None);
-            match solve_tangent_sparse(&k_csc, &f_f, &mut sparse_sym_cache) {
+            let mut conditioning = None;
+            let solved = solve_tangent_sparse_diagnosed(&k_csc, &f_f, &mut sparse_sym_cache, &mut conditioning);
+            crate::known_issues::attach(diagnostics, conditioning.into_iter().collect());
+            match solved {
                 Ok(u) => u,
                 Err(_) => break, // Can't solve, keep current state
             }
         } else {
             let mut k_work = k_ff.clone();
-            match cholesky_solve(&mut k_work, &f_f, nf) {
+            let solved = cholesky_solve(&mut k_work, &f_f, nf);
+            crate::known_issues::attach(diagnostics, crate::known_issues::dense_factor_conditioning(&k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())).into_iter().collect());
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_ff;
@@ -1233,6 +1261,18 @@ fn iterate_cables_staged_2d(
 /// 5. Accumulate displacements
 /// 6. Compute element forces using cumulative displacements
 pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D, String> {
+    let mut r = solve_staged_3d_contained(input)?;
+    let mut diagnostics = crate::known_issues::for_3d(&staged_to_full_solver_input_3d(input), crate::known_issues::Analysis::Linear);
+    for stage in &mut r.stages {
+        crate::known_issues::attach(&mut stage.results.structured_diagnostics, diagnostics.clone());
+        diagnostics = stage.results.structured_diagnostics.clone();
+    }
+    crate::known_issues::attach(&mut r.final_results.structured_diagnostics, diagnostics);
+    crate::known_issues::refuse(&r.final_results.structured_diagnostics)?;
+    Ok(r)
+}
+
+fn solve_staged_3d_contained(input: &StagedInput3D) -> Result<StagedAnalysisResults3D, String> {
     if input.stages.is_empty() {
         return Err("No construction stages defined".into());
     }
@@ -1302,6 +1342,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
     let mut active_plates: HashSet<usize> = HashSet::new();
     let mut active_quads: HashSet<usize> = HashSet::new();
     let mut stage_results = Vec::new();
+    let mut cumulative_diagnostics = Vec::new();
 
     // Sparse symbolic Cholesky cache, reused across stages where the active
     // set keeps the same sparsity pattern (the fingerprinted cache rebuilds
@@ -1426,15 +1467,18 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         // Check if K_ff has any non-zero diagonal
         if max_diag < 1e-30 {
             let cum_input = SolverInput3D { loads: cumulative_loads.clone(), ..stage_input.clone() };
+            let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &vec![0.0; nr], nf);
+            crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
             stage_results.push(StageResult3D {
                 stage_name: stage.name.clone(),
                 stage_index: stage_idx,
-                results: build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &vec![0.0; nr], nf),
+                results,
             });
             continue;
         }
 
         // Solve for incremental displacements in (possibly reduced) space
+        let mut conditioning = None;
         let u_s_inc = if use_sparse {
             // Sparse path: CSC free block filtered straight from the stage
             // triplets (constraint reduction in sparse form) + sparse
@@ -1442,7 +1486,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
             let t = asm_trips.as_ref().unwrap();
             let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&t.rows, &t.cols, &t.vals, nf, &cs);
-            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_csc, &f_s, &mut sparse_sym_cache, &mut conditioning)?
         } else {
             let k_ff = k_ff_dense.unwrap();
             // Reduce with constraint system if present
@@ -1452,7 +1496,9 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
                 (k_ff, f_f)
             };
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &f_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &f_s, ns);
+            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -1500,11 +1546,16 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         };
 
         // Build results for this stage
+        let results = build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, nf);
+        crate::known_issues::membrane_bending_3d(&cum_input, &cum_input.loads, &results)?;
         stage_results.push(StageResult3D {
             stage_name: stage.name.clone(),
             stage_index: stage_idx,
-            results: build_results_from_u_3d(&cumulative_u, &dof_num, &cum_input, &reactions_vec, nf),
+            results,
         });
+        crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, conditioning.into_iter().collect());
+        crate::known_issues::attach(&mut cumulative_diagnostics, stage_results.last().unwrap().results.structured_diagnostics.clone());
+        crate::known_issues::attach(&mut stage_results.last_mut().unwrap().results.structured_diagnostics, cumulative_diagnostics.clone());
     }
 
     let final_results = stage_results.last()

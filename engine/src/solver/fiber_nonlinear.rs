@@ -76,6 +76,12 @@ pub struct FiberElementStatus {
 
 /// Solve a 2D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonlinearResult, String> {
+    let mut r = solve_fiber_nonlinear_2d_contained(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Fiber).into_iter().filter(|d| !r.converged || d.phase.as_deref() != Some("NL-17")).collect());
+    Ok(r)
+}
+
+fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<FiberNonlinearResult, String> {
     // Assembly resolves ids by direct map indexing: an element naming a
     // node that does not exist panicked there, which in WASM ends the
     // module rather than the call.
@@ -791,6 +797,13 @@ pub struct FiberNonlinearResult3D {
 
 /// Solve a 3D fiber nonlinear problem.
 pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
+    let mut r = solve_fiber_nonlinear_3d_contained(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Fiber).into_iter().filter(|d| !r.converged || d.phase.as_deref() != Some("NL-17")).collect());
+    crate::known_issues::refuse(&r.results.structured_diagnostics)?;
+    Ok(r)
+}
+
+fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<FiberNonlinearResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     // As in 2D, plus warping and shells, which the fiber tangent has no
     // element for.

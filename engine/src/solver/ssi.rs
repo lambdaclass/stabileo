@@ -402,6 +402,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 /// Solve a 3D SSI problem with nonlinear soil springs.
 pub fn solve_ssi_3d(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let mut r = solve_ssi_3d_inner(input)?;
+    crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r.results)?;
     crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Ssi));
     Ok(r)
 }

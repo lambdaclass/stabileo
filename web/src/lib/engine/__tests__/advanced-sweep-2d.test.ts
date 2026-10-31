@@ -42,7 +42,7 @@ import { solve as wasmSolve, solvePDelta, solveBuckling, solveModal, isSolverRea
 import { solveMovingLoads, getPredefinedTrains, type LoadTrain, type MovingLoadEnvelope } from '../moving-loads';
 import { computeInfluenceLine } from '../influence-service';
 import { withoutSettlement } from '../settlement-case';
-import { runPlasticCollapse } from '../../actions/plastic';
+import { runLegacyPlasticCollapse } from './legacy-plastic-helper';
 import { generateKinematicReport } from '../kinematic-report';
 import { inspectMember, inspectNode, computeDespieceVectors } from '../../canvas/draw-despiece';
 import { analyzeSectionStress } from '../section-stress';
@@ -537,7 +537,7 @@ function firstYield(input: SolverInput, res: AnalysisResults, mpOf: Map<number, 
 function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: AnalysisResults, degree: number | null) {
   ran('plastic');
   let run;
-  try { run = runPlasticCollapse(); } catch (e) { fail('plastic', `${label}: threw ${errMsg(e).slice(0, 150)}`); return; }
+  try { run = runLegacyPlasticCollapse(); } catch (e) { fail('plastic', `${label}: threw ${errMsg(e).slice(0, 150)}`); return; }
   if (!run) { fail('plastic', `${label}: no run`); return; }
   const r = run.result;
   if (!Number.isFinite(r.collapseFactor) || !(r.collapseFactor > 0)) { fail('plastic', `${label}: λc=${r.collapseFactor} mechanism=${r.isMechanism}`); return; }
@@ -559,7 +559,7 @@ function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: Ana
 function checkNoLoadsPlastic(label: string) {
   ran('plastic-noloads');
   let run;
-  try { run = runPlasticCollapse(); } catch (e) {
+  try { run = runLegacyPlasticCollapse(); } catch (e) {
     if (unreadable(errMsg(e))) fail('plastic-noloads', `${label}: threw ${errMsg(e)}`);
     return;
   }
@@ -1047,7 +1047,7 @@ function refusesEverywhere(): string[] {
   tryMsg('P-Δ', () => solvePDelta(input), (r) => !r.isStable);
   tryMsg('buckling', () => solveBuckling(input), () => false);
   tryMsg('modal', () => solveModal(input, densities()), () => false);
-  tryMsg('plastic', () => runPlasticCollapse(), () => false);
+  tryMsg('plastic', () => runLegacyPlasticCollapse(), () => false);
   const sup = [...modelStore.supports.values()][0];
   tryMsg('influence', () => computeInfluenceLine(modelStore.model as never, 'Rz' as never, sup.nodeId), () => false);
   tryMsg('moving', () => solveMovingLoads(input, { train: getPredefinedTrains()[0], step: 0.5 }), () => false);
@@ -1123,7 +1123,7 @@ describe('hand-built: mechanisms and degenerate models', () => {
   it('coincident nodes and a member on one node are refused with a readable message', () => {
     build(() => { const a = N(0, 0), b = N(5, 0), c = N(5, 0); E(a, b); E(b, c); modelStore.addSupport(a, 'fixed'); modelStore.addNodalLoad(c, 0, -10); });
     readable(modelStore.solve() as string);
-    for (const f of [() => solvePDelta(inputNow()), () => solveBuckling(inputNow()), () => solveModal(inputNow(), densities()), () => runPlasticCollapse()]) {
+    for (const f of [() => solvePDelta(inputNow()), () => solveBuckling(inputNow()), () => solveModal(inputNow(), densities()), () => runLegacyPlasticCollapse()]) {
       expect(f).toThrow();
       try { f(); } catch (e) { readable(errMsg(e)); }
     }
@@ -1139,7 +1139,7 @@ describe('hand-built: mechanisms and degenerate models', () => {
     expect(solvePDelta(input).converged).toBe(true);
     expect(() => solveBuckling(input)).toThrow(/no compressed/i);
     expect(solveModal(input, densities()).modes[0].frequency).toBeGreaterThan(0);
-    expect(runPlasticCollapse()!.result.isMechanism).toBe(true);
+    expect(runLegacyPlasticCollapse()!.result.isMechanism).toBe(true);
     const il = computeInfluenceLine(modelStore.model as never, 'M' as never, undefined, 1, 0.5);
     expect(typeof il).toBe('object');
     const ml = solveMovingLoads(input, { train: getPredefinedTrains()[1], step: 0.5 });
@@ -1175,7 +1175,7 @@ describe('hand-built: mechanisms and degenerate models', () => {
     expect(solvePDelta(input).converged).toBe(true);
     expect(solveModal(input, densities()).modes.length).toBeGreaterThan(0);
     // Collapse when the end moment reaches Mp = 250: λ = 5.
-    expect(runPlasticCollapse()!.result.collapseFactor).toBeCloseTo(5, 3);
+    expect(runLegacyPlasticCollapse()!.result.collapseFactor).toBeCloseTo(5, 3);
   });
 
   it('only horizontal loads: a pinned-roller beam pushed axially buckles at π²EI/L²', () => {
@@ -1197,7 +1197,7 @@ describe('hand-built: mechanisms and degenerate models', () => {
 describe('hand-built: textbook values', () => {
   /** Mp of the rectangle used below, as the analysis computes it. */
   const MP = 250;
-  const collapse = () => { const run = runPlasticCollapse()!; expect(run.mps[0].mp).toBeCloseTo(MP, 6); return run.result; };
+  const collapse = () => { const run = runLegacyPlasticCollapse()!; expect(run.mps[0].mp).toBeCloseTo(MP, 6); return run.result; };
 
   it('plastic: simply supported, point load at midspan — P·L/4 = Mp', () => {
     build(() => { const a = N(0, 0), b = N(6, 0); const e = E(a, b); modelStore.addSupport(a, 'pinned'); modelStore.addSupport(b, 'rollerX'); modelStore.addPointLoadOnElement(e, 3, -100); rectEverywhere(); });

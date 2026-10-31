@@ -419,6 +419,8 @@ pub struct PlasticInfo {
 #[serde(rename_all = "camelCase")]
 pub struct PlasticBundle {
     pub format: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub structured_diagnostics: Vec<serde_json::Value>,
     pub provenance: Provenance,
     pub dim: u8,
     pub nv: usize,
@@ -480,6 +482,7 @@ pub fn plastic_bundle(
         .collect();
     Ok(PlasticBundle {
         format: PLASTIC_BUNDLE_FORMAT.into(),
+        structured_diagnostics: vec![],
         provenance,
         dim,
         nv: lp.nv,
@@ -516,9 +519,9 @@ fn kinds() -> [&'static str; 2] {
 /// Run the 2D plastic solver, certify the collapse factor and export the bundle.
 pub fn export_plastic_bundle_2d(input: &PlasticInput) -> Result<PlasticBundle, String> {
     super::finite::check_input(input)?;
-    let model = build_model(input)?;
     // A non-finite solver result is not even used as a candidate.
-    let solver = solve_plastic_2d(input).ok().filter(|r| super::finite::check_results(r).is_ok());
+    let solver = crate::known_issues::optional_solve(solve_plastic_2d(input))?.filter(|r| super::finite::check_results(r).is_ok());
+    let model = build_model(input)?;
     let c = plastic_candidates(&model, solver.as_ref())?;
     let field = c.static_field.ok_or_else(|| format!("lower bound: {}", c.static_reason.unwrap_or_default()))?;
     let mech = c.mechanism.ok_or_else(|| format!("upper bound: {}", c.mechanism_reason.unwrap_or_default()))?;
@@ -534,14 +537,19 @@ pub fn export_plastic_bundle_2d(input: &PlasticInput) -> Result<PlasticBundle, S
         .collect::<Result<Vec<_>, String>>()?;
     let x: Vec<Q> = field.elems.iter().flat_map(|e| e.iter().cloned()).collect();
     let prov = Provenance::new(input, "PlasticInput", &kinds())?;
-    super::finite::finite_output(plastic_bundle(&lp, 2, prov, (&field.lambda, &x), &hinges))
+    let mut bundle = plastic_bundle(&lp, 2, prov, (&field.lambda, &x), &hinges)?;
+    if let Some(results) = solver {
+        bundle.structured_diagnostics = results.steps.iter().flat_map(|step| &step.results.structured_diagnostics)
+            .map(|d| serde_json::to_value(d).expect("diagnostic serializes")).collect();
+    }
+    super::finite::finite_output(Ok(bundle))
 }
 
 /// Run the 3D plastic solver, certify the collapse factor and export the bundle.
 pub fn export_plastic_bundle_3d(input: &PlasticInput3D) -> Result<PlasticBundle, String> {
     super::finite::check_input(input)?;
+    let solver = crate::known_issues::optional_solve(solve_plastic_3d(input))?.filter(|r| super::finite::check_results(r).is_ok());
     let model = build_model_3d(input)?;
-    let solver = solve_plastic_3d(input).ok().filter(|r| super::finite::check_results(r).is_ok());
     let c = plastic_candidates_3d(&model, solver.as_ref().map(|r| (input, r)))?;
     let field = c.static_field.ok_or_else(|| format!("lower bound: {}", c.static_reason.unwrap_or_default()))?;
     let mech = c.mechanism.ok_or_else(|| format!("upper bound: {}", c.mechanism_reason.unwrap_or_default()))?;
@@ -555,7 +563,12 @@ pub fn export_plastic_bundle_3d(input: &PlasticInput3D) -> Result<PlasticBundle,
         .collect::<Result<Vec<_>, String>>()?;
     let x: Vec<Q> = field.elems.iter().flat_map(|e| e.iter().cloned()).collect();
     let prov = Provenance::new(input, "PlasticInput3D", &kinds())?;
-    super::finite::finite_output(plastic_bundle(&lp, 3, prov, (&field.lambda, &x), &hinges))
+    let mut bundle = plastic_bundle(&lp, 3, prov, (&field.lambda, &x), &hinges)?;
+    if let Some(results) = solver {
+        bundle.structured_diagnostics = results.structured_diagnostics.iter()
+            .map(|d| serde_json::to_value(d).expect("diagnostic serializes")).collect();
+    }
+    super::finite::finite_output(Ok(bundle))
 }
 
 #[cfg(test)]
