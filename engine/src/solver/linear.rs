@@ -997,6 +997,7 @@ impl PreparedStatic2D<'_> {
         }
         crate::known_issues::attach(&mut r.structured_diagnostics, self.known_model.clone());
         crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::loads_2d(loads));
+        crate::known_issues::refuse(&r.structured_diagnostics)?;
         Ok(r)
     }
 

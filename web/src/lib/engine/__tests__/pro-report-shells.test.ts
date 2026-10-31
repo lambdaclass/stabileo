@@ -77,13 +77,13 @@ it.each(['warning', 'error'] as const)('contains an exported %s result when the 
 });
 
 
-it.each(['warning', 'error'] as const)('report assembly includes seismic drift sources with %s diagnostics', async severity => {
+it.each(['E', 'D', 'L', 'W'].flatMap(type => (['warning', 'error'] as const).map(severity => [type, severity] as const)))('report assembly folds every %s case result into containment (%s)', async (type, severity) => {
   const { modelStore, resultsStore, uiStore } = await import('../../store');
   const { buildProReportData } = await import('../pro-report-inputs');
   modelStore.clear();
   resultsStore.clear();
   uiStore.analysisMode = 'pro';
-  const seismic = modelStore.addLoadCase('Earthquake', 'E');
+  const seismic = modelStore.addLoadCase('Case', type);
   for (const combination of [...modelStore.combinations]) modelStore.removeCombination(combination.id);
   const combo = modelStore.addCombination('Clean export', [{ caseId: seismic, factor: 1 }]);
   const clean = makeData({}).results;

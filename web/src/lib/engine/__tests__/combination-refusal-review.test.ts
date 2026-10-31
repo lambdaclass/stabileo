@@ -34,7 +34,8 @@ it.each([false, true])('live solve clears prior combinations on string/throw ref
       resultsStore.setResults(clean as never);
       resultsStore.setCombinationResults(new Map([[1, clean]]) as never, new Map([[1, clean]]) as never, null as never);
     }
-    resultsStore.activeComboId = 1; resultsStore.activeView = 'combo'; resultsStore.clear();
+    resultsStore.activeComboId = 1; resultsStore.activeView = 'combo';
+    expect(is3D ? resultsStore.perCombo3D.size : resultsStore.perCombo.size).toBe(1);
     vi.spyOn(modelStore, 'solveAsync').mockResolvedValue(clean as never);
     vi.spyOn(modelStore, 'solve3DAsync').mockResolvedValue(clean as never);
     vi.spyOn(modelStore, is3D ? 'solveCombinations3D' : 'solveCombinations').mockImplementation(() => { if (throws) throw refusal; return refusal; });

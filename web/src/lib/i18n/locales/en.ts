@@ -3920,6 +3920,7 @@ const en: Record<string, string> = {
   'diag.detail.overlapLength': "Overlap (m)",
   'diag.detail.outOfPlane': "Out of plane (m)",
   'diag.elements': 'Members',
+  "knownIssue.exportHeading": "Safety warnings",
   "knownIssue.NUM-INVARIANCE": "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design",
   "knownIssue.CERT-MECHANISM": "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability",
   "knownIssue.BU-SPAN-COMPRESSION": "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor",

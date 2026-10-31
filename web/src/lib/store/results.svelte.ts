@@ -274,6 +274,8 @@ function createResultsStore() {
   let perCombo3D = $state<Map<number, AnalysisResults3D>>(new Map());
   let unstableCombinations3D = $state<number[]>([]);
   let envelope3D = $state.raw<FullEnvelope3D | null>(null);
+  const anyRefused = (...maps: ReadonlyMap<number, unknown>[]) => maps.some(m => [...m.values()].some(r => knownIssueResultDisposition(r).refused));
+  const NO_RESULTS = new Map<number, never>();
   /** A named envelope on screen in place of the active one, valid only over the solve it was
    *  built from (`over`): any republish or clear makes it lapse without being reset. */
   let viewedEnvelope3D = $state.raw<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D } | null>(null);
@@ -345,13 +347,13 @@ function createResultsStore() {
 
   /** The static results the current view selects, from what the store holds. */
   const staticResults2D = (): AnalysisResults | null => {
-    if (activeView === 'envelope' && envelope) return envelope.maxAbsResults;
+    if (activeView === 'envelope' && envelope) return anyRefused(perCase, perCombo) ? null : envelope.maxAbsResults;
     if (activeView === 'combo' && activeComboId !== null && perCombo.has(activeComboId)) return perCombo.get(activeComboId)!;
     if (activeCaseId !== null && perCase.has(activeCaseId)) return perCase.get(activeCaseId)!;
     return singleResults;
   };
   const staticResults3D = (): AnalysisResults3D | null => {
-    if (activeView === 'envelope' && envelope3D) return envelope3D.maxAbsResults3D;
+    if (activeView === 'envelope' && envelope3D) return anyRefused(perCase3D, perCombo3D) ? null : envelope3D.maxAbsResults3D;
     if (activeView === 'combo' && activeComboId !== null && perCombo3D.has(activeComboId)) return perCombo3D.get(activeComboId)!;
     if (activeCaseId !== null && perCase3D.has(activeCaseId)) return perCase3D.get(activeCaseId)!;
     return singleResults3D;
@@ -518,15 +520,15 @@ function createResultsStore() {
     set animSpeed(v: number) { animSpeed = Math.max(0.25, Math.min(3, v)); },
 
     // Combination state
-    get perCase() { return [...perCase.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults>() : perCase; },
-    get perCombo() { return [...perCombo.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults>() : perCombo; },
-    get envelope() { return envelope; },
+    get perCase(): Map<number, AnalysisResults> { return anyRefused(perCase) ? NO_RESULTS : perCase; },
+    get perCombo(): Map<number, AnalysisResults> { return anyRefused(perCombo) ? NO_RESULTS : perCombo; },
+    get envelope() { return anyRefused(perCase, perCombo) ? null : envelope; },
     get activeView() { return activeView; },
     set activeView(v: ResultsView) {
       activeView = v;
       // Update displayed 2D results based on view
       if (v === 'envelope' && envelope) {
-        results = envelope.maxAbsResults;
+        results = anyRefused(perCase, perCombo) ? null : envelope.maxAbsResults;
       } else if (v === 'combo' && activeComboId !== null) {
         results = perCombo.get(activeComboId) ?? null;
       } else if (v === 'single') {
@@ -565,7 +567,7 @@ function createResultsStore() {
     },
     get singleResults() { return singleResults; },
     get singleResults3D() { return singleResults3D; },
-    get hasCombinations() { return perCombo.size > 0 || perCombo3D.size > 0; },
+    get hasCombinations() { return (perCombo.size > 0 && !anyRefused(perCombo)) || (perCombo3D.size > 0 && !anyRefused(perCombo3D)); },
     get isEnvelopeActive() { return activeView === 'envelope' && (envelope !== null || envelope3D !== null); },
     get fullEnvelope() { return envelope; },
 
@@ -1215,14 +1217,15 @@ function createResultsStore() {
     caseDisposition3D(ids: readonly number[]) {
       return knownIssueResultDisposition(ids.map(id => perCase3D.get(id)));
     },
-    get perCase3D() { return [...perCase3D.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults3D>() : perCase3D; },
-    get perCombo3D() { return [...perCombo3D.values()].some(r => knownIssueResultDisposition(r).refused) ? new Map<number, AnalysisResults3D>() : perCombo3D; },
+    get perCase3D(): Map<number, AnalysisResults3D> { return anyRefused(perCase3D) ? NO_RESULTS : perCase3D; },
+    get perCombo3D(): Map<number, AnalysisResults3D> { return anyRefused(perCombo3D) ? NO_RESULTS : perCombo3D; },
     get unstableCombinations3D(): readonly number[] { return unstableCombinations3D; },
-    get envelope3D() { return envelope3D; },
-    get hasCombinations3D() { return perCombo3D.size > 0; },
+    get envelope3D() { return anyRefused(perCase3D, perCombo3D) ? null : envelope3D; },
+    get hasCombinations3D() { return perCombo3D.size > 0 && !anyRefused(perCombo3D); },
     /** The envelope on SCREEN: a named one when shown, else the active one. Design reads
      *  `envelope3D`, which is always the active list's. */
     get fullEnvelope3D() {
+      if (anyRefused(perCase3D, perCombo3D)) return null;
       return viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : envelope3D;
     },
     get viewedEnvelopeName(): string | null {
@@ -1286,7 +1289,7 @@ function createResultsStore() {
     /** Switch 3D results based on activeView change (called from activeView setter) */
     _update3DView(v: ResultsView) {
       if (v === 'envelope' && envelope3D) {
-        results3D = (this.fullEnvelope3D ?? envelope3D).maxAbsResults3D;
+        results3D = anyRefused(perCase3D, perCombo3D) ? null : (this.fullEnvelope3D ?? envelope3D).maxAbsResults3D;
       } else if (v === 'combo' && activeComboId !== null && perCombo3D.size > 0) {
         results3D = perCombo3D.get(activeComboId) ?? null;
       } else if (v === 'single') {

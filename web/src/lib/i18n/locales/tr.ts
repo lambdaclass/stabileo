@@ -14115,6 +14115,7 @@ const tr: Translations = {
   'proExport.dxfLayoutLayersNote': 'Her şey tek bir DXF dosyasında; her içerik kendi katmanında.',
   'proExport.dxfLayoutSeparateNote': 'Modelin bir DXF dosyası ve her sonuç için bir tane (altında modelle birlikte), bir .zip içinde bir arada.',
   // Known-issue containment diagnostics
+  "knownIssue.exportHeading": "Güvenlik uyarıları",
   "knownIssue.NUM-INVARIANCE": "Tekile yakın modellerde doğruluk veya mekanizma sınıflandırması birimlere ve yönelime göre değişebilir. Mevcut koşullandırma veya stabilite tanıları, çözümün tekile yakın olduğunu gösterir; tasarımdan önce stabiliteyi bağımsız olarak doğrulayın",
   "knownIssue.CERT-MECHANISM": "Birleştirilmiş sistem düzeyindeki bir sertifika, yapay veya rijitlikle kısıtlanmamış bir dönmeyi sertifikalandırabilir. Mekanizmaları bağımsız olarak doğrulayın; küçük bir cebirsel hata sınırı yapısal stabiliteyi kanıtlamaz",
   "knownIssue.BU-SPAN-COMPRESSION": "3B burkulma analizi, açıklık yükleri altında çubuk uçları arasındaki basınç kuvvetlerini gözden kaçırabilir. Eksenel kuvvet dağılımını ve burkulma katsayısını bağımsız olarak kontrol edin",

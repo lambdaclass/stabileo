@@ -263,9 +263,18 @@ describe('edited projects with older provenance', () => {
     expect(restored.captureNotice()).toBeUndefined();
   });
 
+  it('a frame solved before the containment diagnostics opens with exactly that notice', async () => {
+    const store = createRecheckStore();
+    store.openProject({ ...frame(), solvedWith: oldStamp() }, 'pro');
+    await vi.waitFor(() => expect(store.pending).toBe(false));
+    expect(store.assessment?.changes.map(c => c.id)).toEqual(['safety-containment-diagnostics']);
+    expect(store.noticeOpen).toBe(true);
+    expect(store.stale).toBe(true);
+  });
+
   it('clears an empty notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot = frame();
+    const snapshot: import('../../provenance/model-features').FeatureSnapshot = { analysisMode: 'pro', materials: [[1, STEEL]] };
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes).toEqual([]);
@@ -277,7 +286,9 @@ describe('edited projects with older provenance', () => {
     const restored = createRecheckStore();
     restored.openProject(JSON.parse(saved), 'pro');
     await vi.waitFor(() => expect(restored.pending).toBe(false));
-    expect(restored.assessment?.changes.map(c => c.id)).toContain('solid-shell-local-stress-axes');
+    expect(restored.assessment?.changes.map(c => c.id)).toEqual(expect.arrayContaining([
+      'solid-shell-local-stress-axes', 'safety-containment-diagnostics',
+    ]));
     expect(restored.noticeOpen).toBe(true);
     expect(restored.stale).toBe(true);
   });

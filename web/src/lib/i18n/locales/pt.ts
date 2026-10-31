@@ -2063,6 +2063,7 @@ const pt: Translations = {
   'diag.deflectionExceeded': 'Deformação excede o limite admissível',
   'diag.deflectionHigh': 'Deformação próxima ao limite admissível',
   'diag.elements': 'Barras',
+  "knownIssue.exportHeading": "Avisos de segurança",
   "knownIssue.NUM-INVARIANCE": "Modelos quase singulares podem mudar de precisão ou classificação com unidades ou orientação. Os diagnósticos de condicionamento ou estabilidade indicam uma solução quase singular; verifique independentemente a estabilidade antes do dimensionamento.",
   "knownIssue.CERT-MECHANISM": "Um certificado algébrico pode aceitar mecanismos ocultos por rigidezes artificiais. Verifique independentemente a estabilidade.",
   "knownIssue.BU-SPAN-COMPRESSION": "A flambagem 3D pode omitir compressão entre extremidades sob cargas de barra. Verifique a distribuição axial e o fator de flambagem.",

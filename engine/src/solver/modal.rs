@@ -354,14 +354,10 @@ pub fn solve_modal_3d(
     densities: &HashMap<String, f64>,
     num_modes: usize,
 ) -> Result<ModalResult3D, String> {
-    // Curved beams become segments first, as in `solve_3d`: assembled from the
-    // unexpanded model they were silently left out.
+    let known_model = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal);
+    crate::known_issues::refuse(&known_model)?;
     let input = &super::linear::expand_curved_beams_3d(input);
     super::linear::validate_input_3d_for_analysis(input, crate::known_issues::Analysis::Modal)?;
-    // Curved beams are expanded into straight members, as every static path
-    // does; left in place they were not part of the model at all.
-    let expanded = (!input.curved_beams.is_empty()).then(|| super::linear::expand_curved_beams_3d(input));
-    let input = expanded.as_ref().unwrap_or(input);
     super::dynamic_validation::validate_mass_3d(input, densities)?;
     if num_modes == 0 {
         return Err("num_modes must be >= 1".to_string());
@@ -403,7 +399,8 @@ pub fn solve_modal_3d(
     } else {
         (&sasm.k_ff, &m_sparse_ff)
     };
-    let mut structured_diagnostics = crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal);
+    let mut structured_diagnostics = known_model;
+    crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Modal));
     crate::known_issues::attach(&mut structured_diagnostics, crate::known_issues::sparse_conditioning(&sasm.k_ff).into_iter().collect());
     let (result, conditioning) = crate::known_issues::with_sparse_factor_conditioning(k_solve, |observe| {
         crate::linalg::lanczos::lanczos_generalized_eigen_sparse_observed(k_solve, m_solve, num_modes, 0.0, observe)

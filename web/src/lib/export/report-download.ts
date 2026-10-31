@@ -44,7 +44,7 @@ export async function downloadReport(format: ReportFormat, r: { title: string; h
     ...(r.blocks ? { blocks: [...warnings.map(text => ({ kind: 'paragraph' as const, text })), ...r.blocks] } : {}),
     // CSV exports only tables, so their mandatory warnings also belong in its comment header.
     ...(warnings.length ? { provenance: {
-      title: r.provenance?.title ?? 'Safety warnings',
+      title: r.provenance?.title ?? t('knownIssue.exportHeading'),
       lines: [...warnings.map(w => ['⚠', w] as const), ...(r.provenance?.lines ?? [])],
     } } : {}),
   };

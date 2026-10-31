@@ -262,11 +262,14 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 /// `solve_harmonic_3d` plus the Rayleigh coefficients `(a₀, a₁)` it used
 /// (`C = a₀M + a₁K`): the damping model the certificate refers to.
 pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(HarmonicResult, (f64, f64)), String> {
+    let known_model = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Harmonic);
+    crate::known_issues::refuse(&known_model)?;
     let (mut result, damping) = solve_harmonic_3d_contained(input)?;
-    crate::known_issues::attach(&mut result.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Harmonic));
+    crate::known_issues::attach(&mut result.structured_diagnostics, known_model);
     if result.method.starts_with("modal") {
         crate::known_issues::attach(&mut result.structured_diagnostics, vec![crate::known_issues::diagnostic("MD-ORTHOGONALITY")]);
     }
+    crate::known_issues::refuse(&result.structured_diagnostics)?;
     Ok((result, damping))
 }
 

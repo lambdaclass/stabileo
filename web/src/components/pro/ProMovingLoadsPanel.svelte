@@ -195,7 +195,7 @@
     // SI, each column with its unit.
     const UNIT: Record<EnvelopeComponent, string> = { n: 'kN', vy: 'kN', vz: 'kN', my: 'kN·m', mz: 'kN·m', torsion: 'kN·m' };
     const head = [t('pro.elemLabel'), ...ENVELOPE_COMPONENTS.flatMap((c) => [`${LABEL[c]} max (${UNIT[c]})`, `${LABEL[c]} min (${UNIT[c]})`])];
-    void downloadResultText(toCsv(['Warning'], knownIssueResultDisposition(result).messages.map(message => [message])) + '\n' + toCsv(head, rows.map((r) => [r.id, ...ENVELOPE_COMPONENTS.flatMap((c) => [r.env[c].max.value, r.env[c].min.value])])),
+    void downloadResultText(toCsv([t('knownIssue.exportHeading')], knownIssueResultDisposition(result).messages.map(message => [message])) + '\n' + toCsv(head, rows.map((r) => [r.id, ...ENVELOPE_COMPONENTS.flatMap((c) => [r.env[c].max.value, r.env[c].min.value])])),
       'moving-load-envelope.csv', 'text/csv;charset=utf-8', resultProvenance);
   }
 </script>

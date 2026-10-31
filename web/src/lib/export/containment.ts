@@ -1,6 +1,7 @@
 import { knownIssueResultDisposition } from '../engine/known-issues';
 import { resultsStore } from '../store/results.svelte';
 import { uiStore } from '../store/ui.svelte';
+import { t } from '../i18n';
 
 export class ContainmentExportError extends Error {}
 
@@ -27,9 +28,11 @@ export function requiredExportMessages(): string[] {
   return disposition.messages;
 }
 const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const WARNING_SECTION = /<section\b[^>]*\bid\s*=\s*(["']?)stabileo-warnings\1[^>]*>[\s\S]*?<\/section>/gi;
 export function warningHtml(html: string, warnings = requiredExportMessages()): string {
-  if (!warnings.length || html.includes('id="stabileo-warnings"')) return html;
-  const block = `<section id="stabileo-warnings" style="border:2px solid #9b3b00;padding:12px;color:#742d00;background:white;font:14px sans-serif"><h2>⚠ Safety warnings</h2>${warnings.map(w => `<p>${escape(w)}</p>`).join('')}</section>`;
+  html = html.replace(WARNING_SECTION, '');
+  if (!warnings.length) return html;
+  const block = `<section id="stabileo-warnings" style="border:2px solid #9b3b00;padding:12px;color:#742d00;background:white;font:14px sans-serif"><h2>⚠ ${escape(t('knownIssue.exportHeading'))}</h2>${warnings.map(w => `<p>${escape(w)}</p>`).join('')}</section>`;
   const body = /<body\b[^>]*>/i.exec(html);
   const at = body ? body.index + body[0].length : 0;
   return html.slice(0, at) + block + html.slice(at);

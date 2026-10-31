@@ -3913,6 +3913,7 @@ const es: Record<string, string> = {
   'diag.detail.overlapLength': "Superposición (m)",
   'diag.detail.outOfPlane': "Fuera del plano (m)",
   'diag.elements': 'Barras',
+  "knownIssue.exportHeading": "Advertencias de seguridad",
   "knownIssue.NUM-INVARIANCE": "Los modelos casi singulares pueden cambiar de precisión o clasificación al cambiar unidades u orientación. Los diagnósticos de condicionamiento o estabilidad indican una resolución casi singular; verificá independientemente la estabilidad antes de diseñar.",
   "knownIssue.CERT-MECHANISM": "Un certificado algebraico puede aceptar mecanismos ocultos por rigideces artificiales. Verificá independientemente la estabilidad.",
   "knownIssue.BU-SPAN-COMPRESSION": "El pandeo 3D puede omitir compresión entre extremos bajo cargas de barra. Verificá la distribución axial y el factor de pandeo.",

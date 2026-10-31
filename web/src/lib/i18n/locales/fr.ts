@@ -14115,6 +14115,7 @@ const fr: Translations = {
   'proExport.dxfLayoutLayersNote': 'Tout dans un seul DXF ; chaque contenu sur son propre calque.',
   'proExport.dxfLayoutSeparateNote': 'Un DXF du modèle et un par résultat (avec le modèle en dessous), réunis dans un .zip.',
   // Known-issue containment diagnostics
+  "knownIssue.exportHeading": "Avertissements de sécurité",
   "knownIssue.NUM-INVARIANCE": "Pour les modèles presque singuliers, la précision ou la classification des mécanismes peut varier avec les unités et l’orientation. Les diagnostics existants de conditionnement ou de stabilité indiquent une résolution presque singulière ; vérifiez indépendamment la stabilité avant le dimensionnement",
   "knownIssue.CERT-MECHANISM": "Un certificat au niveau du système assemblé peut certifier une rotation artificielle ou sans raideur associée. Vérifiez indépendamment les mécanismes ; une faible borne d’erreur algébrique ne démontre pas la stabilité de la structure",
   "knownIssue.BU-SPAN-COMPRESSION": "Le calcul de flambement 3D peut ignorer la compression entre les extrémités des barres sous des charges en travée. Vérifiez indépendamment la distribution de l’effort normal et le facteur de flambement",

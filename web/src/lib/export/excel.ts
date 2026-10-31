@@ -653,7 +653,10 @@ export async function buildExcelWorkbook(options: ExcelExportOptions = {}): Prom
   const warnings = exportMessages();
   if (warnings === null) return null;
   const wb = XLSX.utils.book_new();
-  if (warnings.length && !extraSheets.some(s => s.name === 'Warnings')) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(warnings.map(message => [message])), 'Warnings');
+  const callerWarnings = extraSheets.filter(s => s.name.slice(0, 31) === 'Warnings').flatMap(s => s.rows as (string | number)[][]);
+  const callerCells = new Set(callerWarnings.flat().map(String));
+  const warningRows = [...warnings.filter(message => !callerCells.has(message)).map(message => [message]), ...callerWarnings];
+  if (warningRows.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(warningRows), 'Warnings');
 
   const provenanceLines = record ? provenanceTextLines(record, provenanceLabels()) : null;
   if (!onlyExtras) {
@@ -691,6 +694,7 @@ export async function buildExcelWorkbook(options: ExcelExportOptions = {}): Prom
   }
 
   for (const extra of extraSheets) {
+    if (extra.name.slice(0, 31) === 'Warnings') continue;
     XLSX.utils.book_append_sheet(
       wb, XLSX.utils.aoa_to_sheet(extra.rows as (string | number)[][]),
       extra.name.slice(0, 31));

@@ -282,12 +282,10 @@ export function buildProReportData(opts: {
   data.containment = knownIssueResultDisposition([
     results, data.resultSets,
   ]);
-  const seismicContainment = resultsStore.caseDisposition3D(
-    modelStore.loadCases.filter(c => (c.type || '').toUpperCase() === 'E').map(c => c.id),
-  );
+  const caseContainment = resultsStore.caseDisposition3D(modelStore.loadCases.map(c => c.id));
   data.containment = {
-    refused: data.containment.refused || seismicContainment.refused,
-    messages: [...new Set([...data.containment.messages, ...seismicContainment.messages])],
+    refused: data.containment.refused || caseContainment.refused,
+    messages: [...new Set([...data.containment.messages, ...caseContainment.messages])],
   };
   data.statics = staticsRows();
   const seen = new Set<string>();

@@ -14115,6 +14115,7 @@ const de: Translations = {
   'proExport.dxfLayoutLayersNote': 'Alles in einer DXF-Datei; jeder Inhalt auf einem eigenen Layer.',
   'proExport.dxfLayoutSeparateNote': 'Eine DXF-Datei des Modells und eine je Ergebnis (mit dem Modell darunter), zusammen in einer .zip-Datei.',
   // Known-issue containment diagnostics
+  "knownIssue.exportHeading": "Sicherheitswarnungen",
   "knownIssue.NUM-INVARIANCE": "Bei nahezu singulären Modellen können Genauigkeit und Mechanismenklassifizierung von den Einheiten und der Orientierung abhängen. Vorhandene Konditionierungs- oder Stabilitätsdiagnosen weisen auf eine nahezu singuläre Lösung hin; prüfen Sie die Stabilität vor der Bemessung unabhängig",
   "knownIssue.CERT-MECHANISM": "Ein Zertifikat auf Ebene des assemblierten Systems kann eine künstliche oder nicht ausgesteifte Rotation zertifizieren. Prüfen Sie Mechanismen unabhängig; eine kleine algebraische Fehlerschranke belegt keine Tragwerksstabilität",
   "knownIssue.BU-SPAN-COMPRESSION": "Beim 3D-Knicken können Druckkräfte zwischen den Stabenden infolge von Lasten im Stabfeld unberücksichtigt bleiben. Prüfen Sie den Normalkraftverlauf und den Knicklastfaktor unabhängig",

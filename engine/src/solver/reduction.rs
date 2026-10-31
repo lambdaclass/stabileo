@@ -1099,8 +1099,11 @@ fn craig_bampton_2d_sparse(input: &CraigBamptonInput, dof_num: &DofNumbering) ->
 
 /// Perform Guyan (static) condensation on a 3D model.
 pub fn guyan_reduce_3d(input: &GuyanInput3D) -> Result<GuyanResult3D, String> {
+    let known_model = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::StaticReduction);
+    crate::known_issues::refuse(&known_model)?;
     let mut r = guyan_reduce_3d_contained(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::StaticReduction));
+    crate::known_issues::attach(&mut r.structured_diagnostics, known_model);
+    crate::known_issues::refuse(&r.structured_diagnostics)?;
     Ok(r)
 }
 
@@ -1319,8 +1322,11 @@ fn guyan_reduce_3d_contained(input: &GuyanInput3D) -> Result<GuyanResult3D, Stri
 
 /// Perform Craig-Bampton reduction on a 3D model.
 pub fn craig_bampton_3d(input: &CraigBamptonInput3D) -> Result<CraigBamptonResult, String> {
+    let known_model = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal);
+    crate::known_issues::refuse(&known_model)?;
     let mut r = craig_bampton_3d_contained(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Modal));
+    crate::known_issues::attach(&mut r.structured_diagnostics, known_model);
+    crate::known_issues::refuse(&r.structured_diagnostics)?;
     Ok(r)
 }
 
@@ -1335,7 +1341,7 @@ fn craig_bampton_3d_contained(input: &CraigBamptonInput3D) -> Result<CraigBampto
         &expanded
     };
     // As above: validated before assembly indexes by id.
-    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::StaticReduction)?;
+    super::linear::validate_input_3d_for_analysis(&input.solver, crate::known_issues::Analysis::Modal)?;
     // Nodal, line and area masses go into M (see `craig_bampton_2d`).
     super::dynamic_validation::validate_mass_input_3d(&input.solver)?;
     // Curved beams are expanded into straight members, as every static path

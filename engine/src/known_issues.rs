@@ -328,14 +328,16 @@ impl MembraneBendingGuard {
                 let Some(d) = displacements.get(&id) else { continue };
                 u.extend([d.ux,d.uy,d.uz,d.rx,d.ry,d.rz]);
             }
-            if u.len() != 24 { continue }
+            if u.len() != 24 || u.iter().any(|v| !v.is_finite()) { affected.push(q.id); continue }
             let local: [f64;24] = crate::linalg::transform_displacement(&u, &q.transform, 24).try_into().unwrap();
             let (thermal, gradient) = thermal.get(&q.id).copied().unwrap_or_default();
             let stresses = crate::element::quad::quad_stress_at_nodes(&q.coords, &local, q.e, q.nu, q.thickness, 1.0, thermal, gradient);
             let mut variation = 0.0f64;
             for component in [|s: &QuadNodalStress| s.sigma_xx, |s: &QuadNodalStress| s.sigma_yy] {
-                let lo = stresses.iter().map(component).fold(f64::INFINITY, f64::min);
-                let hi = stresses.iter().map(component).fold(f64::NEG_INFINITY, f64::max);
+                let values: Vec<f64> = stresses.iter().map(component).collect();
+                if values.iter().any(|v| !v.is_finite()) { variation = f64::INFINITY; break }
+                let lo = values.iter().copied().fold(f64::INFINITY, f64::min);
+                let hi = values.iter().copied().fold(f64::NEG_INFINITY, f64::max);
                 variation = variation.max(hi - lo);
             }
             if variation > q.e * 1e-12 { affected.push(q.id); }

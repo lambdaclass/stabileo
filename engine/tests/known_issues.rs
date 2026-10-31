@@ -763,3 +763,60 @@ fn conditioning_cost_large_frame() {
     eprintln!("frame: {} DOFs, {} matrix entries; 100 checks: standalone {:?}, reused {:?}; numeric factor {} bytes, symbolic arrays {} bytes, reused check scratch {} bytes",
         k.n, k.values.len(), standalone, reused, factor.l_values.len() * 8, symbolic_bytes, k.n * 8);
 }
+
+fn arch3d() -> SolverInput3D {
+    let mut s = beam3d();
+    s.elements.clear();
+    for id in [2, 3, 4] { s.nodes.remove(&id.to_string()); }
+    s.nodes.insert("200".into(), SolverNode3D { id: 200, x: 2.0, y: 0.0, z: 1.0 });
+    s.curved_beams.push(CurvedBeamInput { node_start: 1, node_mid: 200, node_end: 5, material_id: 1, section_id: 1, num_segments: 8, hinge_start: false, hinge_end: false });
+    s
+}
+
+#[test]
+fn arch_only_dynamic_models_carry_the_issues_of_the_model_as_given() {
+    use dedaliano_engine::solver::{harmonic::*, modal::*, reduction::*};
+    let densities: HashMap<String, f64> = [("1".to_string(), 7850.0)].into();
+    let arch = arch3d();
+    let modal = solve_modal_3d(&arch, &densities, 2).unwrap();
+    assert_warning(&modal.structured_diagnostics, "NL-DYNAMIC-GAPS", 370.0);
+    assert_warning(&modal.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    let harmonic: HarmonicInput3D = serde_json::from_value(serde_json::json!({
+        "solver": arch, "densities": densities, "frequencies": [1.0, 2.0], "responseNodeId": 5
+    })).unwrap();
+    assert_warning(&solve_harmonic_3d(&harmonic).unwrap().structured_diagnostics, "NL-DYNAMIC-GAPS", 370.0);
+    let cb = craig_bampton_3d(&CraigBamptonInput3D { solver: arch.clone(), boundary_nodes: vec![5], n_modes: 2, densities: densities.clone() }).unwrap();
+    assert_warning(&cb.structured_diagnostics, "NL-DYNAMIC-GAPS", 370.0);
+    assert_warning(&cb.structured_diagnostics, "MD-ORTHOGONALITY", 759.0);
+    let guyan = guyan_reduce_3d(&GuyanInput3D { solver: arch, boundary_nodes: vec![5] }).unwrap();
+    assert!(!ids(&guyan.structured_diagnostics).contains(&"NL-DYNAMIC-GAPS".to_string()), "{:?}", guyan.structured_diagnostics);
+
+    let mut truss = beam3d();
+    for e in truss.elements.values_mut() { e.elem_type = "truss".into(); }
+    assert!(!ids(&for_3d(&truss, Analysis::Modal)).contains(&"NL-DYNAMIC-GAPS".to_string()));
+}
+
+#[test]
+fn distorted_mesh_guard_refuses_what_it_cannot_evaluate() {
+    use dedaliano_engine::known_issues::MembraneBendingGuard;
+    let mut input = beam3d();
+    input.nodes.clear(); input.elements.clear(); input.supports.clear();
+    for (j, (x, y)) in [(0.0,0.0),(1.0,0.0),(1.2,1.0),(0.0,1.0)].into_iter().enumerate() {
+        input.nodes.insert((j + 1).to_string(), SolverNode3D { id: j + 1, x, y, z: 0.0 });
+    }
+    input.quads.insert("1".into(), SolverQuadElement { id: 1, nodes: [1, 2, 3, 4], material_id: 1, thickness: 0.1 });
+    let mut result = dedaliano_engine::solver::linear::solve_3d(&beam3d()).unwrap();
+    let extension = |n: &SolverNode3D| Displacement3D { node_id: n.id, ux: n.x * 1e-6, uy: 0.0, uz: 0.0, rx: 0.0, ry: 0.0, rz: 0.0, warping: None };
+    result.displacements = input.nodes.values().map(extension).collect();
+    let guard = MembraneBendingGuard::new(&input);
+    guard.check(&[], &result).unwrap();
+
+    let mut missing = result.clone();
+    missing.displacements.retain(|d| d.node_id != 3);
+    assert!(guard.check(&[], &missing).unwrap_err().contains("SH-MITC4-DISTORTION"));
+    for bad in [f64::NAN, f64::INFINITY] {
+        let mut nonfinite = result.clone();
+        nonfinite.displacements.iter_mut().find(|d| d.node_id == 3).unwrap().ux = bad;
+        assert!(guard.check(&[], &nonfinite).unwrap_err().contains("SH-MITC4-DISTORTION"), "{bad}");
+    }
+}

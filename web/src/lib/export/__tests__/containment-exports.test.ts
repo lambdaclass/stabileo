@@ -127,3 +127,34 @@ it('PNG canvas capture burns complete warning text into an extended image', asyn
     expect(ctx.drawImage).toHaveBeenCalledWith(original, 0, 0);
   } finally { vi.unstubAllGlobals(); }
 });
+
+it('a caller sheet named Warnings cannot replace the mandatory warning sheet', async () => {
+  publish('warning');
+  for (const rows of [[], [['unrelated note']]]) {
+    const wb = await buildExcelWorkbook({ onlyExtras: true, extraSheets: [{ name: 'Warnings', rows }, { name: 'Table', rows: [['987654']] }] });
+    expect(wb!.SheetNames.filter(n => n === 'Warnings')).toHaveLength(1);
+    const text = XLSX.utils.sheet_to_csv(wb!.Sheets.Warnings!);
+    expect(text).toContain('#741');
+    if (rows.length) expect(text).toContain('unrelated note');
+    expect(XLSX.utils.sheet_to_csv(wb!.Sheets.Table!)).toContain('987654');
+  }
+  resultsStore.clear(); modelStore.clear();
+  const clean = await buildExcelWorkbook({ onlyExtras: true, extraSheets: [{ name: 'Warnings', rows: [['caller note']] }] });
+  expect(XLSX.utils.sheet_to_csv(clean!.Sheets.Warnings!)).toBe('caller note');
+});
+
+it('an existing, empty, hidden or stale warning section in HTML is replaced by the current warnings', async () => {
+  publish('warning');
+  const { warningHtml } = await import('../containment');
+  for (const stale of ['<section id="stabileo-warnings"></section>', '<section id="stabileo-warnings" style="display:none"><p>#741</p></section>', "<section class=x id='stabileo-warnings'><p>old #1</p></section>"]) {
+    const html = warningHtml(`<html><body>${stale}<p>987654</p></body></html>`);
+    expect(html.match(/stabileo-warnings/g)).toHaveLength(1);
+    expect(html).not.toContain('display:none');
+    expect(html).not.toContain('old #1');
+    expect(html).toContain('#741');
+    expect(html).toContain('Advertencias de seguridad');
+    expect(html).toContain('987654');
+  }
+  expect(warningHtml(warningHtml('<html><body><p>1</p></body></html>'))).toBe(warningHtml('<html><body><p>1</p></body></html>'));
+  expect(warningHtml('<html><body><section id="stabileo-warnings"><p>old</p></section></body></html>', [])).not.toContain('stabileo-warnings');
+});

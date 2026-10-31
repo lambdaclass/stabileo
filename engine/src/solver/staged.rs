@@ -79,6 +79,7 @@ pub fn solve_staged_2d(input: &StagedInput) -> Result<StagedAnalysisResults, Str
         diagnostics = stage.results.structured_diagnostics.clone();
     }
     crate::known_issues::attach(&mut r.final_results.structured_diagnostics, diagnostics);
+    crate::known_issues::refuse(&r.final_results.structured_diagnostics)?;
     Ok(r)
 }
 
@@ -1267,6 +1268,7 @@ pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D,
         diagnostics = stage.results.structured_diagnostics.clone();
     }
     crate::known_issues::attach(&mut r.final_results.structured_diagnostics, diagnostics);
+    crate::known_issues::refuse(&r.final_results.structured_diagnostics)?;
     Ok(r)
 }
 
