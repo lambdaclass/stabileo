@@ -4,6 +4,7 @@
  * chunks; each paper can then grow them even though its data is loaded lazily.
  * This entry has no static imports, so the product only knows this one lazy chunk.
  */
-export async function loadResearchPage() {
-  return (await import('./ResearchPage.svelte')).default;
+export async function loadResearchPage(path = '/research') {
+  const [page] = await Promise.all([import('./ResearchPage.svelte'), import('./load-detail').then(m => m.loadResearchDetail(path))]);
+  return page.default;
 }

@@ -47,12 +47,13 @@ describe('merged public routes', () => {
     const app = source('../App.svelte');
     for (const text of [root, app]) {
       expect(text).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]*(?:ResearchPage|ToolsPage|PaperPage)\.svelte/);
-      expect(text).toContain("import('./components/paper/PaperPage.svelte')");
+      expect(text).toContain("loadPublicPage");
     }
-    expect(root).toContain("import('./components/research/load-page')");
-    expect(root).toContain("import('./components/tools/load-page')");
+    const loader = source('../lib/public-navigation.ts');
+    expect(loader).toContain("import('../components/research/load-page')");
+    expect(loader).toContain("import('../components/tools/load-page')");
+    expect(loader).toContain("import('../components/paper/PaperPage.svelte')");
     expect(root).toContain("import('./load-app')");
-    expect(app).toContain("import('./components/research/load-experiment')");
     expect(app).toContain('const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper)');
     expect(app).toContain("if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;");
   });

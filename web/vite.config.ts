@@ -4,6 +4,7 @@ import { copyFileSync, cpSync, existsSync, readFileSync } from 'fs';
 import { execSync, execFileSync } from 'child_process';
 import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
+import { loadedPreloads } from './scripts/loaded-preloads';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
 
@@ -205,8 +206,10 @@ if (researchBuildId !== 'unavailable') {
   if (actual !== researchBuildId) throw new Error('Research assets are stale: run make research.wasm');
 }
 
+const preloads = loadedPreloads();
+
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [preloads.plugin, wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),
@@ -232,6 +235,7 @@ export default defineConfig({
       }
     : {
         target: 'esnext',
+        modulePreload: { resolveDependencies: preloads.resolveDependencies },
       },
   optimizeDeps: {
     exclude: ['dedaliano-engine', 'web-ifc'],

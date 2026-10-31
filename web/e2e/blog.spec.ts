@@ -592,7 +592,7 @@ test.describe('blog', () => {
   test('@smoke the editor is one click away and leaves the blog behind', async ({ page }) => {
     await boot(page, `/blog/${SLUG}`);
 
-    await page.locator('.landing.blog .nav .btn-primary').click();
+    await page.locator('#app .site-header .btn-primary').click();
 
     await expect(page.locator('.landing.blog')).toHaveCount(0);
     await expect(page.locator('.app-container')).not.toHaveClass(/hidden-behind-landing/);

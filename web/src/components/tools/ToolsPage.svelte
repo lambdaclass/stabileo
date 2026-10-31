@@ -1,7 +1,7 @@
 <script lang="ts">
   import { toolReviewLabel } from "./reviews";
   import './register-i18n';
-  import SiteHeader from '../site/SiteHeader.svelte';
+  import { batchTool as BatchTool, toolViewer as ToolViewer } from './load-detail';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
@@ -15,10 +15,8 @@
   import '../research/research.css';
   import Sci from '../research/shell/Sci.svelte';
   import ParamRow from '../research/shell/ParamRow.svelte';
-  import ToolViewer from './ToolViewer.svelte';
   import { tBatch as t } from './batch-i18n';
   import { BATCH_IDS } from './batch';
-  import BatchTool from './BatchTool.svelte';
   import ToolPreview from './ToolPreview.svelte';
 
   let { path }: { path: string } = $props();
@@ -68,11 +66,10 @@
 </script>
 
 <div class="landing blog research tools">
-  <SiteHeader current="tools" />
   <main class="sec sec--ink">
     <div class="wrap tools-wrap" class:gallery={!id && !batchId}>
     {#if batchId}
-      {#key batchId}<BatchTool id={batchId}/>{/key}
+      {#key batchId}{#if BatchTool}<BatchTool id={batchId}/>{/if}{/key}
     {:else if id}
       <div class="tool-layout">
         <header class="tool-intro">
@@ -82,7 +79,7 @@
           <p class="lead">{t(`tools.${id}.subtitle`)}</p>
         </header>
         <aside class="tool-viewer" aria-label={title}>
-          <ToolViewer {id} {p} {result} />
+          {#if ToolViewer}<ToolViewer {id} {p} {result} />{/if}
         </aside>
         <section class="tool-inputs">
           <form onsubmit={(event) => event.preventDefault()}>
@@ -167,7 +164,6 @@
 
 <style>
   .tools { font-synthesis: none; font-variant-numeric: tabular-nums; }
-  .tools :global(.nav) { background: var(--lp-ink); }
   .tools main.sec { padding: clamp(5rem, 7vw, 6rem) 0 4rem; }
   .tools-wrap { max-width: 96rem; --lp-gut: clamp(1rem, 3vw, 2.5rem); }
   .gallery { max-width: 68rem; }

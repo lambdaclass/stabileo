@@ -38,10 +38,7 @@
    ════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Faces ──────────────────────────────────────────────────────────────
-   Declared again here rather than shared with landing.css on purpose: that
-   file is loaded only when the landing mounts, and the application must not
-   depend on having been reached through it. Same URLs, so the browser fetches
-   each file once no matter which stylesheet asked first.
+   Shared by the application and public pages: both entries load this file.
    ───────────────────────────────────────────────────────────────────────── */
 
 /* Latin, declared in the same weight ranges as the Greek and maths subsets below: faces only
@@ -90,7 +87,7 @@
 @font-face {
   font-family: 'Stabileo Math';
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
   src: url('/fonts/noto-sans-math-subset.woff2') format('woff2');
   unicode-range: U+2016, U+2202, U+2207, U+2225;

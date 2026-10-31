@@ -29,6 +29,7 @@
   import type { Snippet } from 'svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import { publicHref } from '../../lib/i18n/public-routes';
+  import { prefetchPublicLink } from '../../lib/public-navigation';
   import { goPublic } from './landing-utils';
 
   type Props = {
@@ -53,4 +54,4 @@
   }
 </script>
 
-<a {href} class={cls} {onclick} {...rest}>{@render children()}</a>
+<a use:prefetchPublicLink={to} {href} class={cls} {onclick} {...rest}>{@render children()}</a>
