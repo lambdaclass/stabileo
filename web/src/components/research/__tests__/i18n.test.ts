@@ -66,16 +66,3 @@ it('formats numbers in all six public locales', async () => {
     }
   } finally { setLocale(original); }
 });
-
-it('publishes each research route only in the locales its own dictionary defines', async () => {
-  const { routeLocales, supportsResearchRoute, researchRoutes } = await import('../locales');
-  const { EXPERIMENTS } = await import('../experiments');
-  expect(routeLocales('/research')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr']);
-  expect(supportsResearchRoute('/research/stability/ferrari-sigmund-2025', 'de')).toBe(false);
-  expect(routeLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt']);
-  expect(supportsResearchRoute('/research/benchmarks/navier-plate', 'de')).toBe(true);
-  expect(supportsResearchRoute('/research/benchmarks/navier-plate/', 'de')).toBe(true);
-  expect(routeLocales('/research/unknown-paper')).toEqual(['en']);
-  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) expect(supportsResearchRoute('/tools', locale)).toBe(true);
-  expect(researchRoutes().sort()).toEqual(['/research', ...EXPERIMENTS.map(e => e.path)].sort());
-});

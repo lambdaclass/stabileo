@@ -45,8 +45,8 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
-import { declaredLocales } from './hreflang';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, isResearchRoute, researchLastReview, researchLocales } from '../src/components/research/locales';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -129,18 +129,10 @@ const POST_DATE = new Map<string, string>();
 /** The languages always written; the others count for a post or standing page only once its translation file exists. */
 const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 
-/** A research route's languages, read from the hreflang set its English page declares (research/locales.ts). */
-const RESEARCH_WRITTEN = new Map<string, Locale[]>();
-const isResearch = (path: string) => path === '/research' || path.startsWith('/research/');
-
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
-  if (isResearch(path)) {
-    const written = RESEARCH_WRITTEN.get(path);
-    if (!written) throw new Error(`prerender: ${path} has not declared its languages yet`);
-    return written;
-  }
-  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
+  if (isResearchRoute(path)) return LOCALES.filter((l) => researchLocales(path).includes(l));
+  if (path === '/' || path === '/blog' || path === '/paper' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
     (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
@@ -256,8 +248,11 @@ async function publicPaths(): Promise<string[]> {
     const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
     if (day) POST_LASTMOD.set(pagePath, day);
   }
-  // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
+  const research = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS];
+  for (const path of research) {
+    const day = researchLastReview(path);
+    if (day) POST_LASTMOD.set(path, day);
+  }
   return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
 }
 
@@ -366,8 +361,10 @@ async function main() {
   const posts: PostHead[] = [];
 
   try {
-    const route = (locale: Locale, path: string) => ({ locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/` });
-    const render = (list: { locale: Locale; path: string; href: string }[]) => routePool(list, concurrency,
+    const routes = LOCALES.flatMap(locale => paths.filter(path => !isResearchRoute(path) || writtenIn(path).includes(locale)).map(path => ({
+      locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
+    })));
+    const captures = await routePool(routes, concurrency,
       () => newCapturePage(browser), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
@@ -378,19 +375,6 @@ async function main() {
         await writeFile(out, page(head, body, lang));
         return { head, href };
       });
-    // Research pages exist only in the languages their English capture declares in its hreflang set.
-    const english = paths.filter(isResearch).map((path) => route('en', path));
-    const englishCaptures = await render(english);
-    for (const [index, { head, href }] of englishCaptures.entries()) {
-      const written = declaredLocales(head, LOCALES);
-      if (!written.includes('en')) throw new Error(`prerender: ${href} declares no hreflang set including itself`);
-      RESEARCH_WRITTEN.set(english[index].path, written);
-    }
-    const rest = LOCALES.flatMap((locale) => paths
-      .filter((path) => !isResearch(path) || (locale !== 'en' && writtenIn(path).includes(locale)))
-      .map((path) => route(locale, path)));
-    const routes = [...english, ...rest];
-    const captures = [...englishCaptures, ...await render(rest)];
     // Pool results retain the original route order, including feed date ties.
     // The sitemap below likewise uses paths/locales, never completion order.
     for (const [index, { head, href }] of captures.entries()) {
