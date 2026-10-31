@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { routeKind } from '../lib/public-route';
 import { STANDING_PAGES } from '../lib/blog/pages';
+import { RESEARCH_GALLERY } from '../components/research/locales';
 import { SITE_NAV } from '../components/site/site-nav';
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
@@ -38,7 +39,9 @@ describe('merged public routes', () => {
   });
   it('prerenders paper, research, tools and the changelog standing page', () => {
     const prerender = source('../../scripts/prerender.ts');
-    for (const path of ['/paper', '/research', '/tools']) expect(prerender).toContain(`'${path}'`);
+    for (const path of ['/paper', '/tools']) expect(prerender).toContain(`'${path}'`);
+    expect(RESEARCH_GALLERY).toBe('/research');
+    expect(prerender).toContain('[RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS]');
     expect(prerender).toContain('...pages');
     expect(STANDING_PAGES.some(page => page.path === '/changelog')).toBe(true);
   });

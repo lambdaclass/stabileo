@@ -16,6 +16,7 @@
   import { provideExperiment, type ExperimentActions, type Check } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
+  import { paperHead } from '../head.svelte';
 
   type Props = {
     paperId: string;
@@ -47,6 +48,9 @@
   const commit = BUILD_COMMIT;
   const s = $derived(rs());
   const authors = $derived(citationAuthors ?? paper.crossref.authors.join(', '));
+  $effect(() => {
+    paperHead.current = { paperId, name, lead };
+  });
 
 </script>
 

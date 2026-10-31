@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { researchLocale } from '../i18n';
   import { navierStrings } from './strings';
+  import { paperHead } from '../head.svelte';
   import { Playback } from '../shell/playback.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { parameters, mesh, difference, convergence, reduction, type Row } from './model';
@@ -9,6 +10,9 @@
 
   const locale = $derived(researchLocale());
   const s = $derived(navierStrings(locale));
+  $effect(() => {
+    paperHead.current = { paperId: 'navier-plate', name: s.title, lead: s.lead };
+  });
   const nf = (v: number, digits = 6) => new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(v);
   const playback = new Playback(1300, 2200);
   let rows = $state<Row[]>(replay.rows);
