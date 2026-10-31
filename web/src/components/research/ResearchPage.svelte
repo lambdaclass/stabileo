@@ -16,6 +16,8 @@
   import MattiassonPage from './mattiasson1981/MattiassonPage.svelte';
   import ShellPage from './shell1985/ShellPage.svelte';
   import MacnealPage from './macneal1985/MacnealPage.svelte';
+  import { pageLocale as macnealLocale, strings as macnealStrings } from './macneal1985/i18n';
+  import '../viewport/scalar-viewer-i18n';
   import ShauerPage from './shauer2025/ShauerPage.svelte';
   import FerrariPage from './ferrari2025/FerrariPage.svelte';
   import FormPage from './pastrana2026/FormPage.svelte';
@@ -51,7 +53,6 @@
     '/research/optimization/andreassen-2011': { title: 'MBB topology optimization — Stabileo Research', description: 'SIMP topology optimization against the authors’ 88-line reference code.' },
     '/research/benchmarks/mattiasson-elastica': { title: 'Mattiasson elastica — Stabileo engine benchmarks', description: 'Production corotational cantilever with provisional references and explicit failures.' },
     '/research/benchmarks/shell-obstacle-course': { title: 'Shell obstacle course — Stabileo Research', description: 'Live shell mesh refinement, accuracy references and failures in the production engine.' },
-    '/research/benchmarks/macneal-harder-1985': { title: 'MacNeal–Harder (1985) — Stabileo engine benchmarks', description: 'Live production-engine accuracy benchmarks with explicit references, tolerances and failures.' },
     '/research/fracture/shauer-2025': {
       title: 'Phase-field fracture of a notched plate (Shauer 2025) — Stabileo Research',
       description:
@@ -70,7 +71,7 @@
   };
 
   $effect(() => {
-    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : PAGES[route];
+    const meta = route === '/research' ? { title: rs().researchTitle, description: rs().galleryLead } : route === '/research/stability/ferrari-sigmund-2025' ? { title: rs().ferrariTitle, description: rs().ferrariLead } : route === '/research/form-finding/pastrana-2026' ? { title: rs().formTitle, description: rs().formLead } : route === '/research/mechanics/biggins-2026' ? { title: archStrings().title, description: archStrings().lead } : route === '/research/optimisation/fairclough-2026' ? {title:fs().title,description:fs().lead} : route === '/research/benchmarks/macneal-harder-1985' ? { title: macnealStrings[macnealLocale(publicI18n.locale)].metaTitle, description: macnealStrings[macnealLocale(publicI18n.locale)].metaDescription } : PAGES[route];
     if (meta) applyPageMeta({ title: meta.title, description: meta.description, locale: publicI18n.locale, path: route });
     return () => restorePageMeta();
   });

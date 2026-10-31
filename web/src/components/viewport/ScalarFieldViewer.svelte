@@ -8,9 +8,10 @@
    * bar styles.
    *
    * Navigation as in the app: left drag orbits (in 3D), right drag pans, the wheel zooms to the
-   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked.
+   * pointer. "2D" is the app's plan view: looking down at the XY plane, orbit locked. With the
+   * canvas focused, arrows pan, Shift+arrows orbit in 3D, + and - zoom, 0 or Home fits.
    */
-  import { onDestroy, onMount, untrack, type Snippet } from 'svelte';
+  import { onDestroy, onMount, tick, untrack, type Snippet } from 'svelte';
   import * as THREE from 'three';
   import type { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   import '../../styles/viewer-chrome.css';
@@ -194,6 +195,55 @@
     fit();
   }
 
+  let menuTrigger: HTMLButtonElement;
+  let menu = $state<HTMLDivElement>();
+  async function toggleMenu() {
+    menuOpen = !menuOpen;
+    if (!menuOpen) return;
+    await tick();
+    menu?.querySelector<HTMLButtonElement>('.cam-item')?.focus();
+  }
+  function closeMenu() {
+    menuOpen = false;
+    menuTrigger?.focus();
+  }
+  function onMenuKey(e: KeyboardEvent) {
+    if (e.key === 'Escape' && menuOpen) {
+      e.preventDefault();
+      closeMenu();
+    }
+  }
+
+  const KEY_STEP = Math.PI / 24;
+  const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
+  function onViewKey(e: KeyboardEvent) {
+    if (!renderer) return;
+    const offset = camera.position.clone().sub(controls.target);
+    const arrow = ARROWS[e.key];
+    if (arrow && e.shiftKey && projection === 'orbit') {
+      const r = offset.length();
+      const theta = Math.atan2(offset.y, offset.x) - arrow[0] * KEY_STEP;
+      const phi = Math.min(Math.PI - 0.01, Math.max(0.01, Math.acos(offset.z / r) - arrow[1] * KEY_STEP));
+      camera.position.set(controls.target.x + r * Math.sin(phi) * Math.cos(theta), controls.target.y + r * Math.sin(phi) * Math.sin(theta), controls.target.z + r * Math.cos(phi));
+    } else if (arrow) {
+      const step = offset.length() * 0.1;
+      const move = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0).multiplyScalar(arrow[0] * step)
+        .add(new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1).multiplyScalar(arrow[1] * step));
+      camera.position.add(move);
+      controls.target.add(move);
+    } else if (e.key === '+' || e.key === '=' || e.key === '-' || e.key === '_') {
+      camera.position.copy(controls.target).add(offset.multiplyScalar(e.key === '+' || e.key === '=' ? 0.8 : 1.25));
+    } else if (e.key === '0' || e.key === 'Home') {
+      e.preventDefault();
+      fit();
+      return;
+    } else return;
+    e.preventDefault();
+    controls.update();
+    updateZoom();
+    invalidate();
+  }
+
   function resize() {
     if (!renderer) return;
     const w = container.clientWidth;
@@ -300,18 +350,19 @@
   {#if toolbar}<div class="sfv-toolbar">{@render toolbar()}</div>{/if}
   <div class="sfv-navigation">
     <div class="camera-controls">
-      <div class="cam-menu-wrap">
-        <button class="cam-btn cam-cube" class:on={menuOpen} onclick={() => (menuOpen = !menuOpen)} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="cam-menu-wrap" onkeydown={onMenuKey}>
+        <button bind:this={menuTrigger} class="cam-btn cam-cube" class:on={menuOpen} onclick={toggleMenu} title={t('scalarViewer.view')} aria-label={t('scalarViewer.viewOptions')} aria-expanded={menuOpen}>
           <Icon name="viewCube" size={17} />
           <span class="cam-caret" aria-hidden="true"></span>
         </button>
         {#if menuOpen}
-          <button class="cam-backdrop" onclick={() => (menuOpen = false)} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
-          <div class="cam-menu">
-            <button class="cam-item" onclick={() => { menuOpen = false; fit(); }}><span class="cam-glyph">⤢</span><span>{t('scalarViewer.fit')}</span></button>
+          <button class="cam-backdrop" onclick={closeMenu} aria-label={t('scalarViewer.close')} tabindex="-1"></button>
+          <div class="cam-menu" bind:this={menu}>
+            <button class="cam-item" onclick={() => { closeMenu(); fit(); }}><span class="cam-glyph">⤢</span><span>{t('scalarViewer.fit')}</span></button>
             <div class="cam-sep"></div>
-            <button class="cam-item" class:on={projection === 'plan'} onclick={() => setProjection('plan')}><span class="cam-glyph">⊤</span><span>{t('scalarViewer.plan')}</span></button>
-            <button class="cam-item" class:on={projection === 'orbit'} onclick={() => setProjection('orbit')}><span class="cam-glyph">◇</span><span>{t('scalarViewer.orbit')}</span></button>
+            <button class="cam-item" class:on={projection === 'plan'} onclick={() => { setProjection('plan'); closeMenu(); }}><span class="cam-glyph">⊤</span><span>{t('scalarViewer.plan')}</span></button>
+            <button class="cam-item" class:on={projection === 'orbit'} onclick={() => { setProjection('orbit'); closeMenu(); }}><span class="cam-glyph">◇</span><span>{t('scalarViewer.orbit')}</span></button>
           </div>
         {/if}
       </div>
@@ -320,8 +371,9 @@
     </div>
   </div>
   <div class="sfv viewport-container" style:height>
-    <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
-    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
+    <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+    <div class="sfv-canvas" bind:this={container} role="application" aria-label={ariaLabel} title={t('scalarViewer.keyboard')} tabindex="0" onkeydown={onViewKey}></div>
+    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80" aria-hidden="true"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}

@@ -71,6 +71,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Open in the editor",
   "scalarViewer.soon": " (soon)",
   "scalarViewer.editorNote": "Opening experiments in the editor comes with research mode",
+  "scalarViewer.keyboard": "Keyboard: arrow keys pan, Shift+arrows orbit in 3D, + and - zoom, 0 fits the view",
   },
   es: {
   "tools.firstVersion": "Primera versión",
@@ -143,6 +144,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Abrir en el editor",
   "scalarViewer.soon": " (próximamente)",
   "scalarViewer.editorNote": "La apertura de experimentos en el editor llega con el modo investigación",
+  "scalarViewer.keyboard": "Teclado: las flechas desplazan, Mayús+flechas orbitan en 3D, + y - hacen zoom, 0 ajusta la vista",
   },
   pt: {
   "tools.firstVersion": "Primeira versão",
@@ -215,6 +217,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Abrir no editor",
   "scalarViewer.soon": " (em breve)",
   "scalarViewer.editorNote": "A abertura de experimentos no editor chega com o modo pesquisa",
+  "scalarViewer.keyboard": "Teclado: as setas deslocam, Shift+setas orbitam em 3D, + e - dão zoom, 0 ajusta a vista",
   },
   de: {
   "tools.firstVersion": "Erste Version",
@@ -287,6 +290,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Im Editor öffnen',
   'scalarViewer.soon': ' (bald)',
   'scalarViewer.editorNote': 'Das Öffnen von Experimenten im Editor kommt mit dem Forschungsmodus',
+  'scalarViewer.keyboard': 'Tastatur: Pfeiltasten verschieben, Umschalt+Pfeile drehen in 3D, + und - zoomen, 0 passt die Ansicht ein',
   },
   fr: {
   "tools.firstVersion": "Première version",
@@ -359,6 +363,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Ouvrir dans l’éditeur',
   'scalarViewer.soon': ' (bientôt)',
   'scalarViewer.editorNote': 'L’ouverture des expériences dans l’éditeur arrive avec le mode recherche',
+  'scalarViewer.keyboard': 'Clavier : les flèches déplacent, Maj+flèches font orbiter en 3D, + et - zooment, 0 ajuste la vue',
   },
   tr: {
   "tools.firstVersion": "İlk sürüm",
@@ -431,5 +436,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Düzenleyicide aç',
   'scalarViewer.soon': ' (yakında)',
   'scalarViewer.editorNote': 'Deneyleri düzenleyicide açma, araştırma moduyla gelecek',
+  'scalarViewer.keyboard': 'Klavye: oklar kaydırır, Shift+oklar 3B’de döndürür, + ve - yakınlaştırır, 0 görünümü sığdırır',
   },
 };

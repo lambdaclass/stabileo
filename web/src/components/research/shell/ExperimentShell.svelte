@@ -37,8 +37,10 @@
     compactHeader?: boolean;
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
+    /** Language of name, lead and article when the page has its own translation beyond the shared research dictionary. */
+    contentLang?: string | null;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true, contentLang = null }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -60,14 +62,14 @@
         {referenceLabel}
       />
       <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
-      <p class="rs-lead" lang={researchLocale()}>{lead}</p>
+      <p class="rs-lead" lang={contentLang ?? researchLocale()}>{lead}</p>
 {/snippet}
 
-<section class="sec sec--ink rs-shell">
+<section class="sec sec--ink rs-shell" class:rs-compact-shell={compactHeader}>
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={researchLocale()}>{name}</h1>
+      <h1 lang={contentLang ?? researchLocale()}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
@@ -108,6 +110,11 @@
   }
   @media (max-width: 700px) {
     .rs-compact .rs-cite { display: none; }
+  }
+  @media (max-height: 500px) {
+    .rs-compact-shell { padding-top: 1rem; }
+    .rs-compact { margin-bottom: 0.75rem; }
+    .rs-compact h1 { font-size: 1.5rem; margin: 0.25rem 0 0.25rem; max-width: none; }
   }
   .rs-crumb,
   .rs-cite {
