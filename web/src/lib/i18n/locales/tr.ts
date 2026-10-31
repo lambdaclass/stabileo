@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "advanced.finiteSpectrum": "Yalnızca {n} sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
   "recheck.saveAndReload": "Açık projeleri kaydet ve sayfayı yeniden yükle",
   "recheck.recoveryFailed": "Projeler tarayıcıya kaydedilemedi. Sayfa yeniden yüklenmedi. Çalışmanızı korumak için oturum yedeğini indirin.",
   "recheck.downloadBackup": "Tüm açık projeleri indir",

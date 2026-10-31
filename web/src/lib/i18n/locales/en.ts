@@ -1,4 +1,5 @@
 const en: Record<string, string> = {
+  "advanced.finiteSpectrum": "Only {n} finite modes exist. Massless directions have no finite frequency.",
   "landing.navTools": "Tools",
 
   // Shared scalar-field viewer

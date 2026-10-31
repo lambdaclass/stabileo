@@ -37,7 +37,7 @@ even when no snapshot changes. New entries cannot reuse a released version, and
 released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
 version 5 while main was at 4: whichever merges second must preserve the first
 PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. Version 5 here remains provisional until merge.
+and hashes, and documentation. #814 released version 5; #827 (modal completeness, issue #759) took 6.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,

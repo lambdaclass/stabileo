@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
   "landing.navTools": "Werkzeuge",
 
   // ─── Shared scalar-field viewer ───

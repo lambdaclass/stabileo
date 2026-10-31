@@ -1154,3 +1154,91 @@ mod tests {
         }
     }
 }
+
+/// Sylvester inertia via sparse, unpivoted LDLᵀ on the Cholesky fill pattern.
+/// Negative D entries count negative eigenvalues. Unreliable/zero pivots are
+/// refused, never regularized: callers may move their spectral shift and retry.
+/// Storage is O(nnz(L) + n), with no dense matrix allocation.
+pub fn sparse_negative_inertia(sym: &SymbolicCholesky, a: &CscMatrix) -> Option<usize> {
+    if a.n != sym.n || structural_fingerprint(a) != sym.pa_fingerprint { return None; }
+    let n = a.n;
+    let mut l = vec![0.0f64; sym.l_nnz];
+    let mut d = vec![0.0; n];
+    let mut x = vec![0.0; n];
+    let mut contributors = vec![Vec::new(); n];
+    for j in 0..n {
+        for p in sym.l_col_ptr[j]+1..sym.l_col_ptr[j+1] {
+            contributors[sym.l_row_idx[p]].push((j,p));
+        }
+    }
+    let mut negative = 0;
+    for j in 0..n {
+        let range = sym.l_col_ptr[j]..sym.l_col_ptr[j+1];
+        for p in range.clone() { x[sym.l_row_idx[p]] = 0.0; }
+        for p in sym.pa_col_ptr[j]..sym.pa_col_ptr[j+1] {
+            x[sym.pa_row_idx[p]] = a.values[sym.pa_src[p]];
+        }
+        let mut scale = x[j].abs();
+        for &(k, pos) in &contributors[j] {
+            let factor = d[k] * l[pos];
+            scale += (factor * l[pos]).abs();
+            for p in pos..sym.l_col_ptr[k+1] { x[sym.l_row_idx[p]] -= factor * l[p]; }
+        }
+        let pivot = x[j];
+        if !pivot.is_finite() || pivot.abs() <= 64.0 * f64::EPSILON * scale.max(f64::MIN_POSITIVE) { return None; }
+        d[j] = pivot;
+        negative += usize::from(pivot < 0.0);
+        l[range.start] = 1.0;
+        for p in range.start+1..range.end {
+            l[p] = x[sym.l_row_idx[p]] / pivot;
+            if !l[p].is_finite() { return None; }
+        }
+    }
+    Some(negative)
+}
+
+#[cfg(test)]
+mod inertia_tests {
+    use super::*;
+    #[test]
+    fn inertia_matches_dense_spectrum() {
+        for n in [3, 17, 81] {
+            let mut a = vec![0.0; n*n];
+            for i in 0..n {
+                a[i*n+i] = i as f64 * 0.3 - 2.13;
+                if i > 0 { a[i*n+i-1] = 0.7; a[(i-1)*n+i] = 0.7; }
+            }
+            let expected = crate::linalg::jacobi::jacobi_eigen(&a,n,200).values.iter().filter(|&&v| v < 0.0).count();
+            let c = CscMatrix::from_dense_symmetric(&a,n);
+            for order in [CholOrdering::Amd, CholOrdering::Rcm] {
+                assert_eq!(sparse_negative_inertia(&symbolic_cholesky_with(&c,order),&c),Some(expected));
+            }
+        }
+    }
+    #[test]
+    fn inertia_preserves_multiplicity_under_congruence_and_scaling() {
+        let n = 24;
+        // A = L D Lᵀ: Sylvester's law gives exactly eight negative values,
+        // independently of ordering, scale, or the off-diagonal coupling.
+        let mut l = vec![0.0; n*n];
+        for i in 0..n {
+            l[i*n+i] = 1.0;
+            for j in 0..i { l[i*n+j] = ((i*13+j*7)%11) as f64 / 40.0; }
+        }
+        for scale in [1e-12,1.0,1e12] {
+            let mut dense = vec![0.0;n*n];
+            for i in 0..n { for j in 0..n {
+                dense[i*n+j] = scale*(0..n).map(|k| l[i*n+k]*l[j*n+k]*if k < 8 { -2.0 } else { 3.0 }).sum::<f64>();
+            }}
+            let a = CscMatrix::from_dense_symmetric(&dense,n);
+            assert_eq!(sparse_negative_inertia(&symbolic_cholesky(&a),&a),Some(8));
+        }
+    }
+    #[test]
+    fn zero_and_nonfinite_pivots_refuse() {
+        for v in [0.0, f64::NAN, f64::INFINITY] {
+            let a = CscMatrix::from_triplets(2,&[0,1],&[0,1],&[v,-1.0]);
+            assert_eq!(sparse_negative_inertia(&symbolic_cholesky(&a),&a),None);
+        }
+    }
+}

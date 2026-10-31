@@ -1,6 +1,7 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "advanced.finiteSpectrum": "Il existe seulement {n} modes finis. Les directions sans masse n’ont pas de fréquence finie.",
   "landing.navTools": "Outils",
 
   // ─── Shared scalar-field viewer ───

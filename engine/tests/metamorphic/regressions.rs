@@ -596,3 +596,21 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(r.warnings.iter().any(|w| w.contains("no consistent set of active hinges") && w.contains("lower bound")), "{:?}", r.warnings);
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
+
+/// A general rotation makes the semidefinite drilling-mass reduction refuse
+/// this shell, selecting the direct harmonic fallback. Both paths must use
+/// the same Rayleigh anchors even though the sweep keeps only one mode.
+#[test]
+fn harmonic_shell_rotation_preserves_damping_across_fallback() {
+    let s = serde_json::from_str(include_str!(
+        "../metamorphic_corpus/feature_matrix/3d-quad-shell--mitc4--strip-cantilever------0-with.json"
+    )).unwrap();
+    let c = crate::case::Case3::new(
+        "feature_matrix/3d-quad-shell--mitc4--strip-cantilever------0-with", s,
+    );
+    let tally = crate::tally::Tally::default();
+    let ctx = crate::checks3::Ctx { tally: &tally, rng_seed: 20261018 };
+    let analyses: Vec<_> = crate::ana3::rows().into_iter().filter(|a| a.name == "harmonic").collect();
+    crate::checks3::check_case(&ctx, &c, &analyses, &["rotation"]);
+    assert_eq!(tally.status("harmonic", "rotation"), "holds", "{}", tally.report());
+}

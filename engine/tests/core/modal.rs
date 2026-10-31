@@ -268,3 +268,61 @@ fn rayleigh_delivers_the_requested_ratio_at_the_real_fundamental() {
          xi_eff={xi_eff:.4} ({ratio:.1}x). a0={a0:.4e} a1={a1:.4e}"
     );
 }
+
+#[test]
+fn modal_near_zero_modes_refuse_partial_results() {
+    let mut input = make_ss_beam_udl(8, L, E * 1e-16, A, IZ, 0.0);
+    input.loads.clear();
+    let error = modal::solve_modal_2d(&input, &make_densities(), 6).unwrap_err();
+    assert!(error.starts_with("Eigenvalue decomposition failed:"), "{error}");
+    assert!(error.contains("completeness"), "{error}");
+    assert!(error.contains("no incomplete modes"), "{error}");
+}
+
+#[test]
+fn modal_massless_directions_return_finite_modes_with_diagnostic() {
+    let mut input = make_input(
+        vec![(1, 0.0, 0.0), (2, L, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, A, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")], vec![],
+    );
+    input.masses.nodal.push(serde_json::from_value(serde_json::json!({
+        "nodeId": 2, "mass": 1.0
+    })).unwrap());
+    let result = modal::solve_modal_2d(&input, &HashMap::new(), 3).unwrap();
+    assert_eq!(result.modes.len(), 2);
+    let diagnostic = result.finite_spectrum_diagnostic.as_ref().unwrap();
+    assert!(diagnostic.contains("all 2 finite modes"));
+    assert!(diagnostic.contains("Sturm"));
+    let expected = [3.0 * EI / L.powi(3), E * 1000.0 * A / L];
+    for (mode, lambda) in result.modes.iter().zip(expected) {
+        assert!((mode.omega.powi(2) / lambda - 1.0).abs() < 1e-10);
+    }
+    let serialized = serde_json::to_value(&result).unwrap();
+    assert_eq!(serialized["finiteSpectrumDiagnostic"], *diagnostic);
+}
+
+#[test]
+fn modal_3d_massless_directions_return_finite_modes_with_diagnostic() {
+    let mut input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, L, 0.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, A, IZ, IZ, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true;6])], vec![],
+    );
+    input.masses.nodal.push(serde_json::from_value(serde_json::json!({
+        "nodeId": 2, "mass": 1.0
+    })).unwrap());
+    let result = modal::solve_modal_3d(&input, &HashMap::new(), 6).unwrap();
+    assert_eq!(result.modes.len(), 3);
+    let diagnostic = result.finite_spectrum_diagnostic.as_ref().unwrap();
+    assert!(diagnostic.contains("all 3 finite modes"));
+    assert!(diagnostic.contains("Sturm"));
+    let expected = [3.0 * EI / L.powi(3), 3.0 * EI / L.powi(3), E * 1000.0 * A / L];
+    for (mode, lambda) in result.modes.iter().zip(expected) {
+        assert!((mode.omega.powi(2) / lambda - 1.0).abs() < 1e-10);
+    }
+    let serialized = serde_json::to_value(&result).unwrap();
+    assert_eq!(serialized["finiteSpectrumDiagnostic"], *diagnostic);
+}

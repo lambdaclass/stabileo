@@ -126,6 +126,7 @@ export interface RayleighDamping {
 }
 
 export interface ModalResult {
+  finiteSpectrumDiagnostic?: string;
   modes: ModeShape[];
   nDof: number;
   totalMass: number;
@@ -155,6 +156,7 @@ export interface ModeShape3D {
 }
 
 export interface ModalResult3D {
+  finiteSpectrumDiagnostic?: string;
   modes: ModeShape3D[];
   nDof: number;
   totalMass: number;

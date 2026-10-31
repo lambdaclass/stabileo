@@ -11,6 +11,7 @@
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
   import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
@@ -77,7 +78,7 @@
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -283,7 +284,7 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
@@ -1056,6 +1057,7 @@
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
       {#if modalResult}
+        <FiniteSpectrumWarning result={modalResult} />
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}

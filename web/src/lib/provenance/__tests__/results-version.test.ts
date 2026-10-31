@@ -48,6 +48,7 @@ const RELEASED: Record<number, string[]> = {
     'strip-footings-under-walls-whole-strip',
   ],
   5: ['solid-shell-local-stress-axes'],
+  6: ['modal-repeated-eigenspace-completeness'],
 };
 
 describe('results versions', () => {
@@ -57,6 +58,19 @@ describe('results versions', () => {
     const sorted = (r: Record<number, string[]>) => Object.fromEntries(Object.entries(r).map(([v, ids]) => [v, [...ids].sort()]));
     expect(sorted(byVersion)).toEqual(sorted(RELEASED));
     expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
+  });
+
+  it('tells a version 4 or 5 frame about modal completeness until it is re-solved', () => {
+    const frame: FeatureSnapshot = {
+      analysisMode: 'pro',
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    };
+    const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
+    expect(assessProject(frame, stamp, 'pro').changes.map((c) => c.id))
+      .toEqual(['modal-repeated-eigenspace-completeness']);
+    expect(assessProject(frame, { ...stamp, resultsVersion: 5 }, 'pro').changes.map((c) => c.id))
+      .toEqual(['modal-repeated-eigenspace-completeness']);
+    expect(assessProject(frame, { ...stamp, resultsVersion: 6 }, 'pro').changes).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {
