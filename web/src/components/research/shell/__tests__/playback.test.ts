@@ -98,3 +98,18 @@ it('a queued visibility notification cannot restart a disposed timer', () => {
     expect(vi.getTimerCount()).toBe(0);
   } finally { vi.useRealTimers(); }
 });
+
+it('uses a step duration changed after construction on the next tick', () => {
+  vi.useFakeTimers();
+  try {
+    const p = new Playback(100, 500);
+    p.setCount(4);
+    p.stepMs = 300;
+    p.play();
+    vi.advanceTimersByTime(299);
+    expect(p.shown).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(p.shown).toBe(1);
+    p.dispose();
+  } finally { vi.useRealTimers(); }
+});

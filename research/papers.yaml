@@ -926,9 +926,14 @@ papers:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - round: 2
+    reviewers: [kimi, codex, claude]
+    date: "2026-10-30"
   reproduced_published_results: false
-  benchmarks: []
-  implementation: null
+  benchmarks:
+  - undamped SDOF step response against the exact solution u(t) = (F/k)(1 - cos wt)
+  - average-acceleration discrete solution and period T_n = pi dt / atan(w dt / 2) at dt/T = 0.025, 0.05, 0.1, 0.2
+  implementation: benchmarks/newmark-1959
   page: web/src/components/research/newmark1959/NewmarkPage.svelte
   contacts: []
 - id: cqc-1981
