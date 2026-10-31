@@ -865,7 +865,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reproduction of",
     implementationLabel: ". Implementation:",
     atCommit: "at commit",
-    engineCitation: ". Engine: the Stabileo engine at the same commit. Permanent links to this exact build are planned.",
+    engineCitation: ". Engine: the Stabileo engine at the same commit.",
     theExperiment: "The experiment",
     experiment: "Experiment",
     viewerUnavailable: "Stabileo’s viewer couldn’t be loaded in this build.",
@@ -1317,7 +1317,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reproducción de",
     implementationLabel: ". Implementación:",
     atCommit: "en el commit",
-    engineCitation: ". Motor: el motor de Stabileo en el mismo commit. Se prevén enlaces permanentes a esta compilación exacta.",
+    engineCitation: ". Motor: el motor de Stabileo en el mismo commit.",
     theExperiment: "El experimento",
     experiment: "Experimento",
     viewerUnavailable: "No se pudo cargar el visor de Stabileo en esta compilación.",
@@ -1769,7 +1769,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reprodução de",
     implementationLabel: ". Implementação:",
     atCommit: "no commit",
-    engineCitation: ". Motor: o motor do Stabileo no mesmo commit. Estão previstos links permanentes para esta compilação exata.",
+    engineCitation: ". Motor: o motor do Stabileo no mesmo commit.",
     theExperiment: "O experimento",
     experiment: "Experimento",
     viewerUnavailable: "Não foi possível carregar o visualizador do Stabileo nesta compilação.",
@@ -1812,11 +1812,83 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   },
 };
 
+const sharedTranslations: Record<string, Partial<ResearchStrings>> = {
+  "de": {
+    "afterAuthors": "Nach",
+    "citeThis": "Zitieren",
+    "citationTitle": "Stabileo Research, „",
+    "reproductionOf": "“, Reproduktion von",
+    "implementationLabel": ". Implementierung:",
+    "atCommit": "bei Commit",
+    "engineCitation": ". Motor: Stabileo im selben Commit.",
+    "theExperiment": "Das Experiment",
+    "research": "Forschung",
+    "againstCode": "Vergleich mit dem Autorencode",
+    "againstPaper": "Vergleich mit dem Artikel",
+    "of": "von",
+    "checksPass": "Prüfungen bestanden",
+    "seeChecks": "Prüfungen ansehen",
+    "disclaimer": "Forschung, kein Bemessungswerkzeug. Dies sind keine Ergebnisse für die Ingenieurpraxis.",
+    "replaySource": "Aufzeichnung einer mit diesem Löser vorberechneten Ausführung",
+    "liveSource": "Live-Berechnung im Browser",
+    "step": "Schritt",
+    "tolerance": "Toleranz",
+    "viewerUnavailable": "Der Stabileo-Viewer konnte nicht geladen werden."
+  },
+  "fr": {
+    "afterAuthors": "D’après",
+    "citeThis": "Citer",
+    "citationTitle": "Stabileo Research, «",
+    "reproductionOf": "», reproduction de",
+    "implementationLabel": ". Implémentation :",
+    "atCommit": "au commit",
+    "engineCitation": ". Moteur : Stabileo au même commit.",
+    "theExperiment": "L’expérience",
+    "research": "Recherche",
+    "againstCode": "Comparaison au code des auteurs",
+    "againstPaper": "Comparaison à l’article",
+    "of": "sur",
+    "checksPass": "vérifications réussies",
+    "seeChecks": "voir les vérifications",
+    "disclaimer": "Recherche, pas un outil de dimensionnement. Aucun résultat ne constitue une étude d’ingénierie.",
+    "replaySource": "Séquence précalculée avec ce solveur",
+    "liveSource": "Calcul en direct dans votre navigateur",
+    "step": "étape",
+    "tolerance": "Tolérance",
+    "viewerUnavailable": "Le visualiseur Stabileo n’a pas pu être chargé."
+  },
+  "tr": {
+    "afterAuthors": "Kaynak",
+    "citeThis": "Atıf yap",
+    "citationTitle": "Stabileo Research, “",
+    "reproductionOf": "”, yeniden üretim:",
+    "implementationLabel": ". Uygulama:",
+    "atCommit": "commit",
+    "engineCitation": ". Motor: aynı commit içindeki Stabileo.",
+    "theExperiment": "Deney",
+    "research": "Araştırma",
+    "againstCode": "Yazar koduyla karşılaştırma",
+    "againstPaper": "Makaleyle karşılaştırma",
+    "of": "/",
+    "checksPass": "kontrol başarılı",
+    "seeChecks": "kontrolleri gör",
+    "disclaimer": "Araştırma içindir, tasarım aracı değildir. Buradaki veriler mühendislik sonucu değildir.",
+    "replaySource": "Bu çözücüyle önceden hesaplanan kaydın oynatımı",
+    "liveSource": "Tarayıcınızda canlı hesaplama",
+    "step": "adım",
+    "tolerance": "Tolerans",
+    "viewerUnavailable": "Stabileo görüntüleyicisi yüklenemedi."
+  }
+};
+
 export function rs(): ResearchStrings {
-  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...(galleryStrings[publicI18n.locale] ?? galleryStrings.en) };
+  return { ...(STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en), ...sharedTranslations[publicI18n.locale], ...(galleryStrings[publicI18n.locale] ?? galleryStrings.en) };
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
+  de: { metamaterials: 'Metamaterialien' },
+  fr: { metamaterials: 'Métamatériaux' },
+  tr: { metamaterials: 'Metamalzemeler' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },

@@ -18,6 +18,7 @@
   import { BUILD_COMMIT } from '../../../lib/build-info';
 
   type Props = {
+    contentLocale?: string;
     paperId: string;
     citationAuthors?: string;
     name: string;
@@ -38,7 +39,7 @@
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
+  let { contentLocale = researchLocale(), paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -60,18 +61,18 @@
         {referenceLabel}
       />
       <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
-      <p class="rs-lead" lang={researchLocale()}>{lead}</p>
+      <p class="rs-lead" lang={contentLocale}>{lead}</p>
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={researchLocale()}>{name}</h1>
+      <h1 lang={contentLocale}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
-      <article class="rs-shell-article rs-prose" lang={researchLocale()}>
+      <article class="rs-shell-article rs-prose" lang={contentLocale}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
@@ -79,7 +80,7 @@
           {s.citationTitle}{name}{s.reproductionOf} {authors} ({paper.crossref.year}{"), doi:"}{paper.doi}{s.implementationLabel} <a href="https://github.com/lambdaclass/stabileo/tree/{commit}/{sourcePath}" rel="noreferrer" target="_blank">{sourcePath} {s.atCommit} {commit}</a>{s.engineCitation}
         </p>
       </article>
-      <aside class="rs-shell-app" aria-label={s.theExperiment}>
+      <aside lang={contentLocale} class="rs-shell-app" aria-label={s.theExperiment}>
         {@render app()}
       </aside>
     </div>
@@ -169,6 +170,7 @@
     display: none;
   }
   .rs-shell-article {
+    overflow-wrap: anywhere;
     max-width: var(--rs-measure);
   }
   .rs-shell-article :global(a) {

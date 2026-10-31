@@ -9,7 +9,9 @@ await init({ module_or_path: fs.readFileSync(path.join(bundle, 'arches_bg.wasm')
 const replay = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'reference-results/replay.json')));
 const run = JSON.parse(simulation_run(.7, .012));
 assert.ok(Math.abs(run.threshold - replay.threshold) < 1e-8);
+assert.equal(run.frames.length, replay.frames.length);
 for (let i = 0; i < run.frames.length; i++) {
+  for (const key of ['alpha', 'force']) assert.ok(Math.abs(run.frames[i][key] - replay.frames[i][key]) < 1e-8);
   for (let j = 0; j < run.frames[i].y.length; j++) assert.ok(Math.abs(run.frames[i].y[j] - replay.frames[i].y[j]) < 1e-8);
 }
 assert.throws(() => simulation_run(NaN, .012));

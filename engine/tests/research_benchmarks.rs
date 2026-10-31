@@ -680,8 +680,17 @@ mod arches {
         let m = basis(64, 16).unwrap();
         relative(m[0].force, 4. * std::f64::consts::PI.powi(2), 1e-5);
         relative(m[1].force, 80.7629142257, 1e-5);
+        let replay: serde_json::Value = serde_json::from_str(include_str!(
+            "../../research/mechanics/biggins-2026/reference-results/replay.json"
+        ))
+        .unwrap();
+        for p in replay["curve"].as_array().unwrap() {
+            assert!(
+                (threshold(&m, p[0].as_f64().unwrap()).0 - p[1].as_f64().unwrap()).abs() < 1e-8
+            );
+        }
         let value = threshold(&m, 0.7).0;
-        assert!((value - 21.52).abs() < 0.02, "threshold={value}");
+        assert!((value - 21.52).abs() < 0.005, "threshold={value}");
     }
 }
 

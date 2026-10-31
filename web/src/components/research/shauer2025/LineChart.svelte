@@ -1,9 +1,10 @@
 <script lang="ts">
   /**
    * Lines on one shared y axis. Reference series are drawn first as a wide translucent underlay and
-   * ours on top as a thin line, so agreement reads as a line inside a halo. Series are labelled on
-   * the plot (`labels`), not in a legend box. A crosshair tooltip reads every series at the nearest x.
+   * ours on top as a thin line, so agreement reads as a line inside a halo. A legend and a data table
+   * sit below the plot; a crosshair tooltip reads every series at the nearest x.
    */
+  import { chartStrings } from '../shell/chart-strings';
   import type { Series } from './protocol';
   import { num, tickDecimals } from '../shell/format';
 
@@ -33,6 +34,7 @@
     rules?: { y: number; text: string }[];
   } = $props();
 
+  const strings = $derived(chartStrings());
   let width = $state(600);
   let hoverX = $state<number | null>(null);
   const M = { l: 48, r: 28, t: 22, b: 36 };
@@ -100,7 +102,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label="{yLabel} against {xLabel}" onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={strings.axes.replace('{y}', yLabel).replace('{x}', xLabel)} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="75%">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
@@ -146,8 +148,14 @@
       <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'}>{l.text}</text>
     {/each}
   </svg>
+  <ul class="legend">{#each series as s}<li><span class="sw" style:background={s.color}></span>{s.name}</li>{/each}</ul>
+  <details><summary>{strings.table}</summary>
+    {#each series as s}<table><caption>{s.name}</caption><thead><tr><th>{xLabel}</th><th>{yLabel}</th></tr></thead><tbody>
+      {#each s.points as p}<tr><td>{fmtVal(p[0])}</td><td>{fmtVal(p[1])}</td></tr>{/each}
+    </tbody></table>{/each}
+  </details>
   {#if readout}
-    <div class="readout" style:left="{Math.min(sx(readout.x) + 10, width - 230)}px">
+    <div class="readout" style:left="{Math.max(0, Math.min(sx(readout.x) + 10, width - 230))}px">
       <div class="rx">{xLabel}: {fmtVal(readout.x)}</div>
       {#each readout.rows as r (r.s.name)}
         {#if r.p}<div><span class="sw" style:background={r.s.color}></span>{r.s.name}: {fmtVal(r.p[1])}</div>{/if}
@@ -157,6 +165,9 @@
 </div>
 
 <style>
+  .legend { list-style: none; padding: 0; font-size: max(12px, var(--rs-micro)); }
+  summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; font-size: max(12px, var(--rs-micro)); }
+  table { width: 100%; table-layout: fixed; overflow-wrap: anywhere; font-size: max(12px, var(--rs-micro)); }
   .chart {
     position: relative;
     width: 100%;
@@ -208,7 +219,11 @@
     font-variant-numeric: tabular-nums;
     padding: 0.35rem 0.55rem;
     border-radius: 3px;
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-sizing: border-box;
+    width: 230px;
+    max-width: 100%;
   }
   .rx {
     color: var(--fg-2);

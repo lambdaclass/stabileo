@@ -7,7 +7,7 @@
       "passed": true,
       "reference": 21.52,
       "source": "Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)",
-      "tolerance": 0.02
+      "tolerance": 0.005
     }
   ]
 }
