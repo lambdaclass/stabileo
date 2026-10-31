@@ -1,4 +1,4 @@
-export function scalarFieldScale(height: number, distance: number, fovDegrees: number): string {
+export function scalarFieldScale(height: number, distance: number, fovDegrees: number, lengthUnit = 'unit'): string {
   const visible = 2 * distance * Math.tan(fovDegrees * Math.PI / 360);
-  return `${(height / visible).toPrecision(3)} px/unit`;
+  return `${(height / visible).toPrecision(3)} px/${lengthUnit}`;
 }

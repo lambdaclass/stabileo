@@ -74,6 +74,10 @@
     editorButton?: boolean;
     /** Geometry overlays use colour categories, not a physical scalar field. */
     geometryOnly?: boolean;
+    /** Length unit of the coordinates, for the zoom readout. */
+    lengthUnit?: string;
+    /** Hide the axis triad when the drawn plane is not the global XY plane. */
+    showAxes?: boolean;
   };
   let {
     xy,
@@ -103,6 +107,8 @@
     openEditorNote,
     editorButton = true,
     geometryOnly = false,
+    lengthUnit,
+    showAxes = true,
   }: Props = $props();
 
   let container: HTMLDivElement;
@@ -221,7 +227,7 @@
   function updateZoom() {
     if (!renderer) return;
     const d = camera.position.distanceTo(controls.target);
-    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov);
+    zoomText = scalarFieldScale(container.clientHeight, d, camera.fov, lengthUnit);
   }
 
   onMount(() => {
@@ -321,7 +327,7 @@
   </div>
   <div class="sfv viewport-container" style:height>
     <div class="sfv-canvas" bind:this={container} role="img" aria-label={ariaLabel}></div>
-    <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80"></canvas>
+    <canvas bind:this={gizmo} class="axis-gizmo" class:sfv-hidden={!showAxes} width="80" height="80"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
       <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
     {/if}
@@ -398,9 +404,15 @@
     font: 600 12px var(--st-sans);
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--st-text-3);
+    color: var(--st-text-2);
     pointer-events: none;
   }
+  .sfv-hidden { display: none !important; }
+  .sfv-wrap :global(.cam-item) { min-height: 44px; font-size: 12px; }
+  .sfv-wrap :global(.cam-group-title),
+  .sfv-wrap :global(.cam-two small),
+  .sfv-wrap :global(.status-bar),
+  .sfv-wrap :global(.status-label) { font-size: 12px; }
   .sfv-wrap :global(.cam-btn), .sfv-wrap :global(.cam-item) { min-width: 44px; min-height: 44px; font-size: 12px; }
   .sfv-wrap :global(.shell-legend), .sfv-wrap :global(.legend-unit-inline) { font-size: 12px; }
   .sfv-status :global(.status-value) {
@@ -410,7 +422,7 @@
   }
   .sfv-status :global(.status-label) {
     color: var(--st-text-2);
-    font-size: 0.75rem;
+    font-size: 12px;
   }
   .sfv-status {
     flex-wrap: wrap;
@@ -425,7 +437,7 @@
     border-radius: 4px;
     color: var(--st-text-2);
     min-height: 44px;
-    font: 0.75rem var(--st-sans);
+    font: 12px var(--st-sans);
     padding: 0.1rem 0.5rem;
     cursor: pointer;
   }

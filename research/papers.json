@@ -1215,7 +1215,7 @@
    ],
    "dependencies": [],
    "complexity": "low",
-   "relevance": "One textbook-style portal following Horne sections 2.2 and 2.4, with explicitly chosen dimensions and hand-derived mechanism bounds. Publisher attribution: M. R. Horne; Crossref book record omits authors.",
+   "relevance": "One portal with our own dimensions, checked against independent hand derivations of the beam, sway and combined mechanism bounds by the virtual-work method that Horne presents (cited as background; no page or equation numbers checked). Publisher attribution: M. R. Horne; Crossref book record omits authors.",
    "status": "proposed",
    "stage": "first-version",
    "reviews": [
@@ -1224,6 +1224,15 @@
      "reviewers": [
       "codex",
       "kimi"
+     ],
+     "date": "2026-10-30"
+    },
+    {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
      ],
      "date": "2026-10-30"
     }
