@@ -30,7 +30,7 @@ export type ResearchStrings = {
   ferrariLambda: string;
   ferrariViewer: string;
   ferrariDisclaimer: string;
-  ferrariPending: string;
+  ferrariComparison: string;
   formPositionError: string;
   formForceError: string;
   formTitle: string;
@@ -455,15 +455,15 @@ export type ResearchStrings = {
 
 const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   en: {
-    ferrariNumbers: "With 10 elements per member, |λ₁ − {reference}| = {error}, below the {tolerance} tolerance. The maximum scaled derivative discrepancy is {derivative}, below {derivativeTolerance}. These are checks of the implemented subset only.",
-    ferrariTitle: "Roorda frame: reproduction in progress",
-    ferrariLead: "Production buckling and an imperfect nonlinear path. The Koiter coefficient comparison is unfinished.",
+    ferrariNumbers: "With {elements} elements per member, |λ₁ − {reference}| = {error}, below the {tolerance} tolerance. The maximum scaled derivative discrepancy is {derivative}, below {derivativeTolerance}. These are checks of the implemented subset only.",
+    ferrariTitle: "Roorda frame: buckling and nonlinear path",
+    ferrariLead: "Buckling compared with the published scalar values; the imperfect arc-length path is checked against the native solver replay.",
     ferrariScope: "What is reproduced",
     ferrariScopeText: "This first version checks the critical load of the simple frame in §2.1.2, using the production engine. It also traces one imperfect path with the production corotational arc-length solver. The path is not a validated reproduction of Figure 2b.",
-    ferrariModel: "Two 1 m members, pinned at the outer ends and rigidly joined at the corner. E = 21 MPa, A = {area} m², J = 10⁻⁴/12 m⁴. A downward 1 kN reference load acts at the corner. The path adds a +{moment} kN·m reference moment; there are 10 elements per member.",
+    ferrariModel: "Two {length} m members, pinned at the outer ends and rigidly joined at the corner. E = {young} MPa, A = {area} m², J = {inertia} m⁴. A downward {force} kN reference load acts at the corner. The path adds a +{moment} kN·m reference moment; there are {elements} elements per member.",
     ferrariEvidence: "Evidence and limitations",
-    ferrariEvidenceText: "The production linear buckling load is compared with the paper. Every element energy partial derivative through order four is checked by central differences at three states. These checks validate derivatives of the production-style beam energy; they do not validate Koiter coefficients.",
-    ferrariMissing: "Not yet reproduced: α, β, the second-order displacement correction, closed-form post-buckling coefficients, and near-bifurcation agreement between Koiter and arc-length paths. Optimisation, multiple modes, larger assemblies and experimental validation are outside this first version.",
+    ferrariEvidenceText: "The production linear buckling load is compared with the paper. Every partial derivative of the energy of a vertical element through order four is checked by central differences at three states. These checks validate derivatives of the production-style beam energy; they do not validate Koiter coefficients.",
+    ferrariMissing: "The computed results cover linear buckling and one eccentric-load path. The listed α and β are paper transcriptions only. Optimisation, multiple modes, larger assemblies and experimental validation are outside this comparison.",
     ferrariBlocker: "A scaled linear displacement and linear buckling mode do not satisfy the nonlinear critical-point equations in the initial probe. No coefficients or Koiter prediction are displayed from that rejected calculation. The critical state and modal normalization must be resolved first.",
     ferrariAuthors: "Questions for the authors",
     ferrariQuestions: "Could you share the minimal §2.1.2 input, mesh and beam formulation; the precise normalization and sign mapping from ξ to corner rotation; and the reference α, β and arc-length arrays? Please clarify the reported coefficient error percentages, which differ from arithmetic on the rounded values.",
@@ -482,7 +482,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     ferrariLambda: "Load factor λ",
     ferrariViewer: "Roorda frame displacement",
     ferrariDisclaimer: "Research, not a design tool.",
-    ferrariPending: "Koiter comparison pending",
+    ferrariComparison: "Every saved path sample is checked against a native production solve. The browser solver is checked against the native final displacement, rotation and load factor. This is a solver regression, not a comparison with the authors’ code or Figure 2b.",
     formPositionError: "Maximum reference position error",
     formForceError: "Maximum reference force error",
     formTitle: "Four cables, one equilibrium",
@@ -907,15 +907,15 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     },
   },
   es: {
-    ferrariNumbers: "Con 10 elementos por miembro, |λ₁ − {reference}| = {error}, menor que la tolerancia {tolerance}. La máxima discrepancia escalada de las derivadas es {derivative}, menor que {derivativeTolerance}. Estas comprobaciones cubren solo la parte implementada.",
-    ferrariTitle: "Pórtico de Roorda: reproducción en curso",
-    ferrariLead: "Pandeo del motor de producción y trayectoria no lineal imperfecta. La comparación de coeficientes de Koiter está pendiente.",
+    ferrariNumbers: "Con {elements} elementos por miembro, |λ₁ − {reference}| = {error}, menor que la tolerancia {tolerance}. La máxima discrepancia escalada de las derivadas es {derivative}, menor que {derivativeTolerance}. Estas comprobaciones cubren solo la parte implementada.",
+    ferrariTitle: "Pórtico de Roorda: pandeo y trayectoria no lineal",
+    ferrariLead: "Pandeo comparado con los valores publicados; la trayectoria imperfecta se comprueba contra la repetición del solver nativo.",
     ferrariScope: "Qué se reproduce",
     ferrariScopeText: "Esta primera versión comprueba la carga crítica del pórtico simple de §2.1.2 con el motor de producción. También calcula una trayectoria imperfecta con su solver corrotacional de longitud de arco. La trayectoria no es una reproducción validada de la Figura 2b.",
-    ferrariModel: "Dos miembros de 1 m, articulados en los extremos exteriores y unidos rígidamente en la esquina. E = 21 MPa, A = {area} m², J = 10⁻⁴/12 m⁴. La carga de referencia es 1 kN hacia abajo en la esquina. La trayectoria añade un momento de referencia de +{moment} kN·m; hay 10 elementos por miembro.",
+    ferrariModel: "Dos miembros de {length} m, articulados en los extremos exteriores y unidos rígidamente en la esquina. E = {young} MPa, A = {area} m², J = {inertia} m⁴. La carga de referencia es {force} kN hacia abajo en la esquina. La trayectoria añade un momento de referencia de +{moment} kN·m; hay {elements} elementos por miembro.",
     ferrariEvidence: "Evidencia y limitaciones",
-    ferrariEvidenceText: "La carga de pandeo lineal se compara con el artículo. Cada derivada parcial de la energía del elemento hasta orden cuatro se comprueba por diferencias centrales en tres estados. Esto verifica las derivadas de esta energía de viga, no los coeficientes de Koiter.",
-    ferrariMissing: "Aún no se reproducen α, β, la corrección de desplazamiento de segundo orden, los coeficientes analíticos ni la concordancia cerca de la bifurcación. La optimización, los modos múltiples, los conjuntos mayores y la validación experimental quedan fuera de esta versión.",
+    ferrariEvidenceText: "La carga de pandeo lineal se compara con el artículo. Cada derivada parcial de la energía de un elemento vertical hasta orden cuatro se comprueba por diferencias centrales en tres estados. Esto verifica las derivadas de esta energía de viga, no los coeficientes de Koiter.",
+    ferrariMissing: "Los resultados calculados cubren pandeo lineal y una trayectoria con carga excéntrica. α y β son solo transcripciones del artículo. La optimización, los modos múltiples, los conjuntos mayores y la validación experimental quedan fuera de esta comparación.",
     ferrariBlocker: "El desplazamiento lineal escalado y el modo de pandeo lineal no satisfacen las ecuaciones del punto crítico no lineal en la prueba inicial. No se muestran coeficientes ni predicciones de ese cálculo rechazado. Primero deben resolverse el estado crítico y la normalización modal.",
     ferrariAuthors: "Preguntas para los autores",
     ferrariQuestions: "¿Podrían compartir el modelo mínimo de §2.1.2, la malla y la formulación de viga; la normalización y los signos que relacionan ξ con el giro de esquina; y los datos de α, β y longitud de arco? Los porcentajes de error impresos no coinciden con los valores redondeados.",
@@ -934,7 +934,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     ferrariLambda: "Factor de carga λ",
     ferrariViewer: "Desplazamiento del pórtico de Roorda",
     ferrariDisclaimer: "Investigación, no una herramienta de diseño.",
-    ferrariPending: "Comparación de Koiter pendiente",
+    ferrariComparison: "Cada muestra guardada se comprueba contra el solver nativo de producción. El solver del navegador se compara con el desplazamiento, giro y factor de carga finales nativos. Es una regresión del solver, no una comparación con el código de los autores ni con la Figura 2b.",
     formPositionError: "Error máximo de posición respecto a la referencia",
     formForceError: "Error máximo de fuerza respecto a la referencia",
     formTitle: "Cuatro cables, un equilibrio",
@@ -1359,15 +1359,15 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     },
   },
   pt: {
-    ferrariNumbers: "Com 10 elementos por membro, |λ₁ − {reference}| = {error}, abaixo da tolerância {tolerance}. A maior discrepância escalada das derivadas é {derivative}, abaixo de {derivativeTolerance}. Estas verificações cobrem apenas a parte implementada.",
-    ferrariTitle: "Pórtico de Roorda: reprodução em andamento",
-    ferrariLead: "Flambagem do motor de produção e trajetória não linear imperfeita. A comparação dos coeficientes de Koiter está pendente.",
+    ferrariNumbers: "Com {elements} elementos por membro, |λ₁ − {reference}| = {error}, abaixo da tolerância {tolerance}. A maior discrepância escalada das derivadas é {derivative}, abaixo de {derivativeTolerance}. Estas verificações cobrem apenas a parte implementada.",
+    ferrariTitle: "Pórtico de Roorda: flambagem e trajetória não linear",
+    ferrariLead: "Flambagem comparada com os valores publicados; a trajetória imperfeita é verificada contra a reprodução do solver nativo.",
     ferrariScope: "O que é reproduzido",
     ferrariScopeText: "Esta primeira versão verifica a carga crítica do pórtico simples da §2.1.2 com o motor de produção. Também calcula uma trajetória imperfeita com seu solver corrotacional de comprimento de arco. A trajetória não é uma reprodução validada da Figura 2b.",
-    ferrariModel: "Dois membros de 1 m, articulados nas extremidades externas e unidos rigidamente no canto. E = 21 MPa, A = {area} m², J = 10⁻⁴/12 m⁴. A carga de referência é 1 kN para baixo no canto. A trajetória acrescenta um momento de referência de +{moment} kN·m; há 10 elementos por membro.",
+    ferrariModel: "Dois membros de {length} m, articulados nas extremidades externas e unidos rigidamente no canto. E = {young} MPa, A = {area} m², J = {inertia} m⁴. A carga de referência é {force} kN para baixo no canto. A trajetória acrescenta um momento de referência de +{moment} kN·m; há {elements} elementos por membro.",
     ferrariEvidence: "Evidência e limitações",
-    ferrariEvidenceText: "A carga de flambagem linear é comparada com o artigo. Cada derivada parcial da energia do elemento até ordem quatro é verificada por diferenças centrais em três estados. Isso verifica as derivadas desta energia de viga, não os coeficientes de Koiter.",
-    ferrariMissing: "Ainda não reproduzidos: α, β, a correção de deslocamento de segunda ordem, os coeficientes analíticos e a concordância perto da bifurcação. Otimização, modos múltiplos, conjuntos maiores e validação experimental ficam fora desta versão.",
+    ferrariEvidenceText: "A carga de flambagem linear é comparada com o artigo. Cada derivada parcial da energia de um elemento vertical até ordem quatro é verificada por diferenças centrais em três estados. Isso verifica as derivadas desta energia de viga, não os coeficientes de Koiter.",
+    ferrariMissing: "Os resultados calculados abrangem flambagem linear e uma trajetória com carga excêntrica. α e β são apenas transcrições do artigo. Otimização, modos múltiplos, conjuntos maiores e validação experimental ficam fora desta comparação.",
     ferrariBlocker: "O deslocamento linear escalado e o modo de flambagem linear não satisfazem as equações do ponto crítico não linear na tentativa inicial. Não são mostrados coeficientes nem previsões desse cálculo rejeitado. Primeiro é preciso resolver o estado crítico e a normalização modal.",
     ferrariAuthors: "Perguntas aos autores",
     ferrariQuestions: "Poderiam compartilhar o modelo mínimo da §2.1.2, a malha e a formulação de viga; a normalização e os sinais que relacionam ξ à rotação do canto; e os dados de α, β e comprimento de arco? As porcentagens de erro publicadas não coincidem com os valores arredondados.",
@@ -1386,7 +1386,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     ferrariLambda: "Fator de carga λ",
     ferrariViewer: "Deslocamento do pórtico de Roorda",
     ferrariDisclaimer: "Pesquisa, não uma ferramenta de projeto.",
-    ferrariPending: "Comparação de Koiter pendente",
+    ferrariComparison: "Cada amostra salva é verificada contra o solver nativo de produção. O solver do navegador é comparado com o deslocamento, rotação e fator de carga finais nativos. É uma regressão do solver, não uma comparação com o código dos autores ou com a Figura 2b.",
     formPositionError: "Erro máximo de posição em relação à referência",
     formForceError: "Erro máximo de força em relação à referência",
     formTitle: "Quatro cabos, um equilíbrio",
@@ -1831,5 +1831,7 @@ export const STATUS_NAMES: Record<string, Record<string, string>> = {
 export const fieldName = (f: string) => FIELD_NAMES[publicI18n.locale]?.[f] ?? FIELD_NAMES.en[f] ?? f;
 export const statusName = (s: string) => STATUS_NAMES[publicI18n.locale]?.[s] ?? STATUS_NAMES.en[s] ?? s;
 
-/** The language actually used by the research strings, including fallback. */
-export const researchLocale = () => ['es', 'pt'].includes(publicI18n.locale) ? publicI18n.locale : 'en';
+/** Numeric formatting follows the visitor’s locale, including untranslated routes. */
+export const researchLocale = () => publicI18n.locale;
+/** The language of the research copy itself, for `lang` attributes: untranslated locales show English. */
+export const researchTextLocale = () => (publicI18n.locale in STRINGS ? publicI18n.locale : 'en');

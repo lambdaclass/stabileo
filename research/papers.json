@@ -315,10 +315,28 @@
      "date": "2026-10-30"
     },
     {
+     "round": 2,
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "date": "2026-10-30"
+    },
+    {
      "reviewer": "codex",
      "sha": "714a79e47",
      "findings": "Frame hidden by a null scalar field; viewer status text below 12px; responsive checks did not establish viewport access, tap target sizes, or readable viewer text.",
      "resolution": "Fixed in this PR with explicit uncoloured geometry, rendering and displacement regressions, status text sizing, and responsive viewport, tap target, and text assertions."
+    },
+    {
+     "reviewers": [
+      "kimi",
+      "codex",
+      "claude"
+     ],
+     "findings": "Verified short-landscape layout, unsupported locale prerenders, literal references, missing paper-to-model checks, and live playback selection override.",
+     "resolution": "Compact landscape layout and viewport regression; translated-only research prerenders; fixture-backed values and model contracts in both native test suites; live follow respects selection. Pending comparisons replaced with the actual buckling and native/WASM regression scope; author questions moved to README Open questions. Derivative evidence and localized ticks tightened."
     }
    ],
    "contacts": []

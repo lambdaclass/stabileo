@@ -84,4 +84,4 @@ export const translations = {
     checks: 'Verificações numéricas', alt: 'Quatro barras curvas do cálculo Stabileo da casca de cinco nós',
   },
 };
-export const fs = () => translations[researchLocale() as keyof typeof translations];
+export const fs = () => translations[researchLocale() as keyof typeof translations] ?? translations.en;

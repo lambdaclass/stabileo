@@ -38,3 +38,21 @@ it('production WASM wrapper reproduces the native buckling and final arc-length 
   expect(frame.theta).toBeCloseTo(expected.theta, 8);
   frame.displacement.forEach((value, i) => expect(value).toBeCloseTo(expected.displacement[i], 8));
 });
+
+it('matches the paper geometry, section, pinned ends and eccentric corner load', async () => {
+  const { parameters: p } = await import('../../../../../../research/stability/ferrari-sigmund-2025/reference-results/paper_values.json');
+  const m = modelFromWire(replay.model);
+  expect(m.materials.get(1)?.e).toBe(p.young_MPa);
+  expect(m.sections.get(1)?.a).toBe(p.area_m2);
+  expect(m.sections.get(1)?.iz).toBe(p.inertia_m4);
+  expect([...m.supports.values()].map(({ id, nodeId, type }) => ({ id, nodeId, type }))).toEqual([
+    { id: 1, nodeId: 1, type: 'pinned' }, { id: 2, nodeId: 21, type: 'pinned' },
+  ]);
+  for (let i = 0; i <= 20; i++) {
+    expect(m.nodes.get(i + 1)?.x).toBe(i <= 10 ? 0 : (i - 10) * p.length_m / 10);
+    expect(m.nodes.get(i + 1)?.z).toBe(i <= 10 ? i * p.length_m / 10 : p.length_m);
+  }
+  expect(m.loads).toEqual([{ type: 'nodal', data: {
+    nodeId: 11, fx: 0, fz: p.corner_force_N / 1000, my: -p.corner_force_N / 1000 * p.eccentricity_m,
+  } }]);
+});
