@@ -2,6 +2,7 @@
   import { t as appT, i18n } from '../../lib/i18n';
   import { tAt } from '../../lib/i18n/store.svelte';
   import { navigateScalarField, SCALAR_FIELD_SHORTCUTS } from './scalar-field-navigation';
+  import { formatLocalizedContourLabel } from './scalar-field-labels';
   import { scalarFieldScale } from './scalar-field-scale';
   /**
    * The 3D viewport's look and navigation showing one scalar field on a 2D mesh, for views that
@@ -360,7 +361,7 @@
       <span id={keysId} class="sfv-keys">{t('scalarViewer.keyboard')}</span>
       <canvas bind:this={gizmo} class="axis-gizmo" class:sfv-hidden={!showAxes} width="80" height="80" aria-hidden="true"></canvas>
       {#if displayMode === 'field' && values && !geometryOnly}
-        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
+        <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={(value, min, max, bands) => formatLocalizedContourLabel(value, min, max, bands, locale ?? i18n.locale)} />
       {/if}
       <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
     </div>

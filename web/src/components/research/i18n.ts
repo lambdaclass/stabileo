@@ -1887,7 +1887,8 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "replaySource": "Aufzeichnung einer mit diesem Löser vorberechneten Ausführung",
     "liveSource": "Live-Berechnung im Browser",
     "step": "Schritt",
-    "tolerance": "Toleranz"
+    "tolerance": "Toleranz",
+    "notDesign": "Forschung, kein Bemessungswerkzeug"
   },
   "fr": {
     "afterAuthors": "D’après",
@@ -1934,7 +1935,8 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "replaySource": "Séquence précalculée avec ce solveur",
     "liveSource": "Calcul en direct dans votre navigateur",
     "step": "étape",
-    "tolerance": "Tolérance"
+    "tolerance": "Tolérance",
+    "notDesign": "Recherche, pas un outil de dimensionnement"
   },
   "tr": {
     "afterAuthors": "Kaynak",
@@ -1981,7 +1983,8 @@ const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
     "replaySource": "Bu çözücüyle önceden hesaplanan kaydın oynatımı",
     "liveSource": "Tarayıcınızda canlı hesaplama",
     "step": "adım",
-    "tolerance": "Tolerans"
+    "tolerance": "Tolerans",
+    "notDesign": "Araştırma, tasarım aracı değildir"
   }
 };
 
@@ -2008,4 +2011,4 @@ export const fieldName = (f: string) => FIELD_NAMES[publicI18n.locale]?.[f] ?? F
 export const statusName = (s: string) => STATUS_NAMES[publicI18n.locale]?.[s] ?? STATUS_NAMES.en[s] ?? s;
 
 /** The language actually used by the research strings, including fallback. */
-export const researchLocale = () => ['es', 'pt'].includes(publicI18n.locale) ? publicI18n.locale : 'en';
+export const researchLocale = () => ['es', 'pt', 'de', 'fr', 'tr'].includes(publicI18n.locale) ? publicI18n.locale : 'en';
