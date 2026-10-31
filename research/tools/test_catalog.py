@@ -77,7 +77,10 @@ def main():
         errors = []
         catalog.check_entry(entry, errors)
         assert not errors, errors
-        comparison = comparison.rename(implementation / "reference-results/published_comparison.json")
+        (implementation / "reference-results/published_comparison.json").write_text(json.dumps([{"row": "paper data, not a check list"}]))
+        catalog.check_entry(entry, errors)
+        assert not errors, errors
+        comparison = comparison.replace(implementation / "reference-results/published_comparison.json")
         catalog.check_entry(entry, errors)
         assert not errors, errors
         entry["reproduced_published_results"] = False

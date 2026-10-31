@@ -184,9 +184,9 @@ def check_entry(p, errors):
             if not valid_checks(v.get("checks")):
                 errors.append(f"{pid}: status '{status}' but VALIDATION.json has a failing or no check")
     if status == "published-figures-compared" or p.get("reproduced_published_results") is True:
-        comparison = os.path.join(ROOT, impl or "", "reference-results", "published_comparison.json")
+        comparison = os.path.join(ROOT, impl or "", "PUBLISHED_COMPARISON.json")
         if not os.path.isfile(comparison):
-            comparison = os.path.join(ROOT, impl or "", "PUBLISHED_COMPARISON.json")
+            comparison = os.path.join(ROOT, impl or "", "reference-results", "published_comparison.json")
         if p.get("reproduced_published_results") is not True:
             errors.append(f"{pid}: published comparison requires reproduced_published_results: true")
         if not os.path.isfile(comparison):
