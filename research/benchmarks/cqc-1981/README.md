@@ -1,6 +1,6 @@
 # SRSS versus CQC (1981)
 
-Stage: **first-version**. **0 reviews**. Research, not a design tool.
+Stage: **first-version**. Review rounds: 2 (round 1 Codex and Kimi; round 2 Kimi, Codex and Claude, 2026-10-30). Research, not a design tool.
 Effort/impact: low effort (existing production 3D modal, spectrum and viewer APIs),
 high illustrative value (18% base-shear difference for close modes). One example only.
 
@@ -65,37 +65,60 @@ make test.web.unit
 
 The page at `/research/benchmarks/cqc-1981` loads that native-engine replay,
 then recomputes via `initSolver`, `solveModal3D` and `solveSpectral3D` in the
-production WASM wrapper. The browser test checks replay/live agreement.
+production WASM wrapper. The browser test checks replay/live agreement in all six locales.
 The Stabileo scalar-field viewer shows an explicitly labelled axonometric
 projection of the actual 3D nodes and bars. Animation scales the displacement
 envelope; it is not a mode oscillation or a time history. Stop cancels replay
 and pending result publication; this tiny synchronous WASM solve cannot be
 interrupted midway. Restart restores the precomputed replay.
 
-## Not yet
+## Scope
 
-- Original paper building and published numerical tables.
-- Time-history envelope and record-specific accuracy.
-- Torsional response, multi-storey examples, parameter sweeps.
-- Independent reviews and design certification.
+- The comparison is with the closed form of this two-coordinate example. The
+  paper's own building and its numerical tables are not reproduced, and the page
+  says so instead of comparing with them.
+- No time history: neither rule is measured against a ground-motion record.
+- One storey, no torsional response, no parameter sweeps. Not a design check.
 
-The requested MacNeal–Harder remote-tracking branch was unavailable in this
-checkout; no Git writes or fetch were used to obtain it.
+The correlation coefficient is the equal-damping form of Wilson, Der Kiureghian
+& Bayo (1981), Eq. (14), p. 191; p. 190 explains why cross terms keep their
+sign. It assumes equal modal damping, ground motion long compared with the
+modal periods, and a broad, smooth spectrum. The reference values are
+closed-form results for this example, not data from the paper's Table I.
 
-## Local verification, 2026-10-29
+The 1e-8 relative tolerance is a regression bound for this small,
+well-conditioned two-coordinate problem (observed maximum 6.42e-15), not an
+accuracy target. Solver agreement with the closed form is not physical accuracy.
 
-- Native benchmark: passed, nine comparisons; maximum relative difference 6.42e-15.
-- CQC Vitest: six passed, including the actual production WASM boundary.
-- Catalogue citation check, catalogue tests/offline export, isolation, viewer rule,
-  test-target registration and `make typecheck.web`: passed. No new TypeScript
-  errors; no CQC errors in the full Svelte scan.
-- Full web unit suite: 15853 passed, 11 failed, 14 skipped. One CQC literal-label
-  failure was fixed with translation keys. Rerunning all affected files plus CQC
-  with one worker gave 87 passed, 3 failed, 1 skipped. The remaining failures are
-  existing 15-second timeouts in `steel-optimise-variable-end.test.ts`,
-  `variable-generated.test.ts` and `taper.test.ts`; no limits were changed.
-- The three e2e cases (360/390/810 px) could not launch Chromium: macOS sandbox
-  MachPort bootstrap permission denied. The browser-control host was also
-  unavailable. Responsive CSS is implemented, but visual and browser-live
-  verification remain pending. The gallery thumbnail is a chart rendered from
-  the actual replay's base shears, not a viewer screenshot or a paper figure.
+The gallery thumbnail is a chart rendered from the replay's base shears, not a
+viewer screenshot or a paper figure.
+
+## Open questions
+
+None recorded.
+
+## Review round 2, 2026-10-30
+
+Kimi, Codex and Claude reviewed the live page. What changed:
+
+- Verification block: the reference row shows the 9 of 9 closed-form checks
+  from `VALIDATION.json` under "Against the closed form"; the published row says
+  in words that the paper's building and tables are not used.
+- Citation says "method illustration based on", not "reproduction of".
+- The stage label is built from `papers.yaml` `stage` and its review rounds.
+- The ρ formula is cited with its assumptions; the tolerance is described as a
+  regression bound.
+- The modal correlation shown is the engine's own, recovered from its results
+  as ρ = (V_CQC² − V_SRSS²)/(2V₁V₂), and tested against the closed form.
+- Frequencies, effective masses (equal to the modal base shears for Sa = 1),
+  implied ρ, base shears and both roof displacements are asserted at 1e-8 for
+  both the replay and the live production WASM run; the SRSS deficit is pinned
+  to −18.0183 ± 1e-4. `reference.py` runs in `.github/workflows/research.yml`.
+- Roof displacements of nodes 5 and 6 are shown in a table next to the closed form.
+- Page, shell strings and route metadata in en, es, pt, de, fr and tr.
+- 44 px slider, table text at least 12 px, `role="status"` on the result source,
+  Restart respects reduced motion, the duplicated disclaimer and the unused
+  `cached` string are removed.
+- e2e: 360×900, 390×900, 844×390 and 810×1080, all six locales, viewer inside
+  the first viewport, overflow of the document and the app pane, 44 px targets,
+  12 px text and keyboard use.
