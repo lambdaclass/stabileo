@@ -902,19 +902,35 @@ papers:
   - elliptic integrals
   dependencies: []
   complexity: low
-  relevance: Production corotational solver compared with unverified reference transcriptions; original
-    numerical table remains to be checked.
+  relevance: Production corotational cantilever compared with independent elliptic integrals
+    corroborated by Nanakorn and Vu (2006), and a one-radian circular-arc moment solution.
   status: proposed
   reproduced_published_results: false
   benchmarks:
   - cantilever tip load
   - cantilever tip moment
   implementation: benchmarks/mattiasson-elastica
+  stage: first-version
   contacts: []
   reviews:
   - round: 1
     reviewers: [codex, kimi]
     date: "2026-10-30"
+  - reviewer: kimi
+    round: 2
+    date: "2026-10-30"
+    findings: Consolidated verified model, accuracy, provenance, playback, responsive and locale findings.
+    resolution: Corrected inputs and analytical comparisons; strengthened tests, evidence and six locales.
+  - reviewer: codex
+    round: 2
+    date: "2026-10-30"
+    findings: Consolidated verified model, accuracy, provenance, playback, responsive and locale findings.
+    resolution: Corrected inputs and analytical comparisons; strengthened tests, evidence and six locales.
+  - reviewer: claude
+    round: 2
+    date: "2026-10-30"
+    findings: Consolidated verified model, accuracy, provenance, playback, responsive and locale findings.
+    resolution: Corrected inputs and analytical comparisons; strengthened tests, evidence and six locales.
 - id: newmark-1959
   doi: 10.1061/jmcea3.0000098
   crossref:
