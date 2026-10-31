@@ -11,7 +11,7 @@
  * change that makes the same saved model give different numbers gets an entry here, and the first
  * entry of a new version bumps `currentResultsVersion`.
  */
-import raw from './result-changes.json';
+import metadata from 'virtual:result-change-metadata';
 
 export type Locale3 = 'en' | 'es' | 'pt';
 export type Localised = Record<Locale3, string>;
@@ -62,7 +62,7 @@ export function githubSlug(heading: string): string {
 }
 
 /** The public link to an entry's write-up. */
-export function changelogUrl(c: ResultChange): string {
+export function changelogUrl(c: Pick<ResultChange, 'changelog'>): string {
   return `${REPO_BLOB}${c.changelog.file}#${githubSlug(c.changelog.heading)}`;
 }
 
@@ -110,7 +110,5 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
   return problems;
 }
 
-export const RESULT_CHANGES: ResultChangeRegistry = raw as ResultChangeRegistry;
-
 /** The results version this build produces. A project solved here is stamped with it. */
-export const RESULTS_VERSION: number = RESULT_CHANGES.currentResultsVersion;
+export const RESULTS_VERSION: number = metadata.currentResultsVersion;
