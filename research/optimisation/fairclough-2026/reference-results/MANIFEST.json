@@ -1,0 +1,30 @@
+{
+  "source_url": "https://ndownloader.figshare.com/files/54492344",
+  "source_version": "10.15131/shef.data.29046755.v1",
+  "source_sha256": "030f30b6ef42a1a038b42bc251be6206d9909e65d9c73008bb3b657b9a6ba98c",
+  "license": "GPL-3.0-or-later",
+  "source_modified": false,
+  "command": "python reference/run.py /scratch/vaultopt.py",
+  "execution": "runpy executes the entire unchanged script, including its default example; then calls its public functions for Table 1.",
+  "python": "3.14.8",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "packages": {
+    "cvxpy": "1.9.3",
+    "clarabel": "0.11.1",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "matplotlib": "3.11.2"
+  },
+  "installed_solvers": [
+    "CLARABEL",
+    "SCS",
+    "SCIPY",
+    "HIGHS",
+    "OSQP"
+  ],
+  "solver": "CLARABEL (CVXPY default SOCP solver; no MOSEK installed)",
+  "files_sha256": {
+    "five-node.json": "c39dbceceab46556953461f7132ebb6f1c3020e2462a718025cde88ef0ebc05c"
+  },
+  "run_date_utc": "2026-10-29"
+}

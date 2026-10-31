@@ -7,8 +7,7 @@
   import { modelStore, uiStore, resultsStore } from '../../lib/store';
   import ProResultScopes from './ProResultScopes.svelte';
   import ProNonlinearReport from './ProNonlinearReport.svelte';
-  import CertificateStatus from '../CertificateStatus.svelte';
-  import DiscretizationStatus from '../DiscretizationStatus.svelte';
+  import ResultChecks from '../ResultChecks.svelte';
   import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
   import ProDeflectionTable from './ProDeflectionTable.svelte';
@@ -569,10 +568,17 @@
         {/if}
 
       <div class="pro-viz-row">
-        <label class="pro-viz-check">
-          <input type="checkbox" checked={uiStore.showLoads3D} onchange={onToggleLoads} />
-          {t('pro.showLoads')}
-        </label>
+        {#if resultsStore.diagramType === 'deformed'}
+          <label class="pro-viz-check">
+            <input type="checkbox" bind:checked={resultsStore.showDeformedValues} data-testid="pr-show-displacements" />
+            {t('results.showDisplacements')}
+          </label>
+        {:else}
+          <label class="pro-viz-check">
+            <input type="checkbox" checked={uiStore.showLoads3D} onchange={onToggleLoads} />
+            {t('pro.showLoads')}
+          </label>
+        {/if}
       </div>
       <div class="pro-viz-row">
         <label class="pro-viz-check">
@@ -597,8 +603,6 @@
 
     <ProResultScopes />
     <ProNonlinearReport />
-    <CertificateStatus />
-    <DiscretizationStatus />
 
     <!-- View mode selector -->
     {#if hasCombinations}
@@ -1058,6 +1062,7 @@
       {/if}
 
     </div>
+    <ResultChecks />
   {:else}
     <div class="pro-empty">
       {#if hasModel}

@@ -31,7 +31,7 @@ test.describe('@smoke research springs', () => {
     await expect.poll(() => !!editor(), { timeout: 30_000 }).toBe(true);
     type Hooks = { diagramType(): string; memberAxialForces(): { id: number; n: number }[] | null };
     await expect
-      .poll(async () => editor()!.evaluate(() => (window as unknown as { __stabileo?: Hooks }).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60_000 })
+      .poll(async () => editor()!.evaluate(() => (window as unknown as { __stabileo?: Hooks }).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 45_000 })
       .toBeGreaterThan(500);
     await expect.poll(() => editor()!.evaluate(() => (window as unknown as { __stabileo: Hooks }).__stabileo.diagramType())).toBe('axialColor');
     const app = await editor()!.evaluate(() => (window as unknown as { __stabileo: Hooks }).__stabileo.memberAxialForces()!);

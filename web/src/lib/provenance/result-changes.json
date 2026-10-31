@@ -1,8 +1,36 @@
 {
-  "$comment": "Registry of result-affecting changes. Read by web/src/lib/provenance/registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
+  "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 4,
+  "currentResultsVersion": 5,
   "changes": [
+    {
+      "id": "solid-shell-local-stress-axes",
+      "resultsVersion": 5,
+      "date": "2026-10-29",
+      "prs": [
+        814
+      ],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "shells"
+        ]
+      },
+      "title": {
+        "en": "Solid-shell stresses use local shell axes",
+        "es": "Las tensiones del sólido-lámina usan ejes locales",
+        "pt": "As tensões do sólido-casca usam eixos locais"
+      },
+      "explanation": {
+        "en": "SHB8 centroid sigmaXx, sigmaYy and tauXy now use the local shell frame; their in-plane von Mises no longer drops stresses carried by global Z on vertical, sloped or curved panels. Displacements, reactions and full 3D integration-point von Mises are unchanged. Re-run models with solid shells. Other shell families are unaffected.",
+        "es": "Las tensiones sigmaXx, sigmaYy y tauXy del centroide SHB8 ahora usan los ejes locales de la lámina; su von Mises en el plano ya no omite tensiones en Z global en paneles verticales, inclinados o curvos. No cambian desplazamientos, reacciones ni von Mises 3D en puntos de integración. Recalcule los modelos con sólidos-lámina. Las otras familias de láminas no cambian.",
+        "pt": "As tensões sigmaXx, sigmaYy e tauXy do centroide SHB8 agora usam os eixos locais da casca; seu von Mises no plano não omite mais tensões em Z global em painéis verticais, inclinados ou curvos. Deslocamentos, reações e von Mises 3D nos pontos de integração não mudam. Recalcule modelos com sólidos-casca. As outras famílias de cascas não mudam."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-solid-shell-stress-axes.md",
+        "heading": "Solid-shell stress axes (#757)"
+      }
+    },
     {
       "id": "dynamic-analyses-refuse-eccentricities",
       "resultsVersion": 4,

@@ -1,0 +1,13 @@
+stage: first-version
+reviews: []
+case: engine/tests/benchmarks/dadeppo_arch.json
+solver: dedaliano_engine::solver::arc_length::solve_arc_length
+browser_solver: web/src/lib/engine/wasm-solver.ts::solveArcLength
+geometry: {radius_m: 1, opening_degrees: 215, elements: 40, crown_node: 20}
+boundaries: {left: fixed, right: pinned}
+load: {type: dead, direction: downward, crown_reference_kN: 1}
+stiffness: {EA_kN: 1000000, EI_kNm2: 1}
+comparison: {quantity: PR2/EI, reference: 8.97, relative_tolerance: 0.01}
+regression: {peak: 9.0112911888175, absolute_tolerance: 0.000001}
+assumptions: [planar, elastic, finite axial stiffness, no contact, no shear deformation]
+environment: {toolchain: rust-toolchain.toml, dependencies: Cargo.lock, web: web/package-lock.json}

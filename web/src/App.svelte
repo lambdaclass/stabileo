@@ -584,11 +584,20 @@
   }
 
   let showLanding = $state(shouldShowLanding());
-  let showResearch = $state(routeKind().kind === 'research');
-  let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
+  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
+  let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
   $effect(() => {
-    if (showResearch && !research) {
-      void import('./components/research/ResearchPage.svelte').then((m) => (research = m.default));
+    if (showExperiment && !experiment) {
+      void import('./components/research/load-experiment')
+        .then((m) => m.loadExperimentPage())
+        .then((page) => (experiment = page));
+    }
+  });
+  let showPaper = $state(routeKind().kind === 'paper');
+  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showPaper && !paper) {
+      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
     }
   });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
@@ -615,16 +624,18 @@
     }
     showLanding = false;
     showBlog = false;
-    showResearch = false;
+    showExperiment = false;
+    showPaper = false;
   }
 
   function syncRouteState() {
-    showResearch = routeKind().kind === 'research';
+    showExperiment = ['research', 'tools'].includes(routeKind().kind);
+    showPaper = routeKind().kind === 'paper';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog && !showResearch) {
+    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -789,7 +800,7 @@
     importText = '';
   }
 
-  const editorActive = $derived(!showLanding && !showBlog && !showResearch);
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
   provideEditorActivity(() => editorActive);
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
@@ -1161,7 +1172,7 @@
    * copies or reloads is the wrong one.
    */
   $effect(() => {
-    if (showLanding || showBlog || showResearch || typeof window === 'undefined') return;
+    if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -1404,10 +1415,15 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showResearch}
-  {#if research}
-    {@const Research = research}
-    <Research path={blogPath} />
+{#if showExperiment}
+  {#if experiment}
+    {@const Experiment = experiment}
+    <Experiment path={blogPath} />
+  {/if}
+{:else if showPaper}
+  {#if paper}
+    {@const Paper = paper}
+    <Paper />
   {/if}
 {:else if showBlog}
   <BlogPage path={blogPath} />
@@ -1433,7 +1449,7 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showResearch}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1932,7 +1948,7 @@
         {:else}
           <Viewport3D />
         {/if}
-        {#if uiStore.appMode === 'pro'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--
@@ -2148,7 +2164,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog && !showResearch}
+  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
     <WhatsNewNotice />
   {/if}
 

@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
+import path from 'node:path';
+const root=path.resolve(process.argv[2] ?? 'web/public/research-wasm/fairclough-2026');
+const module=await import(pathToFileURL(path.join(root,'gridshell_fairclough_2026.js')));
+await module.default({module_or_path:fs.readFileSync(path.join(root,'gridshell_fairclough_2026_bg.wasm'))});
+const result=JSON.parse(module.recompute());
+assert.ok(Math.abs(result.volume-13.8394)<0.00005);
+assert.equal(result.curves.length,4);
+assert.ok(result.primal_residual<1e-8);
+assert.ok(result.dual_residual<1e-8);
+console.log('Fairclough WASM:',result.volume,'four curves; conic residuals pass');

@@ -12,6 +12,11 @@
   import { untrack } from 'svelte';
   import { keyPlace, placementKeyAction } from '../../lib/store/placement-keys';
   import QuantityInput from './loads/QuantityInput.svelte';
+  import { uiStore } from '../../lib/store';
+  import { TWO_D_VERTICAL_AXIS_LABEL } from '../../lib/geometry/coordinate-system';
+
+  // In the plane workspace the vertical is stored as `y` and shown as Z, and there is no third axis.
+  const plane = $derived(!uiStore.is3DWorkspace);
 
   const mm = (v: number) => Math.round(v * 1000) / 1000;
   let tx = $state(0), ty = $state(0), tz = $state(0);
@@ -67,8 +72,8 @@
     </div>
     <div class="ph-row">
       <label>X <QuantityInput bind:value={() => tx, (v) => { tx = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-x" /></label>
-      <label>Y <QuantityInput bind:value={() => ty, (v) => { ty = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-y" /></label>
-      <label>Z <QuantityInput bind:value={() => tz, (v) => { tz = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-z" /></label>
+      <label>{plane ? TWO_D_VERTICAL_AXIS_LABEL : 'Y'} <QuantityInput bind:value={() => ty, (v) => { ty = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-y" /></label>
+      {#if !plane}<label>Z <QuantityInput bind:value={() => tz, (v) => { tz = v; typing = true; }} quantity="length" cls="ph-num" testid="placement-z" /></label>{/if}
       {#if placementStore.mode === 'insert'}
         <label class="ph-check"><input type="checkbox" bind:checked={placementStore.withLoads} /> {t('placement.withLoads')}</label>
         <label class="ph-check"><input type="checkbox" bind:checked={placementStore.withSupports} /> {t('placement.withSupports')}</label>

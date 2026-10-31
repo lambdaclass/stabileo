@@ -34,23 +34,19 @@ const IZ: f64 = 1e-4;
 
 #[test]
 fn validation_corotational_cantilever_end_moment() {
-    let l: f64 = 2.0;
-    let n = 16;
-    let tip_node = n + 1;
-
-    // Moment that would produce tip rotation = 1.0 rad in linear theory
-    // theta_tip = M*L/(EI) => M = EI*theta/L
-    let m_applied: f64 = E_EFF * IZ * 1.0 / l;
-
-    let input = make_beam(
-        n, l, E, A, IZ, "fixed", None,
-        vec![SolverLoad::Nodal(SolverNodalLoad {
-            node_id: tip_node, fx: 0.0, fz: 0.0, my: m_applied,
-        })],
-    );
+    let data: serde_json::Value = serde_json::from_str(include_str!("../../benchmarks/mattiasson_elastica.json")).unwrap();
+    let case = data["cases"].as_array().unwrap().iter().find(|c| c["id"] == "moment-1").unwrap();
+    let tip_node = case["tipNode"].as_u64().unwrap() as usize;
+    let input: SolverInput = serde_json::from_value(case["input"].clone()).unwrap();
 
     let lin_res = linear::solve_2d(&input).unwrap();
-    let corot_res = corotational::solve_corotational_2d(&input, 50, 1e-6, 10, false);
+    let corot_res = corotational::solve_corotational_2d(
+        &input,
+        case["solver"]["maxIter"].as_u64().unwrap() as usize,
+        case["solver"]["tolerance"].as_f64().unwrap(),
+        case["solver"]["nIncrements"].as_u64().unwrap() as usize,
+        false,
+    );
 
     let lin_disp = lin_res.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();

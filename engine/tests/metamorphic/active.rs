@@ -23,20 +23,8 @@ fn taut_cable_invariance() {
     assert_cable_adapters(&a2.iter().map(|a| a.name).collect::<Vec<_>>());
     assert_cable_adapters(&a3.iter().map(|a| a.name).collect::<Vec<_>>());
     for seed in 0..16 {
-        let mut v = model(seed, false);
-        let l = v["nodes"]["2"]["x"].as_f64().unwrap();
-        v["nodes"]["2"]["z"] = json!(-l);
-        for e in v["elements"].as_object_mut().unwrap().values_mut() {
-            e["type"] = json!("cable");
-        }
-        v["sections"]["1"]["a"] = json!(0.002);
-        v["supports"]["2"] = json!({"id":2,"nodeId":3,"type":"fixed"});
-        v["loads"] = json!([{"type":"nodal","data":{"nodeId":2,"fx":0.0,"fz":-100.0,"my":0.0}}]);
-        let c2 = Case2::new(
-            format!("taut-cable/{seed}/2d"),
-            serde_json::from_value(v).unwrap(),
-        );
-        assert_loaded_cable(&(a2[0].run)(&c2).unwrap(), 2, 2);
+        let c2 = cable2(seed);
+        cable_witness(&(a2[0].run)(&c2).unwrap(), false);
         checks2::check_case(
             &checks2::Ctx {
                 tally: &t2,
@@ -46,28 +34,8 @@ fn taut_cable_invariance() {
             &a2,
             &["mirror", "relabel", "reversal", "units"],
         );
-        let mut v = model(seed, true);
-        v["nodes"] = json!({
-            "1":{"id":1,"x":l,"y":0.0,"z":l},
-            "2":{"id":2,"x":-l/2.0,"y":l*3f64.sqrt()/2.0,"z":l},
-            "3":{"id":3,"x":-l/2.0,"y":-l*3f64.sqrt()/2.0,"z":l},
-            "4":{"id":4,"x":0.0,"y":0.0,"z":0.0}
-        });
-        v["elements"] = json!({});
-        v["supports"] = json!({});
-        for id in 1..=3 {
-            v["elements"][id.to_string()] =
-                json!({"id":id,"type":"cable","nodeI":id,"nodeJ":4,"materialId":1,"sectionId":1});
-            v["supports"][id.to_string()] =
-                json!({"nodeId":id,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true});
-        }
-        v["sections"]["1"]["a"] = json!(0.002);
-        v["loads"] = json!([{"type":"nodal","data":{"nodeId":4,"fx":0.0,"fy":0.0,"fz":-100.0,"mx":0.0,"my":0.0,"mz":0.0}}]);
-        let c3 = Case3::new(
-            format!("taut-cable/{seed}/3d"),
-            serde_json::from_value(v).unwrap(),
-        );
-        assert_loaded_cable(&(a3[0].run)(&c3).unwrap(), 3, 3);
+        let c3 = cable3(seed);
+        cable_witness(&(a3[0].run)(&c3).unwrap(), true);
         checks3::check_case(
             &checks3::Ctx {
                 tally: &t3,
@@ -196,6 +164,89 @@ fn cable_checks_reject_empty_responses() {
         for cell in cells.values() {
             assert_eq!(cell.pass, 0);
             assert_eq!(cell.fails.len(), 1);
+        }
+    }
+}
+
+fn cable2(seed: u64) -> Case2 {
+    let mut v = model(seed, false);
+    let l = v["nodes"]["2"]["x"].as_f64().unwrap();
+    v["nodes"]["2"]["z"] = json!(-l);
+    for e in v["elements"].as_object_mut().unwrap().values_mut() {
+        e["type"] = json!("cable");
+    }
+    v["sections"]["1"]["a"] = json!(0.002);
+    v["supports"]["2"] = json!({"id":2,"nodeId":3,"type":"fixed"});
+    v["loads"] = json!([{"type":"nodal","data":{"nodeId":2,"fx":0.0,"fz":-100.0,"my":0.0}}]);
+    Case2::new(
+        format!("taut-cable/{seed}/2d"),
+        serde_json::from_value(v).unwrap(),
+    )
+}
+
+fn cable3(seed: u64) -> Case3 {
+    let l = model(seed, false)["nodes"]["2"]["x"].as_f64().unwrap();
+    let mut v = model(seed, true);
+    v["nodes"] = json!({
+        "1":{"id":1,"x":l,"y":0.0,"z":l},
+        "2":{"id":2,"x":-l/2.0,"y":l*3f64.sqrt()/2.0,"z":l},
+        "3":{"id":3,"x":-l/2.0,"y":-l*3f64.sqrt()/2.0,"z":l},
+        "4":{"id":4,"x":0.0,"y":0.0,"z":0.0}
+    });
+    v["elements"] = json!({});
+    v["supports"] = json!({});
+    for id in 1..=3 {
+        v["elements"][id.to_string()] =
+            json!({"id":id,"type":"cable","nodeI":id,"nodeJ":4,"materialId":1,"sectionId":1});
+        v["supports"][id.to_string()] =
+            json!({"nodeId":id,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true});
+    }
+    v["sections"]["1"]["a"] = json!(0.002);
+    v["loads"] = json!([{"type":"nodal","data":{"nodeId":4,"fx":0.0,"fy":0.0,"fz":-100.0,"mx":0.0,"my":0.0,"mz":0.0}}]);
+    Case3::new(
+        format!("taut-cable/{seed}/3d"),
+        serde_json::from_value(v).unwrap(),
+    )
+}
+
+fn cable_witness(r: &crate::response::Resp, spatial: bool) {
+    let width = if spatial { 3 } else { 2 };
+    assert_loaded_cable(r, width, width);
+}
+
+#[test]
+fn cable_witness_rejects_zero_responses() {
+    let _strict = crate::generated::Strict::enter();
+    let c2 = cable2(1);
+    let c3 = cable3(1);
+    let a2 = ana2::rows()
+        .into_iter()
+        .find(|a| a.name == "cable solver")
+        .unwrap();
+    let a3 = ana3::rows()
+        .into_iter()
+        .find(|a| a.name == "cable solver")
+        .unwrap();
+    for (shape, response) in [
+        (
+            crate::generated::ResponseShape::of_2d(&c2),
+            (a2.run)(&c2).unwrap(),
+        ),
+        (
+            crate::generated::ResponseShape::of_3d(&c3),
+            (a3.run)(&c3).unwrap(),
+        ),
+    ] {
+        cable_witness(&response, shape.spatial);
+        for tags in [vec!["N"], vec!["R"], vec![]] {
+            let mut bad = response.clone();
+            for item in &mut bad.0 {
+                if tags.is_empty() || tags.contains(&item.tag.as_str()) {
+                    item.v.fill(0.0);
+                }
+            }
+            crate::generated::validate_response("cable solver", &bad, &shape).unwrap();
+            assert!(std::panic::catch_unwind(|| cable_witness(&bad, shape.spatial)).is_err());
         }
     }
 }

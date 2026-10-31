@@ -1,6 +1,8 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "landing.navTools": "Outils",
+
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
   'scalarViewer.viewOptions': 'Options d’affichage',
@@ -234,6 +236,7 @@ const fr: Translations = {
   'landing.navPricing': 'Tarifs',
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Nouveautés',
+  'landing.navPaper': 'Article',
   'landing.navResearch': 'Recherche',
   'landing.ebHero': 'LIBRE ET OUVERT · CALCUL DE STRUCTURES',
   'landing.heroH': 'Le calcul de structures, dans un onglet du navigateur.',
@@ -13652,6 +13655,14 @@ const fr: Translations = {
   'sheet.ui.thisSheet': 'Planche {n} :',
 
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Enregistrer les projets ouverts et recharger",
+  "recheck.recoveryFailed": "Les projets n’ont pas pu être enregistrés dans le navigateur. La page n’a pas été rechargée. Téléchargez une sauvegarde de la session pour conserver votre travail.",
+  "recheck.downloadBackup": "Télécharger tous les projets ouverts",
+  "recheck.backupHelp": "Conservez le fichier de session téléchargé, puis rechargez et ouvrez-le pour restaurer tous les projets. L’avis devra toujours être confirmé.",
+  "recheck.loading": "Chargement des modifications des résultats…",
+  "recheck.detailsUnavailable": "Les détails de la modification sont indisponibles. Réessayez de charger cet avis.",
+  "recheck.loadFailed": "Impossible de charger les modifications des résultats. Réessayez avant de les confirmer.",
+  "recheck.retry": "Réessayer",
   'recheck.title': 'Les résultats ont changé depuis le dernier calcul de ce projet',
   'recheck.intro': 'Ce projet a été calculé pour la dernière fois avec la version de résultats {from} de Stabileo ; celle-ci est la version {to}. Ces changements concernent des fonctions utilisées par ce modèle :',
   'recheck.introUnknown': 'Ce projet n\'enregistre pas la version de Stabileo qui l\'a calculé (il a été enregistré avant que cette information ne soit consignée). Ces changements concernent des fonctions utilisées par ce modèle :',
@@ -14103,6 +14114,15 @@ const fr: Translations = {
   'proExport.dxfLayoutSeparate': 'Un dessin par fichier',
   'proExport.dxfLayoutLayersNote': 'Tout dans un seul DXF ; chaque contenu sur son propre calque.',
   'proExport.dxfLayoutSeparateNote': 'Un DXF du modèle et un par résultat (avec le modèle en dessous), réunis dans un .zip.',
+  'clipboard.spaceInPlane': 'La copie provient d\'un modèle 3D : copiez-la à nouveau en 2D pour la coller ici.',
+  'sel.copyTitle': 'Copier la sélection (Ctrl+C)',
+  'sel.pasteTitle': 'Coller la copie et choisir l\'emplacement (Ctrl+V)',
+  'results.showDisplacements': 'Afficher les déplacements',
+  'resultChecks.title': 'Contrôle des résultats',
+  'resultChecks.certified': 'certifié',
+  'resultChecks.notCertified': 'non certifié',
+  'resultChecks.pending': 'calcul en cours…',
+  'resultChecks.discretizationHigh': 'erreur de discrétisation élevée',
 };
 
 export default fr;

@@ -150,14 +150,10 @@ describe('Bug 1: 2D Displacement uses uz/ry (not uy/rz)', () => {
     // Whether each of these treats PRO as a space workspace is `utils/__tests__/workspace-gate.test.ts`'s:
     // every such check goes through `is3DWorkspace`.
     expect(aiDrawer, 'AiDrawer.svelte should send canonical 3D mode to the AI backend').toContain("const aiAnalysisMode = $derived(is3DMode ? '3d' : '2d');");
-    expect(toolbar, 'KeyboardShortcuts.svelte should copy 3D element metadata into the clipboard through the shared helper').toContain('...pickElement3DMetadata(elem)');
-    // The paste of the clipboard's own record goes through the edit layer (`store/clipboard-paste.ts`),
-    // which carries the member frame — a complete explicit local axis only, and the roll — as every
-    // copy does; `node-welds.test.ts` pins the result.
-    const clipboardPaste = readFileSync(new URL('../../store/clipboard-paste.ts', import.meta.url), 'utf8');
-    expect(toolbar, 'KeyboardShortcuts.svelte should paste the clipboard record through the edit layer').toContain('pasteClipboardRecord(clip,');
-    expect(clipboardPaste, 'the record carries its 3D element metadata').toContain('...pickElement3DMetadata(e)');
-    expect(clipboardPaste, 'and is inserted as a fragment').toContain('insertFragment(clipboardFragment(clip)');
+    // Basic copies and pastes through PRO's clipboard, whose fragment carries every member field
+    // (the 3D frame included) and goes in through the edit layer; `node-welds.test.ts` and
+    // `basic-clipboard.test.ts` pin the result.
+    expect(toolbar, 'KeyboardShortcuts.svelte should use the shared model clipboard').toContain("from '../lib/store/model-clipboard'");
     expect(oldToolbar, 'the keyboard layer should live in ONE place, not two')
       .not.toContain('function handleKeydown');
   });
