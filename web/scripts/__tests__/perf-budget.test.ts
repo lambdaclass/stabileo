@@ -63,11 +63,11 @@ describe('perf-budget', () => {
     expect([...staticClosure(graph, ['assets/App-a.js'])].sort()).toEqual(['assets/App-a.css', 'assets/App-a.js', 'assets/three-a.js']);
   });
 
-  it('sums each route: HTML closure, its loader and what the loader imports, never the engine WASM', () => {
+  it('sums what the HTML loads, the loader and what it imports; never the HTML itself or the engine WASM', () => {
     const { dist, graph, size } = fixture();
     const m = measure(dist, graph, routes);
-    expect(m['/en/']).toEqual({ ...size(['en/index.html', 'assets/index-a.js', 'assets/shared-a.js', 'assets/index-a.css', 'assets/public-a.js']), files: 5 });
-    expect(m['/app/basic']).toEqual({ ...size(['index.html', 'assets/index-a.js', 'assets/shared-a.js', 'assets/index-a.css', 'assets/load-app-a.js', 'assets/App-a.js', 'assets/App-a.css', 'assets/three-a.js']), files: 8 });
+    expect(m['/en/']).toEqual({ ...size(['assets/index-a.js', 'assets/shared-a.js', 'assets/index-a.css', 'assets/public-a.js']), files: 4 });
+    expect(m['/app/basic']).toEqual({ ...size(['assets/index-a.js', 'assets/shared-a.js', 'assets/index-a.css', 'assets/load-app-a.js', 'assets/App-a.js', 'assets/App-a.css', 'assets/three-a.js']), files: 7 });
     expect(engineWasm(graph)).toBe('assets/dedaliano_engine_bg-abc123.wasm');
     expect(engineWasm({ ...graph, assets: [] })).toBeNull();
   });

@@ -1,25 +1,25 @@
 {
-  "margin_gzip_bytes": 0,
+  "margin_gzip_bytes": 64,
   "routes": {
     "/en/": {
-      "gzip": 392334,
-      "raw": 1084661
+      "gzip": 382422,
+      "raw": 1046553
     },
     "/es/": {
-      "gzip": 392723,
-      "raw": 1085338
+      "gzip": 382422,
+      "raw": 1046553
     },
     "/pt/": {
-      "gzip": 392761,
-      "raw": 1085288
+      "gzip": 382422,
+      "raw": 1046553
     },
     "/en/blog/how-stabileo-checks-its-results/": {
-      "gzip": 317793,
-      "raw": 999299
+      "gzip": 309909,
+      "raw": 973933
     },
     "/app/basic": {
-      "gzip": 4183532,
-      "raw": 13797223
+      "gzip": 4173199,
+      "raw": 13758323
     }
   }
 }

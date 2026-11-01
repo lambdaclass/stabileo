@@ -50,7 +50,7 @@ function chunkFor(graph, module) {
 }
 
 export function routeFiles(graph, route, readHtml) {
-  const start = [route.html, ...htmlRefs(readHtml(route.html))];
+  const start = htmlRefs(readHtml(route.html));
   for (const module of route.loaders ?? []) {
     const loader = chunkFor(graph, module);
     start.push(loader, ...graph.chunks[loader].dynamicImports);
@@ -70,19 +70,19 @@ export function sizeOf(bytes) {
 export function measure(dist, graph, routes = ROUTES) {
   if (resolve(graph.outDir) !== resolve(dist)) throw new Error(`the bundle graph is of ${graph.outDir}, not ${dist}: rebuild with npm run build`);
   const cache = new Map();
-  const read = (f) => {
+  const bytes = (f) => {
     const p = join(dist, f);
     if (!existsSync(p)) throw new Error(`${f} is not in ${dist}: the bundle graph is stale, rebuild with npm run build`);
-    if (!cache.has(f)) cache.set(f, sizeOf(readFileSync(p)));
+    return readFileSync(p);
+  };
+  const size = (f) => {
+    if (!cache.has(f)) cache.set(f, sizeOf(bytes(f)));
     return cache.get(f);
   };
   const out = {};
   for (const [path, route] of Object.entries(routes)) {
-    const files = routeFiles(graph, route, (f) => {
-      read(f);
-      return readFileSync(join(dist, f), 'utf8');
-    });
-    const sizes = files.map(read);
+    const files = routeFiles(graph, route, (f) => bytes(f).toString('utf8'));
+    const sizes = files.map(size);
     out[path] = { gzip: sizes.reduce((a, s) => a + s.gzip, 0), raw: sizes.reduce((a, s) => a + s.raw, 0), files: files.length };
   }
   return out;

@@ -1,10 +1,8 @@
 name: Performance
 
-# Lighthouse against stabileo.com, median of five runs per URL, checked against
-# web/perf-lighthouse.json (docs/performance/README.md). Daily rather than per pull request:
-# a run takes about twenty minutes and its scores move a few points from run to run, so it
-# watches production instead of gating merges; the route size gate in CI's Web Build is the
-# per-change gate. A failed scheduled run opens an issue (verification-alert.yml).
+# Lighthouse against stabileo.com, median of five runs per URL and preset, checked against
+# web/perf-lighthouse.json (docs/performance/README.md). Daily, not per pull request: it measures
+# what is deployed. A failed scheduled run opens an issue (verification-alert.yml).
 
 on:
   schedule:
@@ -57,8 +55,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Lighthouse and Chromium only (the Playwright version web/package.json pins), not the web
-      # app's dependencies or the Nix toolchain.
       - name: Install Lighthouse and Chromium
         run: |
           make perf.lighthouse.deps NIX_RUN=
