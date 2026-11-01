@@ -5504,7 +5504,7 @@ fn benchmark_q9_twisted_beam_load_b() {
 }
 
 #[test]
-#[ignore = "MH-TWISTED-BEAM-MITC9: MITC9 is 2.3-2.4x too flexible on the twisted beam (engine/tests/benchmarks/KNOWN_ISSUES.md)"]
+#[ignore = "MH-TWISTED-BEAM-MITC9: MITC9 is 2.1-2.4x too flexible on the twisted beam (engine/tests/benchmarks/KNOWN_ISSUES.md)"]
 fn benchmark_q9_twisted_beam_accuracy() {
     for case in ['A', 'B'] {
         for (nx, ny, r) in q9_twisted_beam_ratios(case) {

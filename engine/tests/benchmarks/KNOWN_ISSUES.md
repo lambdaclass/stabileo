@@ -50,7 +50,8 @@ same geometry, supports and load, a tip load spread over all tip nodes changes M
 < 0.03 %, and with zero twist MITC4 and MITC9 match beam theory (A 0.006592 vs 0.006612,
 B 5.62·10⁻⁴ vs 5.60·10⁻⁴ plus shear). The error grows with the twist and does not vanish
 as the warp per element goes to zero (24×8 → 48×16): MITC4 A is +0.6 % at 15°, +8 % at 45°,
-+32 % at 90°; MITC9 A is +5 % at 15°, +45 % at 45°, +154 % at 90° (24×8). An element
++32 % at 90°; MITC9 A is +5 % at 15°, +45 % at 45°, +141 % at 90° (Q9 12×4, the table's
+24×8 column), and MITC9 A is still rising with refinement (1.70 → 2.14 → 2.41). An element
 that is consistent on smooth twisted geometry would converge, so this points at the
 warped-element treatment (warp offsets / local frame) of `element/quad.rs` and
 `element/quad9.rs`, not at locking. Over-flexibility is the conservative direction for
