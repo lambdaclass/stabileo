@@ -1,7 +1,7 @@
 ### Added
 #### Lee frame (1968) research benchmark
 
-First-version stage, two review rounds: a pinned 120 × 120 cm Lee frame at
+A pinned 120 × 120 cm Lee frame at
 `/research/benchmarks/lee-frame-1968`, traced with the production corotational
 arc-length solver and displayed in Stabileo’s viewer. Includes a shared engine
 case, first-peak regression test, a mesh (20/40/80 elements) and arc-length step

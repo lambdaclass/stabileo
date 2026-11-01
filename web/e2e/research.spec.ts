@@ -3,13 +3,12 @@ import { pickLanguage } from './fixtures';
 import { EXPERIMENTS } from '../src/components/research/experiments';
 import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
-import { RESEARCH_GALLERY, researchLocales } from '../src/components/research/locales';
 
 const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
 
 for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
   test(`no research page shows a first-version or review-round note in ${locale}`, async ({ page }) => {
-    for (const path of [RESEARCH_GALLERY, ...EXPERIMENTS.map((e) => e.path)].filter((p) => researchLocales(p).includes(locale))) {
+    for (const path of ['/research', ...EXPERIMENTS.map((e) => e.path)]) {
       await page.goto(`/${locale}${path}/`);
       await expect(page.locator('h1').first()).toBeVisible();
       await expect(page.locator('.rs-review, .rs-g-first')).toHaveCount(0);
