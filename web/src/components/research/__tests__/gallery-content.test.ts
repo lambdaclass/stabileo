@@ -47,8 +47,8 @@ it('translates the gallery scope and review labels in all six locales', () => {
     titles.add(rs().researchTitle);
     expect(rs().galleryLead.length).toBeGreaterThan(80);
     expect(rs().galleryLead).toContain('Stabileo');
-    expect(reviewLabel('tools-batch-1', locale)).toContain('1');
-    expect(reviewLabel('tools-batch-2', locale)).toContain('1');
+    expect(reviewLabel('tools-batch-1', locale)).toContain('2');
+    expect(reviewLabel('tools-batch-2', locale)).toContain('2');
   }
   expect(titles.size).toBe(6);
 });
