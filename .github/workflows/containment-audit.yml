@@ -1,0 +1,24 @@
+# Not a required check and not a deploy dependency: it calls the GitHub API, and a deploy (including
+# an urgent safety fix) must never wait on it. A missing containment decision shows as a red check.
+name: Safety containment audit
+on:
+  pull_request:
+  merge_group:
+  schedule:
+    - cron: '19 9 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: List safety issues without a containment decision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I scripts/check-containment.py

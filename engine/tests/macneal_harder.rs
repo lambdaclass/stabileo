@@ -12,7 +12,18 @@ fn browser_cases() {
         let result = if c["dimension"] == 2 {
             serde_json::to_value(linear::solve_2d(&serde_json::from_value::<SolverInput>(input).unwrap()).unwrap()).unwrap()
         } else {
-            serde_json::to_value(linear::solve_3d(&serde_json::from_value::<SolverInput3D>(input).unwrap()).unwrap()).unwrap()
+            let result = linear::solve_3d(&serde_json::from_value::<SolverInput3D>(input).unwrap());
+            // The shared research cases exercise the production containment gate.
+            // Distorted in-plane bending has no publishable numerical result.
+            if let Some(expected) = c.get("expectedRefusal") {
+                let failure = result.as_ref().unwrap_err();
+                assert!(failure.contains(&format!("known issue #{}", expected["issue"])), "{failure}");
+                let failure = failure.clone();
+                crate::common::assert_containment(result, expected["id"].as_str().unwrap());
+                rows.push(json!({"id": c["id"], "refused": true, "knownIssue": expected["id"], "issue": expected["issue"], "value": null, "error": null, "failure": failure, "pass": false}));
+                continue;
+            }
+            serde_json::to_value(result.unwrap()).unwrap()
         };
         let nodes = c["measurement"]["nodes"].as_array().unwrap();
         let component = c["measurement"]["component"].as_str().unwrap();

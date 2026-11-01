@@ -10,14 +10,14 @@ import {
   initSolver, solveModal, solvePDelta, solveSpectral, solveModal3D, solveHarmonic3D, solveTimeHistory3D, hasCertify, callCertify,
 } from '../wasm-solver';
 import { solveCombinations2D, buildSolverInput3D, type ModelData } from '../solver-service';
-import { certifyJobOf, tagCertifyJob, carryCertifyJob } from '../certify-tags';
+import { certifyJobOf, tagCertifyJob } from '../certify-tags';
 import { runCertifyJob } from '../certify-jobs';
 import { modeEnclosureOf, frequencyInterval, modalCutoffHz, plasticReading } from '../certificate-read';
 import { memberContexts, runOtherCode, certifyOtherCode } from '../design/other-codes';
 import { AISC360 } from '../design/other-codes/steel-codes';
 import { massDensities, spectralModesFrom, timeHistoryFields, G } from '../dynamics/requests';
 import { formatEnclosure, formatDirected } from '../../utils/certificate-format';
-import type { ModalCertificate, PDeltaCertificate, SpectralCertificate, HarmonicCertificate, DynamicsCertificate, PlasticCertificate } from '../certificate-types';
+import type { ModalCertificate, PDeltaCertificate, SpectralCertificate, HarmonicCertificate, DynamicsCertificate } from '../certificate-types';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -302,7 +302,7 @@ describe('analyses certified from the job their solve noted', () => {
     expect(spectralModesFrom(m3).length).toBeGreaterThan(0);
   });
 
-  it('plastic: λc of the step-by-step analysis inside the exact enclosure', async () => {
+  it('plastic: refuses before displaying a result or scheduling native certification', async () => {
     const { modelStore, uiStore } = await import('../../store');
     const { runPlasticCollapse } = await import('../../actions/plastic');
     uiStore.analysisMode = '2d';
@@ -318,16 +318,7 @@ describe('analyses certified from the job their solve noted', () => {
     modelStore.addSupport(n1, 'fixed');
     modelStore.addSupport(n3, 'fixed');
     modelStore.addNodalLoad(n2, 0, -100);
-    const run = runPlasticCollapse();
-    expect(run?.result.isMechanism).toBe(true);
-    const job = certifyJobOf(run!.result);
-    expect(job?.name).toBe('certify_plastic_2d');
-    const { certificate } = await runCertifyJob(job!) as { certificate: PlasticCertificate };
-    expect(certificate.lambdaLower).not.toBeNull();
-    const reading = plasticReading(certificate, run!.result.collapseFactor);
-    expect(reading.within).toBe(true);
-    // The same result copied by the store keeps its job.
-    expect(certifyJobOf(carryCertifyJob(run!.result, { ...run!.result }))?.name).toBe('certify_plastic_2d');
+    expect(() => runPlasticCollapse()).toThrow(/#758/);
   });
 
   it('the background certificate of a result: after it is shown, only for the one still shown', async () => {

@@ -59,6 +59,7 @@
 </script>
 
 <script lang="ts">
+  import { errorText } from '../../lib/utils/error-text';
   import { whatIf } from '../../lib/store/whatif.svelte';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
@@ -302,10 +303,7 @@
   }
 
   function errText(e: unknown, fallbackKey: string): string {
-    if (typeof e === 'string' && e.trim()) return e;
-    const msg = (e as { message?: unknown } | null)?.message;
-    if (typeof msg === 'string' && msg.trim()) return msg;
-    return t(fallbackKey);
+    return errorText(e, t(fallbackKey));
   }
 
   /**
@@ -950,6 +948,7 @@
       {/if}
     {/if}
   </div>
+  {#each (is3D ? resultsStore.knownIssues3D : resultsStore.knownIssues).messages as message}<p role="alert">{message}</p>{/each}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}

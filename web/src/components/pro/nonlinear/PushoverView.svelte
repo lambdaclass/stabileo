@@ -47,7 +47,7 @@
     const on = shown && !stale, k = index, r = result, v = modelVersion;
     untrack(() => {
       if (!on) { if (timeHistoryView.source === 'pushover') timeHistoryView.clear(); return; }
-      if (timeHistoryView.source !== 'pushover' || timeHistoryView.result === null) {
+      if (timeHistoryView.source !== 'pushover' || timeHistoryView.stored === null) {
         timeHistoryView.set(pushoverFrames(r), v, 'pushover');
         resultsStore.diagramType = 'deformed';
       }

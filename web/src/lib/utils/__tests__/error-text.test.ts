@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { setLocale } from '../../i18n';
+import { knownIssueRefusal } from '../../engine/known-issues';
 /**
  * Reading a thrown value, including the ones WASM throws.
  *
@@ -39,4 +42,24 @@ describe('the text of a thrown value', () => {
     // `String(42)` would read as an error message; it is not one.
     expect(errorText(42, 'fallback')).toBe('fallback');
   });
+});
+
+it('translates engine refusals through the production error formatter', () => {
+  const raw = JSON.stringify({ structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'PL-2D-INVARIANCE', value: 758, message: 'ENGINE' }] });
+  for (const locale of ['en', 'es', 'pt'] as const) {
+    setLocale(locale);
+    for (const error of [raw, new Error(raw), `Failed to solve case 'A': ${raw}`]) {
+      const text = errorText(error, 'fallback');
+      expect(text).toBe(knownIssueRefusal(raw));
+      expect(text).toContain('#758');
+      expect(text).not.toMatch(/ENGINE|structuredDiagnostics|[{}]/);
+    }
+  }
+  setLocale('en');
+});
+
+it('the Basic advanced handler uses the localized production formatter', () => {
+  const source = readFileSync(new URL('../../../components/toolbar/ToolbarAdvanced.svelte', import.meta.url), 'utf8');
+  expect(source).toContain("import { errorText } from '../../lib/utils/error-text'");
+  expect(source).toContain('return errorText(e, t(fallbackKey));');
 });

@@ -764,6 +764,7 @@ pub fn solve_cable_3d_pretensioned(
     tolerance: f64,
 ) -> Result<CableAnalysisResult3D, String> {
     let mut r = solve_cable_3d_inner(input, densities, pretension, max_iter, tolerance)?;
+    crate::known_issues::membrane_bending_3d(input, &input.loads, &r.results)?;
     r.results.structured_diagnostics.extend(self_weight_warning(&r.cable_forces, &r.self_weight_tension));
     crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(input, crate::known_issues::Analysis::Cable));
     Ok(r)

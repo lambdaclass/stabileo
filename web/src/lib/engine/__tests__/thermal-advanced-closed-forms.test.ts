@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * Temperature in second-order and plastic analysis, through the WASM boundary
  * the app uses.
@@ -69,7 +70,7 @@ describe('P-Delta reads the compression a temperature causes', () => {
 });
 
 describe('plastic collapse is not moved by a temperature', () => {
-  const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
+  // After #758: const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
   const beam = (extra: SolverLoad[]) => solvePlastic({
     solver: {
       nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 3, z: 0 }], [3, { id: 3, x: 6, z: 0 }]]),
@@ -92,9 +93,13 @@ describe('plastic collapse is not moved by a temperature', () => {
     ['a reversed gradient on the other half', [grad(2, -25)]],
   ] as Array<[string, SolverLoad[]]>) {
     it(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL)`, () => {
-      const r = beam(extra);
-      expect(r.isMechanism).toBe(true);
-      expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+      expectPlasticRefusal(() => beam(extra));
+      /* Numerical expectations for the #758 fix (no result while refused):
+expect(r.isMechanism).toBe(true);
+*/
+      /* Numerical expectations for the #758 fix (no result while refused):
+expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
+*/
     });
   }
 });

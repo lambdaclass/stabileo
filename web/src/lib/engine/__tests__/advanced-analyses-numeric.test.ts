@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * The advanced analyses, against closed-form solutions.
  *
@@ -179,13 +180,15 @@ describe('plastic collapse', () => {
       loads: Array.from({ length: n }, (_, i) => ({ type: 'distributed', data: { id: i + 1, elementId: i + 1, qI: -w, qJ: -w } })),
     } as never;
     const Mp = 147.58; // kN·m
-    const r = solvePlastic({
+    expectPlasticRefusal(() => solvePlastic({
       solver,
       sections: new Map([[1, { a: A, iz: I, materialId: 1 }]]) as never,
       materials: new Map([[1, { fy: 235e3 }]]) as never,
       mpOverrides: new Map([[1, Mp]]) as never,
-    });
-    expect(r.collapseFactor / ((16 * Mp) / L ** 2 / w)).toBeCloseTo(1, 2);
+    }));
+    /* Numerical expectations for the #758 fix (no result while refused):
+expect(r.collapseFactor / ((16 * Mp) / L ** 2 / w)).toBeCloseTo(1, 2);
+*/
   });
 
   it('hinges form at the fixed ends first, then in the span', () => {
@@ -195,7 +198,7 @@ describe('plastic collapse', () => {
     const nodes = new Map<number, unknown>(), elements = new Map<number, unknown>();
     for (let i = 0; i <= n; i++) nodes.set(i + 1, { id: i + 1, x: (L * i) / n, y: 0 });
     for (let i = 0; i < n; i++) elements.set(i + 1, { id: i + 1, nodeI: i + 1, nodeJ: i + 2, materialId: 1, sectionId: 1, type: 'frame' });
-    const r = solvePlastic({
+    expectPlasticRefusal(() => solvePlastic({
       solver: {
         nodes, elements,
         materials: new Map([[1, { id: 1, e: E, nu: 0.3 }]]),
@@ -206,11 +209,21 @@ describe('plastic collapse', () => {
       sections: new Map([[1, { a: A, iz: I, materialId: 1 }]]) as never,
       materials: new Map([[1, { fy: 235e3 }]]) as never,
       mpOverrides: new Map([[1, 147.58]]) as never,
-    });
-    const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
-    const ids = first.map((h) => `${h.elementId}${h.end}`);
-    expect(ids).toContain('1start');
-    expect(ids).toContain('4end');
-    expect(r.isMechanism).toBe(true);
+    }));
+    /* Numerical expectations for the #758 fix (no result while refused):
+const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
+*/
+    /* Numerical expectations for the #758 fix (no result while refused):
+const ids = first.map((h) => `${h.elementId}${h.end}`);
+*/
+    /* Numerical expectations for the #758 fix (no result while refused):
+expect(ids).toContain('1start');
+*/
+    /* Numerical expectations for the #758 fix (no result while refused):
+expect(ids).toContain('4end');
+*/
+    /* Numerical expectations for the #758 fix (no result while refused):
+expect(r.isMechanism).toBe(true);
+*/
   });
 });

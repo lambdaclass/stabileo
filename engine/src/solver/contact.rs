@@ -731,6 +731,12 @@ fn solve_uplift_2d(input: &ContactInput) -> Result<ContactResult, String> {
 /// member forces) are those of the converged state; a deactivated member
 /// carries only its own fixed-end forces.
 pub fn solve_contact_2d(input: &ContactInput) -> Result<ContactResult, String> {
+    let mut r = solve_contact_2d_contained(input)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.diagnostics.iter().any(|s| s.contains("frozen"))).collect());
+    Ok(r)
+}
+
+fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, String> {
     // Contact assembles the model itself, so it needs the same guarantee the
     // linear path gets before touching `node_by_id[&…]`.
     super::linear::validate_input_2d(&input.solver)?;
@@ -1195,6 +1201,13 @@ fn next_slip(slip: f64, stick_force: f64, limit: f64) -> f64 {
 /// in global axes and rotated into the inclined-support frames), and the
 /// results are those of the converged state.
 pub fn solve_contact_3d(input: &ContactInput3D) -> Result<ContactResult3D, String> {
+    let mut r = solve_contact_3d_contained(input)?;
+    crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r.results)?;
+    crate::known_issues::attach(&mut r.results.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Contact).into_iter().filter(|d| d.phase.as_deref() != Some("NL-13") || r.diagnostics.iter().any(|s| s.contains("frozen"))).collect());
+    Ok(r)
+}
+
+fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D, String> {
     super::linear::validate_input_3d(&input.solver)?;
     if let Some(nid) = input.uplift_supports.first() {
         return Err(format!(
@@ -1630,7 +1643,7 @@ fn build_diagnostics_2d(
     // Report oscillating gap elements
     for (gi, gap) in gap_elements.iter().enumerate() {
         let flips = gap_flip_count[gi];
-        if flips >= 2 {
+        if flips >= 2 || flips > max_flips {
             let msg = format!(
                 "Gap element {} (nodes {}-{}): {} status oscillations in contact iteration",
                 gap.id, gap.node_i, gap.node_j, flips,
@@ -1649,7 +1662,7 @@ fn build_diagnostics_2d(
     for (eid_str, behavior) in element_behaviors {
         if let Ok(eid) = eid_str.parse::<usize>() {
             if let Some(&flips) = elem_flip_count.get(&eid) {
-                if flips >= 2 {
+                if flips >= 2 || flips > max_flips {
                     diags.push(format!(
                         "Element {} ({}): {} status oscillations. Consider increasing damping_coefficient.",
                         eid, behavior, flips,
@@ -1662,7 +1675,7 @@ fn build_diagnostics_2d(
     // Report oscillating node-to-surface pairs
     for (pi, pair) in n2s_pairs.iter().enumerate() {
         let flips = n2s_flip_count[pi];
-        if flips >= 2 {
+        if flips >= 2 || flips > max_flips {
             diags.push(format!(
                 "Node-to-surface pair (slave={}, master segment {}): {} status oscillations",
                 pair.slave_node, pair.master_segment.id, flips,
@@ -1696,7 +1709,7 @@ fn build_diagnostics_3d(
     // Report oscillating gap elements
     for (gi, gap) in gap_elements.iter().enumerate() {
         let flips = gap_flip_count[gi];
-        if flips >= 2 {
+        if flips >= 2 || flips > max_flips {
             let msg = format!(
                 "Gap element {} (nodes {}-{}): {} status oscillations in contact iteration",
                 gap.id, gap.node_i, gap.node_j, flips,
@@ -1715,7 +1728,7 @@ fn build_diagnostics_3d(
     for (eid_str, behavior) in element_behaviors {
         if let Ok(eid) = eid_str.parse::<usize>() {
             if let Some(&flips) = elem_flip_count.get(&eid) {
-                if flips >= 2 {
+                if flips >= 2 || flips > max_flips {
                     diags.push(format!(
                         "Element {} ({}): {} status oscillations. Consider increasing damping_coefficient.",
                         eid, behavior, flips,
@@ -1730,4 +1743,17 @@ fn build_diagnostics_3d(
     }
 
     diags
+}
+
+#[cfg(test)]
+mod containment_tests {
+    use super::*;
+    #[test]
+    fn freezing_on_the_first_flip_is_reported() {
+        let gap = GapElement { id: 1, node_i: 1, node_j: 2, direction: 0, initial_gap: 0.0, stiffness: 1.0, friction: None, friction_direction: None, friction_coefficient: None };
+        for flips in [0, 1, 2] {
+            let diagnostics = build_diagnostics_3d(&[flips], &[gap.clone()], &HashMap::new(), &HashMap::new(), 0);
+            assert_eq!(diagnostics.iter().any(|s| s.contains("frozen")), flips > 0);
+        }
+    }
 }

@@ -134,6 +134,9 @@ pub fn certify_buckling_3d(input: &SolverInput3D, num_modes: usize) -> Result<Ce
     };
     let mut certificate = certificate;
     super::finite::guard(&mut certificate);
+    if let BucklingCertificate::Certified { lambda_lower, lambda_upper, lambda_computed } = &certificate {
+        crate::known_issues::buckling_bound(*lambda_computed, *lambda_lower, *lambda_upper)?;
+    }
     Ok(CertifiedBuckling3D { results, certificate })
 }
 

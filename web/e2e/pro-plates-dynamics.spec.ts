@@ -105,8 +105,10 @@ test.describe('@smoke PRO plates and dynamics', () => {
     expect(d.timeHistory.ground.y).toMatchObject({ source: 'sine', scale: 0.5 });
     expect(d.timeHistory.ground.y.sine).toEqual({ ampG: 0.3, freqHz: 2 });
     expect(d.timeHistory.forces).toHaveLength(1);
-    // Closed and opened again, the panel reads the project, not its defaults.
+    await page.getByTestId('th-show').check();
     await page.getByTestId('adv-chip-timehistory').click();
+    await expect(page.getByTestId('th-chart')).toHaveCount(0);
+    await expect(page.locator('.containment-notice').filter({ hasText: '#760' })).toBeVisible();
     await page.getByTestId('adv-chip-timehistory').click();
     await expect(page.getByTestId('th-steps')).toHaveValue('100');
     await expect(page.getByTestId('th-scale-y')).toHaveValue('0.5');

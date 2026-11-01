@@ -1052,6 +1052,7 @@ export type { AnalysisResults3D };
 export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 
 export interface InfluenceLineResult {
+  structuredDiagnostics?: import('../engine/types').StructuredDiagnostic[];
   /** What quantity is being tracked */
   quantity: InfluenceQuantity;
   /** Target node for reactions, or target element+position for V/M */

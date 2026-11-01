@@ -1,3 +1,4 @@
+import { expectPlasticRefusal } from './containment-helper';
 /**
  * A rotated section's plastic modulus is about the axis the analysis bends it
  * about. The 2D stiffness turns a rotated section (Iy·cos²α + Iz·sin²α); Zp
@@ -36,10 +37,15 @@ describe('plastic Mp of a rotated section', () => {
     const mps = plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements);
     const sections = new Map([...modelStore.sections].map(([sid, s]) => [sid, { a: s.a, iz: s.iy ?? s.iz, materialId: 1 }]));
     const materials = new Map([...modelStore.materials].map(([mid, x]) => [mid, { fy: x.fy }]));
-    const res = solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) });
+    expectPlasticRefusal(() => solvePlastic({ solver: modelStore.buildSolverInput(false)!, sections, materials, mpOverrides: new Map(mps.map((m) => [m.sectionId, m.mp])) }));
     const fy = mps[0].fy;
-    const lambdaWeak = fy * 1000 * zz / (15 * 3);
-    console.log(JSON.stringify({ lambda: res.steps[0].loadFactor, lambdaWeak }));
-    expect(res.steps[0].loadFactor).toBeCloseTo(lambdaWeak, 3);
+    // After #758: const lambdaWeak = fy * 1000 * zz / (15 * 3);
+    expect(mps[0].mp).toBeCloseTo(fy * 1000 * zz, 7);
+    /* Numerical expectations for the #758 fix (no result while refused):
+console.log(JSON.stringify({ lambda: res.steps[0].loadFactor, lambdaWeak }));
+*/
+    /* Numerical expectations for the #758 fix (no result while refused):
+expect(res.steps[0].loadFactor).toBeCloseTo(lambdaWeak, 3);
+*/
   });
 });

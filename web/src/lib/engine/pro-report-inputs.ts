@@ -1,3 +1,4 @@
+import { knownIssueResultDisposition } from './known-issues';
 /**
  * Everything the PRO report is made of, gathered in one place.
  *
@@ -278,6 +279,14 @@ export function buildProReportData(opts: {
   data.resultSets = combos.size > 0
     ? [...combos].map(([id, r]) => ({ id, name: cname.get(id) ?? String(id), results: r }))
     : [...resultsStore.perCase3D].map(([id, r]) => ({ id, name: kname.get(id) ?? String(id), results: r }));
+  data.containment = knownIssueResultDisposition([
+    results, data.resultSets,
+  ]);
+  const caseContainment = resultsStore.caseDisposition3D(modelStore.loadCases.map(c => c.id));
+  data.containment = {
+    refused: data.containment.refused || caseContainment.refused,
+    messages: [...new Set([...data.containment.messages, ...caseContainment.messages])],
+  };
   data.statics = staticsRows();
   const seen = new Set<string>();
   data.deflections = [...deflectionChecks().rows.values()].flatMap((c) => {

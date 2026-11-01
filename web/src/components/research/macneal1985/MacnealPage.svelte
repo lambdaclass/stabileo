@@ -18,6 +18,7 @@
   const current = $derived(cases.find(c => c.id === selected)!);
   const result = $derived(rows.find(r => r.id === selected));
   const view = $derived(viewerData(current, result));
+  const withheld = $derived(rows.filter(r => r.refused).length);
   const passed = $derived(rows.filter(r => r.pass).length);
   const fmt = (v: number | null | undefined) => v == null ? '—' : new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 7 }).format(v);
   async function run() {
@@ -52,7 +53,7 @@
   {/snippet}
   {#snippet app()}
     <div class="benchmark-pane">
-      <p role="status" data-testid="benchmark-summary">{#if busy}{s.running}{:else if rows.length === cases.length}{s.summary}: {passed}/{cases.length} {s.within} {fmt(100 * tolerance)}%{:else}{s.pending}{/if}</p>
+      <p role="status" data-testid="benchmark-summary">{#if busy}{s.running}{:else if rows.length === cases.length}{s.summary}: {passed}/{cases.length} {s.within} {fmt(100 * tolerance)}%; {withheld} {s.withheld}{:else}{s.pending}{/if}</p>
       <p>{s.subset}</p>
       <button onclick={run} disabled={busy}>{s.run}</button>
       {#if failure}<p role="alert">{s.failed}: {failure}</p>{/if}
@@ -62,6 +63,7 @@
         <label>{s.scale}<input type="range" min="0" max="20" step="0.5" bind:value={scale} />{scale}</label>
         <ScalarFieldViewer {...view} cellSize={current.dimension === 2 ? 2 : 4} deformScale={scale} showMesh={true} title={current.label} unit="m" height="23rem" onOpenEditor={open} />
         <p>{s.projection}</p>
+        {#if result?.refused}<p>{s.withheld}</p>{/if}
         <button onclick={open}>{s.open}</button>
         <p>{current.source}</p>
       </div>
@@ -69,7 +71,7 @@
         <div class="table-scroll" id="checks"><table><thead><tr><th>{s.select}</th><th>{s.reference}</th><th>Stabileo</th><th>{s.error} %</th><th></th></tr></thead><tbody>
           {#each cases as c}
             {@const r = rows.find(r => r.id === c.id)}
-            <tr data-testid={c.id}><th><button onclick={() => { selected = c.id; tab = 'viewer'; }}>{c.label}</button></th><td>{fmt(c.reference)}</td><td>{fmt(r?.value)}</td><td>{fmt(r?.error == null ? null : r.error * 100)}</td><td>{#if !r}{s.pending}{:else if r.pass}{s.pass}{:else}<a href={c.knownIssue} title={s.issue}>{s.fail}</a>{#if r.failure}<p>{r.failure}</p>{/if}{/if}</td></tr>
+            <tr data-testid={c.id}><th><button onclick={() => { selected = c.id; tab = 'viewer'; }}>{c.label}</button></th><td>{fmt(c.reference)}</td><td>{#if r?.refused}{s.withheld}{:else}{fmt(r?.value)}{/if}</td><td>{fmt(r?.error == null ? null : r.error * 100)}</td><td>{#if !r}{s.pending}{:else if r.refused}<a href="https://github.com/lambdaclass/stabileo/issues/798">#798</a>{:else if r.pass}{s.pass}{:else}<a href={c.knownIssue} title={s.issue}>{s.fail}</a>{#if r.failure}<p>{r.failure}</p>{/if}{/if}</td></tr>
           {/each}
         </tbody></table></div>
       </div>

@@ -35,9 +35,9 @@ not exist.
 The results snapshot gate also compares registry versions against its base commit,
 even when no snapshot changes. New entries cannot reuse a released version, and
 released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
-version 5 while main was at 4: whichever merges second must preserve the first
-PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. Version 5 here remains provisional until merge.
+version 5 while main was at 4. #814 merged first and keeps version 5; #807's
+`safety-containment-diagnostics` takes version 6, with the pinned version sets,
+fixture stamp and hashes updated.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,

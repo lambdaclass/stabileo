@@ -1,3 +1,4 @@
+import { expectMembraneRefusal } from '../../engine/__tests__/containment-helper';
 /**
  * A wall designed as a member through the production command: placed with an opening on a grid,
  * solved, designed by `generateFloors`; it reports its geometry, gets the opening bars, and a
@@ -5,10 +6,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { historyStore, modelStore, resultsStore, uiStore } from '..';
-import { designRunStore } from '../design-run.svelte';
 import { verificationStore } from '../verification.svelte';
-import { detailingStore } from '../detailing.svelte';
-import { storedDecisions } from '../design-decisions';
 import { placeFrame, placeWall, placeSlabs } from '../../model/building/build-on-grid';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
@@ -37,6 +35,8 @@ describe('a wall designed as a member', () => {
     placeSlabs(grid, { levels: ['N1'], thickness: 0.12, materialId: mat, meshSize: 1 });
     for (const q of modelStore.quads.values()) if (Math.abs(modelStore.nodes.get(q.nodes[0]!)!.z! - 3) < 1e-6 && q.nodes.every((n) => Math.abs(modelStore.nodes.get(n)!.z! - 3) < 1e-6)) modelStore.addSurfaceLoad3D(q.id, 5, 1);
     for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - 3) < 1e-6) modelStore.addNodalLoad3D(n.id, 8, 0, 0, 0, 0, 0, 1);
+    expectMembraneRefusal(() => modelStore.solveCombinations3D(false, false, true));
+    /* Post-fix numerical/design expectations (#798):
     const combo = modelStore.solveCombinations3D(false, false, true);
     if (!combo || typeof combo === 'string') throw new Error(String(combo));
     resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
@@ -69,5 +69,6 @@ describe('a wall designed as a member', () => {
       return along > 1.5 && along < 2.5 && Math.min(...zs) < 0.9 + 1.2 && Math.max(...zs) > 0.9 + 0.01;
     });
     expect(through).toEqual([]);
+    */
   });
 });

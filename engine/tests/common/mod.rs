@@ -457,3 +457,18 @@ pub fn pin_legacy_local_axes(input: &mut SolverInput3D) {
         }
     }
 }
+
+/// A refused solve has no numerical result. Assert the complete registered identity.
+#[allow(dead_code)]
+pub fn assert_containment<T: std::fmt::Debug>(result: Result<T, String>, id: &str) {
+    let error = result.expect_err("known unsafe result must be withheld");
+    let value: serde_json::Value = serde_json::from_str(&error).expect("structured refusal");
+    let expected = dedaliano_engine::known_issues::diagnostic(id);
+    let diagnostic = value["structuredDiagnostics"].as_array().unwrap().iter()
+        .find(|d| d["phase"] == id).expect("containment id");
+    assert_eq!(diagnostic["code"], "known_issue");
+    assert_eq!(diagnostic["severity"], "error");
+    assert_eq!(diagnostic["value"], expected.value.unwrap());
+    assert_eq!(diagnostic["message"], expected.message);
+    assert_eq!(value["message"], expected.message);
+}

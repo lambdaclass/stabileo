@@ -13,6 +13,8 @@ on:
   pull_request:
     paths:
       - scripts/verification-metrics.py
+      - scripts/check-containment.py
+      - Makefile
       - scripts/tests/**
       - .github/workflows/verification-dashboard.yml
   workflow_dispatch:

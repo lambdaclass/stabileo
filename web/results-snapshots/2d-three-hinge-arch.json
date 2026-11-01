@@ -4,7 +4,7 @@
   "format": 1,
   "values": {
     "base.allZero": false,
-    "base.diagnosticCodes": "warning:high_diagonal_ratio warning:instability_risk",
+    "base.diagnosticCodes": "warning:high_diagonal_ratio warning:instability_risk warning:known_issue",
     "base.displacements[n1]": {"ry":-0.00003012232039,"ux":0,"uz":0},
     "base.displacements[n2]": {"ry":-0.00003012232039,"ux":0.00001375327466,"uz":-0.0000921980009},
     "base.displacements[n3]": {"ry":-0.00003012232039,"ux":0.00001938060632,"uz":-0.0001618764702},

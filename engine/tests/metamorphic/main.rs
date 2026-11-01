@@ -12,6 +12,9 @@
 //! * `metamorphic_nightly_*` (`--ignored`) — the whole corpus and many random
 //!   models; `METAMORPHIC_SEED` moves the random part (printed on failure).
 
+#[path = "../common/mod.rs"]
+mod common;
+
 mod active;
 mod generated;
 mod safety_cases;

@@ -8,6 +8,7 @@
  * otherwise a zip with one CSV per sheet. A large model read at stations passes both, and
  * dropping rows to fit would publish a workbook that looks complete.
  */
+import { ContainmentExportError } from '../export/containment';
 import { zipSync, strToU8 } from 'fflate';
 import { modelStore } from './model.svelte';
 import { resultsStore } from './results.svelte';
@@ -92,6 +93,10 @@ export function stampOutdatedDesign(sheets: readonly WorkbookSheet[], exported: 
 }
 
 export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptions = {}, record?: ResultProvenance): WorkbookSheet[] {
+  if (opts.results !== false || opts.design !== false) {
+    const disposition = uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues;
+    if (disposition.refused) throw new ContainmentExportError(disposition.messages.join('\n'));
+  }
   const model = workbookModel();
   const exported = new Date().toISOString();
   const input: ProjectWorkbookInput = {
@@ -127,7 +132,15 @@ export function currentWorkbookSheets(stations: StationSpec, opts: WorkbookOptio
       ...(opts.extra ?? []),
     ],
   };
-  return projectWorkbookSheets(input);
+  const sheets = projectWorkbookSheets(input);
+  if (opts.results !== false || opts.design !== false) {
+    const disposition = uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues;
+    const warnings = sheets.find(s => s.name === 'Warnings');
+    const messages = [...new Set([...(warnings?.rows.flat().map(String) ?? []), ...disposition.messages])];
+    if (warnings) warnings.rows = messages.map(message => [safeText(message)]);
+    else if (messages.length) sheets.splice(2, 0, { name: 'Warnings', rows: messages.map(message => [safeText(message)]) });
+  }
+  return sheets;
 }
 
 function specificationsSheet(): WorkbookSheet {
@@ -154,7 +167,12 @@ export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOp
   const record = await workbookRecord();
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const sheets = currentWorkbookSheets(stations, opts, record);
+  let sheets: WorkbookSheet[];
+  try { sheets = currentWorkbookSheets(stations, opts, record); }
+  catch (error) {
+    if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
+    throw error;
+  }
   const data = sheets.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
   const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
   downloadBlob(new Blob([workbookZip(sheets) as BlobPart], { type: 'application/zip' }), name);
@@ -179,7 +197,12 @@ export async function downloadProjectWorkbook(stations: StationSpec, opts: Workb
   const record = await workbookRecord();
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
-  const sheets = currentWorkbookSheets(stations, opts, record);
+  let sheets: WorkbookSheet[];
+  try { sheets = currentWorkbookSheets(stations, opts, record); }
+  catch (error) {
+    if (error instanceof ContainmentExportError) { uiStore.toast(error.message, 'error'); return; }
+    throw error;
+  }
   if (fitsInXlsx(sheets)) {
     // The cover already carries the provenance, prepared above.
     await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: sheets, provenance: false });

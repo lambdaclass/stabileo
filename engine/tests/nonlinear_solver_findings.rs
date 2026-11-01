@@ -131,6 +131,7 @@ fn contact_2d_slack_braces_match_frame_without_them() {
         tension_only(&mut ci, &compressed);
         let r = solve_contact_2d(&ci).unwrap();
         assert!(r.converged, "{storeys} storeys: not converged");
+        assert!(!r.results.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("NL-13")), "ordinary contact solve must not warn about freezing");
         for &id in &compressed {
             let s = r.element_status.iter().find(|e| e.element_id == id).unwrap();
             assert_eq!(s.status, "inactive", "{storeys} storeys: brace {id}");

@@ -50,7 +50,7 @@ describe('a solve that left the combinations out', () => {
     expect((await rerunAnalysisAndDesign()).ok).toBe(false);
     expect(recheckStore.stale).toBe(true);
     const outcome = await runGlobalSolve();
-    expect(outcome.ok && outcome.combinationsLeftOut).toBeTruthy();
+    expect(outcome).toEqual({ ok: false, error: 'worker crashed' });
     expect(recheckStore.stale).toBe(true);
   });
 

@@ -513,7 +513,7 @@ fn test_parity_3d_envelope_json_roundtrip() {
     let results = solve_3d(&input).unwrap();
 
     // Compute 3D envelope from single result
-    let envelope = compute_envelope_3d(&[results]).unwrap();
+    let envelope = compute_envelope_3d(&[results]).unwrap().unwrap();
 
     // Serialize and verify field names
     let json = serde_json::to_string(&envelope).unwrap();
@@ -598,7 +598,7 @@ fn test_parity_3d_combination_superposition() {
             CaseEntry3D { case_id: 1, results: r1 },
             CaseEntry3D { case_id: 2, results: r2 },
         ],
-    }).unwrap();
+    }).unwrap().unwrap();
 
     // Compare displacements
     for i in 0..combined.displacements.len() {

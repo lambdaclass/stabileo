@@ -48,7 +48,7 @@
     // `shellKeys`, not `elementIds`, so they are never labelled as a frame.
     const modelDiags = is3D ? resultsStore.structuredDiagnostics3D : resultsStore.structuredDiagnostics;
     for (const d of [...asmDiags, ...modelDiags]) {
-      items.push({ source: entityLabel(d) || d.source, type: d.code, message: 'phase' in d ? knownIssueMessage(d) : d.message, severity: d.severity });
+      items.push({ source: entityLabel(d) || d.source, type: d.code, message: 'phase' in d && typeof d.phase === 'string' ? knownIssueMessage({ ...d, phase: d.phase }) : d.message, severity: d.severity });
     }
     const solverDiags = is3D ? resultsStore.solverDiagnostics3D : resultsStore.solverDiagnostics;
     for (const d of solverDiags) {
@@ -57,10 +57,16 @@
     return items;
   })());
 
+  const containment = $derived(uiStore.is3DWorkspace ? resultsStore.knownIssues3D : resultsStore.knownIssues);
+
   /** Individual load cases, in the order the solver produced them. */
   const caseKeys = $derived([...resultsStore.perCase.keys()]);
 </script>
 
+{#each containment.messages as message}
+  <div role="alert" class="containment-banner">{message}</div>
+{/each}
+{#if !containment.refused}
 <!--
   Which load state the table describes.
   
@@ -272,7 +278,10 @@
   {/if}
 </div>
 
+{/if}
+
 <style>
+  .containment-banner { padding: 12px; border: 2px solid currentColor; margin-bottom: 8px; }
   .results-case-bar {
     display: flex;
     align-items: center;
