@@ -3921,6 +3921,7 @@ const en: Record<string, string> = {
   'diag.detail.outOfPlane': "Out of plane (m)",
   'diag.elements': 'Members',
   'knownIssue.NL-5': 'Material-nonlinear results are approximate: the model is a whole-member secant rather than plasticity, so the response jumps at first yield. Check the collapse load factor with plastic collapse',
+  'knownIssue.SH-WARP': 'MITC4 and MITC9 shell elements on warped geometry are too flexible; use curved shells or flat elements',
   'thermalDefault.alpha': 'These temperature loads state no coefficient of thermal expansion, so α = 12·10⁻⁶ /°C (steel’s) was assumed; give the material its α (concrete about 10·10⁻⁶, aluminum 23·10⁻⁶)',
   'thermalDefault.depth': 'These temperature gradients state no section depth, so the depth of the equivalent solid rectangle, √(12·I/A), was assumed; that is exact only for a solid rectangle (for an IPE the gradient moment comes out about 30 % low): give the section its real depth',
   'diag.nodes': 'Nodes',

@@ -3854,6 +3854,7 @@ const fr: Translations = {
   'diag.detail.outOfPlane': 'Hors plan (m)',
   'diag.elements': 'Barres',
   'knownIssue.NL-5': 'Les résultats non linéaires matériau sont approchés : le modèle utilise une rigidité sécante par barre entière plutôt qu\'une loi de plasticité, si bien que la réponse fait un saut à la première plastification. Vérifiez le facteur de charge de ruine avec la ruine plastique',
+  'knownIssue.SH-WARP': 'Les éléments de coque MITC4 et MITC9 sur géométrie gauchie sont trop flexibles ; utilisez des coques courbes ou des éléments plans',
   'thermalDefault.alpha': 'Ces charges de température n\'indiquent aucun coefficient de dilatation thermique : α = 12·10⁻⁶ /°C (celui de l\'acier) a été supposé ; indiquez le α du matériau (béton environ 10·10⁻⁶, aluminium 23·10⁻⁶)',
   'thermalDefault.depth': 'Ces gradients de température n\'indiquent aucune hauteur de section : la hauteur du rectangle plein équivalent, √(12·I/A), a été supposée ; elle n\'est exacte que pour un rectangle plein (pour un IPE, le moment dû au gradient ressort environ 30 % trop faible) : indiquez la hauteur réelle de la section',
   'diag.nodes': 'Nœuds',

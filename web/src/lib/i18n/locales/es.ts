@@ -3914,6 +3914,7 @@ const es: Record<string, string> = {
   'diag.detail.outOfPlane': "Fuera del plano (m)",
   'diag.elements': 'Barras',
   'knownIssue.NL-5': 'Los resultados no lineales de material son aproximados: el modelo es una secante de barra completa y no plasticidad, así que la respuesta salta en la primera fluencia. Verificá el factor de colapso con colapso plástico',
+  'knownIssue.SH-WARP': 'Los elementos de lámina MITC4 y MITC9 sobre geometría alabeada son demasiado flexibles; use láminas curvas o elementos planos',
   'thermalDefault.alpha': 'Estas cargas de temperatura no indican coeficiente de dilatación, así que se supuso α = 12·10⁻⁶ /°C (el del acero); indicá el α del material (hormigón cerca de 10·10⁻⁶, aluminio 23·10⁻⁶)',
   'thermalDefault.depth': 'Estos gradientes de temperatura no indican la altura de la sección, así que se supuso la del rectángulo macizo equivalente, √(12·I/A); es exacta sólo para un rectángulo macizo (en un IPE el momento del gradiente queda cerca de un 30 % bajo): indicá la altura real de la sección',
   'diag.nodes': 'Nodos',

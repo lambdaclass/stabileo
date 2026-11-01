@@ -3862,6 +3862,7 @@ const tr: Translations = {
   'diag.detail.outOfPlane': 'Düzlem dışı (m)',
   'diag.elements': 'Çubuklar',
   'knownIssue.NL-5': 'Malzeme bakımından doğrusal olmayan sonuçlar yaklaşıktır: model plastisite değil, tüm çubuk için sekant esaslıdır; bu yüzden tepki ilk akmada sıçrama yapar. Göçme yükü katsayısını plastik göçme ile kontrol edin',
+  'knownIssue.SH-WARP': 'Çarpık geometrideki MITC4 ve MITC9 kabuk elemanları çok esnektir; eğri kabuklar veya düzlem elemanlar kullanın',
   'thermalDefault.alpha': 'Bu sıcaklık yüklerinde ısıl genleşme katsayısı belirtilmemiş; bu yüzden α = 12·10⁻⁶ /°C (çeliğinki) kabul edildi. Malzemenin α değerini girin (beton yaklaşık 10·10⁻⁶, alüminyum 23·10⁻⁶)',
   'thermalDefault.depth': 'Bu sıcaklık gradyanlarında kesit yüksekliği belirtilmemiş; bu yüzden eşdeğer dolu dikdörtgenin yüksekliği √(12·I/A) kabul edildi. Bu yalnızca dolu dikdörtgen için kesindir (bir IPE\'de gradyan momenti yaklaşık %30 düşük çıkar): kesitin gerçek yüksekliğini girin',
   'diag.nodes': 'Düğümler',

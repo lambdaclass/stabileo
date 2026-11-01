@@ -88,10 +88,66 @@ pub fn loads_3d(loads: &[SolverLoad3D]) -> Vec<StructuredDiagnostic> {
     }))
 }
 
-/// The warnings a 3D model carries whatever its loads. None is open now: curved shells (SH-6),
-/// warped MITC9 (SH-7) and arches (SP-15) are fixed. Kept as the place a model-level finding goes.
-pub fn model_3d(_input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
-    Vec::new()
+const WARPED_SHELL: &str = "MITC4 and MITC9 shell elements on warped geometry are too flexible; use curved shells or flat elements";
+
+/// Element warping ratio threshold (0.1%) beyond which MITC4/MITC9 shells are flagged
+/// as non-conservatively over-flexible (#1057).
+pub const WARPED_SHELL_THRESHOLD: f64 = 0.001;
+
+fn quad_coords(nodes: &[usize; 4], xyz: &std::collections::HashMap<usize, [f64; 3]>) -> Option<[[f64; 3]; 4]> {
+    let mut c = [[0.0; 3]; 4];
+    for (i, &nid) in nodes.iter().enumerate() {
+        c[i] = *xyz.get(&nid)?;
+    }
+    Some(c)
+}
+
+fn quad9_coords(nodes: &[usize; 9], xyz: &std::collections::HashMap<usize, [f64; 3]>) -> Option<[[f64; 3]; 9]> {
+    let mut c = [[0.0; 3]; 9];
+    for (i, &nid) in nodes.iter().enumerate() {
+        c[i] = *xyz.get(&nid)?;
+    }
+    Some(c)
+}
+
+/// The warnings a 3D model carries whatever its loads: warped MITC4/MITC9 shells (#1057).
+pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
+    let mut out = Vec::new();
+    let xyz: std::collections::HashMap<usize, [f64; 3]> = crate::ordered::values(&input.nodes)
+        .map(|n| (n.id, [n.x, n.y, n.z]))
+        .collect();
+
+    let mut warped_quads = Vec::new();
+    for q in crate::ordered::values(&input.quads) {
+        if let Some(coords) = quad_coords(&q.nodes, &xyz) {
+            if crate::element::quad::quad_quality_metrics(&coords).warping > WARPED_SHELL_THRESHOLD {
+                warped_quads.push(q.id);
+            }
+        }
+    }
+    if !warped_quads.is_empty() {
+        let mut d = hit("SH-WARP", 1057, WARPED_SHELL);
+        d.element_ids = warped_quads;
+        d.element_kind = Some(ElementKind::Quad);
+        out.push(d);
+    }
+
+    let mut warped_quad9s = Vec::new();
+    for q in crate::ordered::values(&input.quad9s) {
+        if let Some(coords) = quad9_coords(&q.nodes, &xyz) {
+            if crate::element::quad9::quad9_quality_metrics(&coords).warping > WARPED_SHELL_THRESHOLD {
+                warped_quad9s.push(q.id);
+            }
+        }
+    }
+    if !warped_quad9s.is_empty() {
+        let mut d = hit("SH-WARP", 1057, WARPED_SHELL);
+        d.element_ids = warped_quad9s;
+        d.element_kind = Some(ElementKind::Quad9);
+        out.push(d);
+    }
+
+    out
 }
 
 /// The known-issue warnings that apply to a 2D result of `analysis` on `input`.
@@ -113,7 +169,7 @@ pub fn for_3d(input: &SolverInput3D, analysis: Analysis) -> Vec<StructuredDiagno
 /// (a prepared solve under the solve that called it) does not repeat it.
 pub fn attach(target: &mut Vec<StructuredDiagnostic>, new: Vec<StructuredDiagnostic>) {
     for d in new {
-        let seen = target.iter().any(|t| t.code == d.code && t.phase == d.phase);
+        let seen = target.iter().any(|t| t.code == d.code && t.phase == d.phase && t.element_kind == d.element_kind);
         if !seen {
             target.push(d);
         }

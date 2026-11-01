@@ -150,3 +150,57 @@ fn a_direct_constrained_solve_carries_its_warnings_once() {
     let r = solve_2d(&with).unwrap();
     assert_eq!(assumed(&r.structured_diagnostics), vec!["alpha".to_string()]);
 }
+
+#[test]
+fn warped_mitc4_and_mitc9_are_flagged_with_known_issue_1057() {
+    let base = beam3d();
+
+    let add_nodes = |s: &mut SolverInput3D, pts: &[[f64; 3]]| {
+        for (k, p) in pts.iter().enumerate() {
+            let id = 300 + k;
+            s.nodes.insert(id.to_string(), SolverNode3D { id, x: p[0], y: p[1], z: p[2] });
+        }
+    };
+
+    // 1. Flat quad: no SH-WARP warning.
+    let flat_quad_pts = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]];
+    let mut s_flat = base.clone();
+    add_nodes(&mut s_flat, &flat_quad_pts);
+    s_flat.quads.insert("1".into(), SolverQuadElement { id: 1, nodes: [300, 301, 302, 303], material_id: 1, thickness: 0.1 });
+    assert!(!ids(&for_3d(&s_flat, Analysis::Linear)).contains(&"SH-WARP".to_string()));
+
+    // 2. Warped quad (node 3 lifted out-of-plane): flagged with KnownIssue #1057.
+    let mut warped_quad_pts = flat_quad_pts;
+    warped_quad_pts[3][2] = 0.2; // Warping ≈ 0.035 > 0.001
+    let mut s_warped = base.clone();
+    add_nodes(&mut s_warped, &warped_quad_pts);
+    s_warped.quads.insert("2".into(), SolverQuadElement { id: 2, nodes: [300, 301, 302, 303], material_id: 1, thickness: 0.1 });
+    let diags = for_3d(&s_warped, Analysis::Linear);
+    assert!(ids(&diags).contains(&"SH-WARP".to_string()), "warped quad must be flagged with SH-WARP");
+    let d = diags.iter().find(|x| x.code == DiagnosticCode::KnownIssue && x.phase.as_deref() == Some("SH-WARP")).unwrap();
+    assert_eq!(d.value, Some(1057.0));
+    assert_eq!(d.element_kind, Some(ElementKind::Quad));
+    assert_eq!(d.element_ids, vec![2]);
+    assert!(d.message.contains("1057"));
+
+    // 3. Warped quad9 (corner 3 lifted): flagged with KnownIssue #1057.
+    let warped_q9_pts = [
+        [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.2],
+        [0.5, 0.0, 0.0], [1.0, 0.5, 0.1], [0.5, 1.0, 0.1], [0.0, 0.5, 0.1],
+        [0.5, 0.5, 0.05],
+    ];
+    let mut s_q9 = base.clone();
+    add_nodes(&mut s_q9, &warped_q9_pts);
+    s_q9.quad9s.insert("9".into(), SolverQuad9Element {
+        id: 9,
+        nodes: [300, 301, 302, 303, 304, 305, 306, 307, 308],
+        material_id: 1,
+        thickness: 0.1,
+    });
+    let diags_q9 = for_3d(&s_q9, Analysis::Linear);
+    assert!(ids(&diags_q9).contains(&"SH-WARP".to_string()), "warped quad9 must be flagged with SH-WARP");
+    let d_q9 = diags_q9.iter().find(|x| x.code == DiagnosticCode::KnownIssue && x.phase.as_deref() == Some("SH-WARP")).unwrap();
+    assert_eq!(d_q9.value, Some(1057.0));
+    assert_eq!(d_q9.element_kind, Some(ElementKind::Quad9));
+    assert_eq!(d_q9.element_ids, vec![9]);
+}

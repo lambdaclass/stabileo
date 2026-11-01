@@ -42,7 +42,7 @@ describe('known-issue warnings in the reader’s language', () => {
   });
 
   it('has a sentence for every finding the engine contains, in es, en and pt', () => {
-    for (const id of ['NL-5']) {
+    for (const id of ['NL-5', 'SH-WARP']) {
       for (const loc of ['es', 'en', 'pt'] as const) {
         setLocale(loc);
         expect(knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' }), `${id} ${loc}`).not.toBe('ENGINE');

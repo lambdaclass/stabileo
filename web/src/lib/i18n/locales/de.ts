@@ -3854,6 +3854,7 @@ const de: Translations = {
   'diag.detail.outOfPlane': 'Außerhalb der Ebene (m)',
   'diag.elements': 'Stäbe',
   'knownIssue.NL-5': 'Ergebnisse mit nichtlinearem Materialverhalten sind Näherungen: Das Modell verwendet eine Sekante über den ganzen Stab statt Plastizität, daher springt die Antwort beim ersten Fließen. Prüfen Sie den Traglastfaktor mit dem plastischen Kollaps',
+  'knownIssue.SH-WARP': 'MITC4- und MITC9-Schalenelemente auf verzerrter Geometrie sind zu flexibel; verwenden Sie gekrümmte Schalen oder ebene Elemente',
   'thermalDefault.alpha': 'Für diese Temperaturlasten ist keine Wärmedehnzahl angegeben, daher wurde α = 12·10⁻⁶ /°C (die von Stahl) angenommen; geben Sie dem Material sein α (Beton etwa 10·10⁻⁶, Aluminium 23·10⁻⁶)',
   'thermalDefault.depth': 'Für diese Temperaturgradienten ist keine Querschnittshöhe angegeben, daher wurde die Höhe des äquivalenten Vollrechtecks, √(12·I/A), angenommen; sie ist nur für ein Vollrechteck exakt (bei einem IPE fällt das Moment aus dem Gradienten etwa 30 % zu gering aus): Geben Sie dem Querschnitt seine tatsächliche Höhe',
   'diag.nodes': 'Knoten',

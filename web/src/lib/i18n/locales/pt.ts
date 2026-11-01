@@ -2064,6 +2064,7 @@ const pt: Translations = {
   'diag.deflectionHigh': 'Deformação próxima ao limite admissível',
   'diag.elements': 'Barras',
   'knownIssue.NL-5': 'Os resultados não lineares de material são aproximados: o modelo é uma secante de barra inteira e não plasticidade, então a resposta salta no primeiro escoamento. Confira o fator de colapso com colapso plástico',
+  'knownIssue.SH-WARP': 'Os elementos de casca MITC4 e MITC9 sobre geometria empenada são excessivamente flexíveis; use cascas curvas ou elementos planos',
   'thermalDefault.alpha': 'Estas cargas de temperatura não indicam coeficiente de dilatação, então foi suposto α = 12·10⁻⁶ /°C (o do aço); informe o α do material (concreto cerca de 10·10⁻⁶, alumínio 23·10⁻⁶)',
   'thermalDefault.depth': 'Estes gradientes de temperatura não indicam a altura da seção, então foi suposta a do retângulo maciço equivalente, √(12·I/A); ela é exata só para um retângulo maciço (num IPE o momento do gradiente fica cerca de 30 % baixo): informe a altura real da seção',
   'diag.errors': 'Erros',
