@@ -71,6 +71,26 @@ describe('the gate', () => {
     const same = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: snap({ v: 1 + 1e-12, w: 2 }) }];
     expect(decide({ snapshots: same, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(true);
   });
+  it('rejects a second PR reusing a released version even without snapshot changes', () => {
+    const baseRegistry = { currentResultsVersion: 5, changes: [{ id: 'containment', resultsVersion: 5 }, ...registry.changes] };
+    const entry = { id: 'solid-shell-local-stress-axes', resultsVersion: 5 };
+    const headRegistry = { ...baseRegistry, changes: [entry, ...baseRegistry.changes] };
+    const result = decide({ snapshots: [], baseRegistry, headRegistry, fragments: [breaking] });
+    expect(result.ok).toBe(false);
+    expect(result.report).toContain('solid-shell-local-stress-axes');
+    expect(result.report).toContain('through 5 are already released');
+    expect(decide({ snapshots: [], baseRegistry, headRegistry: {
+      currentResultsVersion: 6, changes: [{ ...entry, resultsVersion: 6 }, ...baseRegistry.changes],
+    }, fragments: [breaking] }).ok).toBe(true);
+  });
+  it('rejects losing or renumbering entries from the first PR', () => {
+    for (const changes of [registry.changes, [{ id: 'new', resultsVersion: 6 }, ...registry.changes]]) {
+      const result = decide({ snapshots: [], baseRegistry: registered,
+        headRegistry: { currentResultsVersion: 6, changes }, fragments: [] });
+      expect(result.ok).toBe(false);
+      expect(result.report).toContain('Missing or renumbered entries: new');
+    }
+  });
   it('passes a new case without a registry entry: coverage is not a change', () => {
     const added = [{ file: 'web/results-snapshots/new.json', base: null, head: snap({ v: 1 }) }];
     expect(decide({ snapshots: added, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(true);

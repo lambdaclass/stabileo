@@ -9,3 +9,13 @@ declare module 'virtual:public-i18n' {
   export const fr: Record<string, string>;
   export const tr: Record<string, string>;
 }
+
+declare module 'virtual:result-change-metadata' {
+  const registry: { currentResultsVersion: number };
+  export default registry;
+}
+
+declare module 'virtual:result-change-packed' {
+  const packed: string;
+  export default packed;
+}

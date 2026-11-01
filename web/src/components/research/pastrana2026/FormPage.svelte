@@ -66,7 +66,7 @@
 </script>
 
 <div class="pastrana-page">
-<ExperimentShell introInArticle compactHeader={true} paperId="pastrana-2026" name={s.formTitle} lead={s.formLead} {checks}
+<ExperimentShell compactHeader={true} paperId="pastrana-2026" name={s.formTitle} lead={s.formLead} {checks}
   actions={{ goToStep: (i) => { stop(); live = null; source = 'replay'; playback.seek(i); }, setParams: () => restart(), showTab: () => {} }}
   sourcePath="research/form-finding/pastrana-2026"
 >

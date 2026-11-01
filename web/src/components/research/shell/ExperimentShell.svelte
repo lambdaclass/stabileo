@@ -1,4 +1,14 @@
 <script lang="ts">
+  /**
+   * The page of one runnable paper: a header, then two panes. Left, the article (our words: what
+   * the paper shows, the model, how we reproduced it, the comparison, limitations, Cite this).
+   * Right, sticky, the app: Stabileo's viewer, the controls, the step player, the plots. On narrow
+   * screens the article comes first and the app follows. Badges come from the catalogue, whose
+   * statuses CI derives from evidence files.
+   */
+  import { bibliography } from '../catalogue';
+  import { reviewLabel } from '../reviews';
+  import { publicI18n } from '../../../lib/i18n/store.svelte';
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
@@ -25,42 +35,45 @@
     /** One column with the app first and not sticky (e.g. while an embedded editor is shown). */
     wide?: boolean;
     compactHeader?: boolean;
-    /** Put citation, verification and lead in the article so the viewer follows the title. */
+    locale?: string;
+    /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = false }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
-  const paper = catalog.papers.find((p) => p.id === paperId)!;
+  const entry = catalog.papers.find((p) => p.id === paperId)!;
+  const paper = { ...entry, crossref: bibliography(entry) };
   const commit = BUILD_COMMIT;
   const s = $derived(rs());
   const authors = $derived(citationAuthors ?? paper.crossref.authors.join(', '));
 
 </script>
 
-{#snippet intro()}
-  <p class="rs-cite">
-    {s.afterAuthors} {authors}, “{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
-    <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
-  </p>
-  <VerificationSummary
-    reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
-    published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
-    {referenceLabel}
-  />
-  <p class="rs-lead" lang={researchLocale()}>{lead}</p>
+{#snippet introduction()}
+      <p class="rs-cite">
+        {s.afterAuthors} {#if authors}{authors}, {/if} “{paper.crossref.title}”{#if paper.crossref.venue}, <em>{paper.crossref.venue}</em>{/if} ({paper.crossref.year}),
+        <a href="https://doi.org/{paper.doi}" rel="noreferrer" target="_blank">{"doi:"}{paper.doi}</a>.
+      </p>
+      <VerificationSummary
+        reference={verification?.reference ?? (checks ? { kind: 'checks', passed: checks.passed, total: checks.total, href: '#checks' } : { kind: 'none', why: '' })}
+        published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
+        {referenceLabel}
+      />
+      <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
+      <p class="rs-lead" lang={locale ?? researchLocale()}>{lead}</p>
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={researchLocale()}>{name}</h1>
-      {#if !introInArticle}{@render intro()}{/if}
+      <h1 lang={locale ?? researchLocale()}>{name}</h1>
+      {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
-      <article class="rs-shell-article rs-prose" lang={researchLocale()}>
-        {#if introInArticle}{@render intro()}{/if}
+      <article class="rs-shell-article rs-prose" lang={locale ?? researchLocale()}>
+        {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
         <p class="rs-citebox">
@@ -113,6 +126,7 @@
     color: var(--fg);
     font-size: 1.05rem;
   }
+  /* Below 70rem the experiment comes first, right after the lead, and the article follows. */
   .rs-shell-grid {
     display: flex;
     flex-direction: column;
