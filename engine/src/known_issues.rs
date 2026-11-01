@@ -513,10 +513,17 @@ mod tests {
             ("TH-RECIPROCITY", Analysis::TimeHistory, false),
             ("MD-ORTHOGONALITY", Analysis::Modal, true),
             ("NL-3", Analysis::Corotational, true),
+            ("BU-ACCURACY", Analysis::Buckling, true),
         ] {
             let diagnostics = |a| if space { for_3d(&input3(), a) } else { for_2d(&input2(), a) };
             assert!(has(&diagnostics(analysis), id), "{id}");
             assert!(!has(&diagnostics(Analysis::Linear), id), "{id}");
+        }
+        let mut trusses = input2();
+        for e in trusses.elements.values_mut() { e.elem_type = "truss".into(); }
+        for analysis in [Analysis::Modal, Analysis::TimeHistory, Analysis::Harmonic] {
+            assert!(has(&for_2d(&input2(), analysis), "NL-DYNAMIC-GAPS"));
+            assert!(!has(&for_2d(&trusses, analysis), "NL-DYNAMIC-GAPS"));
         }
     }
 
