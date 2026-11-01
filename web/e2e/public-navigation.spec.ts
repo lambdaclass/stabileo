@@ -184,6 +184,18 @@ for (const width of [390, 1440]) {
   });
 }
 
+test('@smoke a direct load whose language fails to download still opens a working page, in English', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  let aborted = 0;
+  await page.route(/\/assets\/de-[^/]+\.js$/, (route) => { aborted++; return route.abort(); });
+  await page.goto('/de/tools/');
+  await expect(page.locator('#prerender')).toHaveCount(0);
+  await expect(page.locator('#app .site-header')).toHaveAttribute('data-current', 'tools');
+  await expect(page.locator('#app .tools-wrap')).toBeVisible();
+  await expect(page.locator('#app .site-header [data-nav="tools"]')).toHaveText('Tools');
+  expect(aborted).toBeGreaterThan(0);
+});
+
 test('@smoke a public page whose code fails to load is opened by a full load, never left under the old page', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(() => {

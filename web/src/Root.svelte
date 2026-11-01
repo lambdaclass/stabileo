@@ -55,7 +55,7 @@
     const hash = location.hash;
     try {
       if (next.kind === 'app') { await loadApp(); return; }
-      const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale)]);
+      const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
       if (token !== revision) return;
       if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
       adoptLocaleFromPath();
