@@ -155,7 +155,7 @@ fn validation_tri_ext_cantilever_zero_at_root() {
 //   delta_mid = 5*q*L^4 / (768*E*I)  -- Nope, that's UDL.
 //
 // For triangular load (0 at A, q at B) on SS beam:
-//   delta_max = 0.01304 * q*L^4 / (E*I)  at x ~= 0.5193L
+//   delta_max = 0.0065222 * q*L^4 / (E*I)  at x ~= 0.5193L
 //   delta(L/2) = q*L^4 * (5/768) * correction...
 //
 // Elastic curve: y(x) = q*x*(7L^4 - 10L^2x^2 + 3x^4) / (360*L*E*I)

@@ -175,6 +175,7 @@ pub fn make_portal_frame(
 #[allow(dead_code)]
 #[track_caller]
 pub fn assert_close(actual: f64, expected: f64, rel_tol: f64, label: &str) {
+    assert!(actual.is_finite() && expected.is_finite(), "{}: non-finite comparison, actual={:e}, expected={:e}", label, actual, expected);
     let diff = (actual - expected).abs();
     assert!(
         diff <= rel_tol * expected.abs(),
@@ -188,6 +189,7 @@ pub fn assert_close(actual: f64, expected: f64, rel_tol: f64, label: &str) {
 #[allow(dead_code)]
 #[track_caller]
 pub fn assert_close_abs(actual: f64, expected: f64, rel_tol: f64, abs_tol: f64, label: &str) {
+    assert!(actual.is_finite() && expected.is_finite(), "{}: non-finite comparison, actual={:e}, expected={:e}", label, actual, expected);
     let diff = (actual - expected).abs();
     assert!(
         diff < abs_tol || diff <= rel_tol * expected.abs(),
