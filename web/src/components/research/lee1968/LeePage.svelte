@@ -69,7 +69,6 @@
   actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: () => {} }}
   verification={{ reference: { kind: 'none', why: s.codeWhy }, published: { kind: 'none', why: s.paperWhy } }}>
   {#snippet article()}
-    <p><strong>{s.stage}</strong></p>
     <h2>{s.model}</h2><p>{s.description}</p><p>{s.method}</p>
     <h2>{s.referenceHeading}</h2><p>{s.provenance}</p>
     <p><a href="https://doi.org/10.1155/2020/3613892">{s.sourceLabel}</a></p>

@@ -85,7 +85,7 @@ export const EXPERIMENTS: Experiment[] = [
   },
   {
     paperId: 'navier-plate', path: '/research/benchmarks/navier-plate',
-    name: 'Navier plate: mesh convergence', hook: 'First version: uniform pressure, DKT and MITC4 against the Fourier series.',
+    name: 'Navier plate: mesh convergence', hook: 'Uniform pressure, DKT and MITC4 against the Fourier series.',
     thumbnail: 'research-thumbs/navier-plate.svg', thumbnailAlt: 'Computed MITC4 displacement contour', thumbnailQuery: '',
     code: 'https://github.com/lambdaclass/stabileo/tree/main/research/benchmarks/navier-plate',
   },

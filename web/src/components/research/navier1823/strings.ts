@@ -1,4 +1,3 @@
-import { reviewLabel } from '../reviews';
 
 const citations = {
   chapterCitation: 'Ventsel & Krauthammer (2001), Rectangular Plates',
@@ -8,7 +7,7 @@ const citations = {
 export const strings = {
   en: {
     ...citations,
-    title: 'Navier plate: mesh convergence', stage: `First version · ${reviewLabel('navier-plate', 'en')}`,
+    title: 'Navier plate: mesh convergence',
     lead: 'One simply supported rectangular plate, uniform pressure, two production elements and a double Fourier series.',
     model: 'Model and reference',
     method: 'A 3 × 5 m plate, 0.1 m thick; E = 63,000 MPa, ν = 0.2; downward pressure 10 kN/m². All edges restrain vertical translation; rotations remain free (soft simple support). Three in-plane restraints remove rigid motion. The pressure is lumped as tributary nodal forces: qA/3 per triangle node, qA/4 per quadrilateral node.',
@@ -34,7 +33,7 @@ export const strings = {
   },
   es: {
     ...citations,
-    title: 'Placa de Navier: convergencia de malla', stage: `Primera versión · ${reviewLabel('navier-plate', 'es')}`,
+    title: 'Placa de Navier: convergencia de malla',
     lead: 'Una placa rectangular simplemente apoyada, presión uniforme, dos elementos de producción y una serie doble de Fourier.',
     model: 'Modelo y referencia',
     method: 'Placa de 3 × 5 m y espesor 0,1 m; E = 63.000 MPa, ν = 0,2; presión descendente de 10 kN/m². Los bordes restringen el desplazamiento vertical y dejan libres las rotaciones (apoyo simple blando). Tres restricciones en el plano eliminan el movimiento rígido. La presión se concentra en fuerzas nodales tributarias: qA/3 por nodo de triángulo, qA/4 por nodo de cuadrilátero.',
@@ -60,7 +59,7 @@ export const strings = {
   },
   pt: {
     ...citations,
-    title: 'Placa de Navier: convergência da malha', stage: `Primeira versão · ${reviewLabel('navier-plate', 'pt')}`,
+    title: 'Placa de Navier: convergência da malha',
     lead: 'Uma placa retangular simplesmente apoiada, pressão uniforme, dois elementos de produção e uma série dupla de Fourier.',
     model: 'Modelo e referência',
     method: 'Placa de 3 × 5 m e espessura de 0,1 m; E = 63.000 MPa, ν = 0,2; pressão descendente de 10 kN/m². As bordas restringem a translação vertical e deixam as rotações livres (apoio simples flexível). Três restrições no plano eliminam o movimento rígido. A pressão é concentrada em forças nodais tributárias: qA/3 por nó de triângulo, qA/4 por nó de quadrilátero.',
@@ -86,7 +85,7 @@ export const strings = {
   },
   de: {
     ...citations,
-    title: 'Navier-Platte: Netzkonvergenz', stage: `Erste Version · ${reviewLabel('navier-plate', 'de')}`,
+    title: 'Navier-Platte: Netzkonvergenz',
     lead: 'Eine gelenkig gelagerte Rechteckplatte, gleichmäßiger Druck, zwei Produktionselemente und eine doppelte Fourier-Reihe.',
     model: 'Modell und Referenz',
     method: 'Platte 3 × 5 m, Dicke 0,1 m; E = 63.000 MPa, ν = 0,2; Druck 10 kN/m² nach unten. Alle Ränder halten die vertikale Verschiebung fest; die Rotationen bleiben frei (weiche gelenkige Lagerung). Drei Lager in der Ebene verhindern Starrkörperbewegungen. Der Druck wird als anteilige Knotenkräfte aufgebracht: qA/3 je Dreiecksknoten, qA/4 je Viereckknoten.',
@@ -112,7 +111,7 @@ export const strings = {
   },
   fr: {
     ...citations,
-    title: 'Plaque de Navier : convergence du maillage', stage: `Première version · ${reviewLabel('navier-plate', 'fr')}`,
+    title: 'Plaque de Navier : convergence du maillage',
     lead: 'Une plaque rectangulaire simplement appuyée, une pression uniforme, deux éléments de production et une double série de Fourier.',
     model: 'Modèle et référence',
     method: 'Plaque de 3 × 5 m, épaisseur 0,1 m ; E = 63 000 MPa, ν = 0,2 ; pression descendante de 10 kN/m². Tous les bords bloquent la translation verticale ; les rotations restent libres (appui simple souple). Trois appuis dans le plan suppriment le mouvement de corps rigide. La pression est concentrée en forces nodales tributaires : qA/3 par nœud de triangle, qA/4 par nœud de quadrilatère.',
@@ -138,7 +137,7 @@ export const strings = {
   },
   tr: {
     ...citations,
-    title: 'Navier plağı: ağ yakınsaması', stage: `İlk sürüm · ${reviewLabel('navier-plate', 'tr')}`,
+    title: 'Navier plağı: ağ yakınsaması',
     lead: 'Basit mesnetli tek bir dikdörtgen plak, düzgün basınç, iki üretim elemanı ve çift Fourier serisi.',
     model: 'Model ve referans',
     method: '3 × 5 m plak, kalınlık 0,1 m; E = 63.000 MPa, ν = 0,2; aşağı yönlü 10 kN/m² basınç. Tüm kenarlar düşey ötelemeyi tutar; dönmeler serbesttir (yumuşak basit mesnet). Düzlem içindeki üç mesnet rijit hareketi önler. Basınç, katkı alanına göre düğüm kuvvetlerine toplanır: üçgen düğümü başına qA/3, dörtgen düğümü başına qA/4.',

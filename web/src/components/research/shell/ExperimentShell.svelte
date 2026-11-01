@@ -7,8 +7,6 @@
    * statuses CI derives from evidence files.
    */
   import { bibliography } from '../catalogue';
-  import { finalReview, reviewLabel } from '../reviews';
-  import { publicI18n } from '../../../lib/i18n/store.svelte';
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
@@ -66,7 +64,6 @@
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
         {referenceLabel}
       />
-      {#if !finalReview(paperId)}<p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>{/if}
       <p class="rs-lead" lang={locale ?? researchTextLocale()}>{lead}</p>
 {/snippet}
 

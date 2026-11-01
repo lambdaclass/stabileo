@@ -77,7 +77,6 @@
   sourcePath="research/benchmarks/newmark-1959"
   actions={{ goToStep: i => playback.seek(i), setParams: p => select(Number(p.ratio)), showTab: () => {} }}>
   {#snippet article()}
-    <p><strong>{s.stage}</strong></p>
     <p><strong>{common.notDesign}.</strong></p>
     <p>{s.paper}</p>
     <h2>{s.model}</h2><p data-testid="description">{fill(s.description, values)}</p><p>{s.method}</p>

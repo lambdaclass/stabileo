@@ -29,7 +29,7 @@ test('@smoke Lee frame replay, reduced-motion live run and stop', async ({ page 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(URL('en'));
   await expect(page.getByRole('heading', { name: 'Lee frame (1968)', exact: true })).toBeVisible();
-  await expect(page.getByText('First version · 2 review rounds', { exact: true })).toBeVisible();
+  await expect(page.locator('body')).not.toContainText(/First version|review rounds?/);
   await expect(page.getByTestId('lee-limit')).toHaveText('1.8658');
   await expect(page.getByTestId('lee-difference')).toHaveText('≈ +2%');
   await expect(page.getByTestId('lee-fine')).toHaveText('1.8563');

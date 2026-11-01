@@ -17,7 +17,7 @@ it('states what the result is checked against, with the evidence count and no pe
   expect(page).toContain(translations.en.publishedNote);
   expect(page).toContain('”, method illustration based on');
   expect(page).not.toContain('reproduction of');
-  expect(page).toContain('First version · 2 review rounds');
+  expect(page).not.toMatch(/First version|review rounds?/);
   expect(page).not.toMatch(/Not yet|pending|not compared|Questions for the authors/i);
   expect(body.match(/Research, not a design tool/g)).toHaveLength(1);
   expect(body).toMatch(/<p class="source[^"]*" data-testid="cqc-source" role="status" aria-live="polite"/);

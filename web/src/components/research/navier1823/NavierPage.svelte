@@ -94,7 +94,7 @@
 <section class="navier wrap">
   <header class="head">
     <h1>{s.title}</h1>
-    <p><strong>{s.stage}</strong> · <strong>{s.notDesign}</strong></p>
+    <p><strong>{s.notDesign}</strong></p>
   </header>
   <div class="panes">
     <div class="app" bind:this={host}>

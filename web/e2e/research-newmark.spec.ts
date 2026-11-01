@@ -36,7 +36,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(route('en'));
     await expect(page.getByRole('heading', { name: 'Newmark average acceleration' })).toBeVisible();
-    await expect(page.getByText('First version · 2 review rounds', { exact: true })).toBeVisible();
+    await expect(page.locator('body')).not.toContainText(/First version|review rounds?/);
     const verification = page.locator('.rs-verify');
     await expect(verification.locator('dt').first()).toHaveText('Against closed form and native engine');
     await expect(verification.locator('dd').first()).toContainText('13 of 13 checks pass');

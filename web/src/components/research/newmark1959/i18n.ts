@@ -1,8 +1,7 @@
-import { reviewLabel } from '../reviews';
 import { researchLocale } from '../i18n';
 
 const en = {
-  title: 'Newmark average acceleration', stage: `First version · ${reviewLabel('newmark-1959', 'en')}`,
+  title: 'Newmark average acceleration',
   metaTitle: 'Newmark (1959) — Stabileo Research',
   metaDescription: 'First version: production Newmark average acceleration against the exact SDOF step response.',
   lead: 'One undamped degree of freedom under a sudden constant force. Increase the time step to see the numerical period grow.',
@@ -28,7 +27,7 @@ const en = {
 };
 type Strings = { [K in keyof typeof en]: (typeof en)[K] };
 const es: Strings = {
-  title: 'Aceleración media de Newmark', stage: `Primera versión · ${reviewLabel('newmark-1959', 'es')}`,
+  title: 'Aceleración media de Newmark',
   metaTitle: 'Newmark (1959) — Stabileo Research',
   metaDescription: 'Primera versión: la aceleración media de Newmark de producción frente a la respuesta exacta de un grado de libertad a un escalón.',
   lead: 'Un grado de libertad sin amortiguamiento bajo una fuerza constante aplicada de golpe. Aumentá el paso temporal para ver cómo crece el período numérico.',
@@ -50,7 +49,7 @@ const es: Strings = {
   paper: 'El artículo describe un procedimiento de integración temporal para dinámica estructural. Aquí probamos su especialización de aceleración media en un ensayo lineal pequeño; no afirmamos reproducir una figura del artículo.', alt: 'Historia de desplazamiento axial de nuestra ejecución de Newmark de producción',
 };
 const pt: Strings = {
-  title: 'Aceleração média de Newmark', stage: `Primeira versão · ${reviewLabel('newmark-1959', 'pt')}`,
+  title: 'Aceleração média de Newmark',
   metaTitle: 'Newmark (1959) — Stabileo Research',
   metaDescription: 'Primeira versão: a aceleração média de Newmark de produção frente à resposta exata de um grau de liberdade a um degrau.',
   lead: 'Um grau de liberdade sem amortecimento sob uma força constante aplicada subitamente. Aumente o passo de tempo para ver o período numérico crescer.',

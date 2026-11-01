@@ -31,7 +31,7 @@ test.describe('@smoke plastic collapse', () => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(route('en'));
       await expect(page.getByRole('heading', { name: 'Classic plastic collapse', exact: true })).toBeVisible();
-      await expect(page.getByText('First version · 2 review rounds', { exact: true })).toBeVisible();
+      await expect(page.locator('body')).not.toContainText(/First version|review rounds?/);
       await expect(page.getByTestId('source')).toHaveText('Live computation');
       await expect(page.getByText('6 of 6 checks pass')).toBeVisible();
       await expect(page.getByText('Against the hand calculation')).toBeVisible();

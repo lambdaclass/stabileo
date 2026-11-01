@@ -67,7 +67,7 @@ it('supplies complete keys with the same numbers in all six locales', () => {
     expect(Object.keys(translations[locale]).sort()).toEqual(Object.keys(translations.en).sort());
     expect(translations[locale].limitations).toHaveLength(3);
     expect(translations[locale].title).not.toEqual(translations.en.title);
-    expect(translations[locale].stages['first-version']).not.toEqual(translations.en.stages['first-version']);
+    expect(translations[locale].lead).not.toEqual(translations.en.lead);
     for (const key of Object.keys(translations.en) as (keyof typeof translations.en)[]) {
       expect(numbers(translations[locale][key]).sort(), `${locale}.${key}`).toEqual(numbers(translations.en[key]).sort());
     }

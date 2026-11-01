@@ -4,16 +4,12 @@
   import StabileoViewer from '../shell/StabileoViewer.svelte';
   import { Playback } from '../shell/playback.svelte';
   import { num } from '../shell/format';
-  import { reviewLabel } from '../reviews';
-  import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { benchmark, difference, impliedRho, projection, recompute, roof, type Results } from './benchmark';
   import replay from '../../../../../research/benchmarks/cqc-1981/results/stabileo_results.json';
-  import catalog from '../../../../../research/papers.json';
   import validation from '../../../../../research/benchmarks/cqc-1981/VALIDATION.json';
   import { cqcLocale, cqcStrings } from './strings';
 
   const s = $derived(cqcStrings());
-  const stage = catalog.papers.find(p => p.id === 'cqc-1981')!.stage ?? '';
   const passed = validation.checks.filter(c => c.passed).length;
   let results = $state<Results>(replay.results);
   let source = $state<'replay' | 'live'>('replay');
@@ -86,7 +82,6 @@
   sourcePath="research/benchmarks/cqc-1981"
 >
   {#snippet article()}
-    <p><strong data-testid="cqc-stage">{s.stages[stage] ?? stage} · {reviewLabel('cqc-1981', publicI18n.locale)}</strong></p>
     <h2>{s.model}</h2><p>{s.description}</p>
     <h2>{s.method}</h2><p>{s.equations}</p>
     <p>ρ(r, ξ) = 8ξ²(1+r)r³ᐟ² / [(1−r²)² + 4ξ²r(1+r)²], r = ω₂/ω₁.</p>

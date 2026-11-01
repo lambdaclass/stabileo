@@ -25,7 +25,8 @@ test.describe('@smoke CQC first version', () => {
       await page.setViewportSize(viewport);
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(route('en'));
-      await expect(page.getByTestId('cqc-stage')).toHaveText('First version · 2 review rounds');
+      await expect(page.getByTestId('cqc-stage')).toHaveCount(0);
+      await expect(page.locator('body')).not.toContainText(/First version|review rounds?/);
       await expect(page.getByText('9 of 9 checks pass')).toBeVisible();
       await expect(page.getByText('reproduction of')).toHaveCount(0);
       await expect(page.getByTestId('result-CQC')).toHaveText('17.549732');

@@ -1,9 +1,8 @@
-import { reviewLabel } from '../reviews';
 import { publicI18n } from '../../../lib/i18n/store.svelte';
 
 const en = {
   publisher: 'Elsevier',
-  title: 'Classic plastic collapse', stage: `First version · ${reviewLabel('horne-1979', 'en')}`,
+  title: 'Classic plastic collapse',
   metaTitle: 'Classic plastic collapse — Stabileo Research',
   metaDescription: 'First version: a portal frame compared with beam, sway and combined mechanism hand calculations.',
   thumbnailAlt: 'Portal frame deformed at collapse, from the production solver run',
@@ -44,7 +43,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
   en,
   es: {
     publisher: 'Elsevier',
-    title: 'Colapso plástico clásico', stage: `Primera versión · ${reviewLabel('horne-1979', 'es')}`,
+    title: 'Colapso plástico clásico',
     metaTitle: 'Colapso plástico clásico — Stabileo Research',
     metaDescription: 'Primera versión: un pórtico comparado con los mecanismos de viga, de traslación y combinado calculados a mano.',
     thumbnailAlt: 'Pórtico deformado en el colapso, del cálculo con el solver de producción',
@@ -81,7 +80,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
   },
   pt: {
     publisher: 'Elsevier',
-    title: 'Colapso plástico clássico', stage: `Primeira versão · ${reviewLabel('horne-1979', 'pt')}`,
+    title: 'Colapso plástico clássico',
     metaTitle: 'Colapso plástico clássico — Stabileo Research',
     metaDescription: 'Primeira versão: um pórtico comparado com os mecanismos de viga, de translação e combinado calculados à mão.',
     thumbnailAlt: 'Pórtico deformado no colapso, do cálculo com o solver de produção',
@@ -118,7 +117,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
   },
   de: {
     publisher: 'Elsevier',
-    title: 'Klassischer plastischer Kollaps', stage: `Erste Version · ${reviewLabel('horne-1979', 'de')}`,
+    title: 'Klassischer plastischer Kollaps',
     metaTitle: 'Klassischer plastischer Kollaps — Stabileo Research',
     metaDescription: 'Erste Version: ein Portalrahmen im Vergleich mit Handrechnungen für Balken-, Seitenverschiebungs- und kombinierte Mechanismen.',
     thumbnailAlt: 'Portalrahmen beim Kollaps verformt, aus dem Lauf des Produktionslösers',
@@ -155,7 +154,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
   },
   fr: {
     publisher: 'Elsevier',
-    title: 'Effondrement plastique classique', stage: `Première version · ${reviewLabel('horne-1979', 'fr')}`,
+    title: 'Effondrement plastique classique',
     metaTitle: 'Effondrement plastique classique — Stabileo Research',
     metaDescription: 'Première version : un portique comparé aux calculs à la main des mécanismes de poutre, de panneau et combiné.',
     thumbnailAlt: 'Portique déformé à l’effondrement, issu du calcul du solveur de production',
@@ -192,7 +191,7 @@ export const strings: Record<'en' | 'es' | 'pt' | 'de' | 'fr' | 'tr', PlasticStr
   },
   tr: {
     publisher: 'Elsevier',
-    title: 'Klasik plastik göçme', stage: `İlk sürüm · ${reviewLabel('horne-1979', 'tr')}`,
+    title: 'Klasik plastik göçme',
     metaTitle: 'Klasik plastik göçme — Stabileo Research',
     metaDescription: 'İlk sürüm: bir portal çerçeve, elle hesaplanan kiriş, yanal öteleme ve birleşik mekanizmalarla karşılaştırılır.',
     thumbnailAlt: 'Üretim çözücüsünün çalıştırmasından, göçme anında şekil değiştirmiş portal çerçeve',
