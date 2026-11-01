@@ -1,0 +1,40 @@
+{
+  "checks": [
+    {
+      "metric": "max relative threshold error against 31 Zenodo software outputs",
+      "observed": 0.0018206215252638547,
+      "passed": true,
+      "tolerance": 0.003
+    },
+    {
+      "metric": "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change",
+      "observed": 0.0003999577799946863,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "Euler f0 relative error",
+      "observed": 1.2895216494612782e-7,
+      "passed": true,
+      "tolerance": 0.00001
+    },
+    {
+      "metric": "Euler f1 relative error",
+      "observed": 5.393339832515665e-7,
+      "passed": true,
+      "tolerance": 0.00001
+    }
+  ],
+  "published_checks": [
+    {
+      "computed": 21.517303914718646,
+      "metric": "centered 70% alpha/sqrt(epsilon): absolute error",
+      "observed": 0.0026960852813537883,
+      "passed": true,
+      "reference": 21.52,
+      "source": "Zmyślony et al., doi:10.1103/56f8-8gsx; arXiv:2601.06598v2 p.3 following Eq.(2), Eq.(3) p.4, supplementary Table S1 p.8 (PDF p.17)",
+      "tolerance": 0.02
+    }
+  ],
+  "scope": "Production Euler modes and shallow-angle equilibrium thresholds; not laboratory validation or snap dynamics."
+}

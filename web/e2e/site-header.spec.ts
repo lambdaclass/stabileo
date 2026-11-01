@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import { SITE_NAV } from '../src/components/site/site-nav';
+import { EXPERIMENTS } from '../src/components/research/experiments';
 
 /**
  * Every public page carries the same header (components/site/SiteHeader.svelte): the same items
@@ -6,7 +8,7 @@ import { test, expect } from '@playwright/test';
  *
  *   npx playwright test --grep "@smoke site header"
  */
-const ITEMS = ['basic', 'pro', 'ai', 'education', 'pricing', 'blog', 'changelog', 'paper', 'research'];
+const ITEMS = SITE_NAV.map(({ id }) => id);
 const PAGES: Array<[string, string | null]> = [
   ['/en/', null],
   ['/en/blog/', 'blog'],
@@ -15,7 +17,8 @@ const PAGES: Array<[string, string | null]> = [
   ['/en/changelog/', 'changelog'],
   ['/en/paper/', 'paper'],
   ['/en/research/', 'research'],
-  ['/en/research/fracture/shauer-2025/', 'research'],
+  ['/en/tools/', 'tools'],
+  ...EXPERIMENTS.map(({ path }): [string, string] => [`/en${path}/`, 'research']),
 ];
 
 test.describe('@smoke site header', () => {

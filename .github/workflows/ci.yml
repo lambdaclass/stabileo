@@ -120,6 +120,8 @@ jobs:
               - 'Cargo.toml'
               - 'Cargo.lock'
             ci_scripts:
+              - 'scripts/nightly-*.py'
+              - '.github/workflows/nightly.yml'
               - 'scripts/tests/**'
               - 'Makefile'
               - 'Dockerfile'
@@ -474,7 +476,7 @@ jobs:
   research-wasm:
     name: Research WASM
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-latest' }}
-    timeout-minutes: 30
+    timeout-minutes: 60  # ~15 research crates since 2026-10-29 on GitHub runners; cached build in PR #866
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
     steps:
@@ -494,6 +496,8 @@ jobs:
           workspaces: |
             research/fracture/shauer-2025/wasm
             research/metamaterials/grossman-2026/wasm
+            research/form-finding/pastrana-2026/wasm
+            research/optimisation/fairclough-2026
           shared-key: research-wasm
       - name: Install web dependencies (the research viewer bundle is built with Vite)
         run: make web.deps
@@ -504,8 +508,12 @@ jobs:
         run: nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 make research.wasm NIX_RUN=
       - name: The browser bundle reproduces the reference (Node)
         run: nix develop --command node research/fracture/shauer-2025/wasm/check.mjs web/public/research-wasm/shauer-2025 research/fracture/shauer-2025/reference-results/ex2_steps.csv
+      - name: The five-node gridshell bundle reproduces Table 1 (Node)
+        run: nix develop --command node research/optimisation/fairclough-2026/wasm/check.mjs
       - name: The spring-network bundle gives the exact lattice answers (Node)
         run: nix develop --command node research/metamaterials/grossman-2026/wasm/check.mjs web/public/research-wasm/grossman-2026
+      - name: Four-cable browser solver
+        run: nix develop --command node research/form-finding/pastrana-2026/wasm/check.mjs web/public/research-wasm/pastrana-2026
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: research-wasm

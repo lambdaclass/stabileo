@@ -1,8 +1,8 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
-       test.ci-scripts \
-       test test.engine test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
+       test.ci-scripts test.nightly-scripts \
+       test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
        ai-backend.run ai-backend.build \
@@ -175,6 +175,20 @@ routes:
 
 test: test.engine test.backend test.web
 
+.PHONY: audit.810 audit.810.run test.engine.targeted
+
+audit.810:
+	$(NIX_RUN) python3 docs/audits/810-reproduce.py $(MODES)
+
+audit.810.run:
+	$(NIX_RUN) cargo run -p dedaliano-engine --example triage810 -- $(MODE)
+
+test.engine.targeted:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture
+
+test.engine.benchmark-protocol:
+	$(NIX_RUN) cargo test -p dedaliano-engine --test validation $(or $(FILTER),benchmark_protocol) -- --nocapture --test-threads=2
+
 test.engine:
 	$(NIX_RUN) cargo test -p dedaliano-engine
 
@@ -332,7 +346,11 @@ check.changelog:
 check.test-targets:
 	python3 -I scripts/check-test-targets.py
 
-test.ci-scripts:
+test.nightly-scripts:
+	python3 -B -I scripts/tests/test_nightly.py
+	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
+
+test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
@@ -366,7 +384,11 @@ web.run: wasm research.wasm
 # The Stabileo Research page's own WASM (web/public/research-wasm/), fetched only on /research pages.
 research.wasm: web.deps
 	$(NIX_RUN) research/fracture/shauer-2025/wasm/build.sh
+	$(NIX_RUN) research/optimization/andreassen-2011/wasm/build.sh
+	$(NIX_RUN) research/mechanics/biggins-2026/build.sh
 	$(NIX_RUN) research/metamaterials/grossman-2026/wasm/build.sh
+	$(NIX_RUN) research/form-finding/pastrana-2026/wasm/build.sh
+	$(NIX_RUN) research/optimisation/fairclough-2026/wasm/build.sh
 
 # Typesets the paper page's text (web/src/lib/paper) into its PDF with Tectonic.
 paper.pdf: web.deps

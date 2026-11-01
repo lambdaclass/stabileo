@@ -6,7 +6,7 @@
  */
 import { test, expect } from './fixtures';
 
-test.describe('@smoke PRO example gallery', () => {
+test.describe('@slow PRO example gallery', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('lists the groups in order, loads a card, and asks before replacing the open model', async ({ pro: page }) => {

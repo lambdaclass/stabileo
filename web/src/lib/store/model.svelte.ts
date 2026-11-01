@@ -1115,7 +1115,7 @@ function createModelStore() {
    * store already solves it for its other cross-store hooks.
    */
   let _captureProvenance:
-    (() => Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith'>) | null = null;
+    (() => Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith' | 'pendingRecheckNotice'>) | null = null;
 
   const normalize2DSupportType = (type: SupportType): SupportType =>
     type === 'rollerY' ? 'rollerZ' : type;
@@ -2322,7 +2322,7 @@ function createModelStore() {
       return result;
     },
 
-    _setCaptureProvenance(fn: () => Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith'>): void {
+    _setCaptureProvenance(fn: () => Pick<ModelSnapshot, 'exports' | 'manualEdits' | 'solvedWith' | 'pendingRecheckNotice'>): void {
       _captureProvenance = fn;
     },
 

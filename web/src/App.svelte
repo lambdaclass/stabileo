@@ -584,13 +584,13 @@
   }
 
   let showLanding = $state(shouldShowLanding());
-  let showResearch = $state(routeKind().kind === 'research');
-  let research = $state<typeof import('./components/research/ResearchPage.svelte').default | null>(null);
+  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
+  let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
   $effect(() => {
-    if (showResearch && !research) {
-      void import('./components/research/load-page')
-        .then((m) => m.loadResearchPage())
-        .then((page) => (research = page));
+    if (showExperiment && !experiment) {
+      void import('./components/research/load-experiment')
+        .then((m) => m.loadExperimentPage())
+        .then((page) => (experiment = page));
     }
   });
   let showPaper = $state(routeKind().kind === 'paper');
@@ -624,18 +624,18 @@
     }
     showLanding = false;
     showBlog = false;
-    showResearch = false;
+    showExperiment = false;
     showPaper = false;
   }
 
   function syncRouteState() {
-    showResearch = routeKind().kind === 'research';
+    showExperiment = ['research', 'tools'].includes(routeKind().kind);
     showPaper = routeKind().kind === 'paper';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog && !showResearch && !showPaper) {
+    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -800,7 +800,7 @@
     importText = '';
   }
 
-  const editorActive = $derived(!showLanding && !showBlog && !showResearch && !showPaper);
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
   provideEditorActivity(() => editorActive);
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
@@ -1172,7 +1172,7 @@
    * copies or reloads is the wrong one.
    */
   $effect(() => {
-    if (showLanding || showBlog || showResearch || showPaper || typeof window === 'undefined') return;
+    if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -1415,10 +1415,10 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showResearch}
-  {#if research}
-    {@const Research = research}
-    <Research path={blogPath} />
+{#if showExperiment}
+  {#if experiment}
+    {@const Experiment = experiment}
+    <Experiment path={blogPath} />
   {/if}
 {:else if showPaper}
   {#if paper}
@@ -1449,7 +1449,7 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showResearch || showPaper}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -2164,7 +2164,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog && !showResearch && !showPaper}
+  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
     <WhatsNewNotice />
   {/if}
 

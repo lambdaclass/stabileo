@@ -39,3 +39,8 @@ mod steel_check;
 mod timber_check;
 mod time_history_3d;
 mod winkler;
+
+#[path = "../benchmarks/newmark_1959.rs"]
+mod newmark_1959;
+#[path = "../benchmarks/plastic_collapse.rs"]
+mod plastic_collapse_benchmark;

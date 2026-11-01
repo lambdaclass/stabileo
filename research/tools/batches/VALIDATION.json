@@ -1,0 +1,48 @@
+{
+  "batches": [
+    {
+      "id": "tools-batch-1",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewers": [
+            "codex",
+            "kimi"
+          ],
+          "date": "2026-10-30"
+        },
+        {
+          "round": 2,
+          "reviewers": [
+            "codex",
+            "grok",
+            "claude"
+          ],
+          "date": "2026-10-31"
+        }
+      ]
+    },
+    {
+      "id": "tools-batch-2",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewers": [
+            "codex",
+            "kimi"
+          ],
+          "date": "2026-10-30"
+        },
+        {
+          "round": 2,
+          "reviewers": [
+            "codex",
+            "grok",
+            "claude"
+          ],
+          "date": "2026-10-31"
+        }
+      ]
+    }
+  ]
+}
