@@ -8,7 +8,8 @@ Each page states what is reproduced and how it was checked.
 Completed post-launch review rounds are recorded in each live entry’s `reviews` list in
 `papers.yaml`; Tools batches use `tools/batches/VALIDATION.json`. A round records `round`, `reviewers`
 and `date`. Round 1 (Codex and Kimi) completed on 2026-10-30. Round 2 is in progress
-and must only be added when complete. Earlier implementation review notes are retained.
+and must only be added when complete. Tools round 2 (Codex, Grok and Claude) completed on 2026-10-31;
+Kimi is added to that round when its quota returns. Earlier implementation review notes are retained.
 
 This directory is **research, not engineering design**. The application may read the catalogue and published results data, but never research code;
 no result here is a design result. A benchmark agreement is not a

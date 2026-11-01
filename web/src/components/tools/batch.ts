@@ -1,12 +1,15 @@
 import type { SolverInput, SupportType } from '../../lib/engine/types';
+import { MESH_TOLERANCE, MIN_EI } from './validity';
 export const BATCH_IDS = ['continuous-beam', 'portal-frame', 'truss-2d', 'influence-line', 'beam-natural-frequency'] as const;
 export type BatchId = typeof BATCH_IDS[number];
 export type BatchParameters = { e: number; i: number; area: number; length: number; height: number; load: number; horizontal: number; spans: string; loads: string; ends: 'pinned' | 'fixed'; rightEnd: 'pinned' | 'fixed'; boundary: 'simple' | 'cantilever' | 'fixed'; count: number; quantity: 'reaction' | 'moment' | 'shear'; position: number; mass: number; nodes: string; members: string; supports: string; nodalLoads: string };
 export const DEFAULT_BATCH: BatchParameters = { e: 200000, i: .00008, area: .01, length: 6, height: 3, load: 10, horizontal: 10, spans: '6, 6', loads: '10, 10', ends: 'pinned', rightEnd: 'pinned', boundary: 'simple', count: 1, quantity: 'moment', position: 3, mass: 100,
   nodes: '1, 0, 0\n2, 3, 0\n3, 6, 0\n4, 9, 0\n5, 12, 0\n6, 3, 3\n7, 6, 3\n8, 9, 3',
   members: '1, 2\n2, 3\n3, 4\n4, 5\n1, 6\n6, 7\n7, 8\n8, 5\n2, 6\n3, 7\n4, 8\n6, 3\n3, 8', supports: '1, pinned\n5, rollerX', nodalLoads: '6, 0, -10\n7, 0, -10\n8, 0, -10' };
-const check = (ok: boolean) => { if (!ok) throw new Error('tools.batch.invalid'); };
+const check = (ok: boolean, key = 'tools.batch.invalid') => { if (!ok) throw new Error(key); };
+const decimalComma = (text: string) => check(!/\d,\d/.test(text), 'tools.batch.decimalComma');
 export function numbers(text: string): number[] {
+  decimalComma(text);
   const tokens = text.trim().split(/[;,\s]+/); check(text.trim().length > 0 && tokens.length <= 100 && tokens.every(t => t.length > 0));
   const values = tokens.map(Number); check(values.every(Number.isFinite)); return values;
 }
@@ -40,11 +43,16 @@ export function parseTruss(p: Pick<BatchParameters, 'nodes' | 'members' | 'suppo
   for (let j = 0; j < nodes.size; j++) for (const el of elements.values()) if (seen.has(el.nodeI) || seen.has(el.nodeJ)) { seen.add(el.nodeI); seen.add(el.nodeJ); }
   check(seen.size === nodes.size); return { nodes, elements, supports, loads };
 }
+/** A section within the mesh tolerance of the middle support is that support. */
+export function sectionPosition(p: Pick<BatchParameters, 'length' | 'count' | 'position'>) {
+  return p.count === 2 && Math.abs(p.position - p.length) <= 2 * p.length * MESH_TOLERANCE ? p.length : p.position;
+}
 export function validateBatch(id: BatchId, p: BatchParameters) {
   for (const [v, min, max] of [[p.e,1,1e6], [p.i,1e-10,10], [p.area,1e-6,10], [p.length,.1,100], [p.height,.1,100], [p.load,0,1e6], [p.horizontal,0,1e6], [p.mass,.001,1e6]]) check(Number.isFinite(v) && v >= min && v <= max);
+  if (id !== 'truss-2d') check(p.e * 1000 * p.i >= MIN_EI);
   check(['pinned','fixed'].includes(p.rightEnd) && ['pinned','fixed'].includes(p.ends) && ['simple','cantilever','fixed'].includes(p.boundary));
   if (id === 'continuous-beam') { const ls = numbers(p.spans), qs = numbers(p.loads); check(ls.length >= 2 && ls.length <= 4 && ls.length === qs.length && ls.every(l => l >= .1 && l <= 100) && qs.every(q => q >= 0 && q <= 1e6)); }
-  if (id === 'influence-line') check([1,2].includes(p.count) && ['reaction','moment','shear'].includes(p.quantity) && Number.isFinite(p.position) && p.position > 0 && p.position < p.length * p.count);
+  if (id === 'influence-line') { const total = p.length * p.count, tol = total * MESH_TOLERANCE; check([1,2].includes(p.count) && ['reaction','moment','shear'].includes(p.quantity) && Number.isFinite(p.position) && p.position > tol && p.position < total - tol); }
   if (id === 'truss-2d') parseTruss(p);
 }
 export function batchModel(id: BatchId, p: BatchParameters): SolverInput {
@@ -65,9 +73,9 @@ export function batchModel(id: BatchId, p: BatchParameters): SolverInput {
   const qs = id === 'continuous-beam' ? numbers(p.loads) : lengths.map(()=>0);
   let x=0, prev=node(0,0); support(prev,id === 'beam-natural-frequency' ? p.boundary === 'simple' ? 'pinned' : 'fixed' : id === 'continuous-beam' ? p.ends : 'pinned');
   for (const [s,L] of lengths.entries()) {
-    const xs = Array.from({length:32},(_,j)=>x+L*(j+1)/32);
-    if(id === 'influence-line' && p.position>x && p.position<x+L) xs.push(p.position);
-    for(const xi of [...new Set(xs)].sort((a,b)=>a-b)) { const next=node(xi,0); member(prev,next,qs[s]); prev=next; }
+    const xs = Array.from({length:32},(_,j)=>x+L*(j+1)/32), section = id === 'influence-line' ? sectionPosition(p) : NaN;
+    if(section>x && section<x+L) { const j = xs.slice(0, -1).reduce((best, xi, k) => Math.abs(xi-section) < Math.abs(xs[best]-section) ? k : best, 0); if(Math.abs(xs[j]-section) <= L*MESH_TOLERANCE) xs[j]=section; else xs.push(section); }
+    for(const xi of xs.sort((a,b)=>a-b)) { const next=node(xi,0); member(prev,next,qs[s]); prev=next; }
     x+=L;
     if(id !== 'beam-natural-frequency' || p.boundary !== 'cantilever') support(prev, s===lengths.length-1 && (id === 'continuous-beam' && p.rightEnd === 'fixed' || id === 'beam-natural-frequency' && p.boundary === 'fixed') ? 'fixed' : 'rollerX');
   }
