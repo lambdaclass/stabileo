@@ -313,6 +313,16 @@ impl MembraneBendingGuard {
         refuse(&self.model_diagnostics)?;
         if self.elements.is_empty() { return Ok(()) }
         let displacements: std::collections::HashMap<_, _> = result.displacements.iter().map(|d| (d.node_id, d)).collect();
+        self.check_field(loads, |id| displacements.get(&id).map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]))
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.elements.is_empty()
+    }
+
+    pub fn check_field(&self, loads: &[SolverLoad3D], displacement: impl Fn(usize) -> Option<[f64; 6]>) -> Result<(), String> {
+        refuse(&self.model_diagnostics)?;
+        if self.elements.is_empty() { return Ok(()) }
         let mut thermal = std::collections::HashMap::<usize, (f64, f64)>::new();
         for load in loads {
             if let SolverLoad3D::QuadThermal(t) = load {
@@ -325,8 +335,8 @@ impl MembraneBendingGuard {
         for q in &self.elements {
             let mut u = Vec::with_capacity(24);
             for id in q.nodes {
-                let Some(d) = displacements.get(&id) else { continue };
-                u.extend([d.ux,d.uy,d.uz,d.rx,d.ry,d.rz]);
+                let Some(d) = displacement(id) else { continue };
+                u.extend(d);
             }
             if u.len() != 24 || u.iter().any(|v| !v.is_finite()) { affected.push(q.id); continue }
             let local: [f64;24] = crate::linalg::transform_displacement(&u, &q.transform, 24).try_into().unwrap();

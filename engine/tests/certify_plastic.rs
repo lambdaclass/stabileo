@@ -197,7 +197,7 @@ fn portal_frame_mechanisms() {
         assert_encloses(&format!("portal H={hl} V={v}"), &c, exact, 1e-12);
         // the incremental solver agrees up to its own f64 round-off
         // After #758 is fixed: assert!(c.solver_deviation.unwrap() < 1e-10, "solver value outside: {c:?}");
-        assert!(c.solver_deviation.is_none());
+        assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
     }
 }
 
@@ -493,7 +493,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + nodal couple", &c, MP / 5.0, 1e-12);
     // After #758 is fixed: assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
-    assert!(c.solver_deviation.is_none());
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     let loads = vec![
         nodal(2, 0.0, 1.0),
@@ -503,7 +503,7 @@ fn moment_sign_conventions_match_solver() {
     let c = certify(&inp);
     assert_encloses("tip force + member couple", &c, MP / 5.0, 1e-12);
     // After #758 is fixed: assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
-    assert!(c.solver_deviation.is_none());
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     // transverse member load q > 0 acts along local y = (−sin, cos): on a beam
     // along +x it pushes up, like a tip force fz > 0, so they add: M_base = qL²/2 + F L

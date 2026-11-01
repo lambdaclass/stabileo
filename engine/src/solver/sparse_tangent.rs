@@ -155,7 +155,7 @@ mod containment_tests {
     #[test]
     fn diagnosed_solve_reuses_symbolic_and_preserves_bits() {
         let mut cache = None;
-        for diagonal in [2.0, 1.0 + 1e-12, 0.5] {
+        for (diagonal, spd, warns) in [(2.0, true, false), (3.0, true, false), (1.0 + 1e-12, true, true), (0.5, false, true)] {
             let k = CscMatrix::from_dense_symmetric(&[1.0, 1.0, 1.0, diagonal], 2);
             let expected = solve_tangent_sparse(&k, &[1.0, 2.0], &mut cache).unwrap();
             let symbolic = cache.as_ref().unwrap().sym.clone();
@@ -163,7 +163,12 @@ mod containment_tests {
             let actual = solve_tangent_sparse_diagnosed(&k, &[1.0, 2.0], &mut cache, &mut diagnostic).unwrap();
             assert!(std::rc::Rc::ptr_eq(&symbolic, &cache.as_ref().unwrap().sym));
             assert_eq!(actual.iter().map(|v| v.to_bits()).collect::<Vec<_>>(), expected.iter().map(|v| v.to_bits()).collect::<Vec<_>>());
-            assert_eq!(diagnostic.is_some(), diagonal != 2.0);
+            let factor = numeric_cholesky(cached_symbolic(&mut cache, &k), &k);
+            assert_eq!(factor.is_some(), spd, "{diagonal}");
+            assert_eq!(diagnostic.as_ref().map(|d| d.phase.clone()), warns.then(|| Some("NUM-INVARIANCE".to_string())), "{diagonal}");
+            if let Some(factor) = &factor {
+                assert_eq!(crate::solver::definiteness::sparse_pivot_check(factor, &k).is_some(), warns, "{diagonal}");
+            }
         }
     }
 }

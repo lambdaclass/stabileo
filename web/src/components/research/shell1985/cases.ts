@@ -1,5 +1,6 @@
 import data from '../../../../../engine/tests/benchmarks/shell_obstacle_course.json';
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
+import { knownIssueRefusal, refusedKnownIssues } from '../../../lib/engine/known-issues';
 
 // Normalize numeric-keyed maps at the JSON boundary; otherwise every mesh produces
 // a distinct huge object union throughout the viewer and editor type checks.
@@ -44,11 +45,15 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
 
 /** Only the three distorted hemisphere meshes currently trigger the #798 refusal. */
 export function refusalFor(c: Case, e: unknown): Result {
-  const failure = String(e);
-  const refused = c.group === 'hemisphere' && failure.includes('Results withheld:') &&
-    failure.includes('known issue #798, SH-MITC4-DISTORTION');
+  const failure = knownIssueRefusal(e) ?? String(e);
+  const refused = c.group === 'hemisphere' && refusedKnownIssues(e).some(d => d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
   return { id: c.id, value: null, error: null, pass: false, failure,
     ...(refused ? { refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798 } : {}) };
+}
+
+export function shown(result?: Result): { value: number | null; error: number | null } {
+  if (!result || result.refused) return { value: null, error: null };
+  return { value: result.value, error: result.error };
 }
 
 export async function runCases(onResult?: (r: Result) => void): Promise<Result[]> {

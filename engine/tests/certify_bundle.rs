@@ -273,6 +273,10 @@ fn export_plastic_bundles() {
     for input in [plastic_portal_2d(), plastic_continuous_2d()] {
         crate::common::assert_containment(export_plastic_bundle_2d(&input), "PL-2D-INVARIANCE");
     }
+    let c = dedaliano_engine::certify::plastic::certify_collapse_2d(&plastic_portal_2d(), None);
+    let exact = 6.0 * MP / 7.0;
+    let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
+    assert!(c.certified && lo <= exact && exact <= up && (up - lo) / exact < 1e-9, "{c:?}");
 
     let input = plastic_cantilever_3d();
     let b = export_plastic_bundle_3d(&input).unwrap();
@@ -282,6 +286,10 @@ fn export_plastic_bundles() {
     assert_eq!(b.structured_diagnostics, diagnostics);
 
     assert!(b.info.lambda_lower <= 8.0 && 8.0 <= b.info.lambda_upper && b.info.lambda_upper - b.info.lambda_lower < 1e-6, "{:?}", b.info);
+    let mut w = b.clone();
+    w.provenance = wrong_hash(&b.provenance);
+    assert_ne!(w.provenance.input_sha256, b.provenance.input_sha256);
+    write_plastic(&dir, "plastic-3d-cantilever.wronghash", &w);
     export_plastic(&dir, "plastic-3d-cantilever", &input, b);
 
     let input = plastic_portal_3d();

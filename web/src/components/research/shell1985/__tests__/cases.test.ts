@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cases, compare, finest, inputFor, refusalFor, runCases, responseRatio, signedReference, viewerData } from '../cases';
+import { cases, compare, finest, inputFor, refusalFor, runCases, responseRatio, shown, signedReference, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
@@ -29,12 +29,19 @@ describe('shell obstacle course evidence', () => {
   });
   it('recognizes only the expected containment refusal', () => {
     const c = cases.find(c => c.id === 'hemisphere-4')!;
-    const message = 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)';
+    const refusal = (severity: string, phase: string, value: number) => JSON.stringify({ message: 'Ergebnisse zurückgehalten', structuredDiagnostics: [{ code: 'known_issue', severity, phase, value, message: 'x' }] });
+    const message = refusal('error', 'SH-MITC4-DISTORTION', 798);
     expect(refusalFor(c, message).refused).toBe(true);
-    for (const failure of ['unavailable', message.replace('#798', '#799'), message.replace('SH-MITC4-DISTORTION', 'OTHER')]) {
+    for (const failure of ['unavailable', 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)', refusal('error', 'SH-MITC4-DISTORTION', 799), refusal('error', 'OTHER', 798), refusal('warning', 'SH-MITC4-DISTORTION', 798)]) {
       expect(refusalFor(c, failure).refused).not.toBe(true);
     }
     expect(refusalFor(cases[0], message).refused).not.toBe(true);
+    expect(refusalFor(c, message).failure).not.toContain('{');
+  });
+  it('never shows a value or error for a withheld row', () => {
+    expect(shown({ id: 'hemisphere-4', value: .185, error: .001, pass: false, refused: true })).toEqual({ value: null, error: null });
+    expect(shown({ id: 'roof-16', value: -.3, error: .01, pass: true })).toEqual({ value: -.3, error: .01 });
+    expect(shown()).toEqual({ value: null, error: null });
   });
   it('preserves connectivity and projects all three displacement components', () => {
     const c = cases[0];
@@ -78,7 +85,8 @@ describe('shell obstacle course evidence', () => {
       const row = rows.find(r => r.id === c.id)!;
       if (c.group === 'hemisphere') {
         expect(row).toMatchObject({ refused: true, knownIssue: 'SH-MITC4-DISTORTION', issue: 798, value: null, error: null, pass: false });
-        expect(row.failure).toMatch(/Results withheld:.*known issue #798, SH-MITC4-DISTORTION/);
+        expect(row.failure).toMatch(/#798/);
+        expect(row.failure).not.toContain('structuredDiagnostics');
         expect(viewerData(c, row).displacement).toBeNull();
       } else {
         expect(row.value).not.toBeNull();

@@ -1320,6 +1320,13 @@ fn solve_time_history_3d_inner(
         }
     }).collect();
 
+    let guard = crate::known_issues::MembraneBendingGuard::for_analysis(&input.solver, crate::known_issues::Analysis::TimeHistory);
+    if !guard.is_empty() {
+        let by_node: std::collections::HashMap<usize, &NodeTimeHistory3D> = node_histories.iter().map(|h| (h.node_id, h)).collect();
+        for s in 0..time_steps.len() {
+            guard.check_field(&[], |id| by_node.get(&id).map(|h| [h.ux[s], h.uy[s], h.uz[s], h.rx[s], h.ry[s], h.rz[s]]))?;
+        }
+    }
     let peak_displacements = build_peak_displacements_3d(&node_histories);
 
     // u_at_peak is in nf space (inclined-support frames)

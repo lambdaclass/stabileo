@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cases, compare, refusalFor, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
+import { strings } from '../i18n';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
 import { buildSolverInput2D, buildSolverInput3D, type ModelData } from '../../../../lib/engine/solver-service';
 import { initSolver, solve, solve3D } from '../../../../lib/engine/wasm-solver';
@@ -63,13 +64,21 @@ describe('engine benchmark evidence', () => {
     const withheld = cases.filter(c => c.expectedRefusal);
     expect(withheld.map(c => c.id)).toEqual(['mitc4-trapezoidal-in', 'mitc4-parallelogram-in']);
     for (const c of withheld) {
-      const message = 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)';
+      const refusal = (severity: string, phase: string, value: number) => JSON.stringify({ message: 'Ergebnisse zurückgehalten', structuredDiagnostics: [{ code: 'known_issue', severity, phase, value, message: 'x' }] });
+      const message = refusal('error', 'SH-MITC4-DISTORTION', 798);
       expect(refusalFor(c, message)).toMatchObject({ refused: true, issue: 798, value: null, error: null, pass: false });
-      for (const failure of ['unavailable', message.replace('#798', '#799'), message.replace('SH-MITC4-DISTORTION', 'OTHER')]) {
+      for (const failure of ['unavailable', 'Results withheld: unsafe (known issue #798, SH-MITC4-DISTORTION)', refusal('error', 'SH-MITC4-DISTORTION', 799), refusal('error', 'OTHER', 798), refusal('warning', 'SH-MITC4-DISTORTION', 798)]) {
         expect(refusalFor(c, failure).refused).not.toBe(true);
       }
       expect(refusalFor(cases[0], message).refused).not.toBe(true);
+      expect(refusalFor(c, message).failure).not.toContain('{');
     }
+  });
+  it('labels withheld rows in every page locale', () => {
+    expect(strings.es.withheld).not.toBe(strings.en.withheld);
+    expect(strings.pt.withheld).not.toBe(strings.en.withheld);
+    expect(strings.es.withheld).toContain('#798');
+    expect(strings.pt.withheld).toContain('#798');
   });
   it('uses actual mesh connectivity in the shared viewer', () => {
     expect(viewerData(c).cells).toEqual([0, 1]);

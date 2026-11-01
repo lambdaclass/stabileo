@@ -121,6 +121,9 @@ export function computeInfluenceLine(
       points = result.points;
     }
     points = withTrussOrdinates(solver, points, solveWith, dir);
+    if ([...diagnostics.values()].some(d => d.code === 'known_issue' && d.severity === 'error')) {
+      throw new Error(JSON.stringify({ structuredDiagnostics: [...diagnostics.values()] }));
+    }
   } catch (err) {
     return t('influence.calcError').replace('{n}', errorText(err));
   }

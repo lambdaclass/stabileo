@@ -64,8 +64,6 @@ All roof meshes pass. Cylinder 6–16 errors decrease but remain outside the unc
 2% gate; those four native accuracy tests stay ignored. Cylinder 32 passes.
 The hemisphere meshes are withheld and count as not passing. The browser cap is
 16×16 (289 nodes), so its finest-mesh headline is **1/3 passing**.
-Without containment the hemisphere measured 0.185219186992, 0.185741984976 and
-0.186206839041 (errors 0.118479%, 0.401073%, 0.652345%).
 This is a workload cap, not a measured browser limit. The editor retains all six
 restraint flags, and the viewer projects the actual 3D displacements.
 

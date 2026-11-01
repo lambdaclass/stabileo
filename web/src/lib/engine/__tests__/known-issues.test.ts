@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { describe, it, expect, afterEach } from 'vitest';
 import { knownIssueMessage, knownIssueDisposition, knownIssueRefusal, knownIssueResultDisposition } from '../known-issues';
 import { setLocale } from '../../i18n';
+import { dictFor, ensureLocale, isOfferedLocale } from '../../i18n/store.svelte';
 
 afterEach(() => setLocale('en'));
 
@@ -45,14 +46,34 @@ describe('known-issue warnings in the reader’s language', () => {
     expect(knownIssueMessage({ code: 'cable_self_weight_tension', value: 0.4, message: 'ENGINE' })).toMatch(/40 %/);
   });
 
-  it('has a sentence for every finding the engine contains, in es, en and pt', () => {
+  it('has a sentence for every finding the engine contains, in every offered language', async () => {
+    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    expect(['de', 'fr', 'tr'].every(isOfferedLocale)).toBe(true);
     const registry = readFileSync('../engine/src/known_issues.rs', 'utf8');
     const ids = [...registry.matchAll(/Entry \{ id: "([^"]+)"/g)].map(match => match[1]);
     expect(ids.length).toBeGreaterThan(1);
     for (const id of ids) {
-      for (const loc of ['es', 'en', 'pt'] as const) {
+      for (const loc of ['es', 'en', 'pt', 'de', 'fr', 'tr'] as const) {
         setLocale(loc);
-        expect(knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' }), `${id} ${loc}`).not.toBe('ENGINE');
+        const message = knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' });
+        expect(message, `${id} ${loc}`).not.toBe('ENGINE');
+        if (loc !== 'en') {
+          setLocale('en');
+          expect(message, `${id} ${loc}`).not.toBe(knownIssueMessage({ code: 'known_issue', phase: id, message: 'ENGINE' }));
+        }
+      }
+    }
+  });
+
+  it('keeps the safety-critical clauses of the English copy in Spanish and Portuguese', () => {
+    const clauses: Record<string, Record<'es' | 'pt', RegExp[]>> = {
+      'CERT-MECHANISM': { es: [/mecanismos/, /cota de error algebraico pequeña no demuestra la estabilidad/], pt: [/mecanismos/, /limite de erro algébrico pequeno não demonstra a estabilidade/] },
+      'BU-BOUND': { es: [/Ni el factor mostrado ni el certificado/], pt: [/Nem o fator exibido nem o certificado/] },
+      'FR-5': { es: [/restringir en exceso/, /de forma independiente/], pt: [/restringir em excesso/, /de forma independente/] },
+    };
+    for (const [id, byLocale] of Object.entries(clauses)) {
+      for (const loc of ['es', 'pt'] as const) {
+        for (const clause of byLocale[loc]) expect(dictFor(loc)[`knownIssue.${id}`], `${id} ${loc}`).toMatch(clause);
       }
     }
   });
@@ -83,7 +104,7 @@ describe('containment modes', () => {
   });
 });
 
-for (const key of ['results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) {
+for (const key of ['results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults', 'maxAbsResults', 'maxAbsResults3D', 'envelope', 'envelope3D']) {
   it(`collects and renders diagnostics in ${key}`, () => {
     const leaf = { structuredDiagnostics: [{ code: 'known_issue', severity: 'warning', phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }] };
     const result = { [key]: ['steps', 'stages', 'caseResults', 'combinationResults'].includes(key) ? [{ results: leaf }] : leaf };
@@ -111,4 +132,10 @@ it('withholds the spectral panel when only Y carries a refusal', () => {
   expect(disposition.refused).toBe(true);
   expect(html).toContain('#741');
   expect(html).not.toContain('123.45');
+});
+it('refuses an envelope whose maxAbsResults3D carries a refusal', () => {
+  const refusal = { code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' };
+  expect(knownIssueResultDisposition({ maxAbsResults3D: { structuredDiagnostics: [refusal] } }).refused).toBe(true);
+  expect(knownIssueResultDisposition({ envelope3D: { maxAbsResults3D: { structuredDiagnostics: [refusal] } } }).refused).toBe(true);
+  expect(knownIssueResultDisposition({ unrelated: { structuredDiagnostics: [refusal] } }).refused).toBe(false);
 });

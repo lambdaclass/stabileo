@@ -64,7 +64,7 @@ fn first_difference(a: &str, b: &str) -> String {
 }
 
 /// Solve `COPIES` fresh deserializations of `json` and require one answer.
-fn same_every_time<I: DeserializeOwned, R: Serialize>(json: &str, what: &str, solve: impl Fn(&I) -> Result<R, String>) -> usize {
+fn same_every_time<I: DeserializeOwned, R: Serialize>(json: &str, what: &str, solve: impl Fn(&I) -> Result<R, String>) -> Outcome {
     let mut first: Option<Result<String, String>> = None;
     for copy in 0..COPIES {
         let input: I = serde_json::from_str(json).unwrap();
@@ -85,34 +85,46 @@ fn same_every_time<I: DeserializeOwned, R: Serialize>(json: &str, what: &str, so
         if let Ok(value) = serde_json::from_str::<serde_json::Value>(error) {
             if let Some(id) = value["structuredDiagnostics"].as_array().and_then(|ds| ds.iter().find(|d| d["code"] == "known_issue" && d["severity"] == "error")).and_then(|d| d["phase"].as_str()) {
                 crate::common::assert_containment::<()>(Err(error.clone()), id);
-                // A contained model now proves deterministic refusal instead of numbers.
-                return 1;
+                return Outcome::Refused;
             }
         }
     }
-    matches!(first, Some(Ok(_))) as usize
+    if matches!(first, Some(Ok(_))) { Outcome::Solved } else { Outcome::Failed }
 }
+
+#[derive(PartialEq)]
+enum Outcome { Solved, Refused, Failed }
 
 #[test]
 fn linear_2d_is_bit_identical_across_hash_orders() {
-    let mut solved = 0;
+    let (mut solved, mut refused) = (0, 0);
     for seed in 0..60 {
         let (m, _) = fuzz_models::random_2d_model_rich(seed);
         let json = serde_json::to_string(&m).unwrap();
-        solved += same_every_time::<SolverInput, _>(&json, &format!("2D seed {seed}"), solve_2d);
+        match same_every_time::<SolverInput, _>(&json, &format!("2D seed {seed}"), solve_2d) {
+            Outcome::Solved => solved += 1,
+            Outcome::Refused => refused += 1,
+            Outcome::Failed => {}
+        }
     }
-    assert!(solved > 20, "too few random 2D models solved ({solved})");
+    eprintln!("2D: {solved} solved, {refused} refused");
+    assert!(solved > 20, "too few random 2D models solved ({solved}; {refused} refused)");
 }
 
 #[test]
 fn linear_3d_is_bit_identical_across_hash_orders() {
-    let mut solved = 0;
+    let (mut solved, mut refused) = (0, 0);
     for seed in 0..60 {
         let (m, _) = fuzz_models::random_3d_model_rich(seed);
         let json = serde_json::to_string(&m).unwrap();
-        solved += same_every_time::<SolverInput3D, _>(&json, &format!("3D seed {seed}"), solve_3d);
+        match same_every_time::<SolverInput3D, _>(&json, &format!("3D seed {seed}"), solve_3d) {
+            Outcome::Solved => solved += 1,
+            Outcome::Refused => refused += 1,
+            Outcome::Failed => {}
+        }
     }
-    assert!(solved > 20, "too few random 3D models solved or explicitly contained ({solved})");
+    eprintln!("3D: {solved} solved, {refused} refused");
+    assert!(solved > 20, "too few random 3D models solved ({solved}; {refused} refused)");
 }
 
 #[test]

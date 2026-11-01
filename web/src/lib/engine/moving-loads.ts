@@ -392,6 +392,9 @@ function solvePosition(
 
   try {
     const results = session.solve(loads);
+    if (results.structuredDiagnostics?.some(d => d.code === 'known_issue' && d.severity === 'error')) {
+      throw new Error(JSON.stringify({ structuredDiagnostics: results.structuredDiagnostics }));
+    }
     positions.push({ refPosition: refPos, results });
     accumulate(envelope, results);
     return null;

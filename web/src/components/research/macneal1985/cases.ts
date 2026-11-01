@@ -1,6 +1,7 @@
 import data from '../../../../../engine/tests/benchmarks/macneal_harder.json';
 import type { SolverInput } from '../../../lib/engine/types';
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
+import { knownIssueRefusal, refusedKnownIssues } from '../../../lib/engine/known-issues';
 
 export type Case = typeof data.cases[number];
 export const cases = data.cases;
@@ -25,10 +26,9 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
 }
 
 export function refusalFor(c: Case, e: unknown): Result {
-  const failure = String(e);
+  const failure = knownIssueRefusal(e) ?? String(e);
   const expected = c.expectedRefusal;
-  const refused = !!expected && failure.includes('Results withheld:') &&
-    failure.includes(`known issue #${expected.issue}, ${expected.id}`);
+  const refused = !!expected && refusedKnownIssues(e).some(d => d.phase === expected.id && d.value === expected.issue);
   return { id: c.id, value: null, error: null, pass: false, failure,
     ...(refused ? { refused: true, knownIssue: expected!.id, issue: expected!.issue } : {}) };
 }

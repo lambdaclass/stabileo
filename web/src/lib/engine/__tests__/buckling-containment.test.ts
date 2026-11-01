@@ -12,6 +12,7 @@ vi.mock('../../wasm/dedaliano_engine.js', async (original) => ({
   solve_3d: mocks.linear,
 }));
 import { initSolver, solveBuckling, solveBuckling3D } from '../wasm-solver';
+import { isContainmentRefusal } from '../containment-error';
 
 const refusal = JSON.stringify({ message: 'withheld', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' }] });
 function input() {
@@ -83,4 +84,24 @@ it('the real #741 model stays warned through an ordinary certification fallback'
   expect(result.structuredDiagnostics).toEqual(expect.arrayContaining([
     expect.objectContaining({ phase: 'BU-ACCURACY', value: 818 }),
   ]));
+});
+
+it('the real #741 certificate refusal is a containment refusal and withholds the factor', async () => {
+  const native = await vi.importActual<typeof import('../../wasm/dedaliano_engine.js')>('../../wasm/dedaliano_engine.js');
+  const json = readFileSync('../engine/tests/fixtures/buckling-741.json', 'utf8');
+  let thrown: unknown = null;
+  try { native.certify_buckling_3d(json, 1); } catch (e) { thrown = e; }
+  expect(thrown).not.toBeNull();
+  expect(isContainmentRefusal(thrown)).toBe(true);
+  const wire = JSON.parse(json);
+  for (const key of ['nodes', 'elements', 'materials', 'sections', 'supports', 'plates', 'quads', 'quad9s', 'solidShells', 'curvedShells', 'connectors']) {
+    wire[key] = new Map(Object.entries(wire[key] ?? {}).map(([id, value]) => [Number(id), value]));
+  }
+  mocks.certify.mockImplementation(native.certify_buckling_3d);
+  mocks.plain.mockImplementation(native.solve_buckling_3d);
+  let result: unknown = null;
+  expect(() => { result = solveBuckling3D(wire, 1); }).toThrow(/BU-BOUND/);
+  expect(result).toBeNull();
+  expect(mocks.certify).toHaveBeenCalled();
+  expect(mocks.plain).not.toHaveBeenCalled();
 });

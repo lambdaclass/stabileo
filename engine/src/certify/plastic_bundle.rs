@@ -519,6 +519,7 @@ fn kinds() -> [&'static str; 2] {
 /// Run the 2D plastic solver, certify the collapse factor and export the bundle.
 pub fn export_plastic_bundle_2d(input: &PlasticInput) -> Result<PlasticBundle, String> {
     super::finite::check_input(input)?;
+    crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
     // A non-finite solver result is not even used as a candidate.
     let solver = crate::known_issues::optional_solve(solve_plastic_2d(input))?.filter(|r| super::finite::check_results(r).is_ok());
     let model = build_model(input)?;
@@ -549,6 +550,7 @@ pub fn export_plastic_bundle_2d(input: &PlasticInput) -> Result<PlasticBundle, S
 pub fn export_plastic_bundle_3d(input: &PlasticInput3D) -> Result<PlasticBundle, String> {
     super::finite::check_input(input)?;
     let solver = crate::known_issues::optional_solve(solve_plastic_3d(input))?.filter(|r| super::finite::check_results(r).is_ok());
+    let diagnostics = bundle_diagnostics_3d(input, solver.as_ref())?;
     let model = build_model_3d(input)?;
     let c = plastic_candidates_3d(&model, solver.as_ref().map(|r| (input, r)))?;
     let field = c.static_field.ok_or_else(|| format!("lower bound: {}", c.static_reason.unwrap_or_default()))?;
@@ -564,16 +566,40 @@ pub fn export_plastic_bundle_3d(input: &PlasticInput3D) -> Result<PlasticBundle,
     let x: Vec<Q> = field.elems.iter().flat_map(|e| e.iter().cloned()).collect();
     let prov = Provenance::new(input, "PlasticInput3D", &kinds())?;
     let mut bundle = plastic_bundle(&lp, 3, prov, (&field.lambda, &x), &hinges)?;
-    if let Some(results) = solver {
-        bundle.structured_diagnostics = results.structured_diagnostics.iter()
-            .map(|d| serde_json::to_value(d).expect("diagnostic serializes")).collect();
-    }
+    bundle.structured_diagnostics = diagnostics;
     super::finite::finite_output(Ok(bundle))
+}
+
+fn bundle_diagnostics_3d(input: &PlasticInput3D, solver: Option<&crate::solver::plastic::PlasticResult3D>) -> Result<Vec<serde_json::Value>, String> {
+    let mut diagnostics = solver.map(|r| r.structured_diagnostics.clone()).unwrap_or_default();
+    crate::known_issues::attach(&mut diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic));
+    crate::known_issues::refuse(&diagnostics)?;
+    diagnostics.iter().map(|d| serde_json::to_value(d).map_err(|e| e.to_string())).collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_discarded_solver_result_keeps_the_model_warnings() {
+        let mut input: PlasticInput3D = serde_json::from_value(serde_json::json!({
+            "solver": {
+                "nodes": {"1": {"id":1,"x":0,"y":0,"z":0}, "2": {"id":2,"x":1,"y":0,"z":1}, "3": {"id":3,"x":2,"y":0,"z":0}},
+                "elements": {}, "materials": {"1": {"id":1,"e":200000,"nu":0.3}},
+                "sections": {"1": {"id":1,"a":0.01,"iz":0.0001,"iy":0.0001,"j":0.00001}},
+                "supports": {}, "loads": []
+            },
+            "sections": {}, "materials": {}
+        })).unwrap();
+        let has = |ds: &[serde_json::Value], id: &str| ds.iter().any(|d| d["phase"] == id);
+        assert!(!has(&bundle_diagnostics_3d(&input, None).unwrap(), "PL-3D-INVARIANCE"));
+        input.solver.curved_beams.push(crate::types::CurvedBeamInput { node_start: 1, node_mid: 2, node_end: 3, material_id: 1, section_id: 1, num_segments: 4, hinge_start: false, hinge_end: false });
+        assert!(has(&bundle_diagnostics_3d(&input, None).unwrap(), "PL-3D-INVARIANCE"));
+        let mut refused = crate::solver::plastic::PlasticResult3D { structured_diagnostics: vec![], collapse_factor: 1.0, steps: vec![], hinges: vec![], is_mechanism: true, redundancy: 0, warnings: vec![] };
+        refused.structured_diagnostics.push(crate::known_issues::diagnostic("BU-BOUND"));
+        assert!(bundle_diagnostics_3d(&input, Some(&refused)).is_err());
+    }
 
     #[test]
     fn bern_bounds_a_cubic() {

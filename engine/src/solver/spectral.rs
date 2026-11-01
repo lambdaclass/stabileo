@@ -489,6 +489,18 @@ pub fn solve_spectral_3d(input: &SpectralInput3D) -> Result<SpectralResult3D, St
         });
     }
 
+    let guard = crate::known_issues::MembraneBendingGuard::for_analysis(solver_input, crate::known_issues::Analysis::Modal);
+    if !guard.is_empty() {
+        for u in &modal_disps {
+            guard.check_field(&[], |id| {
+                let mut d = [0.0; 6];
+                for (i, v) in d.iter_mut().enumerate() {
+                    if let Some(&idx) = dof_num.map.get(&(id, i)) { *v = u[idx]; }
+                }
+                Some(d)
+            })?;
+        }
+    }
     let n_modes = modes.len();
     let combined_disps: Vec<f64> = (0..n).map(|k| combiner.combine(n_modes, |m| modal_disps[m][k])).collect();
     let displacements = super::linear::build_displacements_3d(&dof_num, &combined_disps);

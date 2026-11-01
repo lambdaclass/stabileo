@@ -713,10 +713,13 @@ fn mechanism(input: &SolverInput3D) -> Result<bool, String> {
 /// `is_mechanism` is false and the factor is a lower bound.
 /// `warnings` lists what keeps the result from being the collapse load.
 pub fn solve_plastic_3d(input: &PlasticInput3D) -> Result<PlasticResult3D, String> {
-    let mut r = solve_plastic_3d_contained(input)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Plastic));
-    crate::known_issues::refuse(&r.structured_diagnostics)?;
+    merge_known_issues(solve_plastic_3d_contained(input)?, &input.solver)
+}
+
+fn merge_known_issues(mut r: PlasticResult3D, solver: &SolverInput3D) -> Result<PlasticResult3D, String> {
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(solver, crate::known_issues::Analysis::Plastic));
     for step in &r.steps { crate::known_issues::attach(&mut r.structured_diagnostics, step.results.structured_diagnostics.clone()); }
+    crate::known_issues::refuse(&r.structured_diagnostics)?;
     for step in &mut r.steps { crate::known_issues::attach(&mut step.results.structured_diagnostics, r.structured_diagnostics.clone()); }
     Ok(r)
 }
@@ -1389,6 +1392,23 @@ fn compute_plastic_moments_3d(sec: &PlasticSectionData3D, fy: f64) -> (f64, f64)
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_error_on_one_step_refuses_the_collapse_factor() {
+        let solver: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {}, "elements": {}, "materials": {}, "sections": {}, "supports": {}, "loads": []
+        })).unwrap();
+        let step = |id: &str| {
+            let mut results = AnalysisResults3D::default();
+            results.structured_diagnostics.push(crate::known_issues::diagnostic(id));
+            PlasticStep3D { load_factor: 1.0, hinges_formed: vec![], results }
+        };
+        let result = |steps| PlasticResult3D { structured_diagnostics: vec![], collapse_factor: 1.0, steps, hinges: vec![], is_mechanism: true, redundancy: 0, warnings: vec![] };
+        let kept = merge_known_issues(result(vec![step("NUM-INVARIANCE")]), &solver).unwrap();
+        assert!(kept.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("NUM-INVARIANCE")));
+        let refused = merge_known_issues(result(vec![step("NUM-INVARIANCE"), step("SH-MITC4-DISTORTION")]), &solver).unwrap_err();
+        assert!(refused.contains("SH-MITC4-DISTORTION"), "{refused}");
+    }
 
     #[test]
     fn merged_increment_keeps_solver_diagnostics() {

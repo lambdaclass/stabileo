@@ -47,6 +47,17 @@ export function knownIssueRefusal(error: unknown): string | null {
   } catch { return null; }
 }
 
+export function refusedKnownIssues(error: unknown): Array<{ phase: string; value?: number }> {
+  if (error instanceof Error) error = error.message;
+  if (typeof error !== 'string') return [];
+  try {
+    const data = JSON.parse(error.slice(error.indexOf('{')));
+    if (!Array.isArray(data?.structuredDiagnostics)) return [];
+    return data.structuredDiagnostics.filter((d: { code?: string; severity?: string; phase?: unknown } | null) =>
+      d?.code === 'known_issue' && d.severity === 'error' && typeof d.phase === 'string');
+  } catch { return []; }
+}
+
 export function knownIssueResultDisposition(result: unknown): ReturnType<typeof knownIssueDisposition> {
   const diagnostics: Array<{ code: string; severity: string; phase?: string; value?: number; message: string }> = [];
   const seen = new Set<object>();
@@ -60,7 +71,7 @@ export function knownIssueResultDisposition(result: unknown): ReturnType<typeof 
         if (d && d.code === 'known_issue' && typeof d.message === 'string') diagnostics.push(d);
       }
     }
-    for (const key of ['positions', 'results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults']) visit(record[key]);
+    for (const key of ['positions', 'results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults', 'maxAbsResults', 'maxAbsResults3D', 'envelope', 'envelope3D']) visit(record[key]);
   }
   visit(result);
   return knownIssueDisposition(diagnostics);

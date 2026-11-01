@@ -12,6 +12,7 @@ import { validateAndSolve3D, validateAndSolve3DAsync } from '../solver-service';
 import * as wasm from '../wasm-solver';
 import * as pool from '../solver-pool';
 import { setLocale } from '../../i18n';
+import { ensureLocale, tAt } from '../../i18n/store.svelte';
 import ContainmentBanner from '../../../components/ContainmentBanner.svelte';
 
 const refusal = JSON.stringify({ structuredDiagnostics: [{
@@ -33,14 +34,18 @@ async function model() {
 }
 
 describe('production containment', () => {
-  it.each(['en', 'es', 'pt'] as const)('solveNow exposes a localized refusal in %s', async (locale) => {
+  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'] as const)('solveNow exposes a localized refusal in %s', async (locale) => {
     await model();
+    await ensureLocale(locale);
     setLocale(locale);
+    const expected = tAt('knownIssue.SH-MITC4-DISTORTION', locale);
+    if (locale !== 'en') expect(expected).not.toBe(tAt('knownIssue.SH-MITC4-DISTORTION', 'en'));
     vi.spyOn(pool, 'solve3DInWorker').mockRejectedValue(new Error(refusal));
     const toast = vi.spyOn(uiStore, 'toast');
     const outcome = await solveNow();
     expect(outcome.ok).toBe(false);
     expect(lastSolveFailure()).toContain('#798');
+    expect(lastSolveFailure()).toContain(expected);
     expect(lastSolveFailure()).not.toContain('structuredDiagnostics');
     expect(lastSolveFailure()).not.toContain('ENGINE');
     expect(toast.mock.calls.some(([message]) => message.includes('#798'))).toBe(true);
@@ -134,6 +139,44 @@ it.each([false, true])('moving service retains warnings beyond position zero (as
   expect(result.structuredDiagnostics).toContainEqual(warning);
   resultsStore.setMovingLoadEnvelope(result);
   expect(banner()).toContain('#762');
+});
+
+it.each([false, true])('2D moving loads abort a mixed sweep on a returned refusal (async=%s)', async asynchronous => {
+  modelStore.clear();
+  await modelStore.loadExample('cantilever-point');
+  vi.spyOn(wasm, 'isWasmReady').mockReturnValue(true);
+  let count = 0;
+  vi.spyOn(wasm, 'prepareLoadSession2D').mockReturnValue({
+    solve: () => ({
+      displacements: [], reactions: [], elementForces: [],
+      ...(++count === 2 ? JSON.parse(refusal) : { structuredDiagnostics: [warning] }),
+    }),
+    free: () => {},
+  } as never);
+  const input = modelStore.buildSolverInput(false)!;
+  const config = { train: { name: 'unit', axles: [{ offset: 0, weight: 1 }] }, step: 1 };
+  const result = asynchronous ? await solveMovingLoadsAsync(input, config) : solveMovingLoads(input, config);
+  expect(count).toBeGreaterThanOrEqual(2);
+  expect(typeof result).toBe('string');
+  expect(result).toContain('#798');
+  expect(result).not.toContain('structuredDiagnostics');
+});
+
+it.each(['vertical', 'horizontal'] as const)('influence %s service withholds the line on a returned refusal', async direction => {
+  modelStore.clear();
+  await modelStore.loadExample('cantilever-point');
+  vi.spyOn(wasm, 'isWasmReady').mockReturnValue(true);
+  const points = [{ x: 0, y: 0, elementId: 1, t: 0, value: 2 }];
+  const refused = JSON.parse(refusal).structuredDiagnostics;
+  vi.spyOn(wasm, 'computeInfluenceLineWasm').mockReturnValue({ points, structuredDiagnostics: direction === 'vertical' ? refused : [] } as never);
+  vi.spyOn(wasm, 'solve').mockImplementation(() => ({
+    displacements: [], reactions: [], elementForces: [],
+    structuredDiagnostics: direction === 'horizontal' ? refused : [],
+  }) as never);
+  const result = computeInfluenceLine(modelStore.model, 'Rz', 1, undefined, 0.5, 2, direction);
+  expect(typeof result).toBe('string');
+  expect(result).toContain('#798');
+  expect(result).not.toContain('structuredDiagnostics');
 });
 
 it.each(['throw', 'result'])('3D moving loads abort a mixed sweep on a %s refusal', async mode => {

@@ -51,6 +51,9 @@ test('WASM static and constrained static retain the distortion warning for trans
     let r = entries[name](shell('fz'));
     if (typeof r === 'string') r = JSON.parse(r);
     assert.ok(r.structuredDiagnostics.some(d => d.code === 'known_issue' && d.severity === 'warning' && d.phase === 'SH-MITC4-DISTORTION' && d.value === 798), name);
+    assert.ok(!r.structuredDiagnostics.some(d => d.severity === 'error'), name);
+    assert.ok(r.displacements.length > 0 && r.displacements.every(d => ['ux', 'uy', 'uz'].every(k => Number.isFinite(d[k]))), name);
+    assert.ok(Math.abs(r.displacements.find(d => d.nodeId === 13).uz) > 0, name);
   }
 });
 
@@ -73,17 +76,60 @@ test('model-less combination refuses distorted MITC4 cases', () => {
   });
 });
 
-for (const [name, solve] of Object.entries(entries).filter(([name]) => name !== 'solve_staged_3d')) {
-  test(`${name} no longer contains non-XY solid-shell recovery (#757 fixed)`, () => {
-    const s = shell();
-    s.quads = {};
-    const coords = [[0,0,0], [1,0,0], [1,1,0.2], [0,1,0.2], [0,0,0.1], [1,0,0.1], [1,1,0.3], [0,1,0.3]];
-    coords.forEach(([x,y,z], i) => { s.nodes[i+10] = { id: i+10, x, y, z }; });
-    s.solidShells = { 7: { id: 7, nodes: [10,11,12,13,14,15,16,17], materialId: 1 } };
-    let outcome;
-    try { outcome = solve(s); } catch (error) { outcome = String(error); }
-    const text = typeof outcome === 'string' ? outcome : JSON.stringify(outcome);
-    assert.ok(!text.includes('SH-GLOBAL-STRESS') && !text.includes('#757'), text.slice(0, 500));
+function tiltedSolidShell() {
+  const s = shell();
+  Object.assign(s, { nodes: {}, supports: {}, loads: [], quads: {} });
+  const coords = [[0,0,0], [1,0,0], [1,1,0.2], [0,1,0.2], [0,0,0.1], [1,0,0.1], [1,1,0.3], [0,1,0.3]];
+  coords.forEach(([x,y,z], i) => { s.nodes[i+1] = { id: i+1, x, y, z }; });
+  s.solidShells = { 7: { id: 7, nodes: [1,2,3,4,5,6,7,8], materialId: 1 } };
+  for (const nodeId of [1,4,5,8]) s.supports[nodeId] = { nodeId, rx: true, ry: true, rz: true, rrx: true, rry: true, rrz: true };
+  for (const nodeId of [2,3,6,7]) s.loads.push({ type: 'nodal', data: { nodeId, fx: 0, fy: 0, fz: -0.01, mx: 0, my: 0, mz: 0 } });
+  return s;
+}
+const solidTie = { type: 'equalDOF', masterNode: 2, slaveNode: 6, dofs: [2] };
+const solidEntries = {
+  ...entries,
+  constrained_dispatch: s => wasm.solve_3d({ ...s, constraints: [solidTie] }),
+  solve_constrained_3d: s => wasm.solve_constrained_3d(stringify({ solver: s, constraints: [solidTie] })),
+  solve_staged_3d: s => wasm.solve_staged_3d(stringify({ ...s, stages: [{ name: 'all', elementsAdded: [7], supportsAdded: [1,4,5,8], loadIndices: [0,1,2,3] }] })),
+};
+const unsupportedSolidShell = {
+  solve_plastic_3d: /no section reaches its plastic moment/,
+  certify_plastic_3d: /no section reaches its plastic moment/,
+  export_plastic_bundle_3d: /shell elements are not part of the plastic certificate/,
+  solve_staged_3d: /does not support solid shell elements/,
+};
+const reference = wasm.solve_3d(tiltedSolidShell());
+const referenceTip = reference.displacements.find(d => d.nodeId === 2).uz;
+test('tilted solid-shell reference solve is finite and free of #757', () => {
+  assert.ok(Number.isFinite(referenceTip) && referenceTip < 0, String(referenceTip));
+  assert.ok(!(reference.structuredDiagnostics ?? []).some(d => d.value === 757 || d.phase === 'SH-GLOBAL-STRESS'));
+});
+for (const [name, solve] of Object.entries(solidEntries)) {
+  test(`${name} solves a tilted solid shell without the retired #757 containment`, () => {
+    if (unsupportedSolidShell[name]) {
+      assert.throws(() => solve(tiltedSolidShell()), error => {
+        const text = String(error);
+        assert.match(text, unsupportedSolidShell[name]);
+        assert.ok(!text.includes('SH-GLOBAL-STRESS') && !text.includes('#757'), text.slice(0, 500));
+        return true;
+      });
+      return;
+    }
+    let r = solve(tiltedSolidShell());
+    if (typeof r === 'string') r = JSON.parse(r);
+    const text = JSON.stringify(r);
+    assert.ok(!text.includes('SH-GLOBAL-STRESS') && !text.includes('"value":757'), text.slice(0, 500));
+    const displacements = r.displacements ?? r.results?.displacements;
+    if (name === 'export_linear_bundle_3d') {
+      assert.ok(r.u.length === r.n && r.n > 0 && r.u.every(([m, e]) => Number.isFinite(m) && Number.isFinite(e)) && r.u.some(([m]) => m !== 0));
+    } else if (name === 'estimate_discretization_3d') {
+      assert.ok(r.elements.length === 1 && r.elements[0].kind === 'solidShell' && Number.isFinite(r.elements[0].energyNorm) && r.elements[0].energyNorm > 0);
+    } else {
+      assert.ok(displacements.every(d => ['ux', 'uy', 'uz'].every(k => Number.isFinite(d[k]))), name);
+      const tip = displacements.find(d => d.nodeId === 2).uz;
+      assert.ok(Math.abs(tip - referenceTip) <= 1e-4 * Math.abs(referenceTip), `${name}: ${tip} vs ${referenceTip}`);
+    }
   });
 }
 

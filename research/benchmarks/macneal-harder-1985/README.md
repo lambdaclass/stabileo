@@ -51,9 +51,8 @@ publisher refreshed the generated research manifest/replay identity.
 - Production WASM/native parity: passed for all 12 outcomes.
 - MacNeal–Harder Vitest: 7 passed.
 - Mattiasson Vitest: 4 passed.
-- Shell Obstacle Course Vitest: 3 passed, 2 failed because its existing numeric
-  expectations encounter a separate #798 containment refusal. Those other
-  benchmark expectations are unchanged.
+- Shell Obstacle Course Vitest: passed after the #798 hemisphere refusal was
+  merged into its expectations (see the Shell Obstacle Course README).
 - Mattiasson native corotational regression: 13 passed; fresh native result
   generator and production WASM parity also passed.
 - Full Svelte check: 342 errors and 262 warnings elsewhere in the repository;
@@ -64,11 +63,9 @@ publisher refreshed the generated research manifest/replay identity.
   The first attempt hit a shared-target Cargo artifact mismatch after building
   the separate Mattiasson workspace; cleaning only this run's engine release
   artifacts and rerunning sequentially resolved it.
-- Shell WASM parity still fails: `hemisphere-4.json` is absent. The existing
-  native hemisphere test asserts containment for meshes 4/8/16 and does not
-  export result rows, while its WASM checker still expects numeric JSON files.
-  Together with the two Shell Vitest failures above, this remains a separate
-  blocker for the full production-engine benchmark job.
+- Shell WASM parity: passed. The hemisphere rows (`results/hemisphere-{4,8,16}.json`)
+  record the #798 refusal and `wasm/check.mjs` requires it from both runtimes
+  (11/11 browser cases, headline 1/3); this supersedes the earlier blocker.
 
 No Git write commands were used. No numerical tolerances were loosened and no
 cases were removed.
