@@ -7,6 +7,7 @@ import {
 } from './limits';
 import { type AnalysisMode, promptText } from './registry';
 import { validateSnapshot } from './validate-snapshot';
+import { asU64 } from './snapshot-json';
 
 export type ToolOutcome =
   | { kind: 'snapshot'; snapshot: Record<string, unknown>; message: string; changeSummary?: string }
@@ -160,7 +161,7 @@ function assembleCreateModel(p: Extract<BuildAction, { action: 'create_model' }>
       material: maxId(materials) + 1,
       section: maxId(sections) + 1,
       support: maxId(supports) + 1,
-      load: loads.length + 1,
+      load: loads.reduce<number>((m, l) => Math.max(m, asU64(isPlainObject(l) && isPlainObject(l.data) ? l.data.id : undefined) ?? 0), 0) + 1,
     },
   };
   validateSnapshot(snapshot);

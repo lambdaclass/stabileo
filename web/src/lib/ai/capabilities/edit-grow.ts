@@ -37,6 +37,28 @@ function nodesWhere(snap: Json, pred: (c: NodeCoord) => boolean): Array<[number,
   return out;
 }
 
+function elementBetween(snap: Json, a: number | undefined, b: number | undefined): Json | undefined {
+  if (a === undefined || b === undefined) return undefined;
+  for (const entry of elements(snap)) {
+    const data = entryData(entry);
+    const ni = asU64(data.nodeI);
+    const nj = asU64(data.nodeJ);
+    if ((ni === a && nj === b) || (ni === b && nj === a)) return data;
+  }
+  return undefined;
+}
+
+type Props = { matId: number; secId: number };
+
+function inherit(snap: Json, from: Json | undefined, override: number | undefined, what: string): Props {
+  const matId = asU64(from?.materialId);
+  const secId = override ?? asU64(from?.sectionId);
+  if (from === undefined && override === undefined) {
+    throw new AiActionError(`Cannot tell which section the new ${what} should have: give ${what}_section`);
+  }
+  return { matId: matId ?? firstMaterialId(snap), secId: secId ?? firstSectionId(snap) };
+}
+
 export function addBay(snap: Json, width: number, side?: string, beamSection?: string, columnSection?: string): void {
   if (isSnapshot3d(snap)) return addBay3d(snap, width, side, beamSection, columnSection);
   const cols = columnLines(snap);
@@ -46,19 +68,23 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
   }
   const s = side ?? 'right';
   const newX = s === 'left' ? cols[0] - width : cols[cols.length - 1] + width;
-  const matId = firstMaterialId(snap);
-  const beamSecId = beamSection !== undefined ? ensureSection(snap, beamSection) : firstSectionId(snap);
-  const colSecId = columnSection !== undefined ? ensureSection(snap, columnSection) : firstSectionId(snap);
+  const beamOverride = beamSection !== undefined ? ensureSection(snap, beamSection) : undefined;
+  const colOverride = columnSection !== undefined ? ensureSection(snap, columnSection) : undefined;
   const adjX = s === 'left' ? cols[0] : cols[cols.length - 1];
+  const innerX = cols.length > 1 ? (s === 'left' ? cols[1] : cols[cols.length - 2]) : undefined;
+  const plan = floors.map((y, i) => {
+    const adj = findNodeAt(snap, adjX, y);
+    const column = i > 0 ? inherit(snap, elementBetween(snap, findNodeAt(snap, adjX, floors[i - 1]), adj), colOverride, 'column') : undefined;
+    const beamFrom = innerX !== undefined ? elementBetween(snap, findNodeAt(snap, innerX, y), adj) : undefined;
+    const beam = i > 0 && adj !== undefined ? inherit(snap, beamFrom, beamOverride, 'beam') : undefined;
+    return { y, adj, column, beam };
+  });
 
   let prev: number | undefined;
-  floors.forEach((y, i) => {
+  plan.forEach(({ y, adj, column, beam }, i) => {
     const nodeId = addNodeToSnap(snap, newX, y);
-    if (prev !== undefined) addElementToSnap(snap, prev, nodeId, matId, colSecId);
-    if (i > 0) {
-      const adj = findNodeAt(snap, adjX, y);
-      if (adj !== undefined) addElementToSnap(snap, adj, nodeId, matId, beamSecId);
-    }
+    if (prev !== undefined && column) addElementToSnap(snap, prev, nodeId, column.matId, column.secId);
+    if (adj !== undefined && beam) addElementToSnap(snap, adj, nodeId, beam.matId, beam.secId);
     if (i === 0) addSupportToSnap(snap, nodeId, 'fixed');
     prev = nodeId;
   });
@@ -120,20 +146,22 @@ function addStory2d(snap: Json, height: number, beamSection?: string, columnSect
   if (cols.length === 0 || floors.length === 0) throw new AiActionError('Cannot add story: model has no nodes');
   const topY = floors[floors.length - 1];
   const newY = topY + height;
-  const matId = firstMaterialId(snap);
-  const beamSecId = beamSection !== undefined ? ensureSection(snap, beamSection) : firstSectionId(snap);
-  const colSecId = columnSection !== undefined ? ensureSection(snap, columnSection) : firstSectionId(snap);
+  const beamOverride = beamSection !== undefined ? ensureSection(snap, beamSection) : undefined;
+  const colOverride = columnSection !== undefined ? ensureSection(snap, columnSection) : undefined;
+  const belowY = floors.length > 1 ? floors[floors.length - 2] : undefined;
+  const tops = cols.map((x) => findNodeAt(snap, x, topY));
+  const columns = cols.map((x, i) =>
+    tops[i] === undefined ? undefined
+      : inherit(snap, belowY !== undefined ? elementBetween(snap, findNodeAt(snap, x, belowY), tops[i]) : undefined, colOverride, 'column'));
+  const beams = cols.slice(1).map((_, i) => inherit(snap, elementBetween(snap, tops[i], tops[i + 1]), beamOverride, 'beam'));
 
-  const newIds: number[] = [];
-  for (const x of cols) {
-    const newNode = addNodeToSnap(snap, x, newY);
-    newIds.push(newNode);
-    const topNode = findNodeAt(snap, x, topY);
-    if (topNode !== undefined) addElementToSnap(snap, topNode, newNode, matId, colSecId);
-  }
-  for (let i = 0; i + 1 < newIds.length; i++) {
-    addElementToSnap(snap, newIds[i], newIds[i + 1], matId, beamSecId);
-  }
+  const newIds = cols.map((x) => addNodeToSnap(snap, x, newY));
+  cols.forEach((_, i) => {
+    const topNode = tops[i];
+    const column = columns[i];
+    if (topNode !== undefined && column) addElementToSnap(snap, topNode, newIds[i], column.matId, column.secId);
+  });
+  beams.forEach((beam, i) => addElementToSnap(snap, newIds[i], newIds[i + 1], beam.matId, beam.secId));
 }
 
 function addStory3d(snap: Json, height: number, beamSection?: string, columnSection?: string): void {
@@ -154,14 +182,11 @@ function addStory3d(snap: Json, height: number, beamSection?: string, columnSect
   const topFloor: Json[] = [];
   const vertical: Json[] = [];
   for (const entry of elements(snap)) {
-    const data = at(entry, 1);
-    const ni = asU64(at(data, 'nodeI'));
-    const nj = asU64(at(data, 'nodeJ'));
-    if (ni === undefined || nj === undefined) continue;
-    const ci = getNodeCoords(snap, ni);
-    const cj = getNodeCoords(snap, nj);
-    if (!ci || !cj) continue;
-    if (atTop(ci) && atTop(cj)) topFloor.push(data as Json);
+    const data = entryData(entry);
+    const [ni, nj] = nodeRefs(data);
+    const ci = coordsOf(snap, ni);
+    const cj = coordsOf(snap, nj);
+    if (atTop(ci) && atTop(cj)) topFloor.push(data);
     if (ci.z !== undefined && cj.z !== undefined) {
       const reachesTop = near(ci.z, topZ) || near(cj.z, topZ);
       if (reachesTop && near(ci.x, cj.x) && near(ci.y, cj.y)) vertical.push(data as Json);

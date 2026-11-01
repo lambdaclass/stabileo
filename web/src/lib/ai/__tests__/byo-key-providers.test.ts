@@ -7,6 +7,12 @@ import { AiProviderError, shortDetail, withoutKey, type LlmRequest } from '../pr
 import { buildModel } from '../browser-provider';
 import { AiActionError } from '../capabilities';
 import { t } from '../../i18n';
+import es from '../../i18n/locales/es';
+import en from '../../i18n/locales/en';
+import pt from '../../i18n/locales/pt';
+import de from '../../i18n/locales/de';
+import fr from '../../i18n/locales/fr';
+import tr from '../../i18n/locales/tr';
 
 const KEY = 'sk-ant-test-0123456789abcdef';
 
@@ -279,9 +285,12 @@ describe('OpenAI browser provider', () => {
 });
 
 describe('every error kind has a message in every full dictionary', () => {
-  it('has no raw key', () => {
-    for (const kind of ['invalidKey', 'permission', 'billing', 'rateLimited', 'unavailable', 'connection', 'badRequest', 'refusal', 'truncated', 'badResponse', 'unknown']) {
-      expect(t(`ai.err.${kind}`)).not.toBe(`ai.err.${kind}`);
+  it('has a non-empty message in es, en, pt, de, fr and tr', () => {
+    const dicts: Record<string, Record<string, string>> = { es, en, pt, de, fr, tr };
+    const keys = ['invalidKey', 'permission', 'billing', 'rateLimited', 'unavailable', 'connection', 'badRequest', 'refusal', 'truncated', 'badResponse', 'unknown']
+      .map((kind) => `ai.err.${kind}`).concat('ai.key.forgetFailed');
+    for (const [locale, dict] of Object.entries(dicts)) {
+      for (const key of keys) expect(dict[key]?.trim(), `${locale} ${key}`).toBeTruthy();
     }
   });
 });

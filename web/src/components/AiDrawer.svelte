@@ -297,7 +297,7 @@
         const msg = e.message || t('ai.buildFailed');
         const friendly = msg.includes('Could not generate')
           ? t('ai.canBuild')
-          : msg;
+          : e.name === 'AiActionError' ? `${t('ai.validationFailed')} ${msg}` : msg;
         chatMessages.push({ role: 'ai', text: friendly });
       }
       scrollChatToBottom();

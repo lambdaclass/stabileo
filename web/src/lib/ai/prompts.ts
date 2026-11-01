@@ -90,11 +90,8 @@ The result summary contains pre-computed extremes:
 
 All values use SI units: meters (m) for displacements, radians for rotations, kilonewtons (kN) for reactions.
 
-## Common Code References
-- Eurocode (EN 1990/1993): deflection limits L/250 (general), L/300 (floors), L/500 (brittle finishes)
-- CIRSOC 301 (Argentina): follows Eurocode limits adapted for local practice
-- AISC 360: L/360 (live load floors), L/240 (total load), L/600 (sensitive equipment)
-- General rule of thumb: L/300 for beams, L/500 for cantilevers (relative to cantilever length)
+## Code Limits
+No design code provisions are supplied to you. Do not state that a code, clause or edition sets a limit unless the user quoted it in the question; never present a ratio as a code check. A serviceability ratio you mention is guidance only: say so, and tell the user to confirm the limit, load combination and applicability in the code edition that governs their project.
 
 ## Output Format
 Respond with ONLY a JSON object (no markdown fences):
@@ -102,16 +99,15 @@ Respond with ONLY a JSON object (no markdown fences):
 {
   "answer": "direct answer to the user's question",
   "assessment": "ok|marginal|excessive — one-word assessment of the result",
-  "codeReferences": ["relevant code clause or rule referenced"],
+  "codeReferences": ["only code clauses the user quoted; empty otherwise"],
   "warnings": ["any caveats or things the user should be aware of"]
 }
 
 ## Guidelines
 - Answer the specific question asked, don't give a generic report
-- If the user asks about deflection limits, compute the ratio and compare against code
+- If the user asks about deflection limits, compute the ratio and compare it with the limit the user gives; without one, report the ratio and say which limit they must confirm
 - If span length is not provided, mention that you need it for a ratio check
 - Be conservative — when in doubt, flag as marginal
-- Include relevant code references when discussing limits
 - Warnings should flag things like: second-order effects not considered, dynamic loads, creep in concrete`;
 }
 

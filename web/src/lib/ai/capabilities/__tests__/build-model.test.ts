@@ -76,6 +76,30 @@ describe('validate snapshot', () => {
     expect(() => validateSnapshot({ ...minimal(), loads: { 0: { type: 'nodal', data: { nodeId: 9 } } } })).toThrow("invalid 'loads'");
     expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, elementId: 1, qI: -1, qJ: -1 } }] })).not.toThrow();
   });
+  it('fails on a 3D node without z and on non-positive 3D section properties', () => {
+    const space = (): Record<string, unknown> => ({ ...minimal(), analysisMode: '3d', nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]] });
+    expect(() => validateSnapshot(space())).not.toThrow();
+    expect(() => validateSnapshot({ ...space(), nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0 }]] })).toThrow('node 2 has no finite z');
+    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, iy: 0 }]] })).toThrow('section 1: iy must be a positive number');
+    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, j: -1 }]] })).toThrow('section 1: j must be a positive number');
+  });
+  it('fails on a load of the other dimension, a missing or non-finite magnitude, or a reused id', () => {
+    const dist = (data: Record<string, unknown>) => ({ type: 'distributed', data: { id: 1, elementId: 1, qI: -1, qJ: -1, ...data } });
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed3d', data: { id: 1, elementId: 1, qYI: 0, qYJ: 0, qZI: -1, qZJ: -1 } }] })).toThrow('distributed3d load does not belong in a 2D model');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, nodeId: 2, fx: 1, my: 0 } }] })).toThrow('nodal load has no finite fz');
+    expect(() => validateSnapshot({ ...minimal(), loads: [dist({ qJ: JSON.parse('1e400') })] })).toThrow('distributed load has no finite qJ');
+    expect(() => validateSnapshot({ ...minimal(), loads: [dist({ a: JSON.parse('-1e400') })] })).toThrow('distributed load: a is not finite');
+    expect(() => validateSnapshot({ ...minimal(), loads: [dist({}), dist({})] })).toThrow('duplicate load id: 1');
+    expect(() => validateSnapshot({ ...minimal(), loads: [dist({ id: 'one' })] })).toThrow('load has no valid id');
+  });
+  it('starts the load counter of a custom model above its largest load id', () => {
+    const o = outcomeFromText(JSON.stringify({ action: 'create_model', params: {
+      analysis_mode: '2d', nodes: minimal().nodes, elements: minimal().elements, materials: minimal().materials,
+      sections: minimal().sections, supports: minimal().supports,
+      loads: [{ type: 'distributed', data: { id: 7, elementId: 1, qI: -1, qJ: -1 } }],
+    }, interpretation: 'custom' }));
+    expect((snapshotOf(o).nextId as Record<string, number>).load).toBe(8);
+  });
   it('treats an overflowing number as missing', () => {
     expect(() => validateSnapshot({ ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: JSON.parse('1e400'), y: 0 }]] })).toThrow('node 2 has no finite x');
     expect(() => validateSnapshot({ ...minimal(), sections: [[1, { id: 1, name: 'x', a: Infinity, iz: 1 }]] })).toThrow('section 1: a must be a positive number');

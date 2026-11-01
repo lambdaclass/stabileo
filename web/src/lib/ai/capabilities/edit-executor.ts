@@ -102,15 +102,19 @@ function setAllSupports(snap: Json, type: string): void {
 }
 
 function setAllBeamLoads(snap: Json, q: number): void {
+  const beams = new Set(
+    elements(snap).filter((e) => isHorizontalElement(snap, at(e, 1))).map((e) => asU64(at(e, 0)) ?? 0),
+  );
+  if (beams.size === 0) throw new AiActionError('No beams in model');
   const loads = asArray(snap.loads);
   if (loads) {
     snap.loads = loads.filter((l) => {
       const t = at(l, 'type');
-      return t !== 'distributed' && t !== 'distributed3d';
+      if (t !== 'distributed' && t !== 'distributed3d') return true;
+      return !beams.has(asU64(at(at(l, 'data'), 'elementId')) ?? -1);
     });
   }
-  const ids = elements(snap).map((e) => asU64(at(e, 0)) ?? 0);
-  for (const eid of ids) addDistributedLoadToSnap(snap, eid, q);
+  for (const eid of beams) addDistributedLoadToSnap(snap, eid, q);
 }
 
 function addLateralLoads(snap: Json, h: number): void {

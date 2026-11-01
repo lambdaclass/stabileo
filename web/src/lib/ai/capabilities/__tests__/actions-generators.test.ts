@@ -176,6 +176,17 @@ describe('generators', () => {
     expect(arr(snap, 'elements')).toHaveLength(27 + 18 + 18 + 48);
   });
 
+  it('3D multi-story frame shares the floor lateral load among the nodes of the x=0 face', () => {
+    const snap = generateMultiStoryFrame3d({ n_bays_x: 2, n_bays_z: 2, n_floors: 3, bay_width: 6, floor_height: 3, h_lateral: 12 });
+    const nodal = (snap.loads as Array<{ type: string; data: Record<string, number> }>).filter((l) => l.type === 'nodal3d');
+    const z = (id: number) => (arr(snap, 'nodes').find((n) => n[0] === id)![1].z as number);
+    for (const level of [3, 6, 9]) {
+      const atLevel = nodal.filter((l) => z(l.data.nodeId) === level);
+      expect(atLevel).toHaveLength(3);
+      expect(atLevel.reduce((s, l) => s + l.data.fx, 0)).toBeCloseTo(12, 12);
+    }
+  });
+
   it('uses a custom section', () => {
     expect(arr(generateBeam({ span: 6, section: 'IPE 400' }), 'sections')[0][1].name).toBe('IPE 400');
   });

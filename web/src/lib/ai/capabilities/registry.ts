@@ -106,7 +106,7 @@ export function generatorCatalog(): GeneratorDef[] {
       preq('bay_width', 'f64', 'Bay width (m)'),
       preq('floor_height', 'f64', 'Floor height (m)'),
       popt('q_beam', 'f64', 'Distributed load on beams (kN/m)'),
-      popt('h_lateral', 'f64', 'Lateral load per floor (kN)'),
+      popt('h_lateral', 'f64', 'Total lateral load per floor, shared equally by the nodes of the x=0 face (kN)'),
       pdef('base_support', 'string', 'fixed3d', 'Base support type'),
       popt('beam_section', 'string', 'Beam section name'),
       popt('column_section', 'string', 'Column section name'),
@@ -144,7 +144,7 @@ export function editToolCatalog(): GeneratorDef[] {
     { action: 'set_all_supports', description: 'Change all support types (e.g. fixed to pinned)', params: [
       preq('support_type', 'string', 'New support type (fixed, pinned, rollerX, etc.)'),
     ] },
-    { action: 'set_all_beam_loads', description: 'Set uniform distributed load on all elements', params: [
+    { action: 'set_all_beam_loads', description: 'Set uniform distributed load on all beams (horizontal elements), replacing their distributed loads; columns keep theirs', params: [
       preq('q', 'f64', 'Distributed load (kN/m, negative = downward)'),
     ] },
     { action: 'add_lateral_loads', description: 'Add horizontal force at each floor level (left column)', params: [

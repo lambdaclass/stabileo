@@ -145,7 +145,7 @@ test.describe('@smoke AI with your own key', () => {
   });
 
   test('an invalid proposal is never applied', async ({ page }) => {
-    await mockAnthropic(page, 'create_model', {
+    const seen = await mockAnthropic(page, 'create_model', {
       analysis_mode: '2d',
       nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: 5, y: 0 }],
       elements: [{ id: 1, type: 'frame', nodeI: 1, nodeJ: 99, materialId: 1, sectionId: 1 }],
@@ -158,7 +158,8 @@ test.describe('@smoke AI with your own key', () => {
     await openApp(page);
     await page.locator('.chat-input').fill('a cantilever');
     await page.getByTestId('ai-send').click();
-    await expect(page.locator('.chat-msg.chat-ai').last()).not.toContainText(/Building|Construyendo/, { timeout: 20_000 });
+    await expect(page.locator('.chat-msg.chat-ai').last()).toContainText(/(Validation failed:|La validación falló:) element 1 references non-existent nodeJ=99/, { timeout: 20_000 });
+    expect(seen).toHaveLength(1);
     await expect(page.getByTestId('ai-apply')).toHaveCount(0);
     expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(0);
   });

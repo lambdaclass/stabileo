@@ -82,9 +82,38 @@ describe('edit executor', () => {
     expect(arr(r, 'supports').every((s) => s[1].type === 'pinned')).toBe(true);
   });
 
-  it('sets one distributed load per element', () => {
-    const r = applyEdit({ action: 'set_all_beam_loads', params: { q: -20 } }, makeFrame());
-    expect(loadsOf(r).filter((l) => l.type === 'distributed')).toHaveLength(arr(r, 'elements').length);
+  it('replaces the distributed loads of the beams only, keeping the loads on columns', () => {
+    const snap = makeFrame();
+    (snap.loads as unknown[]).push({ type: 'distributed', data: { id: 9, elementId: 1, qI: 3, qJ: 3 } });
+    const r = applyEdit({ action: 'set_all_beam_loads', params: { q: -20 } }, snap);
+    const dist = loadsOf(r).filter((l) => l.type === 'distributed').map((l) => [l.data.elementId, l.data.qI, l.data.qJ]);
+    expect(dist).toEqual([[1, 3, 3], [2, -20, -20]]);
+  });
+
+  it('refuses beam loads on a model without beams', () => {
+    const snap: Snap = { nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 0, y: 3 }]], elements: [[1, { id: 1, nodeI: 1, nodeJ: 2 }]], loads: [] };
+    expect(() => applyEdit({ action: 'set_all_beam_loads', params: { q: -5 } }, snap)).toThrow('No beams in model');
+  });
+
+  it('a new 2D bay or story takes the section and material of the members next to it', () => {
+    const sec = (r: Snap, id: number) => arr(r, 'sections').find((s) => s[0] === id)![1].name;
+    const bay = applyEdit({ action: 'add_bay', params: { width: 5 } }, makeFrame());
+    expect(arr(bay, 'elements').slice(3).map((e) => [sec(bay, e[1].sectionId as number), e[1].materialId])).toEqual([['HEB 300', 1], ['IPE 300', 1]]);
+    const story = applyEdit({ action: 'add_story', params: { height: 3 } }, makeFrame());
+    expect(arr(story, 'elements').slice(3).map((e) => sec(story, e[1].sectionId as number))).toEqual(['HEB 300', 'HEB 300', 'IPE 300']);
+    const given = applyEdit({ action: 'add_bay', params: { width: 5, column_section: 'HEB 400' } }, makeFrame());
+    expect(sec(given, arr(given, 'elements')[3][1].sectionId as number)).toBe('HEB 400');
+  });
+
+  it('asks for a section when a new 2D member has no neighbour to take it from', () => {
+    const beam: Snap = {
+      nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
+      elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8 }]], materials: [[1, { id: 1, e: 200000 }]], loads: [],
+    };
+    expect(() => applyEdit({ action: 'add_story', params: { height: 3 } }, beam)).toThrow('give column_section');
+    const r = applyEdit({ action: 'add_story', params: { height: 3, column_section: 'HEB 300' } }, beam);
+    expect(arr(r, 'elements')).toHaveLength(4);
   });
 
   it('adds lateral loads per floor above base', () => {
@@ -101,7 +130,6 @@ describe('edit executor', () => {
     };
     const cases: Array<[BuildAction, Snap]> = [
       [{ action: 'add_distributed_load', params: { element_id: 1, q: -10 } }, { ...oneElement, loads: 5 }],
-      [{ action: 'add_distributed_load', params: { element_id: 1, q: -10 } }, oneElement],
       [{ action: 'delete_load', params: { load_id: 1 } }, { ...oneElement, loads: {} }],
       [{ action: 'add_story', params: { height: 3 } }, { nodes: [[1, { id: 1, x: 0, y: 0 }]], elements: [[1, { id: 1, nodeI: 1, nodeJ: 99 }]], loads: [] }],
       [{ action: 'add_story', params: { height: 3 } }, { nodes: [[1, { id: 1, x: 0, y: 0 }]], elements: [[1, { id: 1, nodeI: 'one', nodeJ: 1 }]], loads: [] }],
@@ -110,11 +138,7 @@ describe('edit executor', () => {
       [{ action: 'set_all_supports', params: { support_type: 'pinned' } }, { supports: [[1]] }],
     ];
     for (const [action, snap] of cases) {
-      try {
-        applyEdit(action, snap);
-      } catch (e) {
-        expect(e, `${action.action}`).toBeInstanceOf(AiActionError);
-      }
+      expect(() => applyEdit(action, snap), `${action.action}`).toThrow(AiActionError);
     }
   });
 

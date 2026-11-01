@@ -211,7 +211,7 @@ export function generateMultiStoryFrame3d(p: ActionParams['create_multi_story_fr
   }
   if (nonZero(p.h_lateral)) {
     for (const f of floorsAbove) {
-      for (const iz of range(nz + 1)) b.addNodalLoad3d(grid[f][iz][0], p.h_lateral, 0, 0);
+      for (const iz of range(nz + 1)) b.addNodalLoad3d(grid[f][iz][0], p.h_lateral / (nz + 1), 0, 0);
     }
   }
   return b.toSnapshot();
