@@ -3,7 +3,7 @@ import { researchLocale } from '../i18n';
 const en = {
   title: 'Newmark average acceleration',
   metaTitle: 'Newmark (1959) — Stabileo Research',
-  metaDescription: 'First version: production Newmark average acceleration against the exact SDOF step response.',
+  metaDescription: 'Production Newmark average acceleration against the exact SDOF step response.',
   lead: 'One undamped degree of freedom under a sudden constant force. Increase the time step to see the numerical period grow.',
   model: 'The example',
   description: 'A {L} m axial frame member, fixed at the left, with only axial translation free at the right. E = {E} MPa, A = {A} m², synthetic density = {rho} kg/m³. The consistent axial mass gives m = ρAL/3 = {m} t and k = EA/L = {k} kN/m. A {F} kN step acts from t = 0; initial displacement and velocity are zero. This is an exact SDOF finite-element benchmark, not a continuum bar solution.',
@@ -29,7 +29,7 @@ type Strings = { [K in keyof typeof en]: (typeof en)[K] };
 const es: Strings = {
   title: 'Aceleración media de Newmark',
   metaTitle: 'Newmark (1959) — Stabileo Research',
-  metaDescription: 'Primera versión: la aceleración media de Newmark de producción frente a la respuesta exacta de un grado de libertad a un escalón.',
+  metaDescription: 'La aceleración media de Newmark de producción frente a la respuesta exacta de un grado de libertad a un escalón.',
   lead: 'Un grado de libertad sin amortiguamiento bajo una fuerza constante aplicada de golpe. Aumentá el paso temporal para ver cómo crece el período numérico.',
   model: 'El ejemplo',
   description: 'Una barra de pórtico axial de {L} m, fija a la izquierda y con solo la traslación axial libre a la derecha. E = {E} MPa, A = {A} m², densidad sintética = {rho} kg/m³. La masa axial consistente da m = ρAL/3 = {m} t y k = EA/L = {k} kN/m. Un escalón de {F} kN actúa desde t = 0; desplazamiento y velocidad iniciales nulos. Es un ensayo exacto de un grado de libertad de elementos finitos, no la solución de una barra continua.',
@@ -51,7 +51,7 @@ const es: Strings = {
 const pt: Strings = {
   title: 'Aceleração média de Newmark',
   metaTitle: 'Newmark (1959) — Stabileo Research',
-  metaDescription: 'Primeira versão: a aceleração média de Newmark de produção frente à resposta exata de um grau de liberdade a um degrau.',
+  metaDescription: 'A aceleração média de Newmark de produção frente à resposta exata de um grau de liberdade a um degrau.',
   lead: 'Um grau de liberdade sem amortecimento sob uma força constante aplicada subitamente. Aumente o passo de tempo para ver o período numérico crescer.',
   model: 'O exemplo', description: 'Uma barra de pórtico axial de {L} m, fixa à esquerda e com apenas a translação axial livre à direita. E = {E} MPa, A = {A} m², densidade sintética = {rho} kg/m³. A massa axial consistente fornece m = ρAL/3 = {m} t e k = EA/L = {k} kN/m. Um degrau de {F} kN atua desde t = 0; deslocamento e velocidade iniciais nulos. É um ensaio exato de um grau de liberdade de elementos finitos, não a solução de uma barra contínua.',
   method: 'O solver de histórico temporal 3D de produção é executado pelo wrapper WASM existente, com β = ¼, γ = ½ e sem amortecimento. A reprodução vem de uma execução nativa do mesmo solver Rust. Nenhum integrador novo é usado.', reference: 'Referência exata', difference: 'Diferença', measured: 'T do Stabileo (s)', predicted: 'Previsão discreta Tₙ (s)',
