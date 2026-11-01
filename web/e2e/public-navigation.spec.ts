@@ -84,8 +84,9 @@ for (const width of [1440, 390]) {
           menuFontFamily: menuStyle?.fontFamily,
           links: Array.from(header?.querySelectorAll('a') ?? [], a => ({
             href: a.getAttribute('href'),
-            // The GitHub count is asynchronous; its accessible name is stable.
-            label: a.getAttribute('aria-label') ?? a.textContent?.trim(),
+            // The GitHub count is asynchronous; its accessible name is stable. The brand's name
+            // depends on the page and is asserted per destination below.
+            label: a.classList.contains('nav-brand') ? a.textContent?.trim() : a.getAttribute('aria-label') ?? a.textContent?.trim(),
           })),
         };
       };
@@ -100,6 +101,8 @@ for (const width of [1440, 390]) {
       await expect(header).toHaveAttribute('data-current', destination);
       await expect(page).toHaveURL(new RegExp(`/en/${destination ? destination + '/' : ''}$`));
       await expect(page.locator('#app .landing h1')).toBeVisible();
+      if (destination) await expect(header.locator('.nav-brand')).not.toHaveAttribute('aria-label', /.*/);
+      else await expect(header.locator('.nav-brand')).toHaveAttribute('aria-label', 'Back to top');
       if (width === 390) await expect(header.locator('.nav-toggle')).toHaveAttribute('aria-expanded', 'false');
       // Keep sampling after commit to catch late CSS loading / font changes.
       await page.waitForTimeout(300);

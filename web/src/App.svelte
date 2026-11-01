@@ -560,8 +560,14 @@
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
   }
 
+  /** A shared model at the root (`/#data=…`) keeps the landing up while it is restored behind it. */
+  function publicShell() {
+    return routeKind({ pathname: location.pathname, search: location.search, hash: '' });
+  }
+
   const initialPublicRoute = routeKind();
-  let showLanding = $state(initialPublicRoute.kind === 'landing');
+  const initialShell = publicShell();
+  let showLanding = $state(initialShell.kind === 'landing');
   let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
@@ -569,11 +575,11 @@
   $effect(() => {
     if (showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
-  $effect(manualPublicScrollRestoration);
-  $effect(() => { if (routeKind().kind !== 'app') void syncRouteState(); });
-  let showBlog = $state(initialPublicRoute.kind === 'blog');
+  $effect(() => { if (showLanding || showBlog || showExperiment || showPaper) return manualPublicScrollRestoration(); });
+  $effect(() => { if (publicShell().kind !== 'app') void syncRouteState(); });
+  let showBlog = $state(initialShell.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
-  let blogPath = $state(initialPublicRoute.path);
+  let blogPath = $state(initialShell.path);
 
   /**
    * Move between the public pages without reloading the document.
@@ -603,9 +609,10 @@
   async function syncRouteState() {
     const token = ++publicRevision;
     const next = routeKind();
-    const hash = location.hash;
+    const shell = publicShell();
+    const hash = next.kind === 'app' ? '' : location.hash;
     try {
-      const page = await loadPublicPage(location.href);
+      const page = await loadPublicPage(location.pathname + location.search);
       if (token !== publicRevision) return;
       publicPage = page;
     } catch (error) {
@@ -615,9 +622,9 @@
     showExperiment = next.kind === 'research' || next.kind === 'tools';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
-    showBlog = next.kind === 'blog';
-    blogPath = next.path;
-    showLanding = next.kind === 'landing';
+    showBlog = shell.kind === 'blog';
+    blogPath = shell.path;
+    showLanding = shell.kind === 'landing';
     if (!showLanding && !showBlog && !showExperiment && !showPaper) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
@@ -630,7 +637,7 @@
       }
     }
     await tick();
-    if (token === publicRevision && next.kind !== 'app') resetPublicScroll(hash);
+    if (token === publicRevision && shell.kind !== 'app') resetPublicScroll(hash);
   }
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons

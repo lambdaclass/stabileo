@@ -56,6 +56,7 @@ export function idlePrefetchPublicPages() {
 /** Run after Svelte's DOM commit. Public pages scroll inside .landing. */
 export function resetPublicScroll(hash = '') {
   const root = document.querySelector<HTMLElement>('.landing');
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   root?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   if (hash) {
     let id = hash.slice(1);

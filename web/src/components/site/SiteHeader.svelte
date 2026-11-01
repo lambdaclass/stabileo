@@ -46,10 +46,17 @@
 
 <nav class="nav site-header" aria-label={t('landing.navPrimary')} data-current={current ?? ''}>
   <div class="nav-inner">
-    <PublicLink to="/" class="nav-brand" aria-label="Stabileo">
-      <span class="nav-logo"><BrandMark /></span>
-      <span class="nav-name">Stabileo</span>
-    </PublicLink>
+    {#if path === '/'}
+      <a class="nav-brand" href={publicHref('/', publicI18n.locale)} aria-label={t('landing.navBackToTop')} onclick={(e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); go('top'); } }}>
+        <span class="nav-logo"><BrandMark /></span>
+        <span class="nav-name">Stabileo</span>
+      </a>
+    {:else}
+      <PublicLink to="/" class="nav-brand">
+        <span class="nav-logo"><BrandMark /></span>
+        <span class="nav-name">Stabileo</span>
+      </PublicLink>
+    {/if}
 
     <div class="nav-links" id="nav-links" class:open>
       {#each SITE_NAV as item (item.id)}

@@ -118,6 +118,7 @@ describe('public scroll reset after the route DOM commits', () => {
     resetPublicScroll(hash);
     expect(querySelector).toHaveBeenCalledWith('.landing');
     expect(root.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' });
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' });
     expect(target.scrollIntoView).toHaveBeenCalledTimes(hash === '#a%20b' ? 1 : 0);
   });
 });
