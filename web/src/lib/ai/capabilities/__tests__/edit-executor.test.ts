@@ -231,6 +231,29 @@ describe('edit executor', () => {
     expect(() => applyEdit({ action: 'add_lateral_loads', params: { h: 5 } }, snap)).toThrow(AiActionError);
   });
 
+  it('a new 2D story repeats the bracing of the story below it', () => {
+    const snap = makeMultiStory();
+    const xy = (r: Snap, id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number };
+    const at = (x: number, y: number) => arr(snap, 'nodes').find((n) => n[1].x === x && n[1].y === y)![0];
+    const lastId = Math.max(...arr(snap, 'elements').map((e) => e[0]));
+    arr(snap, 'elements').push([lastId + 1, { id: lastId + 1, type: 'truss', nodeI: at(0, 3), nodeJ: at(6, 6), materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: true }]);
+    const r = applyEdit({ action: 'add_story', params: { height: 3 } }, snap);
+    const diagonals = arr(r, 'elements').filter(([, e]) => xy(r, e.nodeI).x !== xy(r, e.nodeJ).x && xy(r, e.nodeI).y !== xy(r, e.nodeJ).y);
+    expect(diagonals.map(([, e]) => [xy(r, e.nodeI), xy(r, e.nodeJ)])).toEqual([
+      [{ x: 0, y: 3 }, { x: 6, y: 6 }].map((c) => expect.objectContaining(c)),
+      [{ x: 0, y: 6 }, { x: 6, y: 9 }].map((c) => expect.objectContaining(c)),
+    ]);
+    expect(diagonals[1][1]).toMatchObject({ type: 'truss', hingeStart: true, hingeEnd: true, sectionId: 1, materialId: 1 });
+  });
+
+  it('a 3D distributed load is along global Z on any member, a column included', () => {
+    const snap = makeMultiStory3d();
+    const z = (id: unknown) => (arr(snap, 'nodes').find((n) => n[0] === id)![1] as { z: number }).z;
+    const column = arr(snap, 'elements').find(([, e]) => z(e.nodeI) !== z(e.nodeJ))![0];
+    const r = applyEdit({ action: 'add_distributed_load', params: { element_id: column, q: -4 } }, snap);
+    expect(loadsOf(r).at(-1)).toMatchObject({ type: 'distributed3d', data: { elementId: column, qYI: 0, qYJ: 0, qZI: -4, qZJ: -4, frame: 'global' } });
+  });
+
   it('takes side as left or right only, in any case', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
     expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);

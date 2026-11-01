@@ -180,6 +180,11 @@ function addStory2d(snap: Json, height: number, beamSection?: string, columnSect
     tops[i] === undefined ? undefined
       : inherit(snap, belowY !== undefined ? elementBetween(snap, findNodeAt(snap, x, belowY), tops[i]) : undefined, colOverride, 'column'));
   const beams = cols.slice(1).map((_, i) => inherit(snap, elementBetween(snap, tops[i], tops[i + 1]), beamOverride, 'beam'));
+  const braces = belowY === undefined ? [] : elements(snap).map(entryData).filter((data) => {
+    const [ci, cj] = nodeRefs(data).map((id) => coordsOf(snap, id));
+    const spans = (near(ci.y, belowY) && near(cj.y, topY)) || (near(ci.y, topY) && near(cj.y, belowY));
+    return spans && !near(ci.x, cj.x);
+  });
 
   const newIds = cols.map((x) => addNodeToSnap(snap, x, newY));
   cols.forEach((_, i) => {
@@ -188,6 +193,16 @@ function addStory2d(snap: Json, height: number, beamSection?: string, columnSect
     if (topNode !== undefined && column) place(snap, column, topNode, newIds[i]);
   });
   beams.forEach((beam, i) => place(snap, beam, newIds[i], newIds[i + 1]));
+  const raise = (id: number): number => {
+    const c = coordsOf(snap, id);
+    const above = findNodeAt(snap, c.x, near(c.y, topY) ? newY : topY);
+    if (above === undefined) throw new AiActionError(`Cannot repeat the bracing: no node above node ${id}`);
+    return above;
+  };
+  for (const brace of braces) {
+    const [ni, nj] = nodeRefs(brace);
+    cloneElementToSnap(snap, brace, raise(ni), raise(nj));
+  }
 }
 
 function addStory3d(snap: Json, height: number, beamSection?: string, columnSection?: string): void {
