@@ -7,5 +7,4 @@ a timeline by month, groups each entry's changes by area (Basic, PRO, Education,
 Website), filters by area and shows screenshots of what changed. It sits beside "Blog" in the site header
 of every public page and in the footer. Nothing in the editor changes.
 
-The landing page shows the latest week in full and the previous two as cards, with a link to the
-whole history (#790). Re-check the timeline filters and language links when adding an entry.
+Re-check the timeline filters and language links when adding an entry (#790).
