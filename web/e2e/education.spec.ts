@@ -78,7 +78,7 @@ async function bootEducation(page: Page, url = EDU_URL) {
   const [path, hash] = url.split('#');
   await page.goto(`${path}${path.includes('?') ? '&' : '?'}e2e=1${hash ? '#' + hash : ''}`);
   await expect(page.locator('.edu-panel')).toBeVisible({ timeout: 30_000 });
-  await page.waitForFunction(() => window.__stabileo?.solverReady?.() === true, null, { timeout: 60_000 });
+  await page.waitForFunction(() => window.__stabileo?.solverReady?.() === true, null, { timeout: 45_000 });
   /*
    * And for the exercise's own model to be in the store.
    *

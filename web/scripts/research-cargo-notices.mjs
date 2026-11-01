@@ -19,7 +19,12 @@ export function cargoLicenceTexts(pkg) {
 }
 
 export function researchCargoNotices(repo) {
-  const metadata = JSON.parse(execFileSync('cargo', ['metadata', '--locked', '--format-version', '1', '--filter-platform', 'wasm32-unknown-unknown', '--manifest-path', path.join(repo, 'research/fracture/shauer-2025/wasm/Cargo.toml')], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
+  const seen = new Set();
+  return ['fracture/shauer-2025/wasm', 'optimization/andreassen-2011/wasm', 'mechanics/biggins-2026'].flatMap(experiment => experimentNotices(repo, experiment, seen));
+}
+
+function experimentNotices(repo, experiment, seen) {
+  const metadata = JSON.parse(execFileSync('cargo', ['metadata', '--locked', '--format-version', '1', '--filter-platform', 'wasm32-unknown-unknown', '--manifest-path', path.join(repo, 'research', experiment, 'Cargo.toml')], { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 }));
   const nodes = new Map(metadata.resolve.nodes.map(node => [node.id, node]));
   const reachable = new Set();
   function visit(id) {
@@ -30,9 +35,11 @@ export function researchCargoNotices(repo) {
   visit(metadata.resolve.root);
   return metadata.packages.filter(pkg => reachable.has(pkg.id)).sort((a, b) => a.name.localeCompare(b.name)).flatMap(pkg => {
     if (pkg.source === null) {
-      if (!['dedaliano-engine', 'phasefield-shauer-2025', 'phasefield-shauer-2025-wasm'].includes(pkg.name) || pkg.license !== 'AGPL-3.0-only') throw new Error(`Unresolved local Cargo licence: ${pkg.name}`);
+      if (!['dedaliano-engine', 'phasefield-shauer-2025', 'phasefield-shauer-2025-wasm', 'topopt-andreassen-2011', 'topopt-andreassen-2011-wasm', 'arches-biggins-2026'].includes(pkg.name) || pkg.license !== 'AGPL-3.0-only') throw new Error(`Unresolved local Cargo licence: ${pkg.name}`);
       return [];
     }
+    if (seen.has(pkg.id)) return [];
+    seen.add(pkg.id);
     const texts = cargoLicenceTexts(pkg);
     return ['---', '', `## Cargo: ${pkg.name} ${pkg.version}`, '', `- **Licence:** ${pkg.license}`, `- **Source:** https://crates.io/crates/${pkg.name}/${pkg.version}`, '',
       ...texts.flatMap(({ file, text }) => [`<details><summary>${file}</summary>`, '', '```', text, '```', '', '</details>', ''])];

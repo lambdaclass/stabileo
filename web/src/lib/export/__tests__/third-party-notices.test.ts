@@ -89,6 +89,15 @@ describe('third-party notices', () => {
     expect(text).toContain('Apache License');                    // the xlsx family, in full
   });
 
+  it('resolves licence texts from suffixed files and README sections', () => {
+    const text = fs.readFileSync(NOTICES, 'utf8');
+    expect(text).toContain('Copyright (c) 2013 Tim Perry'); // loglevel/LICENSE-MIT
+    expect(text).toContain('Copyright (c) 2019 Alexander Milevski'); // splaytree/Readme.md
+    expect(text).not.toContain('No licence file found');
+    expect(text).not.toContain('Resolve before the next release');
+    expect(text).not.toContain('UNKNOWN');
+  });
+
   it('do not list build tooling, which is not distributed', () => {
     const text = fs.readFileSync(NOTICES, 'utf8');
     // Listing it is not harmless: obligations that do not exist make the real ones easier to

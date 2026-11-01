@@ -1,0 +1,7 @@
+{
+  "what": "Independent closed-form two-coordinate building illustration; not transcribed paper data and no reference code adapted.",
+  "source": "../reference.py and ../README.md",
+  "files_sha256": {
+    "closed-form.json": "68efcb041d5b33deb4cc33ec4cd137871160fce52288ef7dcb9d76479eced2cb"
+  }
+}

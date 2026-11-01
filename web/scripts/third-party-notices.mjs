@@ -75,9 +75,16 @@ function readLicenceText(name) {
   const dir = path.join(WEB, 'node_modules', name);
   let entries = [];
   try { entries = fs.readdirSync(dir); } catch { return null; }
-  const file = entries.find((f) => /^(LICEN[CS]E|COPYING)(\.|$)/i.test(f));
-  if (!file) return null;
-  return { file, text: fs.readFileSync(path.join(dir, file), 'utf8').trimEnd() };
+  const file = entries.find((f) => /^(LICEN[CS]E|COPYING)([-.]|$)/i.test(f));
+  if (file) return { file, text: fs.readFileSync(path.join(dir, file), 'utf8').replace(/\r\n/g, '\n').trimEnd() };
+  // Some packages (splaytree) ship their full licence in the README only.
+  const readme = entries.find((f) => /^README\.md$/i.test(f));
+  if (readme) {
+    const text = fs.readFileSync(path.join(dir, readme), 'utf8').replace(/\r\n/g, '\n');
+    const section = text.match(/^## Licen[cs]e[ \t]*\n([\s\S]*?)(?=^## |(?![\s\S]))/im);
+    if (section?.[1].trim()) return { file: `${readme} (Licence section)`, text: section[1].trim() };
+  }
+  return null;
 }
 
 function licenceId(pkg) {

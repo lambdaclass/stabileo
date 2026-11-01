@@ -18,7 +18,7 @@ test.describe('@smoke moving loads in PRO', () => {
     await page.getByTestId('adv-chip-moving').click();
     await expect(page.getByTestId('moving-path')).toContainText('3');
     await page.getByTestId('moving-run').click();
-    await expect(page.getByTestId('moving-table')).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByTestId('moving-table')).toBeVisible({ timeout: 45_000 });
     await expect(page.getByTestId('moving-summary')).toContainText(/over 3 members/);
     // The loaded beams carry a moment under the train.
     const first = page.getByTestId('moving-table').locator('tbody tr').first();

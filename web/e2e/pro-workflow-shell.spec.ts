@@ -226,8 +226,8 @@ test.describe('@smoke PRO shell — the diagnostics warning', () => {
   });
 });
 
-test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
-  test('the command is on the Design command row, disabled until there is something to draw',
+test.describe('PRO shell — Ver modelo 3D on the Design row', () => {
+  test('@smoke the command is on the Design command row, disabled until there is something to draw',
     async ({ pro: page }) => {
       await loadModel(page, SMALL);
       const btn = page.getByTestId('cmd-open-3d');
@@ -293,14 +293,14 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
    * ribbon that also serves the metallic flow. Presence and enablement are what this checks —
    * that they are the same OPERATION is proved below, and in `rc-commands.test.ts` on the source.
    */
-  test('the viewer is reachable from every valid entry point', async ({ pro: page }) => {
+  test('@smoke the viewer is reachable from every valid entry point', async ({ pro: page }) => {
     await loadModel(page, SMALL);
     await designAll(page);
     await designPlace(page, 'detailing');
     await page.getByTestId('cmd-generate-detailing').click();
     await expect
       .poll(() => page.evaluate(() => (window.__stabileo as unknown as
-        { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
+        { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 })
       .toBeGreaterThan(0);
 
     // The entries in the places of design: the list's toolbar, the project status, the documents.
@@ -334,7 +334,7 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
       'the rail entry is reachable with every section collapsed').toBe(true);
   });
 
-  test('it enables once detailing exists, reports the count, and opens the workspace',
+  test('@slow it enables once detailing exists, reports the count, and opens the workspace',
     async ({ pro: page }) => {
       await loadModel(page, SMALL);
       await designAll(page);
@@ -366,7 +366,7 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
         .toBeGreaterThan(before);
     });
 
-  test('both entry points are the same operation', async ({ pro: page }) => {
+  test('@smoke both entry points are the same operation', async ({ pro: page }) => {
     /**
      * Two buttons with one name must not be two operations. `openRebar3D` is the only path
      * either takes, so the revision behind the picture is the same revision whichever is
@@ -379,7 +379,7 @@ test.describe('@smoke PRO shell — Ver modelo 3D on the Design row', () => {
     await page.getByTestId('cmd-generate-detailing').click();
     await expect
       .poll(() => page.evaluate(() => (window.__stabileo as unknown as
-        { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 })
+        { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 })
       .toBeGreaterThan(0);
 
     await designPlace(page, 'list');

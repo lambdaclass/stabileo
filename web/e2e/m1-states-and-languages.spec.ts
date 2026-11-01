@@ -62,7 +62,7 @@ async function statuses(page: Page): Promise<string[]> {
 test.beforeEach(async ({ page }) => {
   await page.goto(PRO_URL);
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 });
 

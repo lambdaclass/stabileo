@@ -54,18 +54,24 @@ function installTestHooks() {
  * Root.svelte, which renders the landing and the blog without downloading the application
  * (3 MB of JavaScript and 3 MB of WASM they used to wait on) and loads it when asked.
  */
-restoreRedirectedRoute();
-const target = document.getElementById('app')!;
-let app: ReturnType<typeof mount>;
-if (routeKind().kind === 'app') {
-  await ensureLocale(i18n.locale);
-  const { default: App } = await import('./App.svelte');
-  app = mount(App, { target });
-  installTestHooks();
-} else {
-  app = mount(Root, { target });
-  // From a public page the application loads in place (Root.svelte), and says so when it is up.
+// Do not await lazy chunks at module scope. Rollup can put shared public UI in
+// this entry and make App import it; top-level await would then deadlock App.
+async function bootstrap() {
+  restoreRedirectedRoute();
+  const target = document.getElementById('app')!;
+  if (routeKind().kind === 'app') {
+    await ensureLocale(i18n.locale);
+    // Keep the loader namespace separate: Vite's dynamic-import analysis treats
+    // destructuring an awaited .then() chain as destructuring the import itself.
+    const loader = await import('./load-app');
+    const application = await loader.loadApplication();
+    const app = mount(application.default, { target });
+    installTestHooks();
+    return app;
+  }
+  // Register before mounting: a ready event must never outrun its subscriber.
   window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });
+  return mount(Root, { target });
 }
 
-export default app;
+export default bootstrap();

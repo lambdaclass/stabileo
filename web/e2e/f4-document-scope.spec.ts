@@ -50,7 +50,7 @@ async function preparedProject(page: Page) {
   await expect
     .poll(() => page.evaluate(() => (window as unknown as {
       __stabileo: { detailingAssemblies(): unknown[] };
-    }).__stabileo.detailingAssemblies().length), { timeout: 120_000 })
+    }).__stabileo.detailingAssemblies().length), { timeout: 120_000 }) // slow-ok: Shared helper waits for reinforced-concrete detailing assemblies before exercising document scope; smoke still has a 45 s total budget.
     .toBeGreaterThan(0);
   await openDocumentsStage(page);
   await expect(page.getByTestId('doc-scope-picker')).toBeVisible();
