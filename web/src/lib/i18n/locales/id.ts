@@ -588,10 +588,7 @@ const id: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'Ekspor laporan Excel dengan semua lembar (model + hasil)',
-  'project.exportPdfTooltip': 'Buat laporan PDF untuk dicetak',
   'project.exportDxfTooltip': 'Ekspor ke AutoCAD DXF dengan diagram',
-  'project.exportSvgTooltip': 'Ekspor grafik vektor SVG',
-  'project.exportPngTooltip': 'Ekspor tangkapan layar PNG',
   'project.exportCsvTooltip': 'Ekspor tabel hasil dalam CSV',
   'project.openDedTooltip': 'Buka file proyek (.ded / .json)',
   'project.openDxfTooltip': 'Impor geometri dari file AutoCAD DXF',
@@ -2501,7 +2498,6 @@ const id: Translations = {
   'report.printBtn': 'Cetak / PDF',
   'report.docTitle': '{name} — Laporan Perhitungan',
   'report.coverSubtitle': 'Laporan Perhitungan Struktural',
-  'report.coverCode': 'Verifikasi menurut CIRSOC 201',
   'report.coverFooter': 'Stabileo — Analisis Struktur',
   'report.modelData': '1. Data Model',
   'report.view3d': 'Tampilan 3D',
@@ -2905,7 +2901,6 @@ const id: Translations = {
   'pro.noSlabs': 'Tidak ada pelat (quad) dengan hasil tegangan dalam model.',
   'pro.driftTitle': 'Simpangan antar lantai — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Batas',
-  'pro.solveFirst': 'Hitung struktur terlebih dahulu',
   'pro.noVerifiableElems': 'Tidak ditemukan elemen yang dapat diverifikasi. Pastikan material memiliki f\'c ≤ 80 MPa (beton) atau fy > 80 MPa (baja) dan penampang memiliki properti yang didefinisikan.',
   'pro.verifyPrompt': 'Tekan "Verifikasi elemen" untuk menjalankan verifikasi CIRSOC 201 / 301',
   'pro.wasmNotice': 'Memerlukan rekompilasi WASM — pemeriksaan {code} akan diaktifkan saat dikompilasi di mesin native.',

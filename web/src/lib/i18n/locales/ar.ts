@@ -588,10 +588,7 @@ const ar: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'تصدير تقرير Excel بجميع الأوراق (النموذج + النتائج)',
-  'project.exportPdfTooltip': 'إنشاء تقرير PDF قابل للطباعة',
   'project.exportDxfTooltip': 'تصدير إلى AutoCAD DXF مع المخططات',
-  'project.exportSvgTooltip': 'تصدير رسم متجه SVG',
-  'project.exportPngTooltip': 'تصدير لقطة شاشة PNG',
   'project.exportCsvTooltip': 'تصدير جدول النتائج بصيغة CSV',
   'project.openDedTooltip': 'فتح ملف مشروع (.ded / .json)',
   'project.openDxfTooltip': 'استيراد الهندسة من ملف AutoCAD DXF',
@@ -2767,7 +2764,6 @@ const ar: Translations = {
   'pro.noSlabs': 'لا توجد بلاطات (رباعيات) بنتائج إجهاد في النموذج.',
   'pro.driftTitle': 'انزياح الطوابق — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'الحد',
-  'pro.solveFirst': 'حل المنشأ أولاً',
   'pro.noVerifiableElems': 'لم يتم العثور على عناصر قابلة للتحقق. تأكد من أن المواد لها f\'c ≤ 80 MPa (خرسانة) أو fy > 80 MPa (فولاذ) وأن المقاطع لها خصائص محددة.',
   'pro.verifyPrompt': 'اضغط "تحقق من العناصر" لتشغيل تحقق CIRSOC 201 / 301',
   'pro.wasmNotice': 'يتطلب إعادة ترجمة WASM — فحوصات {code} ستُفعّل عند الترجمة في المحرك الأصلي.',
@@ -2930,7 +2926,6 @@ const ar: Translations = {
   'report.printBtn': 'طباعة / PDF',
   'report.docTitle': '{name} — تقرير الحسابات',
   'report.coverSubtitle': 'تقرير الحسابات الإنشائية',
-  'report.coverCode': 'التحقق وفقاً لـ CIRSOC 201',
   'report.coverFooter': 'Stabileo — تحليل إنشائي',
   'report.modelData': '1. بيانات النموذج',
   'report.view3d': 'عرض ثلاثي الأبعاد',

@@ -6,7 +6,7 @@
    * Nothing is passed to `{@html}`, so a post cannot inject markup into the
    * page — see the note on the content model in src/lib/blog/types.ts.
    */
-  import { findPost, type Block } from '../../lib/blog';
+  import { findPost, inLocale, type Block } from '../../lib/blog';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import PostEmbed from './PostEmbed.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
@@ -39,7 +39,7 @@
     {#if target}
       <aside class="post-link">
         <span class="post-link-lead">{q(block.t)}</span>
-        <PublicLink to={`/blog/${target.slug}`} class="link-arrow">{target.i18n[publicI18n.locale].title}</PublicLink>
+        <PublicLink to={`/blog/${target.slug}`} class="link-arrow">{inLocale(target.i18n, publicI18n.locale).title}</PublicLink>
       </aside>
     {/if}
   {:else if block.k === 'ext'}

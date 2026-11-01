@@ -11,7 +11,7 @@ import { test, expect, type Page } from './fixtures';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
 }
 const census = (page: Page) => page.evaluate(() => {
   const c = window.__stabileo.modelCensus();

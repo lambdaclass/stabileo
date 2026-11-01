@@ -235,7 +235,7 @@ test.describe('the claim holds its layout and its three languages', () => {
   }
 });
 
-test.describe('@smoke the document states its scope on screen too', () => {
+test.describe('@slow the document states its scope on screen too', () => {
   test('DC-S the Documents stage names the families the set covers', async ({ pro: page }) => {
     /*
      * The on-screen half of the same sentence the exports carry.

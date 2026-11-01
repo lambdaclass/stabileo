@@ -1,8 +1,8 @@
+import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { assessProject } from '../applicability';
-import { RESULT_CHANGES } from '../registry';
 import type { FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
 
@@ -47,6 +47,7 @@ const RELEASED: Record<number, string[]> = {
     'rc-beams-lateral-role-shear-minimum-torsion', 'rc-flanged-beams-designed-about-depth',
     'strip-footings-under-walls-whole-strip',
   ],
+  5: ['solid-shell-local-stress-axes'],
 };
 
 describe('results versions', () => {

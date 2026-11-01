@@ -18,7 +18,10 @@ import { alternateUrls, publicUrl } from './i18n/public-routes';
 const OG_LOCALE: Record<PublicLocale, string> = {
 	en: 'en_US',
 	es: 'es_AR',
-	pt: 'pt_BR'
+	pt: 'pt_BR',
+	de: 'de_DE',
+	fr: 'fr_FR',
+	tr: 'tr_TR'
 };
 
 const META_TAGS = [
@@ -280,11 +283,13 @@ function setAlternateLocales(values: string[]) {
  * Both are rewritten as a set and restored as a set, like og:locale:alternate
  * above, because the count changes with the page.
  */
-function setLinks(path: string, locale: PublicLocale) {
+// A page not yet written in the reader's language shows its English text, so it names the English one as canonical.
+function setLinks(path: string, locale: PublicLocale, written: readonly PublicLocale[]) {
+	const own = written.includes(locale) ? locale : 'en';
 	const canonical = document.querySelector('link[rel="canonical"]');
-	if (canonical) canonical.setAttribute('href', publicUrl(path, locale));
-	setHreflangs(alternateUrls(path), canonical ?? document.head.lastElementChild);
-	setMeta('meta[property="og:url"]', publicUrl(path, locale));
+	if (canonical) canonical.setAttribute('href', publicUrl(path, own));
+	setHreflangs(alternateUrls(path, written), canonical ?? document.head.lastElementChild);
+	setMeta('meta[property="og:url"]', publicUrl(path, own));
 }
 
 export function applyPageMeta(meta: {
@@ -297,7 +302,10 @@ export function applyPageMeta(meta: {
 	article?: ArticleMeta;
 	/** Schema.org nodes the page states about itself (the landing's app, the blog's index). */
 	graph?: object[];
+	/** The languages a post or standing page is written in; every public language otherwise. */
+	written?: readonly PublicLocale[];
 }) {
+	const written = meta.written ?? PUBLIC_LOCALES;
 	if (!original) {
 		original = {
 			title: document.title,
@@ -314,10 +322,10 @@ export function applyPageMeta(meta: {
 	setMeta('meta[property="og:title"]', meta.title);
 	setMeta('meta[property="og:description"]', meta.description);
 	setMeta('meta[property="og:locale"]', OG_LOCALE[meta.locale]);
-	setAlternateLocales(PUBLIC_LOCALES.filter((l) => l !== meta.locale).map((l) => OG_LOCALE[l]));
+	setAlternateLocales(written.filter((l) => l !== meta.locale).map((l) => OG_LOCALE[l]));
 	setMeta('meta[name="twitter:title"]', meta.title);
 	setMeta('meta[name="twitter:description"]', meta.description);
-	setLinks(meta.path, meta.locale);
+	setLinks(meta.path, meta.locale, written);
 	setFeedLink(meta.path, meta.locale);
 	if (meta.article?.image) {
 		for (const sel of ['meta[property="og:image"]', 'meta[name="twitter:image"]']) setMeta(sel, meta.article.image);

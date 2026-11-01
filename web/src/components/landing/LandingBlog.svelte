@@ -14,10 +14,10 @@
    */
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
   import PublicLink from './PublicLink.svelte';
-  import { POSTS_NEWEST_FIRST, formatPostDate, postReadingMinutes } from '../../lib/blog';
+  import { POSTS_NEWEST_FIRST, formatPostDate, postReadingMinutes, inLocale } from '../../lib/blog';
 
   const latest = $derived(POSTS_NEWEST_FIRST[0]);
-  const body = $derived(latest?.i18n[publicI18n.locale]);
+  const body = $derived(latest ? inLocale(latest.i18n, publicI18n.locale) : undefined);
 </script>
 
 <section class="sec sec--ink blog-cta reveal" data-section="blog" id="blog" aria-labelledby="blog-cta-title">

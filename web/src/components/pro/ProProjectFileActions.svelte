@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * Open and Save for a PRO project.
    *
@@ -66,6 +68,7 @@
    * tag inside a block. A non-shortcut instance therefore listens and immediately returns.
    */
   function handleKeydown(e: KeyboardEvent) {
+    if (!editorActive()) return;
     if (!shortcuts) return;
     const key = e.key.toUpperCase();
     if ((e.ctrlKey || e.metaKey) && key === 'S' && !e.shiftKey) {

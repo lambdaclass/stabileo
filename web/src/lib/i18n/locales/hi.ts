@@ -581,10 +581,7 @@ const hi: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'सभी शीटों (मॉडल + परिणाम) के साथ Excel रिपोर्ट निर्यात करें',
-  'project.exportPdfTooltip': 'मुद्रण योग्य PDF रिपोर्ट बनाएँ',
   'project.exportDxfTooltip': 'आरेखों के साथ AutoCAD DXF में निर्यात करें',
-  'project.exportSvgTooltip': 'वेक्टर SVG ग्राफ़िक निर्यात करें',
-  'project.exportPngTooltip': 'PNG स्क्रीनशॉट निर्यात करें',
   'project.exportCsvTooltip': 'परिणाम तालिका CSV के रूप में निर्यात करें',
   'project.openDedTooltip': 'प्रोजेक्ट फ़ाइल (.ded / .json) खोलें',
   'project.openDxfTooltip': 'AutoCAD DXF फ़ाइल से ज्यामिति आयात करें',
@@ -2258,7 +2255,6 @@ const hi: Translations = {
   'report.printBtn': 'प्रिंट / PDF',
   'report.docTitle': '{name} — गणना रिपोर्ट',
   'report.coverSubtitle': 'संरचनात्मक गणना रिपोर्ट',
-  'report.coverCode': 'CIRSOC 201 के अनुसार सत्यापन',
   'report.coverFooter': 'Stabileo — संरचनात्मक विश्लेषण',
   'report.modelData': '1. मॉडल डेटा',
   'report.view3d': '3D दृश्य',
@@ -2869,7 +2865,6 @@ const hi: Translations = {
   'pro.noSlabs': 'मॉडल में प्रतिबल परिणामों वाला कोई स्लैब (क्वाड) नहीं।',
   'pro.driftTitle': 'अंतरमंज़िल ड्रिफ्ट — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'सीमा',
-  'pro.solveFirst': 'पहले संरचना हल करें',
   'pro.noVerifiableElems': 'कोई सत्यापनीय तत्व नहीं मिला। सुनिश्चित करें कि सामग्रियों में f\'c <= 80 MPa (कंक्रीट) या fy > 80 MPa (स्टील) है और सेक्शन में गुण परिभाषित हैं।',
   'pro.verifyPrompt': 'CIRSOC 201 / 301 सत्यापन चलाने के लिए "तत्व सत्यापित करें" दबाएँ',
   'pro.wasmNotice': 'WASM पुनःसंकलन आवश्यक — {code} सत्यापन मूल इंजन में संकलित होने पर सक्षम होंगे।',

@@ -1,0 +1,10 @@
+{
+  "source": "Zenodo 18256271; see SOURCE.json and ../LICENSE-data.md",
+  "files_sha256": {
+    "curvature_temperature.csv": "6cae09cec7e63989ee32bf5022d4628287acded607bcaed87de59c20de3f0151",
+    "SOURCE.json": "2ab0f12c4f5cf986cf4ba3ab031af3ede674432b1a514336fadb4662a9849097",
+    "thresholds.csv": "8570f8ccd4f1d109808ed37e4964567f237227965f8d81e4e7d4f7b31729e945",
+    "replay.json": "d890e64872e569d45eeed232c31a7b010e5083a05dafe2579ed990f768caacde",
+    "thresholds.json": "542ac382cedda310844100dac4783eeb192dd76c47abcff03859559784efbea9"
+  }
+}

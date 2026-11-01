@@ -582,10 +582,7 @@ const ru: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': 'Экспорт отчёта Excel со всеми листами (модель + результаты)',
-  'project.exportPdfTooltip': 'Создать печатный PDF-отчёт',
   'project.exportDxfTooltip': 'Экспорт в AutoCAD DXF с эпюрами',
-  'project.exportSvgTooltip': 'Экспорт векторного SVG',
-  'project.exportPngTooltip': 'Экспорт скриншота PNG',
   'project.exportCsvTooltip': 'Экспорт таблицы результатов в CSV',
   'project.openDedTooltip': 'Открыть файл проекта (.ded / .json)',
   'project.openDxfTooltip': 'Импорт геометрии из файла AutoCAD DXF',
@@ -2507,7 +2504,6 @@ const ru: Translations = {
   'report.printBtn': 'Печать / PDF',
   'report.docTitle': '{name} — Расчётный отчёт',
   'report.coverSubtitle': 'Расчётный отчёт конструкций',
-  'report.coverCode': 'Проверка по CIRSOC 201',
   'report.coverFooter': 'Stabileo — Расчёт конструкций',
   'report.modelData': '1. Данные модели',
   'report.view3d': '3D вид',
@@ -2911,7 +2907,6 @@ const ru: Translations = {
   'pro.noSlabs': 'Нет плит (четырёхугольников) с результатами напряжений в модели.',
   'pro.driftTitle': 'Межэтажные перемещения — CIRSOC 103 §5.2.8',
   'pro.driftLimit': 'Предел',
-  'pro.solveFirst': 'Сначала выполните расчёт конструкции',
   'pro.noVerifiableElems': 'Проверяемые элементы не найдены. Убедитесь, что материалы имеют f\'c ≤ 80 MPa (бетон) или fy > 80 MPa (сталь) и сечения имеют определённые свойства.',
   'pro.verifyPrompt': 'Нажмите «Проверить элементы» для проверки по CIRSOC 201 / 301',
   'pro.wasmNotice': 'Требуется перекомпиляция WASM — проверки {code} будут доступны при компиляции в нативном движке.',

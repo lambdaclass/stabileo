@@ -1,0 +1,101 @@
+{
+  "id": "scordelis-lo",
+  "expected_rigid_modes": 0,
+  "symmetry_planes": [
+    {
+      "edge": "x_zero",
+      "dofs": [
+        "rx",
+        "rry",
+        "rrz"
+      ]
+    },
+    {
+      "edge": "theta_zero",
+      "dofs": [
+        "ry",
+        "rrx",
+        "rrz"
+      ]
+    }
+  ],
+  "provenance": "Corrected branches, 2026-10-29; see docs/safety/benchmark-correctness.md",
+  "tolerance": {
+    "relative": 0.02,
+    "justification": "Existing shell accuracy gate is 2%; unchanged. Richardson must also satisfy this bound."
+  },
+  "geometry": {
+    "kind": "roof",
+    "element": "shell",
+    "half_length": 25.0,
+    "radius": 25.0,
+    "angle": 0.6981317007977318
+  },
+  "material": {
+    "e": 432000.0,
+    "nu": 0.0
+  },
+  "section": {
+    "thickness": 0.25
+  },
+  "supports": [
+    {
+      "edge": "x_end",
+      "dofs": [
+        "ry",
+        "rz"
+      ]
+    }
+  ],
+  "loads": {
+    "surface_traction": -90.0,
+    "analytic_total": [
+      0,
+      0,
+      -39269.90816987241
+    ]
+  },
+  "measurement": {
+    "component": "uz",
+    "sign": 1,
+    "normalization": 1.0,
+    "reference_model": "shell"
+  },
+  "mesh_sequence": [
+    4,
+    8,
+    16
+  ],
+  "analysis": "linear",
+  "references": [
+    {
+      "kind": "independent-solver",
+      "citation": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm",
+      "location": "OS-V:0730, Results: target displacement",
+      "value": -0.3024,
+      "precision": 5e-05,
+      "independence": "Altair benchmark target",
+      "provisional": false,
+      "pass_fail": true
+    },
+    {
+      "kind": "independent-solver",
+      "citation": "https://doc.comsol.com/6.4/doc/com.comsol.help.models.sme.scordelis_lo_roof/scordelis_lo_roof.html",
+      "location": "Results and Discussion: converged displacement approximately 0.302",
+      "value": -0.302,
+      "precision": 0.0005,
+      "independence": "COMSOL converged solution",
+      "provisional": false,
+      "pass_fail": true
+    }
+  ],
+  "sources": {
+    "geometry": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement",
+    "material": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement",
+    "section": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement",
+    "supports": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement",
+    "symmetry_planes": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement",
+    "loads": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement",
+    "measurement": "https://help.altair.com/hwsolvers/os/topics/solvers/os/scordelis_lo_roof_verification_r_2.htm; OS-V:0730, Results: target displacement"
+  }
+}

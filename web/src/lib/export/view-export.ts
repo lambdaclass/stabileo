@@ -12,6 +12,7 @@ import { modelStore, uiStore } from '../store';
 import { t, tp } from '../i18n';
 import { ensureResults } from '../actions/solve';
 import { downloadBlob } from '../store/file';
+import { modelIsEmpty, tellIfEmpty } from './empty-model';
 import {
   NEEDS_RESULTS, canvasToBlob, plan2D, sheetOf, toCanvas, toSvg,
   type FigureContent, type FigureOptions, type FigurePlan,
@@ -39,13 +40,14 @@ const SLUG: Record<FigureContent, string> = {
 
 /**
  * Solve if a chosen figure needs results, and keep the figures that can be drawn. A failed solve
- * leaves out the result figures and says why.
+ * leaves out the result figures and says why; an empty model draws its empty structure.
  */
 async function drawable(contents: FigureContent[]): Promise<FigureContent[]> {
   if (!contents.some((c) => NEEDS_RESULTS.has(c))) return contents;
   const solved = await ensureResults();
   if (solved.ok) return contents;
   const kept = contents.filter((c) => !NEEDS_RESULTS.has(c));
+  if (modelIsEmpty()) return kept.length ? kept : ['model'];
   uiStore.toast(tp(kept.length ? 'viewExport.partial' : 'viewExport.unsolved', { error: solved.error }), 'error');
   return kept;
 }
@@ -106,6 +108,7 @@ export async function exportView(req: ViewExportRequest): Promise<boolean> {
       fs.push({ name: f.name, blob: new Blob([bytes as BlobPart], { type: f.blob.type }) });
     }
   }
+  tellIfEmpty();
   if (fs.length === 1) { downloadBlob(fs[0]!.blob, fs[0]!.name); return true; }
   const entries: Record<string, Uint8Array> = {};
   for (const f of fs) entries[f.name] = new Uint8Array(await f.blob.arrayBuffer());

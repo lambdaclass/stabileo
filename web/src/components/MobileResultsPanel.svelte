@@ -101,6 +101,10 @@
             <input type="checkbox" bind:checked={resultsStore.animateDeformed} />
             <span>{t('results.animate')}</span>
           </label>
+          <label class="mrp-check">
+            <input type="checkbox" bind:checked={resultsStore.showDeformedValues} />
+            <span>{t('results.showDisplacements')}</span>
+          </label>
           {#if resultsStore.animateDeformed}
             <div class="mrp-scale">
               <span class="mrp-scale-label">{t('results.speed')}</span>
