@@ -1,6 +1,7 @@
 """Conservative PR path -> jobs/spec globs. No paths or unknown/mixed areas mean full."""
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 
@@ -16,9 +17,9 @@ def area(path):
         return 'full'
     if path.startswith(('docs/', 'changelog.d/')) or ('/' not in path and path.endswith('.md')):
         return 'docs'
-    if path.startswith(('research/', 'web/src/components/research/')) or (path.startswith('web/e2e/research') and path.endswith('.spec.ts')):
+    if path.startswith(('research/', 'web/src/components/research/')) or re.fullmatch(r'web/e2e/research[^/]*\.spec\.ts', path):
         return 'research'
-    if path.startswith('web/src/components/tools/') or (path.startswith('web/e2e/tools') and path.endswith('.spec.ts')):
+    if path.startswith('web/src/components/tools/') or re.fullmatch(r'web/e2e/tools[^/]*\.spec\.ts', path):
         return 'tools'
     if path.startswith('engine/'):
         return 'engine'

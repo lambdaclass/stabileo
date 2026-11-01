@@ -36,7 +36,8 @@ class Selection(unittest.TestCase):
                       ['web/src/lib/a.ts'], ['package.json'], ['flake.lock'],
                       ['.github/workflows/ci.yml'], ['.github/scripts/select-ci.py'],
                       ['research/x', 'engine/x'], ['research/x', 'web/src/components/tools/x'],
-                      ['web/e2e/fixtures.ts'], ['web/package-lock.json']]:
+                      ['web/e2e/fixtures.ts'], ['web/package-lock.json'],
+                      ['web/e2e/research/nested.spec.ts'], ['web/e2e/tools/nested.spec.ts']]:
             with self.subTest(paths=paths):
                 self.assert_full(selection.select('pull_request', paths))
 
