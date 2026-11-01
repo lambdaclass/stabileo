@@ -351,7 +351,7 @@ async function main() {
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: ['--disable-dev-shm-usage'] });
   const paths = await publicPaths();
   const written: string[] = [];
   const posts: PostHead[] = [];
