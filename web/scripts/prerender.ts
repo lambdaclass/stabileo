@@ -45,6 +45,7 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { notFoundPage } from './not-found-page';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -446,9 +447,14 @@ async function main() {
       `User-agent: *\nAllow: /\nDisallow: /app/\n\nSitemap: ${ORIGIN}/sitemap.xml\n`,
     );
 
+    await writeFile(join(DIST, '404.html'), notFoundPage(DEFAULT_LOCALE, LOCALES));
+    for (const locale of LOCALES) {
+      await writeFile(join(DIST, locale, '404.html'), notFoundPage(locale, LOCALES));
+    }
+
     console.log(`✅ prerendered ${written.length} pages`);
     for (const href of written) console.log(`   · ${href}`);
-    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards`);
+    console.log(`   · /sitemap.xml, /robots.txt, ${LOCALES.length} feeds, ${posts.length} post cards, ${LOCALES.length + 1} 404 pages`);
   } finally {
     await browser.close();
     await stop();

@@ -1,7 +1,7 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
-       test.ci-scripts test.nightly-scripts \
+       test.ci-scripts test.nightly-scripts test.infra.caddy \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
@@ -353,6 +353,10 @@ test.nightly-scripts:
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+
+# DIST=web/dist checks a real build instead of the fixture site.
+test.infra.caddy:
+	nix shell nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-routing.sh $(DIST)
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"
