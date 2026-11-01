@@ -120,3 +120,21 @@ for (const width of [1440, 390]) {
     for (const sample of probe.samples) expect(sample).toEqual(probe.baseline);
   });
 }
+
+for (const rootSize of [16, 20, 24]) {
+  test(`@smoke the public page starts exactly under the header with a ${rootSize}px root font size`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/en/');
+    await page.addStyleTag({ content: `html { font-size: ${rootSize}px !important; }` });
+    const header = page.locator('#app .site-header');
+    await expect(header).toBeVisible();
+    const edges = await page.evaluate(() => ({
+      header: document.querySelector('#app .site-header')!.getBoundingClientRect().bottom,
+      inner: document.querySelector('#app .site-header .nav-inner')!.getBoundingClientRect().bottom,
+      landing: document.querySelector('#app .landing')!.getBoundingClientRect().top,
+    }));
+    expect(edges.header).toBeCloseTo(rootSize * 3.625, 0);
+    expect(edges.landing).toBeCloseTo(edges.header, 1);
+    expect(edges.inner).toBeLessThanOrEqual(edges.header);
+  });
+}

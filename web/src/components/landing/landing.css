@@ -38,19 +38,8 @@
   --lp-max: 1360px;
   --lp-radius: 3px;
 
-  /*
-     The height of the sticky header, as a number the hero can subtract.
-
-     The nav is sticky at the top, so it takes this much layout height AND
-     stays over the page. The hero then added its own full section padding
-     underneath, which is why the first paint opened with a gap nobody asked
-     for: the header's band and the section's air, stacked. See `.hero`.
-
-     Kept as a token rather than measured, because the value only has to be
-     close: it is subtracted under a `max()` floor, so being a few pixels off
-     on a narrow screen moves the title by those pixels and nothing else.
-  */
-  --lp-nav-h: 58px;
+  /* site-header.css sizes the header from this, and .landing starts below it. */
+  --lp-nav-h: 3.625rem;
 }
 
 /* ─── SHELL ──────────────────────────────────────────────────────────────── */
