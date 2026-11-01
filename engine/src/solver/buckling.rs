@@ -91,9 +91,16 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    The mean force Kg is built from, not the end average: under an axial
     //    span load both end forces can be 0 with the member compressed.
     let mean_n = super::geometric_stiffness::mean_axial_forces_2d(input, &dof_num, &u);
+    if !mean_n.values().any(|&n| n < -1e-6) {
+        return Err("No compressed elements — buckling not applicable".into());
+    }
     let axial_noise = axial_force_round_off_2d(input, &linear);
     if !mean_n.iter().any(|(id, &n)| n < -axial_noise.get(id).copied().unwrap_or(0.0).max(1e-6)) {
-        return Err("No compressed elements — buckling not applicable".into());
+        let (id, n) = mean_n.iter().min_by(|a, b| a.1.total_cmp(b.1)).map(|(id, n)| (*id, *n)).unwrap_or((0, 0.0));
+        return Err(format!(
+            "Buckling not determinable: every axial compression is within round-off of the member elongations (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
+            -n, axial_noise.get(&id).copied().unwrap_or(0.0)
+        ));
     }
 
     // 3. Sparse stiffness of the free block (the linear path's K: rotated
@@ -122,9 +129,10 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
 }
 
 /// Per member, the axial force that is round-off of its elongation: N = EA·δ/L
-/// with δ the difference of end translations of size |u|, so 100·ε·EA·|u|/L.
+/// with δ = Σ (u_j − u_i)·e summed in global components, whose round-off is
+/// ε times the sum of the terms' magnitudes; 100 of those.
 fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> HashMap<usize, f64> {
-    let u: HashMap<usize, f64> = linear.displacements.iter().map(|d| (d.node_id, d.ux.hypot(d.uz))).collect();
+    let u: HashMap<usize, (f64, f64)> = linear.displacements.iter().map(|d| (d.node_id, (d.ux, d.uz))).collect();
     let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
     let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
     let secs: HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
@@ -133,9 +141,10 @@ fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> Ha
         let (Some(a), Some(b)) = (nodes.get(&e.node_i), nodes.get(&e.node_j)) else { continue };
         let (Some(m), Some(s)) = (mats.get(&e.material_id), secs.get(&e.section_id)) else { continue };
         let l = (b.x - a.x).hypot(b.z - a.z);
-        let umax = u.get(&e.node_i).copied().unwrap_or(0.0).max(u.get(&e.node_j).copied().unwrap_or(0.0));
         if l > 0.0 {
-            out.insert(e.id, 100.0 * f64::EPSILON * m.e * 1000.0 * s.a * umax / l);
+            let (cx, cz) = ((b.x - a.x) / l, (b.z - a.z) / l);
+            let terms = |n: usize| u.get(&n).map_or(0.0, |&(ux, uz)| (ux * cx).abs() + (uz * cz).abs());
+            out.insert(e.id, 100.0 * f64::EPSILON * m.e * 1000.0 * s.a * (terms(e.node_i) + terms(e.node_j)) / l);
         }
     }
     out

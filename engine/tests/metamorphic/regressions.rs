@@ -651,7 +651,7 @@ fn nightly_harness_findings_hold() {
 /// #959: a cantilever under a purely transverse load has N = 0; its round-off
 /// axial force (-3e-6 kN on EA/L = 1.3e7 kN/m) passed the absolute compression
 /// test and gave load factors from 2.4e7 to 9.4e7, or a refusal, depending on
-/// the model's orientation. Every orientation now refuses alike.
+/// the model's orientation. Every orientation now refuses.
 #[test]
 fn buckling_without_compression_refuses_in_every_orientation() {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-959.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
@@ -663,14 +663,15 @@ fn buckling_without_compression_refuses_in_every_orientation() {
             (n.x, n.z) = (c * n.x - sn * n.z, sn * n.x + c * n.z);
         }
         let e = dedaliano_engine::solver::buckling::solve_buckling_2d(&r, 3).map(|b| b.modes.iter().map(|m| m.load_factor).collect::<Vec<_>>()).unwrap_err();
-        assert!(e.contains("No compressed elements"), "{deg}°: {e}");
+        assert!(e.contains("No compressed elements") || e.contains("Buckling not determinable"), "{deg}°: {e}");
     }
 }
 
-/// The round-off threshold is per member: a compressed column keeps its load
-/// factor next to an uncompressed, very flexible cantilever with a large
-/// transverse deflection, and a column whose compression is tiny but far
-/// above its own round-off still buckles.
+/// The round-off threshold is per member and counts only the displacement
+/// components along it: a compressed column keeps its load factor next to an
+/// uncompressed, very flexible cantilever, a column under 1e-5 kN still
+/// buckles, and so does a slender horizontal cantilever under 1e-5 kN whose
+/// tip deflects 1.7e5 m transversely (λ ≈ 0.49, Codex review).
 #[test]
 fn buckling_compression_threshold_is_per_member() {
     let column = |p: f64, beam: bool| {
@@ -706,4 +707,25 @@ fn buckling_compression_threshold_is_per_member() {
     close(first(&column(10.0, true)), alone, 1e-9, "column next to a flexible beam");
     let tiny = first(&column(1e-5, false));
     close(tiny * 1e-5, alone * 10.0, 1e-6, "column under 1e-5 kN");
+
+    let mut nodes = serde_json::Map::new();
+    let mut elements = serde_json::Map::new();
+    for k in 0..=10 {
+        nodes.insert(k.to_string(), json!({"id": k, "x": 10.0 * k as f64, "z": 0.0}));
+    }
+    for k in 1..=10 {
+        elements.insert(k.to_string(), json!({"id": k, "type": "frame", "nodeI": k - 1, "nodeJ": k, "materialId": 1, "sectionId": 1}));
+    }
+    let slender = s2(json!({
+        "nodes": nodes, "elements": elements,
+        "supports": {"1": {"id": 1, "nodeId": 0, "type": "fixed"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 10, "fx": -1e-5, "fz": 0.01, "my": 0.0}}],
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-10}}
+    }));
+    let tip = linear::solve_2d(&slender).unwrap().displacements.iter().find(|d| d.node_id == 10).unwrap().uz;
+    assert!(tip.abs() > 1e5, "{tip}");
+    let euler = std::f64::consts::PI.powi(2) * 200e6 * 1e-10 / (4.0 * 1e4 * 1e-5);
+    let lambda = first(&slender);
+    assert!((lambda / euler - 1.0).abs() < 1e-3, "{lambda} vs {euler}");
 }
