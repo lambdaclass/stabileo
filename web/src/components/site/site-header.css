@@ -5,10 +5,10 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 58px;
+  height: 3.625rem;
   box-sizing: border-box;
   font-family: var(--lp-sans);
-  font-size: 16px;
+  font-size: 1rem;
   line-height: 1.6;
   color: var(--lp-paper-2);
   z-index: 10001;
@@ -20,7 +20,7 @@
   max-width: var(--lp-max);
   margin: 0 auto;
   padding: 0 var(--lp-gut);
-  height: 57px;
+  height: 3.5625rem;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -72,7 +72,7 @@
 }
 
 .site-header .nav-link {
-  font-size: 13.92px;
+  font-size: 0.87rem;
   color: var(--lp-slate-2);
   padding: 0.45rem 0.35rem;
   white-space: nowrap;
@@ -138,7 +138,7 @@
 @media (max-width: 1140px) {
   .site-header .nav-links {
     display: none;
-    max-height: calc(100dvh - 58px);
+    max-height: calc(100dvh - 3.625rem);
     overflow-y: auto;
     position: absolute;
     top: 100%;

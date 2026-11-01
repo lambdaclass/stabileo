@@ -17,10 +17,13 @@ fn authors_iterations() {
             ..Config::default()
         })
         .unwrap();
+        assert_eq!(reference.len(), if ft == 1 { 106 } else { 144 });
+        let mut measured_iterations = 0;
         let mut errors = [0_f64; 4];
         let mut volume_error = 0_f64;
         for r in &reference {
             let s = o.step().unwrap();
+            measured_iterations = s.iteration;
             volume_error = volume_error.max((s.volume - 0.5).abs());
             assert_eq!(s.iteration, r.iteration);
             assert_eq!(s.density.len(), r.density.len());
@@ -49,7 +52,7 @@ fn authors_iterations() {
             assert!(observed <= tolerance, "ft{ft} {metric}: {observed}");
             checks.push(serde_json::json!({"name":format!("ft{ft}: {metric}"),"metric":metric,"observed":observed,"tolerance":tolerance,"passed":true}));
         }
-        checks.push(serde_json::json!({"name":format!("ft{ft}: iteration count"),"metric":"exact","observed":0,"tolerance":0,"passed":true}));
+        checks.push(serde_json::json!({"name":format!("ft{ft}: iteration count"),"metric":"exact","observed":measured_iterations.abs_diff(reference.len()),"tolerance":0,"passed":true}));
         eprintln!(
             "ft{ft}: {} iterations; compliance {}; volume {}; change {}; errors {:?}",
             reference.len(),

@@ -560,8 +560,14 @@
     return tabManager.tabs.find(tab => slugifyTabName(tab.name) === tabSlug) ?? null;
   }
 
+  /** A shared model at the root (`/#data=…`) keeps the landing up while it is restored behind it. */
+  function publicShell() {
+    return routeKind({ pathname: location.pathname, search: location.search, hash: '' });
+  }
+
   const initialPublicRoute = routeKind();
-  let showLanding = $state(initialPublicRoute.kind === 'landing');
+  const initialShell = publicShell();
+  let showLanding = $state(initialShell.kind === 'landing');
   let showExperiment = $state(['research', 'tools'].includes(initialPublicRoute.kind));
   let showPaper = $state(initialPublicRoute.kind === 'paper');
   let publicPage = $state<import('svelte').Component<{ path: string }> | null>(null);
@@ -569,11 +575,11 @@
   $effect(() => {
     if (showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
-  $effect(manualPublicScrollRestoration);
-  $effect(() => { if (routeKind().kind !== 'app') void syncRouteState(); });
-  let showBlog = $state(initialPublicRoute.kind === 'blog');
+  $effect(() => { if (!editorActive) return manualPublicScrollRestoration(); });
+  $effect(() => { if (publicShell().kind !== 'app') void syncRouteState(); });
+  let showBlog = $state(initialShell.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
-  let blogPath = $state(initialPublicRoute.path);
+  let blogPath = $state(initialShell.path);
 
   /**
    * Move between the public pages without reloading the document.
@@ -603,9 +609,10 @@
   async function syncRouteState() {
     const token = ++publicRevision;
     const next = routeKind();
-    const hash = location.hash;
+    const shell = publicShell();
+    const hash = next.kind === 'app' ? '' : location.hash;
     try {
-      const page = await loadPublicPage(location.href);
+      const page = await loadPublicPage(location.pathname + location.search);
       if (token !== publicRevision) return;
       publicPage = page;
     } catch (error) {
@@ -615,10 +622,10 @@
     showExperiment = next.kind === 'research' || next.kind === 'tools';
     showPaper = next.kind === 'paper';
     adoptLocaleFromPath();
-    showBlog = next.kind === 'blog';
-    blogPath = next.path;
-    showLanding = next.kind === 'landing';
-    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
+    showBlog = shell.kind === 'blog';
+    blogPath = shell.path;
+    showLanding = shell.kind === 'landing';
+    if (editorActive) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -630,7 +637,7 @@
       }
     }
     await tick();
-    if (token === publicRevision && next.kind !== 'app') resetPublicScroll(hash);
+    if (token === publicRevision && shell.kind !== 'app') resetPublicScroll(hash);
   }
 
   // Listen for enter-app event from LandingPage "Try Demo" buttons
@@ -1395,7 +1402,7 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showLanding || showBlog || showExperiment || showPaper}
+{#if !editorActive}
   <SiteHeader path={blogPath} />
   {#if showLanding}
     <LandingPage />
@@ -1429,7 +1436,7 @@
   lazy editor mount cannot overwrite the restored <html lang>.
 -->
 <div class="app-language" lang={t('file.htmlLang')} style="display: contents">
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={!editorActive}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -2144,7 +2151,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
+  {#if !uiStore.embedMode && editorActive}
     <WhatsNewNotice />
   {/if}
 

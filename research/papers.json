@@ -262,6 +262,27 @@
       "kimi"
      ],
      "date": "2026-10-30"
+    },
+    {
+     "reviewer": "kimi",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Disclosure, replay verification, state, accessibility, responsive layout and translations.",
+     "resolution": "Verified by Codex and Claude; corrected with numerical, component and browser regression coverage."
+    },
+    {
+     "reviewer": "codex",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Initial reference-loading race and unequal-history chart readout.",
+     "resolution": "Run waits for assets; chart values share the same iteration."
+    },
+    {
+     "reviewer": "claude",
+     "round": 2,
+     "date": "2026-10-30",
+     "findings": "Consolidated verified list; no solver blockers; evidence freshness and control-label nits.",
+     "resolution": "All should-fix items addressed; browser execution remains for a Playwright-capable environment. Evidence regeneration CI is a follow-up."
     }
    ]
   },

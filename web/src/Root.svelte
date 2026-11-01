@@ -35,7 +35,7 @@
   let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
   $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
-  $effect(manualPublicScrollRestoration);
+  $effect(() => { if (!app) return manualPublicScrollRestoration(); });
 
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.

@@ -32,6 +32,12 @@
     return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : String(n);
   }
 
+  function plain(e: MouseEvent) {
+    if (e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return false;
+    e.preventDefault();
+    return true;
+  }
+
   function go(id: string) {
     open = false;
     if (path === '/') {
@@ -46,15 +52,15 @@
 
 <nav class="nav site-header" aria-label={t('landing.navPrimary')} data-current={current ?? ''}>
   <div class="nav-inner">
-    <PublicLink to="/" class="nav-brand" aria-label="Stabileo">
+    <a class="nav-brand" href={publicHref('/', publicI18n.locale)} aria-label={path === '/' ? t('landing.navBackToTop') : undefined} onclick={(e) => { if (!plain(e)) return; if (path === '/') go('top'); else goPublic('/'); }}>
       <span class="nav-logo"><BrandMark /></span>
       <span class="nav-name">Stabileo</span>
-    </PublicLink>
+    </a>
 
     <div class="nav-links" id="nav-links" class:open>
       {#each SITE_NAV as item (item.id)}
         {#if item.kind === 'section'}
-          <a class="nav-link" data-nav={item.id} href="{publicHref('/', publicI18n.locale)}#{item.id}" onclick={(e) => { if (e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) { e.preventDefault(); go(item.id); } }}>{t(item.key)}</a>
+          <a class="nav-link" data-nav={item.id} href="{publicHref('/', publicI18n.locale)}#{item.id}" onclick={(e) => { if (plain(e)) go(item.id); }}>{t(item.key)}</a>
         {:else}
           <PublicLink to={item.to} class="nav-link{current === item.id ? ' current' : ''}" data-nav={item.id} aria-current={current === item.id ? 'page' : undefined}>{t(item.key)}</PublicLink>
         {/if}

@@ -26,7 +26,7 @@ it('renders citations without empty separators and descriptive leads for every l
   }
 });
 /** Papers whose second review round (Kimi, Codex, Claude; 2026-10-30) is fixed and recorded. */
-const SECOND_ROUND = new Set(['mattiasson-elastica']);
+const SECOND_ROUND = new Set(['mattiasson-elastica', 'andreassen-2011']);
 it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed review rounds', e => {
   const paper = catalog.papers.find(p => p.id === e.paperId)!;
   const b = bibliography(paper);
@@ -47,8 +47,8 @@ it('translates the gallery scope and review labels in all six locales', () => {
     titles.add(rs().researchTitle);
     expect(rs().galleryLead.length).toBeGreaterThan(80);
     expect(rs().galleryLead).toContain('Stabileo');
-    expect(reviewLabel('tools-batch-1', locale)).toContain('1');
-    expect(reviewLabel('tools-batch-2', locale)).toContain('1');
+    expect(reviewLabel('tools-batch-1', locale)).toContain('2');
+    expect(reviewLabel('tools-batch-2', locale)).toContain('2');
   }
   expect(titles.size).toBe(6);
 });
