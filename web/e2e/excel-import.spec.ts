@@ -50,7 +50,7 @@ async function openProject(page: Page) {
   await page.getByTestId('hdr-project').click();
 }
 
-test.describe('@smoke importing a spreadsheet', () => {
+test.describe('@slow importing a spreadsheet', () => {
   test('the template downloads and comes back as a model', async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     await openProject(page);

@@ -10,7 +10,7 @@ import { test, expect, type Page } from './fixtures';
 
 async function boot(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('three-hinge-arch'));
 }
 

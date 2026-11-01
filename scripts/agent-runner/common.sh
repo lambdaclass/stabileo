@@ -1,3 +1,4 @@
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH"
 # Every runner script runs in the low-priority background group (bgrun: background.slice, nice 10).
 if [ -z "${STABILEO_BGRUN:-}" ] && command -v bgrun >/dev/null; then export STABILEO_BGRUN=1; exec bgrun bash "$0" "$@"; fi
 # Shared paths for the Stabileo agent runner on fede-256gb.

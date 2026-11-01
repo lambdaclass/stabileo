@@ -7,6 +7,8 @@
 //! summed element by element, and ‖u‖²_E either closed form (Navier series) or the
 //! Richardson-extrapolated limit of ‖u_h‖²_E over a refinement sequence.
 
+#[path = "benchmarks/macneal_harder.rs"]
+mod mh;
 use dedaliano_engine::postprocess::discretization::convergence::{convergence_study_3d, governing, is_inconclusive, member_moment_max, quantity_convergence, richardson, ConvergenceOptions};
 use dedaliano_engine::postprocess::discretization::refine::{refine_uniform, GeometryMode};
 use dedaliano_engine::postprocess::discretization::{estimate_3d, DiscretizationEstimate};
@@ -552,11 +554,11 @@ fn convergence_scordelis_lo() {
             // Drifts up ≈ 0.5 % per refinement from this mesh: the check says so instead of
             // extrapolating. The finest mesh is still close.
             assert_eq!(status, "notConverging");
-            assert!((uz[3] / 0.3024 - 1.0).abs() < tol, "MITC9: finest {:.5} vs 0.3024", uz[3]);
+            assert!((uz[3] / mh::reference("scordelis") - 1.0).abs() < tol, "MITC9: finest {:.5} vs 0.3024", uz[3]);
         } else {
             assert_eq!(status, "converging", "{fam:?}");
             let ext = ext.unwrap();
-            assert!((ext / 0.3024 - 1.0).abs() < tol, "{fam:?}: extrapolated {ext:.5} vs 0.3024");
+            assert!((ext / mh::reference("scordelis") - 1.0).abs() < tol, "{fam:?}: extrapolated {ext:.5} vs 0.3024");
         }
         if fam == Fam::Curved {
             let w: Vec<f64> = seq.iter().map(|(m, r)| energy_norm_sq(m, r)).collect();
@@ -589,13 +591,13 @@ fn convergence_pinched_cylinder_and_hemisphere() {
         let id = m.grid[0][0].0;
         let (v, ext, p) = richardson_of(&m.input, 3, &|r| disp(r, id)[1].abs());
         println!("{fam:?} pinched cylinder: {v:?} → {ext:.5e} (p={p:?}), ref 1.8248e-5");
-        assert!((ext / 1.8248e-5 - 1.0).abs() < 0.03, "{fam:?} pinched cylinder {ext:.4e}");
+        assert!((ext / mh::reference("pinchedCylinder") - 1.0).abs() < 0.03, "{fam:?} pinched cylinder {ext:.4e}");
 
         let m = hemisphere(fam, 8);
         let id = m.grid[0][0].0;
         let (v, ext, p) = richardson_of(&m.input, 3, &|r| disp(r, id)[0].abs());
         println!("{fam:?} hemisphere: {v:?} → {ext:.5} (p={p:?}), ref 0.093 (0.0924–0.094)");
-        assert!(ext > 0.0924 * 0.98 && ext < 0.094 * 1.02, "{fam:?} hemisphere {ext:.5}");
+        assert!(ext > mh::reference("hemisphereConverged") * 0.98 && ext < mh::reference("hemisphere") * 1.02, "{fam:?} hemisphere {ext:.5}");
     }
 }
 
@@ -608,9 +610,9 @@ fn convergence_pinched_cylinder_and_hemisphere() {
 fn mitc9_curved_benchmarks_at_16x16() {
     let n = 16;
     let m = scordelis(Fam::Mitc9, n);
-    let sl = disp(&solve(&m.input), m.grid[0][n].0)[2].abs() / 0.3024;
+    let sl = disp(&solve(&m.input), m.grid[0][n].0)[2].abs() / mh::reference("scordelis");
     let m = pinched_cylinder(Fam::Mitc9, n);
-    let pc = disp(&solve(&m.input), m.grid[0][0].0)[1].abs() / 1.8248e-5;
+    let pc = disp(&solve(&m.input), m.grid[0][0].0)[1].abs() / mh::reference("pinchedCylinder");
     let m = hemisphere(Fam::Mitc9, n);
     let hs = disp(&solve(&m.input), m.grid[0][0].0)[0].abs() / 0.093;
     println!("MITC9 16×16: Scordelis–Lo {sl:.4}, pinched cylinder {pc:.4}, hemisphere {hs:.4}");

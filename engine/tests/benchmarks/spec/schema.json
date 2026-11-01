@@ -1,0 +1,436 @@
+{
+  "type": "object",
+  "required": [
+    "id",
+    "provenance",
+    "geometry",
+    "material",
+    "section",
+    "supports",
+    "symmetry_planes",
+    "loads",
+    "measurement",
+    "references",
+    "mesh_sequence",
+    "tolerance",
+    "expected_rigid_modes",
+    "analysis",
+    "sources"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "provenance": {
+      "type": "string",
+      "minLength": 1
+    },
+    "geometry": {
+      "type": "object",
+      "required": [
+        "kind",
+        "element"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "polyline",
+            "roof",
+            "cylinder"
+          ]
+        },
+        "element": {
+          "enum": [
+            "frame",
+            "truss",
+            "shell"
+          ]
+        },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "minItems": 2
+        },
+        "half_length": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "angle": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "material": {
+      "type": "object",
+      "required": [
+        "e",
+        "nu"
+      ],
+      "properties": {
+        "e": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "nu": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "section": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "a": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "iz": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "thickness": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "supports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "vertex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "type": {
+            "enum": [
+              "fixed",
+              "pinned"
+            ]
+          },
+          "edge": {
+            "enum": [
+              "x_end",
+              "x_zero",
+              "theta_zero",
+              "theta_end"
+            ]
+          },
+          "dofs": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "rx",
+                "ry",
+                "rz",
+                "rrx",
+                "rry",
+                "rrz"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "symmetry_planes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "vertex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "type": {
+            "enum": [
+              "fixed",
+              "pinned"
+            ]
+          },
+          "edge": {
+            "enum": [
+              "x_end",
+              "x_zero",
+              "theta_zero",
+              "theta_end"
+            ]
+          },
+          "dofs": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "rx",
+                "ry",
+                "rz",
+                "rrx",
+                "rry",
+                "rrz"
+              ]
+            },
+            "minItems": 1
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "loads": {
+      "type": "object",
+      "required": [
+        "analytic_total"
+      ],
+      "properties": {
+        "vertex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "force": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "surface_traction": {
+          "type": "number"
+        },
+        "analytic_total": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "measurement": {
+      "type": "object",
+      "required": [
+        "component",
+        "sign",
+        "normalization",
+        "reference_model"
+      ],
+      "properties": {
+        "vertex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "component": {
+          "enum": [
+            "ux",
+            "uy",
+            "uz"
+          ]
+        },
+        "sign": {
+          "enum": [
+            -1,
+            1
+          ]
+        },
+        "normalization": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "reference_model": {
+          "enum": [
+            "frame",
+            "truss",
+            "shell"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind",
+          "citation",
+          "location",
+          "value",
+          "precision",
+          "independence",
+          "provisional",
+          "pass_fail"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "paper",
+              "exact",
+              "textbook",
+              "independent-solver"
+            ]
+          },
+          "citation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "location": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {
+            "type": "number"
+          },
+          "precision": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "independence": {
+            "type": "string",
+            "minLength": 1
+          },
+          "provisional": {
+            "type": "boolean"
+          },
+          "pass_fail": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 2
+    },
+    "mesh_sequence": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 3
+    },
+    "tolerance": {
+      "type": "object",
+      "required": [
+        "relative",
+        "justification"
+      ],
+      "properties": {
+        "relative": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "justification": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "expected_rigid_modes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "analysis": {
+      "enum": [
+        "linear",
+        "corotational"
+      ]
+    },
+    "reference_scope": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "object",
+      "required": [
+        "geometry",
+        "material",
+        "section",
+        "supports",
+        "symmetry_planes",
+        "loads",
+        "measurement"
+      ],
+      "properties": {
+        "geometry": {
+          "type": "string",
+          "minLength": 1
+        },
+        "material": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supports": {
+          "type": "string",
+          "minLength": 1
+        },
+        "symmetry_planes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "loads": {
+          "type": "string",
+          "minLength": 1
+        },
+        "measurement": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "solver": {
+      "type": "object",
+      "required": [
+        "max_iterations",
+        "residual_tolerance",
+        "load_steps"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "residual_tolerance": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "load_steps": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stabileo.com/benchmarks/spec/schema.json",
+  "title": "Trustworthy benchmark spec v1"
+}

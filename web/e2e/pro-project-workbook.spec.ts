@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import { strFromU8, unzipSync } from 'fflate';
 import { test, expect } from './fixtures';
 
-test.describe('@smoke PRO project workbook', () => {
+test.describe('@slow PRO project workbook', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('downloads the model and every result at the stations asked for', async ({ pro: page }) => {

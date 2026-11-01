@@ -44,9 +44,9 @@ const DEMOS = [
 
 async function openBasic(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 }
 
@@ -108,7 +108,7 @@ test.describe('@smoke the tutorials menu', () => {
  * reason it could rot: a spotlight aimed at a missing element looks like a
  * dark screen, not like an error.
  */
-test.describe('@smoke every step has something to point at', () => {
+test.describe('@slow every step has something to point at', () => {
   for (const demo of DEMOS) {
     test(`${demo.id}: targets exist all the way through`, async ({ page }) => {
       test.setTimeout(120_000);
@@ -145,7 +145,7 @@ test.describe('@smoke every step has something to point at', () => {
  * middle steps waits on a count. Both hangs found by hand were here or in a
  * step shaped like these.
  */
-test.describe('@smoke drawing a beam', () => {
+test.describe('@slow drawing a beam', () => {
   /*
    * Retries, declared rather than hidden.
    *
@@ -262,7 +262,7 @@ test.describe('@smoke drawing a beam', () => {
 });
 
 /** A step that claims a result is on screen has to have switched to it. */
-test.describe('@smoke the cards do not contradict the screen', () => {
+test.describe('@slow the cards do not contradict the screen', () => {
   test('each result step shows the result it describes', async ({ page }) => {
     test.setTimeout(120_000);
     await openBasic(page);
@@ -340,7 +340,7 @@ test.describe('@smoke the cards do not contradict the screen', () => {
  * walkthrough also holds while its example loads (`tourStore.hold`), a race of the same kind that
  * the trace ruled out as this one's cause.
  */
-test.describe('@smoke the section walkthrough', () => {
+test.describe('@slow the section walkthrough', () => {
   test.describe.configure({ retries: 2 });
   test('advances when the reader clicks the member', async ({ page }) => {
     test.setTimeout(150_000);
@@ -408,7 +408,7 @@ test.describe('@smoke the section walkthrough', () => {
 });
 
 /** A walkthrough that ends leaves the app usable, not mid-gesture. */
-test.describe('@smoke walkthroughs clean up after themselves', () => {
+test.describe('@slow walkthroughs clean up after themselves', () => {
   test('the first one leaves no tour open and no stray tool armed', async ({ page }) => {
     test.setTimeout(120_000);
     await openBasic(page);

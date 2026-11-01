@@ -29,6 +29,12 @@ let _revision = $state(0);
 
 let appDictionaries = false;
 
+/** Register a lazy public feature without enabling application locale loading. */
+export function registerFeatureDictionaries(feature: Record<string, Translations>): void {
+  for (const loc in feature) Object.assign(dicts[loc], feature[loc]);
+  _revision++;
+}
+
 /** The whole dictionaries (main, steel, steps), registered once by `full-dictionaries.ts`. */
 export function registerDictionaries(full: Record<'es' | 'en' | 'pt', Translations>): void {
   for (const loc of ['es', 'en', 'pt'] as const) Object.assign(dicts[loc], full[loc]);

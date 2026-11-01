@@ -29,5 +29,8 @@ else
   echo "SECOND REVIEWER: none available (only $first); review again when another engine is back" > "$R/$pr-$sha-kimi.md"
 fi
 wait
+for f in "$R/$pr-$sha-codex.md" "$R/$pr-$sha-kimi.md"; do
+  [ "$(grep -cv '^[[:space:]]*$' "$f" 2>/dev/null)" -gt 2 ] || { case "$(head -1 "$f" 2>/dev/null)" in *"none available"*) ;; *) log "review-diff #$pr: empty review in $f"; exit 1;; esac; }
+done
 log "review-diff #$pr $sha: codex $(wc -l < "$R/$pr-$sha-codex.md") lines, second $(wc -l < "$R/$pr-$sha-kimi.md") lines"
 echo "$R/$pr-$sha-codex.md $R/$pr-$sha-kimi.md"

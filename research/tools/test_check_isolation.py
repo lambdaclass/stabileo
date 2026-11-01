@@ -30,6 +30,35 @@ class Isolation(unittest.TestCase):
             (root / "engine/lib.rs").write_text('include_str!("../research/papers.json");')
             self.assertTrue(isolation.check(root))
 
+    def test_engine_tests_may_include_only_reference_results_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            (root / "Cargo.toml").write_text("[workspace]\n")
+            tests = root / "engine/tests/validation"
+            tests.mkdir(parents=True)
+            source = tests / "arc_length.rs"
+            for data in [
+                "numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json",
+                "fracture/paper/reference-results/steps.json",
+            ]:
+                source.write_text(f'include_str!("../../../research/{data}");')
+                self.assertEqual(isolation.check(root), [], data)
+            for data in [
+                "numerical-methods/riks-crisfield/reference-results/steps.csv",
+                "numerical-methods/riks-crisfield/VALIDATION.json",
+                "numerical-methods/riks-crisfield/native/src/main.rs",
+                "papers.json",
+                "numerical-methods/riks-crisfield/reference-results/${name}.json",
+            ]:
+                source.write_text(f'include_str!("../../../research/{data}");')
+                self.assertTrue(isolation.check(root), data)
+            for location in ["engine/src/lib.rs", "engine/benches/arc.rs", "engine/tests/arc.ts"]:
+                path = root / location
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text('include_str!("research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json");')
+                self.assertTrue(isolation.check(root), location)
+                path.unlink()
+
 
 if __name__ == "__main__":
     unittest.main()

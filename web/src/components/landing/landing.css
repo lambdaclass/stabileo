@@ -475,7 +475,7 @@
 .landing .nav-links {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.1rem;
   margin-left: auto;
   min-width: 0;
 }
@@ -488,7 +488,7 @@
   font-family: var(--lp-sans);
   font-size: 0.87rem;
   color: var(--lp-slate-2);
-  padding: 0.45rem 0.6rem;
+  padding: 0.45rem 0.35rem;
   border-radius: var(--lp-radius);
   white-space: nowrap;
 }

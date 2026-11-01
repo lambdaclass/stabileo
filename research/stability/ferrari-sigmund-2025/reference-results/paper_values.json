@@ -1,0 +1,29 @@
+{
+  "doi": "10.1002/nme.70082",
+  "pdf_url": "https://backend.orbit.dtu.dk/ws/portalfiles/portal/407823134/Numerical_Meth_Engineering_-_2025_-_Ferrari_-_Optimization_of_the_Initial_Post_Buckling_Response_of_Trusses_and_Frames_by.pdf",
+  "pdf_sha256": "2b4ac1818dfdb71dfc934ffc9895816012d20777b8969fbb9a342e2773fe553c",
+  "license": "CC BY 4.0",
+  "example": "Section 2.1.2, Roorda-Koiter frame",
+  "geometry_source": "Figure 1a, printed page 3; Section 2.1, printed pages 3-4",
+  "parameters": {
+    "length_m": 1,
+    "young_MPa": 21,
+    "area_m2": 0.01,
+    "inertia_m4": 8.333333333333334e-06,
+    "corner_force_N": -1000,
+    "eccentricity_m": 0.001
+  },
+  "closed_form": {
+    "lambda_1": 2.43,
+    "alpha": 0.3805,
+    "beta": 0.1421,
+    "source": "Section 2.1.2, printed page 4, citing reference 40"
+  },
+  "numerical": {
+    "lambda_1": 2.4313,
+    "alpha": 0.382,
+    "beta": 0.1436,
+    "source": "Section 2.1.2, printed page 5; path plotted in Figure 2b, printed page 4"
+  },
+  "coefficient_caveat": "Transcribed values, not implemented results. No verified conversion from the modal coordinate xi to the displayed corner rotation has been established here."
+}

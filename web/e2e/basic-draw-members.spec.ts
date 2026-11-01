@@ -6,8 +6,8 @@
  */
 import { test, expect } from './fixtures';
 
-test.describe('@smoke drawing members in 2D without nodes first', () => {
-  test('free points, a chain, a joint on a member, and undo', async ({ page }) => {
+test.describe('drawing members in 2D without nodes first', () => {
+  test('@slow free points, a chain, a joint on a member, and undo', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
@@ -49,7 +49,7 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
     expect(await nodes()).toBe(3);
   });
 
-  test('each member is one undo step, and undo and redo walk the drawing back and forth', async ({ page }) => {
+  test('@slow each member is one undo step, and undo and redo walk the drawing back and forth', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
@@ -134,7 +134,7 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
     }
   });
 
-  test('single line makes one member per two clicks; a polyline ends on its last point', async ({ page }) => {
+  test('@slow single line makes one member per two clicks; a polyline ends on its last point', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
@@ -172,7 +172,7 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
     expect(await undos()).toBe(u0 + 4);
   });
 
-  test('in 3D the modes string nodes the same way', async ({ page }) => {
+  test('@slow in 3D the modes string nodes the same way', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
     await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
@@ -218,9 +218,9 @@ test.describe('@smoke drawing members in 2D without nodes first', () => {
     expect(await undos()).toBe(u0 + 3);
   });
 
-  test('the dimensions switch is one setting, in the member tool and in Settings', async ({ page }) => {
+  test('@smoke the dimensions switch is one setting, in the member tool and in Settings', async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
     const stored = () => page.evaluate(() => localStorage.getItem('stabileo-member-dims'));
     await page.getByTestId('rb-cmd-element').click();
     const button = page.getByTestId('member-dims');

@@ -1,0 +1,7 @@
+{
+  "reproduced_published_results": false,
+  "source": "Pastrana et al. (2026), Section 2.1, Fig. 2 and Eq. (7), doi:10.1016/j.cma.2026.118783",
+  "comparison_kind": "analytical equation instantiated with our stated inputs, not published numerical values",
+  "reason": "No numerical dimensions or forces are transcribed from Fig. 2. VALIDATION.json checks the equation and independently run reference code. No paper table or optimized shape is compared.",
+  "checks": []
+}

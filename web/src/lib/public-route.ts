@@ -12,7 +12,7 @@ import { findStandingPage } from './blog/pages';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -22,6 +22,11 @@ export function isAppPath(pathname: string): boolean {
 /** `/research` and its papers: Stabileo Research, rendered without the application. */
 export function isResearchPath(path: string): boolean {
   return path === '/research' || path.startsWith('/research/');
+}
+
+/** `/paper`: the JAIE 2026 paper in full. */
+export function isPaperPath(path: string): boolean {
+  return path === '/paper' || path === '/paper/';
 }
 
 /** `/demo`: the application, on its demo model. */
@@ -38,7 +43,9 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   // (`loadFromURLHash`): it used to be mounted behind the landing and read the fragment.
   if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
   if (path === '/blog' || path.startsWith('/blog/') || findStandingPage(path)) return { kind: 'blog', path };
+  if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
   if (isResearchPath(path)) return { kind: 'research', path };
+  if (isPaperPath(path)) return { kind: 'paper', path };
   return { kind: 'landing', path };
 }
 
