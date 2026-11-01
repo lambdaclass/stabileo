@@ -11,12 +11,15 @@ import { strings as dadeppoStrings } from './dadeppo1975/i18n';
 import { strings as mattiassonStrings } from './mattiasson1981/i18n';
 import { strings as macnealStrings } from './macneal1985/i18n';
 import { researchLocale, rs } from './i18n';
+import { englishOnlyCard } from './english-only-cards';
 import type { Experiment } from './experiments';
 
 /** The title a gallery card shows for an experiment, in the reader's current language. */
 export function cardTitle(e: Experiment): string {
   const locale = researchLocale();
   const s = rs();
+  const translated = englishOnlyCard(e.paperId, locale);
+  if (translated) return translated.title;
   switch (e.paperId) {
     case 'dadeppo-arch-1975': return (dadeppoStrings[locale as keyof typeof dadeppoStrings] ?? dadeppoStrings.en).title;
     case 'lee-frame-1968': return (leeStrings[locale as keyof typeof leeStrings] ?? leeStrings.en).title;

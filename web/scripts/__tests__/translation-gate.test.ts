@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { checkTranslations, englishFallbacks, formatFailures, segments } from '../translation-gate';
-import { i18n, setLocale, t } from '../../src/lib/i18n/store.svelte';
+import { i18n, registerFeatureDictionaries, setLocale, t } from '../../src/lib/i18n/store.svelte';
 
 const ORIGIN = 'https://stabileo.com';
 const LOCALES = ['en', 'es'] as const;
@@ -114,26 +114,40 @@ describe('translation gate', () => {
     expect(gate(site({}, [])).map((f) => f.rule)).toEqual(['no English pages were built']);
   });
 
+  it('leaves out what a page declares untranslatable or written in another language, and nothing else', () => {
+    const html = '<div id="prerender"><div lang="en"><div><p>An English abstract kept in English</p></div></div><p translate="no">δmax = PL³/(3EI) wL EI</p><p lang="es-AR">Un párrafo en castellano propio</p><p>The text after them stays here</p></div><div id="app">';
+    expect(segments(html, 'es')).toEqual(['Un párrafo en castellano propio', 'The text after them stays here']);
+    expect(segments(html, 'en')).toEqual(['An English abstract kept in English', 'The text after them stays here']);
+  });
+
+  it('still fails English the page does not declare as English', () => {
+    const es = { ...ES, blocks: [...ES.blocks.slice(0, 3), EN.blocks[3]] };
+    const failures = gate(site({ '/en/': EN, '/es/': es }));
+    expect(failures.map((f) => f.offending)).toEqual([[EN.blocks[3]]]);
+  });
+
   it('segments block text of four words or more, leaving out code and markup', () => {
     expect(segments('<div id="prerender"><p>One <strong>two</strong> three four</p><p>too short here</p><pre>let a = b + c + d</pre><li>a b c d e</li></div><div id="app">')).toEqual(['One two three four']);
   });
 });
 
 describe('English fallbacks', () => {
-  it('records a key the page language lacks, and nothing for a key it has', () => {
+  it('records a key the page language lacks, and nothing for a key it has or a label that is no key', () => {
+    registerFeatureDictionaries({ en: { 'gate.only-in-english': 'Only in English' } });
     const misses: string[] = [];
     const before = i18n.locale;
     (globalThis as { __i18nMisses?: string[] }).__i18nMisses = misses;
     try {
       setLocale('es');
-      t('landing.no-such-key-for-the-gate');
+      expect(t('gate.only-in-english')).toBe('Only in English');
+      expect(t('R1')).toBe('R1');
       t('lang.es');
     } finally {
       delete (globalThis as { __i18nMisses?: string[] }).__i18nMisses;
       setLocale(before);
     }
-    expect(misses).toEqual(['es landing.no-such-key-for-the-gate']);
-    expect(englishFallbacks('es', misses)).toEqual(['landing.no-such-key-for-the-gate']);
+    expect(misses).toEqual(['es gate.only-in-english']);
+    expect(englishFallbacks('es', misses)).toEqual(['gate.only-in-english']);
   });
 
   it('turns a page\'s misses into the keys its language fell back on', () => {

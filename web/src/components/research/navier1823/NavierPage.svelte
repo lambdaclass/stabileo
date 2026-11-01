@@ -127,7 +127,7 @@
       <h2>{s.model}</h2>
       <p>{s.method}</p>
       <p>{s.series}</p>
-      <p class="equation">w(a/2,b/2) = 16q/(π⁶D) Σ sin(mπ/2) sin(nπ/2) / [mn(m²/a² + n²/b²)²]</p>
+      <p class="equation" translate="no">w(a/2,b/2) = 16q/(π⁶D) Σ sin(mπ/2) sin(nπ/2) / [mn(m²/a² + n²/b²)²]</p>
       <p>m, n = 1, 3, 5, …, 199</p>
       <p>{s.reference}: <strong>{nf(parameters.reference_mm)}</strong><br />{s.published}: <strong data-testid="navier-published">{nf(parameters.published_mm)}</strong></p>
       <h2>{s.convergence}</h2>
@@ -150,8 +150,8 @@
       <ul>{#each s.limitations as item}<li>{item}</li>{/each}</ul>
       <h2>{s.cite}</h2>
       <p>{s.history}</p>
-      <p><a href="https://doi.org/10.1201/9780203908723-3">{s.chapterCitation}</a></p>
-      <p><a href="https://civil-terje.sites.olt.ubc.ca/files/2019/06/Naviers-Plate-Solution-for-Uniform-Load.pdf">{s.exampleCitation}</a></p>
+      <p lang="en"><a href="https://doi.org/10.1201/9780203908723-3">{s.chapterCitation}</a></p>
+      <p lang="en"><a href="https://civil-terje.sites.olt.ubc.ca/files/2019/06/Naviers-Plate-Solution-for-Uniform-Load.pdf">{s.exampleCitation}</a></p>
     </article>
   </div>
 </section>

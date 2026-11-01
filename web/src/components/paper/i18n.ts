@@ -9,7 +9,7 @@ const S: Record<'es' | 'en', PaperStrings> & Partial<Record<PublicLocale, PaperS
     download: 'Descargar PDF',
     original: 'Original en castellano (PDF)',
     language: 'Esta es la traducción al inglés; el original en castellano se puede descargar.',
-    metaTitle: 'Developing a structural calculation agent on top of a verified solver (paper) — Stabileo',
+    metaTitle: 'Desarrollo de un agente estructural de cálculo sobre un solver verificado (paper, en inglés) — Stabileo',
     metaDescription: 'El paper completo, en inglés: un agente de IA para cálculo estructural es confiable sólo si orquesta un solver verificado y no genera números por su cuenta.',
   },
   en: {

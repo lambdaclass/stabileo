@@ -49,10 +49,43 @@ export function headStrings(html: string): HeadStrings {
 const DROPPED = /<(script|style|svg|pre|code|math|template|noscript)\b[\s\S]*?<\/\1>/gi;
 const BLOCK = /<\/?(?:p|li|h[1-6]|td|th|dt|dd|figcaption|caption|blockquote|div|section|article|header|footer|nav|main|aside|ul|ol|dl|table|tr|thead|tbody|tfoot|figure|label|button|option|select|summary|details|form|fieldset|legend|br|hr)\b[^>]*>/gi;
 
-/** The page's visible text, one entry per block of at least four words. */
-export function segments(html: string): string[] {
+const VOID = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr']);
+
+function declaredElsewhere(tag: string, locale: string): boolean {
+  const a = attributes(tag);
+  return a.translate === 'no' || (!!a.lang && a.lang.split('-')[0].toLowerCase() !== locale);
+}
+
+/** `html` without the elements it marks `translate="no"` or as written in a language other than `locale`. */
+export function withoutDeclared(html: string, locale: string): string {
+  const open = /<([a-z][\w-]*)\b[^>]*>/gi;
+  let out = '';
+  let from = 0;
+  for (let m = open.exec(html); m; m = open.exec(html)) {
+    const name = m[1].toLowerCase();
+    if (VOID.has(name) || m[0].endsWith('/>') || !declaredElsewhere(m[0], locale)) continue;
+    const tags = new RegExp(`<(/?)${name}\\b[^>]*>`, 'gi');
+    tags.lastIndex = m.index + m[0].length;
+    let depth = 1;
+    let end = html.length;
+    for (let t = tags.exec(html); t; t = tags.exec(html)) {
+      depth += t[1] ? -1 : 1;
+      if (depth === 0) {
+        end = t.index + t[0].length;
+        break;
+      }
+    }
+    out += `${html.slice(from, m.index)}\n`;
+    from = end;
+    open.lastIndex = end;
+  }
+  return out + html.slice(from);
+}
+
+/** The page's visible text in `locale`, one entry per block of at least four words. */
+export function segments(html: string, locale = 'en'): string[] {
   const body = html.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? html;
-  return body
+  return withoutDeclared(body, locale)
     .replace(DROPPED, '\n')
     .replace(BLOCK, '\n')
     .replace(/<[^>]+>/g, '')
@@ -76,7 +109,7 @@ export function compareWithEnglish(page: string, locale: string, html: string, e
     .map((k) => `${k}: ${own[k] || '(missing)'}`);
   if (head.length) failures.push({ page, locale, rule: 'head strings are missing or the English ones', offending: head });
 
-  const ownSegments = segments(html).filter((s) => !allowedSegment(s));
+  const ownSegments = segments(html, locale).filter((s) => !allowedSegment(s));
   if (ownSegments.length === 0) {
     failures.push({ page, locale, rule: 'no visible text to check', offending: [] });
     return failures;

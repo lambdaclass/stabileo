@@ -8,7 +8,7 @@ export const EXAMPLE: Parameters = { length: 6, e: 200000, i: 0.00008, load: 10,
 export const format = (n: number) => Number(n.toPrecision(12)).toString();
 export const FORMULAS = {
   'simply-supported-beam': 'δmax = 5wL⁴/(384EI); δmid = PL³/(48EI) (a = L/2); R₀ = Pb/L; R₁ = Pa/L; Mmax = Pab/L; b = L − a; R₀ = R₁ = wL/2; Mmax = wL²/8; δ(x≤a) = Pbx(L²−b²−x²)/(6LEI); δ(x≥a) = Pa(L−x)[L²−a²−(L−x)²]/(6LEI)',
-  'cantilever-beam': 'δmax = PL³/(3EI) (a = L); δmax = Pa²(3L − a)/(6EI); δmax = wL⁴/(8EI); point load: R = P, |M₀| = Pa; uniform load: R = wL, |M₀| = wL²/2',
+  'cantilever-beam': 'δmax = PL³/(3EI) (a = L); δmax = Pa²(3L − a)/(6EI); δmax = wL⁴/(8EI); P: R = P, |M₀| = Pa; w: R = wL, |M₀| = wL²/2',
   'column-buckling': 'Pcr = π²EI/(KL)²',
 };
 export function formula(id: ToolId, p: Parameters) {
