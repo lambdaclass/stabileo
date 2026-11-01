@@ -158,10 +158,10 @@ async function alertRun(ctx, runId, anyEvent) {
 
 async function checkStale(ctx) {
   const { github, core, owner, repo } = ctx;
-  const { data } = await github.rest.actions.listRepoWorkflows({ owner, repo, per_page: 100 });
+  const workflows = await github.paginate(github.rest.actions.listRepoWorkflows, { owner, repo, per_page: 100 });
   const now = Date.now();
   for (const [name, hours] of Object.entries(WATCHED)) {
-    const wf = data.workflows.find((w) => w.name === name);
+    const wf = workflows.find((w) => w.name === name);
     if (!wf) {
       await raise(ctx, title(name, false),
         `Staleness check: no workflow named **${name}** exists any more (renamed or deleted?). ` +

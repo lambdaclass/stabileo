@@ -32,7 +32,7 @@ function harness({run: runOverrides = {}, jobs = [], open = [], workflows = [], 
     }}),
     getWorkflow: record('getWorkflow', {data: {name: 'Nightly verification'}}),
     listJobsForWorkflowRun: record('listJobsForWorkflowRun', {data: jobs}),
-    listRepoWorkflows: record('listRepoWorkflows', {data: {workflows}}),
+    listRepoWorkflows: record('listRepoWorkflows', {data: workflows}),
     listWorkflowRuns: record('listWorkflowRuns', (a) => ({data: {workflow_runs: runsByWorkflow[a.workflow_id] || []}})),
   };
   const github = {

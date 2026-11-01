@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import ts from 'typescript';
 
 export function shardRanges(source, parts) {
@@ -31,7 +32,7 @@ export function shardPattern(path, source, part, parts) {
   return `${path}:${start}-${end}`;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const [path, split] = process.argv.slice(2);
   const [part, parts] = (split ?? '').split('/').map(Number);
   console.log(shardPattern(path, readFileSync(path, 'utf8'), part, parts));

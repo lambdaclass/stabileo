@@ -333,19 +333,15 @@ impl Relabel {
     }
 
     /// Ids repeat across the four shell families that share `quad_stresses`; only the order (quads,
-    /// quad9s, solid shells, curved shells) says which table an entry belongs to.
+    /// quad9s, solid shells, curved shells) says which table an entry belongs to. When the count does
+    /// not match, everything maps as a quad, so a mixed model fails the comparison instead of passing.
     fn map_shell_ids(&self, ids: Vec<&mut usize>) {
         let fams = [&self.quad, &self.quad9, &self.solid_shell, &self.curved_shell];
-        if ids.len() == fams.iter().map(|t| t.len()).sum::<usize>() {
-            let mut rest = ids.into_iter();
-            for t in fams {
-                for id in rest.by_ref().take(t.len()) {
-                    *id = get(t, *id);
-                }
-            }
-        } else {
-            for id in ids {
-                *id = fams.iter().find_map(|t| t.get(id)).copied().unwrap_or(*id);
+        let counted = ids.len() == fams.iter().map(|t| t.len()).sum::<usize>();
+        let mut rest = ids.into_iter();
+        for t in if counted { &fams[..] } else { &fams[..1] } {
+            for id in rest.by_ref().take(if counted { t.len() } else { usize::MAX }) {
+                *id = get(t, *id);
             }
         }
     }
@@ -400,5 +396,8 @@ mod tests {
         let mut ids = [1, 2, 1, 2];
         rl.map_shell_ids(ids.iter_mut().collect());
         assert_eq!(ids, [2, 1, 7, 9]);
+        let mut short = [1, 2, 1];
+        rl.map_shell_ids(short.iter_mut().collect());
+        assert_eq!(short, [2, 1, 2]);
     }
 }

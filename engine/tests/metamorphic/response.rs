@@ -235,13 +235,9 @@ impl Resp {
         let mut o = self.clone();
         for it in o.0.iter_mut() {
             it.node = it.node.map(|n| rl.n(n));
-            // `quad_stresses` holds the MITC4 quads, the MITC9 quads, the
-            // solid shells and the curved shells, each keyed by the id of its
-            // own family: `tag_shell_families` splits them by family; an
-            // untagged one maps through whichever table holds the id.
             let tables: &[&std::collections::BTreeMap<usize, usize>] = match it.tag.as_str() {
                 "vm_plate" => &[&rl.plate],
-                "vm_quad" => &[&rl.quad, &rl.quad9, &rl.solid_shell, &rl.curved_shell],
+                "vm_quad" => &[&rl.quad],
                 "vm_quad9" => &[&rl.quad9],
                 "vm_solid_shell" => &[&rl.solid_shell],
                 "vm_curved_shell" => &[&rl.curved_shell],

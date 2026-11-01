@@ -86,7 +86,13 @@ def rich_2d(seed):
 
 
 def rich_3d(seed):
-    return _imposed_settlements_only(_well_posed(_rich_3d(seed), seed, 3), 3)
+    return _imposed_settlements_only(rich_3d_raw(seed), 3)
+
+
+def rich_3d_raw(seed):
+    """rich_3d before dropping the settlements on sprung DOFs: for callers that strip the springs
+    first (common/gen.py restrict) and filter afterwards."""
+    return _well_posed(_rich_3d(seed), seed, 3)
 
 
 # 2D support type -> the local DOFs (ux, uz, ry) it restrains rigidly, as in
@@ -258,7 +264,7 @@ def _rich_3d(seed):
         if rng.random() < 0.3:
             for d, key in enumerate(("dx", "dy", "dz", "drx", "dry", "drz")):
                 v = rng.uniform(-0.01, 0.01) if d < 3 else rng.uniform(-0.002, 0.002)
-                if s[flag[d]] and not s.get(("kx", "ky", "kz", "krx", "kry", "krz")[d]):
+                if s[flag[d]]:
                     s[key] = v
         sups[str(k)] = s
     loads = []

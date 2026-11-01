@@ -1295,6 +1295,10 @@ def analysis_pdelta(ctx):
     else:
         if wg:
             raise RuntimeError("OpenSees P-Delta: Wagner fixed point did not converge")
+    if wg:
+        ops.test("NormUnbalance", 1e-6, 50, 0)
+        if ops.analyze(1) != 0:
+            raise RuntimeError("OpenSees P-Delta: out of equilibrium at the Wagner fixed point")
     ops.reactions()
     kt = _tangent(ops)
     r = ctx["collect"]()
