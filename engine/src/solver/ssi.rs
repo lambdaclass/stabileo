@@ -300,7 +300,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
 
             let mut k_work = k_s.clone();
             let solved = cholesky_solve(&mut k_work, &f_s, ns);
-            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice())) { conditioning = Some(found); }
             match solved {
                 Some(u) => u,
                 None => {
@@ -546,7 +546,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
 
             let mut k_work = k_s.clone();
             let solved = cholesky_solve(&mut k_work, &f_s, ns);
-            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice())) { conditioning = Some(found); }
             match solved {
                 Some(u) => u,
                 None => {

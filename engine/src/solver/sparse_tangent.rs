@@ -126,7 +126,7 @@ fn solve_tangent_sparse_impl(
     let sym = cached_symbolic(cache, k_s);
     let factor = numeric_cholesky(sym, k_s);
     if let Some(conditioning) = conditioning {
-        *conditioning = crate::known_issues::sparse_factor_conditioning(k_s, factor.as_ref());
+        if let Some(found) = crate::known_issues::sparse_factor_conditioning(k_s, factor.as_ref()) { *conditioning = Some(found); }
     }
     if let Some(num) = factor {
         return Ok(sparse_cholesky_solve(&num, r_s));

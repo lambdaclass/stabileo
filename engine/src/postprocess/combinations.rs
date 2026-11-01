@@ -206,7 +206,24 @@ pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &Ana
     Some(AnalysisResults { displacements, reactions, element_forces, constraint_forces: vec![], diagnostics: vec![], solver_diagnostics: vec![], structured_diagnostics, equilibrium: None, result_summary: None, solver_run_meta: None })
 }
 
+/// `combine_results` for results received from outside the engine: a contributing case that
+/// carries a refusal is refused instead of being combined into usable numbers.
+pub fn combine_results_checked(input: &CombinationInput) -> Result<Option<AnalysisResults>, String> {
+    for case in input.cases.iter().filter(|c| input.factors.iter().any(|f| f.case_id == c.case_id && f.factor != 0.0)) {
+        crate::known_issues::refuse(&case.results.structured_diagnostics)?;
+    }
+    Ok(combine_results(input))
+}
+
 // ==================== 2D Envelope ====================
+
+/// `compute_envelope` for results received from outside the engine; see `combine_results_checked`.
+pub fn compute_envelope_checked(results: &[AnalysisResults]) -> Result<Option<FullEnvelope>, String> {
+    for result in results {
+        crate::known_issues::refuse(&result.structured_diagnostics)?;
+    }
+    Ok(compute_envelope(results))
+}
 
 /// Compute pointwise envelope from multiple results.
 pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {

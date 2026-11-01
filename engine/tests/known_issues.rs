@@ -352,6 +352,27 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
     common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]), "SH-MITC4-DISTORTION");
 }
 
+#[test]
+fn combinations_and_envelopes_2d_refuse_withheld_cases() {
+    use dedaliano_engine::postprocess::combinations::*;
+    let clean = solve_2d(&make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0))).unwrap();
+    let mut withheld = clean.clone();
+    withheld.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("PL-2D-INVARIANCE"));
+    let input = |factor: f64| CombinationInput {
+        factors: vec![CombinationFactor { case_id: 1, factor: 1.5 }, CombinationFactor { case_id: 2, factor }],
+        cases: vec![CaseEntry { case_id: 1, results: clean.clone() }, CaseEntry { case_id: 2, results: withheld.clone() }],
+    };
+    common::assert_containment(combine_results_checked(&input(1.0)), "PL-2D-INVARIANCE");
+    let combined = combine_results_checked(&input(0.0)).unwrap().unwrap();
+    let reference = clean.displacements.iter().map(|d| 1.5 * d.uz);
+    for (d, expected) in combined.displacements.iter().zip(reference) { assert_eq!(d.uz, expected); }
+    common::assert_containment(compute_envelope_checked(&[clean.clone(), withheld.clone()]), "PL-2D-INVARIANCE");
+    let mut warned = clean.clone();
+    warned.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("NL-DYNAMIC-GAPS"));
+    let envelope = compute_envelope_checked(&[clean.clone(), warned]).unwrap().unwrap();
+    assert!(envelope.max_abs_results.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("NL-DYNAMIC-GAPS")));
+}
+
 fn constrained_constraints() -> Vec<Constraint> {
     vec![serde_json::from_value(serde_json::json!({"type":"equalDOF","masterNode":13,"slaveNode":14,"dofs":[2]})).unwrap()]
 }
@@ -945,4 +966,18 @@ fn contact_ssi_and_corotational_solves_of_a_mechanism_are_flagged() {
     };
     check(&transverse_loaded_bar(), true);
     check(&make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)), false);
+}
+
+#[test]
+fn a_mechanism_solve_keeps_its_warning_after_a_later_stable_iteration() {
+    let mut input = transverse_loaded_bar();
+    input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })];
+    input.nodes.insert("3".into(), SolverNode { id: 3, x: -28.598050853224024, z: -53.92016340104717 });
+    input.supports.insert("3".into(), serde_json::from_value(serde_json::json!({"id": 3, "nodeId": 3, "type": "fixed"})).unwrap());
+    let contact: dedaliano_engine::solver::contact::ContactInput = serde_json::from_value(serde_json::json!({ "solver": input,
+        "gapElements": [{"id": 1, "nodeI": 3, "nodeJ": 2, "direction": 1, "initialGap": 0.0, "stiffness": 1.0e6}] })).unwrap();
+    let r = dedaliano_engine::solver::contact::solve_contact_2d(&contact).unwrap();
+    assert!(r.converged && r.iterations >= 2, "{} iterations", r.iterations);
+    assert!(r.gap_status[0].status == "closed", "{:?}", r.gap_status);
+    assert!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{:?}", ids(&r.results.structured_diagnostics));
 }

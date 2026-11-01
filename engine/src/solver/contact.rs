@@ -494,7 +494,7 @@ fn solve_contact_state(
             let ns = rhs_s.len();
             let mut k_work = k_s.clone();
             let solved = cholesky_solve(&mut k_work, &rhs_s, ns);
-            *conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice())) { *conditioning = Some(found); }
             match solved {
                 Some(u) => u,
                 None => {

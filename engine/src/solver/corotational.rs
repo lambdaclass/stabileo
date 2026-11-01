@@ -260,7 +260,7 @@ pub fn solve_corotational_2d(
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
                     let factor = numeric_cholesky(sym, &k_s_csc);
-                    conditioning = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref());
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
                     match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
@@ -281,7 +281,7 @@ pub fn solve_corotational_2d(
                         k_ff
                     };
                     let factor = try_cholesky_factor(&k_s, ns);
-                    conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice()));
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
                     match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
@@ -922,7 +922,7 @@ fn solve_with_cached_factor(factor: &CachedTangentFactor, r_s: &[f64]) -> Vec<f6
 fn solve_free_dofs(k_ff: &[f64], r_f: &[f64], nf: usize, conditioning: &mut Option<StructuredDiagnostic>) -> Result<Vec<f64>, String> {
     let mut k_work = k_ff.to_vec();
     let solved = cholesky_solve(&mut k_work, r_f, nf);
-    *conditioning = crate::known_issues::dense_factor_conditioning(k_ff, nf, solved.as_ref().map(|_| k_work.as_slice()));
+    if let Some(found) = crate::known_issues::dense_factor_conditioning(k_ff, nf, solved.as_ref().map(|_| k_work.as_slice())) { *conditioning = Some(found); }
     match solved {
         Some(u) => Ok(u),
         None => {
@@ -1473,7 +1473,7 @@ pub fn solve_corotational_3d(
                     );
                     let sym = cached_symbolic(&mut sparse_sym_cache, &k_s_csc);
                     let factor = numeric_cholesky(sym, &k_s_csc);
-                    conditioning = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref());
+                    if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_s_csc, factor.as_ref()) { conditioning = Some(found); }
                     match factor {
                         Some(num) => {
                             let result = sparse_cholesky_solve(&num, &r_s);
@@ -1491,7 +1491,7 @@ pub fn solve_corotational_3d(
                         k_ff
                     };
                     let factor = try_cholesky_factor(&k_s, ns);
-                    conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice()));
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factor.as_ref().map(|f| f.l.as_slice())) { conditioning = Some(found); }
                     match factor {
                         Some(factor) => {
                             let result = solve_with_cholesky_factor(&factor.l, &r_s, factor.n);
