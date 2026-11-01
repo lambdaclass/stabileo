@@ -291,7 +291,6 @@ const ar: Translations = {
   'advanced.mechanism': 'آلية',
   'advanced.noCollapse': 'بدون انهيار',
   'advanced.calculateFirst': 'احسب أولاً',
-  'advanced.calculateFirstF5': 'احسب أولاً (Enter)',
   'advanced.emptyModel': 'نموذج فارغ',
   'advanced.runDynamicFirst': 'نفّذ التحليل الديناميكي (النماذجي) أولاً',
   'advanced.defineCombosFirst': 'عرّف التركيبات أولاً في تبويب التركيبات',
@@ -2210,9 +2209,6 @@ const ar: Translations = {
   'dsm.expectedValue': 'القيمة المتوقعة',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': 'خ.ت',
-  'influence.node': 'عقدة',
-  'influence.elem': 'عنصر',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

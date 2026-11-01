@@ -475,6 +475,7 @@ export function input2DToWireObject(input: SolverInput): Record<string, any> {
     loads: input.loads,
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
+    ...(input.masses?.nodal?.length ? { masses: plainDeepCopy(input.masses) } : {}),
   };
 }
 
@@ -1364,26 +1365,25 @@ export function solveCorotational2D(input: SolverInput, maxIter = 50, tolerance 
 export function solveTimeHistory2D(config: {
   solver: SolverInput;
   densities: Map<number, number>;
-  accelerogram: { dt: number; values: number[] };
-  direction: 'X' | 'Y';
-  damping?: number;
-  method?: 'Newmark' | 'Wilson';
+  timeStep: number;
+  nSteps: number;
+  /** Ground acceleration, m/s², one value per step from t = 0. */
+  groundAccel?: number[];
+  groundDirection?: 'X' | 'Y';
+  /** Nodal forces at given times, interpolated linearly between records. */
+  forceHistory?: Array<{ time: number; loads: Array<{ nodeId: number; fx: number; fz: number; my: number }> }>;
+  /** Rayleigh damping with this ratio on the first two modes; none when absent or 0. */
+  dampingXi?: number;
 }) {
   if (!wasmReady || !wasmSolveTimeHistory2d) throw new Error('WASM Time History solver not available.');
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input2DToWireObject(config.solver),
     densities: mapToObj(config.densities),
-    accelerogram: config.accelerogram,
-    direction: config.direction,
-    damping: config.damping,
-    method: config.method,
+    timeStep: config.timeStep,
+    nSteps: config.nSteps,
+    ...(config.groundAccel ? { groundAccel: config.groundAccel, groundDirection: config.groundDirection ?? 'X' } : {}),
+    ...(config.forceHistory ? { forceHistory: config.forceHistory } : {}),
+    ...(config.dampingXi ? { dampingXi: config.dampingXi } : {}),
   });
   const resultJson = wasmSolveTimeHistory2d(payload);
   return tagCertifyJob(JSON.parse(resultJson), { name: 'certify_time_history_2d', args: [payload] });

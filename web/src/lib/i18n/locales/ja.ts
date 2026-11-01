@@ -291,7 +291,6 @@ const ja: Translations = {
   'advanced.mechanism': '機構',
   'advanced.noCollapse': '崩壊なし',
   'advanced.calculateFirst': '先に計算してください',
-  'advanced.calculateFirstF5': '先に計算してください（Enter）',
   'advanced.emptyModel': '空のモデル',
   'advanced.runDynamicFirst': '先に動的解析（モーダル）を実行してください',
   'advanced.defineCombosFirst': '先に組合せタブで荷重組合せを定義してください',
@@ -2211,9 +2210,6 @@ const ja: Translations = {
   'dsm.expectedValue': '期待値',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': '影響線',
-  'influence.node': '節点',
-  'influence.elem': '要素',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',

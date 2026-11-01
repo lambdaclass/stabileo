@@ -5,7 +5,8 @@
  * Pure JS iteration over per-combo results. No solver/WASM dependency.
  */
 
-import type { AnalysisResults } from './types';
+import type { AnalysisResults, ElementForces } from './types';
+import { computeDiagramValueAt } from './diagrams';
 import type { AnalysisResults3D } from './types-3d';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -108,9 +109,19 @@ export function computeGoverning3D(
 
 // ─── 2D ───────────────────────────────────────────────────────
 
+/** The largest |value| of a diagram along the member: at its ends, at k/40 and either side of each point load. */
+function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces): number {
+  const ts = Array.from({ length: 41 }, (_, k) => k / 40);
+  for (const p of ef.pointLoads ?? []) {
+    const t = p.a / Math.max(ef.length, 1e-12);
+    ts.push(t, t + 1e-9);
+  }
+  return Math.max(...ts.map((t) => Math.abs(computeDiagramValueAt(kind, Math.min(1, t), ef))));
+}
+
 /**
  * For each element, find which combination produces the max absolute
- * value per force component (M, V, N).
+ * value per force component (M, V, N) anywhere along it.
  */
 export function computeGoverning2D(
   perCombo: Map<number, AnalysisResults>,
@@ -127,9 +138,9 @@ export function computeGoverning2D(
   for (const [comboId, results] of perCombo) {
     for (const ef of results.elementForces) {
       const eid = ef.elementId;
-      const m = Math.max(Math.abs(ef.mStart), Math.abs(ef.mEnd));
-      const v = Math.max(Math.abs(ef.vStart), Math.abs(ef.vEnd));
-      const n = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      const m = peakAlong('moment', ef);
+      const v = peakAlong('shear', ef);
+      const n = peakAlong('axial', ef);
 
       const cur = best.get(eid);
       if (!cur) {

@@ -13,47 +13,12 @@ import { planeModel, loadsOn } from './plane-model';
 import { fixedEnd, fixedEndBlocks } from './fem';
 import type { Sketch } from './sketch';
 import { sketchOf } from './sketch';
+import { ghBlocks } from './gh-blocks';
+import { ghReport } from '../static-degree';
 
-/** GH = 3m + r − 3n − c (frames) or m + r − 2n (trusses), with the counts put in. */
+/** GH by the classic formula, the same count the force method and the kinematic panel show. */
 export function staticClassificationBlocks(input: SolverInput): Block[] {
-  const els = [...input.elements.values()];
-  const frames = els.filter((e) => e.type === 'frame').length;
-  const trusses = els.length - frames;
-  let r = 0;
-  const rotHeld = new Set<number>();
-  for (const s of input.supports.values()) {
-    const t = s.type as string;
-    if (t === 'fixed') { r += 3; rotHeld.add(s.nodeId); }
-    else if (t === 'pinned') r += 2;
-    else if (t === 'rollerX' || t === 'rollerZ' || t === 'inclinedRoller') r += 1;
-    else if (t === 'spring') { for (const k of [s.kx, s.ky, s.kz]) if (k && k > 0) r++; if (s.kz && s.kz > 0) rotHeld.add(s.nodeId); }
-  }
-  const n = input.nodes.size;
-  let c = 0;
-  if (frames > 0) {
-    const hinges = new Map<number, number>(), count = new Map<number, number>();
-    for (const e of els) {
-      if (e.type !== 'frame') continue;
-      count.set(e.nodeI, (count.get(e.nodeI) ?? 0) + 1); count.set(e.nodeJ, (count.get(e.nodeJ) ?? 0) + 1);
-      if (e.hingeStart) hinges.set(e.nodeI, (hinges.get(e.nodeI) ?? 0) + 1);
-      if (e.hingeEnd) hinges.set(e.nodeJ, (hinges.get(e.nodeJ) ?? 0) + 1);
-    }
-    for (const [node, j] of hinges) {
-      const k = count.get(node) ?? 0;
-      c += k <= 1 ? 0 : rotHeld.has(node) ? j : Math.min(j, k - 1);
-    }
-  }
-  const gh = frames > 0 ? 3 * frames + trusses + r - 3 * n - c : els.length + r - 2 * n;
-  const formula = frames > 0 ? `GH = 3m${trusses ? ' + m_t' : ''} + r - 3n - c` : 'GH = m + r - 2n';
-  const subst = frames > 0
-    ? `GH = 3(${frames})${trusses ? ` + ${trusses}` : ''} + ${r} - 3(${n}) - ${c}`
-    : `GH = ${els.length} + ${r} - 2(${n})`;
-  const verdict = gh === 0 ? tx('steps.common.determinate') : gh > 0 ? tx('steps.common.indeterminate', { g: gh }) : tx('steps.common.mechanism');
-  return [
-    { kind: 'calc', formula, subst, result: `\\boxed{GH = ${gh}}` },
-    { kind: 'p', text: tx(frames > 0 ? 'steps.dsm.ghFrame' : 'steps.dsm.ghTruss'), detail: true },
-    { kind: 'note', tone: gh < 0 ? 'warn' : 'info', text: verdict },
-  ];
+  return [...ghBlocks(ghReport(input, 0, { split: true }), 'dsm'), { kind: 'p', text: tx('course.statics.gh.dsm'), detail: true }];
 }
 
 /** The structure with every degree of freedom drawn and numbered as the wizard numbers them. */

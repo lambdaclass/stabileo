@@ -12,7 +12,6 @@ import { beamLine, type BeamLine, type EndKind, type SpanLoad } from './beam-lin
 import { hasSpecialSupports, hasThermal, type PlaneModel, type PMember } from './plane-model';
 import { sketchOf, type Sketch } from './sketch';
 import type { Reference } from './reference';
-import type { SolverInput } from '../types';
 
 // ─── Shared ─────────────────────────────────────────────────────
 
@@ -50,13 +49,14 @@ export function axialShareWarning(bend: number, ax: number): Block[] {
   return [{ kind: 'note', tone: 'warn', text: tx('steps.deformation.axialBigShare', { pct: numText((100 * ax) / total, 3) }) }];
 }
 
-/** What every method in this group needs of the model. */
-export function baseApplies(ctx: MethodContext, allowTruss: boolean): Applicability {
+/** What every method in this group needs of the model; `actions` lets in springs, settlements and temperature. */
+export function baseApplies(ctx: MethodContext, allowTruss: boolean, actions = false): Applicability {
   const { pm, input } = ctx;
   if (pm.members.size === 0) return no('steps.req.noMembers');
   if ((input.constraints?.length ?? 0) > 0 || (input.connectors?.size ?? 0) > 0) return no('steps.deformation.req.constraints');
-  if (hasThermal(pm)) return no('steps.req.thermal');
-  if (hasSpecialSupports(pm)) return no('steps.req.special');
+  if (!actions && hasThermal(pm)) return no('steps.req.thermal');
+  if (!actions && hasSpecialSupports(pm)) return no('steps.req.special');
+  if (actions && [...pm.supports.values()].some((s) => s.type === 'inclinedRoller')) return no('steps.req.special');
   if (!allowTruss) for (const m of pm.members.values()) if (m.truss) return no('steps.deformation.req.truss', { m: m.name });
   if (!ctx.ref) return no('steps.req.unstable');
   return OK;
@@ -419,37 +419,6 @@ export function maxBlock(mx: { x: number; v: number; stationary: boolean }): Blo
 
 // ─── Frames: the unit load and the product integrals ──────────
 
-export interface Target { node: number; name: string; dir: 'x' | 'z'; chosen: boolean }
-
-/** The point: the selected node, or the one that moves most; the direction: the larger of its two components. */
-export function pickTarget(ctx: MethodContext): Target {
-  const ref = ctx.ref!;
-  const sel = ctx.selection.nodes.find((n) => ctx.pm.nodes.has(n));
-  let node = sel ?? ctx.pm.nodeOrder[0];
-  if (sel === undefined) {
-    let best = -1;
-    for (const id of ctx.pm.nodeOrder) {
-      const d = ref.displacements.get(id);
-      const m = d ? Math.hypot(d.ux, d.uz) : 0;
-      if (m > best * (1 + 1e-9)) { best = m; node = id; }
-    }
-  }
-  const d = ref.displacements.get(node) ?? { ux: 0, uz: 0, ry: 0 };
-  const dir = Math.abs(d.ux) > Math.abs(d.uz) * (1 + 1e-9) ? 'x' : 'z';
-  return { node, name: ctx.pm.nodes.get(node)!.name, dir, chosen: sel !== undefined };
-}
-
-/** The unit load: along +x for a horizontal displacement, downward for a vertical one. */
-export function unitLoadInput(input: SolverInput, tg: Target): SolverInput {
-  return { ...input, loads: [{ type: 'nodal', data: { nodeId: tg.node, fx: tg.dir === 'x' ? 1 : 0, fz: tg.dir === 'z' ? -1 : 0, my: 0 } }] };
-}
-
-/** The displacement the unit load measures, from the matrix solve. */
-export const refAlong = (ref: Reference, tg: Target) => {
-  const d = ref.displacements.get(tg.node) ?? { ux: 0, uz: 0, ry: 0 };
-  return tg.dir === 'x' ? d.ux : -d.uz;
-};
-
 export interface Segment { x1: number; x2: number; M1: number; M2: number; f: number | null; m1: number; m2: number; table: number | null; gauss: number }
 export interface MemberWork { member: PMember; segments: Segment[]; bending: number; axial: number; N: number; n: number; NL: number }
 
@@ -572,16 +541,6 @@ export function endValuesTable(pm: PlaneModel, real: Reference, sym: { M: string
       return [m.name, m.truss ? 0 : tr(real.momentAt(id, 1e-12)), m.truss ? 0 : tr(real.momentAt(id, 1 - 1e-12)), tr(real.axial.get(id) ?? 0)];
     }),
     caption: tx(cap),
-  };
-}
-
-export function unitSketch(pm: PlaneModel, tg: Target, virt: Reference, label: string): Sketch {
-  const n = pm.nodes.get(tg.node)!;
-  const frames = pm.memberOrder.filter((id) => !pm.members.get(id)!.truss);
-  return {
-    ...sketchOf(pm), dims: 'auto',
-    forces: [{ x: n.x, z: n.z, fx: tg.dir === 'x' ? 1 : 0, fz: tg.dir === 'z' ? -1 : 0, label, color: 'unknown' }],
-    diagram: diagramOf(pm, frames, (id, u) => virt.momentAt(id, u), 'unknown', ''),
   };
 }
 
