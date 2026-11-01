@@ -42,7 +42,7 @@
     "test:mutation": "stryker run"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.1",
+    "@playwright/test": "1.60.0",
     "@stryker-mutator/core": "^8.7.1",
     "@stryker-mutator/vitest-runner": "^8.7.1",
     "@sveltejs/vite-plugin-svelte": "^5.0.3",
