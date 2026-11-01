@@ -1,9 +1,6 @@
-// Only the public pages' entries at first (vite.config.ts, `publicI18nPlugin`): the landing and
-// the blog load this module, and the whole dictionaries were most of what they downloaded. The
-// application registers the rest when it loads (`full-dictionaries.ts`), before it renders.
 import {
   es as publicEs, en as publicEn, pt as publicPt,
-  de as publicDe, fr as publicFr, tr as publicTr,
+  de as publicDe, fr as publicFr, tr as publicTr, loaders as publicLoaders,
 } from 'virtual:public-i18n';
 import type { Translations } from './types';
 import { OFFERED_LOCALES, PUBLIC_LOCALES, type Locale } from './offered';
@@ -28,6 +25,29 @@ const pendingLoads = new Map<string, Promise<void>>();
 let _revision = $state(0);
 
 let appDictionaries = false;
+
+const publicPending = new Map<string, Promise<void>>();
+
+/** Resolves once `loc`'s public entries are registered (or failed to load, leaving English); at once when they are bundled. */
+export function ensurePublicLocale(loc: string): Promise<void> {
+  const load = publicLoaders[loc as keyof typeof publicLoaders];
+  if (!load) return Promise.resolve();
+  let pending = publicPending.get(loc);
+  if (!pending) {
+    pending = load().then(
+      (m) => {
+        Object.assign(dicts[loc], m.default);
+        _revision++;
+      },
+      (err) => {
+        publicPending.delete(loc);
+        console.warn(`i18n: the ${loc} public entries did not load; showing English until they do`, err);
+      },
+    );
+    publicPending.set(loc, pending);
+  }
+  return pending;
+}
 
 /** Register a lazy public feature without enabling application locale loading. */
 export function registerFeatureDictionaries(feature: Record<string, Translations>): void {
@@ -193,6 +213,7 @@ export function tp(key: string, params?: Record<string, string | number>): strin
 export function setLocale(loc: string) {
 	if (!isOfferedLocale(loc)) return;
 	_locale = loc;
+	void ensurePublicLocale(loc);
 	// A public page needs only its own entries; the whole dictionary is the application's.
 	if (appDictionaries) void ensureLocale(loc);
 	if (hasLocalStorage()) {

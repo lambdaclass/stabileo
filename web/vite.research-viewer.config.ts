@@ -25,7 +25,7 @@ export default defineConfig({
           const entries = readFileSync(file, 'utf8').split('\n')
             .filter((line) => /^\s*['"]scalarViewer\./.test(line));
           return `export const ${locale} = {\n${entries.join('\n')}\n};`;
-        }).join('\n');
+        }).join('\n') + '\nexport const loaders = {};';
       },
     },
   ],

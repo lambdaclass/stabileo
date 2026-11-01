@@ -54,9 +54,15 @@ export function idlePrefetchPublicPages() {
 }
 
 /** Run after Svelte's DOM commit. Public pages scroll inside .landing. */
+/** Also retires the prerendered copy, which stays on screen (and #app hidden, index.html) until the route's page has rendered. */
 export function resetPublicScroll(hash = '') {
+  const prerender = document.getElementById('prerender');
+  const readTop = prerender?.querySelector<HTMLElement>('.landing')?.scrollTop ?? 0;
+  const focused = prerender?.contains(document.activeElement) ? document.activeElement?.id : '';
+  prerender?.remove();
   const root = document.querySelector<HTMLElement>('.landing');
-  root?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  root?.scrollTo({ top: hash ? 0 : readTop, left: 0, behavior: 'instant' });
+  if (focused) document.getElementById(focused)?.focus({ preventScroll: true });
   if (hash) {
     let id = hash.slice(1);
     try { id = decodeURIComponent(id); } catch { /* Treat malformed escapes literally. */ }

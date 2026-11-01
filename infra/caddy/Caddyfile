@@ -38,17 +38,26 @@ import /etc/caddy/sites.d/*.caddy
 
 	@static path_regexp \.
 	handle @static {
-		@assets path /assets/*
+		@assets path /assets/* /research-wasm/builds/*
 		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@researchUnhashed {
+			path /research-wasm/*
+			not path /research-wasm/builds/*
+		}
+		header @researchUnhashed Cache-Control "no-cache"
 		@html path *.html
 		header @html Cache-Control "no-cache"
-		file_server
+		file_server {
+			precompressed br
+		}
 	}
 
 	handle {
 		header Cache-Control "no-cache"
 		try_files {path} {path}/index.html /index.html
-		file_server
+		file_server {
+			precompressed br
+		}
 	}
 }
 

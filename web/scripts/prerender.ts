@@ -266,6 +266,7 @@ async function newCapturePage(browser: Browser) {
   await page.addInitScript(() => {
     // Capture only the visited route's dependencies, never idle/hover prefetches.
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
+    (window as { __stabileoPrerender?: boolean }).__stabileoPrerender = true;
     try {
       localStorage.clear();
       sessionStorage.clear();

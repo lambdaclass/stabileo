@@ -18,6 +18,7 @@
   import { tBatch as t } from './batch-i18n';
   import { BATCH_IDS } from './batch';
   import ToolPreview from './ToolPreview.svelte';
+  import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
 
   let { path }: { path: string } = $props();
   const id = $derived(TOOL_IDS.find(id => path.replace(/\/$/, '') === `/tools/${id}`));
@@ -42,6 +43,13 @@
     const current = id;
     const values = { ...p };
     revision++;
+    const ready = current ? prerenderedResult<Awaited<ReturnType<typeof calculate>>>(current, values) : null;
+    if (current && ready) {
+      const token = revision;
+      result = ready; href = ''; error = ''; busy = false;
+      void import('./share').then(({ editorUrl }) => { if (token === revision) href = editorUrl(ready.model, t(`tools.${current}`)); });
+      return () => { revision++; };
+    }
     result = null; href = ''; error = ''; busy = !!current;
     const timer = setTimeout(() => { if (current) void run(current, values); }, 250);
     return () => { clearTimeout(timer); revision++; };
@@ -55,12 +63,14 @@
       const [{ calculate }, { editorUrl }] = await Promise.all([import('./solve'), import('./share')]);
       const answer = await calculate(tool, values);
       if (token !== revision) return;
+      recordPrerenderedResult(tool, values, answer);
       result = answer;
       href = editorUrl(answer.model, t(`tools.${tool}`));
     } catch (e) {
       if (token === revision) error = `${t('tools.failed')} ${e instanceof Error ? e.message : String(e)}`;
     } finally { if (token === revision) busy = false; }
   }
+  const warmSolver = () => { void import('../../lib/engine/wasm-solver').then(m => m.initSolver()).catch(() => {}); };
   const number = (n: number) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 5 }).format(n);
   const expression = $derived(id === 'column-buckling' ? 'π²EI/(KL)²' : id === 'cantilever-beam' ? (p.uniform ? 'wL⁴/8EI' : 'Pa²(3L − a)/6EI') : p.uniform ? '5wL⁴/384EI' : p.position === p.length / 2 ? 'PL³/48EI' : 'δ(x)');
 </script>
@@ -82,7 +92,7 @@
           {#if ToolViewer}<ToolViewer {id} {p} {result} />{/if}
         </aside>
         <section class="tool-inputs">
-          <form onsubmit={(event) => event.preventDefault()}>
+          <form onsubmit={(event) => event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
             {#each fields as [key, label, unit, min, max]}
               <ParamRow id={key} name={t(`tools.${label}`)} {unit}>
                 <input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required />
