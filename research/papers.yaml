@@ -288,6 +288,22 @@ papers:
   benchmarks: []
   implementation: mechanics/biggins-2026
   page: web/src/components/research/biggins2026/BigginsPage.svelte
+  reviews:
+  - reviewer: kimi
+    round: 2
+    date: '2026-10-30'
+    findings: Confirmed critical-state, validation, labeling, responsive accessibility and localization gaps.
+    resolution: Explicit critical pair; independent invariants; complete evidence checks; result parameter and force readouts; six locales; responsive regression coverage.
+  - reviewer: codex
+    round: 2
+    date: '2026-10-30'
+    findings: Confirmed critical-state, validation, labeling, responsive accessibility and localization gaps.
+    resolution: Explicit critical pair; independent invariants; complete evidence checks; result parameter and force readouts; six locales; responsive regression coverage.
+  - reviewer: claude
+    round: 2
+    date: '2026-10-30'
+    findings: Confirmed critical-state, validation, labeling, responsive accessibility and localization gaps.
+    resolution: Explicit critical pair; independent invariants; complete evidence checks; result parameter and force readouts; six locales; responsive regression coverage.
   contacts: []
 - id: feher-2026
   doi: 10.1016/j.euromechsol.2026.106217

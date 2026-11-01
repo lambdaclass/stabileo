@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { rs, researchLocale } from '../i18n';
+  import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { rs } from '../i18n';
   import { researchAssetBase } from './assets';
   /**
    * Stabileo's viewer on a research page: the app's ScalarFieldViewer from its own bundle
@@ -27,7 +28,7 @@
     import(/* @vite-ignore */ `${BASE}viewer.js`)
       .then((m: { mountScalarFieldViewer: (el: HTMLElement, p: Record<string, unknown>) => typeof handle }) => {
         if (cancelled) return;
-        handle = m.mountScalarFieldViewer(host, { ...props, locale: researchLocale() });
+        handle = m.mountScalarFieldViewer(host, { ...props, locale: publicI18n.locale });
       })
       .catch((err) => {
         console.warn('research: the viewer bundle could not be loaded', err);
@@ -39,7 +40,7 @@
   });
 
   $effect(() => {
-    const next = { ...props, locale: researchLocale() };
+    const next = { ...props, locale: publicI18n.locale };
     handle?.update(next);
   });
 
@@ -52,6 +53,11 @@
 </div>
 
 <style>
+  .rs-viewer-host :global(button), .rs-viewer-host :global(input) { min-width: 44px; min-height: 44px; }
+  .rs-viewer-host :global(.sfv-wrap *) { font-size: max(12px, 0.75rem); }
+  .rs-viewer-host :global(.sfv-toolbar) { flex-wrap: wrap; }
+  .rs-viewer-host :global(.shell-legend) { max-width: calc(100% - 24px); }
+
   .rs-viewer-failed {
     color: var(--fg-2);
     font-size: 0.9rem;

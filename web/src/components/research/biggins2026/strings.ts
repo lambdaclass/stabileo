@@ -1,5 +1,11 @@
-import { researchLocale } from '../i18n';
+import { publicI18n } from '../../../lib/i18n/store.svelte';
 const en = {
+  resultParameters: "Computed parameters",
+  alpha: "Preferred curvature α = Lκ₀",
+  force: "Axial force f = NL²/EI (positive: compression; negative: tension)",
+  coordinates: "Clamped at both ends. Coordinates are x/L and w/L; α is the preferred curvature multiplied by span L.",
+  referenceCaveat: "The authors’ default optimizer and rectangular-profile quadrature produce small irregularities; their 70% output is {software}, while the paper reports {published}.",
+
   title: 'Snapping arches by curvature patterning',
   lead: 'Change the width of a curved segment and move the threshold at which a shallow arch switches sides.',
   model: 'From Euler buckling to an equilibrium jump',
@@ -8,7 +14,7 @@ const en = {
   limits: 'This is a shallow, inextensible equilibrium model. The jump connects equilibria; it does not simulate snap dynamics or reproduce laboratory measurements. Arc-length in the production engine rejects prescribed displacements and thermal loading, so it is not used for this curvature-driven path. Only centered patterns and small end shortening are covered.',
   evidence: 'At a stimulated width of 70%, the paper gives α/√ε = {threshold} (arXiv v2 page 3, following Eq. 2). The overlay is regenerated from the authors’ shallow-angle software in Zenodo record 18256271, licensed CC-BY-4.0. It is a numerical reference, not experimental validation.',
   checks: 'Validation and sources',
-  checkLabels: ['Zenodo curve: maximum relative error', 'Mesh and mode refinement', 'First Euler load', 'Second Euler load'],
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Zenodo curve: maximum relative error', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Mesh and mode refinement', "Euler f0 relative error": 'First Euler load', "Euler f1 relative error": 'Second Euler load'} as Record<string, string>,
   publishedValue: 'Published threshold at 70% width',
   width: 'Stimulated width γ',
   compression: 'End shortening ε',
@@ -19,7 +25,7 @@ const en = {
   jump: 'Equilibrium sequence; jump has no physical duration',
   run: 'Recompute live', stop: 'Stop', restart: 'Restart',
   error: 'The solver could not load or complete. The previous result remains available.',
-  pending: 'Computing with Stabileo…',
+  computing: 'Computing with Stabileo…',
   paper: 'Paper and supplementary equations',
   data: 'Zenodo data and software',
   ours: 'Stabileo modes + shallow-arch equations',
@@ -28,6 +34,12 @@ const en = {
 };
 type Strings = typeof en;
 const es: Strings = {
+  resultParameters: "Parámetros calculados",
+  alpha: "Curvatura preferida α = Lκ₀",
+  force: "Fuerza axial f = NL²/EI (positiva: compresión; negativa: tracción)",
+  coordinates: "Empotrado en ambos extremos. Las coordenadas son x/L y w/L; α es la curvatura preferida multiplicada por la luz L.",
+  referenceCaveat: "El optimizador y la cuadratura rectangular de los autores producen pequeñas irregularidades; al 70% dan {software}, mientras que el artículo indica {published}.",
+
   title: 'Arcos que saltan al cambiar el patrón de curvatura',
   lead: 'Cambiá el ancho de un segmento curvo y el umbral en que un arco poco profundo cambia de lado.',
   model: 'Del pandeo de Euler al salto de equilibrio',
@@ -35,17 +47,138 @@ const es: Strings = {
   method: 'El motor de producción de Stabileo calcula 16 modos con 64 elementos de pórtico 2D. Una capa de investigación proyecta la curvatura sobre esos modos y resuelve la restricción de compresión del artículo. El mismo código Rust corre como WASM y genera la reproducción.',
   limits: 'Es un modelo de equilibrio poco profundo e inextensible. El salto conecta equilibrios; no simula la dinámica ni reproduce mediciones de laboratorio. El método de longitud de arco del motor rechaza desplazamientos impuestos y cargas térmicas, por lo que no se usa aquí. Solo se estudian patrones centrados y pequeños acortamientos.',
   evidence: 'Para un ancho estimulado del 70%, el artículo da α/√ε = {threshold} (arXiv v2 página 3, después de la Ec. 2). La curva de referencia se genera con el software de los autores del registro Zenodo 18256271, con licencia CC-BY-4.0. Es una referencia numérica, no una validación experimental.',
-  checkLabels: ['Curva de Zenodo: error relativo máximo', 'Refinamiento de malla y modos', 'Primera carga de Euler', 'Segunda carga de Euler'], publishedValue: 'Umbral publicado para un ancho del 70%', checks: 'Validación y fuentes', width: 'Ancho estimulado γ', compression: 'Acortamiento ε', threshold: 'Umbral de salto α', normalized: 'Umbral normalizado α/√ε', mode: 'Primer modo de pandeo antisimétrico', arch: 'Equilibrio del arco', jump: 'Secuencia de equilibrios; el salto no tiene duración física', run: 'Recalcular en vivo', stop: 'Detener', restart: 'Reiniciar', error: 'El cálculo no pudo cargarse o completarse. El resultado anterior sigue disponible.', pending: 'Calculando con Stabileo…', paper: 'Artículo y ecuaciones suplementarias', data: 'Datos y software de Zenodo', ours: 'Modos de Stabileo + ecuaciones del arco', reference: 'Software de los autores en Zenodo', parameterNotice: 'Los resultados conservan sus parámetros hasta completar el nuevo cálculo.',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Curva de Zenodo: error relativo máximo', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Refinamiento de malla y modos', "Euler f0 relative error": 'Primera carga de Euler', "Euler f1 relative error": 'Segunda carga de Euler'} as Record<string, string>, publishedValue: 'Umbral publicado para un ancho del 70%', checks: 'Validación y fuentes', width: 'Ancho estimulado γ', compression: 'Acortamiento ε', threshold: 'Umbral de salto α', normalized: 'Umbral normalizado α/√ε', mode: 'Primer modo de pandeo antisimétrico', arch: 'Equilibrio del arco', jump: 'Secuencia de equilibrios; el salto no tiene duración física', run: 'Recalcular en vivo', stop: 'Detener', restart: 'Reiniciar', error: 'El cálculo no pudo cargarse o completarse. El resultado anterior sigue disponible.', computing: 'Calculando con Stabileo…', paper: 'Artículo y ecuaciones suplementarias', data: 'Datos y software de Zenodo', ours: 'Modos de Stabileo + ecuaciones del arco', reference: 'Software de los autores en Zenodo', parameterNotice: 'Los resultados conservan sus parámetros hasta completar el nuevo cálculo.',
 };
 const pt: Strings = {
+  resultParameters: "Parâmetros calculados",
+  alpha: "Curvatura preferida α = Lκ₀",
+  force: "Força axial f = NL²/EI (positiva: compressão; negativa: tração)",
+  coordinates: "Engastado nas duas extremidades. As coordenadas são x/L e w/L; α é a curvatura preferida multiplicada pelo vão L.",
+  referenceCaveat: "O otimizador e a quadratura retangular dos autores produzem pequenas irregularidades; a 70% fornecem {software}, enquanto o artigo informa {published}.",
+
   title: 'Arcos que saltam por padrões de curvatura', lead: 'Mude a largura de um segmento curvo e o limiar em que um arco raso muda de lado.', model: 'Da flambagem de Euler ao salto de equilíbrio',
   theory: 'Um arco engastado armazena o encurtamento em sua forma. O padrão de curvatura preferida se acopla aos modos de flambagem. As equações (2) e (3), arXiv v2 páginas 3–4, descrevem o equilíbrio de pequeno ângulo e o espectro de compressão. Este experimento usa um padrão retangular centralizado.',
   method: 'O motor de produção Stabileo calcula 16 modos com 64 elementos de pórtico 2D. Uma camada de pesquisa projeta a curvatura nesses modos e resolve a restrição de compressão do artigo. O mesmo código Rust roda como WASM e gera a reprodução.',
   limits: 'Este é um modelo de equilíbrio raso e inextensível. O salto conecta equilíbrios; não simula a dinâmica nem reproduz medições de laboratório. O método de comprimento de arco do motor rejeita deslocamentos impostos e cargas térmicas, portanto não é usado aqui. Apenas padrões centralizados e pequenos encurtamentos são estudados.',
   evidence: 'Para uma largura estimulada de 70%, o artigo fornece α/√ε = {threshold} (arXiv v2 página 3, após a Eq. 2). A curva de referência é gerada pelo software dos autores no registro Zenodo 18256271, sob licença CC-BY-4.0. É uma referência numérica, não uma validação experimental.',
-  checkLabels: ['Curva do Zenodo: erro relativo máximo', 'Refinamento de malha e modos', 'Primeira carga de Euler', 'Segunda carga de Euler'], publishedValue: 'Limiar publicado para largura de 70%', checks: 'Validação e fontes', width: 'Largura estimulada γ', compression: 'Encurtamento ε', threshold: 'Limiar do salto α', normalized: 'Limiar normalizado α/√ε', mode: 'Primeiro modo de flambagem antissimétrico', arch: 'Equilíbrio do arco', jump: 'Sequência de equilíbrios; o salto não tem duração física', run: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar', error: 'O cálculo não pôde carregar ou terminar. O resultado anterior continua disponível.', pending: 'Calculando com Stabileo…', paper: 'Artigo e equações suplementares', data: 'Dados e software do Zenodo', ours: 'Modos Stabileo + equações do arco', reference: 'Software dos autores no Zenodo', parameterNotice: 'Os resultados mantêm seus parâmetros até o novo cálculo terminar.',
+  checkLabels: {"max relative threshold error against 31 Zenodo software outputs": 'Curva do Zenodo: erro relativo máximo', "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": 'Refinamento de malha e modos', "Euler f0 relative error": 'Primeira carga de Euler', "Euler f1 relative error": 'Segunda carga de Euler'} as Record<string, string>, publishedValue: 'Limiar publicado para largura de 70%', checks: 'Validação e fontes', width: 'Largura estimulada γ', compression: 'Encurtamento ε', threshold: 'Limiar do salto α', normalized: 'Limiar normalizado α/√ε', mode: 'Primeiro modo de flambagem antissimétrico', arch: 'Equilíbrio do arco', jump: 'Sequência de equilíbrios; o salto não tem duração física', run: 'Recalcular ao vivo', stop: 'Parar', restart: 'Reiniciar', error: 'O cálculo não pôde carregar ou terminar. O resultado anterior continua disponível.', computing: 'Calculando com Stabileo…', paper: 'Artigo e equações suplementares', data: 'Dados e software do Zenodo', ours: 'Modos Stabileo + equações do arco', reference: 'Software dos autores no Zenodo', parameterNotice: 'Os resultados mantêm seus parâmetros até o novo cálculo terminar.',
 };
-export const archStrings = (): Strings => {
-  const locale = researchLocale();
-  return locale === 'es' ? es : locale === 'pt' ? pt : en;
+const de: Strings = {
+  "title": "Schnappende Bögen durch Krümmungsmuster",
+  "lead": "Die Breite eines gekrümmten Abschnitts verändert die Schwelle, bei der ein flacher Bogen die Seite wechselt.",
+  "model": "Von der Euler-Knickung zum Gleichgewichtssprung",
+  "theory": "Ein beidseitig eingespannter Bogen speichert die Endverkürzung in seiner Form. Das Muster der bevorzugten Krümmung koppelt an seine Knickmoden. Gleichungen (2) und (3), arXiv v2 Seiten 3–4, beschreiben das Gleichgewicht bei kleinen Winkeln und das Druckkraftspektrum. Hier verwenden wir ein zentriertes Rechteckmuster.",
+  "method": "Der Stabileo-Rahmenlöser berechnet 16 Knickmoden auf 64 Elementen. Die Forschungsschicht projiziert die Krümmung auf diese Moden und löst die Verkürzungsbedingung des Artikels. Derselbe Rust-Code erzeugt die Aufzeichnung und läuft hier als WASM.",
+  "limits": "Dieses flache, undehnbare Gleichgewichtsmodell verbindet Gleichgewichte, ohne die Schnappdynamik oder Labormessungen nachzubilden. Das Bogenlängenverfahren des Produktionslösers unterstützt keine vorgeschriebenen Verschiebungen oder thermischen Lasten und wird hier nicht verwendet. Der Gültigkeitsbereich umfasst zentrierte Muster und kleine Endverkürzungen.",
+  "evidence": "Bei 70% stimulierter Breite gibt der Artikel α/√ε = {threshold} an (arXiv v2 Seite 3, nach Gl. 2). Die Referenzkurve stammt aus der Software der Autoren im Zenodo-Datensatz 18256271, Lizenz CC-BY-4.0. Sie ist eine numerische Referenz, keine experimentelle Validierung.",
+  "checks": "Validierung und Quellen",
+  "publishedValue": "Veröffentlichte Schwelle bei 70% Breite",
+  "width": "Stimulierte Breite γ",
+  "compression": "Endverkürzung ε",
+  "threshold": "Schnappschwelle α",
+  "normalized": "Normierte Schwelle α/√ε",
+  "mode": "Erste antisymmetrische Knickmode",
+  "arch": "Bogengleichgewicht",
+  "jump": "Gleichgewichtsfolge; der Sprung hat keine physikalische Dauer",
+  "run": "Neu berechnen",
+  "stop": "Stoppen",
+  "restart": "Neustarten",
+  "error": "Der Löser konnte nicht geladen oder abgeschlossen werden. Das vorherige Ergebnis bleibt verfügbar.",
+  "computing": "Stabileo berechnet…",
+  "paper": "Artikel und ergänzende Gleichungen",
+  "data": "Zenodo-Daten und Software",
+  "ours": "Stabileo-Moden und flache Bogengleichungen",
+  "reference": "Zenodo-Software der Autoren",
+  "parameterNotice": "Die Ergebnisse behalten ihre berechneten Parameter bis zum Abschluss der Neuberechnung.",
+  "resultParameters": "Berechnete Parameter",
+  "alpha": "Bevorzugte Krümmung α = Lκ₀",
+  "force": "Axialkraft f = NL²/EI (positiv: Druck; negativ: Zug)",
+  "coordinates": "Beidseitig eingespannt. Koordinaten: x/L und w/L; α ist die bevorzugte Krümmung multipliziert mit der Spannweite L.",
+  "referenceCaveat": "Standardoptimierer und Rechteckquadratur der Autoren erzeugen kleine Unregelmäßigkeiten; bei 70% liefern sie {software}, der Artikel nennt {published}.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo-Kurve: maximaler relativer Fehler",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Netz- und Modenverfeinerung",
+    "Euler f0 relative error": "Erste Euler-Last",
+    "Euler f1 relative error": "Zweite Euler-Last"
+  }
 };
+const fr: Strings = {
+  "title": "Claquement des arcs par motifs de courbure",
+  "lead": "Modifiez la largeur d’un segment courbé et le seuil auquel un arc peu profond change de côté.",
+  "model": "Du flambement d’Euler au saut d’équilibre",
+  "theory": "Un arc encastré aux deux extrémités stocke le raccourcissement dans sa forme. Le motif de courbure préférée se couple aux modes de flambement. Les équations (2) et (3), arXiv v2 pages 3–4, décrivent l’équilibre aux petits angles et le spectre de compression. Nous utilisons un motif rectangulaire centré.",
+  "method": "Le solveur de portiques Stabileo calcule 16 modes sur 64 éléments. La couche de recherche projette la courbure sur ces modes et résout la contrainte de raccourcissement de l’article. Le même code Rust produit la séquence et s’exécute ici en WASM.",
+  "limits": "Ce modèle d’équilibre peu profond et inextensible relie des équilibres sans simuler la dynamique du claquement ni reproduire les mesures expérimentales. La méthode de longueur d’arc du moteur refuse les déplacements imposés et les charges thermiques et n’est donc pas utilisée ici. Seuls les motifs centrés et les petits raccourcissements sont étudiés.",
+  "evidence": "Pour une largeur stimulée de 70%, l’article donne α/√ε = {threshold} (arXiv v2 page 3, après l’éq. 2). La courbe de référence est régénérée avec le logiciel des auteurs du dépôt Zenodo 18256271, sous licence CC-BY-4.0. C’est une référence numérique, pas une validation expérimentale.",
+  "checks": "Validation et sources",
+  "publishedValue": "Seuil publié pour une largeur de 70%",
+  "width": "Largeur stimulée γ",
+  "compression": "Raccourcissement ε",
+  "threshold": "Seuil de claquement α",
+  "normalized": "Seuil normalisé α/√ε",
+  "mode": "Premier mode de flambement antisymétrique",
+  "arch": "Équilibre de l’arc",
+  "jump": "Séquence d’équilibres ; le saut n’a pas de durée physique",
+  "run": "Recalculer",
+  "stop": "Arrêter",
+  "restart": "Redémarrer",
+  "error": "Le solveur n’a pas pu se charger ou terminer. Le résultat précédent reste disponible.",
+  "computing": "Calcul avec Stabileo…",
+  "paper": "Article et équations supplémentaires",
+  "data": "Données et logiciel Zenodo",
+  "ours": "Modes Stabileo et équations de l’arc peu profond",
+  "reference": "Logiciel Zenodo des auteurs",
+  "parameterNotice": "Les résultats conservent leurs paramètres jusqu’à la fin du nouveau calcul.",
+  "resultParameters": "Paramètres calculés",
+  "alpha": "Courbure préférée α = Lκ₀",
+  "force": "Force axiale f = NL²/EI (positive : compression ; négative : traction)",
+  "coordinates": "Encastrement aux deux extrémités. Coordonnées : x/L et w/L ; α est la courbure préférée multipliée par la portée L.",
+  "referenceCaveat": "L’optimiseur par défaut et la quadrature rectangulaire des auteurs produisent de petites irrégularités ; à 70%, ils donnent {software}, contre {published} dans l’article.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Courbe Zenodo : erreur relative maximale",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Raffinement du maillage et des modes",
+    "Euler f0 relative error": "Première charge d’Euler",
+    "Euler f1 relative error": "Deuxième charge d’Euler"
+  }
+};
+const tr: Strings = {
+  "title": "Eğrilik desenleriyle sıçrayan kemerler",
+  "lead": "Eğri bölgenin genişliğini değiştirerek sığ kemerin taraf değiştirdiği eşiği ayarlayın.",
+  "model": "Euler burkulmasından denge sıçramasına",
+  "theory": "İki ucu ankastre kemer, uç kısalmasını şeklinde depolar. Tercih edilen eğrilik deseni burkulma modlarına bağlanır. Denklem (2) ve (3), arXiv v2 sayfa 3–4, küçük açı dengesini ve basınç spektrumunu verir. Burada merkezlenmiş dikdörtgen desen kullanılır.",
+  "method": "Stabileo çerçeve çözücüsü 64 eleman üzerinde 16 mod hesaplar. Araştırma katmanı eğriliği bu modlara yansıtır ve makalenin kısalma kısıtını çözer. Aynı Rust kodu kayıtlı diziyi üretir ve burada WASM olarak çalışır.",
+  "limits": "Bu sığ ve uzamaz denge modeli denge durumlarını birbirine bağlar; sıçrama dinamiğini veya laboratuvar ölçümlerini yeniden üretmez. Üretim motorunun yay uzunluğu yöntemi öngörülen yer değiştirmeleri ve ısıl yükleri kabul etmediğinden burada kullanılmaz. Yalnızca merkezlenmiş desenler ve küçük uç kısalmaları incelenir.",
+  "evidence": "%70 uyarılmış genişlikte makale α/√ε = {threshold} verir (arXiv v2 sayfa 3, Denklem 2 sonrası). Referans eğrisi Zenodo 18256271 kaydındaki yazar yazılımından CC-BY-4.0 lisansıyla yeniden üretilmiştir. Bu sayısal bir referanstır; deneysel doğrulama değildir.",
+  "checks": "Doğrulama ve kaynaklar",
+  "publishedValue": "%70 genişlik için yayımlanan eşik",
+  "width": "Uyarılmış genişlik γ",
+  "compression": "Uç kısalması ε",
+  "threshold": "Sıçrama eşiği α",
+  "normalized": "Normalize eşik α/√ε",
+  "mode": "İlk antisimetrik burkulma modu",
+  "arch": "Kemer dengesi",
+  "jump": "Denge dizisi; sıçramanın fiziksel süresi yoktur",
+  "run": "Yeniden hesapla",
+  "stop": "Durdur",
+  "restart": "Yeniden başlat",
+  "error": "Çözücü yüklenemedi veya tamamlanamadı. Önceki sonuç kullanılabilir.",
+  "computing": "Stabileo hesaplıyor…",
+  "paper": "Makale ve ek denklemler",
+  "data": "Zenodo verileri ve yazılımı",
+  "ours": "Stabileo modları ve sığ kemer denklemleri",
+  "reference": "Yazarların Zenodo yazılımı",
+  "parameterNotice": "Yeni hesap tamamlanana kadar sonuçlar hesaplandıkları parametreleri korur.",
+  "resultParameters": "Hesaplanan parametreler",
+  "alpha": "Tercih edilen eğrilik α = Lκ₀",
+  "force": "Eksenel kuvvet f = NL²/EI (pozitif: basınç; negatif: çekme)",
+  "coordinates": "İki uç ankastre. Koordinatlar x/L ve w/L; α tercih edilen eğriliğin açıklık L ile çarpımıdır.",
+  "referenceCaveat": "Yazarların varsayılan iyileştiricisi ve dikdörtgen integrasyonu küçük düzensizlikler üretir; %70 için {software} verirken makale {published} bildirir.",
+  "checkLabels": {
+    "max relative threshold error against 31 Zenodo software outputs": "Zenodo eğrisi: en büyük bağıl hata",
+    "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change": "Ağ ve mod iyileştirmesi",
+    "Euler f0 relative error": "Birinci Euler yükü",
+    "Euler f1 relative error": "İkinci Euler yükü"
+  }
+};
+const translations: Record<string, Strings> = { en, es, pt, de, fr, tr };
+export const archStrings = (): Strings => translations[publicI18n.locale] ?? en;

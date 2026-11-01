@@ -24,6 +24,8 @@
     background: none;
     border: 0;
     padding: 0;
+    min-height: 44px;
+    min-width: 44px;
     font: inherit;
     color: var(--lp-accent, #e5482a);
     text-decoration: underline dotted;
