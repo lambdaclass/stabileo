@@ -78,6 +78,14 @@ fn limit_point(input: &ArcLengthInput) -> LimitPoint {
     LimitPoint { load, peak_step: k + 1, offset, crown }
 }
 
+fn mesh_study() -> [LimitPoint; 3] {
+    [limit_point(&arch(20, 1.0, 1.0)), limit_point(&arch(40, 1.0, 1.0)), limit_point(&arch(80, 1.0, 2.0))]
+}
+
+fn study_row(elements: usize, limit: &LimitPoint) -> Value {
+    json!({"elements": elements, "loadFactor": limit.load, "uOverR": limit.crown[0], "vOverR": limit.crown[1], "rotation": limit.crown[2]})
+}
+
 fn rounding(value: f64) -> f64 {
     let decimals = format!("{value}").split('.').nth(1).map_or(0, str::len) as i32;
     0.5 * 10f64.powi(-decimals) / value.abs()
@@ -110,7 +118,9 @@ fn limit_load() {
         let limit = limit_point(&input);
         let crown: serde_json::Map<String, Value> = CROWN_KEYS.iter().zip(limit.crown).map(|(k, v)| (k.to_string(), json!(v))).collect();
         let limit = json!({"loadFactor": limit.load, "peakStep": limit.peak_step, "offset": limit.offset, "crown": crown});
-        std::fs::write(path, serde_json::to_string(&json!({"frames": frames, "steps": result.steps, "limitPoint": limit})).unwrap() + "\n").unwrap();
+        let [coarse, medium, fine] = mesh_study();
+        let convergence = json!({"gciSafetyFactor": GCI_SAFETY_FACTOR, "meshes": [study_row(20, &coarse), study_row(40, &medium), study_row(80, &fine)]});
+        std::fs::write(path, serde_json::to_string(&json!({"frames": frames, "steps": result.steps, "limitPoint": limit, "convergence": convergence})).unwrap() + "\n").unwrap();
     }
 }
 
@@ -149,9 +159,7 @@ fn generated_arch_reproduces_the_shared_case() {
 #[test]
 fn mesh_step_and_axial_stiffness_study_bounds_the_tolerances() {
     let case = case();
-    let coarse = limit_point(&arch(20, 1.0, 1.0));
-    let medium = limit_point(&arch(40, 1.0, 1.0));
-    let fine = limit_point(&arch(80, 1.0, 2.0));
+    let [coarse, medium, fine] = mesh_study();
     println!("20: {coarse:?}\n40: {medium:?}\n80: {fine:?}");
     let mut quantities = vec![("load".to_string(), case["reference"].as_f64().unwrap(), case["relativeTolerance"].as_f64().unwrap(), [coarse.load, medium.load, fine.load])];
     for (i, key) in CROWN_KEYS.iter().enumerate() {
@@ -168,10 +176,6 @@ fn mesh_step_and_axial_stiffness_study_bounds_the_tolerances() {
         assert!((extrapolated / published - 1.0).abs() < gci_fine + rounding(published), "{name}: converged {extrapolated} vs published {published}");
         assert!(tolerance >= budget, "{name}: tolerance {tolerance} below its budget {budget}");
         assert!(tolerance <= 1.25 * budget, "{name}: tolerance {tolerance} looser than its budget {budget} warrants");
-    }
-    if let Ok(path) = std::env::var("DADEPPO_STUDY_EXPORT") {
-        let row = |elements: usize, limit: &LimitPoint| json!({"elements": elements, "loadFactor": limit.load, "uOverR": limit.crown[0], "vOverR": limit.crown[1], "rotation": limit.crown[2]});
-        std::fs::write(path, serde_json::to_string_pretty(&json!({"gciSafetyFactor": GCI_SAFETY_FACTOR, "meshes": [row(20, &coarse), row(40, &medium), row(80, &fine)]})).unwrap() + "\n").unwrap();
     }
     let halved = limit_point(&arch(40, 1.0, 0.5));
     assert!((halved.load / medium.load - 1.0).abs() < 1e-6, "step size: {} vs {}", halved.load, medium.load);

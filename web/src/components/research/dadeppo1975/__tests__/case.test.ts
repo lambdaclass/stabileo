@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { benchmark, checks, compare, crownOf, frameFor, limitPoint, peakBracket, published, quantities, sampleSteps, study, tolerance, viewerData, type Frame, type Run } from '../case';
 import { archStrings, strings } from '../i18n';
 import replay from '../../../../../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json';
-import convergence from '../../../../../../research/benchmarks/dadeppo-arch-1975/results/convergence.json';
 import reference from '../../../../../../research/benchmarks/dadeppo-arch-1975/reference-results/limit-load.json';
-import paperYaml from '../../../../../../research/benchmarks/dadeppo-arch-1975/paper.yaml?raw';
 
 const LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
 
@@ -44,9 +42,6 @@ describe('DaDeppo–Schmidt shared benchmark', () => {
   it('keeps the reference and tolerances identical in every fixture', () => {
     expect(reference.normalizedLimitLoad).toBe(benchmark.reference);
     expect(reference.crownAtLimitPoint).toEqual(benchmark.crownReference);
-    expect(paperYaml).toContain(`reference: ${benchmark.reference}, relative_tolerance: ${benchmark.relativeTolerance}`);
-    expect(paperYaml).toContain(`u_over_R: ${benchmark.crownReference.uOverR}, v_over_R: ${benchmark.crownReference.vOverR}, rotation: ${benchmark.crownReference.rotation}`);
-    expect(paperYaml).toContain(`u_over_R: ${benchmark.crownRelativeTolerance.uOverR}, v_over_R: ${benchmark.crownRelativeTolerance.vOverR}, rotation: ${benchmark.crownRelativeTolerance.rotation}`);
     expect(published).toEqual({ loadFactor: 8.97, uOverR: 0.6116, vOverR: 1.1372, rotation: 0.0498 });
     expect(tolerance).toEqual({ loadFactor: 0.006, uOverR: 0.0011, vOverR: 0.0007, rotation: 0.04 });
   });
@@ -94,9 +89,9 @@ describe('DaDeppo–Schmidt shared benchmark', () => {
   });
 
   it('reproduces the mesh study and the tolerance budget', () => {
-    expect(convergence.meshes.map(m => m.elements)).toEqual([20, 40, 80]);
-    expect(convergence.meshes[1].loadFactor).toBeCloseTo(replay.limitPoint.loadFactor, 9);
-    expect(convergence.meshes[1].uOverR).toBeCloseTo(replay.limitPoint.crown.uOverR, 9);
+    expect(replay.convergence.meshes.map(m => m.elements)).toEqual([20, 40, 80]);
+    expect(replay.convergence.meshes[1].loadFactor).toBeCloseTo(replay.limitPoint.loadFactor, 9);
+    expect(replay.convergence.meshes[1].uOverR).toBeCloseTo(replay.limitPoint.crown.uOverR, 9);
     const rows = Object.fromEntries(study().map(r => [r.quantity, r]));
     for (const r of Object.values(rows)) {
       expect(r.order).toBeGreaterThan(1.5);

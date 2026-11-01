@@ -106,6 +106,7 @@ jobs:
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_grossman_catalog.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_pastrana_catalog.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_fairclough_catalog.py
+      - run: /tmp/catalog-venv/bin/python -I research/tools/test_dadeppo_catalog.py
       - name: Checker rejects bad entries
         run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py
       - name: Every entry, evidence file and summary source is well formed
