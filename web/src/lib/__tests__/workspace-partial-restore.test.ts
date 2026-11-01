@@ -12,6 +12,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   acceptSessionTabs,
+  saveSession,
+  loadFile,
   loadWorkspaceFromLocalStorage,
   saveWorkspaceToLocalStorage,
   readWorkspaceBackups,
@@ -19,6 +21,11 @@ import {
   WORKSPACE_BACKUP_LIMIT,
   resetWorkspaceGuard,
 } from '../store/file';
+import { render } from 'svelte/server';
+import RecheckNotice from '../../components/RecheckNotice.svelte';
+import { recheckStore } from '../store/recheck.svelte';
+import { modelStore } from '../store/model.svelte';
+import '../store/index';
 import { tabManager } from '../store/tabs.svelte';
 import { uiStore } from '../store/ui.svelte';
 
@@ -207,6 +214,7 @@ describe('workspace backup is bounded', () => {
 
     expect(storage.getItem(WORKSPACE_KEY)).toBe(raw);
     expect(readWorkspaceBackups()).toEqual([]);
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
     expect(toast.mock.calls.some((c) => c[1] === 'error' && String(c[0]) !== '')).toBe(true);
   });
 });
@@ -231,16 +239,117 @@ describe('a workspace write that does not fit', () => {
     big.setItem(WORKSPACE_KEY, storage.getItem(WORKSPACE_KEY)!);
     vi.stubGlobal('localStorage', big);
     tabManager.restoreSession([tab('a', 'Pórtico A', snapshot({ notes: [{ id: 1, text: 'x'.repeat(4000) }] })) as never], 'a');
-    saveWorkspaceToLocalStorage();
+    expect(saveWorkspaceToLocalStorage()).toBe(false);
     expect(big.getItem(WORKSPACE_KEY)).toBeNull();
     expect(loadWorkspaceFromLocalStorage()).toBeNull();
   });
 
   it('is written without the undo stacks', () => {
     tabManager.restoreSession([{ ...tab('a', 'Pórtico A', snapshot()), undoStack: [snapshot(), snapshot()] } as never], 'a');
-    saveWorkspaceToLocalStorage();
+    expect(saveWorkspaceToLocalStorage()).toBe(true);
     const stored = JSON.parse(storage.getItem(WORKSPACE_KEY)!);
     expect(stored.tabs[0].undoStack).toEqual([]);
     expect(stored.tabs[0].redoStack).toEqual([]);
   });
+});
+
+it('reopens the notice with every change id when a stale project is restored after reload', async () => {
+  const old = snapshot({
+    localAxisConvention: 'zUpStrongAxis',
+    materials: [[1, { id: 1, name: 'steel', e: 210000, nu: 0.3, rho: 78.5, fy: 235 }]],
+  });
+  tabManager.restoreSession([{ ...tab('stale', 'Unsaved work', old), analysisMode: 'pro' } as never], 'stale');
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const ids = recheckStore.assessment!.changes.map(c => c.id);
+  expect(ids).toContain('cirsoc301-tension-needs-connection');
+  const before = modelStore.snapshot();
+  // Legacy restore supplies Wind/Earthquake cases; their applicability must
+  // already be captured before saving, rather than first appearing on reload.
+  expect(before.pendingRecheckNotice?.features).toEqual(expect.arrayContaining(['seismic', 'wind']));
+  expect(saveWorkspaceToLocalStorage()).toBe(true);
+
+  // Reload starts with a fresh project, then App restores the saved workspace.
+  modelStore.clear();
+  expect(recheckStore.noticeOpen).toBe(false);
+  const saved = loadWorkspaceFromLocalStorage()!;
+  tabManager.restoreSession(saved.tabs, saved.activeTabId);
+
+  expect(modelStore.snapshot()).toEqual(before);
+  expect(recheckStore.stale).toBe(true);
+  expect(recheckStore.noticeOpen).toBe(true);
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  const restoredIds = recheckStore.assessment!.changes.map(c => c.id);
+  expect(modelStore.snapshot()).toEqual(before);
+  expect(restoredIds).toEqual(expect.arrayContaining(ids));
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-testid="recheck-notice"');
+  for (const id of restoredIds) expect(html).toContain(`data-change-id="${id}"`);
+});
+
+it.each(['quota', 'overwrite guard'])('downloads and restores all unsaved projects despite %s', async reason => {
+  if (reason === 'overwrite guard') {
+    storage.setItem(WORKSPACE_KEY, storedWorkspace());
+    const write = vi.spyOn(storage, 'setItem').mockImplementation(() => { throw new Error('quota'); });
+    loadWorkspaceFromLocalStorage();
+    write.mockRestore();
+  } else {
+    const setItem = storage.setItem;
+    vi.spyOn(storage, 'setItem').mockImplementation((key, value) => {
+      if (key === WORKSPACE_KEY) throw new DOMException('quota', 'QuotaExceededError');
+      setItem(key, value);
+    });
+  }
+  tabManager.restoreSession([
+    tab('one', 'First unsaved project', snapshot()),
+    tab('two', 'Second unsaved project', snapshot()),
+  ] as never, 'two');
+  modelStore.model.name = 'Latest unsaved edit';
+  const failed = vi.spyOn(recheckStore, 'loadFailed', 'get').mockReturnValue(true);
+  const pending = vi.spyOn(recheckStore, 'pending', 'get').mockReturnValue(true);
+  expect(saveWorkspaceToLocalStorage()).toBe(false);
+  const html = render(RecheckNotice).body;
+  expect(html).toContain('data-testid="recheck-backup"');
+  expect(html).toMatch(/<input[^>]*disabled[^>]*data-testid="recheck-ack"/);
+  let blob!: Blob;
+  const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(b => { blob = b as Blob; return 'blob:backup'; });
+  const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  const click = vi.fn();
+  vi.stubGlobal('document', { createElement: () => ({ click }), body: { appendChild: vi.fn(), removeChild: vi.fn() } });
+  saveSession();
+  expect(click).toHaveBeenCalledOnce();
+  const text = await blob.text();
+  const backup = JSON.parse(text);
+  expect(backup.tabs).toHaveLength(2);
+  expect(backup.activeTabId).toBe('two');
+  expect(backup.tabs[1].modelSnapshot.name).toBe('Latest unsaved edit');
+  expect(backup.tabs[1].modelSnapshot.pendingRecheckNotice.stamp.resultsVersion).toBe(0);
+  pending.mockRestore();
+  failed.mockRestore();
+  modelStore.clear();
+  expect(await loadFile({ text: async () => text } as File)).toEqual({ type: 'session', count: 2 });
+  expect(tabManager.tabs.map(t => t.id)).toEqual(['one', 'two']);
+  expect(modelStore.model.name).toBe('Latest unsaved edit');
+  expect(recheckStore.noticeOpen).toBe(true);
+  expect(modelStore.snapshot().nodes).toEqual(backup.tabs[1].modelSnapshot.nodes);
+  expect(modelStore.snapshot().elements).toEqual(backup.tabs[1].modelSnapshot.elements);
+  tabManager.switchTab('one');
+  expect(modelStore.snapshot().nodes).toEqual(backup.tabs[0].modelSnapshot.nodes);
+  create.mockRestore();
+  revoke.mockRestore();
+});
+
+it('carries the unread notice separately from an automatic solve through workspace recovery', async () => {
+  tabManager.restoreSession([tab('basic', 'Live calculation', snapshot()) as never], 'basic');
+  expect(recheckStore.pending).toBe(true);
+  const original = recheckStore.captureNotice();
+  recheckStore.noteSolved('linear');
+  expect(saveWorkspaceToLocalStorage()).toBe(true);
+  const saved = loadWorkspaceFromLocalStorage()!;
+  expect(saved.tabs[0].modelSnapshot.pendingRecheckNotice).toEqual(original);
+  expect(saved.tabs[0].modelSnapshot.solvedWith?.resultsVersion).toBeGreaterThan(0);
+  modelStore.clear();
+  tabManager.restoreSession(saved.tabs, saved.activeTabId);
+  await vi.waitFor(() => expect(recheckStore.pending).toBe(false));
+  expect(recheckStore.assessment?.solvedVersion).toBe(0);
+  expect(recheckStore.noticeOpen).toBe(true);
 });

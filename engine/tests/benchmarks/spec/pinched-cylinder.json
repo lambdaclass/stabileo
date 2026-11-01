@@ -1,0 +1,113 @@
+{
+  "id": "pinched-cylinder",
+  "expected_rigid_modes": 0,
+  "symmetry_planes": [
+    {
+      "edge": "x_zero",
+      "dofs": [
+        "rx",
+        "rry",
+        "rrz"
+      ]
+    },
+    {
+      "edge": "theta_zero",
+      "dofs": [
+        "rz",
+        "rrx",
+        "rry"
+      ]
+    },
+    {
+      "edge": "theta_end",
+      "dofs": [
+        "ry",
+        "rrx",
+        "rrz"
+      ]
+    }
+  ],
+  "provenance": "Corrected branches, 2026-10-29; see docs/safety/benchmark-correctness.md",
+  "tolerance": {
+    "relative": 0.02,
+    "justification": "Existing shell accuracy gate is 2%; unchanged. Richardson must also satisfy this bound."
+  },
+  "geometry": {
+    "kind": "cylinder",
+    "element": "shell",
+    "half_length": 300.0,
+    "radius": 300.0,
+    "angle": 1.5707963267948966
+  },
+  "material": {
+    "e": 3000.0,
+    "nu": 0.3
+  },
+  "section": {
+    "thickness": 3.0
+  },
+  "supports": [
+    {
+      "edge": "x_end",
+      "dofs": [
+        "ry",
+        "rz"
+      ]
+    }
+  ],
+  "loads": {
+    "force": [
+      0,
+      -0.25,
+      0
+    ],
+    "analytic_total": [
+      0,
+      -0.25,
+      0
+    ]
+  },
+  "measurement": {
+    "component": "uy",
+    "sign": 1,
+    "normalization": 1.0,
+    "reference_model": "shell"
+  },
+  "mesh_sequence": [
+    8,
+    16,
+    32
+  ],
+  "analysis": "linear",
+  "references": [
+    {
+      "kind": "paper",
+      "citation": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf",
+      "location": "Section 4.2, Fig.9, Table 4",
+      "value": -1.8248e-05,
+      "precision": 5e-10,
+      "independence": "published analytical target",
+      "provisional": false,
+      "pass_fail": true
+    },
+    {
+      "kind": "independent-solver",
+      "citation": "https://docs.software.vt.edu/abaqusv2025/English/SIMACAEBMKRefMap/simabmk-c-pinchcyl.htm",
+      "location": "Table 3, STRI65, 3366 DOF, irregular mesh type 2: 1.824 x 10^-5; reported error -0.05%, absolute numerical precision bounded by 1e-8",
+      "value": -1.824e-05,
+      "precision": 1e-08,
+      "independence": "Abaqus STRI65 numerical solution",
+      "provisional": false,
+      "pass_fail": true
+    }
+  ],
+  "sources": {
+    "geometry": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4",
+    "material": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4",
+    "section": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4",
+    "supports": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4",
+    "symmetry_planes": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4",
+    "loads": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4",
+    "measurement": "Nguyen-Van et al. (2009), CMES 49(2), 81\u2013110; https://cdn.techscience.cn/files/CMES/2009/v49n2/cmes.2009.049.081.pdf; Section 4.2, Fig.9, Table 4"
+  }
+}

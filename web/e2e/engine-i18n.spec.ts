@@ -131,7 +131,7 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       // Generate once so the model genuinely holds loads and combinations to collide with.
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
-      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
       await expect(page.getByTestId('al-preview')).toBeHidden();
 
       await reopenDialog(page);
@@ -160,7 +160,7 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       await openDialog(page);
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
-      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
       await reopenDialog(page);
       await openPreview(page);
 
@@ -197,7 +197,7 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       await page.getByTestId('al-enable-wind').check();
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
-      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
 
       // The dialog keeps its form state across close/reopen, so wind has to be turned
       // OFF explicitly — which is the scenario: the user changes their mind after
@@ -218,7 +218,7 @@ test.describe('@smoke the load preview tells the truth about what Apply will do'
       await openDialog(page);
       await page.getByTestId('al-preview-btn').click();
       await page.getByTestId('al-apply').click();
-      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 60_000 });
+      await expect(page.getByTestId('al-apply')).toHaveCount(0, { timeout: 45_000 });
       await reopenDialog(page);
       await openPreview(page);
       // Flipping the flag re-derives the preview rather than leaving a stale one that

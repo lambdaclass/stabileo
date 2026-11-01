@@ -57,7 +57,7 @@ async function openDed(page: Page, path: string) {
 
 /** Save through the ribbon's button and keep the file. */
 async function saveDed(page: Page, to: string): Promise<number> {
-  const download = page.waitForEvent('download', { timeout: 300_000 });
+  const download = page.waitForEvent('download', { timeout: 300_000 }); // slow-ok: Shared download helper also serializes the 7-storey @slow project; smoke still has a 45 s total budget.
   await page.getByTestId('pr-save').click();
   await (await download).saveAs(to);
   return readFileSync(to).length;
@@ -114,7 +114,7 @@ test.describe('@smoke a small project survives the file', () => {
   test('save, reopen, and the fingerprint is the same one', async ({ pro: page }, testInfo) => {
     await openDed(page, SMALL_FIXTURE);
     await expect
-      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
+      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
     const before = await fingerprint(page);
 
@@ -134,7 +134,7 @@ test.describe('@smoke a small project survives the file', () => {
     await page.reload();
     await openDed(page, path);
     await expect
-      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
+      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
     expect(await fingerprint(page), 'the reopened project is the project that was saved')
       .toEqual({ ...before, solveCount: 0 });
@@ -291,7 +291,7 @@ test.describe('@smoke a file that is not a project is refused, out loud', () => 
   ) => {
     await openDed(page, SMALL_FIXTURE);
     await expect
-      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
+      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
 
     // Half a file, as an interrupted download or a full disk would leave it.
@@ -318,7 +318,7 @@ test.describe('@smoke a file that is not a project is refused, out loud', () => 
   ) => {
     await openDed(page, SMALL_FIXTURE);
     await expect
-      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
+      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
 
     // Parses perfectly, means nothing. This is the payload a schema check has to catch, and the
@@ -340,7 +340,7 @@ test.describe('@smoke the autosave reports the save it actually made', () => {
   test('the outcome, the stored revision and the fingerprint agree', async ({ pro: page }) => {
     await openDed(page, SMALL_FIXTURE);
     await expect
-      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 60_000 })
+      .poll(() => page.evaluate(() => window.__stabileo.elementIds().length), { timeout: 45_000 })
       .toBe(8);
 
     const wrote = await page.evaluate(() => window.__stabileoActions.autosaveNow());

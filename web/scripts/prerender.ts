@@ -34,13 +34,16 @@
  *
  * Usage (runs as part of `npm run build`):
  *   npx tsx scripts/prerender.ts
+ *   PRERENDER_CONCURRENCY=4 npx tsx scripts/prerender.ts
+ * Defaults to min(6, CPU count); set 1 for serial diagnostics.
  */
-import { chromium, type Browser } from 'playwright';
+import { chromium, type Browser, type Page } from 'playwright';
 import { createServer } from 'node:http';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
@@ -127,7 +130,7 @@ const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
-  if (path === '/' || path === '/blog') return [...LOCALES];
+  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
     (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
@@ -244,8 +247,8 @@ async function publicPaths(): Promise<string[]> {
     if (day) POST_LASTMOD.set(pagePath, day);
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research];
+  const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
 }
 
 /**
@@ -256,18 +259,24 @@ async function publicPaths(): Promise<string[]> {
  */
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
-async function capture(browser: Browser, base: string, locale: Locale, path: string) {
+async function newCapturePage(browser: Browser) {
   const page = await browser.newPage();
-  await page.addInitScript((l) => {
+  // Read the current route on every navigation: reused pages must not accumulate
+  // locale-specific init scripts or inherit the previous route's preferences.
+  await page.addInitScript(() => {
     try {
       localStorage.clear();
-      localStorage.setItem('stabileo-lang', l);
+      sessionStorage.clear();
+      localStorage.setItem('stabileo-lang', location.pathname.split('/')[1]);
       localStorage.setItem('stabileo-lang-manual', '1');
     } catch {
       /* private mode */
     }
-  }, locale);
+  });
+  return page;
+}
 
+async function capture(page: Page, base: string, locale: Locale, path: string) {
   // Visited in the same slashed form the site publishes, so the capture
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
@@ -291,7 +300,6 @@ async function capture(browser: Browser, base: string, locale: Locale, path: str
     body: document.querySelector('#app')?.innerHTML ?? '',
   }));
   const lang = await page.evaluate(() => document.documentElement.lang);
-  await page.close();
   return { head, body, lang, href };
 }
 
@@ -338,6 +346,7 @@ async function main() {
    * the throwaway server used to check this very output — which is a confusing
    * way for a build to break and has nothing to do with the build.
    */
+  const concurrency = prerenderConcurrency();
   const { server, port } = await serveDist(0);
   const stop = () => new Promise<void>((done) => server.close(() => done()));
   const base = `http://127.0.0.1:${port}`;
@@ -347,30 +356,44 @@ async function main() {
   const posts: PostHead[] = [];
 
   try {
-    for (const locale of LOCALES) {
-      for (const path of paths) {
-        const { head, body, lang, href } = await capture(browser, base, locale, path);
+    const routes = LOCALES.flatMap(locale => paths.map(path => ({
+      locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
+    })));
+    const captures = await routePool(routes, concurrency,
+      () => newCapturePage(browser), p => p.close(),
+      async (p, { locale, path }) => {
+        const result = await capture(p, base, locale, path);
+        const { head, body, lang, href } = result;
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(head, body, lang));
-        written.push(href);
-        if (path === '/blog') {
-          const lead = headMeta(head, 'name', 'description');
-          if (lead) BLOG_LEAD.set(locale, decodeEntities(lead));
-        }
-        if (path.startsWith('/blog/')) {
-          const title = headMeta(head, 'property', 'og:title')?.replace(/ — Stabileo$/, '');
-          const description = headMeta(head, 'name', 'description');
-          if (!title || !description) throw new Error(`prerender: ${href} has no og:title or description to put in its feed entry`);
-          posts.push({ path, locale, title: decodeEntities(title), description: decodeEntities(description) });
-        }
+        return { head, href };
+      });
+    // Pool results retain the original route order, including feed date ties.
+    // The sitemap below likewise uses paths/locales, never completion order.
+    for (const [index, { head, href }] of captures.entries()) {
+      const { locale, path } = routes[index];
+      written.push(href);
+      if (path === '/blog') {
+        const lead = headMeta(head, 'name', 'description');
+        if (lead) BLOG_LEAD.set(locale, decodeEntities(lead));
+      }
+      if (path.startsWith('/blog/')) {
+        const title = headMeta(head, 'property', 'og:title')?.replace(/ — Stabileo$/, '');
+        const description = headMeta(head, 'name', 'description');
+        if (!title || !description) throw new Error(`prerender: ${href} has no og:title or description to put in its feed entry`);
+        posts.push({ path, locale, title: decodeEntities(title), description: decodeEntities(description) });
       }
     }
 
     // The root: the default language's content — the x-default — plus the
     // handoff script that sends everyone else on.
-    const { head, body, lang } = await capture(browser, base, DEFAULT_LOCALE, '/');
+    const [{ head, body, lang }] = await routePool(
+      [{ href: '/', locale: DEFAULT_LOCALE, path: '/' }], 1,
+      () => newCapturePage(browser), p => p.close(),
+      (p) => capture(p, base, DEFAULT_LOCALE, '/'),
+    );
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
 

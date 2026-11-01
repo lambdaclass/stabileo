@@ -26,22 +26,14 @@ use dedaliano_engine::element::quad9::{mitc9_local_stiffness, quad9_transform_3d
 use dedaliano_engine::element::solid_shell::solid_shell_stiffness;
 use dedaliano_engine::element::{plate_local_stiffness, plate_transform_3d};
 
-const E: f64 = 1.0e6;
-const NU: f64 = 0.25;
-
-/// MacNeal–Harder patch: 0.24 × 0.12 rectangle, four interior nodes, five quads.
-const MH_NODES: [[f64; 2]; 8] = [
-    [0.0, 0.0],
-    [0.24, 0.0],
-    [0.24, 0.12],
-    [0.0, 0.12],
-    [0.04, 0.02],
-    [0.18, 0.03],
-    [0.16, 0.08],
-    [0.08, 0.08],
-];
-const MH_QUADS: [[usize; 4]; 5] = [[0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [4, 5, 6, 7]];
-const MH_INTERIOR: [usize; 4] = [4, 5, 6, 7];
+#[path = "benchmarks/macneal_harder.rs"]
+mod mh;
+use std::sync::LazyLock;
+static E: LazyLock<f64> = LazyLock::new(|| mh::DATA["patch"]["e"].as_f64().unwrap());
+static NU: LazyLock<f64> = LazyLock::new(|| mh::DATA["patch"]["nu"].as_f64().unwrap());
+static MH_NODES: LazyLock<[[f64; 2]; 8]> = LazyLock::new(|| serde_json::from_value(mh::DATA["patch"]["nodes"].clone()).unwrap());
+static MH_QUADS: LazyLock<[[usize; 4]; 5]> = LazyLock::new(|| serde_json::from_value(mh::DATA["patch"]["quads"].clone()).unwrap());
+static MH_INTERIOR: LazyLock<[usize; 4]> = LazyLock::new(|| serde_json::from_value(mh::DATA["patch"]["interior"].clone()).unwrap());
 
 /// Tilt: rows are the patch's local x, y, z axes in global coordinates.
 fn tilt() -> [[f64; 3]; 3] {
@@ -166,14 +158,14 @@ fn global_pts(local_pts: &[[f64; 2]]) -> Vec<[f64; 3]> {
     local_pts.iter().map(|p| to_global_pt(&r, [p[0], p[1], 0.0])).collect()
 }
 
-const TOL: f64 = 1e-10;
+static TOL: LazyLock<f64> = LazyLock::new(|| mh::DATA["patch"]["tolerance"].as_f64().unwrap());
 
 fn run(name: &str, patch: &Patch, local_pts: &[[f64; 2]], interior: &[usize]) {
     for (fname, field) in [("membrane", membrane as Field), ("bending", bending as Field)] {
         let u = nodal_field(local_pts, field);
         assert!(patch.total_force(&u) > 0.0, "{name} {fname}: field produces no force at all");
         let res = patch.interior_residual(&u, interior);
-        assert!(res < TOL, "{name} {fname} patch test: interior residual {res:.3e} ≥ {TOL:e}");
+        assert!(res < *TOL, "{name} {fname} patch test: interior residual {res:.3e} ≥ {:e}", *TOL);
     }
 }
 
@@ -184,27 +176,27 @@ fn quad_coords(pts: &[[f64; 3]], q: &[usize; 4]) -> [[f64; 3]; 4] {
 #[test]
 fn mitc4_patch_test_distorted() {
     for t in [0.001, 0.01, 0.05] {
-        let g = global_pts(&MH_NODES);
+        let g = global_pts(&*MH_NODES);
         let mut patch = Patch::new(8, 6);
-        for q in &MH_QUADS {
+        for q in &*MH_QUADS {
             let c = quad_coords(&g, q);
-            patch.add(q, &to_global(&mitc4_local_stiffness(&c, E, NU, t), &quad_transform_3d(&c), 24));
+            patch.add(q, &to_global(&mitc4_local_stiffness(&c, *E, *NU, t), &quad_transform_3d(&c), 24));
         }
-        run(&format!("MITC4 t={t}"), &patch, &MH_NODES, &MH_INTERIOR);
+        run(&format!("MITC4 t={t}"), &patch, &*MH_NODES, &*MH_INTERIOR);
     }
 }
 
 #[test]
 fn curved_shell_flat_patch_test_distorted() {
     for t in [0.001, 0.01, 0.05] {
-        let g = global_pts(&MH_NODES);
+        let g = global_pts(&*MH_NODES);
         let mut patch = Patch::new(8, 6);
-        for q in &MH_QUADS {
+        for q in &*MH_QUADS {
             let c = quad_coords(&g, q);
             let dirs = compute_element_directors(&c);
-            patch.add(q, &curved_shell_stiffness(&c, &dirs, E, NU, t));
+            patch.add(q, &curved_shell_stiffness(&c, &dirs, *E, *NU, t));
         }
-        run(&format!("curved shell t={t}"), &patch, &MH_NODES, &MH_INTERIOR);
+        run(&format!("curved shell t={t}"), &patch, &*MH_NODES, &*MH_INTERIOR);
     }
 }
 
@@ -222,13 +214,13 @@ fn dkt_cst_patch_test_distorted() {
         }
     }
     for t in [0.001, 0.01, 0.05] {
-        let g = global_pts(&MH_NODES);
+        let g = global_pts(&*MH_NODES);
         let mut patch = Patch::new(8, 6);
         for tri in &tris {
             let c = [g[tri[0]], g[tri[1]], g[tri[2]]];
-            patch.add(tri, &to_global(&plate_local_stiffness(&c, E, NU, t), &plate_transform_3d(&c), 18));
+            patch.add(tri, &to_global(&plate_local_stiffness(&c, *E, *NU, t), &plate_transform_3d(&c), 18));
         }
-        run(&format!("DKT+CST t={t}"), &patch, &MH_NODES, &MH_INTERIOR);
+        run(&format!("DKT+CST t={t}"), &patch, &*MH_NODES, &*MH_INTERIOR);
     }
 }
 
@@ -248,7 +240,7 @@ fn mitc9_patch_test_distorted() {
     };
     let mid = |a: [f64; 2], b: [f64; 2]| [(a[0] + b[0]) / 2.0, (a[1] + b[1]) / 2.0];
     let mut elems = Vec::new();
-    for q in &MH_QUADS {
+    for q in &*MH_QUADS {
         let c = q.map(|i| MH_NODES[i]);
         let mut conn = q.to_vec();
         for e in 0..4 {
@@ -271,7 +263,7 @@ fn mitc9_patch_test_distorted() {
         let mut patch = Patch::new(pts.len(), 6);
         for conn in &elems {
             let c: [[f64; 3]; 9] = std::array::from_fn(|i| g[conn[i]]);
-            patch.add(conn, &to_global(&mitc9_local_stiffness(&c, E, NU, t), &quad9_transform_3d(&c), 54));
+            patch.add(conn, &to_global(&mitc9_local_stiffness(&c, *E, *NU, t), &quad9_transform_3d(&c), 54));
         }
         run(&format!("MITC9 t={t}"), &patch, &pts, &interior);
     }
@@ -298,7 +290,7 @@ fn solid_patch(
         for q in quads {
             let conn: Vec<usize> = q.iter().map(|&p| l * np + p).chain(q.iter().map(|&p| (l + 1) * np + p)).collect();
             let c: [[f64; 3]; 8] = std::array::from_fn(|i| g[conn[i]]);
-            patch.add(&conn, &solid_shell_stiffness(&c, E, NU));
+            patch.add(&conn, &solid_shell_stiffness(&c, *E, *NU));
         }
     }
     (patch, g)
@@ -336,7 +328,7 @@ fn solid_shell_patch_test_parallelograms_z_aligned() {
         let plan: Vec<[f64; 2]> = (0..9).map(|k| [0.1 * (k % 3) as f64 + skew * (k / 3) as f64, 0.06 * (k / 3) as f64]).collect();
         let (patch, g) = solid_patch(&plan, &quads, |_, l| 0.02 * l as f64, &IDENTITY);
         let (res, what) = solid_worst(&patch, &g, &[9 + 4]);
-        assert!(res < TOL, "solid shell skew {skew}: interior residual {res:.3e} for {what}");
+        assert!(res < *TOL, "solid shell skew {skew}: interior residual {res:.3e} for {what}");
     }
 }
 
@@ -348,10 +340,10 @@ fn solid_shell_patch_test_parallelograms_z_aligned() {
 #[test]
 fn solid_shell_patch_test_distorted() {
     for (name, r) in [("flat z-aligned", IDENTITY), ("tilted", tilt())] {
-        let (patch, g) = solid_patch(&MH_NODES, &MH_QUADS, |_, l| 0.02 * l as f64, &r);
+        let (patch, g) = solid_patch(&*MH_NODES, &*MH_QUADS, |_, l| 0.02 * l as f64, &r);
         let interior: Vec<usize> = MH_INTERIOR.iter().map(|&p| 8 + p).collect();
         let (res, what) = solid_worst(&patch, &g, &interior);
-        assert!(res < TOL, "solid shell {name} MacNeal–Harder patch: interior residual {res:.3e} for {what}");
+        assert!(res < *TOL, "solid shell {name} MacNeal–Harder patch: interior residual {res:.3e} for {what}");
     }
 }
 
@@ -366,8 +358,8 @@ fn solid_shell_stiffness_is_frame_invariant() {
     ];
     let r = tilt();
     let c1: [[f64; 3]; 8] = std::array::from_fn(|i| to_global_vec(&r, c0[i]));
-    let k0 = solid_shell_stiffness(&c0, E, NU);
-    let k1 = solid_shell_stiffness(&c1, E, NU);
+    let k0 = solid_shell_stiffness(&c0, *E, *NU);
+    let k1 = solid_shell_stiffness(&c1, *E, *NU);
     // u_rotated = Rᵀ·u (to_global_vec), so K(X) must equal T·K(R·X)·Tᵀ with T = blockdiag(R).
     let mut tt = vec![0.0; 576]; // Tᵀ
     for b in 0..8 {
@@ -390,8 +382,8 @@ fn mitc4_and_curved_shell_stiffness_are_frame_invariant() {
     let c0: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [2.0, 0.1, 0.0], [2.2, 1.0, 0.0], [-0.1, 0.9, 0.0]];
     let r = tilt();
     let c1: [[f64; 3]; 4] = std::array::from_fn(|i| to_global_vec(&r, c0[i]));
-    let k0 = to_global(&mitc4_local_stiffness(&c0, E, NU, 0.05), &quad_transform_3d(&c0), 24);
-    let k1 = to_global(&mitc4_local_stiffness(&c1, E, NU, 0.05), &quad_transform_3d(&c1), 24);
+    let k0 = to_global(&mitc4_local_stiffness(&c0, *E, *NU, 0.05), &quad_transform_3d(&c0), 24);
+    let k1 = to_global(&mitc4_local_stiffness(&c1, *E, *NU, 0.05), &quad_transform_3d(&c1), 24);
     let mut tt = vec![0.0; 576];
     for b in 0..8 {
         for i in 0..3 {
@@ -408,8 +400,8 @@ fn mitc4_and_curved_shell_stiffness_are_frame_invariant() {
     // Curved shell (warped geometry), built directly in global coordinates.
     let c0: [[f64; 3]; 4] = [[0.0, 0.0, 0.0], [2.0, 0.1, 0.1], [2.2, 1.0, -0.1], [-0.1, 0.9, 0.1]];
     let c1: [[f64; 3]; 4] = std::array::from_fn(|i| to_global_vec(&r, c0[i]));
-    let k0 = curved_shell_stiffness(&c0, &compute_element_directors(&c0), E, NU, 0.05);
-    let k1 = curved_shell_stiffness(&c1, &compute_element_directors(&c1), E, NU, 0.05);
+    let k0 = curved_shell_stiffness(&c0, &compute_element_directors(&c0), *E, *NU, 0.05);
+    let k1 = curved_shell_stiffness(&c1, &compute_element_directors(&c1), *E, *NU, 0.05);
     let back = to_global(&k1, &tt, 24);
     let kmax = k0.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
     let diff = k0.iter().zip(&back).fold(0.0_f64, |m, (a, b)| m.max((a - b).abs()));
@@ -444,7 +436,7 @@ fn solid_shell_thin_cantilever_does_not_lock() {
                     id(i, 0, 1), id(i + 1, 0, 1), id(i + 1, 1, 1), id(i, 1, 1),
                 ];
                 let c: [[f64; 3]; 8] = std::array::from_fn(|a| g[conn[a]]);
-                patch.add(&conn, &solid_shell_stiffness(&c, E, 0.0));
+                patch.add(&conn, &solid_shell_stiffness(&c, *E, 0.0));
             }
             // Free DOFs: every node with i > 0. Load: P/4 along the thickness at the tip.
             let free: Vec<usize> = (12..nn * 3).collect();
@@ -480,7 +472,7 @@ fn solid_shell_thin_cantilever_does_not_lock() {
                 .map(|(j, k)| (0..3).map(|d| u[id(n, j, k) * 3 + d - 12] * r[2][d]).sum::<f64>())
                 .sum::<f64>()
                 / 4.0;
-            let ratio = tip / (l.powi(3) / (3.0 * E * b * t.powi(3) / 12.0));
+            let ratio = tip / (l.powi(3) / (3.0 * *E * b * t.powi(3) / 12.0));
             assert!((0.97..1.03).contains(&ratio), "solid shell {name} cantilever t/L = {t}: δ/δ_EB = {ratio:.4}");
         }
     }
