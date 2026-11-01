@@ -196,8 +196,9 @@ describe('against real corpus files', () => {
 
   describe('a large example, opened but not solved, is compared with its example as a model', () => {
     type Snapshot = {
+      nodes: Array<[number, { x: number }]>;
       loads: Array<{ type: string; data: Record<string, number> }>;
-      elements: Array<[number, { sectionId: number }]>;
+      elements: Array<[number, { sectionId: number; releaseI?: Record<string, boolean> }]>;
       supports: Array<[number, { type: string }]>;
     };
     const tower = readManifest('v0.2.0').examples.find((e) => e.example === 'torre-irregular-con-retiros')!;
@@ -230,6 +231,36 @@ describe('against real corpus files', () => {
     it('NEGATIVE: a member given another section fails', async () => {
       const opened = await open((s) => { const e = s.elements[0][1]; e.sectionId = e.sectionId === 2 ? 3 : 2; });
       expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toContain('element[1].section');
+    }, 120_000);
+
+    it('NEGATIVE: a node moved 1 cm fails', async () => {
+      const opened = await open((s) => { s.nodes[0][1].x += 0.01; });
+      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toMatch(/node\[\d+\]\.x/);
+    }, 120_000);
+
+    it('NEGATIVE: a hinge added at a member end fails', async () => {
+      const opened = await open((s) => { const e = s.elements[0][1]; e.releaseI = { ...(e.releaseI ?? {}), my: !e.releaseI?.my }; });
+      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toContain('element[1].releaseI');
+    }, 120_000);
+
+    it('NEGATIVE: a load moved onto another member, every total unchanged, fails', async () => {
+      const opened = await open((s) => {
+        const a = s.loads.find((l) => l.type === 'distributed3d')!;
+        const loaded = new Set(s.loads.filter((l) => l.type === a.type && l.data.caseId === a.data.caseId).map((l) => l.data.elementId));
+        a.data.elementId = s.elements.map(([id]) => id).find((id) => !loaded.has(id))!;
+      });
+      const { failure } = await againstExample('tower', 'v0.2.0', tower, opened, false);
+      expect(failure).toMatch(/loads\[\d+\]\.distributed3d\[elementId=\d+\]/);
+      expect(failure).not.toMatch(/loads\[\d+\]\.distributed3d\.(count|qZI):/);
+    }, 120_000);
+
+    it('NEGATIVE: two members\' loads swapped (+q and −q totals unchanged) fails', async () => {
+      const opened = await open((s) => {
+        const loads = s.loads.filter((l) => l.type === 'distributed3d' && l.data.caseId === s.loads[0].data.caseId);
+        const b = loads.find((l) => l.data.elementId !== loads[0].data.elementId && l.data.qZI !== loads[0].data.qZI)!;
+        [loads[0].data.elementId, b.data.elementId] = [b.data.elementId, loads[0].data.elementId];
+      });
+      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toMatch(/distributed3d\[elementId=\d+\]\.qZI/);
     }, 120_000);
 
     it('NEGATIVE: a support released from fixed to pinned fails', async () => {

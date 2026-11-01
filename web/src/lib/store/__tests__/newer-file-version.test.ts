@@ -9,7 +9,9 @@ import { tabManager } from '../tabs.svelte';
 import { setLocale } from '../../i18n';
 import { loadFile, loadProject, serializeProject, isNewerFileVersion } from '../file';
 
-const SESSION_V1 = gunzipSync(readFileSync(new URL('../../../../legacy-projects/v0.4.0/session.ded.gz', import.meta.url))).toString('utf8');
+const SESSION_FILE = (JSON.parse(readFileSync(new URL('../../../../legacy-projects/v0.4.0/manifest.json', import.meta.url), 'utf8')) as { session: { file: string } }).session.file;
+const SESSION_BYTES = readFileSync(new URL(`../../../../legacy-projects/v0.4.0/${SESSION_FILE}`, import.meta.url));
+const SESSION_V1 = (SESSION_FILE.endsWith('.gz') ? gunzipSync(SESSION_BYTES) : SESSION_BYTES).toString('utf8');
 
 function otherProject(version: string): string {
   modelStore.clear();
@@ -41,7 +43,7 @@ function state() {
   };
 }
 
-const NEWER = /newer version of Stabileo \(file format (3\.0|2\.0); this version reads up to (2\.0|1\.0)\)/;
+const NEWER = /newer version of Stabileo \(file format 3\.0; this version reads up to 2\.0\)/;
 
 describe('a file from a newer version is refused before anything is changed', () => {
   beforeEach(() => setLocale('en'));
@@ -58,6 +60,16 @@ describe('a file from a newer version is refused before anything is changed', ()
   });
 
   for (const [what, open] of [['loadFile', loadFile], ['loadProject', loadProject]] as const) {
+    for (const version of [3, '3.0-rc1', 'beta', null, { major: 3 }]) {
+      it(`${what}: NEGATIVE: a project in format ${JSON.stringify(version)} is refused, the open model untouched`, async () => {
+        const text = JSON.stringify({ ...JSON.parse(otherProject('2.0')), version });
+        openModel();
+        const before = state();
+        await expect(open(new File([text], 'unknown.ded'))).rejects.toThrow();
+        expect(state()).toEqual(before);
+      });
+    }
+
     it(`${what}: a project in format 3.0, the open model untouched`, async () => {
       const text = otherProject('3.0');
       openModel();
@@ -77,13 +89,17 @@ describe('a file from a newer version is refused before anything is changed', ()
     });
   }
 
-  it('loadFile: a session in envelope 2.0, the open tabs untouched', async () => {
-    openModel();
-    const before = state();
-    const text = JSON.stringify({ ...JSON.parse(SESSION_V1), version: '2.0' });
-    await expect(loadFile(new File([text], 'session.ded'))).rejects.toThrow(NEWER);
-    expect(state()).toEqual(before);
-  });
+  for (const [what, open] of [['loadFile', loadFile], ['loadProject', loadProject]] as const) {
+    for (const version of ['1.1', '2.0']) {
+      it(`${what}: a session in envelope ${version}, the open tabs untouched`, async () => {
+        openModel();
+        const before = state();
+        const text = JSON.stringify({ ...JSON.parse(SESSION_V1), version });
+        await expect(open(new File([text], 'session.ded'))).rejects.toThrow(/newer version of Stabileo \(file format (1\.1|2\.0); this version reads up to 1\.0\)/);
+        expect(state()).toEqual(before);
+      });
+    }
+  }
 
   it('loadFile: the same session in envelope 1.0 restores its tabs (the refusal above is the version\'s)', async () => {
     openModel();

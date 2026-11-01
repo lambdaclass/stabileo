@@ -26,7 +26,8 @@
  *   1e-13 kN·m), and its relative change between two builds is meaningless. A change of one
  *   ten-millionth of the largest moment in the model is not a result.
  *
- *   The peak of a component is also taken over its own vector (UNIT_FAMILIES): the x, y and z
+ *   Only for old project files (#718, `{ vectorFloor: true }`), never for the snapshot gate:
+ *   the peak of a component is also taken over its own vector (UNIT_FAMILIES): the x, y and z
  *   components of that node's reaction force, that member's N, Vy and Vz at both its ends, the
  *   components of that shell's stress tensor; never over another node's or member's.
  *   Round-off in a component is relative to the size of the vector it belongs to, which a
@@ -96,7 +97,7 @@ export function familyOf(path) {
 }
 
 /** The largest magnitude of each quantity group, and of each vector instance, across the given value maps. */
-export function peaks(...maps) {
+export function peaks(maps, { vectorFloor = false } = {}) {
   const out = new Map();
   const raise = (k, a) => { if (!(out.get(k) >= a)) out.set(k, a); };
   for (const m of maps) {
@@ -104,14 +105,14 @@ export function peaks(...maps) {
       if (typeof v !== 'number') continue;
       const a = Math.abs(v);
       raise(groupOf(path), a);
-      const f = familyOf(path);
+      const f = vectorFloor && familyOf(path);
       if (f) raise(f, a);
     }
   }
   return out;
 }
 
-/** The magnitude ATOL is a fraction of for this path: its group's peak, or its own vector's when larger. */
+/** The magnitude ATOL is a fraction of for this path: its group's peak, or its own vector's when larger and measured. */
 export function scaleOf(path, peak) {
   const f = familyOf(path);
   return Math.max(peak.get(groupOf(path)) ?? 0, (f && peak.get(f)) ?? 0);
@@ -131,8 +132,8 @@ export function sameLeaf(a, b, peak = 0) {
  * the fresh run only. Additions are not result changes (a new case, a new quantity recorded);
  * a change or a removal is.
  */
-export function compareValues(reference, current) {
-  const peak = peaks(reference, current);
+export function compareValues(reference, current, { vectorFloor = false } = {}) {
+  const peak = peaks([reference, current], { vectorFloor });
   const changed = [];
   const removed = [];
   const added = [];
@@ -151,7 +152,7 @@ export function compareValues(reference, current) {
  * churns a file with noise.
  */
 export function mergeValues(reference, current) {
-  const peak = peaks(reference ?? {}, current);
+  const peak = peaks([reference ?? {}, current]);
   const out = {};
   for (const path of Object.keys(current).sort()) {
     const b = current[path];

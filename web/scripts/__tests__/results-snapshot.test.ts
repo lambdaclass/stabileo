@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, familyOf, RTOL, ATOL } from '../results-snapshot/compare.mjs';
+import { compareValues, compareValues as compareAll, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, familyOf, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { decide, isBreakingResultsFragment, newRegistryEntries } from '../results-snapshot/gate.mjs';
 
@@ -22,7 +22,8 @@ describe('the tolerance', () => {
     // A zero that becomes a small fraction of the peak.
     expect(compareValues(ref, { ...ref, 'r.m[e3].my': 1e-4 }).differs).toBe(true);
   });
-  describe('a component statics makes zero, against the size of its vector', () => {
+  describe('old project files only (#718): a component statics makes zero, against the size of its vector', () => {
+    const compareValues = (a: object, b: object) => compareAll(a, b, { vectorFloor: true });
     const truss = {
       'base.reactions[n1].rx': 5.684341886e-14, 'base.reactions[n1].rz': 35, 'base.reactions[n5].rx': 0, 'base.reactions[n5].rz': 35,
       'base.reactions[n1].my': 0, 'base.elementForces[e1].nStart': 35, 'base.elementForces[e1].vStart': 2e-15, 'base.elementForces[e1].mStart': 0,
@@ -61,6 +62,13 @@ describe('the tolerance', () => {
       expect(familyOf('base.quadStresses[e1].nodeIndex')).toBeNull();
       expect(familyOf('base.resultSummary.displacementX.maxValue')).toBeNull();
     });
+  });
+  it('NEGATIVE: the snapshot gate never floors a component by its vector', () => {
+    const member = { 'base.elementForces[e1].nStart': 5000, 'base.elementForces[e1].vStart': 0 };
+    const shear = { ...member, 'base.elementForces[e1].vStart': 0.0004 };
+    expect(compareValues(member, shear).changed.map((c: { path: string }) => c.path)).toEqual(['base.elementForces[e1].vStart']);
+    expect(compareAll(member, shear, { vectorFloor: true }).differs).toBe(false);
+    expect(mergeValues(member, shear)).toEqual(shear);
   });
   it('is the stated rule', () => {
     expect(RTOL).toBe(1e-6);

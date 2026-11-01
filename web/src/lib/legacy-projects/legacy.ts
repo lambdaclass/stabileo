@@ -243,12 +243,14 @@ export async function openExample(
 }
 
 const LOAD_REFERENCES = new Set(['id', 'nodeId', 'elementId', 'quadId', 'caseId', 'fromDef', 'carrier']);
+const LOAD_TARGETS = ['nodeId', 'elementId', 'quadId', 'elementIds', 'quadIds', 'nodeIds'] as const;
 
 /**
- * What the model on screen is, beyond its counts, as flat values: each member's ends, material
- * and section; each material's and section's stiffness properties; each shell's material and
- * thickness; each support; each load case, and per case and kind of load the number of loads and
- * the sum of each of their force, moment and position fields; each combination's factors; the
+ * What the model on screen is, beyond its counts, as flat values: each node's coordinates; each
+ * member's ends, material, section, releases, joints, offsets and orientation; each material's and section's stiffness properties; each shell's material and
+ * thickness, nodes and offset; each support; each load case, and per case and kind of load, in
+ * total and per target (node, member or shell), the number of loads and the sum of each of their
+ * force, moment and position fields; each combination's factors; the
  * self-weight rule. A migration that drops a load, swaps a section or frees a support changes it
  * without a solve.
  */
@@ -261,6 +263,17 @@ export function modelFingerprint(): Values {
     out[`${k}.material`] = e.materialId;
     out[`${k}.section`] = e.sectionId;
     if (e.variableSection) out[`${k}.sectionJ`] = e.variableSection.sectionJ;
+    for (const f of ['releaseI', 'releaseJ', 'jointI', 'jointJ', 'offset', 'behaviour'] as const) {
+      if (e[f] !== undefined) out[`${k}.${f}`] = JSON.stringify(e[f]);
+    }
+    for (const f of ['localYx', 'localYy', 'localYz', 'rollAngle', 'cablePretension'] as const) {
+      if (e[f] !== undefined) out[`${k}.${f}`] = e[f]!;
+    }
+  }
+  for (const n of modelStore.nodes.values()) {
+    out[`node[${n.id}].x`] = n.x;
+    out[`node[${n.id}].y`] = n.y;
+    out[`node[${n.id}].z`] = n.z ?? 0;
   }
   for (const m of modelStore.materials.values()) {
     for (const f of ['e', 'nu', 'rho'] as const) out[`material[${m.id}].${f}`] = m[f];
@@ -272,6 +285,8 @@ export function modelFingerprint(): Values {
     for (const q of shells.values()) {
       out[`${kind}[${q.id}].material`] = q.materialId;
       out[`${kind}[${q.id}].thickness`] = q.thickness;
+      out[`${kind}[${q.id}].nodes`] = q.nodes.join('-');
+      if (q.offset !== undefined) out[`${kind}[${q.id}].offset`] = JSON.stringify(q.offset);
     }
   }
   for (const sup of modelStore.supports.values()) {
@@ -285,9 +300,13 @@ export function modelFingerprint(): Values {
     const data = l.data as unknown as Record<string, unknown>;
     const k = `loads[${data.caseId ?? 1}].${l.type}`;
     out[`${k}.count`] = ((out[`${k}.count`] as number | undefined) ?? 0) + 1;
+    const target = LOAD_TARGETS.filter((f) => data[f] !== undefined).map((f) => `${f}=${JSON.stringify(data[f])}`).join(',');
+    const t = `${k}[${target}]`;
+    out[`${t}.count`] = ((out[`${t}.count`] as number | undefined) ?? 0) + 1;
     for (const [f, v] of Object.entries(data)) {
       if (LOAD_REFERENCES.has(f) || typeof v !== 'number') continue;
       out[`${k}.${f}`] = ((out[`${k}.${f}`] as number | undefined) ?? 0) + v;
+      out[`${t}.${f}`] = ((out[`${t}.${f}`] as number | undefined) ?? 0) + v;
     }
   }
   for (const c of modelStore.combinations) {
@@ -435,7 +454,7 @@ export function judge(name: string, reference: Values, current: Values, changes:
   const applicable = changes.map(label);
   const solve: Verdict['solve'] = refGated['solve.ok'] === curGated['solve.ok'] ? null
     : curGated['solve.ok'] === false ? 'now refuses' : refGated['solve.ok'] === false ? 'now solves' : null;
-  const diff = (solve ? compareValues(outsideResults(refGated), outsideResults(curGated)) : compareValues(refGated, curGated)) as Diff;
+  const diff = compareValues(solve ? outsideResults(refGated) : refGated, solve ? outsideResults(curGated) : curGated, { vectorFloor: true }) as Diff;
   if (!diff.differs && diff.added.length === 0) return { kind: 'same', solve, report: '', explainedBy: [], applicable, notes };
   const used = new Set<ResultChange>();
   const explained = (path: string) => {
