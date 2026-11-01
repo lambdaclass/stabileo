@@ -27,7 +27,7 @@
     import(/* @vite-ignore */ `${BASE}viewer.js`)
       .then((m: { mountScalarFieldViewer: (el: HTMLElement, p: Record<string, unknown>) => typeof handle }) => {
         if (cancelled) return;
-        handle = m.mountScalarFieldViewer(host, { ...props, locale: researchLocale() });
+        handle = m.mountScalarFieldViewer(host, { ...props, locale: props.locale ?? researchLocale() });
       })
       .catch((err) => {
         console.warn('research: the viewer bundle could not be loaded', err);
@@ -39,7 +39,7 @@
   });
 
   $effect(() => {
-    const next = { ...props, locale: researchLocale() };
+    const next = { ...props, locale: props.locale ?? researchLocale() };
     handle?.update(next);
   });
 

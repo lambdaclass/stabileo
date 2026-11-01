@@ -137,7 +137,7 @@ export const EXPERIMENTS: Experiment[] = [
     paperId: 'riks-1979',
     path: '/research/benchmarks/riks-crisfield',
     name: 'Arc-length snap-through: Riks and Crisfield',
-    hook: 'Follow two-bar trusses through their limit points with Stabileo’s production arc-length engine, checked against closed-form equilibrium paths.',
+    hook: 'Compare two-bar frame equilibrium paths with analytical references; the slender von Mises case passes its upper limit point.',
     thumbnail: 'research-thumbs/riks-crisfield.webp',
     thumbnailAlt: 'Two-bar benchmark geometry and computed displacement',
     thumbnailQuery: 'case=von-mises-truss&tab=viewer',

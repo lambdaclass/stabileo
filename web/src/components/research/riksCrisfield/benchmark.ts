@@ -129,25 +129,40 @@ export function inputFor(c: BenchmarkCase, parameters: RunParameters): ArcInput 
 }
 
 export function measuredLimitFrame(frames: BenchmarkFrame[]): BenchmarkFrame | null {
-  const firstLimit = frames.findIndex((frame, index) => index + 1 < frames.length && frame.load > 0 && frames[index + 1].load < frame.load);
+  const firstLimit = frames.findIndex((frame, index) => index + 1 < frames.length && frame.converged && frames[index + 1].converged && frame.load > 0 && frames[index + 1].load < frame.load);
   return firstLimit >= 0
     ? frames[firstLimit]
-    : frames.reduce<BenchmarkFrame | null>((best, frame) => !best || frame.load > best.load ? frame : best, null);
+    : null;
+}
+
+export function interpolatedLimit(frames: BenchmarkFrame[]): LimitPoint | null {
+  const peak = measuredLimitFrame(frames);
+  if (!peak) return null;
+  const i = frames.indexOf(peak);
+  const left = frames[i - 1], right = frames[i + 1];
+  if (!left?.converged || !right?.converged) return { displacement: peak.displacement, load: peak.load, loadFactor: peak.loadFactor };
+  const x = peak.displacement, h0 = left.displacement - x, h1 = right.displacement - x;
+  const d0 = (left.load - peak.load) / h0, d1 = (right.load - peak.load) / h1;
+  const a = (d1 - d0) / (h1 - h0), b = d0 - a * h0;
+  const dx = -b / (2 * a);
+  if (!(a < 0 && dx >= h0 && dx <= h1)) return { displacement: x, load: peak.load, loadFactor: peak.loadFactor };
+  const load = peak.load + b * dx + a * dx * dx;
+  return { displacement: x + dx, load, loadFactor: load * peak.loadFactor / peak.load };
 }
 
 export function compareRun(c: BenchmarkCase, run: BenchmarkRun): ComparisonCheck[] {
   const rise = 2 * c.geometry.halfSpan * run.parameters.riseSpan;
   const limit = limitPoint(c.geometry.halfSpan, rise, axialRigidity(c), c.apex.referenceLoad);
-  const reached = run.frames.some((frame) => frame.displacement >= limit.displacement);
-  const peak = measuredLimitFrame(run.frames);
+  const peak = interpolatedLimit(run.frames);
+  const reached = peak !== null;
   const pathError = run.frames.reduce((worst, frame) => {
     const y = rise - frame.displacement;
     const length = Math.hypot(c.geometry.halfSpan, y);
     const reference = 2 * axialRigidity(c) * (1 - length / Math.hypot(c.geometry.halfSpan, rise)) * (y / length);
     return Math.max(worst, Math.abs(frame.load - reference) / Math.abs(limit.load));
   }, 0);
-  const loadError = peak && reached ? Math.abs(peak.load - limit.load) / Math.abs(limit.load) : 1;
-  const displacementError = peak && reached ? Math.abs(peak.displacement - limit.displacement) / Math.abs(limit.displacement) : 1;
+  const loadError = peak && reached ? Math.abs(peak.load - limit.load) / Math.abs(limit.load) : NaN;
+  const displacementError = peak && reached ? Math.abs(peak.displacement - limit.displacement) / Math.abs(limit.displacement) : NaN;
   return [
     { id: 'limit-load', label: 'Limit load', reference: limit.load, observed: reached && peak ? peak.load : NaN, error: loadError, tolerance: c.tolerances.limitLoadRelative, passed: reached && loadError <= c.tolerances.limitLoadRelative, reached },
     { id: 'limit-displacement', label: 'Apex displacement at the limit', reference: limit.displacement, observed: reached && peak ? peak.displacement : NaN, error: displacementError, tolerance: c.tolerances.limitDisplacementRelative, passed: reached && displacementError <= c.tolerances.limitDisplacementRelative, reached },
@@ -158,16 +173,12 @@ export function compareRun(c: BenchmarkCase, run: BenchmarkRun): ComparisonCheck
 export function comparisonHeadline(checks: ComparisonCheck[]): string {
   const passed = checks.filter((check) => check.passed).length;
   const tolerance = Math.max(...checks.map((check) => check.tolerance)) * 100;
-  const worst = Math.max(...checks.map((check) => check.error)) * 100;
+  const worst = Math.max(0, ...checks.filter(check => Number.isFinite(check.error)).map((check) => check.error)) * 100;
   return passed === checks.length
-    ? `Stabileo traces the snap-through: ${passed}/${checks.length} checks within ${tolerance.toFixed(0)}%`
+    ? `Stabileo passes the upper limit point: ${passed}/${checks.length} checks within ${tolerance.toFixed(0)}%`
     : `Snap-through checks: ${passed}/${checks.length} pass; worst difference ${worst.toFixed(1)}%`;
 }
 
-/** Rigid apex, pinned bases: derivative of axial plus minimized bending energy.
- * Reference: fix/846-shallow-toggle, engine/tests/BENCHMARK_REFERENCES.md (#852).
- * The axial-only helpers above describe the pin-jointed truss comparison.
- */
 export function frameReferenceLoadAt(c: BenchmarkCase, displacement: number, rise = c.geometry.rise): number {
   const a = c.geometry.halfSpan, y = rise - displacement;
   const l0 = Math.hypot(a, rise), length = Math.hypot(a, y);
@@ -178,7 +189,6 @@ export function frameReferenceLoadAt(c: BenchmarkCase, displacement: number, ris
 
 export function compareFrameRun(c: BenchmarkCase, run: BenchmarkRun): ComparisonCheck[] {
   const rise = 2 * c.geometry.halfSpan * run.parameters.riseSpan;
-  // Preserve the original force normalization and tolerance, without asserting a frame limit.
   const scale = Math.abs(limitPoint(c.geometry.halfSpan, rise, axialRigidity(c), c.apex.referenceLoad).load);
   const error = run.frames.reduce((worst, f) => Math.max(worst, Math.abs(f.load - frameReferenceLoadAt(c, f.displacement, rise)) / scale), 0);
   const tolerance = c.tolerances.equilibriumPathNormalizedByLimitLoad;

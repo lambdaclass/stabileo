@@ -1301,7 +1301,30 @@
    "benchmarks": [],
    "implementation": null,
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 2,
+     "reviewer": "kimi",
+     "date": "2026-10-30",
+     "findings": "Consolidated verified review: numerical reference scope, upper-limit detection and sampling, evidence parity, localization, accessibility and responsive coverage.",
+     "resolution": "Corrected method-benchmark claims and references; strengthened checks and refreshed evidence. Browser specifications added; Playwright execution unavailable locally."
+    },
+    {
+     "round": 2,
+     "reviewer": "codex",
+     "date": "2026-10-30",
+     "findings": "Consolidated verified review: numerical reference scope, upper-limit detection and sampling, evidence parity, localization, accessibility and responsive coverage.",
+     "resolution": "Corrected method-benchmark claims and references; strengthened checks and refreshed evidence. Browser specifications added; Playwright execution unavailable locally."
+    },
+    {
+     "round": 2,
+     "reviewer": "claude",
+     "date": "2026-10-30",
+     "findings": "Consolidated verified review: numerical reference scope, upper-limit detection and sampling, evidence parity, localization, accessibility and responsive coverage.",
+     "resolution": "Corrected method-benchmark claims and references; strengthened checks and refreshed evidence. Browser specifications added; Playwright execution unavailable locally."
+    }
+   ]
   },
   {
    "id": "crisfield-1981",
@@ -1335,7 +1358,30 @@
    "benchmarks": [],
    "implementation": null,
    "page": "web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte",
-   "contacts": []
+   "contacts": [],
+   "reviews": [
+    {
+     "round": 2,
+     "reviewer": "kimi",
+     "date": "2026-10-30",
+     "findings": "Consolidated verified review: numerical reference scope, upper-limit detection and sampling, evidence parity, localization, accessibility and responsive coverage.",
+     "resolution": "Corrected method-benchmark claims and references; strengthened checks and refreshed evidence. Browser specifications added; Playwright execution unavailable locally."
+    },
+    {
+     "round": 2,
+     "reviewer": "codex",
+     "date": "2026-10-30",
+     "findings": "Consolidated verified review: numerical reference scope, upper-limit detection and sampling, evidence parity, localization, accessibility and responsive coverage.",
+     "resolution": "Corrected method-benchmark claims and references; strengthened checks and refreshed evidence. Browser specifications added; Playwright execution unavailable locally."
+    },
+    {
+     "round": 2,
+     "reviewer": "claude",
+     "date": "2026-10-30",
+     "findings": "Consolidated verified review: numerical reference scope, upper-limit detection and sampling, evidence parity, localization, accessibility and responsive coverage.",
+     "resolution": "Corrected method-benchmark claims and references; strengthened checks and refreshed evidence. Browser specifications added; Playwright execution unavailable locally."
+    }
+   ]
   },
   {
    "id": "hrennikoff-1941",
