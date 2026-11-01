@@ -1,8 +1,8 @@
 import type { Post } from '../types';
 
 export const researchToolsAndCheckingOurTests: Post = {
-  "slug": "research-tools-and-checking-our-tests",
-  "date": "2026-10-30",
+  slug: 'research-tools-and-checking-our-tests',
+  date: '2026-10-30',
   "order": 11,
   "authors": [
     "Federico Carrone"
