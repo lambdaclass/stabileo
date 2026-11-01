@@ -22,9 +22,10 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
   }
 }
 
-for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) it(`shows no first-version or review-round note in ${locale}`, () => {
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) it(`shows no first-version or review-round note in ${locale}`, async () => {
   setPublicLocale(locale);
   for (const path of ['/tools', '/tools/simply-supported-beam', '/tools/column-buckling', ...BATCH_IDS.map(id => `/tools/${id}`)]) {
+    const ToolsPage = await loadToolsPage(path);
     const { body } = render(ToolsPage, { props: { path } });
     expect(body).not.toMatch(/First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review round|ronda de revisión|rodada de revisão|Prüfrunde|cycle de revue|inceleme turu/);
     expect(body).not.toContain('class="badge"');
