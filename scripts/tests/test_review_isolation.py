@@ -66,7 +66,7 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
         self.assertIn('(deny file-write*)', mac[2])
         self.assertIn(f'(allow file-write* (subpath "{scratch}"))', mac[2])
         self.assertEqual(linux[2:5], ['--ro-bind', '/', '/'])
-        self.assertEqual(linux[5:8], ['--bind', scratch, scratch])
+        self.assertEqual(linux[7:10], ['--bind', scratch, scratch])
         self.assertIn('--unshare-pid', linux)
         self.assertEqual(linux[5:7], ['--dev', '/dev'])
         self.assertIn('--proc', linux)
