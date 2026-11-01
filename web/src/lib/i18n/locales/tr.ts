@@ -276,7 +276,7 @@ const tr: Translations = {
   'landing.badgeDevOpen': "GELİŞTİRME AŞAMASINDA",
   'landing.proDesignH': 'Yönetmelik kontrolü ve eleman boyutlandırma.',
   'landing.proDesignP': 'Analiz tamamlandıktan sonra çubukları yönetmeliğe göre kontrol edin ve boyutlandırın. Bugün betonarme (CIRSOC 201) ve çelik (CIRSOC 301, deneysel) kontrolleri yapar, CIRSOC 101, 102, 103 ve 104\'e göre yükleri ve kombinasyonları üretir; diğer ülkelerin yönetmelikleri eklenebilecek şekilde yapılandırılmıştır.',
-  'landing.metaDescription': 'Ücretsiz, açık kaynaklı yapı analizi: tarayıcınızda 2B ve 3B çerçeve ve kafes sistemler, kurulum gerektirmez, CIRSOC 201 ve 301\'e göre tasarım kontrolleriyle.',
+  'landing.metaDescription': "Tarayıcıda ücretsiz, açık kaynaklı yapı analizi: 2B ve 3B çerçeve ve kafes sistemler, kurulum yok. CIRSOC tasarım modülü ücretli, üniversitelere ücretsiz.",
   'landing.metaTitle': 'Stabileo — Ücretsiz yapı analizi yazılımı, tarayıcınızda',
   'landing.proDesignCirsocLink': 'Bugün CIRSOC\'a göre neleri kontrol ediyor',
   'landing.ebAi': 'STABILEO AI',

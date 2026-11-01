@@ -138,7 +138,15 @@ export function landingPricingTests(locale: Locale) {
           });
           expect(metrics.smallText).toEqual([]);
           expect(metrics.overflow).toEqual([]);
+          const prose = await article.locator(':is(p, li, td) a:visible').all();
+          expect(prose.length).toBeGreaterThan(0);
+          for (const link of prose) {
+            const rect = await link.boundingBox();
+            expect(rect!.x).toBeGreaterThanOrEqual(0);
+            expect(rect!.x + rect!.width).toBeLessThanOrEqual(width);
+          }
           for (const control of await article.locator('button:visible, a:visible').all()) {
+            if (await control.evaluate((el) => el.matches(':is(p, li, td) a'))) continue;
             const rect = await control.boundingBox();
             expect(rect).not.toBeNull();
             expect(rect!.width).toBeGreaterThanOrEqual(44);

@@ -266,7 +266,7 @@ const pt: Translations = {
   'landing.badgeDevOpen': "EM DESENVOLVIMENTO",
   'landing.proDesignH': 'Verificação normativa e projeto de elementos.',
   'landing.proDesignP': 'Depois de calcular, verifique e dimensione os elementos segundo a norma. Hoje verifica concreto armado (CIRSOC 201) e aço (CIRSOC 301, experimental) e gera as cargas e combinações das CIRSOC 101, 102, 103 e 104; está organizado para receber normas de outros países.',
-  'landing.metaDescription': 'Software de cálculo estrutural grátis e de código aberto: pórticos e treliças 2D e 3D no navegador, sem instalar nada, com verificação segundo CIRSOC 201 e 301.',
+  'landing.metaDescription': "Cálculo estrutural grátis e de código aberto no navegador: pórticos e treliças 2D e 3D, sem instalar nada. Dimensionamento CIRSOC pago, grátis em universidades.",
   'landing.metaTitle': 'Stabileo — Software de cálculo estrutural grátis, no navegador',
   'landing.proDesignCirsocLink': 'O que verifica hoje segundo a CIRSOC',
   'landing.ebAi': 'STABILEO IA',

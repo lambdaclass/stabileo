@@ -101,10 +101,10 @@ export const PRICING = {
     "free": "Gratuit",
     "paid": "Payant",
     "atCost": "Au prix coûtant",
-    "intro": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût.",
+    "intro": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo AI et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût.",
     "notes": [
       "Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement.",
-      "Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
+      "Stabileo AI et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
     ]
   },
   "tr": {
@@ -132,11 +132,11 @@ export const PRICING = {
 
 // Obsolete development/education exemptions must not survive elsewhere on the page.
 export const OBSOLETE_PRICING: Record<Locale, RegExp> = {
-  en: /free (?:during|while|throughout)|(?:everything|all modules) (?:is |are )?free|(?:education|universities).{0,40}without exceptions/i,
-  es: /gratis (?:durante|mientras)|gratuito (?:durante|mientras)|todo (?:es )?gratis|sin excepciones/i,
-  pt: /grátis (?:durante|enquanto)|gratuito (?:durante|enquanto)|tudo (?:é )?grátis|sem exceções/i,
-  de: /kostenlos (?:während|solange)|(?:während|solange)[^.]*kostenlos|alles (?:ist )?kostenlos|ohne Ausnahmen/i,
-  fr: /gratuit(?:e|s)? (?:pendant|durant|tant que)|tout est gratuit|sans exception/i,
-  tr: /geliştirme (?:süresince|boyunca|aşamasında)[^.]*ücretsiz|her şey ücretsiz|istisnasız/i,
+  en: /free (?:during|while|throughout)|(?:everything|all modules) (?:is |are )?free|(?:education|universities).{0,40}without exceptions|public universities|taking part in (?:its|Stabileo’s) development|contributors/i,
+  es: /gratis (?:durante|mientras)|gratuito (?:durante|mientras)|todo (?:es )?gratis|sin excepciones|universidades públicas|particip\w+ del desarrollo/i,
+  pt: /grátis (?:durante|enquanto)|gratuito (?:durante|enquanto)|tudo (?:é )?grátis|sem exceções|universidades públicas|particip\w+ do desenvolvimento/i,
+  de: /kostenlos (?:während|solange)|(?:während|solange)[^.]*kostenlos|alles (?:ist )?kostenlos|ohne Ausnahmen|öffentlichen? Universitäten|an seiner Entwicklung beteilig/i,
+  fr: /gratuit(?:e|s)? (?:pendant|durant|tant que)|tout est gratuit|sans exception|universités publiques|particip\w+ à son développement/i,
+  tr: /geliştirme (?:süresince|boyunca|aşamasında)[^.]*ücretsiz|her şey ücretsiz|istisnasız|devlet üniversiteleri|geliştirilmesine katkıda/i,
 };
 

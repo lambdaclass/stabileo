@@ -268,7 +268,7 @@ const en: Record<string, string> = {
   'landing.badgeDevOpen': "IN DEVELOPMENT",
   'landing.proDesignH': 'Code verification and element design.',
   'landing.proDesignP': 'Once the analysis is done, check and design members against the code. Today it checks reinforced concrete (CIRSOC 201) and steel (CIRSOC 301, experimental) and generates loads and combinations to CIRSOC 101, 102, 103 and 104; it is structured so that other countries’ codes can be added.',
-  'landing.metaDescription': 'Free, open-source structural analysis: 2D and 3D frames and trusses in your browser, nothing to install, with design checks to CIRSOC 201 and 301.',
+  'landing.metaDescription': "Free, open-source structural analysis in your browser: 2D and 3D frames and trusses, nothing to install. CIRSOC design module: paid, free for universities.",
   'landing.metaTitle': 'Stabileo — Free structural analysis software, in your browser',
   'landing.proDesignCirsocLink': 'What it checks against CIRSOC today',
   'landing.ebAi': 'STABILEO AI',

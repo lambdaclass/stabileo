@@ -20,9 +20,9 @@ export const sap2000AlternativePage: StandingPage = {
     es: {
       title: 'Una alternativa gratis y de código abierto a SAP2000, en el navegador',
       description:
-        'Stabileo: cálculo estructural gratis y abierto en el navegador. Pórticos 2D y 3D, láminas, P-Delta, modal y espectro, con verificación CIRSOC, ACI y AISC.',
+        'Stabileo: cálculo estructural gratis y abierto en el navegador. Pórticos 2D y 3D, láminas, P-Delta, modal y espectro; diseño en módulos pagos.',
       eyebrow: 'Alternativa a SAP2000',
-      lead: 'Stabileo es un programa de cálculo estructural gratis y de código abierto (AGPL-3.0) que corre en el navegador, sin instalación, licencia ni cuenta. El solver está escrito en Rust y compilado a WebAssembly, así que el modelo se resuelve en tu computadora. El modo Básico modela, carga, resuelve y muestra resultados de pórticos y reticulados en 2D y 3D; el modo PRO, en desarrollo, suma losas y tabiques, importación de DXF e IFC, cargas según reglamento y verificación de elementos.',
+      lead: 'Stabileo es un programa de cálculo estructural gratis y de código abierto (AGPL-3.0) que corre en el navegador, sin instalación, licencia ni cuenta. El solver está escrito en Rust y compilado a WebAssembly, así que el modelo se resuelve en tu computadora. El modo Básico modela, carga, resuelve y muestra resultados de pórticos y reticulados en 2D y 3D; el modo PRO, en desarrollo, suma losas y tabiques, importación de DXF e IFC, cargas según reglamento y verificación de elementos. El análisis es gratis para todos; los módulos de diseño son pagos y gratuitos para las universidades.',
       blocks: [
         { k: 'h', t: 'Cuándo es una buena alternativa' },
         {
@@ -55,9 +55,9 @@ export const sap2000AlternativePage: StandingPage = {
     en: {
       title: 'A free, open-source alternative to SAP2000, in your browser',
       description:
-        'Stabileo: free, open-source structural analysis in your browser. 2D/3D frames, shells, P-Delta, modal and spectrum, with AISC, ACI, Eurocode and CIRSOC checks.',
+        'Stabileo: free, open-source structural analysis in your browser. 2D/3D frames, shells, P-Delta, modal and spectrum; code checks in paid modules.',
       eyebrow: 'SAP2000 alternative',
-      lead: 'Stabileo is free, open-source (AGPL-3.0) structural analysis software that runs in your browser, with no install, licence key or account. The solver is written in Rust and compiled to WebAssembly, so the model is solved on your own computer. Basic mode models, loads, solves and reads results for 2D and 3D frames and trusses; PRO mode, in development, adds slabs and walls, DXF and IFC import, code loads and member checks.',
+      lead: 'Stabileo is free, open-source (AGPL-3.0) structural analysis software that runs in your browser, with no install, licence key or account. The solver is written in Rust and compiled to WebAssembly, so the model is solved on your own computer. Basic mode models, loads, solves and reads results for 2D and 3D frames and trusses; PRO mode, in development, adds slabs and walls, DXF and IFC import, code loads and member checks. Analysis is free for everyone; the design modules are paid, and free for universities.',
       blocks: [
         { k: 'h', t: 'When it is a good alternative' },
         {
@@ -90,9 +90,9 @@ export const sap2000AlternativePage: StandingPage = {
     pt: {
       title: 'Uma alternativa grátis e de código aberto ao SAP2000, no navegador',
       description:
-        'Stabileo: cálculo estrutural grátis e aberto no navegador. Pórticos 2D e 3D, cascas, P-Delta, modal e espectro, com verificação CIRSOC, ACI, AISC e Eurocódigo.',
+        'Stabileo: cálculo estrutural grátis e aberto no navegador. Pórticos 2D e 3D, cascas, P-Delta, modal e espectro; dimensionamento em módulos pagos.',
       eyebrow: 'Alternativa ao SAP2000',
-      lead: 'O Stabileo é um software de cálculo estrutural grátis e de código aberto (AGPL-3.0) que roda no navegador, sem instalação, licença nem conta. O solver é escrito em Rust e compilado para WebAssembly, então o modelo é resolvido no seu computador. O modo Básico modela, carrega, resolve e mostra resultados de pórticos e treliças em 2D e 3D; o modo PRO, em desenvolvimento, acrescenta lajes e paredes, importação de DXF e IFC, cargas segundo a norma e verificação de elementos.',
+      lead: 'O Stabileo é um software de cálculo estrutural grátis e de código aberto (AGPL-3.0) que roda no navegador, sem instalação, licença nem conta. O solver é escrito em Rust e compilado para WebAssembly, então o modelo é resolvido no seu computador. O modo Básico modela, carrega, resolve e mostra resultados de pórticos e treliças em 2D e 3D; o modo PRO, em desenvolvimento, acrescenta lajes e paredes, importação de DXF e IFC, cargas segundo a norma e verificação de elementos. A análise é grátis para todos; os módulos de dimensionamento são pagos e gratuitos para as universidades.',
       blocks: [
         { k: 'h', t: 'Quando é uma boa alternativa' },
         {

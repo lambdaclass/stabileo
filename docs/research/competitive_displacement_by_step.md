@@ -65,11 +65,11 @@ Sources: CSI reseller sites, Dlubal webshop, Autodesk AEC Collection pricing, Be
 
 **Displaces:** RFEM / Dlubal (basic workflows), SCIA Engineer (basic workflows), RISA-3D (basic workflows), Prokon (basic workflows), CYPECAD (partial), StructurePoint (partial)
 
-**Why:** For firms doing linear and second-order steel/concrete frames with shell floors, Stabileo now covers the common 80% of daily work: better shells, design codes (AISC, ACI, EC2, EC3, CIRSOC), structured diagnostics, free core analysis, browser access. RFEM and SCIA retain advantages on reports, auto load generation, and Wood-Armer moments — but those are addressed in later steps. RISA-3D and Prokon users doing standard steel/concrete/wood frames have a free analysis alternative. CYPECAD users doing basic RC frame design can switch for the analysis portion — CYPECAD retains detailing and local code depth. StructurePoint's spColumn/spBeam/spSlab users get equivalent section and member design through Stabileo's built-in design code checks.
+**Why:** For firms doing linear and second-order steel/concrete frames with shell floors, Stabileo now covers the common 80% of daily work: better shells, design codes (AISC, ACI, EC2, EC3, CIRSOC), structured diagnostics, free core analysis, browser access. RFEM and SCIA retain advantages on reports, auto load generation, and Wood-Armer moments — but those are addressed in later steps. RISA-3D and Prokon users doing standard steel/concrete/wood frames have a free analysis alternative. CYPECAD users doing basic RC frame design can switch for the analysis portion — CYPECAD retains detailing and local code depth. StructurePoint's spColumn/spBeam/spSlab users get equivalent section and member design through Stabileo's design code checks, which are a paid module (free for universities).
 
-**Savings per seat:** ~$2,000-$5,000/yr (varies by tool)
-**5-seat firm switching from RFEM:** ~$15,000/yr
-**5-seat firm switching from SCIA:** ~$15,000-$25,000/yr
+**Savings per seat:** up to ~$2,000-$5,000/yr on analysis licences (varies by tool), less the price of the design modules for workflows that use them
+**5-seat firm switching from RFEM:** up to ~$15,000/yr, less design module seats
+**5-seat firm switching from SCIA:** up to ~$15,000-$25,000/yr, less design module seats
 **5-seat firm switching from RISA:** ~$10,000-$20,000/yr
 **5-seat firm switching from Prokon:** ~$10,000-$20,000/yr
 
@@ -91,7 +91,7 @@ Sources: CSI reseller sites, Dlubal webshop, Autodesk AEC Collection pricing, Be
 
 **Displaces:** OpenSees (80% of seismic practice), DIANA FEA (partial — concrete nonlinear), CYPECAD (RC design workflows)
 
-**Why:** RC columns with confined concrete (Mander), steel frames with Bauschinger effect (Menegotto-Pinto), fiber sections with biaxial bending. The common earthquake engineering workflows now run in-browser with visual feedback. OpenSees retains researchers doing exotic materials and massive parametric studies. DIANA FEA's core strength is concrete nonlinear analysis (CDP, smeared crack, Mander) — Stabileo now covers the common concrete material models at zero cost. DIANA retains geotechnical specialization (Cam-Clay, interface elements) and its deep masonry constitutive library. CYPECAD users in Latin America and Southern Europe doing RC frame design with nonlinear checks can now get analysis + materials + design codes in one browser tool. Core analysis is free for everyone; some specialised modules are paid, and universities get those modules free.
+**Why:** RC columns with confined concrete (Mander), steel frames with Bauschinger effect (Menegotto-Pinto), fiber sections with biaxial bending. The common earthquake engineering workflows now run in-browser with visual feedback. OpenSees retains researchers doing exotic materials and massive parametric studies. DIANA FEA's core strength is concrete nonlinear analysis (CDP, smeared crack, Mander) — Stabileo now covers the common concrete material models in its free core analysis. DIANA retains geotechnical specialization (Cam-Clay, interface elements) and its deep masonry constitutive library. CYPECAD users in Latin America and Southern Europe doing RC frame design with nonlinear checks can now get analysis + materials + design codes in one browser tool. Core analysis is free for everyone; some specialised modules are paid, and universities get those modules free.
 
 **Savings per seat:** $0 (OpenSees) / ~$10,000-$15,000 (DIANA) / ~$1,500-$3,000 (CYPECAD)
 **5-seat firm switching from DIANA:** ~$50,000-$75,000/yr
