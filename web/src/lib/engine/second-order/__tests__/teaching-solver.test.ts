@@ -50,6 +50,25 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
     expect(lambda1(column('fixed', 'guided', L, P), 'phi', 1)).toBeCloseTo((4 * Math.PI ** 2 * EI) / (L * L) / P, 3);
   });
 
+  it('a fixed-fixed column of one element: φ gives its higher modes, each internal, with no nodal shape drawn', () => {
+    const b = teachingBuckling(column('fixed', 'guided', L, P), { method: 'phi', axialRigid: false }, 3);
+    if (!b.ok) throw new Error(b.reason.key);
+    expect(b.run.modes.length).toBe(3);
+    [2 * Math.PI, 8.986818916, 4 * Math.PI].forEach((kL, i) => {
+      const m = b.run.modes[i];
+      expect(m.lambda / ((kL * kL * EI) / (L * L) / P)).toBeCloseTo(1, 6);
+      expect(m.internal).toBe(true);
+      expect(m.D.every((v) => v === 0)).toBe(true);
+    });
+  });
+
+  it('a pinned-pinned column: its mode is a nodal one, drawn', () => {
+    const b = teachingBuckling(column('pinned', 'rollerZ', L, P), { method: 'phi', axialRigid: false }, 1);
+    if (!b.ok) throw new Error(b.reason.key);
+    expect(b.run.modes[0].internal).toBeUndefined();
+    expect(Math.max(...b.run.modes[0].D.map(Math.abs))).toBeCloseTo(1, 9);
+  });
+
   it('φ at n = 1 finds the higher modes too: pinned-pinned λ_k = k²·λ₁', () => {
     const b = teachingBuckling(column('pinned', 'rollerZ', L, P), { method: 'phi', axialRigid: false }, 3);
     if (!b.ok) throw new Error(b.reason.key);
@@ -100,6 +119,8 @@ describe('the teaching solver against the engine at the same discretization', ()
       const eng = wasm.solveBuckling(r.input, 4).modes.map((m: { loadFactor: number }) => m.loadFactor);
       const b = teachingBuckling(r.input, { method: 'consistent', axialRigid: false }, 4);
       if (!b.ok) throw new Error(b.reason.key);
+      expect(eng.length).toBeGreaterThan(0);
+      expect(b.run.modes.length).toBe(Math.min(4, eng.length));
       b.run.modes.forEach((m, k) => expect(m.lambda / eng[k]).toBeCloseTo(1, 8));
     });
   }

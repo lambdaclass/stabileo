@@ -109,14 +109,30 @@ export function computeGoverning3D(
 
 // ─── 2D ───────────────────────────────────────────────────────
 
-/** The largest |value| of a diagram along the member: at its ends, at k/40 and either side of each point load. */
-function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces): number {
+/**
+ * The largest |value| of a diagram along the member: at its ends, either side of each point load,
+ * and at every local peak of a k/40 sampling, refined by golden section between its neighbours.
+ */
+export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces): number {
+  const f = (t: number) => Math.abs(computeDiagramValueAt(kind, Math.min(1, Math.max(0, t)), ef));
   const ts = Array.from({ length: 41 }, (_, k) => k / 40);
   for (const p of ef.pointLoads ?? []) {
     const t = p.a / Math.max(ef.length, 1e-12);
-    ts.push(t, t + 1e-9);
+    ts.push(Math.max(0, t - 1e-9), Math.min(1, t + 1e-9));
   }
-  return Math.max(...ts.map((t) => Math.abs(computeDiagramValueAt(kind, Math.min(1, t), ef))));
+  ts.sort((a, b) => a - b);
+  const v = ts.map(f);
+  let best = Math.max(...v);
+  for (let k = 1; k < ts.length - 1; k++) {
+    if (!(v[k] >= v[k - 1] && v[k] >= v[k + 1])) continue;
+    let lo = ts[k - 1], hi = ts[k + 1];
+    for (let i = 0; i < 60 && hi - lo > 1e-12; i++) {
+      const a = lo + (hi - lo) * 0.381966, b = lo + (hi - lo) * 0.618034;
+      if (f(a) >= f(b)) hi = b; else lo = a;
+    }
+    best = Math.max(best, f((lo + hi) / 2));
+  }
+  return best;
 }
 
 /**

@@ -10,8 +10,10 @@ const words: Translations = {
   'course.second-order.refuse.noFree': 'Das Tragwerk hat keine freien Verschiebungen: Es gibt nichts zu vergrößern.',
   'course.second-order.refuse.tooBig': 'Das Tragwerk hat {n} Unbekannte, dieses Verfahren arbeitet bis {max}. Verwenden Sie die konsistente geometrische Matrix, die der Rechenkern löst.',
   'course.second-order.refuse.singular': 'Das Tragwerk ist kinematisch: Es hat keine Lösung nach Theorie I. Ordnung.',
-  'course.second-order.refuse.noCompression': 'Kein Stab ist gedrückt: Theorie II. Ordnung stimmt mit Theorie I. Ordnung überein, und es gibt keine kritische Last.',
+  'course.second-order.refuse.noCompression': 'Kein Stab ist gedrückt: Es gibt keine Knicklast. Theorie II. Ordnung kann die Ergebnisse trotzdem etwas ändern, denn Zug versteift.',
   'course.second-order.refuse.noPositive': 'Es wurde kein positiver Verzweigungslastfaktor gefunden.',
+  'course.second-order.refuse.idleLoad': 'Eine Last wirkt auf eine Verschiebung, die kein Stab aussteift (etwa ein Moment an einem Knoten, an dem alle Stäbe gelenkig angeschlossen sind): Das Tragwerk kann sie nicht aufnehmen.',
+  'course.second-order.bk.internalMode': 'Eigenform {k} (λ = {lambda}): ein Knicken innerhalb eines Stabs mit festgehaltenen Enden; die Knotenverschiebungen können es nicht darstellen, daher wird die Form nicht gezeigt.',
 
   'course.second-order.opts.title': 'Wie gerechnet wird',
   'course.second-order.opts.method': 'Verfahren',

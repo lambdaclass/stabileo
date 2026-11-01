@@ -111,9 +111,10 @@ export function pickTarget(ctx: MethodContext): Target {
   return { quantity, node, name, node2, name2, dir, angle, chosen, loads, rotation: quantity === 'rot' || quantity === 'relRot', sym };
 }
 
-/** The structure under the virtual load alone. */
+/** The structure under the virtual load alone: no loads, no support movements. */
 export function unitLoadInput(input: SolverInput, tg: Target): SolverInput {
-  return { ...input, loads: tg.loads.map((l) => ({ type: 'nodal' as const, data: { nodeId: l.node, fx: l.fx, fz: l.fz, my: l.my } })) };
+  const supports = new Map([...input.supports].map(([id, s]) => [id, { ...s, dx: undefined, dz: undefined, dry: undefined }]));
+  return { ...input, supports, loads: tg.loads.map((l) => ({ type: 'nodal' as const, data: { nodeId: l.node, fx: l.fx, fz: l.fz, my: l.my } })) };
 }
 
 /** The quantity read from the matrix solve: the work of the virtual load on its displacements. */

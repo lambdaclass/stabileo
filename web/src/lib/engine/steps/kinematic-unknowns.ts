@@ -86,7 +86,8 @@ export function thermalOf(input: SolverInput, pm: PlaneModel): Map<number, { dt:
     const alpha = loadAlpha(l.data);
     const h = loadDepth(l.data.depth, m.A, m.I);
     const o = out.get(m.id) ?? { dt: 0, dg: 0, alpha, h };
-    o.dt += l.data.dtUniform; o.dg += l.data.dtGradient;
+    o.dt += (alpha / o.alpha) * l.data.dtUniform;
+    o.dg += (alpha / o.alpha) * (o.h / h) * l.data.dtGradient;
     out.set(m.id, o);
   }
   return out;

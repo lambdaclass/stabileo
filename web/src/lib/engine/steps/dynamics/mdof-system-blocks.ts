@@ -83,9 +83,16 @@ export function shearBlocks(c: MdofCase, labels: string[]): Step[] {
   const n = sh.floors.length;
   const s2: Block[] = [
     p('mdof.shear.kLead'),
-    { kind: 'eq', tex: n === 1 ? 'K = k_1' : `\\mathbf K = \\begin{bmatrix} k_1 + k_2 & -k_2 & \\cdots \\\\ -k_2 & k_2 + k_3 & \\cdots \\\\ \\vdots & & k_{${n}} \\end{bmatrix}` },
+    { kind: 'eq', tex: shearMatrixTex(n) },
     matrixBlock('\\mathbf K', c.K, labels),
   ];
   const s3: Block[] = [p('mdof.shear.mLead'), matrixBlock('\\mathbf M', c.M, labels), matrixBlock('\\mathbf F', c.F.map((v) => [v]), labels, dt('mdof.m.fCaption'), ['F'])];
   return [{ title: dt('mdof.s1shear'), blocks: s1 }, { title: dt('mdof.s2'), blocks: s2 }, { title: dt('mdof.s3'), blocks: s3 }];
+}
+
+export function shearMatrixTex(n: number): string {
+  if (n === 1) return 'K = k_1';
+  if (n === 2) return '\\mathbf K = \\begin{bmatrix} k_1 + k_2 & -k_2 \\\\ -k_2 & k_2 \\end{bmatrix}';
+  if (n === 3) return '\\mathbf K = \\begin{bmatrix} k_1 + k_2 & -k_2 & 0 \\\\ -k_2 & k_2 + k_3 & -k_3 \\\\ 0 & -k_3 & k_3 \\end{bmatrix}';
+  return `\\mathbf K = \\begin{bmatrix} k_1 + k_2 & -k_2 & \\cdots \\\\ -k_2 & k_2 + k_3 & \\cdots \\\\ \\vdots & & k_{${n}} \\end{bmatrix}`;
 }

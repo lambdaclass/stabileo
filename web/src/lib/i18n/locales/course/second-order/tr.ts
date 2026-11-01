@@ -10,8 +10,10 @@ const words: Translations = {
   'course.second-order.refuse.noFree': 'Yapının serbest yerdeğiştirmesi yok: büyütülecek bir şey yok.',
   'course.second-order.refuse.tooBig': 'Yapının {n} bilinmeyeni var ve bu yöntem {max} bilinmeyene kadar çalışır. Hesap motorunun çözdüğü tutarlı geometrik matrisi kullanın.',
   'course.second-order.refuse.singular': 'Yapı bir mekanizma: birinci mertebe çözümü yok.',
-  'course.second-order.refuse.noCompression': 'Hiçbir çubuk basınç altında değil: ikinci mertebe birinci mertebeyle aynı ve kritik yük yok.',
+  'course.second-order.refuse.noCompression': 'Hiçbir çubuk basınç altında değil: burkulma yükü yok. Çekme rijitlik kattığı için ikinci mertebe sonuçları yine de biraz değiştirebilir.',
   'course.second-order.refuse.noPositive': 'Pozitif bir kritik yük katsayısı bulunamadı.',
+  'course.second-order.refuse.idleLoad': 'Hiçbir çubuğun rijitlik vermediği bir yer değiştirmeye yük etkiyor (örneğin bütün çubukların mafsallı bağlandığı bir düğümde moment): yapı bu yükü dengeleyemez.',
+  'course.second-order.bk.internalMode': 'Mod {k} (λ = {lambda}): uçları tutulu bir çubuğun içinde bir burkulma; düğüm yer değiştirmeleri onu çizemez, bu yüzden biçimi gösterilmez.',
 
   'course.second-order.opts.title': 'Nasıl hesaplanır',
   'course.second-order.opts.method': 'Yöntem',

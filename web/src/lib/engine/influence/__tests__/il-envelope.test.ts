@@ -107,4 +107,17 @@ describe('the envelope along the members', () => {
     expect(V.members[0].max[mid]).toBeCloseTo(5, 6);
     expect(V.members[0].min[mid]).toBeCloseTo(-5, 6);
   });
+
+  it('a continuous beam: the dead-load envelope is the direct solve of g on every span, at every section (curved lines integrated exactly)', () => {
+    const unit = unitSolver(buildSolverInput2D(threeSpan(6) as never, false)!);
+    const env = ilEnvelopeAlong(unit, 'M', { g: 10, q: 0, P: 0 }, 'zones', DOWN, [1, 2, 3], 6);
+    const dead = solve({ ...unit, loads: [1, 2, 3].flatMap((id) => uniformAlong(unit, id, 0, 6, 10, DOWN)) });
+    for (const m of env.members) {
+      m.t.forEach((t, k) => {
+        const direct = readForce('M', dead, unit, { kind: 'section', elementId: m.elementId, t });
+        expect(Math.abs(m.max[k] - direct)).toBeLessThan(1e-7 * 36);
+        expect(Math.abs(m.min[k] - direct)).toBeLessThan(1e-7 * 36);
+      });
+    }
+  });
 });

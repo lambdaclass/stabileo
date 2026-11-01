@@ -9,6 +9,7 @@ import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
 import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
+import { unitLoadInput } from '../unit-target';
 import { methods } from '../methods/deformation';
 import type { MethodContext } from '../registry';
 import type { Block, CompareRow, StepDoc } from '../doc';
@@ -124,6 +125,15 @@ describe('virtual work: springs, settlements, temperature', () => {
       agrees(build('virtualWork', { quantity: 'disp', node: String(id), dir: 'z' }), 'mm');
       agrees(build('virtualWork', { quantity: 'rot', node: String(id) }), 'rad');
     }
+  });
+
+  it('the virtual state carries the unit load alone, never the settlement', async () => {
+    await modelStore.loadExample('settlement');
+    const input = modelStore.buildSolverInput(false)!;
+    const virt = solveReference(unitLoadInput(input, { loads: [{ node: 3, fx: 0, fz: 1, my: 0 }] } as Parameters<typeof unitLoadInput>[1]))!;
+    expect(Math.abs(virt.displacements.get(2)!.uz)).toBeLessThan(1e-15);
+    const still = solveReference({ ...input, loads: [] })!;
+    expect(Math.abs(still.displacements.get(2)!.uz + 0.01)).toBeLessThan(1e-12);
   });
 
   it('temperature: the free elongation and curvature', async () => {

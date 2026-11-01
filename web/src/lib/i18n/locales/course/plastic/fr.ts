@@ -113,7 +113,7 @@ const words: Translations = {
 
   'course.plastic.trace.title': 'Ce qui se passe à ce pas',
   'course.plastic.trace.summary': 'Pas {k} : Δλ = {dl} → λ = {lambda}',
-  'course.plastic.trace.help': 'Méthode incrémentale (d\'événement en événement). Entre deux rotules, la structure est linéaire : on la résout pour λ = 1 et chaque section cumule son moment par unité de λ, m. L\'incrément qui amène une section à Mp est Δλ = (Mp − |M|)/|m|. Le plus petit marque l\'événement suivant : on y place une rotule, qui garde Mp et tourne librement, et la structure perd une inconnue hyperstatique. On recommence jusqu\'à ce que la structure soit un mécanisme.',
+  'course.plastic.trace.help': 'Méthode incrémentale (d\'événement en événement). Entre deux rotules, la structure est linéaire : on la résout pour λ = 1 et chaque section cumule son moment par unité de λ, m. L\'incrément qui amène une section à Mp est le plus petit Δλ > 0 tel que |M + Δλ·m| = Mp : (Mp − |M|)/|m| si m a le signe de M, (Mp + |M|)/|m| s\'il s\'y oppose. Le plus petit marque l\'événement suivant : on y place une rotule, qui garde Mp et tourne librement, et la structure perd une inconnue hyperstatique. On recommence jusqu\'à ce que la structure soit un mécanisme.',
   'course.plastic.trace.solve': 'On résout la structure actuelle, avec {n} rotules déjà formées, pour les charges avec λ = 1 : cela donne le moment m par unité de λ dans chaque section.',
   'course.plastic.trace.event': 'La première section à atteindre Mp est dans la barre {member}, x = {x} : m = {m}, M cumulé = {M}, Mp = {mp}.',
   'course.plastic.trace.eventAxial': 'La barre {member} est la première à atteindre Np : n = {n} par unité de λ, N cumulé = {N}, Np = {np}.',
@@ -162,7 +162,7 @@ const words: Translations = {
   'course.plastic.user.ignored.truss': 'C\'est une barre de treillis : elle ne fléchit pas.',
   'course.plastic.user.ignored.zero': 'Le moment y est déjà nul (articulation ou extrémité libre).',
   'course.plastic.user.ignored.duplicate': 'Il y a déjà une rotule dans cette section.',
-  'course.plastic.user.notMechanism': 'Ce n\'est pas un mécanisme : avec {n} rotules, la structure garde {r} inconnues hyperstatiques et reste stable. Il faut au moins GH + 1 = {need} rotules bien placées.',
+  'course.plastic.user.notMechanism': 'Ce n\'est pas un mécanisme : avec {n} rotules, la structure garde {r} inconnues hyperstatiques et reste stable. Les rotules choisies ne laissent bouger aucune partie : un mécanisme partiel demande assez de rotules pour qu\'une partie bouge, un mécanisme complet GH + 1 = {need}.',
   'course.plastic.user.multi': 'C\'est un mécanisme à {k} degrés de liberté : {n} rotules, c\'est plus qu\'il n\'en faut pour un seul mouvement (GH + 1 = {need}). Enlevez-en une, ou cherchez la combinaison de plus petit λ.',
   'course.plastic.user.combine': 'Utiliser la combinaison de plus petit λ',
   'course.plastic.user.combined': 'La combinaison de plus petit λ a été utilisée ; les rotules qui ne tournent pas sont signalées.',

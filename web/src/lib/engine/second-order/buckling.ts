@@ -22,8 +22,10 @@ import type { GeomMethod } from './member-matrices';
 
 export interface TeachingMode {
   lambda: number;
-  /** Every DOF of the model, scaled so the largest component is 1. */
+  /** Every DOF of the model, scaled so the largest component is 1; all zero when `internal`. */
   D: number[];
+  /** A mode inside a member with its ends held: the nodal DOFs cannot draw it. */
+  internal?: true;
 }
 
 export interface TeachingBuckling {
@@ -70,13 +72,23 @@ export function linearBuckling(sys: SoSystem, method: 'consistent' | 'string', n
 
 /** J(λ): how many critical load factors lie below λ. */
 export function criticalCount(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
+  return clampedCount(sys, N0, lambda) + negativeEigenvalues(reducedStiffness(sys, scaled(N0, lambda), 'phi'));
+}
+
+function clampedCount(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
   let j0 = 0;
   for (const m of sys.members) {
     const n = (N0.get(m.id) ?? 0) * lambda;
     if (m.truss || !(n < 0) || !(m.EI > 0)) continue;
     j0 += clampedModesBelow(m.L * Math.sqrt(-n / m.EI), m.hingeI, m.hingeJ);
   }
-  return j0 + negativeEigenvalues(reducedStiffness(sys, scaled(N0, lambda), 'phi'));
+  return j0;
+}
+
+/** Whether the root at λ is a buckling of the nodes: there K(λ) gains a negative eigenvalue. */
+function nodalRoot(sys: SoSystem, N0: Map<number, number>, lambda: number): boolean {
+  const s = (f: number) => criticalCount(sys, N0, lambda * f) - clampedCount(sys, N0, lambda * f);
+  return s(1 + 1e-7) > s(1 - 1e-7);
 }
 
 /** λ_i with the stability functions: bisection on the count J(λ) ≥ i. `guess` is an upper estimate. */
@@ -108,7 +120,7 @@ export function phiBuckling(sys: SoSystem, nModes: number, N0: Map<number, numbe
   const out: TeachingMode[] = [];
   for (let i = 1; i <= nModes; i++) {
     const lambda = phiRoot(sys, N0, i, guesses[i - 1] ?? (out[out.length - 1]?.lambda ?? 1) * 2);
-    out.push({ lambda, D: phiMode(sys, N0, lambda) });
+    out.push(nodalRoot(sys, N0, lambda) ? { lambda, D: phiMode(sys, N0, lambda) } : { lambda, D: new Array(sys.nTotal).fill(0), internal: true });
   }
   return out;
 }
@@ -133,7 +145,7 @@ export function teachingBuckling(input: SolverInput, opts: SecondOrderOptions, n
   let modes: TeachingMode[];
   if (opts.method === 'phi') {
     const est = linearBuckling(b.sys, 'consistent', count, first.N0).map((m) => m.lambda * 1.0001);
-    modes = phiBuckling(b.sys, count, first.N0, est);
+    modes = phiBuckling(b.sys, Math.max(1, nModes), first.N0, est);
   } else {
     modes = linearBuckling(b.sys, opts.method === 'string' ? 'string' : 'consistent', count, first.N0);
   }

@@ -260,6 +260,18 @@
         <circle cx={p.x - 14} cy={p.y - 5} r="2.6" class="support-shape" />
         <circle cx={p.x - 14} cy={p.y + 5} r="2.6" class="support-shape" />
         <line x1={p.x - 17} y1={p.y - 13} x2={p.x - 17} y2={p.y + 13} class="support" />
+      {:else if s.type === 'guided'}
+        <rect x={p.x - 8} y={p.y - 13} width="8" height="26" fill="url(#hatch)" />
+        <line x1={p.x} y1={p.y - 13} x2={p.x} y2={p.y + 13} class="support" />
+        <circle cx={p.x - 11} cy={p.y - 6} r="2.6" class="support-shape" />
+        <circle cx={p.x - 11} cy={p.y + 6} r="2.6" class="support-shape" />
+        <line x1={p.x - 14} y1={p.y - 13} x2={p.x - 14} y2={p.y + 13} class="support" />
+      {:else if s.type === 'guidedV'}
+        <rect x={p.x - 13} y={p.y} width="26" height="8" fill="url(#hatch)" />
+        <line x1={p.x - 13} y1={p.y} x2={p.x + 13} y2={p.y} class="support" />
+        <circle cx={p.x - 6} cy={p.y + 11} r="2.6" class="support-shape" />
+        <circle cx={p.x + 6} cy={p.y + 11} r="2.6" class="support-shape" />
+        <line x1={p.x - 13} y1={p.y + 14} x2={p.x + 13} y2={p.y + 14} class="support" />
       {:else}
         <path d={`M${p.x},${p.y} l0,4 l-6,3 l12,4 l-12,4 l12,4 l-6,3 l0,4`} class="support" fill="none" />
         <line x1={p.x - 10} y1={p.y + 26} x2={p.x + 10} y2={p.y + 26} class="support" />

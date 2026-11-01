@@ -10,6 +10,8 @@ import { stepsEs, stepsEn, stepsPt } from '../../../../i18n/locales/steps';
 import type { Block, StepDoc, Txt } from '../../doc';
 import { isTxt } from '../../doc';
 import { num } from '../../format';
+import katex from 'katex';
+import { shearMatrixTex } from '../mdof-system-blocks';
 
 const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
 beforeAll(async () => {
@@ -185,5 +187,15 @@ describe('the distributed mass document', () => {
     const cmp = doc.steps[4].blocks.find((b) => b.kind === 'compare');
     expect(cmp?.kind).toBe('compare');
     if (cmp?.kind === 'compare') for (const r of cmp.rows) expect(r.method).toBeCloseTo(r.matrix, 5);
+  });
+});
+
+describe('the shear building stiffness matrix as written', () => {
+  it('two storeys: the top diagonal is k₂ alone; three: k₃; larger: the band', () => {
+    expect(shearMatrixTex(2)).toBe('\\mathbf K = \\begin{bmatrix} k_1 + k_2 & -k_2 \\\\ -k_2 & k_2 \\end{bmatrix}');
+    expect(shearMatrixTex(2)).not.toContain('k_3');
+    expect(shearMatrixTex(3)).toContain('-k_3 & k_3 \\end');
+    expect(shearMatrixTex(5)).toContain('k_{5}');
+    for (const n of [1, 2, 3, 5]) expect(() => katex.renderToString(shearMatrixTex(n), { throwOnError: true })).not.toThrow();
   });
 });

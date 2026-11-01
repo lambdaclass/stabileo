@@ -198,7 +198,8 @@ export function solveDisplacement(ks: KinSet): DispSolution {
   };
   const K = ks.unknowns.map((_, i) => ks.unknowns.map((__, j) => work(ks, kins[i], states[j].act, springAt((k) => (k === j ? 1 : 0), false), i)));
   const R0 = ks.unknowns.map((_, i) => work(ks, kins[i], act0, springAt(() => 0, true), i) - W[i]);
-  const D = solveDense(K, R0.map((v) => -v)) ?? new Array(n).fill(0);
+  const D = solveDense(K, R0.map((v) => -v));
+  if (!D || D.some((v) => !Number.isFinite(v))) throw new Error('displacement method: singular system');
   const residual = K.reduce((s, row, i) => Math.max(s, Math.abs(row.reduce((t, v, j) => t + v * D[j], 0) + R0[i])), 0);
 
   const M = new Map<string, number>();

@@ -113,7 +113,7 @@ const words: Translations = {
 
   'course.plastic.trace.title': 'Was in diesem Schritt geschieht',
   'course.plastic.trace.summary': 'Schritt {k}: Δλ = {dl} → λ = {lambda}',
-  'course.plastic.trace.help': 'Inkrementelles Verfahren (von Ereignis zu Ereignis). Zwischen zwei Gelenken ist das Tragwerk linear: Es wird für λ = 1 gelöst, und jeder Querschnitt sammelt sein Moment je Einheit λ, m. Das Inkrement, das einen Querschnitt auf Mp bringt, ist Δλ = (Mp − |M|)/|m|. Das kleinste bestimmt das nächste Ereignis: Dort entsteht ein Gelenk, das Mp hält und sich frei dreht, und das Tragwerk verliert eine Unbekannte. Das wiederholt sich, bis das Tragwerk ein Mechanismus ist.',
+  'course.plastic.trace.help': 'Inkrementelles Verfahren (von Ereignis zu Ereignis). Zwischen zwei Gelenken ist das Tragwerk linear: Es wird für λ = 1 gelöst, und jeder Querschnitt sammelt sein Moment je Einheit λ, m. Das Inkrement, das einen Querschnitt auf Mp bringt, ist das kleinste Δλ > 0 mit |M + Δλ·m| = Mp: (Mp − |M|)/|m|, wenn m das Vorzeichen von M hat, (Mp + |M|)/|m|, wenn es entgegengesetzt ist. Das kleinste bestimmt das nächste Ereignis: Dort entsteht ein Gelenk, das Mp hält und sich frei dreht, und das Tragwerk verliert eine Unbekannte. Das wiederholt sich, bis das Tragwerk ein Mechanismus ist.',
   'course.plastic.trace.solve': 'Das aktuelle Tragwerk mit {n} bereits gebildeten Gelenken wird für die Lasten mit λ = 1 gelöst: Das ergibt das Moment m je Einheit λ in jedem Querschnitt.',
   'course.plastic.trace.event': 'Der erste Querschnitt, der Mp erreicht, liegt im Stab {member}, x = {x}: m = {m}, aufsummiertes M = {M}, Mp = {mp}.',
   'course.plastic.trace.eventAxial': 'Der Stab {member} erreicht als erster Np: n = {n} je Einheit λ, aufsummiertes N = {N}, Np = {np}.',
@@ -162,7 +162,7 @@ const words: Translations = {
   'course.plastic.user.ignored.truss': 'Das ist ein Fachwerkstab: Er wird nicht auf Biegung beansprucht.',
   'course.plastic.user.ignored.zero': 'Dort ist das Moment bereits null (Gelenk oder freies Ende).',
   'course.plastic.user.ignored.duplicate': 'In diesem Querschnitt gibt es schon ein Gelenk.',
-  'course.plastic.user.notMechanism': 'Kein Mechanismus: Mit {n} Gelenken behält das Tragwerk {r} Unbekannte und bleibt stabil. Nötig sind mindestens GH + 1 = {need} gut platzierte Gelenke.',
+  'course.plastic.user.notMechanism': 'Kein Mechanismus: Mit {n} Gelenken behält das Tragwerk {r} Unbekannte und bleibt stabil. Die gewählten Gelenke lassen keinen Teil sich bewegen: Ein Teilmechanismus braucht genug Gelenke, damit sich ein Teil bewegt, ein vollständiger GH + 1 = {need}.',
   'course.plastic.user.multi': 'Ein Mechanismus mit {k} Freiheitsgraden: {n} Gelenke sind mehr, als eine einzige Bewegung braucht (GH + 1 = {need}). Entfernen Sie eines oder suchen Sie die Kombination mit dem kleinsten λ.',
   'course.plastic.user.combine': 'Kombination mit dem kleinsten λ verwenden',
   'course.plastic.user.combined': 'Verwendet wurde die Kombination mit dem kleinsten λ; die Gelenke, die sich nicht drehen, sind markiert.',

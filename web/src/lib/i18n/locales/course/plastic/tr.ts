@@ -113,7 +113,7 @@ const words: Translations = {
 
   'course.plastic.trace.title': 'Bu adımda ne oluyor',
   'course.plastic.trace.summary': 'Adım {k}: Δλ = {dl} → λ = {lambda}',
-  'course.plastic.trace.help': 'Artımsal yöntem (olaydan olaya). İki mafsal arasında yapı doğrusaldır: λ = 1 için çözülür ve her kesit birim λ başına momentini, m, biriktirir. Bir kesiti Mp değerine götüren artım Δλ = (Mp − |M|)/|m| olur. En küçüğü bir sonraki olayı belirler: oraya Mp değerini koruyan ve serbestçe dönen bir mafsal konur ve yapının bir hiperstatik bilinmeyeni azalır. Bu, yapı bir mekanizma olana kadar tekrarlanır.',
+  'course.plastic.trace.help': 'Artımsal yöntem (olaydan olaya). İki mafsal arasında yapı doğrusaldır: λ = 1 için çözülür ve her kesit birim λ başına momentini, m, biriktirir. Bir kesiti Mp değerine götüren artım, |M + Δλ·m| = Mp koşulunu sağlayan en küçük Δλ > 0 değeridir: m, M ile aynı işaretliyse (Mp − |M|)/|m|, zıt işaretliyse (Mp + |M|)/|m|. En küçüğü bir sonraki olayı belirler: oraya Mp değerini koruyan ve serbestçe dönen bir mafsal konur ve yapının bir hiperstatik bilinmeyeni azalır. Bu, yapı bir mekanizma olana kadar tekrarlanır.',
   'course.plastic.trace.solve': 'Daha önce oluşmuş {n} mafsalı olan mevcut yapı, λ = 1 için yüklerle çözülür: bu, her kesitte birim λ başına m momentini verir.',
   'course.plastic.trace.event': 'Mp değerine ilk ulaşan kesit {member} çubuğunda, x = {x}: m = {m}, biriken M = {M}, Mp = {mp}.',
   'course.plastic.trace.eventAxial': 'Np değerine ilk ulaşan {member} çubuğu: birim λ başına n = {n}, biriken N = {N}, Np = {np}.',
@@ -162,7 +162,7 @@ const words: Translations = {
   'course.plastic.user.ignored.truss': 'Bu bir kafes çubuğudur: eğilmez.',
   'course.plastic.user.ignored.zero': 'Orada moment zaten sıfır (mafsal veya serbest uç).',
   'course.plastic.user.ignored.duplicate': 'O kesitte zaten bir mafsal var.',
-  'course.plastic.user.notMechanism': 'Mekanizma değil: {n} mafsalla yapıda {r} hiperstatik bilinmeyen kalır ve yapı stabil kalır. En az GH + 1 = {need} iyi yerleştirilmiş mafsal gerekir.',
+  'course.plastic.user.notMechanism': 'Mekanizma değil: {n} mafsalla yapıda {r} hiperstatik bilinmeyen kalır ve yapı stabil kalır. Seçilen mafsallar hiçbir parçanın hareket etmesine izin vermiyor: kısmi bir mekanizma bir parçanın hareket etmesine yetecek mafsal, tam bir mekanizma GH + 1 = {need} mafsal ister.',
   'course.plastic.user.multi': 'Bu, {k} serbestlik dereceli bir mekanizma: {n} mafsal tek bir hareket için gerekenden fazla (GH + 1 = {need}). Birini kaldırın ya da en küçük λ veren birleşimi arayın.',
   'course.plastic.user.combine': 'En küçük λ veren birleşimi kullan',
   'course.plastic.user.combined': 'En küçük λ veren birleşim kullanıldı; dönmeyen mafsallar işaretlendi.',

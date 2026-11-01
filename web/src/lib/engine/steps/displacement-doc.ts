@@ -36,11 +36,11 @@ export function stiffnessStep(ks: KinSet, md: Map<number, MemberData>): Step {
     if (ks.extensible.has(d.m.id)) axial.push([d.m.name, { tex: num(EA) }, { tex: num(EA / L) }]);
   }
   if (full.length) {
-    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{4EI}{L}\\,\\theta_i + \\frac{2EI}{L}\\,\\theta_j - \\frac{6EI}{L^2}\\,\\Delta_{\\perp}, \\qquad V = \\frac{12EI}{L^3}\\,\\Delta_{\\perp}', note: tx(`${P}stiff.fullNote`) });
+    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{4EI}{L}\\,\\theta_i + \\frac{2EI}{L}\\,\\theta_j - \\frac{6EI}{L^2}\\,\\Delta_{\\perp}, \\qquad V = \\frac{12EI}{L^3}\\,\\Delta_{\\perp} - \\frac{6EI}{L^2}\\left(\\theta_i + \\theta_j\\right)', note: tx(`${P}stiff.fullNote`) });
     b.push({ kind: 'table', head: [tx('steps.common.member'), { tex: '4EI/L' }, { tex: '2EI/L' }, { tex: '6EI/L^2' }, { tex: '12EI/L^3' }], rows: full, caption: tx(`${P}stiff.fullCaption`) });
   }
   if (three.length) {
-    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{3EI}{L}\\,\\theta_i - \\frac{3EI}{L^2}\\,\\Delta_{\\perp}, \\qquad M_{ji} = 0, \\qquad V = \\frac{3EI}{L^3}\\,\\Delta_{\\perp}', note: tx(`${P}stiff.threeNote`) });
+    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{3EI}{L}\\,\\theta_i - \\frac{3EI}{L^2}\\,\\Delta_{\\perp}, \\qquad M_{ji} = 0, \\qquad V = \\frac{3EI}{L^3}\\,\\Delta_{\\perp} - \\frac{3EI}{L^2}\\,\\theta_i', note: tx(`${P}stiff.threeNote`) });
     b.push({ kind: 'p', text: tx(`${P}stiff.threeWhy`), detail: true });
     b.push({ kind: 'table', head: [tx('steps.common.member'), tx(`${P}stiff.released`), { tex: '3EI/L' }, { tex: '3EI/L^2' }, { tex: '3EI/L^3' }], rows: three, caption: tx(`${P}stiff.threeCaption`) });
   }
@@ -138,7 +138,7 @@ function coefCalc(sol: DispSolution, i: number, act: Map<number, MAct>, value: n
     forms.push(`k_{${s.dir === 'r' ? '\\theta' : s.dir},${ks.pm.nodes.get(s.node)!.name}}\\,u\\,\\phi`);
     terms.push(`${num(s.k)}\\cdot${par(v)}\\cdot${par(phi)}`);
   }
-  if (W !== null && !tiny(W)) { forms.push(`W_{${i + 1}}`); terms.push(`-${par(W)}`); }
+  if (W !== null && !tiny(W)) { forms.push(`-W_{${i + 1}}`); terms.push(`-${par(W)}`); }
   const join = (xs: string[]) => (xs.length ? xs.join(' + ').replace(/\+ -/g, '- ') : '0');
   return { kind: 'calc', formula: `${sym} = ${join(forms)}`, subst: `${sym} = ${join(terms)}`, result: `\\boxed{${sym} = ${num(value)}}` };
 }

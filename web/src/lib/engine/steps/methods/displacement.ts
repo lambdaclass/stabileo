@@ -11,7 +11,6 @@ import type { ExplainedMethod, MethodContext, MethodOption } from '../registry';
 import type { Applicability, Block, Cell, CompareRow, Step, StepDoc } from '../doc';
 import { tx } from '../doc';
 import { num } from '../format';
-import { solveDense } from '../sway-modes';
 import { countIndeterminacy } from '../../force-method/primary';
 import { closingSteps, deltaSym, linTex, loadedSketch, modeSketch, subtitle, type MemberData } from '../frames-common';
 import { kinematicUnknowns, unknownSym, type KinSet } from '../kinematic-unknowns';
@@ -51,8 +50,10 @@ function read(ctx: MethodContext): { ok: true; ks: KinSet } | { ok: false; reaso
 function applies(ctx: MethodContext): Applicability {
   const r = read(ctx);
   if (!r.ok) return r;
-  const sol = solveDisplacement(r.ks);
-  if (!solveDense(sol.K, sol.R0.map((v) => -v))) return { ok: false, reason: tx(`${P}req.mechanism`) };
+  let sol: DispSolution;
+  try { sol = solveDisplacement(r.ks); } catch { return { ok: false, reason: tx(`${P}req.mechanism`) }; }
+  const scale = Math.max(1, ...sol.R0.map(Math.abs), ...sol.K.flat().map(Math.abs));
+  if (!(sol.residual <= 1e-9 * scale)) return { ok: false, reason: tx(`${P}req.mechanism`) };
   return { ok: true };
 }
 

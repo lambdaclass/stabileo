@@ -4,7 +4,8 @@
  * combinations, and the moments at that λ. A hinge under a distributed load
  * starts at the middle of the load and moves to where the moment at collapse
  * peaks (where the shear vanishes), until it stays: the classical search of
- * dλ/dx = 0.
+ * dλ/dx = 0. A search that has not settled in MAX_MOVES gives null: its last
+ * trial can exceed Mp between sections.
  */
 import type { SolverInput } from '../types';
 import {
@@ -52,10 +53,10 @@ export function solveLimit(input: SolverInput, mpOf: (member: number) => number)
       if (at > 1 + 1e-9 && Math.abs(t - s.t) > 1e-7) { next.set(s.member, t); moved = true; }
       void k;
     });
-    if (!moved) break;
+    if (!moved) return out;
     positions = next;
   }
-  return out;
+  return null;
 }
 
 /** Where |M| peaks strictly inside a member (its ends excluded), or null. */

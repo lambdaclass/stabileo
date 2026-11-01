@@ -3,7 +3,7 @@
  * unit action applied), and the line drawn as the deformed shape it is, positive against the
  * unit load.
  */
-import type { Sketch } from './sketch';
+import type { Sketch, SketchSupport } from './sketch';
 import { sketchOf } from './sketch';
 import type { PlaneModel } from './plane-model';
 import type { IlPoint, Dir } from '../influence/unit-sweep';
@@ -80,7 +80,11 @@ export function releasedSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlT
     return { ...sk, cut: cutAt(pm, target, c), deformed };
   }
   const p = targetPoint(pm, target);
-  const supports = (sk.supports ?? []).filter((s) => s.node !== target.nodeId);
+  const supports = (sk.supports ?? []).flatMap((s) => {
+    if (s.node !== target.nodeId) return [s];
+    const left = releasedSupport(s.type, c);
+    return left ? [{ ...s, type: left }] : [];
+  });
   const r = c === 'Rz' ? { forces: [{ x: p.x, z: p.z, fx: 0, fz: 1, label: 'R_z', color: 'reaction' as const, dashed: true }] }
     : c === 'Rx' ? { forces: [{ x: p.x, z: p.z, fx: 1, fz: 0, label: 'R_x', color: 'reaction' as const, dashed: true }] }
       : { couples: [{ x: p.x, z: p.z, m: 1, label: 'M_y', color: 'reaction' as const, dashed: true }] };
@@ -106,4 +110,15 @@ export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir): NonNull
   if (points[iMax].value > 1e-12) out.push({ ...shape[iMax], text: numText(points[iMax].value, 3), color: 'deformed', anchor: 'n' });
   if (points[iMin].value < -1e-12) out.push({ ...shape[iMin], text: numText(points[iMin].value, 3), color: 'deformed', anchor: 's' });
   return out;
+}
+
+/** What a support still holds once Müller–Breslau releases one of its reactions. */
+export function releasedSupport(type: SketchSupport, c: string): SketchSupport | null {
+  if (type === 'fixed') return c === 'Rz' ? 'guided' : c === 'Rx' ? 'guidedV' : 'pinned';
+  if (type === 'pinned') return c === 'Rz' ? 'rollerV' : c === 'Rx' ? 'roller' : 'pinned';
+  if (type === 'guided') return c === 'Rx' ? null : c === 'My' ? 'rollerV' : type;
+  if (type === 'guidedV') return c === 'Rz' ? null : c === 'My' ? 'roller' : type;
+  if (type === 'roller') return c === 'Rz' ? null : type;
+  if (type === 'rollerV') return c === 'Rx' ? null : type;
+  return null;
 }

@@ -10,8 +10,10 @@ const words: Translations = {
   'course.second-order.refuse.noFree': 'La structure n\'a pas de déplacements libres : il n\'y a rien à amplifier.',
   'course.second-order.refuse.tooBig': 'La structure a {n} inconnues et cette méthode travaille jusqu\'à {max}. Utilisez la matrice géométrique cohérente, que résout le moteur.',
   'course.second-order.refuse.singular': 'La structure est un mécanisme : elle n\'a pas de solution au premier ordre.',
-  'course.second-order.refuse.noCompression': 'Aucune barre n\'est comprimée : le second ordre coïncide avec le premier et il n\'y a pas de charge critique.',
+  'course.second-order.refuse.noCompression': 'Aucune barre n\'est comprimée : il n\'y a pas de charge critique de flambement. Le second ordre peut tout de même modifier un peu les résultats, car la traction rigidifie.',
   'course.second-order.refuse.noPositive': 'Aucun facteur de charge critique positif n\'a été trouvé.',
+  'course.second-order.refuse.idleLoad': 'Une charge agit sur un déplacement qu\'aucune barre ne rigidifie (par exemple un couple sur un nœud où toutes les barres sont articulées) : la structure ne peut pas l\'équilibrer.',
+  'course.second-order.bk.internalMode': 'Mode {k} (λ = {lambda}) : un flambement à l\'intérieur d\'une barre aux extrémités bloquées ; les déplacements des nœuds ne peuvent pas le représenter, sa forme n\'est donc pas montrée.',
 
   'course.second-order.opts.title': 'Mode de calcul',
   'course.second-order.opts.method': 'Méthode',

@@ -14,7 +14,7 @@ import type { Txt } from '../steps/doc';
 import { solveDense } from '../steps/sway-modes';
 import { assemble, buildSystem, elasticAxial, localDisplacements, memberDofs, type SecondOrderOptions, type SoSystem } from './system';
 import { congruent, matMul, matVec, negativeEigenvalues, norm2, transpose, type Mat } from './dense';
-import { rotation, type GeomMethod } from './member-matrices';
+import { memberStiffness, rotation, type GeomMethod } from './member-matrices';
 
 export interface State {
   /** Every DOF of the model (restrained ones at their prescribed value). */
@@ -113,7 +113,7 @@ export function teachingPDelta(input: SolverInput, opts: SecondOrderOptions): { 
 }
 
 /**
- * A member's end forces in its own axes, f = K(N)·d − p (p its condensed equivalent loads):
+ * A member's end forces in its own axes, f = K(N)·d − p (p its equivalent loads, condensed elastically as in the load vector):
  * the forces the nodes apply to it. With rigid members the axial ones come from N.
  */
 export function memberEndForces(sys: SoSystem, state: State, method: GeomMethod, N: Map<number, number>): Map<number, number[]> {
@@ -123,7 +123,7 @@ export function memberEndForces(sys: SoSystem, state: State, method: GeomMethod,
     const ms = local.get(m.id)!;
     const d = localDisplacements(sys, m, state.D);
     const p = sys.memberLoads.get(m.id) ?? [0, 0, 0, 0, 0, 0];
-    const pc = transpose(ms.T).map((r) => r.reduce((s, v, j) => s + v * p[j], 0));
+    const pc = transpose(memberStiffness(m, 0, 'none').T).map((r) => r.reduce((s, v, j) => s + v * p[j], 0));
     const f = ms.k.map((r, i) => r.reduce((s, v, j) => s + v * d[j], 0) - pc[i]);
     if (sys.rigid) { const n = state.N.get(m.id) ?? 0; f[0] -= n; f[3] += n; }
     out.set(m.id, f);

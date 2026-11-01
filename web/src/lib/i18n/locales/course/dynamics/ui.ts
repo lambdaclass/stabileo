@@ -3,8 +3,8 @@ import type { Translations } from '../../../types';
 export const es: Translations = {
   'course.dynamics.ui.stepByStep': 'Ver paso a paso',
   'course.dynamics.ui.explain.title': '¿Qué significan estos resultados?',
-  'course.dynamics.ui.explain.mode': 'Un modo de vibración es una forma en la que la estructura puede oscilar libremente, con todos sus puntos moviéndose en fase a una misma frecuencia. Hay tantos modos como grados de libertad con masa.',
-  'course.dynamics.ui.explain.freq': 'ω es la frecuencia circular natural del modo, f = ω/2π la cantidad de oscilaciones por segundo y T = 1/f el período. El modo 1 es el de menor frecuencia y el más fácil de excitar.',
+  'course.dynamics.ui.explain.mode': 'Un modo de vibración es una forma en la que la estructura puede oscilar libremente a una sola frecuencia: la forma se mantiene y sólo cambia su amplitud, así que los puntos con componentes de signos opuestos se mueven en contrafase. Hay tantos modos como grados de libertad con masa.',
+  'course.dynamics.ui.explain.freq': 'ω es la frecuencia circular natural del modo, f = ω/2π la cantidad de oscilaciones por segundo y T = 1/f el período. El modo 1 es el de menor frecuencia; cuánto se excita cada modo depende de cómo se reparte la carga y de su frecuencia (la participación modal).',
   'course.dynamics.ui.explain.gamma': 'El factor de participación Γ dice cuánto se excita el modo cuando toda la base se mueve en una dirección. La masa efectiva es la parte de la masa total que vibra con ese modo.',
   'course.dynamics.ui.explain.sum': 'Σ suma las masas efectivas de los modos calculados. Los reglamentos sísmicos piden llegar al 90 % en cada dirección; si no se llega, hacen falta más modos.',
   'course.dynamics.ui.explain.mass': 'La masa sale de la densidad de los materiales (matriz de masa consistente) y de las masas puntuales que agregues en los nudos.',
@@ -67,8 +67,8 @@ export const es: Translations = {
 export const en: Translations = {
   'course.dynamics.ui.stepByStep': 'See step by step',
   'course.dynamics.ui.explain.title': 'What do these results mean?',
-  'course.dynamics.ui.explain.mode': 'A vibration mode is a shape in which the structure can oscillate freely, with all its points moving in phase at one frequency. There are as many modes as degrees of freedom with mass.',
-  'course.dynamics.ui.explain.freq': 'ω is the natural circular frequency of the mode, f = ω/2π the number of oscillations per second and T = 1/f the period. Mode 1 has the lowest frequency and is the easiest to excite.',
+  'course.dynamics.ui.explain.mode': 'A vibration mode is a shape in which the structure can oscillate freely at a single frequency: the shape stays and only its amplitude changes, so points whose components have opposite signs move in opposite phase. There are as many modes as degrees of freedom with mass.',
+  'course.dynamics.ui.explain.freq': 'ω is the natural circular frequency of the mode, f = ω/2π the number of oscillations per second and T = 1/f the period. Mode 1 has the lowest frequency; how much each mode is excited depends on how the load is distributed and on its frequency (modal participation).',
   'course.dynamics.ui.explain.gamma': 'The participation factor Γ says how much the mode is excited when the whole base moves in one direction. The effective mass is the part of the total mass that vibrates in that mode.',
   'course.dynamics.ui.explain.sum': 'Σ adds up the effective masses of the modes computed. Seismic codes ask for 90 % in each direction; if it is not reached, more modes are needed.',
   'course.dynamics.ui.explain.mass': 'The mass comes from the materials’ density (consistent mass matrix) and from the point masses you add at nodes.',
@@ -131,8 +131,8 @@ export const en: Translations = {
 export const pt: Translations = {
   'course.dynamics.ui.stepByStep': 'Ver passo a passo',
   'course.dynamics.ui.explain.title': 'O que significam estes resultados?',
-  'course.dynamics.ui.explain.mode': 'Um modo de vibração é uma forma em que a estrutura pode oscilar livremente, com todos os seus pontos se movendo em fase com uma mesma frequência. Há tantos modos quanto graus de liberdade com massa.',
-  'course.dynamics.ui.explain.freq': 'ω é a frequência circular natural do modo, f = ω/2π o número de oscilações por segundo e T = 1/f o período. O modo 1 tem a menor frequência e é o mais fácil de excitar.',
+  'course.dynamics.ui.explain.mode': 'Um modo de vibração é uma forma em que a estrutura pode oscilar livremente com uma única frequência: a forma se mantém e só muda a sua amplitude, então os pontos com componentes de sinais opostos se movem em oposição de fase. Há tantos modos quanto graus de liberdade com massa.',
+  'course.dynamics.ui.explain.freq': 'ω é a frequência circular natural do modo, f = ω/2π o número de oscilações por segundo e T = 1/f o período. O modo 1 tem a menor frequência; quanto cada modo é excitado depende de como a carga se distribui e da sua frequência (a participação modal).',
   'course.dynamics.ui.explain.gamma': 'O fator de participação Γ diz quanto o modo é excitado quando toda a base se move em uma direção. A massa efetiva é a parte da massa total que vibra nesse modo.',
   'course.dynamics.ui.explain.sum': 'Σ soma as massas efetivas dos modos calculados. As normas sísmicas pedem chegar a 90 % em cada direção; se não chegar, são necessários mais modos.',
   'course.dynamics.ui.explain.mass': 'A massa vem da densidade dos materiais (matriz de massa consistente) e das massas pontuais que você adicionar nos nós.',
