@@ -177,8 +177,15 @@ fn mesh_step_and_axial_stiffness_study_bounds_the_tolerances() {
         assert!(tolerance >= budget, "{name}: tolerance {tolerance} below its budget {budget}");
         assert!(tolerance <= 1.25 * budget, "{name}: tolerance {tolerance} looser than its budget {budget} warrants");
     }
-    let halved = limit_point(&arch(40, 1.0, 0.5));
-    assert!((halved.load / medium.load - 1.0).abs() < 1e-6, "step size: {} vs {}", halved.load, medium.load);
+    let crown_tolerance: Vec<f64> = CROWN_KEYS.iter().map(|k| case["crownRelativeTolerance"][k].as_f64().unwrap()).collect();
+    let step_insensitive = |name: &str, a: &LimitPoint, b: &LimitPoint| {
+        assert!((a.load / b.load - 1.0).abs() < 1e-6, "{name} load: {} vs {}", a.load, b.load);
+        for i in 0..3 {
+            assert!((a.crown[i] / b.crown[i] - 1.0).abs() < 0.05 * crown_tolerance[i], "{name} {}: {} vs {}", CROWN_KEYS[i], a.crown[i], b.crown[i]);
+        }
+    };
+    step_insensitive("40 elements, half step", &limit_point(&arch(40, 1.0, 0.5)), &medium);
+    step_insensitive("80 elements, its doubled step against the 20/40 step", &fine, &limit_point(&arch(80, 1.0, 1.0)));
     let stiffer = limit_point(&arch(40, 10.0, 1.0));
     assert!((stiffer.load / medium.load - 1.0).abs() < 1e-4, "axial stiffness: {} vs {}", stiffer.load, medium.load);
 }
