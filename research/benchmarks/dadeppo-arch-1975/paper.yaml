@@ -12,7 +12,7 @@ stiffness: {EA_kN: 1000000, EI_kNm2: 1}
 comparison: {quantity: PR2/EI, reference: 8.97, relative_tolerance: 0.006}
 crown_reference: {u_over_R: 0.6116, v_over_R: 1.1372, rotation: 0.0498}
 crown_relative_tolerance: {u_over_R: 0.0011, v_over_R: 0.0007, rotation: 0.04}
-mesh_study: {elements: [20, 40, 80], gci_safety_factor: 1.25, results: results/convergence.json}
+mesh_study: {elements: [20, 40, 80], gci_safety_factor: 1.25, results: results/stabileo_results.json#convergence}
 regression: {peak: 9.0112911888175, absolute_tolerance: 0.000001}
 assumptions: [planar, elastic, finite axial stiffness, no contact, no shear deformation]
 environment: {toolchain: rust-toolchain.toml, dependencies: Cargo.lock, web: web/package-lock.json}

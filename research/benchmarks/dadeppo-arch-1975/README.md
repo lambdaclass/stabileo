@@ -29,7 +29,7 @@ The final load factor is **4.824835941517055**: the trace passes the maximum and
 
 ## Mesh study and tolerance budget
 
-`mesh_step_and_axial_stiffness_study_bounds_the_tolerances` regenerates the arch from the shared case with 20, 40 and 80 elements (the 40-element mesh is checked to equal the shared case) and finds each limit point as above (`results/convergence.json`):
+`mesh_step_and_axial_stiffness_study_bounds_the_tolerances` regenerates the arch from the shared case with 20, 40 and 80 elements (the 40-element mesh is checked to equal the shared case) and finds each limit point as above (`convergence` in `results/stabileo_results.json`):
 
 | Quantity | 20 | 40 | 80 | Observed order | Extrapolated | vs published |
 |---|---|---|---|---|---|---|
@@ -54,7 +54,7 @@ From the repository root:
 
 ```sh
 make test.engine.targeted TEST=solver FILTER=dadeppo_arch
-DADEPPO_EXPORT="$PWD/research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json" DADEPPO_STUDY_EXPORT="$PWD/research/benchmarks/dadeppo-arch-1975/results/convergence.json" make test.engine.targeted TEST=solver FILTER=dadeppo_arch
+DADEPPO_EXPORT="$PWD/research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json" make test.engine.targeted TEST=solver FILTER=dadeppo_arch
 make research.wasm
 make web.run
 ```
@@ -83,5 +83,5 @@ The gallery's static SVG is a projection of native replay frame 260 (undeformed 
 - `web/e2e/research-dadeppo.spec.ts`: replay, live result, viewer position, target and text sizes in six locales at 360×800, 390×844, 844×390 and 810×1080.
 - `web/public/research-thumbs/dadeppo-arch-1975.svg`: image from the native run.
 - `research/papers.yaml`, `research/papers.json`, `research/README.md`: catalogue and discovery.
-- This directory: `README.md`, `paper.yaml`, `reference-results/limit-load.json`, `reference-results/MANIFEST.json`, `results/stabileo_results.json`, `results/convergence.json`, `results/MANIFEST.json`, `render-thumbnail.py`.
+- This directory: `README.md`, `paper.yaml`, `reference-results/limit-load.json`, `reference-results/MANIFEST.json`, `results/stabileo_results.json`, `results/MANIFEST.json`, `render-thumbnail.py`.
 - `changelog.d/research-dadeppo-arch.md`: changelog fragment.

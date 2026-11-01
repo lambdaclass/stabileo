@@ -1,5 +1,5 @@
 import data from '../../../../../engine/tests/benchmarks/dadeppo_arch.json';
-import convergence from '../../../../../research/benchmarks/dadeppo-arch-1975/results/convergence.json';
+import results from '../../../../../research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json';
 
 export const benchmark = data;
 export type Displacement = { nodeId: number; ux: number; uz: number; ry?: number };
@@ -78,6 +78,7 @@ export function checks(limit: LimitPoint) {
 }
 
 export function study() {
+  const { convergence } = results;
   const [coarse, medium, fine] = convergence.meshes;
   return quantities.map(q => {
     const [q20, q40, q80] = [coarse[q], medium[q], fine[q]];

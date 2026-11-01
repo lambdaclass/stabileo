@@ -1,11 +1,10 @@
 {
   "solver": "dedaliano_engine::solver::arc_length::solve_arc_length",
-  "command": "DADEPPO_EXPORT=<absolute replay path> DADEPPO_STUDY_EXPORT=<absolute convergence path> nix develop -c cargo test --manifest-path engine/Cargo.toml --test solver dadeppo_arch -- --nocapture",
+  "command": "DADEPPO_EXPORT=<absolute replay path> nix develop -c cargo test --manifest-path engine/Cargo.toml --test solver dadeppo_arch -- --nocapture",
   "date": "2026-10-31",
   "case_sha256": "212675790754d1f7bd4835dc808883c5fd635cb761e1ff6a3e5206c5ccee84e8",
   "files_sha256": {
-    "stabileo_results.json": "6c714889d55b781aee07a61a967b51aa29c9277a097b20b003000670ecab0835",
-    "convergence.json": "2a21a8c6f5f8c3d1b993a659a78f33d9672c218dcd4e3e3eef268361945485ad"
+    "stabileo_results.json": "8371eeaeb3c91fefeb939b2954dae0a208c540223c042c70f4f42b50e8a80e72"
   },
   "peak": {
     "controlDisplacement": 0.01194391165729767,
@@ -45,5 +44,5 @@
     "offset": -0.07357733331203162,
     "peakStep": 267
   },
-  "note": "frames and steps are the 2026-10-29 native replay; limitPoint and convergence.json were added on 2026-10-31 by the same native test (frames and steps reproduced to 2e-14)."
+  "note": "frames and steps are the 2026-10-29 native replay; limitPoint was added on 2026-10-31 and convergence (the mesh study, formerly convergence.json) on 2026-11-01 by the same native test; frames and steps reproduce to 2.3e-12 relative and are kept as recorded."
 }
