@@ -17,8 +17,8 @@ const pressOnly = (page: Page, key: string, mods: { ctrlKey?: boolean; metaKey?:
 
 async function basic3D(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 }).toBe(true);
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 }).toBe(true);
   await loadModel(page, 'two-story-frame');
   await page.getByTestId('rb-cmd-dim').click();
   await expect.poll(() => camera(page).then(Boolean), { timeout: 10_000 }).toBe(true);

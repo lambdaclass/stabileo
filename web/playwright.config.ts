@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { SMOKE_PATTERN, SMOKE_TIMEOUT_MS } from './scripts/e2e-budgets';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -191,7 +192,9 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Smoke gets a hard default budget even when invoked via --grep or without a suite filter.
+    { name: 'smoke', grep: SMOKE_PATTERN, timeout: SMOKE_TIMEOUT_MS, use: { ...devices['Desktop Chrome'] } },
+    { name: 'chromium', grepInvert: SMOKE_PATTERN, use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
     // VITE_E2E=1 is what compiles the read-only test hooks into the bundle. A normal

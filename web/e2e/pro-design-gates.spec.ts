@@ -129,7 +129,7 @@ test.describe('@smoke a command that cannot run says so', () => {
 
 // ─── The layout invariant, at the size it failed at ──────────────
 
-test.describe('@smoke at 1280×720 no enabled command is out of reach', () => {
+test.describe('@slow at 1280×720 no enabled command is out of reach', () => {
   test.use({ viewport: { width: 1280, height: 720 } });
 
   /** Whether a real pointer event at the element's own centre would land on the element. */

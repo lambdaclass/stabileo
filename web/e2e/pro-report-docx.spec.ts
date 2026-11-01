@@ -16,7 +16,7 @@ async function download(page: Page, format: 'html' | 'docx') {
   return { name: dl.suggestedFilename(), bytes: readFileSync((await dl.path())!) };
 }
 
-test.describe('@smoke the calculation report in Word', () => {
+test.describe('@slow the calculation report in Word', () => {
   test.describe.configure({ timeout: 240_000 });
 
   test('carries the same tables, figures and choices as the report, with its letterhead, header and page numbers', async ({ pro: page }) => {

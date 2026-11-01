@@ -22,7 +22,7 @@ const CASES = ['FSR', 'FST', 'FCR', 'FCR-CIR', 'FCO'];
 
 async function openFlex(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   /*
    * Reached from the bottom of the Advanced list, not from the ribbon. It was
    * a ribbon command until its two-word label wrapped and took ten pixels of
@@ -35,8 +35,8 @@ async function openFlex(page: Page) {
 
 const resultText = (page: Page) => page.getByTestId('flex-result').innerText();
 
-test.describe('@smoke the reinforced-concrete calculator', () => {
-  test('opens with no model on screen and answers every case', async ({ page }) => {
+test.describe('the reinforced-concrete calculator', () => {
+  test('@slow opens with no model on screen and answers every case', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
 
@@ -60,7 +60,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     expect(errors, 'no case may throw').toEqual([]);
   });
 
-  test('both modes answer every case, and the section is drawn for each', async ({ page }) => {
+  test('@slow both modes answer every case, and the section is drawn for each', async ({ page }) => {
     test.setTimeout(180_000);
     await openFlex(page);
 
@@ -85,7 +85,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     }
   });
 
-  test('sizing and checking are different questions with consistent answers', async ({ page }) => {
+  test('@slow sizing and checking are different questions with consistent answers', async ({ page }) => {
     test.setTimeout(180_000);
     await openFlex(page);
     await page.getByTestId('flex-case').selectOption('FSR');
@@ -111,7 +111,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
       .toBeLessThanOrEqual(1.02);
   });
 
-  test('the answer follows the demand', async ({ page }) => {
+  test('@slow the answer follows the demand', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
 
@@ -135,7 +135,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     expect(mu).toBeTruthy();
   });
 
-  test('a section that cannot work is said to fail, not quietly sized', async ({ page }) => {
+  test('@slow a section that cannot work is said to fail, not quietly sized', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
     await page.getByTestId('flex-case').selectOption('FSR');
@@ -152,7 +152,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     await expect(page.getByTestId('flex-result')).toHaveClass(/fp-fail/);
   });
 
-  test('shows its working, and says whose rules they are', async ({ page }) => {
+  test('@slow shows its working, and says whose rules they are', async ({ page }) => {
     test.setTimeout(120_000);
     await openFlex(page);
 
@@ -209,7 +209,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
    * nobody arrives at a check holding 29.454 cm², they arrive holding
    * "6 Ø25", and converting by hand is a place to slip a digit.
    */
-  test('bars convert to an area, and the area still takes a number', async ({ page }) => {
+  test('@smoke bars convert to an area, and the area still takes a number', async ({ page }) => {
     await openFlex(page);
     await page.getByTestId('flex-mode-verify').click();
     await page.waitForTimeout(300);
@@ -233,7 +233,7 @@ test.describe('@smoke the reinforced-concrete calculator', () => {
     await expect(page.getByTestId('ast-given')).toHaveValue('13.7');
   });
 
-  test('the section drawing can be opened up and closed again', async ({ page }) => {
+  test('@smoke the section drawing can be opened up and closed again', async ({ page }) => {
     await openFlex(page);
     const svg = page.locator('[data-testid="section-drawing"] svg');
     const small = await svg.boundingBox();
@@ -280,7 +280,7 @@ test.describe('@smoke the calculator behaves like the other advanced functions',
     /* It was the only button in Advanced with no `?` — no way to ask what it
        does before pressing it. */
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
     await page.getByTestId('rb-cmd-advanced').click();
     const row = page.getByTestId('adv-flex').locator('..');
     const help = row.getByRole('button', { name: '?' });

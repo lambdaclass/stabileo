@@ -23,24 +23,41 @@
  *     not, and say so (`stale`). A solve stamps the current version and clears it; the static
  *     (linear) solve, not a modal or P-Δ run alone.
  */
-import { assessProject, type RecheckAssessment } from '../provenance/applicability';
+import type { RecheckAssessment } from '../provenance/applicability';
 import { freshStamp, readStamp, stampSolve, unknownStamp, type SolveStamp } from '../provenance/solve-stamp';
-import type { AnalysisKind, FeatureSnapshot } from '../provenance/model-features';
+import { RESULTS_VERSION } from '../provenance/registry';
+import { modelFeatures, type AnalysisKind, type FeatureSnapshot } from '../provenance/model-features';
 
-function createRecheckStore() {
+/** Independent of the latest solve: retained until the original notice is read. */
+export interface PendingRecheckNotice {
+  stamp: SolveStamp;
+  features: string[];
+}
+
+export function createRecheckStore(load = () => import('../provenance/applicability')) {
   // The project on screen at start-up is a new one, made in this build.
   let stamp = $state.raw<SolveStamp | null>(freshStamp());
   let assessment = $state.raw<RecheckAssessment | null>(null);
   /** The stamp the assessment was made against: a solve replaces `stamp` and ends staleness. */
   let assessedStampId = $state<string | null>(null);
+  let currentAssessmentStampId = $state<string | null>(null);
   let acknowledged = $state.raw<ReadonlySet<string>>(new Set());
+
+  let outstanding = $state.raw<PendingRecheckNotice | undefined>(undefined);
+  let pending = $state(false);
+  let loadFailed = $state(false);
+  let generation = 0;
+  let retry = () => Promise.resolve();
 
   // Ended by the static solve: a modal run alone leaves the results the older version's.
   const stale = (): boolean =>
-    !!assessment && assessment.changes.length > 0
-    && (stamp === null || stamp.id === assessedStampId || !stamp.analyses.includes('linear'));
+    !!assessment && (pending || assessment.changes.length > 0)
+    && (stamp === null || stamp.id === assessedStampId || stamp.id === currentAssessmentStampId || !stamp.analyses.includes('linear'));
 
   return {
+    get pending() { return pending; },
+    get loadFailed() { return loadFailed; },
+    retry() { return retry(); },
     get stamp() { return stamp; },
     get assessment() { return assessment; },
     /** Results on hand (or about to be produced from saved design state) predate registered changes. */
@@ -49,29 +66,84 @@ function createRecheckStore() {
     get noticeOpen() {
       // Not tied to `stale`: live calc may re-solve the moment a project opens, and the notice
       // must still be read. What changed is worth knowing even once the numbers are current.
-      return !!assessment && assessment.changes.length > 0 && assessedStampId !== null && !acknowledged.has(assessedStampId);
+      return !!assessment && (pending || assessment.changes.length > 0) && assessedStampId !== null && !acknowledged.has(assessedStampId);
     },
     /** Opened in an older build than the one that solved it. */
-    get solvedWithNewer() { return !!assessment?.newer && (stamp === null || stamp.id === assessedStampId); },
+    get solvedWithNewer() { return !!stamp && stamp.resultsVersion > RESULTS_VERSION; },
 
     /**
      * A project was opened (file, tab, autosave, link). `snapshot`: what was opened, as stored.
      * A project without a stamp is assessed as solved with version 0.
      */
-    openProject(snapshot: FeatureSnapshot & { solvedWith?: unknown }, analysisMode?: string): void {
+    openProject(snapshot: FeatureSnapshot & { solvedWith?: unknown; pendingRecheckNotice?: PendingRecheckNotice }, analysisMode?: string): void {
       // No stamp: an explicit "unknown" one (version 0), so the project keeps one identity while
       // it travels between tabs and an acknowledgement given in this session holds for it.
       const stored = readStamp(snapshot.solvedWith) ?? unknownStamp();
       stamp = stored;
-      assessment = assessProject(snapshot, stored, analysisMode);
-      assessedStampId = stored.id;
+      const request = ++generation;
+      const savedNotice = snapshot.pendingRecheckNotice;
+      const original = readStamp(savedNotice?.stamp) ?? stored;
+      assessedStampId = original.id;
+      currentAssessmentStampId = stored.resultsVersion < RESULTS_VERSION ? stored.id : null;
+      pending = original.resultsVersion < RESULTS_VERSION || stored.resultsVersion < RESULTS_VERSION;
+      const currentFeatures = modelFeatures(snapshot, { analysisMode, analysesRun: stored.resultsVersion > 0 ? stored.analyses : null });
+      // Capture before attempting the lazy import. Solves and edits must not replace
+      // the version or applicability of the notice the engineer has yet to read.
+      outstanding = pending ? {
+        stamp: original,
+        // Save current applicability before loading, so failed downloads followed by
+        // an automatic solve cannot erase newly relevant warnings on reload.
+        features: [...new Set([
+          ...(Array.isArray(savedNotice?.features) && savedNotice.features.every(f => typeof f === 'string')
+            ? savedNotice.features
+            : modelFeatures(snapshot, { analysisMode, analysesRun: original.resultsVersion > 0 ? original.analyses : null })),
+          ...currentFeatures,
+        ])],
+      } : undefined;
+      loadFailed = false;
+      assessment = {
+        solvedVersion: original.resultsVersion, currentVersion: RESULTS_VERSION,
+        older: pending, newer: stored.resultsVersion > RESULTS_VERSION, changes: [],
+      };
+      const features = new Set(outstanding?.features);
+      retry = async () => {
+        if (request !== generation || !pending) return;
+        loadFailed = false;
+        try {
+          const { assessProject } = await load();
+          if (request !== generation) return;
+          const preserved = assessProject({}, original, analysisMode, undefined, features);
+          const current = assessProject({}, stored, analysisMode, undefined, currentFeatures);
+          currentAssessmentStampId = current.changes.length ? stored.id : null;
+          assessment = {
+            ...preserved,
+            newer: current.newer,
+            changes: [...new Map([...preserved.changes, ...current.changes].map(c => [c.id, c])).values()]
+              .sort((a, b) => a.resultsVersion - b.resultsVersion || a.date.localeCompare(b.date) || a.id.localeCompare(b.id)),
+          };
+          // An empty assessment has no notice to preserve. Never let its frozen
+          // features suppress changes applicable to a later edited snapshot.
+          if (!assessment.changes.length) outstanding = undefined;
+          pending = false;
+          retry = () => Promise.resolve();
+        } catch {
+          if (request === generation) loadFailed = true;
+        }
+      };
+      void retry();
     },
 
     /** A new, empty project: nothing was solved, nothing is stale, and it belongs to this build. */
     reset(): void {
+      ++generation;
+      retry = () => Promise.resolve();
+      pending = false;
+      loadFailed = false;
+      outstanding = undefined;
       stamp = freshStamp();
       assessment = null;
       assessedStampId = null;
+      currentAssessmentStampId = null;
     },
 
     /** An analysis of `kind` just published results in this build. */
@@ -89,7 +161,15 @@ function createRecheckStore() {
 
     /** The engineer read the notice. Results stay marked stale until re-run. */
     acknowledge(): void {
-      if (assessedStampId) acknowledged = new Set([...acknowledged, assessedStampId]);
+      if (!pending && assessedStampId) {
+        acknowledged = new Set([...acknowledged, assessedStampId]);
+        outstanding = undefined;
+      }
+    },
+
+    captureNotice(): PendingRecheckNotice | undefined {
+      if (!outstanding || acknowledged.has(outstanding.stamp.id)) return undefined;
+      return { stamp: { ...outstanding.stamp, analyses: [...outstanding.stamp.analyses] }, features: [...outstanding.features] };
     },
 
     /** What a snapshot carries: the stamp, or nothing when the project was never solved. */

@@ -25,7 +25,7 @@ async function zipNames(click: () => Promise<unknown>, page: Page): Promise<stri
   return Object.keys(unzipSync(new Uint8Array(readFileSync((await dl.path())!)))).sort();
 }
 
-test.describe('@smoke exporting an empty model', () => {
+test.describe('@slow exporting an empty model', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('PRO offers every export, warns in each dialog and after, and the files still come out', async ({ pro: page }) => {
@@ -78,7 +78,7 @@ test.describe('@smoke exporting an empty model', () => {
   });
 });
 
-test.describe('@smoke choosing which drawings come out', () => {
+test.describe('@slow choosing which drawings come out', () => {
   test.describe.configure({ timeout: 180_000 });
 
   test('Basic: model and diagrams in one file each, or on one sheet', async ({ page }) => {
