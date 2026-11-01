@@ -24,6 +24,17 @@ describe('notFoundPage', () => {
     }
   });
 
+  it('hands a shared model in the fragment to the app instead of dropping it', () => {
+    for (const locale of PUBLIC_LOCALES) {
+      const script = notFoundPage(locale, PUBLIC_LOCALES).match(/<script>([^<]*)<\/script>/)![1];
+      for (const [hash, target] of [['#data=2.abc', '/app/basic#data=2.abc'], ['#embed=2.abc', '/app/basic#embed=2.abc'], ['#top', null]]) {
+        let replaced: string | null = null;
+        new Function('location', script)({ hash, replace: (url: string) => { replaced = url; } });
+        expect(replaced).toBe(target);
+      }
+    }
+  });
+
   it('says it in each language rather than in English everywhere', () => {
     const titles = PUBLIC_LOCALES.map((l) => notFoundPage(l, PUBLIC_LOCALES).match(/<title>([^<]*)<\/title>/)![1]);
     expect(new Set(titles).size).toBe(PUBLIC_LOCALES.length);

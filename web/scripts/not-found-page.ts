@@ -99,12 +99,13 @@ export function notFoundPage(locale: Locale, offered: readonly Locale[]): string
 <meta name="robots" content="noindex">
 <title>${t.title} — Stabileo</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script>if (/^#(data|embed)=/.test(location.hash)) location.replace('/app/basic' + location.hash);</script>
 <style>
 @font-face { font-family: 'Space Grotesk'; src: url('/fonts/space-grotesk.woff2') format('woff2'); font-weight: 700; font-display: swap; }
 @font-face { font-family: 'IBM Plex Sans'; src: url('/fonts/ibm-plex-sans.woff2') format('woff2'); font-weight: 400; font-display: swap; }
 :root { color-scheme: dark; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { min-height: 100vh; background: #0c1620; color: #f4f7fa; font: 400 17px/1.55 'IBM Plex Sans', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; padding: 48px 16px; }
+body { min-height: 100vh; background: #0c1620; color: #f4f7fa; font: 400 17px/1.55 'IBM Plex Sans', system-ui, sans-serif; display: flex; align-items: safe center; justify-content: center; padding: 48px 16px; }
 main { width: 100%; max-width: 560px; }
 .brand { display: inline-flex; align-items: center; gap: 12px; color: #f4f7fa; text-decoration: none; font: 700 22px 'Space Grotesk', system-ui, sans-serif; }
 .logo { width: 32px; height: 32px; border-radius: 5px; background: #e5482a; color: #fff; display: grid; place-items: center; font-size: 19px; }
@@ -116,7 +117,7 @@ ul a, .app { display: inline-flex; align-items: center; min-height: 44px; paddin
 ul a:hover, ul a:focus-visible { border-color: #e5482a; }
 .app { margin-top: 12px; background: #e5482a; border-color: #e5482a; color: #fff; font-weight: 600; }
 nav.languages { margin-top: 40px; display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; }
-nav.languages a { color: #8fa3b3; display: inline-flex; min-height: 32px; align-items: center; }
+nav.languages a { color: #8fa3b3; display: inline-flex; min-height: 44px; align-items: center; }
 </style>
 </head>
 <body>

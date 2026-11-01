@@ -204,6 +204,11 @@ write_files:
       	}
       	redir @dirNoSlash {path}/ 301
 
+      	@notFoundPage path_regexp ^/([a-z]{2}/)?404\.html$
+      	handle @notFoundPage {
+      		error 404
+      	}
+
       	@static path_regexp \.
       	handle @static {
       		@assets path /assets/*

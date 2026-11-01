@@ -20,12 +20,12 @@ page() { mkdir -p "$(dirname "$app/$1")"; printf '%s\n' "$2" > "$app/$1"; }
 
 if [ -n "$dist" ]; then
 	cp -R "$dist/." "$app/"
-	paper=$(cd "$app" && find en/research -mindepth 3 -name index.html | head -n 1)
+	paper=$(cd "$app" && find en/research -mindepth 3 -name index.html -print -quit)
 	paper="/${paper%index.html}"
-	post=$(cd "$app" && find en/blog -mindepth 2 -name index.html | head -n 1)
+	post=$(cd "$app" && find en/blog -mindepth 2 -name index.html -print -quit)
 	post="/${post#en/}"
 	post="${post%index.html}"
-	asset=$(cd "$app" && find assets -name '*.js' | head -n 1)
+	asset=$(cd "$app" && find assets -name '*.js' -print -quit)
 	root_marker='id="prerender"'
 	nf_en='<html lang="en">'
 	nf_es='<html lang="es">'
@@ -57,7 +57,7 @@ APP_DOMAIN=http://app.test:$app_port
 ADMIN_DOMAIN=http://admin.test:$admin_port
 STABILEO_ROOT=$work
 BACKEND_PORT=$(port)
-ROBOTS_TAG=noindex, nofollow
+ROBOTS_TAG=index, follow
 EOF
 grep -v '^import /etc/caddy/' "$here/Caddyfile" > "$work/Caddyfile"
 
@@ -87,9 +87,17 @@ expect() {
 	echo "ok   $host$path -> $status${needle:+ ($needle)}"
 }
 a() { expect app.test "$app_port" "$@"; }
+lacks() {
+	local path=$1 needle=$2
+	fetch app.test "$app_port" "$path"
+	if grep -qiF -- "$needle" "$work/headers"; then
+		echo "FAIL app.test$path: headers carry '$needle'"; failures=$((failures + 1)); return
+	fi
+	echo "ok   app.test$path lacks '$needle'"
+}
 
 a / 200 "$root_marker"
-a / 200 'X-Robots-Tag: noindex, nofollow'
+a / 200 'X-Robots-Tag: index, follow'
 a /en/ 200 '<html lang="en"'
 a /en 301 "Location: /en/"
 a "$paper" 200
@@ -104,6 +112,11 @@ a "/$asset" 200 "immutable"
 a /robots.txt 200
 a /en/research/nonexistent-paper/ 404 'content="noindex"'
 a /en/research/nonexistent-paper/ 404 'X-Robots-Tag: noindex'
+lacks /en/research/nonexistent-paper/ 'X-Robots-Tag: index, follow'
+a /404.html 404 'X-Robots-Tag: noindex'
+a /en/404.html 404 "$nf_en"
+a /es/404.html 404 "$nf_es"
+lacks /es/404.html 'X-Robots-Tag: index, follow'
 a /en/research/nonexistent-paper/ 404 'X-Content-Type-Options: nosniff'
 a /en/research/nonexistent-paper 404 "$nf_en"
 a /es/no-existe/ 404 "$nf_es"

@@ -122,6 +122,8 @@ jobs:
               - 'Cargo.lock'
             caddy:
               - 'infra/caddy/**'
+              - 'infra/cloud-init/**'
+              - 'nginx.conf'
               - 'Makefile'
               - '.github/workflows/ci.yml'
             ci_scripts:
