@@ -313,10 +313,10 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
     }
   });
 
-  const { head, body } = await page.evaluate(() => ({
-    head: document.head.innerHTML,
-    body: document.querySelector('#app')?.innerHTML ?? '',
-  }));
+  const { head, body } = await page.evaluate(() => {
+    for (const control of document.querySelectorAll('#app form, #app input, #app select, #app textarea')) control.setAttribute('inert', '');
+    return { head: document.head.innerHTML, body: document.querySelector('#app')?.innerHTML ?? '' };
+  });
   const lang = await page.evaluate(() => document.documentElement.lang);
   return { head, body, lang, href };
 }

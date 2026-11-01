@@ -32,11 +32,14 @@ export function goPublic(path: string) {
  * address is the part that gets shared and indexed, so it is the part that has
  * to be right — the rendering follows it, never the other way round.
  */
+let localeSwitch = 0;
+
 export async function switchPublicLocale(locale: PublicLocale) {
-  const target = parsePublicPath(window.location.pathname).path + window.location.search + window.location.hash;
+  const request = ++localeSwitch;
   await ensurePublicLocale(locale);
+  if (request !== localeSwitch) return;
   setPublicLocale(locale);
-  goPublic(target);
+  goPublic(parsePublicPath(window.location.pathname).path + window.location.search + window.location.hash);
 }
 
 /**

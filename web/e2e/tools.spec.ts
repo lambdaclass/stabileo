@@ -22,6 +22,9 @@ const DEFAULT_VALUES: Record<string, number> = { 'simply-supported-beam': 0.0105
 for (const id of TOOL_IDS) test(`@smoke tools ${id} computes and opens the same model`, async ({ page, request }) => {
   const html = await (await request.get(`/en/tools/${id}/`)).text();
   expect(html).toContain('id="prerender"');
+  const snapshot = html.slice(html.indexOf('id="prerender"'), html.indexOf('id="app"'));
+  expect(snapshot).toMatch(/<form[^>]*\sinert/);
+  expect(snapshot.match(/<input(?![^>]*\sinert)[^>]*>/g) ?? []).toEqual([]);
   for (const p of workedExamples(id)) expect(html).toContain(`data-value="${format(formula(id, p).value)}"`);
   await page.goto(`/en/tools/${id}/?e2e=1`);
   const agreement = page.getByTestId('agreement');

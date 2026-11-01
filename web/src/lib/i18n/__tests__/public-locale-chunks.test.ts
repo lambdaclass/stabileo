@@ -82,4 +82,24 @@ describe('a public language in its own chunk', () => {
     }
   });
 
+  it('a slow language switch never overrides a later one', async () => {
+    let arrive!: (m: { default: Record<string, string> }) => void;
+    const store = await storeWith(() => new Promise(resolve => { arrive = resolve; }));
+    const { switchPublicLocale } = await import('../../../components/landing/landing-utils');
+    const moves: string[] = [];
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { location: { pathname: '/es/tools/', search: '', hash: '' } }));
+    window.addEventListener('stabileo-navigate', (e: Event) => moves.push((e as CustomEvent<string>).detail));
+    try {
+      const slow = switchPublicLocale('es');
+      await switchPublicLocale('en');
+      expect(store.publicI18n.locale).toBe('en');
+      arrive({ default: { 'landing.probe': 'Español' } });
+      await slow;
+      expect(store.publicI18n.locale).toBe('en');
+      expect(moves).toEqual(['/tools']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
 });
