@@ -3760,7 +3760,7 @@ fn benchmark_raasch_hook() {
 //
 // Second reference: Euler–Bernoulli bending of the twisted strip, δ = ∫(L−x)²·nᵀC(x)n dx with
 // the principal flexibilities rotating with the twist (`twisted_beam_beam_theory`): 0.0054259
-// and 0.0017462, within 0.05 % and 0.45 % of the paper (the paper's values add shear).
+// and 0.0017462, within 0.05 % and 0.45 % of the paper.
 //
 // Known issue MH-TWISTED-BEAM-MITC4 (engine/tests/benchmarks/KNOWN_ISSUES.md): MITC4 converges
 // to about 1.32 (A) and 1.26 (B) times the reference, while the curved shell on the same
@@ -7390,6 +7390,7 @@ fn benchmark_curved_shell_twisted_beam() {
 
     assert!((ratio_a - 1.0).abs() < 0.01, "Curved shell twisted beam A 12×2: ratio {ratio_a:.4} outside 1 ± 0.01");
     assert!((ratio_b_24 - 1.0).abs() < 0.03, "Curved shell twisted beam B 24×8: ratio {ratio_b_24:.4} outside 1 ± 0.03");
+    assert!((0.91..0.94).contains(&ratio_b_12), "Curved shell twisted beam B 12×2: ratio {ratio_b_12:.4} outside 0.91..0.94");
     assert!(ratio_b_12 < ratio_b_24 && ratio_b_24 <= 1.0, "Curved shell twisted beam B must converge from below: 12×2 {ratio_b_12:.4}, 24×8 {ratio_b_24:.4}");
 }
 
