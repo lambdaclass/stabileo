@@ -575,7 +575,7 @@
   $effect(() => {
     if (showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
-  $effect(() => { if (showLanding || showBlog || showExperiment || showPaper) return manualPublicScrollRestoration(); });
+  $effect(() => { if (!editorActive) return manualPublicScrollRestoration(); });
   $effect(() => { if (publicShell().kind !== 'app') void syncRouteState(); });
   let showBlog = $state(initialShell.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
@@ -625,7 +625,7 @@
     showBlog = shell.kind === 'blog';
     blogPath = shell.path;
     showLanding = shell.kind === 'landing';
-    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
+    if (editorActive) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -1402,7 +1402,7 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showLanding || showBlog || showExperiment || showPaper}
+{#if !editorActive}
   <SiteHeader path={blogPath} />
   {#if showLanding}
     <LandingPage />
@@ -1436,7 +1436,7 @@
   lazy editor mount cannot overwrite the restored <html lang>.
 -->
 <div class="app-language" lang={t('file.htmlLang')} style="display: contents">
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={!editorActive}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -2151,7 +2151,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
+  {#if !uiStore.embedMode && editorActive}
     <WhatsNewNotice />
   {/if}
 

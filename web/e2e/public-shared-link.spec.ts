@@ -2,7 +2,7 @@ import { test, expect, loadModel } from './fixtures';
 
 const census = (page: import('@playwright/test').Page) => page.evaluate(() => window.__stabileo.modelCensus());
 
-test('a shared model at the root restores behind the landing, as on main', async ({ page, context }) => {
+test('@slow a shared model at the root restores behind the landing, as on main', async ({ page, context }) => {
   test.setTimeout(120_000);
   await page.goto('/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
