@@ -93,6 +93,11 @@ describe('shared-link importer', () => {
       unknownLoadType: p => { p.loads[0].type = 'distributed '; },
       danglingPlateLoad: p => { p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } }); },
       danglingPlateMaterial: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 1], materialId: 9, thickness: 0.1 }]]; },
+      danglingPlateNode: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 9], materialId: 1, thickness: 0.1 }]]; },
+      shortQuad: p => { p.quads = [[1, { id: 1, nodes: [1, 2, 1], materialId: 1, thickness: 0.1 }]]; },
+      stringThickness: p => { p.quads = [[1, { id: 1, nodes: [1, 2, 2, 1], materialId: 1, thickness: '0.1' }]]; },
+      stringSectionIz: p => { p.sections[0][1].iz = 'garbage'; },
+      nullMaterialFy: p => { p.materials[0][1].fy = null; },
       danglingMemberLoad: p => { p.loads[0].data.elementId = 9; },
     };
     for (const [name, fault] of Object.entries(faults)) {

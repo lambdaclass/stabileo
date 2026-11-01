@@ -40,23 +40,33 @@ function loadNumbersValid(d: RecordValue): boolean {
     && (d.qNodes === undefined || (Array.isArray(d.qNodes) && d.qNodes.every(q => typeof q === 'number')));
 }
 
-const numeric = (entry: RecordValue, ...fields: string[]) => fields.every(f => typeof entry[f] === 'number');
+const MATERIAL_NUMBERS = ['e', 'nu', 'rho', 'fy', 'fu', 'fc', 'alpha'];
+const SECTION_NUMBERS = ['a', 'iz', 'iy', 'j', 'b', 'h', 't', 'tf', 'tw', 'tl', 'rotation'];
+
+function numbers(entry: RecordValue, required: string[], optional: string[]): boolean {
+  return required.every(f => typeof entry[f] === 'number')
+    && optional.every(f => entry[f] === undefined || typeof entry[f] === 'number');
+}
 
 function referencesResolve(value: RecordValue): boolean {
   const keys = (family: unknown) => new Set((family as Entry[]).map(([key]) => key));
   const nodes = keys(value.nodes), elements = keys(value.elements);
   const materials = keys(value.materials), sections = keys(value.sections);
   const plates = keys(value.plates ?? []), quads = keys(value.quads ?? []);
+  const shellNodes = (shell: RecordValue, count: number) => Array.isArray(shell.nodes)
+    && shell.nodes.length === count && shell.nodes.every(n => nodes.has(n as number));
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
       && materials.has(e.materialId as number) && sections.has(e.sectionId as number)
       && (e.variableSection === undefined
         || (record(e.variableSection) && sections.has(e.variableSection.sectionJ as number))))
-    && shells.every(([, s]) => materials.has(s.materialId as number))
+    && (value.plates as Entry[] ?? []).every(([, s]) => shellNodes(s, 3))
+    && (value.quads as Entry[] ?? []).every(([, s]) => shellNodes(s, 4))
+    && shells.every(([, s]) => materials.has(s.materialId as number) && typeof s.thickness === 'number')
     && (value.supports as Entry[]).every(([, s]) => nodes.has(s.nodeId as number))
-    && (value.materials as Entry[]).every(([, m]) => numeric(m, 'e', 'nu'))
-    && (value.sections as Entry[]).every(([, sec]) => numeric(sec, 'a'))
+    && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
+    && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))
     && (value.loads as RecordValue[]).every(({ type, data }) => {
       const d = data as RecordValue;
       if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(d)) return false;
