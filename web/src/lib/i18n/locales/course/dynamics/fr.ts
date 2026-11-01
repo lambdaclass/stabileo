@@ -167,6 +167,8 @@ const words: Translations = {
   'course.dynamics.mdof.eig.diff': 'Écart',
   'course.dynamics.mdof.eig.engineSame': 'L\'analyse modale du moteur utilise la même masse cohérente et la même division des barres : les fréquences coïncident.',
   'course.dynamics.mdof.eig.engineOther': 'L\'analyse modale du moteur utilise la masse cohérente ; l\'écart mesure l\'effet du modèle de masse choisi.',
+  'course.dynamics.mdof.eig.engineCheck': 'Pour vérifier K et M malgré tout, le même découpage des barres avec la masse cohérente doit donner les fréquences du moteur :',
+  'course.dynamics.mdof.eig.engineCheckCaption': 'Les mêmes barres avec la masse cohérente et l’analyse modale du moteur.',
   'course.dynamics.mdof.eig.engineShear': 'L\'analyse modale du moteur résout la structure entière, avec des poutres flexibles et des poteaux qui se raccourcissent. L\'écart mesure à quel point votre structure s\'éloigne de l\'idéalisation en portique de cisaillement.',
   'course.dynamics.mdof.eig.engineCaption': 'Fréquences de ce modèle et de l\'analyse modale du moteur.',
   'course.dynamics.mdof.shape.lead': 'Chaque fréquence a sa déformée modale φ_i, solution de (K − ω_i²M)·φ_i = 0. Cette équation fixe la forme du mode, pas sa taille.',

@@ -175,6 +175,8 @@ const words: Translations = {
   'course.plastic.user.showLabel': 'Ce qu\'on dessine',
   'course.plastic.user.showMech': 'Mécanisme',
   'course.plastic.user.showMoments': 'Moments',
+  'course.plastic.closed': 'refermée',
+  'course.plastic.closedTitle': 'La rotule s’est déchargée à λ = {lambda} et est redevenue rigide.',
 };
 
 export default words;

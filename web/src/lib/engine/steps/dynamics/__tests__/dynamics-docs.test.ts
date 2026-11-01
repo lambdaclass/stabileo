@@ -144,6 +144,22 @@ describe('the modal decomposition document', () => {
       for (const r of cmp.rows) expect(r.method).toBeCloseTo(r.matrix, 5);
     }
   });
+
+  it('with lumped or condensed mass the same bars with consistent mass still check against the engine', async () => {
+    await load('dynamics-shear-building');
+    for (const massModel of ['lumped', 'guyan'] as const) {
+      setDynamicsSettings({ mdof: { source: 'model' }, mass: { massModel, nPerMember: 2 } });
+      const doc = build('mdofModal');
+      const cmp = doc.steps[3].blocks.filter((b) => b.kind === 'compare');
+      expect(cmp.length, massModel).toBe(1);
+      if (cmp[0]?.kind === 'compare') {
+        expect(cmp[0].rows.length).toBeGreaterThan(2);
+        for (const r of cmp[0].rows) expect(r.method).toBeCloseTo(r.matrix, 5);
+      }
+      const diff = doc.steps[3].blocks.find((b) => b.kind === 'table' && b.head.length === 4);
+      expect(diff?.kind, massModel).toBe('table');
+    }
+  });
 });
 
 describe('the distributed mass document', () => {
@@ -166,5 +182,8 @@ describe('the distributed mass document', () => {
     setDynamicsSettings({ mass: { nPerMember: 2, massModel: 'lumped' } });
     const doc = build('massDiscretization');
     expectTranslated(doc);
+    const cmp = doc.steps[4].blocks.find((b) => b.kind === 'compare');
+    expect(cmp?.kind).toBe('compare');
+    if (cmp?.kind === 'compare') for (const r of cmp.rows) expect(r.method).toBeCloseTo(r.matrix, 5);
   });
 });

@@ -13,7 +13,7 @@ import { plotOf, type Plot, type PlotColor } from '../plot';
 import type { Sketch } from '../sketch';
 import { sketchOf } from '../sketch';
 import { resolveMdof, type MdofCase } from './mdof-build';
-import { K as KEY, p, note, dt, nodeNames, dofTexN, dofTextN, matrixBlock, systemSketch, shapeSketch, shapeScale, expand, MAX_SHOWN, engineFrequencies } from './common';
+import { K as KEY, p, note, dt, nodeNames, dofTexN, dofTextN, matrixBlock, systemSketch, shapeSketch, shapeScale, expand, MAX_SHOWN, engineFrequencies, consistentCheck } from './common';
 import { mdofSystemBlocks, shearBlocks } from './mdof-system-blocks';
 
 export type EngineModal = () => number[] | null;
@@ -96,6 +96,9 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
     eqs.push(
       p(c.kind === 'shear' ? 'mdof.eig.engineShear' : c.settings.mass.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'),
       engineFrequencies(rows, c.kind !== 'shear' && c.settings.mass.massModel === 'consistent', dt('mdof.eig.engineCaption')),
+      ...(c.kind !== 'shear' && c.settings.mass.massModel !== 'consistent' && ctx.model
+        ? consistentCheck(ctx.model, ctx.model.massSource?.points ?? [], c.settings.mass.nPerMember, c.settings.mdof.barMass, eng.slice(0, rows.length))
+        : []),
     );
   }
   steps.push({ title: dt('mdof.s4'), blocks: eqs });

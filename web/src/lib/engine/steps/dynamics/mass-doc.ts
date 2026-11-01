@@ -15,7 +15,7 @@ import { modelSystem, SystemError, type MdofSystem } from '../../dynamics/course
 import { lumpedFrameMass, consistentFrameMass, type MassModel } from '../../dynamics/course/mass-model';
 import { exactBeam, frequenciesOf, MASS_MODELS, type ConvergenceRow } from '../../dynamics/course/convergence';
 import { generalizedEigen } from '../../dynamics/course/dense';
-import { K as KEY, p, note, dt, nodeNames, dofTextN, matrixBlock, systemSketch, engineFrequencies } from './common';
+import { K as KEY, p, note, dt, nodeNames, dofTextN, matrixBlock, systemSketch, engineFrequencies, consistentCheck } from './common';
 
 export type EngineAt = (n: number) => number[] | null;
 
@@ -139,7 +139,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
     blocks: [
       p('mass.freq.lead', { n }),
       { kind: 'table', head, rows: chosen.map((f, i) => [i + 1, f, ...(exact ? [exact.modes[i]?.f ?? '—'] : [])]), caption: dt('mass.freq.caption') },
-      ...(eng ? [p(st.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), st.massModel === 'consistent', dt('mdof.eig.engineCaption'))] : []),
+      ...(eng ? [p(st.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), st.massModel === 'consistent', dt('mdof.eig.engineCaption')), ...(st.massModel !== 'consistent' ? consistentCheck(ctx.model!, pts, n, true, eng.slice(0, chosen.length)) : [])] : []),
       ...(exact ? [p(`mass.exact.${exact.beamCase}`, { L: numText(exact.L) })] : [p('mass.exact.none', undefined, true)]),
       ...(exact ? [{ kind: 'eq', tex: `\\omega_1 = ${num(exactCoef(exact))}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(exactCoef(exact))}\\sqrt{\\frac{${num(exact.EI)}}{${num(exact.rhoA)} \\cdot ${num(exact.L)}^4}}` } as Block] : []),
     ],

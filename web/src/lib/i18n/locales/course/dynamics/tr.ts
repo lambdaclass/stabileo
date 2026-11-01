@@ -167,6 +167,8 @@ const words: Translations = {
   'course.dynamics.mdof.eig.diff': 'Fark',
   'course.dynamics.mdof.eig.engineSame': 'Motorun modal analizi aynı tutarlı kütleyi ve aynı çubuk bölünmesini kullanır, bu yüzden frekanslar çakışır.',
   'course.dynamics.mdof.eig.engineOther': 'Motorun modal analizi tutarlı kütle kullanır; fark seçilen kütle modelinin etkisini ölçer.',
+  'course.dynamics.mdof.eig.engineCheck': 'K ve M’yi yine de doğrulamak için, aynı çubuk bölünmesi tutarlı kütleyle motorun frekanslarını vermelidir:',
+  'course.dynamics.mdof.eig.engineCheckCaption': 'Tutarlı kütleli aynı çubuklar ve motorun modal analizi.',
   'course.dynamics.mdof.eig.engineShear': 'Motorun modal analizi, esnek kirişleri ve kısalan kolonlarıyla yapının tamamını çözer. Fark, yapınızın kayma çerçevesi idealleştirmesinden ne kadar uzaklaştığını ölçer.',
   'course.dynamics.mdof.eig.engineCaption': 'Bu modelin ve motorun modal analizinin frekansları.',
   'course.dynamics.mdof.shape.lead': 'Her frekansın bir mod şekli φ_i vardır: (K − ω_i²M)·φ_i = 0 denkleminin çözümü. Bu denklem modun biçimini belirler, büyüklüğünü değil.',

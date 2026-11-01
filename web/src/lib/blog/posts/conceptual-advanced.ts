@@ -34,8 +34,8 @@
  * From `generateKinematicReport` on the `hidden-mechanism` fixture, run
  * before any of this was written:
  *
- *   formula        g = 3·m + r − 3·n
- *   substitution   g = 3×2 + 3 − 3×3 = 0
+ *   formula        GH = 3·m + r − 3·n − c
+ *   substitution   GH = 3×2 + 3 − 3×3 − 0 = 0
  *   classification HYPOSTATIC — not what the formula's zero implies
  *   mechanism      1 mode, node 3, dof ux
  *   isSolvable     false

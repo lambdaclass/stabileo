@@ -7,6 +7,9 @@ import type { Sketch } from '../sketch';
 import { sketchOf } from '../sketch';
 import type { DofRef, MdofSystem } from '../../dynamics/course/mdof-system';
 import type { Mat } from '../../dynamics/course/dense';
+import type { ModelData } from '../../solver-service';
+import type { PointMass } from '../../dynamics/mass-source';
+import { frequenciesOf } from '../../dynamics/course/convergence';
 
 export const K = 'course.dynamics.';
 export const p = (key: string, params?: Record<string, string | number>, detail = false): Block => ({ kind: 'p', text: tx(K + key, params), ...(detail ? { detail } : {}) });
@@ -100,4 +103,12 @@ export function engineFrequencies(rows: { label: string; method: number; matrix:
     rows: rows.map((r, i) => [i + 1, r.method, r.matrix, (100 * (r.method - r.matrix)) / r.matrix]),
     caption,
   };
+}
+
+/** The same bars with consistent mass against the engine, so a lumped or condensed document still checks its K and M. */
+export function consistentCheck(model: ModelData, points: readonly PointMass[], nPerMember: number, barMass: boolean, eng: number[]): Block[] {
+  const mine = frequenciesOf(model, points, { nPerMember, massModel: 'consistent', barMass }, eng.length).f;
+  const rows = mine.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i], unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix));
+  if (!rows.length) return [];
+  return [p('mdof.eig.engineCheck'), { kind: 'compare', rows, caption: dt('mdof.eig.engineCheckCaption') }];
 }

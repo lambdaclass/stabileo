@@ -194,6 +194,7 @@ const words: Translations = {
   'steps.m.so-buckling-kg.opt.chord.help': 'Tutarlı matris yerine enine yerdeğiştirmelerde yalnızca N/L kullanır: yalnızca yanal yerdeğiştirmeli modları bulur.',
   'steps.m.so-buckling-kg.opt.axialRigid.label': 'Eksenel olarak rijit çubuklar',
   'steps.m.so-buckling-kg.opt.axialRigid.help': 'Çubuklar elle hesaptaki gibi boylarını korur: daha az bilinmeyen olur ve N dengeden çıkar.',
+  'course.second-order.doc.cannot': 'Bu varsayımla mümkün değil',
 };
 
 export default words;

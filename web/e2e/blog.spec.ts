@@ -432,7 +432,7 @@ test.describe('blog', () => {
     await expect(app.getByTestId('bp-title')).toHaveText('Avanzado', { timeout: 60_000 });
 
     const body = app.locator('body');
-    await expect(body).toContainText('g = 3×2 + 3 − 3×3 = 0');
+    await expect(body).toContainText('GH = 3×2 + 3 − 3×3 − 0 = 0');
     /*
      * Generous timeouts on the rank check, and the reason is worth keeping.
      *

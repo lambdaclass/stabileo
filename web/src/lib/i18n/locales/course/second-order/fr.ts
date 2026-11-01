@@ -194,6 +194,7 @@ const words: Translations = {
   'steps.m.so-buckling-kg.opt.chord.help': 'Utilise seulement N/L sur les déplacements transversaux au lieu de la matrice cohérente : elle ne trouve que les modes à déplacement latéral.',
   'steps.m.so-buckling-kg.opt.axialRigid.label': 'Barres axialement rigides',
   'steps.m.so-buckling-kg.opt.axialRigid.help': 'Les barres gardent leur longueur, comme dans le calcul à la main : il y a moins d\'inconnues et N découle de l\'équilibre.',
+  'course.second-order.doc.cannot': 'Impossible avec cette hypothèse',
 };
 
 export default words;

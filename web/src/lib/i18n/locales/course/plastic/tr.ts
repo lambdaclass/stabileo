@@ -175,6 +175,8 @@ const words: Translations = {
   'course.plastic.user.showLabel': 'Ne çizilsin',
   'course.plastic.user.showMech': 'Mekanizma',
   'course.plastic.user.showMoments': 'Momentler',
+  'course.plastic.closed': 'kapandı',
+  'course.plastic.closedTitle': 'Mafsal λ = {lambda} değerinde yükünü bıraktı ve yeniden rijit oldu.',
 };
 
 export default words;

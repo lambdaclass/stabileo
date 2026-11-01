@@ -167,6 +167,8 @@ const words: Translations = {
   'course.dynamics.mdof.eig.diff': 'Abweichung',
   'course.dynamics.mdof.eig.engineSame': 'Die Modalanalyse des Rechenkerns verwendet dieselbe konsistente Masse und dieselbe Stabteilung, daher stimmen die Frequenzen überein.',
   'course.dynamics.mdof.eig.engineOther': 'Die Modalanalyse des Rechenkerns verwendet konsistente Masse; die Abweichung misst den Einfluss des gewählten Massenmodells.',
+  'course.dynamics.mdof.eig.engineCheck': 'Zur Kontrolle von K und M muss dieselbe Unterteilung der Stäbe mit konsistenter Masse die Frequenzen des Rechenkerns ergeben:',
+  'course.dynamics.mdof.eig.engineCheckCaption': 'Dieselben Stäbe mit konsistenter Masse und die Modalanalyse des Rechenkerns.',
   'course.dynamics.mdof.eig.engineShear': 'Die Modalanalyse des Rechenkerns löst das ganze Tragwerk, mit biegeweichen Riegeln und sich verkürzenden Stützen. Die Abweichung misst, wie weit Ihr Tragwerk von der Idealisierung als Schubrahmen entfernt ist.',
   'course.dynamics.mdof.eig.engineCaption': 'Frequenzen dieses Modells und der Modalanalyse des Rechenkerns.',
   'course.dynamics.mdof.shape.lead': 'Zu jeder Frequenz gehört eine Eigenform φ_i, die Lösung von (K − ω_i²M)·φ_i = 0. Diese Gleichung legt die Form fest, nicht aber die Größe.',

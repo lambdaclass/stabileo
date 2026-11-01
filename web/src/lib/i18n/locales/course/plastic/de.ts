@@ -175,6 +175,8 @@ const words: Translations = {
   'course.plastic.user.showLabel': 'Was gezeichnet wird',
   'course.plastic.user.showMech': 'Mechanismus',
   'course.plastic.user.showMoments': 'Momente',
+  'course.plastic.closed': 'geschlossen',
+  'course.plastic.closedTitle': 'Das Gelenk wurde bei λ = {lambda} entlastet und ist wieder starr.',
 };
 
 export default words;
