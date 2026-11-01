@@ -17,6 +17,8 @@ export type ScalarFieldMesh = {
   group: THREE.Group;
   /** `values` per node, or per cell when `perCell`; colours are clamped to `range`. */
   setField(values: ArrayLike<number>, range: { min: number; max: number }, opts?: { perCell?: boolean; bands?: number; colourMap?: ColourMap }): void;
+  /** Draw a neutral solid colour without a scalar field. */
+  setUncoloured(): void;
   /** Nodal displacements [ux0, uy0, ux1, ...] times `scale`, or null for the undeformed mesh. */
   setDisplacement(u: ArrayLike<number> | null, scale: number): void;
   /** Leave out the cells for which `hide(cell)` is true (for instance a fully broken element). */
@@ -86,7 +88,17 @@ export function createScalarFieldMesh(xy: ArrayLike<number>, cells: ArrayLike<nu
   const tmp = new THREE.Color();
   return {
     group,
+    setUncoloured() {
+      material.vertexColors = false;
+      material.color.setHex(0x8fa3b3);
+      material.needsUpdate = true;
+    },
     setField(values, range, opts = {}) {
+      if (!material.vertexColors) {
+        material.vertexColors = true;
+        material.color.setHex(0xffffff);
+        material.needsUpdate = true;
+      }
       const { perCell = false, bands = 0, colourMap = 'shell' } = opts;
       for (let i = 0; i < nv; i++) {
         const cell = Math.floor(i / verticesPerCell);
@@ -176,7 +188,17 @@ function createLineField(xy: ArrayLike<number>, cells: ArrayLike<number>, lineWi
   const tmp = new THREE.Color();
   const api: ScalarFieldMesh = {
     group,
+    setUncoloured() {
+      material.vertexColors = false;
+      material.color.setHex(0x8fa3b3);
+      material.needsUpdate = true;
+    },
     setField(values, range, opts = {}) {
+      if (!material.vertexColors) {
+        material.vertexColors = true;
+        material.color.setHex(0xffffff);
+        material.needsUpdate = true;
+      }
       const { perCell = false, bands = 0, colourMap = 'shell' } = opts;
       for (let c = 0; c < n; c++) {
         for (let end = 0; end < 2; end++) {

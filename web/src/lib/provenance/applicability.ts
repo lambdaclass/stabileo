@@ -8,7 +8,8 @@
  *
  * Pure: the store (`store/recheck.svelte.ts`) calls it on open, the tests call it directly.
  */
-import { conditionGroups, RESULT_CHANGES, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { conditionGroups, type ResultChange, type ResultChangeRegistry, type ChangeCondition } from './registry';
+import { RESULT_CHANGES } from './full-registry';
 import { modelFeatures, type FeatureSnapshot } from './model-features';
 import type { SolveStamp } from './solve-stamp';
 
@@ -34,11 +35,12 @@ export function assessProject(
   stamp: SolveStamp | null | undefined,
   analysisMode?: string,
   registry: ResultChangeRegistry = RESULT_CHANGES,
+  originalFeatures?: ReadonlySet<string>,
 ): RecheckAssessment {
   const solvedVersion = stamp?.resultsVersion ?? 0;
   const currentVersion = registry.currentResultsVersion;
   const known = !!stamp && solvedVersion > 0;
-  const features = modelFeatures(snapshot, { analysisMode, analysesRun: known ? stamp!.analyses : null });
+  const features = originalFeatures ?? modelFeatures(snapshot, { analysisMode, analysesRun: known ? stamp!.analyses : null });
   const changes = solvedVersion >= currentVersion ? [] : registry.changes
     .filter((c) => c.resultsVersion > solvedVersion && c.resultsVersion <= currentVersion)
     .filter((c) => conditionHolds(c.when, features))

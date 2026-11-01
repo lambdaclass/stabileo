@@ -57,7 +57,7 @@ async function selectShed(page: Page): Promise<void> {
 test.beforeEach(async ({ page }) => {
   await page.goto(PRO_URL);
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 });
 

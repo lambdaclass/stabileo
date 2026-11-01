@@ -192,7 +192,7 @@ async function backToFirstTab(page: Page): Promise<void> {
 /** Make an unsaved edit in the frame editor of a verified beam; returns the beam and its stored bars. */
 async function frameDraft(page: Page): Promise<{ id: number; stored: string }> {
   const rows = page.locator('[data-testid^="desk-row-"]').filter({ has: page.locator('.dot.st-ok') });
-  await expect(rows.first()).toBeVisible({ timeout: 60_000 });
+  await expect(rows.first()).toBeVisible({ timeout: 45_000 });
   const n = await rows.count();
   for (let i = 0; i < n; i++) {
     await rows.nth(i).click();
@@ -235,13 +235,13 @@ async function detailedFrame(page: Page): Promise<void> {
   await openDetailing(page);
   await page.getByTestId('cmd-generate-detailing').click();
   await expect.poll(() => page.evaluate(() => (window.__stabileo as unknown as
-    { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 60_000 }).toBeGreaterThan(0);
+    { detailingAssemblies(): unknown[] }).detailingAssemblies().length), { timeout: 45_000 }).toBeGreaterThan(0);
 }
 
 /** A member of the open design list whose design verified and carries bars. */
 async function verifiedRow(page: Page): Promise<number> {
   const row = page.locator('[data-testid^="desk-row-"]').filter({ has: page.locator('.dot.st-ok') }).first();
-  await expect(row).toBeVisible({ timeout: 60_000 });
+  await expect(row).toBeVisible({ timeout: 45_000 });
   return Number((await row.getAttribute('data-testid'))!.replace('desk-row-', ''));
 }
 
@@ -272,8 +272,8 @@ async function roundTripFromClassicDesign(page: Page): Promise<void> {
 
 // ─── The contracts ──────────────────────────────────────────────────────────────────────────────
 
-test.describe('@smoke interaction contracts', () => {
-  test('C1 — the model selection survives model → design → model (close control)', async ({ pro: page }) => {
+test.describe('interaction contracts', () => {
+  test('@smoke C1 — the model selection survives model → design → model (close control)', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await selectInModel(page, [ids[4]!]);
@@ -282,7 +282,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await modelSelection(page)).toEqual([ids[4]]);
   });
 
-  test('C1b — the model selection survives model → design → model (Escape)', async ({ pro: page }) => {
+  test('@smoke C1b — the model selection survives model → design → model (Escape)', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await selectInModel(page, [ids[4]!]);
@@ -291,7 +291,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await modelSelection(page)).toEqual([ids[4]]);
   });
 
-  test('C2 — entering design shows the model\'s selected member as design\'s current member', async ({ pro: page }) => {
+  test('@smoke C2 — entering design shows the model\'s selected member as design\'s current member', async ({ pro: page }) => {
     await designedFrame(page);
     const ids = await page.evaluate(() => window.__stabileo.elementIds());
     await selectInModel(page, [ids[5]!]);
@@ -299,7 +299,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect.poll(() => designCurrentMember(page)).toBe(ids[5]);
   });
 
-  test('C3 — «show in model» selects the member and frames it', async ({ pro: page }) => {
+  test('@smoke C3 — «show in model» selects the member and frames it', async ({ pro: page }) => {
     await designedFrame(page);
     await countFraming(page);
     await enterDesign(page);
@@ -311,7 +311,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect.poll(async () => (await framing(page)).sel).toBeGreaterThan(0);
   });
 
-  test('C4 — opening 3-D reinforcement from design shows that member, as the topmost surface', async ({ pro: page }) => {
+  test('@smoke C4 — opening 3-D reinforcement from design shows that member, as the topmost surface', async ({ pro: page }) => {
     await detailedFrame(page);
     await enterDesign(page);
     const id = await verifiedRow(page);
@@ -322,7 +322,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await rebarSelection(page)).toEqual([id]);
   });
 
-  test('C5 — Escape in the 3-D view returns to design without closing design', async ({ pro: page }) => {
+  test('@smoke C5 — Escape in the 3-D view returns to design without closing design', async ({ pro: page }) => {
     await detailedFrame(page);
     await enterDesign(page);
     const id = await verifiedRow(page);
@@ -335,7 +335,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await designCurrentMember(page)).toBe(id);
   });
 
-  test('C6 — opening and closing design leaves the model camera where it was', async ({ pro: page }) => {
+  test('@smoke C6 — opening and closing design leaves the model camera where it was', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await expect.poll(() => camera(page)).not.toBeNull();
@@ -345,7 +345,7 @@ test.describe('@smoke interaction contracts', () => {
     expectSameCamera(await camera(page), before);
   });
 
-  test('C6b — opening and closing the 3-D view leaves the model camera where it was', async ({ pro: page }) => {
+  test('@smoke C6b — opening and closing the 3-D view leaves the model camera where it was', async ({ pro: page }) => {
     await detailedFrame(page);
     await expect.poll(() => camera(page)).not.toBeNull();
     const before = await camera(page);
@@ -354,7 +354,7 @@ test.describe('@smoke interaction contracts', () => {
     expectSameCamera(await camera(page), before);
   });
 
-  test('C7 — returning to design restores its view, level, filter and current member', async ({ pro: page }) => {
+  test('@smoke C7 — returning to design restores its view, level, filter and current member', async ({ pro: page }) => {
     await designedFrame(page);
     await enterDesign(page);
     const id = await verifiedRow(page);
@@ -370,7 +370,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await designCurrentMember(page)).toBe(id);
   });
 
-  test('C7b — returning to design brings the current member\'s row back into view', async ({ pro: page }) => {
+  test('@smoke C7b — returning to design brings the current member\'s row back into view', async ({ pro: page }) => {
     await designedFrame(page);
     // A window short enough that qa-8's eight members overflow the list. Design docked under the
     // ribbon shares the window's height with the app's bars and the rail's own entries; on a short
@@ -390,7 +390,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId(`desk-row-${id}`)).toBeInViewport();
   });
 
-  test('C8 — returning to a stage restores the command last used in it (model)', async ({ pro: page }) => {
+  test('@smoke C8 — returning to a stage restores the command last used in it (model)', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-sections').click();
@@ -400,7 +400,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId('pr-cmd-sections')).toHaveClass(/active/);
   });
 
-  test('C8b — returning to a stage restores the command last used in it (analysis)', async ({ pro: page }) => {
+  test('@smoke C8b — returning to a stage restores the command last used in it (analysis)', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await page.getByTestId('pr-stage-analyse').click();
@@ -411,7 +411,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId('pr-cmd-advanced')).toHaveClass(/active/);
   });
 
-  test('C9 — the member list keeps its filter, search and open row across a change of place', async ({ pro: page }) => {
+  test('@smoke C9 — the member list keeps its filter, search and open row across a change of place', async ({ pro: page }) => {
     await designedFrame(page);
     await designPlace(page, 'list');
     await page.getByTestId('filter-ok').click();
@@ -427,7 +427,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId(`design-detail-${id}`)).toBeVisible();
   });
 
-  test('C10 — the active modelling level is design\'s initial level', async ({ pro: page }) => {
+  test('@smoke C10 — the active modelling level is design\'s initial level', async ({ pro: page }) => {
     await designedFrame(page);
     await page.getByTestId('pr-stage-model').click();
     await page.getByTestId('pr-cmd-grid').click();
@@ -443,7 +443,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId('desk-level')).toHaveValue(String(z));
   });
 
-  test('C11 — an unsaved edit in a design editor is neither applied nor dropped without a word on leaving', async ({ pro: page }) => {
+  test('@smoke C11 — an unsaved edit in a design editor is neither applied nor dropped without a word on leaving', async ({ pro: page }) => {
     await designedFrame(page);
     await enterDesign(page);
     const rows = page.locator('[data-testid^="desk-row-"]').filter({ has: page.locator('.dot.st-ok') });
@@ -472,7 +472,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId('frame-state')).toHaveText(/Unsaved|Sin guardar/);
   });
 
-  test('C12 — a model change marks the designed members out of date', async ({ pro: page }) => {
+  test('@smoke C12 — a model change marks the designed members out of date', async ({ pro: page }) => {
     await designedFrame(page);
     const id = (await page.evaluate(() => window.__stabileo.elementIds()))[0]!;
     expect(await page.evaluate((e) => window.__stabileo.displayStatus(e), id)).toBe('ok');
@@ -482,7 +482,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId(`desk-row-${id}`)).toBeVisible();
   });
 
-  test('C12d — a model change marks the documents out of date', async ({ pro: page }) => {
+  test('@smoke C12d — a model change marks the documents out of date', async ({ pro: page }) => {
     await detailedFrame(page);
     const id = (await page.evaluate(() => window.__stabileo.elementIds()))[0]!;
     await changeSectionOf(page, id);
@@ -491,7 +491,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(designSurface(page).getByTestId('documents-outdated')).toBeVisible();
   });
 
-  test('C12b — design states that its results are out of date because the model changed', async ({ pro: page }) => {
+  test('@smoke C12b — design states that its results are out of date because the model changed', async ({ pro: page }) => {
     await designedFrame(page);
     const id = (await page.evaluate(() => window.__stabileo.elementIds()))[0]!;
     await changeSectionOf(page, id);
@@ -499,7 +499,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(designSurface(page)).toContainText(/model (has )?changed|out of date/i);
   });
 
-  test('C13 — an other-codes run survives leaving and returning, or says it must be run again', async ({ pro: page }) => {
+  test('@smoke C13 — an other-codes run survives leaving and returning, or says it must be run again', async ({ pro: page }) => {
     await steelPortal(page);
     await designPlace(page, 'otherCodes');
     await page.getByTestId('other-codes-run').click();
@@ -509,7 +509,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId('other-codes-results').or(page.getByTestId('other-codes-stale'))).toBeVisible();
   });
 
-  test('C14 — a chosen joint survives a stage round trip', async ({ pro: page }) => {
+  test('@smoke C14 — a chosen joint survives a stage round trip', async ({ pro: page }) => {
     await steelPortal(page);
     await designPlace(page, 'connections');
     const rows = page.locator('.conn-joint-row');
@@ -522,7 +522,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.locator('.conn-joint-row.active')).toHaveText(chosen);
   });
 
-  test('C15 — a diagnostics row frames its selection, not the whole model', async ({ pro: page }) => {
+  test('@smoke C15 — a diagnostics row frames its selection, not the whole model', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     // qa-8 with a second member over e5's nodes: a duplicate is a finding that names its member.
     const file = await page.evaluate(() => JSON.parse(window.__stabileo.serializeProject()));
@@ -547,7 +547,7 @@ test.describe('@smoke interaction contracts', () => {
     expect((await framing(page)).fit).toBe(0);
   });
 
-  test('C16 — design\'s current member does not leak across project tabs', async ({ pro: page }) => {
+  test('@smoke C16 — design\'s current member does not leak across project tabs', async ({ pro: page }) => {
     await designedFrame(page);
     await enterDesign(page);
     const id = await verifiedRow(page);
@@ -559,7 +559,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect.poll(() => designCurrentMember(page), { timeout: 30_000 }).not.toBe(id);
   });
 
-  test('C17 — the 3-D view drops a selected member that no longer exists after re-detailing', async ({ pro: page }) => {
+  test('@slow C17 — the 3-D view drops a selected member that no longer exists after re-detailing', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await detailedFrame(page);
     await open3DFromDetailing(page);
@@ -586,7 +586,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await rebarSelection(page)).not.toContain(victim);
   });
 
-  test('C18 — Delete while design is open never deletes model members', async ({ pro: page }) => {
+  test('@smoke C18 — Delete while design is open never deletes model members', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
     await selectInModel(page, [ids[4]!]);
@@ -597,7 +597,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await page.evaluate(() => window.__stabileo.elementIds())).toEqual(ids);
   });
 
-  test('C18b — Delete while the 3-D view is open never deletes model members', async ({ pro: page }) => {
+  test('@smoke C18b — Delete while the 3-D view is open never deletes model members', async ({ pro: page }) => {
     await detailedFrame(page);
     const ids = await page.evaluate(() => window.__stabileo.elementIds());
     await selectInModel(page, [ids[4]!]);
@@ -607,7 +607,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await page.evaluate(() => window.__stabileo.elementIds())).toEqual(ids);
   });
 
-  test('C19 — a detailing-conflict row selects and frames its member', async ({ pro: page }) => {
+  test('@smoke C19 — a detailing-conflict row selects and frames its member', async ({ pro: page }) => {
     const ids = await loadModel(page, 'rc-design-qa-8');
     const target = ids[5]!;
     await page.evaluate((t) => {
@@ -628,7 +628,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect.poll(() => modelSelection(page)).toEqual([target]);
     await expect.poll(async () => (await framing(page)).sel).toBeGreaterThan(0);
   });
-  test('C20 — design is entered with the model viewer on screen, and a pick in either is the other\'s', async ({ pro: page }) => {
+  test('@smoke C20 — design is entered with the model viewer on screen, and a pick in either is the other\'s', async ({ pro: page }) => {
     await designedFrame(page);
     const ids = await page.evaluate(() => window.__stabileo.elementIds());
     await selectInModel(page, [ids[2]!]);
@@ -643,7 +643,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await modelSelection(page)).toEqual([ids[1]]);
   });
 
-  test('C21 — leaving design for another stage keeps an unsaved frame edit as a draft and says so', async ({ pro: page }) => {
+  test('@smoke C21 — leaving design for another stage keeps an unsaved frame edit as a draft and says so', async ({ pro: page }) => {
     await designedFrame(page);
     await enterDesign(page);
     const { id, stored } = await frameDraft(page);
@@ -660,7 +660,7 @@ test.describe('@smoke interaction contracts', () => {
     expect(await page.evaluate((e) => JSON.stringify(window.__stabileo.reinforcement(e)), id)).toBe(stored);
   });
 
-  test('C22 — a project tab keeps its own design state, drafts and member', async ({ pro: page }) => {
+  test('@slow C22 — a project tab keeps its own design state, drafts and member', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await designedFrame(page);
     await enterDesign(page);
@@ -682,7 +682,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId('desk-drafts')).toBeVisible();
   });
 
-  test('C23 — a member deleted in the model leaves design, the model and the 3-D view selections', async ({ pro: page }) => {
+  test('@slow C23 — a member deleted in the model leaves design, the model and the 3-D view selections', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await detailedFrame(page);
     await enterDesign(page);
@@ -702,7 +702,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(page.getByTestId(`desk-row-${id}`)).toHaveCount(0);
   });
 
-  test('C25 — «Design all» after a member is deleted designs every member left, and the detailing takes them', async ({ pro: page }) => {
+  test('@slow C25 — «Design all» after a member is deleted designs every member left, and the detailing takes them', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await designedFrame(page);
     const ids = await page.evaluate(() => window.__stabileo.elementIds());
@@ -720,7 +720,7 @@ test.describe('@smoke interaction contracts', () => {
     await expect(generate).toBeEnabled({ timeout: 60_000 });
   });
 
-  test('C24 — with nothing to design, design offers its two ways in, each saying what is missing', async ({ pro: page }) => {
+  test('@smoke C24 — with nothing to design, design offers its two ways in, each saying what is missing', async ({ pro: page }) => {
     await enterDesign(page);
     // Preparing is where an empty project stands, and its step says so; pressing it shows the ways in.
     await expect(page.getByTestId('desk-step-prepare')).toHaveAttribute('aria-current', 'step');

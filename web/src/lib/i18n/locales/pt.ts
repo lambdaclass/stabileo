@@ -1,5 +1,7 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  "landing.navTools": "Ferramentas",
+
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
   "scalarViewer.viewOptions": "Opções de vista",
@@ -231,6 +233,7 @@ const pt: Translations = {
   'landing.navEducation': 'Educacional',
   'landing.navPricing': 'Preços',
   'landing.navBlog': 'Blog',
+  'landing.navPaper': 'Artigo',
   'landing.navResearch': 'Pesquisa',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'LIVRE E ABERTO · CÁLCULO ESTRUTURAL',
@@ -13453,6 +13456,14 @@ const pt: Translations = {
   "sheet.ui.jump": "Ir a um tipo de planta",
   "sheet.ui.thisSheet": "Prancha {n}:",
   // ─── Re-check prompt and result provenance (lib/provenance) ───
+  "recheck.saveAndReload": "Salvar projetos abertos e recarregar",
+  "recheck.recoveryFailed": "Não foi possível salvar os projetos no navegador. A página não foi recarregada. Baixe uma cópia da sessão para preservar seu trabalho.",
+  "recheck.downloadBackup": "Baixar todos os projetos abertos",
+  "recheck.backupHelp": "Guarde o arquivo de sessão baixado, depois recarregue e abra o arquivo para restaurar todos os projetos. O aviso ainda exigirá confirmação.",
+  "recheck.loading": "Carregando alterações nos resultados…",
+  "recheck.detailsUnavailable": "Os detalhes da alteração estão indisponíveis. Tente carregar o aviso novamente.",
+  "recheck.loadFailed": "Não foi possível carregar as alterações nos resultados. Tente novamente antes de confirmá-las.",
+  "recheck.retry": "Tentar novamente",
   "recheck.title": "Os resultados mudaram desde a última vez que este projeto foi resolvido",
   "recheck.intro": "Este projeto foi resolvido pela última vez com a versão de resultados {from} do Stabileo; esta é a versão {to}. Estas mudanças afetam recursos que este modelo usa:",
   "recheck.introUnknown": "Este projeto não registra com qual versão do Stabileo foi resolvido (foi salvo antes de isso ser registrado). Estas mudanças afetam recursos que este modelo usa:",
@@ -13904,5 +13915,14 @@ const pt: Translations = {
   "proExport.dxfLayoutSeparate": "Um desenho por arquivo",
   "proExport.dxfLayoutLayersNote": "Tudo em um DXF; cada conteúdo na sua camada.",
   "proExport.dxfLayoutSeparateNote": "Um DXF do modelo e um por resultado (com o modelo de base), juntos em um .zip.",
+  "clipboard.spaceInPlane": "A cópia é de um modelo 3D: copie de novo em 2D para colar aqui.",
+  "sel.copyTitle": "Copiar a seleção (Ctrl+C)",
+  "sel.pasteTitle": "Colar a cópia e escolher onde (Ctrl+V)",
+  "results.showDisplacements": "Mostrar deslocamentos",
+  "resultChecks.title": "Verificação dos resultados",
+  "resultChecks.certified": "certificado",
+  "resultChecks.notCertified": "não certificado",
+  "resultChecks.pending": "calculando…",
+  "resultChecks.discretizationHigh": "erro de discretização alto",
 };
 export default pt;

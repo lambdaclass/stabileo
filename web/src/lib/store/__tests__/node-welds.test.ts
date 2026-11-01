@@ -172,46 +172,40 @@ describe('review of the welds', () => {
   });
 });
 
-describe('the fallback paste goes through insertFragment', () => {
-  it('pasting the same record twice lands on the first paste: no second member on its nodes', async () => {
-    const { pasteClipboardRecord } = await import('../clipboard-paste');
-    const clip = {
-      nodes: [{ origId: 1, x: 0, y: 0 }, { origId: 2, x: 4, y: 0 }],
-      elements: [{ origNodeI: 1, origNodeJ: 2, type: 'frame' as const, materialId: 1, sectionId: 1 }],
-      supports: [{ origNodeId: 1, type: 'pinned' as const }],
-    };
-    const first = pasteClipboardRecord(clip as never, [1, 1, 0]);
-    expect(first.elements).toHaveLength(1);
-    const second = pasteClipboardRecord(clip as never, [1, 1, 0]);
-    expect(second.elements).toEqual([]);
-    expect(second.duplicates).toBe(1);
+describe('the clipboard goes through insertFragment', () => {
+  it('pasting in place twice lands on the model: no second member on its nodes', async () => {
+    const { copySelection, paste } = await import('../model-clipboard');
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    const e = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'pinned');
+    uiStore.setSelection(new Set([a, b]), new Set([e]));
+    expect(copySelection()).toBe(true);
+    paste(true);
+    paste(true);
     expect(modelStore.elements.size).toBe(1);
     expect(modelStore.nodes.size).toBe(2);
     expect(modelStore.supports.size).toBe(1);
   });
-});
 
-describe('the fallback paste carries the member frame', () => {
-  it('a complete local axis and a roll come back; an incomplete axis is not taken for one', async () => {
-    const { pasteClipboardRecord } = await import('../clipboard-paste');
-    const clip = {
-      nodes: [{ origId: 1, x: 0, y: 0, z: 0 }, { origId: 2, x: 4, y: 0, z: 0 }, { origId: 3, x: 0, y: 3, z: 0 }],
-      elements: [
-        { origNodeI: 1, origNodeJ: 2, type: 'frame' as const, materialId: 1, sectionId: 1, localYx: 0, localYy: 0, localYz: 1, rollAngle: 30 },
-        { origNodeI: 1, origNodeJ: 3, type: 'frame' as const, materialId: 1, sectionId: 1, localYx: 1 },
-      ],
-      supports: [],
-    };
-    const r = pasteClipboardRecord(clip as never, [0, 0, 3]);
-    const [full, partial] = r.elements.map((id) => modelStore.elements.get(id)!);
-    expect([full!.localYx, full!.localYy, full!.localYz]).toEqual([0, 0, 1]);
-    expect(full!.rollAngle).toBeCloseTo(30, 12);
-    // Only localYx: not an axis. The member keeps its own default one.
-    const { computeLocalAxes3D } = await import('../../engine/local-axes-3d');
-    const ni = modelStore.nodes.get(partial!.nodeI)!, nj = modelStore.nodes.get(partial!.nodeJ)!;
-    const auto = computeLocalAxes3D({ id: 0, x: ni.x, y: ni.y, z: ni.z ?? 0 }, { id: 0, x: nj.x, y: nj.y, z: nj.z ?? 0 }).ey;
-    const ey = partial!.localYx === undefined ? auto : [partial!.localYx, partial!.localYy!, partial!.localYz!];
-    ey.forEach((v, k) => expect(v).toBeCloseTo(auto[k]!, 12));
+  it('a placed copy carries the member frame: a complete local axis and a roll', async () => {
+    const { copySelection, paste } = await import('../model-clipboard');
+    const { placementStore } = await import('../placement.svelte');
+    uiStore.analysisMode = '3d';
+    try {
+      const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(4, 0, 0);
+      const e = modelStore.addElement(a, b, 'frame');
+      modelStore.updateElement(e, { localYx: 0, localYy: 0, localYz: 1, rollAngle: 30 });
+      uiStore.setSelection(new Set([a, b]), new Set([e]));
+      copySelection();
+      paste(false);
+      const r = placementStore.commitAt([0, 0, 3]);
+      const copy = modelStore.elements.get(r!.elements[0]!)!;
+      expect([copy.localYx, copy.localYy, copy.localYz]).toEqual([0, 0, 1]);
+      expect(copy.rollAngle).toBeCloseTo(30, 12);
+      expect(modelStore.nodes.get(copy.nodeI)!.z).toBe(3);
+    } finally {
+      uiStore.analysisMode = '2d';
+    }
   });
 });
 

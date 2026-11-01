@@ -15,6 +15,7 @@
   import { publicI18n } from '../../../lib/i18n/store.svelte';
   import { BUILD_COMMIT, REPO, THIS_SNAPSHOT, permalinkUrl, pickSnapshot, siteOrigin, snapshotIndex, type Permalink } from './permalink';
   import { citeStrings } from './cite-i18n';
+  import { bibliography } from '../catalogue';
   import { citationBuild, citation, type CitationInput } from './citation';
 
   type Props = {
@@ -25,13 +26,15 @@
     path: string;
     /** Where the implementation lives in the repository (`research/<field>/<id>`). */
     sourcePath: string;
+    citationAuthors?: string;
   };
-  let { paperId, name, path, sourcePath }: Props = $props();
+  let { paperId, name, path, sourcePath, citationAuthors }: Props = $props();
 
   type Version = { version: number; date: string; commit: string | null; changes: string };
   const VERSIONS = import.meta.glob<{ versions: Version[] }>('../../../../../research/*/*/versions.json', { eager: true, import: 'default' });
 
   const paper = $derived(catalog.papers.find((p) => p.id === paperId));
+  const bib = $derived(paper ? bibliography(paper) : null);
   const versions = $derived(
     Object.entries(VERSIONS).find(([file]) => file.endsWith(`/${paperId}/versions.json`))?.[1].versions ?? [],
   );
@@ -61,7 +64,7 @@
           commit,
           engineWasmSha256: build.engineWasmSha256,
           experimentWasmSha256: build.experimentWasmSha256,
-          paper: { authors: paper.crossref.authors, title: paper.crossref.title, venue: paper.crossref.venue, year: paper.crossref.year, doi: paper.doi },
+          paper: { ...bib!, authors: citationAuthors ? [citationAuthors] : bib!.authors, doi: paper.doi },
         }
       : null,
   );

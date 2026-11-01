@@ -15,3 +15,13 @@ declare module 'virtual:research-build' {
   export const engineWasmSha256: string | null;
   export const researchWasmSha256: Record<string, string>;
 }
+
+declare module 'virtual:result-change-metadata' {
+  const registry: { currentResultsVersion: number };
+  export default registry;
+}
+
+declare module 'virtual:result-change-packed' {
+  const packed: string;
+  export default packed;
+}
