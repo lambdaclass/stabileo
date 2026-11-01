@@ -17,6 +17,9 @@
   import { plasticCourse } from '../../lib/store/plastic-course.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
+  import AdvValues from './kit/AdvValues.svelte';
+  import AdvFold from './kit/AdvFold.svelte';
+  import AdvLink from './kit/AdvLink.svelte';
 
   let { mps }: { mps: SectionMp[] } = $props();
   const r = $derived(resultsStore.plasticResult as PlasticCollapseResult | null);
@@ -32,6 +35,16 @@
   const goTo = (k: number) => { resultsStore.plasticStep = k; plasticCourse.view = 'steps'; };
   /** Plastic rotation of hinge h at the step on screen (none before it forms, none for an axial yield). */
   const rotation = (h: number) => r?.steps[step]?.rotations?.[h];
+  const closedBy = (h: { unloadedAt?: number }) => h.unloadedAt !== undefined && h.unloadedAt <= (r?.steps[step]?.loadFactor ?? 0);
+  const closedCount = $derived(r ? r.hinges.filter(closedBy).length : 0);
+  const activeCount = $derived(r ? r.hinges.filter((h) => h.step <= step && !closedBy(h)).length : 0);
+  let showClosed = $state(false);
+  const values = $derived(r ? [
+    { label: t('course.plastic.v.step'), value: r.steps[step]?.loadFactor.toFixed(3) ?? '—', tone: 'accent' as const },
+    { label: t('course.plastic.v.collapse'), value: r.isMechanism ? r.collapseFactor.toFixed(3) : '—' },
+    { label: t('course.plastic.v.hinges'), value: String(activeCount) },
+    { label: 'GH', value: String(Math.max(0, r.degree)) },
+  ] : []);
   function openMethod(id: string) {
     resultsStore.clearPlastic();
     openExplainedCatalog();
@@ -46,15 +59,12 @@
     <span class="adv-result-label" data-testid="plastic-step">{step + 1}/{r.steps.length}</span>
     <button class="small-btn" onclick={() => { if (step < r.steps.length - 1) goTo(step + 1); }} disabled={step >= r.steps.length - 1} data-testid="plastic-next">&#9654;</button>
   </div>
-  <div class="adv-result-info" data-testid="plastic-verdict">
-    λ = {r.steps[step]?.loadFactor.toFixed(3) ?? '—'}
-    {#if step === r.steps.length - 1}
-      · {r.isMechanism
-        ? t('plastic.collapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{n}', String(r.hinges.length))
-        : t('plastic.noCollapse')}
-    {/if}
-    · GH = {Math.max(0, r.degree)}
-  </div>
+  <AdvValues items={values} help={`${t('course.plastic.v.help')}`} testid="plastic-values" />
+  {#if step === r.steps.length - 1}
+    <p class="pl-verdict" data-testid="plastic-verdict">{r.isMechanism
+      ? t('plastic.collapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{n}', String(r.hinges.length - closedCount))
+      : t('plastic.noCollapse')}</p>
+  {/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>
@@ -62,7 +72,8 @@
     </thead>
     <tbody>
       {#each r.hinges as h, i (i)}
-        <tr class:now={h.step === step} class:later={h.step > step}>
+        {#if showClosed || !closedBy(h)}
+        <tr class:closed={closedBy(h)} class:now={h.step === step} class:later={h.step > step}>
           <td>{i + 1}</td>
           <td>{h.elementId}{h.kind === 'axial' ? ` (${t('plastic.axial')})` : ''}{#if h.unloadedAt !== undefined && h.unloadedAt <= (r.steps[step]?.loadFactor ?? 0)}<span class="pl-closed" title={tp('course.plastic.closedTitle', { lambda: h.unloadedAt.toFixed(3) })}> · {t('course.plastic.closed')}</span>{/if}</td>
           <td>{fmtCoord(h.x)}</td>
@@ -70,24 +81,32 @@
           <td>{h.loadFactor.toFixed(3)}</td>
           <td data-testid="plastic-rotation">{h.kind === 'axial' || h.step > step ? '—' : fmtQ(Math.abs(rotation(i) ?? 0), 'rotation')}</td>
         </tr>
+        {/if}
       {/each}
     </tbody>
   </table>
-  <p class="pl-note">{t('plastic.note')} {t('course.plastic.rotationNote')}</p>
+  {#if closedCount}
+    <button class="pl-closed-toggle" onclick={() => (showClosed = !showClosed)} data-testid="plastic-show-closed">{showClosed ? t('course.plastic.hideClosed') : t('course.plastic.showClosed').replace('{n}', String(closedCount))}</button>
+    {#if showClosed}<p class="pl-note">{t('course.plastic.closedNote')}</p>{/if}
+  {/if}
   <PlasticStepTrace {r} {step} />
   <PlasticCurve {r} />
   <PlasticMechanism {r} />
   <PlasticUserMechanism {r} />
-  <div class="pl-methods">
-    <span>{t('course.plastic.methods.lead')}</span>
-    <button class="small-btn" onclick={() => openMethod('plasticKinematic')} data-testid="plastic-open-kinematic">{t('steps.m.plasticKinematic.title')}</button>
-    <button class="small-btn" onclick={() => openMethod('plasticStatic')} data-testid="plastic-open-static">{t('steps.m.plasticStatic.title')}</button>
-  </div>
-  {#each mps as m (m.sectionId)}
-    <div class="adv-result-info" data-testid="plastic-mp">
-      {m.name}: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) — {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
+  <AdvFold title={t('course.plastic.methods.title')} summary={t('course.plastic.methods.summary')} help={t('course.plastic.methods.help')} testid="plastic-methods">
+    <p class="pl-note">{t('course.plastic.methods.lead')}</p>
+    <div class="pl-methods">
+      <AdvLink label={t('steps.m.plasticKinematic.title')} onclick={() => openMethod('plasticKinematic')} testid="plastic-open-kinematic" />
+      <AdvLink label={t('steps.m.plasticStatic.title')} onclick={() => openMethod('plasticStatic')} testid="plastic-open-static" />
     </div>
-  {/each}
+  </AdvFold>
+  <AdvFold title={t('course.plastic.mp.title')} summary={t('course.plastic.mp.summary').replace('{n}', String(mps.length))} testid="plastic-mps">
+    {#each mps as m (m.sectionId)}
+      <div class="pl-mp" data-testid="plastic-mp">
+        <b>{m.name}</b>: Mp = {fmtQ(m.mp, 'moment')} {unitQ('moment')} (Zp = {sigQ(m.zp, 'sectionModulus')} {unitQ('sectionModulus')}, fy = {fy(m.fy)}) · {t(`advanced.mpSource.${m.source}`)}{#if m.fyAssumed} · {fyAssumedNote()}{/if}
+      </div>
+    {/each}
+  </AdvFold>
 {/if}
 
 <style>
@@ -99,6 +118,9 @@
   .pl-table tr.later td { opacity: 0.45; }
   .pl-note { margin: 2px 0 6px; font-size: 0.62rem; line-height: 1.4; color: var(--st-text-3); }
   .pl-closed { color: var(--st-text-3); font-weight: 400; }
-  .pl-methods { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0; font-size: 0.66rem; color: var(--st-text-3); }
-  .pl-methods span { flex-basis: 100%; }
+  .pl-methods { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pl-verdict { margin: -4px 0 6px; font-size: 0.66rem; color: var(--st-text-2); }
+  .pl-table tr.closed td { opacity: 0.5; font-style: italic; }
+  .pl-closed-toggle { background: none; border: none; padding: 0 0 4px; color: var(--st-text-3); font-size: 0.62rem; cursor: pointer; text-decoration: underline dotted; }
+  .pl-mp { font-size: 0.64rem; line-height: 1.45; color: var(--st-text-2); padding: 2px 0; }
 </style>

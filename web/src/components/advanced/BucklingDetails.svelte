@@ -9,6 +9,8 @@
   import { fmtQ, unitQ, fmtCoord } from '../../lib/store/display-units.svelte';
   import { bucklingConvergence, type BucklingConvergenceRow, type BucklingInfo } from '../../lib/engine/second-order/run-buckling';
   import { openSecondOrderSteps } from '../../lib/actions/second-order';
+  import AdvFold from './kit/AdvFold.svelte';
+  import AdvLink from './kit/AdvLink.svelte';
 
   let { result }: { result: any } = $props();
   const K = 'course.second-order.bk';
@@ -31,14 +33,7 @@
 </script>
 
 {#if info}
-  <p class="bk-line" data-testid="buckling-how">
-    {tp(`${K}.how`, { method: t(`course.second-order.opts.short.${info.settings.method}`), n: info.settings.n })}
-  </p>
-  {#if info.settings.n === 1 && info.settings.method !== 'phi'}
-    <p class="bk-warn" data-testid="buckling-n1-warning">{t(`${K}.n1Warn`)}</p>
-  {/if}
-  <details class="bk-fold" data-testid="buckling-factors">
-    <summary>{tp(`${K}.factors`, { n: result.modes.length })}</summary>
+  <AdvFold title={tp(`${K}.factors`, { n: result.modes.length })} testid="buckling-factors">
     <table class="bk-table">
       <thead><tr><th>{t(`${K}.mode`)}</th><th>λ</th>{#if info.engineFactors}<th>{t('course.second-order.pd.engine')}</th>{/if}</tr></thead>
       <tbody>
@@ -50,11 +45,10 @@
       </tbody>
     </table>
     {#if info.engineFactors}<p class="bk-note">{tp(`${K}.engineNote`, { n: info.settings.n })}</p>{/if}
-  </details>
+  </AdvFold>
 {/if}
 {#if data.length}
-  <details class="bk-fold" data-testid="buckling-keff">
-    <summary>{t(`${K}.keff`)}</summary>
+  <AdvFold title={t(`${K}.keff`)} testid="buckling-keff">
     <p class="bk-note">{t(`${K}.keffNote`)}</p>
     <table class="bk-table">
       <thead><tr><th>{t(`${K}.member`)}</th><th>N [{unitQ('force')}]</th><th>P<sub>cr</sub></th><th>K</th><th>KL [{unitQ('length')}]</th></tr></thead>
@@ -64,11 +58,10 @@
         {/each}
       </tbody>
     </table>
-  </details>
+  </AdvFold>
 {/if}
 {#if info}
-  <details class="bk-fold" data-testid="buckling-convergence">
-    <summary>{t(`${K}.convergence`)}</summary>
+  <AdvFold title={t(`${K}.convergence`)} testid="buckling-convergence">
     <p class="bk-note">{t(`${K}.convergenceNote`)}</p>
     {#if conv}
       <table class="bk-table">
@@ -82,8 +75,10 @@
     {:else}
       <button class="small-btn" disabled={busy} onclick={runConvergence} data-testid="buckling-convergence-run">{busy ? t('course.second-order.pd.running') : t('course.second-order.pd.runConvergence')}</button>
     {/if}
-  </details>
-  <button class="small-btn bk-steps" onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} data-testid="buckling-open-steps">{t('course.second-order.pd.openSteps')}</button>
+  </AdvFold>
+  <AdvFold title={t('steps.catalog.button')} testid="buckling-steps">
+    <AdvLink label={t('course.second-order.pd.openSteps')} onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} testid="buckling-open-steps" />
+  </AdvFold>
 {/if}
 
 <style>

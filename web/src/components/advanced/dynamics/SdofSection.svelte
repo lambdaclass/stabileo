@@ -16,9 +16,9 @@
   import { solveSdof, dafPlotOf, responsePlotOf } from '../../../lib/engine/steps/dynamics/sdof-doc';
   import { openExplainedMethod } from '../../../lib/actions/step-wizards';
 
-  const s = $derived(courseDynamics.sdof);
   const points = $derived(modelStore.model.massSource?.points ?? []);
   const massNodes = $derived(points.filter((p) => p.m > 0 && modelStore.nodes.has(p.nodeId)).map((p) => p.nodeId));
+  const s = $derived(massNodes.length ? courseDynamics.sdof : { ...courseDynamics.sdof, source: 'manual' as const });
   const node = $derived(s.nodeId !== null && massNodes.includes(s.nodeId) ? s.nodeId : defaultSdofNode(modelStore.model, points));
 
   const fromModel = $derived.by(() => {
@@ -33,10 +33,11 @@
 
 <CourseSection title={t('course.dynamics.ui.sdof.title')} {summary} help={t('course.dynamics.ui.sdof.help')} testid="dyn-sdof">
   <div class="cf-seg" role="group">
-    <button class:on={s.source === 'model'} onclick={() => courseDynamics.set({ sdof: { source: 'model' } })} data-testid="dyn-sdof-model">{t('course.dynamics.ui.sdof.fromModel')}</button>
+    <button class:on={s.source === 'model'} disabled={!massNodes.length} title={massNodes.length ? undefined : t('course.dynamics.ui.sdof.needMass')} onclick={() => courseDynamics.set({ sdof: { source: 'model' } })} data-testid="dyn-sdof-model">{t('course.dynamics.ui.sdof.fromModel')}</button>
     <button class:on={s.source === 'manual'} onclick={() => courseDynamics.set({ sdof: { source: 'manual' } })} data-testid="dyn-sdof-manual">{t('course.dynamics.ui.sdof.manual')}</button>
   </div>
 
+  {#if !massNodes.length}<p class="cf-hint">{t('course.dynamics.ui.sdof.needMass')}</p>{/if}
   {#if s.source === 'model'}
     <div class="cf-grid">
       <label class="cf-field">

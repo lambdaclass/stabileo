@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AdvFold from './kit/AdvFold.svelte';
   /**
    * Loading the line: a dead load g everywhere, a live load q where it raises (or lowers) the
    * quantity most, a concentrated P at the peak. The largest and smallest values, where each load
@@ -51,8 +52,7 @@
   }
 </script>
 
-<details class="ill" data-testid="il-loading">
-  <summary>{t('course.influence.load.title')} <span class="ill-sum">g = {fmtQ(loads.g, 'distributedLoad')} · q = {fmtQ(loads.q, 'distributedLoad')} {unitQ('distributedLoad')} · P = {fmtQ(loads.P, 'force')} {unitQ('force')}</span></summary>
+<AdvFold title={t('course.influence.load.title')} summary={`g = ${fmtQ(loads.g, 'distributedLoad')} · q = ${fmtQ(loads.q, 'distributedLoad')} ${unitQ('distributedLoad')} · P = ${fmtQ(loads.P, 'force')} ${unitQ('force')}`} testid="il-loading">
   <div class="ill-body">
     <p class="ill-help">{t('course.influence.load.help')}</p>
     <div class="ill-grid">
@@ -87,7 +87,7 @@
       {#if influenceTool.envelope}<p class="ill-note">{t('course.influence.load.envelopeNote')}</p>{/if}
     {/if}
   </div>
-</details>
+</AdvFold>
 
 <style>
   .ill { border: 1px solid var(--st-hair); border-radius: var(--st-radius); }

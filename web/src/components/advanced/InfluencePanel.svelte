@@ -12,6 +12,13 @@
   import { positionToT, otherSideOf } from '../../lib/engine/influence/section-pick';
   import { canonicalQuantity, familyOf, ordinateUnit } from '../../lib/engine/influence/quantities';
   import { numText } from '../../lib/engine/steps/format';
+  import { FORCE_QUANTITIES, DISPLACEMENT_QUANTITIES } from '../../lib/engine/influence/quantities';
+  import type { InfluenceQuantity } from '../../lib/store/model.svelte';
+  import AdvTarget from './kit/AdvTarget.svelte';
+  import AdvChips from './kit/AdvChips.svelte';
+  import AdvValues from './kit/AdvValues.svelte';
+  import AdvFold from './kit/AdvFold.svelte';
+  import AdvLink from './kit/AdvLink.svelte';
 
   const il = $derived(resultsStore.influenceLine);
   const q = $derived(il ? canonicalQuantity(il.quantity) : canonicalQuantity(uiStore.ilQuantity));
@@ -51,6 +58,12 @@
     return { max: { v: max.value, where: where(max) }, min: { v: min.value, where: where(min) } };
   });
 
+  const memberChips = [...FORCE_QUANTITIES, ...DISPLACEMENT_QUANTITIES].map((id) => ({ id, label: id === 'ry' ? 'θ' : id, title: t(`course.influence.name.${id}`) }));
+  function pickQuantity(id: string) {
+    if (!elem) return;
+    uiStore.ilQuantity = id as typeof uiStore.ilQuantity;
+    runInfluence(id as InfluenceQuantity, undefined, elem.id, at, true);
+  }
   const unit = $derived(il ? currentUnitInput() : null);
   const loaded = $derived(unit && il ? loadedMembers(unit, il.direction ?? 'vertical') : []);
 </script>
@@ -59,73 +72,69 @@
   {#if !il}
     <p class="ilp-hint">{t('course.influence.panel.pick')}</p>
     <p class="ilp-hint">{t('course.influence.panel.pickWhere')}</p>
-    <button class="ilp-btn" onclick={() => openInfluenceExplanation([])} data-testid="il-explain">{t('course.influence.panel.explain')}</button>
+    <AdvLink label={t('course.influence.panel.explain')} onclick={() => openInfluenceExplanation([])} testid="il-explain" />
   {:else}
-    <div class="ilp-what" data-testid="il-what">
-      <strong>{t(`course.influence.name.${q}`)}</strong>
-      <span>{il.targetElementId !== undefined ? tp('course.influence.panel.onMember', { e: il.targetElementId }) : tp('course.influence.panel.onNode', { n: il.targetNodeId ?? '' })}</span>
-    </div>
-
+    <AdvTarget
+      label={t(`course.influence.name.${q}`)}
+      position={elem ? `x = ${numText(at * L, 3)} m · x/L = ${(at * 100).toFixed(1)}%` : tp('course.influence.panel.onNode', { n: il.targetNodeId ?? '' })}
+      slider={!!elem} t={at} sliderTitle={t('course.influence.panel.section')}
+      oncommit={(tt) => elem && moveInfluenceSection(elem.id, tt)} />
+    <span class="ilp-what" data-testid="il-what">{il.targetElementId !== undefined ? tp('course.influence.panel.onMember', { e: il.targetElementId }) : tp('course.influence.panel.onNode', { n: il.targetNodeId ?? '' })}</span>
     {#if elem}
+      <AdvChips chips={memberChips} value={q} testid="il-quantity" onchange={pickQuantity} />
       <div class="ilp-row">
-        <span class="ilp-label">{t('course.influence.panel.section')}</span>
         <span class="ilp-x"><UnitInput value={at * L} qty="length" onchange={setX} testid="il-x" /></span>
-        <span class="ilp-sub">x/L = {numText(at, 3)}</span>
-      </div>
-      <div class="ilp-snaps">
-        <button class:on={at < 1e-9} onclick={() => setX(0)} data-testid="il-x0">x = 0</button>
-        <button class:on={Math.abs(at - 0.5) < 1e-9} onclick={() => setX(L / 2)}>L/2</button>
-        <button class:on={at > 1 - 1e-9} onclick={() => setX(L)} data-testid="il-xL">x = L</button>
+        <div class="ilp-snaps">
+          <button class:on={at < 1e-9} onclick={() => setX(0)} data-testid="il-x0">0</button>
+          <button class:on={Math.abs(at - 0.5) < 1e-9} onclick={() => setX(L / 2)}>L/2</button>
+          <button class:on={at > 1 - 1e-9} onclick={() => setX(L)} data-testid="il-xL">L</button>
+        </div>
       </div>
       {#if posError}<p class="ilp-error" role="alert" data-testid="il-x-error">{posError}</p>{/if}
       {#if atEnd && familyOf(q) === 'force'}
         <p class="ilp-note" data-testid="il-end-note">{tp(at < 0.5 ? 'course.influence.panel.endStart' : 'course.influence.panel.endEnd', { n: endNode ?? '', e: elem.id })}</p>
-        <div class="ilp-snaps">
+        <div class="ilp-links">
           {#if other}
-            <button onclick={() => runInfluence(q, undefined, other.elementId, other.t, true)} data-testid="il-other-side">{tp('course.influence.panel.otherSide', { e: other.elementId })}</button>
+            <AdvLink label={tp('course.influence.panel.otherSide', { e: other.elementId })} onclick={() => runInfluence(q, undefined, other.elementId, other.t, true)} testid="il-other-side" />
           {/if}
           {#if supported && endNode !== undefined}
-            <button onclick={() => runInfluence('Rz', endNode, undefined, 0.5, true)} data-testid="il-support-reaction">{t('course.influence.panel.reaction')}</button>
+            <AdvLink label={t('course.influence.panel.reaction')} onclick={() => runInfluence('Rz', endNode, undefined, 0.5, true)} testid="il-support-reaction" />
           {/if}
         </div>
       {/if}
     {/if}
 
     {#if peaks}
-      <dl class="ilp-peaks" data-testid="il-peaks">
-        <dt>η<sub>{t('course.influence.panel.maxSub')}</sub></dt><dd>{numText(peaks.max.v, 4)} {ordinateUnit(q)} <span class="ilp-sub">{peaks.max.where}</span></dd>
-        <dt>η<sub>{t('course.influence.panel.minSub')}</sub></dt><dd>{numText(peaks.min.v, 4)} {ordinateUnit(q)} <span class="ilp-sub">{peaks.min.where}</span></dd>
-      </dl>
+      <AdvValues testid="il-peaks" help={t(`course.influence.doc.sign.${q}`)} items={[
+        { label: `η ${t('course.influence.panel.maxSub')}`, value: `${numText(peaks.max.v, 4)}`, tone: 'accent' },
+        { label: `η ${t('course.influence.panel.minSub')}`, value: `${numText(peaks.min.v, 4)}` },
+      ]} />
+      <p class="ilp-sub">[{ordinateUnit(q)}] η<sub>{t('course.influence.panel.maxSub')}</sub> {peaks.max.where} · η<sub>{t('course.influence.panel.minSub')}</sub> {peaks.min.where}</p>
     {/if}
-    <p class="ilp-sign">{t(`course.influence.doc.sign.${q}`)}</p>
 
     {#if unit}<InfluenceLoading {il} {unit} loadedIds={loaded} />{/if}
 
-    <button class="ilp-btn" onclick={() => openInfluenceExplanation(loaded)} data-testid="il-explain">{t('course.influence.panel.explain')}</button>
+    <AdvFold title={t('steps.catalog.button')} testid="il-steps">
+      <AdvLink label={t('course.influence.panel.explain')} onclick={() => openInfluenceExplanation(loaded)} testid="il-explain" />
+    </AdvFold>
   {/if}
 </div>
 
 <style>
-  .ilp { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.2rem 0 0.4rem 0.6rem; padding-left: 0.6rem; border-left: 2px solid var(--st-hair); font-size: 0.72rem; color: var(--st-text-2); }
-  .ilp-hint { margin: 0; line-height: 1.45; color: var(--st-text-2); }
-  .ilp-what { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: baseline; }
-  .ilp-what strong { color: var(--st-text); font-weight: 600; }
-  .ilp-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-  .ilp-label { color: var(--st-text-3); }
-  .ilp-x :global(input) { width: 4.6rem; }
-  .ilp-sub { color: var(--st-text-3); font-size: 0.66rem; }
-  .ilp-snaps { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .ilp-snaps button, .ilp-btn {
-    background: none; border: 1px solid var(--st-hair); border-radius: var(--st-radius); color: var(--st-text-2);
-    font-size: 0.7rem; padding: 0.2rem 0.45rem; cursor: pointer;
+  .ilp { display: flex; flex-direction: column; gap: 2px; margin: 2px 0 6px; font-size: 0.72rem; color: var(--st-text-2); }
+  .ilp-hint { margin: 0 0 4px; line-height: 1.45; font-size: 0.68rem; color: var(--st-text-2); }
+  .ilp-what { font-size: 0.64rem; color: var(--st-text-3); margin: -2px 0 2px; }
+  .ilp-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 2px 0; }
+  .ilp-x :global(input) { width: 4.2rem; height: 18px; padding: 0 4px; font-size: 0.65rem; color: var(--st-text); background: rgba(19, 33, 45, 0.8); border: 1px solid var(--st-surface-3); border-radius: 3px; }
+  .ilp-sub { margin: -4px 0 4px; color: var(--st-text-3); font-size: 0.62rem; }
+  .ilp-snaps { display: flex; flex-wrap: wrap; gap: 2px; }
+  .ilp-snaps button {
+    height: 18px; min-width: 22px; padding: 0 5px; font-size: 0.6rem; border: 1px solid var(--st-surface-3); border-radius: 3px;
+    background: rgba(19, 33, 45, 0.8); color: var(--st-text-3); cursor: pointer;
   }
-  .ilp-snaps button:hover, .ilp-btn:hover { background: var(--st-surface-3); color: var(--st-text); border-color: var(--st-hair-strong); }
-  .ilp-snaps button.on { color: var(--st-accent); border-color: var(--st-accent); }
-  .ilp-btn { align-self: flex-start; padding: 0.3rem 0.55rem; }
-  .ilp-error { margin: 0; color: var(--st-danger); font-size: 0.68rem; }
-  .ilp-note { margin: 0; line-height: 1.4; color: var(--st-text-3); font-size: 0.68rem; }
-  .ilp-sign { margin: 0; line-height: 1.4; color: var(--st-text-3); font-size: 0.66rem; }
-  .ilp-peaks { display: grid; grid-template-columns: auto 1fr; gap: 0.1rem 0.4rem; margin: 0; font-family: var(--st-mono); font-size: 0.68rem; }
-  .ilp-peaks dt { color: var(--st-text-3); }
-  .ilp-peaks dd { margin: 0; color: var(--st-value); }
+  .ilp-snaps button:hover { color: var(--st-text-2); }
+  .ilp-snaps button.on { color: var(--st-accent); border-color: var(--st-accent); background: rgba(229, 72, 42, 0.12); }
+  .ilp-links { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+  .ilp-error { margin: 0; color: var(--st-danger); font-size: 0.66rem; }
+  .ilp-note { margin: 2px 0; line-height: 1.4; color: var(--st-text-3); font-size: 0.64rem; }
 </style>

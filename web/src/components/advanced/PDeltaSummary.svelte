@@ -10,6 +10,9 @@
   import { sigQ, unitQ, fmtQ } from '../../lib/store/display-units.svelte';
   import { pdeltaConvergence, type ConvergenceRow, type PDeltaInfo } from '../../lib/engine/second-order/run-pdelta';
   import { openSecondOrderSteps } from '../../lib/actions/second-order';
+  import AdvFold from './kit/AdvFold.svelte';
+  import AdvLink from './kit/AdvLink.svelte';
+  import AdvValues from './kit/AdvValues.svelte';
 
   let { result }: { result: any } = $props();
   const K = 'course.second-order.pd';
@@ -35,11 +38,12 @@
   const disp = (v: number | null) => (v === null ? '—' : sigQ(v, 'displacement'));
 </script>
 
-<div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
-  P-Δ: B₂ = {formatPDeltaFactor(result.b2Factor)} |
-  {result.converged ? `${result.iterations} iter` : t('advanced.notConvergedShort')} |
-  {result.isStable ? t('advanced.stable') : t('advanced.unstable')}
-</div>
+<AdvValues testid="pdelta-result" items={[
+  { label: 'B₂', value: formatPDeltaFactor(result.b2Factor), tone: 'accent' },
+  { label: 'λ₁', value: info && info.lambda1 !== null ? num(info.lambda1) : '—' },
+  { label: 'iter', value: result.converged ? String(result.iterations) : t('advanced.notConvergedShort') },
+  { label: result.isStable ? t('advanced.stable') : t('advanced.unstable'), value: result.isStable ? '✓' : '✗', tone: result.isStable ? 'ok' : 'warn' },
+]} />
 {#if info && info.lambda1 !== null && Number.isFinite(info.lambda1)}
   <p class="pd-line" data-testid="pdelta-b2-line">
     {tp(`${K}.b2Line`, { lambda: num(info.lambda1) })}
@@ -52,8 +56,7 @@
 {/if}
 {#if full}
   {#if full.history?.length}
-    <details class="pd-fold" data-testid="pdelta-iterations">
-      <summary>{tp(`${K}.iterations`, { n: full.history.length })}</summary>
+    <AdvFold title={tp(`${K}.iterations`, { n: full.history.length })} testid="pdelta-iterations">
       <p class="pd-note">{t(`${K}.iterationsNote`)}</p>
       <table class="pd-table">
         <thead><tr><th>k</th><th>N<sub>min</sub> [{unitQ('force')}]</th><th>u<sub>max</sub> [{unitQ('displacement')}]</th><th>‖ΔD‖/‖D‖</th></tr></thead>
@@ -64,11 +67,10 @@
         </tbody>
       </table>
       {#if full.historyMatchesEngine}<p class="pd-note">{t(`${K}.sameAsEngine`)}</p>{/if}
-    </details>
+    </AdvFold>
   {/if}
   {#if full.compare}
-    <details class="pd-fold" data-testid="pdelta-compare">
-      <summary>{t(`${K}.compare`)}</summary>
+    <AdvFold title={t(`${K}.compare`)} testid="pdelta-compare">
       <table class="pd-table">
         <thead><tr><th></th><th>{t(`course.second-order.opts.short.${full.settings.method}`)}</th><th>{t(`${K}.engine`)}</th></tr></thead>
         <tbody>
@@ -79,10 +81,9 @@
         </tbody>
       </table>
       <p class="pd-note">{tp(`${K}.compareNote`, { n: full.settings.n })}</p>
-    </details>
+    </AdvFold>
   {/if}
-  <details class="pd-fold" data-testid="pdelta-convergence">
-    <summary>{t(`${K}.convergence`)}</summary>
+  <AdvFold title={t(`${K}.convergence`)} testid="pdelta-convergence">
     <p class="pd-note">{t(`${K}.convergenceNote`)}</p>
     {#if conv}
       <table class="pd-table">
@@ -97,8 +98,10 @@
       <button class="small-btn" disabled={busy} onclick={runConvergence} data-testid="pdelta-convergence-run">{busy ? t(`${K}.running`) : t(`${K}.runConvergence`)}</button>
     {/if}
     {#if convError}<p class="pd-note">{convError}</p>{/if}
-  </details>
-  <button class="small-btn pd-steps" onclick={() => openSecondOrderSteps(full.settings.method === 'phi' ? 'so-pdelta-phi' : 'so-pdelta-kg', full.settings)} data-testid="pdelta-open-steps">{t(`${K}.openSteps`)}</button>
+  </AdvFold>
+  <AdvFold title={t('steps.catalog.button')} testid="pdelta-steps">
+    <AdvLink label={t(`${K}.openSteps`)} onclick={() => openSecondOrderSteps(full.settings.method === 'phi' ? 'so-pdelta-phi' : 'so-pdelta-kg', full.settings)} testid="pdelta-open-steps" />
+  </AdvFold>
 {/if}
 
 <style>

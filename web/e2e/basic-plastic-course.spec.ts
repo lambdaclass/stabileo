@@ -25,11 +25,11 @@ test.describe('@slow plastic collapse, explained', () => {
     await expect(page.getByTestId('plastic-verdict')).toContainText('71.296');
 
     const trace = page.getByTestId('plastic-trace');
-    await trace.locator('summary').click();
+    await page.getByTestId('plastic-trace-toggle').click();
     await expect(page.getByTestId('plastic-trace-formula').first()).toContainText('Δλ');
 
     const curve = page.getByTestId('plastic-curve');
-    await curve.locator('summary').click();
+    await page.getByTestId('plastic-curve-toggle').click();
     await expect(page.getByTestId('plastic-curve-chart')).toBeVisible();
     await expect(page.getByTestId('plastic-curve-chart').locator('circle.pt')).toHaveCount(await page.getByTestId('plastic-step').textContent().then((s) => Number(s!.split('/')[1]) + 1));
     const download = page.waitForEvent('download');
@@ -38,13 +38,13 @@ test.describe('@slow plastic collapse, explained', () => {
     if (SHOTS) await page.getByTestId('adv-running').locator('xpath=..').screenshot({ path: `${SHOTS}/panel-steps-curve.png` });
 
     const mech = page.getByTestId('plastic-mechanism');
-    await mech.locator('summary').click();
+    await page.getByTestId('plastic-mechanism-toggle').click();
     await page.getByTestId('plastic-mechanism-draw').click();
     await expect(page.getByTestId('plastic-mechanism-vw')).toContainText('71.296');
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/mechanism.png` });
 
     const user = page.getByTestId('plastic-user');
-    await user.locator('summary').click();
+    await page.getByTestId('plastic-user-toggle').click();
     await page.getByTestId('plastic-user-pick').click();
     for (const [a, b, t] of [[1, 2, 0.05], [1, 2, 0.95], [4, 3, 0.05], [4, 3, 0.95]]) await tapAt(page, a, b, t);
     await expect(page.getByTestId('plastic-user-hinges').locator('li')).toHaveCount(4);

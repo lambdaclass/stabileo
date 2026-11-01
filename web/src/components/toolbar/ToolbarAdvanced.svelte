@@ -758,9 +758,6 @@
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
     {/if}
-    {#if !is3D && (shown('pdelta') || shown('buckling'))}
-      <SecondOrderOptions onchange={() => { if (resultsStore.pdeltaResult) handlePDelta(); else if (resultsStore.bucklingResult) handleBuckling(); }} />
-    {/if}
     {#if !(flat && active) && (shown('modal') || shown('plastic'))}
     <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
     <div class="adv-group" style="grid-column: span 2" data-testid="adv-group-dynamics">{t('advanced.group.dynamics')}</div>
@@ -984,6 +981,7 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
+    {#if !is3D}<SecondOrderOptions kind="pdelta" onchange={() => handlePDelta()} />{/if}
     <PDeltaSummary result={pdR} />
     <PDeltaCertificate result={pdR} />
   {/if}
@@ -1026,6 +1024,7 @@
     <div class="adv-result-info">
       &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
+    {#if !is3D}<SecondOrderOptions kind="buckling" onchange={() => handleBuckling()} />{/if}
     <BucklingCertificate certificate={buR.certificate} />
     <BucklingDetails result={buR} />
   {/if}

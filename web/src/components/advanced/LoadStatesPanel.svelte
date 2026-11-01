@@ -30,32 +30,36 @@
     const dt = resultsStore.diagramType;
     if (dt !== 'moment' && dt !== 'shear' && dt !== 'axial') resultsStore.diagramType = 'moment';
   }
+  import AdvFold from './kit/AdvFold.svelte';
+  import AdvLink from './kit/AdvLink.svelte';
+  import AdvValues from './kit/AdvValues.svelte';
 </script>
 
 <div class="lsp" data-testid="load-states-panel">
-  <p class="lsp-p">{t('course.influence.states.intro')}</p>
-  <details class="lsp-fold">
-    <summary>{t('course.influence.states.whyTitle')} <span class="lsp-sum">{t('course.influence.states.whySummary')}</span></summary>
+  <AdvValues help={t('course.influence.states.intro')} items={[
+    { label: t('course.influence.states.v.cases'), value: String(modelStore.loadCases.length) },
+    { label: t('course.influence.states.v.combos'), value: String(modelStore.combinations.length) },
+    { label: t('course.influence.states.v.state'), value: on ? (solved && !resultsStore.combinationsDirty ? '✓' : '…') : '—', tone: on && solved ? 'ok' : undefined },
+  ]} />
+  <AdvFold title={t('course.influence.states.whyTitle')} summary={t('course.influence.states.whySummary')}>
     <p class="lsp-p">{t('course.influence.states.why')}</p>
     <p class="lsp-p">{t('course.influence.states.pattern')}</p>
-  </details>
-  <details class="lsp-fold">
-    <summary>{t('course.influence.states.envTitle')} <span class="lsp-sum">{t('course.influence.states.envSummary')}</span></summary>
+  </AdvFold>
+  <AdvFold title={t('course.influence.states.envTitle')} summary={t('course.influence.states.envSummary')}>
     <p class="lsp-p">{t('course.influence.states.env')}</p>
     <p class="lsp-p">{t('course.influence.states.moving')}</p>
-  </details>
+  </AdvFold>
 
   {#if !on}
     <button class="lsp-primary" onclick={() => setLoadCasesEnabled(true)} data-testid="load-states-enable">{t('course.influence.states.enable')}</button>
     <p class="lsp-note">{t('course.influence.states.enableNote')}</p>
   {:else}
-    <details class="lsp-fold" data-testid="load-states-table">
-      <summary>{t('course.influence.states.tableTitle')} <span class="lsp-sum">{tp('course.influence.states.tableSummary', { c: modelStore.loadCases.length, k: modelStore.combinations.length })}</span></summary>
+    <AdvFold title={t('course.influence.states.tableTitle')} summary={tp('course.influence.states.tableSummary', { c: modelStore.loadCases.length, k: modelStore.combinations.length })} testid="load-states-table">
       <div class="lsp-table"><CombosTable /></div>
-    </details>
+    </AdvFold>
     <div class="lsp-row">
-      <button class="lsp-btn" onclick={openLoadsTable} data-testid="load-states-assign">{t('course.influence.states.assign')}</button>
-      <button class="lsp-btn" onclick={() => addCirsocCombinations()} data-testid="load-states-cirsoc">{t('course.influence.states.cirsoc')}</button>
+      <AdvLink label={t('course.influence.states.assign')} onclick={openLoadsTable} testid="load-states-assign" />
+      <AdvLink label={t('course.influence.states.cirsoc')} onclick={() => addCirsocCombinations()} testid="load-states-cirsoc" />
     </div>
     <p class="lsp-note">{t('course.influence.states.cirsocNote')}</p>
 
@@ -69,7 +73,7 @@
       </div>
       <ResultsViewPicker />
       {#if !uiStore.is3DWorkspace && rows.length}
-        <h5 class="lsp-h">{t('course.influence.states.governing')}</h5>
+        <AdvFold title={t('course.influence.states.governing')} open={true} testid="load-states-governing-fold">
         <table class="lsp-gov" data-testid="load-states-governing">
           <thead><tr><th>#</th><th>M</th><th>V</th><th>N</th></tr></thead>
           <tbody>
@@ -84,36 +88,30 @@
           </tbody>
         </table>
         <p class="lsp-note">{tp('course.influence.states.governingNote', { m: unitQ('moment'), f: unitQ('force') })}</p>
+        </AdvFold>
       {/if}
     {/if}
   {/if}
 
   {#if !uiStore.is3DWorkspace}
-    <button class="lsp-btn" onclick={onInfluence} data-testid="load-states-il">{t('course.influence.states.toInfluence')}</button>
+    <div class="lsp-row"><AdvLink label={t('course.influence.states.toInfluence')} onclick={onInfluence} testid="load-states-il" /></div>
   {/if}
 </div>
 
 <style>
-  .lsp { display: flex; flex-direction: column; gap: 0.4rem; margin: 0.2rem 0 0.4rem 0.6rem; padding-left: 0.6rem; border-left: 2px solid var(--st-hair); font-size: 0.72rem; color: var(--st-text-2); }
-  .lsp-p { margin: 0.2rem 0; line-height: 1.45; }
-  .lsp-note { margin: 0; color: var(--st-text-3); font-size: 0.64rem; line-height: 1.4; }
-  .lsp-fold { border: 1px solid var(--st-hair); border-radius: var(--st-radius); padding: 0 0.45rem; }
-  .lsp-fold summary { cursor: pointer; padding: 0.3rem 0; color: var(--st-text); }
-  .lsp-sum { display: block; color: var(--st-text-3); font-size: 0.64rem; margin-top: 0.1rem; }
-  .lsp-table { overflow-x: auto; padding-bottom: 0.3rem; }
-  .lsp-row { display: flex; flex-wrap: wrap; gap: 0.25rem; }
-  .lsp-btn, .lsp-primary {
-    background: none; border: 1px solid var(--st-hair); border-radius: var(--st-radius); color: var(--st-text-2);
-    font-size: 0.7rem; padding: 0.3rem 0.55rem; cursor: pointer; align-self: flex-start;
+  .lsp { display: flex; flex-direction: column; gap: 3px; margin: 2px 0 6px; font-size: 0.72rem; color: var(--st-text-2); }
+  .lsp-p { margin: 0 0 4px; line-height: 1.45; font-size: 0.66rem; }
+  .lsp-note { margin: 0; font-size: 0.62rem; line-height: 1.4; color: var(--st-text-3); }
+  .lsp-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 0; }
+  .lsp-table { overflow-x: auto; }
+  .lsp-primary {
+    align-self: flex-start; padding: 2px 9px; border-radius: 3px; cursor: pointer; font-size: 0.66rem;
+    background: rgba(229, 72, 42, 0.12); border: 1px solid var(--st-accent); color: var(--st-accent);
   }
-  .lsp-primary { border-color: var(--st-interactive); color: var(--st-text); }
-  .lsp-primary.on { color: var(--st-accent); border-color: var(--st-accent); }
-  .lsp-btn:hover, .lsp-primary:hover:not(:disabled) { background: var(--st-surface-3); color: var(--st-text); }
-  .lsp-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-  .lsp-h { margin: 0.3rem 0 0; font-size: 0.68rem; font-weight: 600; color: var(--st-text); }
-  .lsp-gov { width: 100%; border-collapse: collapse; font-size: 0.64rem; table-layout: fixed; }
-  .lsp-gov th { color: var(--st-text-3); font-weight: 500; text-align: left; padding: 2px 3px; }
-  .lsp-gov th:first-child, .lsp-gov td:first-child { width: 1.6rem; }
-  .lsp-gov td { padding: 2px 3px; color: var(--st-text-2); border-top: 1px solid var(--st-hair); overflow-wrap: anywhere; vertical-align: top; }
-  .lsp-v { display: block; font-family: var(--st-mono); color: var(--st-value); }
+  .lsp-primary:disabled { opacity: 0.4; cursor: default; }
+  .lsp-primary.on { background: var(--st-accent); color: #fff; }
+  .lsp-gov { width: 100%; border-collapse: collapse; font-size: 0.64rem; font-variant-numeric: tabular-nums; }
+  .lsp-gov th { color: var(--st-text-3); font-weight: 500; text-align: left; padding: 2px 3px; border-bottom: 1px solid var(--st-hair-strong); }
+  .lsp-gov td { padding: 2px 3px; border-bottom: 1px solid var(--st-hair); color: var(--st-text); }
+  .lsp-v { display: block; font-family: 'Courier New', monospace; color: var(--st-text-3); font-size: 0.6rem; }
 </style>

@@ -164,6 +164,9 @@ export const es: Translations = {
   'steps.m.influenceLine.title': 'Línea de influencia',
   'steps.m.influenceLine.help': 'Traza la línea de influencia de una reacción, un esfuerzo o un desplazamiento, explica su forma con el principio de Müller-Breslau o el teorema de Maxwell, y muestra cómo cargarla para el máximo y el mínimo.',
   'steps.m.influenceLine.requires': 'una estructura plana con apoyos. Se usa la línea en pantalla, la barra seleccionada (M en su centro) o el nudo con apoyo seleccionado (Rz).',
+  'course.influence.states.v.cases': "Estados",
+  'course.influence.states.v.combos': "Combinaciones",
+  'course.influence.states.v.state': "Calculado",
 };
 
 export const en: Translations = {
@@ -330,6 +333,9 @@ export const en: Translations = {
   'steps.m.influenceLine.title': 'Influence line',
   'steps.m.influenceLine.help': 'Draws the influence line of a reaction, an internal force or a displacement, explains its shape with the Müller-Breslau principle or Maxwell’s theorem, and shows how to load it for the maximum and the minimum.',
   'steps.m.influenceLine.requires': 'a plane structure with supports. It uses the line on screen, the selected member (M at its middle) or the selected supported node (Rz).',
+  'course.influence.states.v.cases': "Load cases",
+  'course.influence.states.v.combos': "Combinations",
+  'course.influence.states.v.state': "Solved",
 };
 
 export const pt: Translations = {
@@ -496,4 +502,7 @@ export const pt: Translations = {
   'steps.m.influenceLine.title': 'Linha de influência',
   'steps.m.influenceLine.help': 'Traça a linha de influência de uma reação, um esforço ou um deslocamento, explica a sua forma com o princípio de Müller-Breslau ou o teorema de Maxwell e mostra como carregá-la para o máximo e o mínimo.',
   'steps.m.influenceLine.requires': 'uma estrutura plana com apoios. Usa a linha na tela, a barra selecionada (M no seu centro) ou o nó com apoio selecionado (Rz).',
+  'course.influence.states.v.cases': "Casos",
+  'course.influence.states.v.combos': "Combinações",
+  'course.influence.states.v.state': "Calculado",
 };

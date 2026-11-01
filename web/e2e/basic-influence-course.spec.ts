@@ -39,8 +39,8 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
     await expect(page.getByTestId('il-support-reaction')).toBeVisible();
 
     await page.getByTestId('il-q-ry').click();
-    await expect(page.getByTestId('il-what')).toContainText('Rotation θ');
-    await expect(page.getByTestId('il-peaks')).toContainText('rad/kN');
+    await expect(page.locator('.at-label')).toContainText('Rotation θ');
+    await expect(page.locator('.ilp-sub')).toContainText('rad/kN');
     const ordinates = await page.evaluate(() => (window.__stabileo as unknown as { influenceLine?(): { quantity: string; targetPosition?: number } | null }).influenceLine?.() ?? null);
     if (ordinates) expect(ordinates).toMatchObject({ quantity: 'ry', targetPosition: 0 });
 
@@ -51,13 +51,14 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
     await page.getByTestId('il-q-M').click();
     await page.getByTestId('il-panel').getByRole('button', { name: 'L/2' }).click();
     await expect(page.getByTestId('il-x')).toHaveValue(/\d/);
-    await page.getByTestId('il-loading').locator('summary').click();
+    await page.getByTestId('il-loading-toggle').click();
     await expect(page.getByTestId('il-max')).toContainText('kN·m');
     await expect(page.getByTestId('il-max').locator('.ill-check')).toHaveClass(/ok/);
     await page.getByTestId('il-envelope').click();
     await expect(page.getByTestId('il-envelope')).toHaveClass(/on/);
     if (SHOTS) await page.getByTestId('basic-panel').screenshot({ path: `${SHOTS}/il-panel.png` });
 
+    await page.getByTestId('il-steps-toggle').click();
     await page.getByTestId('il-explain').click();
     await expect(page.getByTestId('steps-doc')).toBeVisible();
     await expect(page.getByTestId('steps-doc')).toContainText('Influence line');
@@ -71,7 +72,7 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
     const enable = page.getByTestId('load-states-enable');
     if (await enable.isVisible()) await enable.click();
     await expect(page.getByTestId('load-states-table')).toBeVisible();
-    await page.getByTestId('load-states-table').locator('summary').click();
+    await page.getByTestId('load-states-table-toggle').click();
     if (SHOTS) await page.getByTestId('basic-panel').screenshot({ path: `${SHOTS}/load-states.png` });
     await page.getByTestId('load-states-il').click();
     await expect(page.getByTestId('il-panel')).toBeVisible();
