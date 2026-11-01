@@ -18,6 +18,27 @@ function records(value: unknown): value is RecordValue[] {
   return Array.isArray(value) && value.every(record);
 }
 
+function finiteThroughout(value: unknown): boolean {
+  return typeof value === 'number' ? Number.isFinite(value)
+    : value === null || typeof value !== 'object' || Object.values(value).every(finiteThroughout);
+}
+
+const NODE_LOADS = ['nodal', 'nodal3d', 'displacement3d'];
+const MEMBER_LOADS = ['distributed', 'pointOnElement', 'thermal', 'distributed3d', 'pointOnElement3d', 'prestress3d'];
+
+function referencesResolve(value: RecordValue): boolean {
+  const keys = (family: unknown) => new Set((family as Entry[]).map(([key]) => key));
+  const nodes = keys(value.nodes), elements = keys(value.elements);
+  return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
+    && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number))
+    && (value.supports as Entry[]).every(([, s]) => nodes.has(s.nodeId as number))
+    && (value.loads as RecordValue[]).every(({ type, data }) => {
+      const d = data as RecordValue;
+      return NODE_LOADS.includes(type as string) ? nodes.has(d.nodeId as number)
+        : !MEMBER_LOADS.includes(type as string) || elements.has(d.elementId as number);
+    });
+}
+
 function entries(value: unknown): value is Entry[] {
   if (!Array.isArray(value)) return false;
   const seen = new Set<number>();
@@ -64,6 +85,8 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
       || !assumptions.every(a => typeof a === 'string'))) return null;
     if (layerMappings !== undefined && !records(layerMappings)) return null;
   }
+
+  if (!finiteThroughout(value) || !referencesResolve(value)) return null;
 
   // Counters are bookkeeping, not model properties. Recover missing, malformed
   // or stale counters without changing any existing entity's ID. Keep larger
