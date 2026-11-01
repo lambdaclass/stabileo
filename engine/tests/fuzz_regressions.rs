@@ -125,3 +125,35 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
     assert_eq!(e.error_of(f64::INFINITY), f64::INFINITY);
     assert!(e.error_of(1.5) <= 0.5 + 1e-15);
 }
+
+/// json_plastic (issues #951 #952 #953 #989 #990 #991): selector 3
+/// (`certify_plastic_3d`) on the seed corpus's 8-member 3D portal with mutated
+/// keys. They were not crashes: libFuzzer's slow-unit reports and a process
+/// RSS that grew to 2 GB over the run (84 MB live heap), charged to whichever
+/// input was running. Alone, each certifies within 25 MB.
+///
+/// The 10.125 is the z-sway mechanism: four column-base hinges (Mp_y =
+/// 250e3·0.15·0.3²/4 = 843.75 kN·m) and four transverse-beam end hinges
+/// (Mp_z = 250e3·0.3·0.15²/4 = 421.875 kN·m) rotate δ/4 under 5 + 2·10·6 =
+/// 125 kN along z: λ = (843.75 + 421.875)/125.
+#[test]
+fn plastic_3d_certificate_nightly_inputs_finish() {
+    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
+    use dedaliano_engine::types::PlasticInput3D;
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic");
+    let mut files: Vec<_> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).collect();
+    files.sort();
+    assert_eq!(files.len(), 6);
+    for f in files {
+        let name = f.file_name().unwrap().to_string_lossy().into_owned();
+        let input: PlasticInput3D = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
+        let t = std::time::Instant::now();
+        let c = certify_plastic_3d(&input).unwrap().certificate;
+        assert!(t.elapsed().as_secs() < 300, "{name}: {:?}", t.elapsed());
+        let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
+        assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{name}: {c:?}");
+        if !name.starts_with("991-") {
+            assert!(lo <= 10.125 && 10.125 <= hi && hi - lo < 1e-9, "{name}: [{lo}, {hi}]");
+        }
+    }
+}

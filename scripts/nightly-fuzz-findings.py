@@ -9,14 +9,32 @@ import subprocess
 out = Path('nightly-findings')
 target = os.environ['FUZZ_TARGET']
 seed = int(os.environ['FUZZ_SEED'])
+triple = os.environ['FUZZ_TARGET_TRIPLE']
+FUZZ_LIMITS = ['-rss_limit_mb=2048', '-timeout=60']
+
+
+def fails_alone(source):
+    try:
+        run = subprocess.run(['cargo', '+nightly-2026-10-15', 'fuzz', 'run', '--target', triple, target, str(source.resolve()), '--', *FUZZ_LIMITS],
+                             cwd='engine', timeout=300)
+    except subprocess.TimeoutExpired:
+        return True
+    return run.returncode != 0
+
+
+unreproduced = []
 for source in sorted(Path(f'engine/fuzz/artifacts/{target}').glob('*')):
-    if not source.is_file():
+    if not source.is_file() or source.name.startswith('slow-unit-'):
+        continue
+    if source.name.startswith('oom-') and not fails_alone(source):
+        unreproduced.append(dict(artifact=source.name, raw_hex=source.read_bytes().hex(),
+                                 why=f'within {" ".join(FUZZ_LIMITS)} when run alone: the fuzzing process outgrew the limit, not this input'))
         continue
     # tmin retains the same fuzz-target failure; bound its wall time too.
     reduction = 'libFuzzer tmin (bounded to 120 seconds)'
     minimized = (out / (source.name + '.min')).resolve()
     try:
-        subprocess.run(['cargo', '+nightly-2026-10-15', 'fuzz', 'tmin', '--target', os.environ['FUZZ_TARGET_TRIPLE'], target,
+        subprocess.run(['cargo', '+nightly-2026-10-15', 'fuzz', 'tmin', '--target', triple, target,
                         str(source.resolve()), '--', '-max_total_time=90', f'-exact_artifact_path={minimized}'], cwd='engine', timeout=120, check=True)
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
         reduction = 'budget-limited; original crashing input retained'
@@ -34,3 +52,5 @@ for source in sorted(Path(f'engine/fuzz/artifacts/{target}').glob('*')):
         details=source.name,
         command=command
     ), indent=2))
+if unreproduced:
+    (out / 'unreproduced-oom.json').write_text(json.dumps(unreproduced, indent=2))
