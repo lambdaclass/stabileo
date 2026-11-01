@@ -268,12 +268,15 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     await expect(page.getByTestId('save-confirm')).toHaveCount(0);
 
-    await page.getByTestId('export-excel').click();
+    await page.getByTestId('export-results').click();
+    await page.getByTestId('results-export-download').click();
     await expect(page.getByTestId('auth-reason')).toBeVisible();
-    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await page.getByTestId('auth-dialog').getByRole('button', { name: 'Cancelar' }).click();
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
 
+    await page.getByTestId('results-format-csv').click();
     const download = page.waitForEvent('download');
-    await page.getByTestId('export-csv').click();
+    await page.getByTestId('results-export-download').click();
     expect((await download).suggestedFilename()).toMatch(/\.csv$/);
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
   });
