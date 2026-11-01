@@ -20,7 +20,7 @@ use super::assembly::{self, InclinedFrame};
 use super::linear;
 use super::soil_curves::{SoilCurve, evaluate_soil_curve};
 use super::constraints::FreeConstraintSystem;
-use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse};
+use super::sparse_tangent::{SparseSymbolicCache, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed};
 
 /// The soil springs at their current secants as stiffness triplets in the
 /// frames K was assembled in (each unordered pair once). A spring acts along a
@@ -245,6 +245,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
     let mut u_frame = vec![0.0; nf];
     let mut converged = false;
     let mut total_iters = 0;
+    let mut conditioning = None;
 
     // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
     // change values, not the pattern; the fingerprinted cache rebuilds the
@@ -273,7 +274,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             let f_f: Vec<f64> = f_global[..nf].to_vec();
             let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
-            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_csc, &f_s, &mut sparse_sym_cache, &mut conditioning)?
         } else {
             // Assemble: base K + soil springs
             let mut k_global = dense_asm.as_ref().unwrap().k.clone();
@@ -298,7 +299,9 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             };
 
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &f_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &f_s, ns);
+            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -389,7 +392,7 @@ fn solve_ssi_2d_inner(input: &SSIInput) -> Result<SSIResult, String> {
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
+            structured_diagnostics: conditioning.into_iter().collect(),
             equilibrium: None,
             result_summary: None, solver_run_meta: None,
         },
@@ -490,6 +493,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
     let mut u_frame = vec![0.0; nf];
     let mut converged = false;
     let mut total_iters = 0;
+    let mut conditioning = None;
 
     // Sparse symbolic Cholesky reused across iterations (spring stiffnesses
     // change values, not the pattern; the fingerprinted cache rebuilds the
@@ -518,7 +522,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             let f_f: Vec<f64> = f_global[..nf].to_vec();
             let f_s = if let Some(ref cs) = cs { cs.reduce_vector(&f_f) } else { f_f };
             let k_csc = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, &cs);
-            solve_tangent_sparse(&k_csc, &f_s, &mut sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_csc, &f_s, &mut sparse_sym_cache, &mut conditioning)?
         } else {
             let mut k_global = dense_asm.as_ref().unwrap().k.clone();
 
@@ -541,7 +545,9 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             };
 
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &f_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &f_s, ns);
+            conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -633,7 +639,7 @@ fn solve_ssi_3d_inner(input: &SSIInput3D) -> Result<SSIResult3D, String> {
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
-            structured_diagnostics: vec![],
+            structured_diagnostics: conditioning.into_iter().collect(),
             equilibrium: None,
             timings: None,
             result_summary: None, solver_run_meta: None,
