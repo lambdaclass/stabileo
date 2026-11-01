@@ -65,7 +65,6 @@ export function resetPublicScroll(hash = '') {
   const focused = prerender?.contains(document.activeElement) ? document.activeElement?.id : '';
   prerender?.remove();
   const root = document.querySelector<HTMLElement>('.landing');
-  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   root?.scrollTo({ top: hash ? 0 : readTop, left: 0, behavior: 'instant' });
   if (focused) document.getElementById(focused)?.focus({ preventScroll: true });
   if (hash) {

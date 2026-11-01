@@ -38,7 +38,7 @@
   --lp-max: 1360px;
   --lp-radius: 3px;
 
-  /* site-header.css sizes the header from this, and .landing starts below it. */
+  /* Must equal .site-header height in site-header.css: .landing starts below the header. */
   --lp-nav-h: 3.625rem;
 }
 
