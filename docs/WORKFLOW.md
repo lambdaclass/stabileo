@@ -32,7 +32,7 @@ never silently wrong and verification never silently stops working.
   reviewer for solver, certificate and design-check changes) before it leaves draft and merges.
 - **Required checks** must be green (engine, web, e2e, Kani, Lean, symbolic; see
   [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red scheduled verification run
-  opens (or updates) one `ci-failure` issue per workflow, closed when it is green again; each real
+  opens (or updates) one `ci-failure` issue per workflow, closed by the next green run once triaged; each real
   finding behind it is triaged into its own `bug` issue ([verification/NIGHTLY.md](verification/NIGHTLY.md)).
 - **Never force-push** a shared branch without explicit authorization. Before deleting a branch,
   prove its work exists elsewhere.

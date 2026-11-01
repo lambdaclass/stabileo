@@ -332,6 +332,24 @@ impl Relabel {
         }
     }
 
+    /// Ids repeat across the four shell families that share `quad_stresses`; only the order (quads,
+    /// quad9s, solid shells, curved shells) says which table an entry belongs to.
+    fn map_shell_ids(&self, ids: Vec<&mut usize>) {
+        let fams = [&self.quad, &self.quad9, &self.solid_shell, &self.curved_shell];
+        if ids.len() == fams.iter().map(|t| t.len()).sum::<usize>() {
+            let mut rest = ids.into_iter();
+            for t in fams {
+                for id in rest.by_ref().take(t.len()) {
+                    *id = get(t, *id);
+                }
+            }
+        } else {
+            for id in ids {
+                *id = fams.iter().find_map(|t| t.get(id)).copied().unwrap_or(*id);
+            }
+        }
+    }
+
     /// Results of the original model, re-expressed with the new ids (what a
     /// correct solver returns for the relabelled model), sorted by new id.
     pub fn map_results_2d(&self, r: &AnalysisResults) -> AnalysisResults {
@@ -359,19 +377,28 @@ impl Relabel {
         for e in o.element_forces.iter_mut() {
             e.element_id = self.e(e.element_id);
         }
-        // Shell stresses are keyed by shell id, but the four shell families
-        // share the field; map through whichever table holds the id.
         for p in o.plate_stresses.iter_mut() {
             p.element_id = get(&self.plate, p.element_id);
         }
-        for q in o.quad_stresses.iter_mut() {
-            let id = q.element_id;
-            q.element_id = [&self.quad, &self.quad9, &self.solid_shell, &self.curved_shell]
-                .iter()
-                .find_map(|t| t.get(&id))
-                .copied()
-                .unwrap_or(id);
-        }
+        self.map_shell_ids(o.quad_stresses.iter_mut().map(|q| &mut q.element_id).collect());
         o
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn shell_stress_ids_map_through_their_own_family() {
+        let rl = Relabel {
+            quad: BTreeMap::from([(1, 2), (2, 1)]),
+            solid_shell: BTreeMap::from([(1, 7)]),
+            curved_shell: BTreeMap::from([(2, 9)]),
+            ..Default::default()
+        };
+        let mut ids = [1, 2, 1, 2];
+        rl.map_shell_ids(ids.iter_mut().collect());
+        assert_eq!(ids, [2, 1, 7, 9]);
     }
 }

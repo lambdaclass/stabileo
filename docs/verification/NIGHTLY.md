@@ -11,9 +11,12 @@ runners. Only `findings` has `issues: write`; compute jobs have `contents: read`
 A failed, timed-out or cancelled scheduled run of `nightly.yml`, `differential.yml`, `verify.yml`,
 `mutation-ts.yml`, `verification-dashboard.yml` or `supply-chain.yml` opens **one issue per
 workflow**, titled `CI failure: <workflow>` and labelled `ci-failure`, with the run link and the
-failing jobs, or comments on the one already open. The next green scheduled run closes it, so
-each new red spell opens a fresh issue (which is what notifies the repository's watchers; a
-comment on a months-old issue notifies nobody). Once a day (13:00 UTC) a staleness check does
+failing jobs, or comments on the one already open. Once it is triaged (a person commented on it,
+another issue or PR links to it, or it carries the `triaged` label), the next green scheduled run
+closes it, so each new red spell opens a fresh issue (which is what notifies the repository's
+watchers; a comment on a months-old issue notifies nobody). An untriaged issue stays open through
+green runs, with one comment saying so: a rotated seed or shard going green does not mean the
+failure was not a finding. Once a day (13:00 UTC) a staleness check does
 the same for a workflow that has not completed a scheduled run in its window (32 h; 8 days for
 the weekly dashboard), or that is disabled or renamed.
 

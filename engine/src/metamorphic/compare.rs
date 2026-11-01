@@ -281,22 +281,16 @@ pub fn compare_floored(actual: &Flat, expected: &Flat, scale_src: &Flat, lchar: 
     let f = scale_src.f.maxabs().max(force_floor);
     let m = scale_src.m.maxabs().max(force_floor * lchar);
     let l = lchar.max(f64::MIN_POSITIVE);
-    // A family that is exactly zero in `expected` (a node whose only load
-    // goes straight into its support, a plate bent without membrane
-    // stress) is still computed in floating point after a rotation or a
-    // mirror: its round-off has no scale of its own. Translations and
-    // rotations are then floored by the coordinate round-off of a model of
-    // size L (64·ε·L, 64·ε rad), shell stresses by the stress the forces
-    // would carry over the model size (F/L², far below any real shell
-    // stress, which acts over a thickness ≪ L). Nothing above these floors
-    // is hidden: any real displacement or stress is many orders larger.
-    let (t_abs, r_abs) = (64.0 * f64::EPSILON * l, 64.0 * f64::EPSILON);
+    // Only a family that is exactly zero gets an absolute floor: its round-off has no scale of its own.
+    let zero_floor = |scale: f64, floor: f64| if scale > 0.0 { 0.0 } else { floor };
+    let (ts, rs) = (t.max(r * l), r.max(t / l));
+    let ss = scale_src.s.maxabs();
     let fams: [(&str, &Family, &Family, f64, f64); 6] = [
-        ("translation", &diff.t, &scale_src.t, t.max(r * l), t_abs),
-        ("rotation", &diff.r, &scale_src.r, r.max(t / l), r_abs),
+        ("translation", &diff.t, &scale_src.t, ts, zero_floor(ts, 64.0 * f64::EPSILON * l)),
+        ("rotation", &diff.r, &scale_src.r, rs, zero_floor(rs, 64.0 * f64::EPSILON)),
         ("force", &diff.f, &scale_src.f, f.max(m / l), 0.0),
         ("moment", &diff.m, &scale_src.m, m.max(f * l), 0.0),
-        ("stress", &diff.s, &scale_src.s, scale_src.s.maxabs().max(f.max(m / l) / (l * l)), 0.0),
+        ("stress", &diff.s, &scale_src.s, ss, zero_floor(ss, rel * f.max(m / l) / (l * l))),
         ("scalar", &diff.x, &scale_src.x, 0.0, 0.0),
     ];
     let mut rep = Report { worst: 0.0, where_: String::new() };
@@ -333,4 +327,47 @@ fn expected_val(e: &Flat, fam: &str, k: usize) -> f64 {
         _ => &e.x,
     };
     f.vals.get(k).copied().unwrap_or(f64::NAN)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn flat(t: &[f64], r: &[f64], f: &[f64], s: &[f64]) -> Flat {
+        let mut o = Flat::default();
+        t.iter().enumerate().for_each(|(i, &v)| o.t.push(format!("t{i}"), v));
+        r.iter().enumerate().for_each(|(i, &v)| o.r.push(format!("r{i}"), v));
+        f.iter().enumerate().for_each(|(i, &v)| o.f.push(format!("f{i}"), v));
+        s.iter().enumerate().for_each(|(i, &v)| o.s.push(format!("s{i}"), v));
+        o
+    }
+
+    #[test]
+    fn exactly_zero_families_accept_coordinate_round_off_only() {
+        let l = 10.0;
+        let exp = flat(&[0.0, 0.0], &[0.0], &[5.0], &[0.0]);
+        let noise = flat(&[1e-14, -1e-14], &[1e-14], &[5.0], &[1e-11]);
+        assert!(compare_floored(&noise, &exp, &exp, l, 1e-9, 5.0).is_ok());
+        for wrong in [
+            flat(&[1e-12, 0.0], &[0.0], &[5.0], &[0.0]),
+            flat(&[0.0, 0.0], &[1e-12], &[5.0], &[0.0]),
+            flat(&[0.0, 0.0], &[0.0], &[5.0], &[1e-3]),
+        ] {
+            assert!(compare_floored(&wrong, &exp, &exp, l, 1e-9, 5.0).is_err());
+        }
+    }
+
+    #[test]
+    fn small_nonzero_responses_are_compared_relatively() {
+        let l = 10.0;
+        let exp = flat(&[1e-17, 2e-17], &[1e-18], &[1e-15], &[1e-20]);
+        assert!(compare_floored(&exp, &exp, &exp, l, 1e-9, 0.0).is_ok());
+        for wrong in [
+            flat(&[2e-17, 2e-17], &[1e-18], &[1e-15], &[1e-20]),
+            flat(&[1e-17, 2e-17], &[3e-18], &[1e-15], &[1e-20]),
+            flat(&[1e-17, 2e-17], &[1e-18], &[1e-15], &[3e-20]),
+        ] {
+            assert!(compare_floored(&wrong, &exp, &exp, l, 1e-9, 0.0).is_err());
+        }
+    }
 }
