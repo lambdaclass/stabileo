@@ -192,6 +192,8 @@ jobs:
         run: make test.ci-scripts
       - name: Review runner regression tests
         run: |
+          # Ubuntu 24.04 blocks unprivileged user namespaces for unprofiled binaries such as nix's bwrap.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           python3 -m venv "$RUNNER_TEMP/review-venv"
           "$RUNNER_TEMP/review-venv/bin/pip" install --require-hashes -r research/tools/requirements.txt
           PATH="$RUNNER_TEMP/review-venv/bin:$PATH" make check.review-scripts
