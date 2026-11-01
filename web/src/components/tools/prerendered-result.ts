@@ -36,7 +36,7 @@ function same(a: unknown, b: unknown): boolean {
   return ka.length === kb.length && ka.every((k, j) => k === kb[j] && same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
 }
 
-const paramsKey = (params: Record<string, unknown>) => JSON.stringify(Object.entries(params).sort(([a], [b]) => a.localeCompare(b)));
+const paramsKey = (params: Record<string, unknown>) => JSON.stringify(Object.entries(params).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
 /** The script text that carries `result` for `params`, or null when it would not decode to exactly the same values. */
 export function serializePrerenderedResult(params: Record<string, unknown>, result: unknown): string | null {

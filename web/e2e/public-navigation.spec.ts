@@ -120,3 +120,32 @@ for (const width of [1440, 390]) {
     for (const sample of probe.samples) expect(sample).toEqual(probe.baseline);
   });
 }
+
+test('@smoke moving through history onto another language shows that language with its addresses, never English under them', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('/en/tools/');
+  await expect(page.locator('#app .landing h1')).toBeVisible();
+  await page.route(/\/assets\/de-[^/]+\.js$/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    await route.continue();
+  });
+  await page.evaluate(() => {
+    const samples: Array<{ href: string | null; text: string }> = [];
+    const read = () => {
+      const link = document.querySelector('#app .site-header [data-nav="tools"]');
+      samples.push({ href: link?.getAttribute('href') ?? null, text: link?.textContent?.trim() ?? '' });
+    };
+    (window as unknown as { langSamples: typeof samples; langTimer: number }).langSamples = samples;
+    (window as unknown as { langTimer: number }).langTimer = window.setInterval(read, 25);
+    history.pushState(null, '', '/de/tools/');
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  });
+  await expect(page.locator('#app .site-header [data-nav="tools"]')).toHaveText('Werkzeuge', { timeout: 10_000 });
+  const samples = await page.evaluate(() => {
+    const w = window as unknown as { langSamples: Array<{ href: string | null; text: string }>; langTimer: number };
+    clearInterval(w.langTimer);
+    return w.langSamples;
+  });
+  expect(samples.length).toBeGreaterThan(20);
+  for (const s of samples) if (s.href?.startsWith('/de/')) expect(s.text).toBe('Werkzeuge');
+});

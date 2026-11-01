@@ -17,7 +17,7 @@
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import { tick } from 'svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
-  import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
+  import { publicI18n, setLocale, ensureLocale, ensurePublicLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
   import { modeToPath } from './lib/app-mode';
 
@@ -55,7 +55,7 @@
     const hash = location.hash;
     try {
       if (next.kind === 'app') { await loadApp(); return; }
-      const page = await loadPublicPage(location.href);
+      const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale)]);
       if (token !== revision) return;
       if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
       adoptLocaleFromPath();

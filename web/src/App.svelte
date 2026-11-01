@@ -390,7 +390,7 @@
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
-  import { publicI18n } from './lib/i18n/store.svelte';
+  import { publicI18n, ensurePublicLocale } from './lib/i18n/store.svelte';
   import AiDrawer from './components/AiDrawer.svelte';
   import { splitAllAtNodes } from './lib/model/edit/cut-members';
 
@@ -612,7 +612,7 @@
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
     try {
-      const page = await loadPublicPage(location.pathname + location.search);
+      const [page] = await Promise.all([loadPublicPage(location.pathname + location.search), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale)]);
       if (token !== publicRevision) return;
       publicPage = page;
     } catch (error) {

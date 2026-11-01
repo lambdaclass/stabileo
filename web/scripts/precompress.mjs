@@ -2,6 +2,7 @@
 process.env.UV_THREADPOOL_SIZE ??= '8';
 const { readdir, readFile, writeFile, stat, rm } = await import('node:fs/promises');
 const { join, resolve } = await import('node:path');
+const { pathToFileURL } = await import('node:url');
 const { brotliCompress, constants } = await import('node:zlib');
 const { promisify } = await import('node:util');
 
@@ -11,14 +12,16 @@ const compress = promisify(brotliCompress);
 
 export async function precompress(dir) {
   const files = [];
+  const small = [];
   async function walk(d) {
     for (const entry of await readdir(d, { withFileTypes: true })) {
       const path = join(d, entry.name);
       if (entry.isDirectory()) await walk(path);
-      else if (COMPRESSIBLE.test(entry.name) && (await stat(path)).size >= MIN_BYTES) files.push(path);
+      else if (COMPRESSIBLE.test(entry.name)) ((await stat(path)).size >= MIN_BYTES ? files : small).push(path);
     }
   }
   await walk(dir);
+  await Promise.all(small.map((path) => rm(`${path}.br`, { force: true })));
   let before = 0, after = 0;
   await Promise.all(files.map(async (path) => {
     const body = await readFile(path);
@@ -35,7 +38,7 @@ export async function precompress(dir) {
   return { files: files.length, before, after };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const dir = resolve(process.argv[2] ?? 'dist');
   const started = Date.now();
   const { files, before, after } = await precompress(dir);

@@ -297,6 +297,7 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
     if (scroller) scroller.scrollTo(0, 0);
   });
   await page.waitForTimeout(200);
+  if (/^\/tools\/[^/]+$/.test(path)) await page.waitForSelector('head script[data-prerendered-result]', { state: 'attached', timeout: 60_000 });
   await page.evaluate(() => {
     const listed = new Set([...document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[rel=modulepreload], script[src]')]
       .map((e) => new URL(e instanceof HTMLLinkElement ? e.href : e.src).pathname));

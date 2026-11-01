@@ -4,7 +4,7 @@
  * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
  * A tool page adds its own detail chunk's static closure (never the solver, which is lazy).
- * Of the per-language public dictionary chunks, only the largest counts: a reader loads one.
+ * Every route counts the largest per-language public dictionary chunk, which it loads lazily: a reader loads one.
  */
 import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
@@ -95,9 +95,8 @@ try {
       }
     }
     const size = (file) => statSync(join(outDir, file)).size;
-    const locales = [...files].filter((file) => publicLocaleChunks.has(file));
     const rest = [...files].filter((file) => !publicLocaleChunks.has(file));
-    return rest.reduce((total, file) => total + size(file), 0) + Math.max(0, ...locales.map(size));
+    return rest.reduce((total, file) => total + size(file), 0) + Math.max(0, ...[...publicLocaleChunks].map(size));
   }
   const landing = footprint(false), app = footprint(true);
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,

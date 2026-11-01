@@ -32,6 +32,10 @@ describe('precompress', () => {
       expect(existsSync(join(dir, 'tiny.css.br'))).toBe(false);
       expect(existsSync(join(dir, 'photo.png.br'))).toBe(false);
       expect(existsSync(join(dir, 'noise.json.br'))).toBe(false);
+
+      writeFileSync(join(dir, 'assets/a.js'), 'export const x = 1;\n');
+      await precompress(dir);
+      expect(existsSync(join(dir, 'assets/a.js.br')), 'a file that shrank below the threshold keeps no stale .br').toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
