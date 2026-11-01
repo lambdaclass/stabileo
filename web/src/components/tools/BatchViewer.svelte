@@ -13,7 +13,7 @@
   let member=$state(1);
   const number=(n:number)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:5}).format(n);
   const tabs=$derived(id==='truss-2d'?['axial','deflection']:id==='influence-line'?['influence']:id==='beam-natural-frequency'?['mode1','mode2','mode3']:['deflection','shear','moment']);
-  const label=(key:string)=>key.startsWith('mode')?`${t('tools.batch.mode')} ${key.slice(-1)}`:t(['axial','influence'].includes(key)?`tools.batch.${key}`:`tools.${key}`);
+  const label=(key:string)=>key.startsWith('mode')?`${t('tools.batch.mode')} ${key.slice(-1)}`:key==='deflection'?t('tools.batch.displacementShort'):t(['axial','influence'].includes(key)?`tools.batch.${key}`:`tools.${key}`);
   const bounds=$derived.by(()=>{ const ns=[...(result?.model.nodes.values()??[])]; const xs=ns.map(n=>n.x),zs=ns.map(n=>n.z); const minX=Math.min(0,...xs),maxX=Math.max(1,...xs),minZ=Math.min(0,...zs),maxZ=Math.max(0,...zs), size=Math.max(maxX-minX,maxZ-minZ,1); return {size,view:[minX-size*.15,minZ-size*.25,maxX+size*.15,maxZ+size*.25] as [number,number,number,number]}; });
   const mesh=$derived.by(()=>{
     const xy:number[]=[],cells:number[]=[],values:number[]=[];
@@ -21,7 +21,7 @@
     const line=(a:number,b:number,c:number,d:number,value=0)=>{const n=xy.length/2;xy.push(a,b,c,d);cells.push(n,n+1);values.push(value);};
     for(const el of result.model.elements.values()) { const a=result.model.nodes.get(el.nodeI)!,b=result.model.nodes.get(el.nodeJ)!; line(a.x,a.z,b.x,b.z,active==='axial'?result.linear.elementForces.find(ef=>ef.elementId===el.id)!.nStart:0); }
     const h=bounds.size*.025;
-    for(const s of result.model.supports.values()) { const n=result.model.nodes.get(s.nodeId)!; if(s.type==='fixed') {line(n.x,n.z-h,n.x,n.z+h);for(const z of [-h,0,h]) line(n.x,n.z+z,n.x-h,n.z+z-h);} else {line(n.x,n.z,n.x-h,n.z-h);line(n.x-h,n.z-h,n.x+h,n.z-h);line(n.x+h,n.z-h,n.x,n.z);if(s.type==='rollerX')line(n.x-h,n.z-h*1.3,n.x+h,n.z-h*1.3);} }
+    for(const s of result.model.supports.values()) { const n=result.model.nodes.get(s.nodeId)!; if(s.type==='fixed') {line(n.x,n.z-h,n.x,n.z+h);for(const z of [-h,0,h]) line(n.x,n.z+z,n.x-h,n.z+z-h);} else {line(n.x,n.z,n.x-h,n.z-h);line(n.x-h,n.z-h,n.x+h,n.z-h);line(n.x+h,n.z-h,n.x,n.z);if(s.type==='rollerX')line(n.x-h,n.z-h*1.3,n.x+h,n.z-h*1.3);if(s.type==='rollerZ')line(n.x-h*1.3,n.z-h,n.x-h*1.3,n.z+h*.3);} }
     const arrow=(x:number,z:number,dx:number,dz:number)=>{const length=Math.hypot(dx,dz);if(!length)return;const vx=dx/length*h*3, vz=dz/length*h*3;line(x-vx,z-vz,x,z);line(x,z,x-vx*.25-vz*.2,z-vz*.25+vx*.2);line(x,z,x-vx*.25+vz*.2,z-vz*.25-vx*.2);};
     // Arrows show direction, not force scale. Distributed loads are sampled sparsely.
     for(const load of result.model.loads) {
@@ -45,18 +45,19 @@
 </script>
 <div class="viewer-heading">{t('tools.structure')}</div>
 {#if result}
-  <PaneTabs tabs={tabs.map(id=>({id,label:label(id)}))} bind:active />
+  <PaneTabs tabs={tabs.map(id=>({id,label:label(id)}))} bind:active label={t('tools.structure')} />
   <ScalarFieldViewer xy={mesh.xy} cells={mesh.cells} values={mesh.values} cellSize={2} perCell={true} lineWidth={3} colourMap="diverging" geometryOnly={active!=='axial'} range={{min:-Math.max(1,...mesh.values.map(Math.abs)),max:Math.max(1,...mesh.values.map(Math.abs))}} title={label(active)} view={bounds.view} height="clamp(15rem, 32vh, 24rem)" editorButton={false} />
-  <p class="note">{active==='axial'?`${t('tools.batch.compression')} / ${t('tools.batch.tension')}`:active==='influence'?t('tools.batch.effect'):active.startsWith('mode')?t('tools.batch.modalNote'):t('tools.deformedNote')}</p>
+  <p class="note">{active==='axial'?`${t('tools.batch.compression')} / ${t('tools.batch.tension')}`:active==='influence'?t('tools.batch.effect'):active.startsWith('mode')?t('tools.batch.modalNote'):active==='deflection'?`${t('tools.deformedNote')} ${t('tools.batch.displacementNote')}`:t('tools.diagramNote')}</p>
   <div role="tabpanel" id={`rs-panel-${active}`} aria-labelledby={`rs-tab-${active}`} tabindex="0" class="chart">
     {#if id==='portal-frame'||id==='truss-2d'&&active==='deflection'}<label>{t('tools.batch.member')} <select bind:value={member}>{#each [...result.model.elements.keys()] as n}<option value={n}>{n}</option>{/each}</select></label>{/if}
     {#if active==='axial'}<p>{t('tools.batch.axial')} (kN)</p>{:else}
       {#if active.startsWith('mode')}<p>f = {number(result.modes[Number(active.slice(-1))-1].frequency)} Hz</p>{/if}
-      <LineChart series={plot} xLabel={id==='portal-frame'||id==='truss-2d'?'s (m)':'x (m)'} yLabel={`${label(active)} ${active==='moment'?'(kN·m)':active==='shear'?'(kN)':active==='deflection'?'(m)':active==='influence'?(result.comparisons[0]?.unit==='kN·m'?'(m)':'(1)'):''}`} height={220} />
+      <LineChart ariaLabel={label(active)} series={plot} xLabel={id==='portal-frame'||id==='truss-2d'?'s (m)':'x (m)'} yLabel={`${label(active)} ${active==='moment'?'(kN·m)':active==='shear'?'(kN)':active==='deflection'?'(m)':active==='influence'?(result.comparisons[0]?.unit==='kN·m'?'(m)':'(1)'):''}`} height={220} />
     {/if}
   </div>
+  {#each tabs.filter(tab=>tab!==active) as tab}<div role="tabpanel" id={`rs-panel-${tab}`} aria-labelledby={`rs-tab-${tab}`} hidden></div>{/each}
 {:else}<ToolPreview {id} />{/if}
 <style>
- .viewer-heading,.note,.chart { padding: 1rem; } .note {font-size:.8125rem;color:var(--fg-2);} .viewer-heading {border-bottom:1px solid var(--hair);font:.875rem var(--lp-mono);} select {min-height:44px;background:var(--card);color:var(--fg);font-size:14px;}
+ .viewer-heading,.note,.chart { padding: 1rem; } .note {font-size:.8125rem;color:var(--fg-2);} .viewer-heading {border-bottom:1px solid var(--hair);font:.875rem var(--lp-mono);} select {min-height:44px;min-width:4rem;background:var(--card);color:var(--fg);font-size:14px;}
  :global(.tools .rs-tabs) {flex-wrap:wrap;} :global(.tools .sfv-wrap button) {min-height:44px;min-width:44px;font-size:12px;} :global(.tools .sfv-mark),:global(.tools .sfv-status) {font-size:12px;}
 </style>
