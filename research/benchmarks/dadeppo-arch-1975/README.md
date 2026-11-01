@@ -29,7 +29,7 @@ The final load factor is **4.824835941517055**: the trace passes the maximum and
 
 ## Mesh study and tolerance budget
 
-`mesh_step_and_axial_stiffness_study_bounds_the_tolerances` regenerates the arch from the shared case with 20, 40 and 80 elements (the 40-element mesh is checked to equal the shared case) and finds each limit point as above (`convergence` in `results/stabileo_results.json`):
+`mesh_step_and_axial_stiffness_study_bounds_the_tolerances` regenerates the arch from the shared case with 20, 40 and 80 elements (the 40-element mesh is checked to equal the shared case) and finds each limit point as above; halving the 40-element step and running the 80-element mesh at the 20- and 40-element step each move the load by under 10⁻⁶ and every crown quantity by under 5 % of its tolerance (`convergence` in `results/stabileo_results.json`):
 
 | Quantity | 20 | 40 | 80 | Observed order | Extrapolated | vs published |
 |---|---|---|---|---|---|---|
