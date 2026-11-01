@@ -73,9 +73,9 @@ async function sendAndApply(page: Page, prompt: string): Promise<void> {
   await page.getByTestId('ai-send').click();
   const apply = page.getByTestId('ai-apply');
   await expect(apply).toBeVisible({ timeout: 20_000 });
-  const solves = await page.evaluate(() => window.__stabileo.solveCount());
+  expect(await page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(false);
   await apply.click();
-  await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount())).toBeGreaterThan(solves);
+  await expect(apply).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => window.__stabileo.viewportPick().hasResults)).toBe(true);
 }
 
