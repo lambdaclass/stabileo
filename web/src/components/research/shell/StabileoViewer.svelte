@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { rs, researchLocale } from '../i18n';
+  import { publicI18n } from '../../../lib/i18n/store.svelte';
+  import { rs } from '../i18n';
   import { researchAssetBase } from './assets';
   /**
    * Stabileo's viewer on a research page: the app's ScalarFieldViewer from its own bundle
@@ -27,7 +28,7 @@
     import(/* @vite-ignore */ `${BASE}viewer.js`)
       .then((m: { mountScalarFieldViewer: (el: HTMLElement, p: Record<string, unknown>) => typeof handle }) => {
         if (cancelled) return;
-        handle = m.mountScalarFieldViewer(host, { ...props, locale: researchLocale() });
+        handle = m.mountScalarFieldViewer(host, { ...props, locale: publicI18n.locale });
       })
       .catch((err) => {
         console.warn('research: the viewer bundle could not be loaded', err);
@@ -39,7 +40,7 @@
   });
 
   $effect(() => {
-    const next = { ...props, locale: researchLocale() };
+    const next = { ...props, locale: publicI18n.locale };
     handle?.update(next);
   });
 

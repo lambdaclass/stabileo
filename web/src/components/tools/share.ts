@@ -2,6 +2,8 @@ import { deflateSync } from 'fflate';
 import type { SolverInput } from '../../lib/engine/types';
 import { currentResultsVersion } from '../../lib/provenance/result-changes.json';
 
+const next = (ids: Iterable<number>) => Math.max(0, ...ids) + 1;
+
 export function editorUrl(model: SolverInput, name: string, options?: { massPerLength: number }) {
   const compact = {
     m: '2d', nm: name, lx: 'zUpStrongAxis', sv: 6,
@@ -11,7 +13,7 @@ export function editorUrl(model: SolverInput, name: string, options?: { massPerL
     e: [...model.elements.values()].map(e => [e.id, e.type === 'truss' ? 1 : 0, e.nodeI, e.nodeJ, e.materialId, e.sectionId]),
     s: [...model.supports.values()].map(s => [s.id, s.nodeId, s.type]),
     l: model.loads.map((l, i) => ({ ...l, data: { ...l.data, id: i + 1, caseId: 1 } })),
-    ni: [model.nodes.size + 1, 2, 2, model.elements.size + 1, model.supports.size + 1, model.loads.length + 1],
+    ni: [next(model.nodes.keys()), 2, 2, next(model.elements.keys()), next(model.supports.keys()), model.loads.length + 1],
     _: { autoSolve: true, diagramType: 'moment', includeSelfWeight: false },
     sw: { resultsVersion: currentResultsVersion, resultsSchemaVersion: 1, analyses: [] },
   };

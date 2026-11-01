@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { toolReviewLabel } from "./reviews";
   import './register-i18n';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
@@ -8,7 +7,8 @@
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { TOOL_IDS, EXAMPLE, FORMULAS, format, formula, valid, workedExamples, type ToolId, type Parameters } from './calculators';
-  import { knownIssueMessage } from '../../lib/engine/known-issues';
+  import { type Warning } from './validity';
+  import { solverMessages } from './solver-messages';
   import type { calculate } from './solve';
   import '../landing/landing.css';
   import '../blog/blog.css';
@@ -60,10 +60,11 @@
       result = answer;
       href = editorUrl(answer.model, t(`tools.${tool}`));
     } catch (e) {
-      if (token === revision) error = `${t('tools.failed')} ${e instanceof Error ? e.message : String(e)}`;
+      if (token === revision) error = t('tools.failed');
     } finally { if (token === revision) busy = false; }
   }
-  const number = (n: number) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 5 }).format(n);
+  const number = (n: number, digits = 5) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: digits }).format(n);
+  const warning = (w: Warning) => Object.entries(w.values ?? {}).reduce((text, [k, v]) => text.replace(`{${k}}`, typeof v === 'number' ? new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: 3, notation: v >= 1e5 ? 'scientific' : 'standard' }).format(v) : v), t(w.key));
   const expression = $derived(id === 'column-buckling' ? 'π²EI/(KL)²' : id === 'cantilever-beam' ? (p.uniform ? 'wL⁴/8EI' : 'Pa²(3L − a)/6EI') : p.uniform ? '5wL⁴/384EI' : p.position === p.length / 2 ? 'PL³/48EI' : 'δ(x)');
 </script>
 
@@ -77,7 +78,6 @@
       <div class="tool-layout">
         <header class="tool-intro">
           <p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p>
-          <span class="badge">{t('tools.firstVersion')} · {toolReviewLabel('tools-batch-1', publicI18n.locale)}</span>
           <h1>{title}</h1>
           <p class="lead">{t(`tools.${id}.subtitle`)}</p>
         </header>
@@ -109,13 +109,15 @@
           {#if error}<p role="alert">{error}</p>{/if}
         </section>
         <article class="tool-results rs-prose">
+          <div aria-live="polite">
           {#if result}
-            <div class="results" aria-live="polite">
+            {#each result.warnings as w}<p class="warning" role="alert" data-testid="validity-warning">{warning(w)}</p>{/each}
+            <div class="results">
               <div class="result"><span>{t(id === 'column-buckling' ? 'tools.critical' : 'tools.deflection')}</span><strong data-testid="engine-value">{number(result.value)} <small>{id === 'column-buckling' ? 'kN' : 'm'}</small></strong>
-                {#if id !== 'column-buckling'}<span>{t('tools.at')} x = {number(formula(id, p).x)} m</span>{/if}
+                {#if id !== 'column-buckling' && !result.absolute}<span>{t('tools.at')} x = {number(result.x)} m</span>{/if}
               </div>
               {#if id === 'column-buckling'}
-                <div class="result"><span>{t('tools.effectiveLength')}</span><strong>{number(p.k * p.length)} <small>m</small></strong><span>K = {p.k}</span></div>
+                <div class="result"><span>{t('tools.effectiveLength')}</span><strong>{number(p.k * p.length)} <small>m</small></strong><span>K = {number(p.k)}</span></div>
               {:else}
                 {#each ['shear', 'moment'] as key}
                   {@const metric = key as keyof typeof units}
@@ -123,20 +125,21 @@
                 {/each}
               {/if}
             </div>
-            <p class="verification" data-testid="agreement" data-difference={result.difference}>{t('tools.comparison')}: {expression} · {t('tools.difference')} <Sci value={result.difference * 100} unit="%" /></p>
+            <p class="verification" data-testid="agreement" data-difference={result.difference} data-absolute={result.absolute}>{t('tools.comparison')}: {expression} · {#if result.absolute}{t('tools.absoluteDifference')} <Sci value={result.difference} unit="m" />{:else}{t('tools.difference')} <Sci value={result.difference * 100} unit="%" />{/if}</p>
             <a class="btn btn-primary" href={href}>{t('tools.open')} ↗</a>
-            {#each [...(result.linear.structuredDiagnostics ?? []), ...(result.buckling?.structuredDiagnostics ?? [])] as warning}<p role="status">{knownIssueMessage(warning)}</p>{/each}
+            {#each solverMessages([...(result.linear.structuredDiagnostics ?? []), ...(result.buckling?.structuredDiagnostics ?? [])], t) as message}<p class="warning" role="alert">{message}</p>{/each}
           {/if}
+          </div>
           <h2>{t('tools.assumptionsTitle')}</h2>
           <p>{t('tools.assumptions')}</p>
-          {#if id === 'column-buckling'}<p>{t('tools.bucklingNote')}</p><p>{t('tools.modeNote')}</p>{/if}
+          {#if id === 'column-buckling'}<p>{t('tools.bucklingNote')}</p><p>{t('tools.modeNote')}</p><p>{t('tools.columnNote')}</p>{:else}<p>{t('tools.signConvention')}</p>{/if}
       <h2>{t('tools.formula')}</h2><p class="formula">{FORMULAS[id]}</p>
       <h2>{t('tools.example')}</h2>
-      <p>L = 6 m; E = 200000 MPa; I = 0.00008 m⁴; EI = 16000 kN·m²</p>
+      <p>L = {number(EXAMPLE.length)} m; E = {number(EXAMPLE.e, 10)} MPa; I = {number(EXAMPLE.i)} m⁴; EI = {number(EXAMPLE.e * 1000 * EXAMPLE.i, 10)} kN·m²</p>
       {#each workedExamples(id) as example}
         <p data-testid="worked-example" data-value={format(formula(id, example).value)}>
-          {#if id === 'column-buckling'}K = {example.k}{:else}{t(example.uniform ? 'tools.uniform' : 'tools.point')}: {example.uniform ? 'w' : 'P'} = 10 {example.uniform ? 'kN/m' : 'kN'}{#if !example.uniform}; a = {example.position} m{/if}{/if}
-          → {id === 'column-buckling' ? 'Pcr' : 'δmax'} = {format(formula(id, example).value)} {id === 'column-buckling' ? 'kN' : 'm'}
+          {#if id === 'column-buckling'}K = {number(example.k)}{:else}{t(example.uniform ? 'tools.uniform' : 'tools.point')}: {example.uniform ? 'w' : 'P'} = {number(example.load)} {example.uniform ? 'kN/m' : 'kN'}{#if !example.uniform}; a = {number(example.position)} m{/if}{/if}
+          → {id === 'column-buckling' ? 'Pcr' : 'δmax'} = {number(formula(id, example).value, 10)} {id === 'column-buckling' ? 'kN' : 'm'}
         </p>
       {/each}
       <h2>{t('tools.references')}</h2>
@@ -154,11 +157,11 @@
         {#each [...TOOL_IDS, ...BATCH_IDS] as tool}
           <li class="tool-card">
             <PublicLink to={`/tools/${tool}`} class="preview" aria-label={t(`tools.${tool}`)}><ToolPreview id={tool} /></PublicLink>
-            <div class="card-body"><span class="badge">{t('tools.firstVersion')} · {toolReviewLabel(BATCH_IDS.some(id => id === tool) ? 'tools-batch-2' : 'tools-batch-1', publicI18n.locale)}</span><h2><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></h2><p>{t(`tools.${tool}.subtitle`)}</p><PublicLink to={`/tools/${tool}`} class="btn btn-primary btn-sm">{t('tools.openTool')} ↗</PublicLink></div>
+            <div class="card-body"><h2><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></h2><p>{t(`tools.${tool}.subtitle`)}</p><PublicLink to={`/tools/${tool}`} class="btn btn-primary btn-sm">{t('tools.openTool')} ↗</PublicLink></div>
           </li>
         {/each}
       </ul>
-      <p>{t('tools.assumptions')}</p>
+      <p>{t('tools.indexAssumptions')}</p>
     {/if}
     </div>
   </main>
@@ -173,25 +176,26 @@
   .gallery { max-width: 68rem; }
   .tool-layout { display: grid; gap: 1.5rem; }
   .tool-layout > * { min-width: 0; }
-  h1 { font: 600 clamp(2rem, 4.5vw, 3rem)/1.1 var(--lp-display); margin: .75rem 0; }
+  h1 { font: 600 clamp(2rem, 4.5vw, 3rem)/1.1 var(--lp-display); margin: .75rem 0; overflow-wrap: anywhere; hyphens: auto; }
   .lead { font-size: 1.05rem; color: var(--fg); margin-bottom: 0; }
   .crumb { font-size: .95rem; color: var(--fg-2); margin-bottom: 1rem; }
+  .crumb :global(a), .card-body :global(h2 a) { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .warning { border-left: 3px solid var(--st-warn, #e5482a); padding-left: .75rem; color: var(--fg); }
   .tools :global(a:not(.btn)), .tools :global(a:visited:not(.btn)) { color: inherit; text-underline-offset: 3px; }
-  .badge { border: 1px solid var(--hair); border-radius: 3px; padding: .2rem .4rem; font: 500 .75rem var(--lp-mono); color: var(--fg-2); }
   form { border-top: 1px solid var(--hair); padding-top: 1rem; }
   input, select { min-height: 44px; min-width: 0; background: var(--card); color: var(--fg); border: 1px solid var(--hair); border-radius: 3px; padding: .4rem; font: .875rem var(--lp-mono); }
   .tools :global(.rs-param) { grid-template-columns: minmax(0, 1fr) minmax(6rem, 10rem) 3.5rem; }
-  .tools :global(.btn), .tools :global(.rs-tabs button) { min-height: 44px; }
+  .tools :global(.btn), .tools :global(.rs-tabs button) { min-height: 44px; min-width: 44px; }
   .tool-viewer { border: 1px solid var(--card-hair); border-radius: 6px; background: var(--card); overflow: hidden; }
   .results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; padding: 1.25rem 0; border-block: 1px solid var(--hair); }
   .result { display: grid; gap: .25rem; font-size: .875rem; color: var(--fg-2); }
   .result:first-child { grid-column: 1 / -1; }
-  .result strong { font: 500 clamp(1.75rem, 3vw, 2.5rem) var(--lp-display); color: var(--fg); }
+  .result strong { font: 500 clamp(1.75rem, 3vw, 2.5rem) var(--lp-display); color: var(--fg); overflow-wrap: anywhere; }
   .result small { font: .875rem var(--lp-mono); }
-  .verification { font-size: .875rem; color: var(--fg-2); }
+  .verification { font-size: .875rem; color: var(--fg-2); overflow-wrap: anywhere; }
   .formula { font: .875rem/1.8 var(--lp-mono); overflow-wrap: anywhere; }
   details { border-top: 1px solid var(--hair); margin-top: 2rem; padding-top: 1rem; font-size: .875rem; }
-  summary { min-height: 44px; cursor: pointer; }
+  summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; }
   .tool-cards { display: grid; gap: 1.5rem; list-style: none; padding: 0; margin: 2rem 0; }
   .tool-card { display: grid; background: var(--card); border: 1px solid var(--card-hair); border-radius: 6px; overflow: hidden; }
   .card-body { padding: 1.5rem; }
@@ -200,6 +204,7 @@
   .card-body :global(h2 a) { text-decoration: none; }
   .tool-card :global(.preview) { display: grid; align-items: center; background: var(--lp-ink-2); min-height: 15rem; }
   @media(min-width: 52rem) { .tool-card { grid-template-columns: 1.1fr 1fr; } }
+  @media(max-height: 450px) and (max-width: 69.99rem) { .tools main.sec { padding-top: .75rem; } .lead { font-size: .95rem; } .crumb { margin: 0 0 .25rem; } h1 { margin: .5rem 0; font-size: 2rem; } .lead { margin-top: .5rem; } .tool-layout { gap: 1rem; } }
   @media(min-width: 70rem) {
     .tool-layout { grid-template-columns: minmax(25rem, 38rem) minmax(0, 1fr); column-gap: 3rem; align-items: start; }
     .tool-intro { grid-column: 1; grid-row: 1; }

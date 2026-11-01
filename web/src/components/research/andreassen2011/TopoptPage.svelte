@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
-  import { Playback, type Source } from '../shell/playback.svelte';
+  import { Playback } from '../shell/playback.svelte';
   import { num } from '../shell/format';
   import NumberField from '../shauer2025/NumberField.svelte';
   import LineChart from '../shauer2025/LineChart.svelte';
@@ -18,7 +18,7 @@
   let active = $state<Config>({ ...defaults });
   let frames = $state<Frame[]>([]);
   let refs = $state<Record<number, Frame[]>>({});
-  let source = $state<Source>('replay');
+  let source = $state<'replay' | 'live' | 'cached' | 'stopped' | 'runFailed'>('replay');
   let running = $state(false);
   let error = $state('');
   let tab = $state('density');
@@ -27,6 +27,7 @@
   let host: HTMLDivElement;
   let worker: Worker | null = null;
   let base = $state('');
+  let ready = $state(false);
   let interacted = false;
   let epoch = 0;
   const playback = new Playback();
@@ -48,7 +49,7 @@
   function stop() {
     epoch++;
     worker?.terminate(); worker = null; running = false; playback.interact();
-    if (source === 'live') source = 'cached';
+    if (source === 'live') source = error ? 'runFailed' : 'stopped';
   }
   async function replay(ft = config.ft, autoplay = false) {
     const mayAutoplay = autoplay && playback.auto;
@@ -64,25 +65,27 @@
       playback.setCount(frames.length);
       if (mayAutoplay && !interacted) { playback.auto = true; playback.startAutoplay({ reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches, narrow: matchMedia('(max-width: 640px)').matches }); }
       else playback.seek(0);
-    } catch (e) { if (id === epoch) error = `${s.failed}: ${e}`; }
+    } catch { if (id === epoch) error = s.failed; }
   }
   function run() {
-    if (disabled || !base) return;
+    if (disabled || !ready) return;
     stop(); const id = epoch;
     active = { ...config }; frames = []; error = ''; source = 'live'; running = true;
     playback.follow = true; playback.setCount(0);
-    worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
-    worker.onmessage = event => {
-      if (id !== epoch) return;
-      const message = event.data;
-      if (message.type === 'step') {
-        if (!validFrame(message.frame, active, frames.length)) { error = s.failed; stop(); return; }
-        frames = [...frames, message.frame]; playback.setCount(frames.length);
-      } else if (message.type === 'done') { running = false; source = 'cached'; worker?.terminate(); worker = null; }
-      else { error = String(message.message); stop(); }
-    };
-    worker.onerror = () => { error = s.failed; stop(); };
-    worker.postMessage({ config: $state.snapshot(active), base });
+    try {
+      worker = new Worker(new URL('./sim.worker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = event => {
+        if (id !== epoch) return;
+        const message = event.data;
+        if (message.type === 'step') {
+          if (!validFrame(message.frame, active, frames.length)) { error = s.runFailed; stop(); return; }
+          frames = [...frames, message.frame]; playback.setCount(frames.length);
+        } else if (message.type === 'done') { running = false; source = 'cached'; worker?.terminate(); worker = null; }
+        else { error = message.message?.includes('Iteration limit') ? s.iterationLimit : s.runFailed; stop(); }
+      };
+      worker.onerror = () => { error = s.runFailed; stop(); };
+      worker.postMessage({ config: $state.snapshot(active), base });
+    } catch { error = s.runFailed; stop(); }
   }
   onMount(() => {
     let disposed = false;
@@ -100,13 +103,14 @@
         if (disposed) return;
         refs = { 1: reference[0], 2: reference[1] };
         await replay(1, true);
-      } catch (e) { if (!disposed) error = `${s.failed}: ${e}`; }
+        if (!disposed) ready = true;
+      } catch { if (!disposed) error = s.failed; }
     })();
     return () => { disposed = true; stop(); observer.disconnect(); playback.dispose(); };
   });
 </script>
 
-<ExperimentShell paperId="andreassen-2011" name={s.title}
+<ExperimentShell locale={publicI18n.locale} compactHeader introInArticle wide paperId="andreassen-2011" name={s.title}
   lead={s.lead}
   sourcePath="research/optimization/andreassen-2011"
   verification={{ reference: { kind: 'checks', passed: referenceChecks.filter(c => c.passed).length, total: referenceChecks.length, href: '#checks' }, published: { kind: 'none', why: s.publishedLimitations } }}
@@ -115,33 +119,39 @@
     <h2>{s.experimentHeading}</h2>
     <p>{s.overview}</p>
     <p>{s.method}</p>
+    <p>{s.model}</p>
     <h2>{s.reproductionHeading}</h2>
     <p>{s.defaultsDescription}</p>
     <p>{s.recordingDescription}</p>
+    <p>{s.rounding}</p>
     <h2 id="checks">{s.evidenceHeading}</h2>
     <p>{s.referenceDescription}</p>
+    <div class="table-scroll"><table><caption>{s.evidenceHeading}</caption><thead><tr><th>{s.check}</th><th>{s.observed}</th><th>{s.tolerance}</th><th>{s.reason}</th></tr></thead><tbody>
+      {#each validation.checks as check, i}<tr><th>{i < 12 ? `${s.filter} ${Math.floor(i / 6) + 1}: ` : ''}{s.checkNames[i < 12 ? i % 6 : i - 6]}</th><td>{num(check.observed, { sig: 16 })}</td><td>{num(check.tolerance, { sig: 16 })}</td><td>{s.reasons[i < 12 ? i % 6 : i - 6]}</td></tr>{/each}
+    </tbody></table></div>
     <p>{s.limitations}</p>
     <p><a href="https://www.topopt.mek.dtu.dk/apps-and-software/efficient-topology-optimization-in-matlab">{s.referenceLink}</a>. {s.publication}</p>
   {/snippet}
   {#snippet app()}
     <div bind:this={host} onpointerdowncapture={interact} onkeydowncapture={interact} onwheelcapture={interact} role="group" aria-label={s.viewerLabel}>
-      <p aria-live="polite">{s[source]}{#if running} · {s.iteration} {num(frames.length)}{/if}</p>
-      <div class="buttons"><button onclick={() => tab = 'density'}>{s.density}</button><button onclick={() => tab = 'convergence'}>{s.convergence}</button></div>
+      <p aria-live="polite">{s[source]}</p>
+      <div class="buttons"><button aria-pressed={tab === 'density'} onclick={() => tab = 'density'}>{s.density}</button><button aria-pressed={tab === 'convergence'} onclick={() => tab = 'convergence'}>{s.convergence}</button></div>
       {#if tab === 'density'}
-        <StabileoViewer {...geometry} values={frame?.density ?? null} perCell={true} range={{ min: 0, max: 1 }} title={s.density} colourMap="sequential-grey" legendFooter={s.material} {showMesh} height="360px" />
+        <StabileoViewer editorButton={false} ariaLabel={s.viewerDescription} {...geometry} values={frame?.density ?? null} perCell={true} range={{ min: 0, max: 1 }} title={s.density} colourMap="sequential-grey" legendFooter={s.material} {showMesh} height="360px" />
       {:else}
         <ConvergenceLegend reference={s.reference} hasReference={overlay.length > 0} />
         <LineChart series={series('compliance')} xLabel={s.iteration} yLabel={s.compliance} marker={frame?.iteration} />
         <LineChart series={series('volume')} xLabel={s.iteration} yLabel={s.volume} marker={frame?.iteration} />
+        <details><summary>{s.dataTable}</summary><div class="table-scroll"><table><thead><tr><th>{s.iteration}</th><th>{s.reference} · {s.compliance}</th><th>Stabileo · {s.compliance}</th><th>{s.reference} · {s.volume}</th><th>Stabileo · {s.volume}</th></tr></thead><tbody>{#each Array.from({ length: Math.max(frames.length, overlay.length) }) as _, i}<tr><th>{num(i + 1)}</th><td>{overlay[i] ? num(overlay[i].compliance, { sig: 16 }) : '—'}</td><td>{frames[i] ? num(frames[i].compliance, { sig: 16 }) : '—'}</td><td>{overlay[i] ? num(overlay[i].volume, { sig: 16 }) : '—'}</td><td>{frames[i] ? num(frames[i].volume, { sig: 16 }) : '—'}</td></tr>{/each}</tbody></table></div></details>
         {#if !overlay.length}<p>{s.noOverlay}</p>{/if}
       {/if}
       {#if frame}<p>{s.iteration}: {num(frame.iteration)} · {s.compliance}: {num(frame.compliance, { dp: 4 })} · {s.volume}: {num(frame.volume, { dp: 5 })}</p>{:else}<p>{s.loading}</p>{/if}
-      <input type="range" aria-label={s.iteration} min="0" max={Math.max(0, frames.length - 1)} value={playback.shown} oninput={e => playback.seek(+e.currentTarget.value)} />
-      <div class="buttons"><button data-play onclick={() => playback.playing ? playback.pause() : playback.play()}>{playback.playing ? s.pause : s.play}</button><button onclick={run} disabled={disabled || running || !base}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={() => replay()} disabled={!base}>{s.restart}</button></div>
+      <input type="range" aria-label={s.iteration} aria-valuetext={`${s.iteration} ${num(playback.shown + 1)}`} min="0" max={Math.max(0, frames.length - 1)} value={playback.shown} oninput={e => playback.seek(+e.currentTarget.value)} />
+      <div class="buttons"><button data-play onclick={() => playback.playing ? playback.pause() : playback.play()}>{playback.playing ? s.pause : s.play}</button><button onclick={run} disabled={disabled || running || !ready}>{s.run}</button><button onclick={stop}>{s.stop}</button><button onclick={() => replay()} disabled={!ready}>{s.restart}</button></div>
       <div class="parameters">
         {#each fields as field, i}<label>{field.key === 'volfrac' ? s.volume : field.key === 'penal' ? s.penal : field.key === 'rmin' ? s.radius : s[field.key]}<NumberField bind:value={config[field.key]} bind:invalid={invalid[i]} min={field.min} max={field.max} label={s[field.key === 'volfrac' ? 'volume' : field.key === 'rmin' ? 'radius' : field.key]} /></label>{/each}
-        <label><span id="topopt-filter-label">{s.filter}</span><select aria-labelledby="topopt-filter-label" bind:value={config.ft}><option value={1}>{s.sensitivity}</option><option value={2}>{s.density}</option></select></label>
-        <label>{s.load}<select><option>{s.mbb}</option></select></label>
+        <label><span id="topopt-filter-label">{s.filter}</span><select aria-labelledby="topopt-filter-label" bind:value={config.ft}><option value={1}>{s.sensitivity}</option><option value={2}>{s.densityFilter}</option></select></label>
+        <div>{s.load}: {s.mbb}</div>
         <label><input type="checkbox" bind:checked={showMesh} />{s.mesh}</label>
       </div>
       {#if disabled}<p role="alert">{s.invalid}</p>{/if}
@@ -151,9 +161,17 @@
 </ExperimentShell>
 <style>
   .buttons { display: flex; flex-wrap: wrap; gap: .5rem; margin: .75rem 0; }
-  button, select { background: var(--card); color: var(--fg); border: 1px solid var(--hair); padding: .5rem; border-radius: 3px; }
+  button, select { min-height: 44px; min-width: 44px; font-size: max(12px, 1rem); background: var(--card); color: var(--fg); border: 1px solid var(--hair); padding: .5rem; border-radius: 3px; }
   button:disabled { opacity: .5; }
   .parameters { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-  label { display: grid; gap: .25rem; }
-  input[type=range] { width: 100%; }
+  label { min-width: 0; min-height: 44px; display: grid; gap: .25rem; }
+  input[type=range] { width: 100%; min-height: 44px; }
+  .parameters :global(input) { min-height: 44px; box-sizing: border-box; }
+  input[type=checkbox] { width: 44px; height: 44px; }
+  .table-scroll { overflow: auto; max-width: 100%; }
+  table { border-collapse: collapse; font-size: max(12px, .875rem); }
+  th, td { padding: .5rem; text-align: start; border-bottom: 1px solid var(--hair); }
+  summary { min-height: 44px; cursor: pointer; }
+  select { max-width: 100%; }
+
 </style>
