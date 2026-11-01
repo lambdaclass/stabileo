@@ -32,8 +32,10 @@ export function drawInfluenceLine(
   if (env) {
     drawIlEnvelope(env, dc);
     drawTitle(ctx, il, dc);
+    drawTarget(il, dc);
     return;
   }
+  drawTarget(il, dc);
 
   // Find max absolute value for scaling
   let maxAbs = 0;
@@ -302,4 +304,40 @@ export function influenceTitle(il: InfluenceLineResult, dc: Pick<DrawContext, 'g
   const ni = e && dc.getNode(e.nodeI), nj = e && dc.getNode(e.nodeJ);
   const L = ni && nj ? Math.hypot(nj.x - ni.x, nj.y - ni.y) : 0;
   return tp('course.influence.titleSection', { q, e: il.targetElementId, x: ((il.targetPosition ?? 0.5) * L).toFixed(2) });
+}
+
+/** The section the line is read at: a cut across its member, or a ring on its node. */
+function drawTarget(il: InfluenceLineResult, dc: DrawContext): void {
+  const { ctx } = dc;
+  const color = canvasTheme().amber;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2.5;
+  if (il.targetElementId !== undefined) {
+    const e = dc.getElement(il.targetElementId);
+    const a = e && dc.getNode(e.nodeI), b = e && dc.getNode(e.nodeJ);
+    if (a && b) {
+      const at = il.targetPosition ?? 0.5;
+      const p = dc.worldToScreen(a.x + (b.x - a.x) * at, a.y + (b.y - a.y) * at);
+      const pa = dc.worldToScreen(a.x, a.y), pb = dc.worldToScreen(b.x, b.y);
+      const len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
+      const nx = -(pb.y - pa.y) / len, ny = (pb.x - pa.x) / len;
+      ctx.beginPath();
+      ctx.moveTo(p.x - nx * 11, p.y - ny * 11);
+      ctx.lineTo(p.x + nx * 11, p.y + ny * 11);
+      ctx.stroke();
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillText('S', p.x + nx * 14 + 2, p.y + ny * 14 + 4);
+    }
+  } else if (il.targetNodeId !== undefined) {
+    const n = dc.getNode(il.targetNodeId);
+    if (n) {
+      const p = dc.worldToScreen(n.x, n.y);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
 }

@@ -64,6 +64,8 @@
     uiStore.ilQuantity = id as typeof uiStore.ilQuantity;
     runInfluence(id as InfluenceQuantity, undefined, elem.id, at, true);
   }
+  const path = $derived(il ? [...new Set(il.points.map((p) => p.elementId))] : []);
+  const offPath = $derived(!!il && il.targetElementId !== undefined && !path.includes(il.targetElementId));
   const unit = $derived(il ? currentUnitInput() : null);
   const loaded = $derived(unit && il ? loadedMembers(unit, il.direction ?? 'vertical') : []);
 </script>
@@ -104,6 +106,7 @@
       {/if}
     {/if}
 
+    {#if offPath}<p class="ilp-note" data-testid="il-off-path">{tp('course.influence.panel.offPath', { list: path.join(', '), e: il.targetElementId ?? '' })}</p>{/if}
     {#if peaks}
       <AdvValues testid="il-peaks" help={t(`course.influence.doc.sign.${q}`)} items={[
         { label: `η ${t('course.influence.panel.maxSub')}`, value: `${numText(peaks.max.v, 4)}`, tone: 'accent' },

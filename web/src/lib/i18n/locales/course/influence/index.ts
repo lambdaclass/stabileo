@@ -167,6 +167,7 @@ export const es: Translations = {
   'course.influence.states.v.cases': "Estados",
   'course.influence.states.v.combos': "Combinaciones",
   'course.influence.states.v.state': "Calculado",
+  'course.influence.panel.offPath': "La carga unitaria se mueve por un recorrido (barras: {list}), así que la línea se dibuja sobre ese recorrido. Cada ordenada es el valor en la sección S de la barra {e} cuando la carga está en ese punto.",
 };
 
 export const en: Translations = {
@@ -336,6 +337,7 @@ export const en: Translations = {
   'course.influence.states.v.cases': "Load cases",
   'course.influence.states.v.combos': "Combinations",
   'course.influence.states.v.state': "Solved",
+  'course.influence.panel.offPath': "The unit load moves along a path (members: {list}), so the line is drawn along that path. Each ordinate is the value at section S of member {e} when the load stands at that point.",
 };
 
 export const pt: Translations = {
@@ -505,4 +507,5 @@ export const pt: Translations = {
   'course.influence.states.v.cases': "Casos",
   'course.influence.states.v.combos': "Combinações",
   'course.influence.states.v.state': "Calculado",
+  'course.influence.panel.offPath': "A carga unitária se move por um percurso (barras: {list}), então a linha é desenhada sobre esse percurso. Cada ordenada é o valor na seção S da barra {e} quando a carga está nesse ponto.",
 };

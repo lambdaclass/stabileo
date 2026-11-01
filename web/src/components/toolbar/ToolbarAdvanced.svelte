@@ -75,6 +75,7 @@
   import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
   import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
   import BucklingDetails from '../advanced/BucklingDetails.svelte';
+  import { openHingeCount } from '../../lib/engine/plastic/tracks';
   import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2 } from '../../lib/actions/second-order';
   import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
@@ -491,7 +492,7 @@
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
       uiStore.toast(r.isMechanism
-        ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
+        ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(openHingeCount(r))).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');

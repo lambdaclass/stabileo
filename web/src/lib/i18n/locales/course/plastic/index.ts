@@ -181,14 +181,12 @@ export const es: Translations = {
   'course.plastic.v.collapse': "λc",
   'course.plastic.v.hinges': "Rótulas",
   'course.plastic.v.help': "Todas las cargas crecen juntas con λ. Cada sección queda elástica hasta llegar a su Mp; ahí se forma una rótula plástica y la estructura sigue como si tuviera una articulación en ese punto. Colapsa cuando se vuelve un mecanismo. θp es el giro plástico de cada rótula: cuánto tiene que girar la sección mientras fluye; la última rótula del mecanismo tiene θp = 0.",
-  'course.plastic.showClosed': "Ver las {n} rótulas que se cerraron",
-  'course.plastic.hideClosed': "Ocultar las rótulas que se cerraron",
-  'course.plastic.closedNote': "Con carga distribuida, el máximo del momento se corre a medida que la estructura cambia: la rótula se forma, se descarga y vuelve a formarse un poco más allá. Las que se cerraron ya no trabajan.",
   'course.plastic.methods.title': "Métodos estático y cinemático",
   'course.plastic.methods.summary': "a mano, paso a paso",
   'course.plastic.methods.help': "El método cinemático combina mecanismos y busca el menor λ (cota superior). El estático busca una distribución de momentos en equilibrio con |M| ≤ Mp (cota inferior). Cuando coinciden, ese λ es la carga de colapso.",
   'course.plastic.mp.title': "Momentos plásticos",
   'course.plastic.mp.summary': "{n} secciones",
+  'course.plastic.movedNote': "Con carga distribuida, el máximo del momento en el tramo se corre a medida que se forman otras rótulas, y la rótula del tramo se desplaza con él (x inicial → x actual). El cálculo revisa la barra sección por sección, así que ese corrimiento lo hace en pasos chicos; acá se cuenta como una sola rótula.",
 };
 
 export const en: Translations = {
@@ -372,14 +370,12 @@ export const en: Translations = {
   'course.plastic.v.collapse': "λc",
   'course.plastic.v.hinges': "Hinges",
   'course.plastic.v.help': "All loads grow together with λ. Each section stays elastic until it reaches its Mp; a plastic hinge forms there and the structure carries on as if it had a pin at that point. It collapses when it becomes a mechanism. θp is each hinge's plastic rotation: how far the section has to rotate while yielding; the last hinge of the mechanism has θp = 0.",
-  'course.plastic.showClosed': "Show the {n} hinges that closed",
-  'course.plastic.hideClosed': "Hide the hinges that closed",
-  'course.plastic.closedNote': "Under a distributed load the peak moment moves as the structure changes: the hinge forms, unloads and forms again a little further on. The ones that closed no longer work.",
   'course.plastic.methods.title': "Static and kinematic methods",
   'course.plastic.methods.summary': "by hand, step by step",
   'course.plastic.methods.help': "The kinematic method combines mechanisms and looks for the least λ (an upper bound). The static method looks for a moment distribution in equilibrium with |M| ≤ Mp (a lower bound). When they meet, that λ is the collapse load.",
   'course.plastic.mp.title': "Plastic moments",
   'course.plastic.mp.summary': "{n} sections",
+  'course.plastic.movedNote': "Under a distributed load the span's peak moment moves as other hinges form, and the span hinge moves with it (first x → current x). The analysis reads the member section by section, so it makes that move in small steps; here it counts as a single hinge.",
 };
 
 export const pt: Translations = {
@@ -563,12 +559,10 @@ export const pt: Translations = {
   'course.plastic.v.collapse': "λc",
   'course.plastic.v.hinges': "Rótulas",
   'course.plastic.v.help': "Todas as cargas crescem juntas com λ. Cada seção fica elástica até atingir seu Mp; ali se forma uma rótula plástica e a estrutura segue como se tivesse uma articulação nesse ponto. Ela colapsa quando vira um mecanismo. θp é a rotação plástica de cada rótula: quanto a seção precisa girar enquanto escoa; a última rótula do mecanismo tem θp = 0.",
-  'course.plastic.showClosed': "Ver as {n} rótulas que fecharam",
-  'course.plastic.hideClosed': "Ocultar as rótulas que fecharam",
-  'course.plastic.closedNote': "Com carga distribuída, o pico do momento se desloca à medida que a estrutura muda: a rótula se forma, descarrega e volta a se formar um pouco adiante. As que fecharam não trabalham mais.",
   'course.plastic.methods.title': "Métodos estático e cinemático",
   'course.plastic.methods.summary': "à mão, passo a passo",
   'course.plastic.methods.help': "O método cinemático combina mecanismos e busca o menor λ (limite superior). O estático busca uma distribuição de momentos em equilíbrio com |M| ≤ Mp (limite inferior). Quando coincidem, esse λ é a carga de colapso.",
   'course.plastic.mp.title': "Momentos plásticos",
   'course.plastic.mp.summary': "{n} seções",
+  'course.plastic.movedNote': "Com carga distribuída, o pico do momento no vão se desloca à medida que outras rótulas se formam, e a rótula do vão se desloca com ele (x inicial → x atual). O cálculo percorre a barra seção por seção, então faz esse deslocamento em passos pequenos; aqui ele conta como uma só rótula.",
 };
