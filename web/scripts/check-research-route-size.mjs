@@ -4,6 +4,7 @@
  * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
  * A tool page adds its own detail chunk's static closure (never the solver, which is lazy).
+ * Of the per-language public dictionary chunks, only the largest counts: a reader loads one.
  */
 import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
@@ -19,6 +20,7 @@ delete process.env.VITE_E2E;
 delete process.env.VITE_APP_TYPE;
 const researchChunks = new Set();
 const toolsChunks = new Set();
+const publicLocaleChunks = new Set();
 try {
   // A deterministic engine stub makes this gate independent of locally built WASM. It measures
   // web dependency isolation, not the engine binary, which has its own build/validation gates.
@@ -36,6 +38,7 @@ try {
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/'))) toolsChunks.add(output.fileName);
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.startsWith('\0virtual:public-i18n/'))) publicLocaleChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
         }
@@ -91,7 +94,10 @@ try {
         if (!relative.includes('..') && existsSync(join(outDir, relative)) && statSync(join(outDir, relative)).isFile()) files.add(relative);
       }
     }
-    return [...files].reduce((total, file) => total + statSync(join(outDir, file)).size, 0);
+    const size = (file) => statSync(join(outDir, file)).size;
+    const locales = [...files].filter((file) => publicLocaleChunks.has(file));
+    const rest = [...files].filter((file) => !publicLocaleChunks.has(file));
+    return rest.reduce((total, file) => total + size(file), 0) + Math.max(0, ...locales.map(size));
   }
   const landing = footprint(false), app = footprint(true);
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
