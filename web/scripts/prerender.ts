@@ -45,9 +45,9 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { englishFallbacks } from './translation-gate';
+import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
-import { PAPER_LOCALES } from '../src/components/paper/locales';
-import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, isResearchRoute, researchLastReview, researchLocales } from '../src/components/research/locales';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -115,31 +115,8 @@ function serveDist(port: number) {
   });
 }
 
-/**
- * A post's last change, for its sitemap entry: `updated` when the post states one, else its
- * publication date. The build day said every post changed on every deploy, which teaches a
- * crawler to ignore lastmod.
- */
-const POST_LASTMOD = new Map<string, string>();
 /** The blog index's description in each language, for its feed. */
 const BLOG_LEAD = new Map<string, string>();
-
-/** A post's publication day, for its feed entry and its card. */
-const POST_DATE = new Map<string, string>();
-
-/** The languages always written; the others count for a post or standing page only once its translation file exists. */
-const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
-
-/** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
-function writtenIn(path: string): Locale[] {
-  if (isResearchRoute(path)) return LOCALES.filter((l) => researchLocales(path).includes(l));
-  if (path === '/paper') return LOCALES.filter((l) => PAPER_LOCALES.includes(l));
-  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
-  const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
-  return LOCALES.filter(
-    (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
-  );
-}
 
 /** What a captured post says about itself, read back from its own <head>: the feed and the card use it. */
 type PostHead = { path: string; locale: Locale; title: string; description: string };
@@ -221,43 +198,6 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
   }
 }
 
-/** Every public route, without its language prefix. Posts are read from the bundle. */
-async function publicPaths(): Promise<string[]> {
-  const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
-  const imports = [...source.matchAll(/from '\.\/posts\/([\w-]+)'/g)].map((m) => m[1]);
-  const slugs: string[] = [];
-  for (const file of imports) {
-    const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
-    const slug = post.match(/slug:\s*'([^']+)'/)?.[1];
-    if (slug) {
-      slugs.push(slug);
-      const published = post.match(/\bdate:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-      const day = post.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1] ?? published;
-      if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
-      if (published) POST_DATE.set(`/blog/${slug}`, published);
-    }
-  }
-  if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
-  // Standing pages, read from their own files, with their last edit for the sitemap.
-  const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
-  const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
-  const pages: string[] = [];
-  for (const file of pageFiles) {
-    const src = await readFile(join(ROOT, `src/lib/blog/pages/${file}.ts`), 'utf8');
-    const pagePath = src.match(/\bpath:\s*'(\/[\w-]+)'/)?.[1];
-    if (!pagePath) continue;
-    pages.push(pagePath);
-    const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-    if (day) POST_LASTMOD.set(pagePath, day);
-  }
-  const research = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS];
-  for (const path of research) {
-    const day = researchLastReview(path);
-    if (day) POST_LASTMOD.set(path, day);
-  }
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
-}
-
 /**
  * The script the bare root carries, to hand a reader on to their language.
  *
@@ -279,6 +219,7 @@ async function newCapturePage(browser: Browser) {
     } catch {
       /* private mode */
     }
+    (window as { __i18nMisses?: string[] }).__i18nMisses = [];
   });
   return page;
 }
@@ -307,7 +248,8 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
     body: document.querySelector('#app')?.innerHTML ?? '',
   }));
   const lang = await page.evaluate(() => document.documentElement.lang);
-  return { head, body, lang, href };
+  const misses = await page.evaluate(() => (window as { __i18nMisses?: string[] }).__i18nMisses ?? []);
+  return { head, body, lang, href, misses };
 }
 
 /**
@@ -363,20 +305,23 @@ async function main() {
   const posts: PostHead[] = [];
 
   try {
-    const routes = LOCALES.flatMap(locale => paths.filter(path => !isResearchRoute(path) || writtenIn(path).includes(locale)).map(path => ({
+    const routes = LOCALES.flatMap(locale => paths.filter(path => writtenIn(path).includes(locale)).map(path => ({
       locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
     })));
     const captures = await routePool(routes, concurrency,
       () => newCapturePage(browser), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
-        const { head, body, lang, href } = result;
+        const { head, body, lang, href, misses } = result;
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
+
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(head, body, lang));
-        return { head, href };
+        return { head, href, fallbacks: englishFallbacks(locale, misses) };
       });
+    const fellBack = captures.filter((c) => c.fallbacks.length).map((c) => `${c.href}: ${c.fallbacks.join(', ')}`);
+    if (fellBack.length) console.error(`prerender: these pages drew strings in English because their language lacks the keys:\n  ${fellBack.join('\n  ')}`);
     // Pool results retain the original route order, including feed date ties.
     // The sitemap below likewise uses paths/locales, never completion order.
     for (const [index, { head, href }] of captures.entries()) {

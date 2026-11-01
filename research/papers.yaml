@@ -225,6 +225,9 @@ papers:
   - MBB 60x20 density filter
   implementation: optimization/andreassen-2011
   contacts: []
+  bibliography:
+    year: 2011
+    source: https://doi.org/10.1007/s00158-010-0594-7
   reviews:
   - round: 1
     reviewers: [codex, kimi]

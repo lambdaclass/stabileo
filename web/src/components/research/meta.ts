@@ -4,17 +4,13 @@ import { EXPERIMENTS } from './experiments';
 import { cardTitle } from './card-title';
 import { RESEARCH_GALLERY, researchLastReview, researchLocales } from './locales';
 import { publicUrl } from '../../lib/i18n/public-routes';
+import { publishedLocale } from '../../lib/i18n/published';
 import { STABILEO_ORGANIZATION } from '../../lib/page-meta';
 import type { PublicLocale } from '../../lib/i18n/store.svelte';
 
 const ORG_ID = STABILEO_ORGANIZATION['@id'];
 
 type Labels = { research: string; researchTitle: string };
-
-/** The locale a research URL is published in for a reader of `locale`: theirs when the page has it, else English. */
-export function researchUrlLocale(path: string, locale: PublicLocale): PublicLocale {
-  return (researchLocales(path) as readonly string[]).includes(locale) ? locale : 'en';
-}
 
 function paper(paperId: string) {
   const entry = catalog.papers.find((p) => p.id === paperId);
@@ -35,9 +31,18 @@ function shortAuthors(authors: string[], locale: PublicLocale): string {
   return `${surname(authors[0])} et al.`;
 }
 
+function credits(name: string, authors: string[], year: number): boolean {
+  const first = authors[0] ? surname(authors[0]) : '';
+  return new RegExp(`(^|\\D)${year}(\\D|$)`).test(name) && (!first || name.includes(first));
+}
+
+function headline(text: string): string {
+  return [...text].slice(0, 110).join('');
+}
+
 export function paperTitle(name: string, paperId: string, locale: PublicLocale): string {
   const p = paper(paperId);
-  const credit = name.includes(String(p.year)) ? '' : ` (${[shortAuthors(p.authors, locale), p.year].filter(Boolean).join(' ')})`;
+  const credit = credits(name, p.authors, p.year) ? '' : ` (${[shortAuthors(p.authors, locale), p.year].filter(Boolean).join(' ')})`;
   return `${name}${credit} — Stabileo Research`;
 }
 
@@ -46,7 +51,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
   const experiment = EXPERIMENTS.find((e) => e.paperId === head.paperId);
   if (!experiment) throw new Error(`research meta: ${head.paperId} has no experiment page`);
   const path = experiment.path;
-  const own = researchUrlLocale(path, locale);
+  const own = publishedLocale(path, locale);
   const url = publicUrl(path, own);
   const p = paper(head.paperId);
   const doiUrl = `https://doi.org/${p.doi}`;
@@ -56,7 +61,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
     '@id': doiUrl,
     url: doiUrl,
     name: p.title,
-    headline: p.title.slice(0, 110),
+    headline: headline(p.title),
     author: p.authors.map((name) => ({ '@type': 'Person', name })),
     datePublished: String(p.year),
     ...(p.venue ? { isPartOf: { '@type': 'Periodical', name: p.venue } } : {}),
@@ -68,7 +73,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
       '@id': `${url}#article`,
       url,
       mainEntityOfPage: url,
-      headline: head.name.slice(0, 110),
+      headline: headline(head.name),
       name: head.name,
       description: head.lead,
       inLanguage: own,
@@ -115,7 +120,7 @@ export function galleryGraph(locale: PublicLocale, labels: Labels) {
         itemListElement: EXPERIMENTS.map((e, i) => ({
           '@type': 'ListItem',
           position: i + 1,
-          url: publicUrl(e.path, researchUrlLocale(e.path, locale)),
+          url: publicUrl(e.path, publishedLocale(e.path, locale)),
           name: cardTitle(e),
         })),
       },

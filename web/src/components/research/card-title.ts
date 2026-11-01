@@ -11,17 +11,16 @@ import { strings as dadeppoStrings } from './dadeppo1975/i18n';
 import { strings as mattiassonStrings } from './mattiasson1981/i18n';
 import { strings as macnealStrings } from './macneal1985/i18n';
 import { researchLocale, rs } from './i18n';
-import { publicI18n } from '../../lib/i18n/store.svelte';
 import type { Experiment } from './experiments';
 
 /** The title a gallery card shows for an experiment, in the reader's current language. */
 export function cardTitle(e: Experiment): string {
-  const locale = publicI18n.locale;
+  const locale = researchLocale();
   const s = rs();
   switch (e.paperId) {
-    case 'dadeppo-arch-1975': return (dadeppoStrings[researchLocale() as keyof typeof dadeppoStrings] ?? dadeppoStrings.en).title;
-    case 'lee-frame-1968': return (leeStrings[researchLocale() as keyof typeof leeStrings] ?? leeStrings.en).title;
-    case 'navier-plate': return navierStrings(researchLocale()).title;
+    case 'dadeppo-arch-1975': return (dadeppoStrings[locale as keyof typeof dadeppoStrings] ?? dadeppoStrings.en).title;
+    case 'lee-frame-1968': return (leeStrings[locale as keyof typeof leeStrings] ?? leeStrings.en).title;
+    case 'navier-plate': return navierStrings(locale).title;
     case 'horne-1979': return ps().title;
     case 'cqc-1981': return cqcStrings().title;
     case 'newmark-1959': return newmarkStrings().title;

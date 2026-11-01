@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { routeKind } from '../lib/public-route';
 import { STANDING_PAGES } from '../lib/blog/pages';
-import { RESEARCH_GALLERY } from '../components/research/locales';
+import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS } from '../components/research/locales';
+import { POSTS, writtenIn as writtenInContent } from '../lib/blog';
+import { publishedLocales } from '../lib/i18n/published';
+import { publicPaths, writtenIn } from '../../scripts/public-paths';
 import { SITE_NAV } from '../components/site/site-nav';
 
 const source = (file: string) => readFileSync(new URL(file, import.meta.url), 'utf8');
@@ -37,13 +40,21 @@ describe('merged public routes', () => {
       }
     }
   });
-  it('prerenders paper, research, tools and the changelog standing page', () => {
-    const prerender = source('../../scripts/prerender.ts');
-    for (const path of ['/paper', '/tools']) expect(prerender).toContain(`'${path}'`);
+  it('prerenders paper, research, tools, every standing page and every post, each once', async () => {
+    const paths = await publicPaths();
+    expect(new Set(paths).size).toBe(paths.length);
     expect(RESEARCH_GALLERY).toBe('/research');
-    expect(prerender).toContain('[RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS]');
-    expect(prerender).toContain('...pages');
-    expect(STANDING_PAGES.some(page => page.path === '/changelog')).toBe(true);
+    for (const path of ['/', '/blog', '/paper', '/tools', '/changelog', RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS, ...STANDING_PAGES.map(page => page.path), ...POSTS.map(post => `/blog/${post.slug}`)]) {
+      expect(paths, path).toContain(path);
+    }
+  });
+  it('builds each page in exactly the languages it is written in', async () => {
+    for (const path of await publicPaths()) {
+      expect(writtenIn(path), path).toEqual([...publishedLocales(path)]);
+      expect(writtenIn(path), path).toContain('en');
+    }
+    for (const p of POSTS) expect(writtenIn(`/blog/${p.slug}`), p.slug).toEqual(writtenInContent(p.i18n));
+    for (const page of STANDING_PAGES) expect(writtenIn(page.path), page.path).toEqual(writtenInContent(page.i18n));
   });
   it('keeps the Root and App feature boundaries lazy and excludes paper from editor activity', () => {
     const root = source('../Root.svelte');

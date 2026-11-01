@@ -3,8 +3,10 @@ import { render } from 'svelte/server';
 import catalog from '../../../../../research/papers.json';
 import Gallery from '../Gallery.svelte';
 import { EXPERIMENTS } from '../experiments';
-import { RESEARCH_PAPER_PATHS, researchLastReview, researchLocales, supportsResearchRoute } from '../locales';
-import { galleryGraph, paperMeta, paperTitle, researchUrlLocale } from '../meta';
+import { bibliography } from '../catalogue';
+import { RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../locales';
+import { galleryGraph, paperMeta, paperTitle } from '../meta';
+import { publishedLocale, publishedLocales } from '../../../lib/i18n/published';
 import { publicI18n, setLocale, type PublicLocale } from '../../../lib/i18n/store.svelte';
 
 const labels = { research: 'Research', researchTitle: 'Research in structural engineering' };
@@ -16,12 +18,17 @@ it('publishes every paper page, in English at least and never in a language with
   for (const path of ['/research', ...RESEARCH_PAPER_PATHS]) {
     const locales = researchLocales(path);
     expect(locales).toContain('en');
-    for (const locale of ['de', 'fr', 'tr']) expect(supportsResearchRoute(path, locale)).toBe(locales.includes(locale));
+    for (const locale of ['de', 'fr', 'tr'] as PublicLocale[]) {
+      expect(publishedLocales(path).includes(locale)).toBe(locales.includes(locale));
+      expect(publishedLocale(path, locale)).toBe(locales.includes(locale) ? locale : 'en');
+    }
   }
   expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en']);
   expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt']);
   expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr']);
-  expect(supportsResearchRoute('/tools', 'de')).toBe(true);
+  expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('en');
+  expect(publishedLocale('/research/stability/ferrari-sigmund-2025', 'de')).toBe('en');
+  expect(publishedLocale('/research/benchmarks/lee-frame-1968#edit', 'es')).toBe('es');
 });
 
 it('dates each research page by its latest review, not by the build', () => {
@@ -34,12 +41,12 @@ it.each(EXPERIMENTS)('$paperId states a self canonical path, its title and a cit
   const paper = catalog.papers.find((p) => p.id === e.paperId)!;
   for (const locale of ['en', 'es', 'de'] as PublicLocale[]) {
     const meta = paperMeta({ paperId: e.paperId, name: 'A page name', lead: 'What the page reproduces and how it was checked.' }, locale, labels);
-    const own = researchUrlLocale(e.path, locale);
+    const own = publishedLocale(e.path, locale);
     const url = `https://stabileo.com/${own}${e.path}/`;
     expect(meta.path).toBe(e.path);
     expect(meta.written).toEqual(researchLocales(e.path));
     expect(meta.title).toMatch(/^A page name .*— Stabileo Research$/);
-    expect(meta.title).toContain(String(paper.crossref.year));
+    expect(meta.title).toContain(String(bibliography(paper).year));
     expect(meta.description).toBe('What the page reproduces and how it was checked.');
     const article = meta.graph.find((n) => (n as { '@id'?: string })['@id'] === `${url}#article`) as Record<string, unknown>;
     expect(article).toMatchObject({ '@type': 'ScholarlyArticle', url, inLanguage: own, name: 'A page name', isBasedOn: { '@id': `https://doi.org/${paper.doi}` } });
@@ -47,7 +54,7 @@ it.each(EXPERIMENTS)('$paperId states a self canonical path, its title and a cit
       '@type': 'ScholarlyArticle',
       '@id': `https://doi.org/${paper.doi}`,
       name: paper.crossref.title,
-      datePublished: String(paper.crossref.year),
+      datePublished: String(bibliography(paper).year),
       identifier: { propertyID: 'DOI', value: paper.doi },
     });
     const crumbs = meta.graph.find((n) => (n as { '@type'?: string })['@type'] === 'BreadcrumbList') as { itemListElement: { item: string }[] };
@@ -55,18 +62,27 @@ it.each(EXPERIMENTS)('$paperId states a self canonical path, its title and a cit
   }
 });
 
-it('does not repeat the year a page name already carries', () => {
+it('does not repeat a credit the page name already carries, and only then', () => {
   expect(paperTitle('Lee frame (1968)', 'lee-frame-1968', 'en')).toBe('Lee frame (1968) — Stabileo Research');
-  expect(paperTitle('Topology optimization of an MBB beam', 'andreassen-2011', 'en')).toBe('Topology optimization of an MBB beam (Andreassen et al. 2010) — Stabileo Research');
+  expect(paperTitle('Topology optimization of an MBB beam', 'andreassen-2011', 'en')).toBe('Topology optimization of an MBB beam (Andreassen et al. 2011) — Stabileo Research');
+  expect(paperTitle('Frame of 19680 bars', 'lee-frame-1968', 'en')).toMatch(/\(Lee et al\. 1968\) — Stabileo Research$/);
+  expect(paperTitle('Benchmark 1968', 'lee-frame-1968', 'en')).toMatch(/\(Lee et al\. 1968\) — Stabileo Research$/);
 });
 
-it('dates the Andreassen title by the catalogue year, the one its citation and datePublished use', () => {
+it('dates Andreassen by the volume the paper is cited in (Struct Multidisc Optim 43, 2011), not Crossref\'s online date', () => {
   const entry = catalog.papers.find((p) => p.id === 'andreassen-2011')!;
   expect(entry.crossref.year).toBe(2010);
   const meta = paperMeta({ paperId: 'andreassen-2011', name: 'MBB beam', lead: 'x' }, 'en', labels);
   const article = meta.graph.find((n) => (n as { '@id'?: string })['@id']?.endsWith('#article')) as { citation: { datePublished: string } };
-  expect(meta.title).toContain(`(Andreassen et al. ${entry.crossref.year})`);
-  expect(article.citation.datePublished).toBe(String(entry.crossref.year));
+  expect(meta.title).toContain('(Andreassen et al. 2011)');
+  expect(article.citation.datePublished).toBe('2011');
+});
+
+it('cuts headlines at 110 characters, never inside a surrogate pair', () => {
+  const meta = paperMeta({ paperId: 'andreassen-2011', name: `${'a'.repeat(109)}𝜎𝜎`, lead: 'x' }, 'en', labels);
+  const article = meta.graph.find((n) => (n as { '@id'?: string })['@id']?.endsWith('#article')) as { headline: string };
+  expect([...article.headline]).toHaveLength(110);
+  expect(article.headline.endsWith('𝜎')).toBe(true);
 });
 
 it('joins two authors with the conjunction of the page language', () => {
@@ -103,7 +119,7 @@ it('links each gallery card to a URL the paper is published under', () => {
     setLocale(locale);
     const { body } = render(Gallery);
     for (const e of EXPERIMENTS) {
-      const published = `/${researchUrlLocale(e.path, locale as PublicLocale)}${e.path}/`;
+      const published = `/${publishedLocale(e.path, locale as PublicLocale)}${e.path}/`;
       expect(body, `${locale} ${e.path}`).toContain(`href="${published}"`);
       for (const other of ['en', 'es', 'pt'].filter((l) => !researchLocales(e.path).includes(l))) {
         expect(body, `${locale} links ${e.path} in ${other}`).not.toContain(`href="/${other}${e.path}/"`);
