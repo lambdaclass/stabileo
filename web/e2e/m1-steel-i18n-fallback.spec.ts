@@ -45,9 +45,9 @@ async function bootWithStoredLocale(page: Page, locale: string): Promise<void> {
     } catch { /* private mode */ }
   }, locale);
   await page.goto(PRO_URL);
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 }
 

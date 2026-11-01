@@ -47,6 +47,7 @@
   import PlanViewChip from './viewport/PlanViewChip.svelte';
   import PointerModeButton from './PointerModeButton.svelte';
   import SelectionDeleteButton from './ribbon/SelectionDeleteButton.svelte';
+  import SelectionClipboardButtons from './ribbon/SelectionClipboardButtons.svelte';
   import ConnectionPrompt from './ConnectionPrompt.svelte';
   import { askAboutNewMember } from '../lib/model/edit/connection-questions';
   import { addThermalLoadIfAny } from '../lib/store/load-ops';
@@ -663,9 +664,14 @@
     applyNavigation();
 
     // ── Keyboard camera navigation ──
-    // WASD = pan, Arrows = orbit, Q/E = up/down, Shift/Ctrl = speed boost
+    // WASD = pan, Arrows = orbit, Q/E = up/down, Shift = speed boost
     const keysPressed = new Set<string>();
     let navShiftHeld = false;
+    const releaseNavKeys = () => {
+      keysPressed.clear();
+      navShiftHeld = false;
+      controls.enablePan = true;
+    };
 
     const onNavKeyDown = (e: KeyboardEvent) => {
     if (!editorActive()) return;
@@ -673,6 +679,9 @@
       const tag = document.activeElement?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'Shift') navShiftHeld = true;
+      // A letter with Ctrl, Cmd or Alt is a shortcut (Ctrl+S, Cmd+A): its release can go to the
+      // dialog it opens, and a Mac sends none while Cmd is down, so the view would never stop.
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = e.key.toLowerCase();
       if ('wasdqe'.includes(k) || e.key.startsWith('Arrow')) {
         const wasEmpty = keysPressed.size === 0;
@@ -687,13 +696,18 @@
       }
     };
     const onNavKeyUp = (e: KeyboardEvent) => {
+      // A Mac reports no release of a letter let go while Cmd was down.
+      if (e.key === 'Meta') { releaseNavKeys(); return; }
       if (e.key === 'Shift') navShiftHeld = false;
       const k = e.key.toLowerCase();
       keysPressed.delete(k.startsWith('arrow') ? e.key : k);
       if (e.key === 'Shift') controls.enablePan = true;
     };
+    const onNavHidden = () => { if (document.hidden) releaseNavKeys(); };
     window.addEventListener('keydown', onNavKeyDown);
     window.addEventListener('keyup', onNavKeyUp);
+    window.addEventListener('blur', releaseNavKeys);
+    document.addEventListener('visibilitychange', onNavHidden);
 
     // Sync camera state to uiStore on orbit change (throttled)
     let cameraSyncTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1239,6 +1253,8 @@
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keydown', onNavKeyDown);
       window.removeEventListener('keyup', onNavKeyUp);
+      window.removeEventListener('blur', releaseNavKeys);
+      document.removeEventListener('visibilitychange', onNavHidden);
       if (renderer.domElement.parentNode) {
         renderer.domElement.parentNode.removeChild(renderer.domElement);
       }
@@ -1547,9 +1563,9 @@
     uiStore.unitSystem;
     resultsStore.modalResult3D;
     resultsStore.activeModeIndex;
-    // Quick/exact, and the displacement labels "show values" adds.
+    // Quick/exact, and the displacement labels "show displacements" adds.
     deformedView.exact;
-    resultsStore.showDiagramValues;
+    resultsStore.showDeformedValues;
     // A time-history instant is drawn through the deformed view; scrubbing re-syncs it.
     timeHistoryView.step;
     timeHistoryView.shown;
@@ -4301,7 +4317,7 @@
          A press here is not a press on the model. -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="vp-delete" onmousedown={(e) => e.stopPropagation()} onpointerdown={(e) => e.stopPropagation()}
-      ontouchstart={(e) => e.stopPropagation()}><SelectionDeleteButton floating /></div>
+      ontouchstart={(e) => e.stopPropagation()}><SelectionClipboardButtons floating /><SelectionDeleteButton floating /></div>
   {/if}
   <!-- Dev perf HUD (Shift+P or ?perf). Reads: high `calls` + stable `geos` = GPU
        draw-call bound; `geos`/`texs` spiking + high `syncMs` while editing = CPU
@@ -4690,6 +4706,8 @@
   .vp-prompt, .vp-hidden-chip { display: contents; }
 
   .vp-delete {
+    display: flex;
+    gap: 6px;
     position: absolute;
     right: 12px;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));

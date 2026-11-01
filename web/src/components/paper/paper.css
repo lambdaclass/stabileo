@@ -1,0 +1,172 @@
+/* The paper set as its LaTeX article is: Computer Modern (KaTeX_Main, which the site already loads),
+   a justified, hyphenated column on a page, booktabs rules, numbered display equations, captions
+   above tables and below figures, and bracketed numeric citations. */
+
+.paper-site {
+  background: var(--lp-ink);
+  min-height: 100vh;
+}
+
+.paper-site .pp-wrap {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 2rem var(--lp-gut) 4rem;
+  box-sizing: border-box;
+}
+
+.paper-site .pp-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  color: #c9d3dc;
+  font-family: var(--lp-sans);
+  font-size: 0.9rem;
+}
+.paper-site .pp-venue { margin: 0; flex: 1 1 20rem; line-height: 1.45; }
+.paper-site .pp-lang { color: #8fa3b3; font-size: 0.84rem; }
+.paper-site .pp-actions { display: flex; align-items: center; gap: 0.9rem; flex-wrap: wrap; }
+.paper-site .pp-download {
+  flex: none;
+  padding: 0.55rem 1rem;
+  border-radius: var(--lp-radius);
+  background: var(--lp-accent);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+.paper-site .pp-download:hover { filter: brightness(1.08); }
+.paper-site .pp-original { color: #c9d3dc; font-size: 0.86rem; }
+.paper-site .pp-original:hover { color: #fff; }
+
+.paper-site .pp-sheet {
+  background: #fff;
+  color: #111;
+  font-family: 'KaTeX_Main', 'Latin Modern Roman', 'Computer Modern Serif', 'Times New Roman', serif;
+  font-size: 1.08rem;
+  line-height: 1.5;
+  padding: 4.5rem 4.25rem 3.5rem;
+  box-shadow: 0 18px 50px -18px rgba(0, 0, 0, 0.7);
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  overflow-wrap: break-word;
+}
+
+.paper-site .pp-sheet :is(h1, h2, h3) {
+  font-family: inherit;
+  letter-spacing: normal;
+  max-width: none;
+  color: inherit;
+}
+.paper-site .pp-sheet [id] { scroll-margin-top: 5rem; }
+.paper-site .pp-sheet .katex { font-size: 1em; }
+.paper-site .pp-sheet p { margin: 0; text-indent: 1.5em; }
+.paper-site .pp-sheet :is(h2, h3, figure, .pp-eq, ol) + p { text-indent: 0; }
+.paper-site .pp-sheet a { color: inherit; }
+
+.paper-site .pp-front { text-align: center; margin: 1rem 0 2.2rem; }
+.paper-site .pp-front p { text-indent: 0; text-align: center; }
+.paper-site .pp-sheet .pp-title {
+  margin: 0 auto 1.5rem;
+  font-size: 1.75rem;
+  line-height: 1.3;
+  font-weight: 400;
+  text-wrap: balance;
+}
+.paper-site .pp-thanks { font-size: 0.55em; }
+.paper-site .pp-authors { font-size: 1.15rem; margin-bottom: 0.7rem; }
+.paper-site .pp-author { white-space: nowrap; }
+.paper-site .pp-front sup { font-size: 0.65em; }
+.paper-site .pp-affiliation { line-height: 1.4; }
+.paper-site .pp-emails {
+  margin-top: 0.6rem;
+  font-family: 'KaTeX_Typewriter', 'Latin Modern Mono', monospace;
+  font-size: 0.86rem;
+}
+.paper-site .pp-emails a { text-decoration: none; white-space: nowrap; }
+.paper-site .pp-front { hyphens: manual; -webkit-hyphens: manual; }
+
+.paper-site .pp-abstract { margin: 0 2.5em 2rem; font-size: 0.95rem; }
+.paper-site .pp-sheet .pp-abstract-h { margin: 0 0 0.5rem; font-size: 0.95rem; font-weight: 700; text-align: center; }
+.paper-site .pp-abstract p:first-of-type { text-indent: 1.5em; }
+.paper-site .pp-sheet .pp-keywords { margin-top: 0.7rem; text-indent: 0; }
+
+.paper-site .pp-sheet .pp-h1 { margin: 2rem 0 0.7rem; font-size: 1.4rem; font-weight: 700; line-height: 1.3; text-align: left; }
+.paper-site .pp-sheet .pp-h2 { margin: 1.4rem 0 0.5rem; font-size: 1.16rem; font-weight: 700; line-height: 1.35; text-align: left; }
+.paper-site .pp-num { display: inline-block; min-width: 2.2em; }
+.paper-site .pp-h2 .pp-num { min-width: 2.6em; }
+
+.paper-site .pp-list { margin: 0.5rem 0 0.6rem; padding-left: 2.2em; }
+.paper-site .pp-list li { margin: 0.25rem 0; padding-left: 0.2em; }
+
+.paper-site .pp-cite a { text-decoration: none; }
+.paper-site .pp-cite a:hover { text-decoration: underline; }
+
+.paper-site .pp-eq {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin: 0.7rem 0;
+}
+.paper-site .pp-eq-body { overflow-x: auto; overflow-y: hidden; }
+.paper-site .pp-eq-body .katex-display { margin: 0; }
+.paper-site .pp-eq-n { padding-left: 1rem; }
+
+.paper-site figcaption {
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: left;
+  hyphens: manual;
+}
+.paper-site .pp-table { margin: 1.6rem 0; }
+.paper-site .pp-table figcaption { margin-bottom: 0.8rem; }
+.paper-site .pp-table-scroll { overflow-x: auto; }
+.paper-site .pp-table table {
+  width: 100%;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+  hyphens: manual;
+  -webkit-hyphens: manual;
+  border-top: 1.6px solid #111;
+  border-bottom: 1.6px solid #111;
+}
+.paper-site .pp-table th { font-weight: 700; border-bottom: 1px solid #111; vertical-align: bottom; }
+.paper-site .pp-table :is(th, td) { padding: 0.3rem 0.45rem; vertical-align: top; }
+.paper-site .pp-table td:first-child { min-width: 7.5em; }
+
+.paper-site .pp-figure { margin: 1.6rem 0; }
+.paper-site .pp-figure img { display: block; max-width: 100%; height: auto; margin: 0 auto 0.7rem; }
+
+.paper-site .pp-refs { margin: 0.3rem 0 0; padding: 0; list-style: none; font-size: 0.97rem; text-align: left; }
+.paper-site .pp-refs li { display: grid; grid-template-columns: 2.6em 1fr; margin: 0.3rem 0; }
+.paper-site .pp-refs a { color: #1a4f8b; overflow-wrap: anywhere; }
+.paper-site .pp-refs li:target { background: #fff4c2; }
+
+.paper-site .pp-sheet .pp-footnote {
+  margin-top: 2.5rem;
+  font-size: 0.86rem;
+  text-indent: 0;
+  text-align: left;
+}
+.paper-site .pp-footnote::before {
+  content: '';
+  display: block;
+  width: 35%;
+  margin-bottom: 0.6rem;
+  border-top: 1px solid #999;
+}
+.paper-site .pp-footnote sup { margin-right: 0.2em; }
+
+@media (max-width: 640px) {
+  .paper-site .pp-wrap { padding: 1rem 0.5rem 3rem; }
+  .paper-site .pp-bar { padding: 0 0.5rem; }
+  .paper-site .pp-sheet { padding: 1.75rem 1.1rem 2rem; font-size: 1rem; }
+  .paper-site .pp-sheet .pp-title { font-size: 1.35rem; }
+  .paper-site .pp-abstract { margin: 0 0 1.6rem; }
+  .paper-site .pp-emails { overflow-wrap: anywhere; }
+}

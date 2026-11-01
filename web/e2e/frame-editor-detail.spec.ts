@@ -18,7 +18,7 @@ async function designed(page: Page) {
   await page.getByTestId('desk-design').click();
   await page.getByTestId('desk-run-resize').setChecked(false);
   await page.getByTestId('desk-run').click();
-  await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId('desk-report')).toBeVisible({ timeout: 120_000 }); // slow-ok: Shared helper waits for the live concrete design report before opening a verified frame; smoke still has a 45 s total budget.
 }
 
 /** The first verified beam whose line can be opened, opened in the frame editor. */

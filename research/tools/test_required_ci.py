@@ -35,8 +35,30 @@ for job, tests in {
     commands = [step.get('run', '') for step in research['jobs'][job]['steps']]
     for test in tests:
         assert any(f'-I research/tools/{test}' in command for command in commands), (job, test)
+# The route budget measures a change that touches research code, and every push to main.
+import re
+route = research['jobs']['route-size']['steps']
+scope = next(step for step in route if step.get('id') == 'scope')
+shipped = re.compile(scope['env']['RESEARCH_PATHS'])
+not_shipped = re.compile(scope['env']['NOT_SHIPPED'])
+class pattern:
+    search = staticmethod(lambda path: shipped.search(path) and not not_shipped.search(path))
+for path in ['research/papers.json', 'research/fracture/shauer-2025/reference-results/ex2_steps.csv', 'web/src/components/research/ResearchPage.svelte', 'web/public/research-wasm/x.wasm',
+             'web/vite.research-viewer.config.ts']:
+    assert pattern.search(path), path
+for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/changelog/index.ts', 'web/scripts/prerender.ts',
+             'web/src/components/site/site-nav.ts', 'engine/src/lib.rs', 'research/tools/test_required_ci.py', 'research/README.md', 'research/CLAUDE.md',
+             '.github/workflows/research.yml']:
+    assert not pattern.search(path), path
+assert '[ -z "$BASE" ]' in scope['run']
+measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
+assert measured and all(step.get('if') == "steps.scope.outputs.research == 'true'" for step in measured)
 script = jobs['ci-ok']['steps'][0]['run']
 for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cancelled', 1)]:
     run = subprocess.run(['sh', '-c', script], env={'RESULTS': f'success skipped {result}'}, capture_output=True)
     assert run.returncode == expected, (result, run.stdout)
 print('ok required research CI propagates failures and accepts skipped jobs')
+
+koiter = research["jobs"]["koiter"]
+assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
+assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])

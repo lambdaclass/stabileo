@@ -4,6 +4,7 @@
   import { modelStore } from '../../lib/store/model.svelte';
   import { resultsStore } from '../../lib/store/results.svelte';
   import SelectionDeleteButton from './SelectionDeleteButton.svelte';
+  import SelectionClipboardButtons from './SelectionClipboardButtons.svelte';
   import ToolOptions from './ToolOptions.svelte';
   import ResultsViewPicker from '../toolbar/ResultsViewPicker.svelte';
   import { activeQuantity, activeRepresentation } from '../../lib/store/result-view';
@@ -99,7 +100,8 @@
     <ResultsViewPicker showsPrimary showsSecondary={compares} inBar />
   {/if}
 
-  <!-- Delete what is selected: present only while something is (a phone has no Delete key). -->
+  <!-- Copy, paste and delete what is selected: a phone has no Ctrl+C or Delete key. -->
+  <SelectionClipboardButtons />
   <SelectionDeleteButton />
 
   {#if !phone}

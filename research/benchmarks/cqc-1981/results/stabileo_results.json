@@ -1,0 +1,798 @@
+{
+  "case": {
+    "densities": {
+      "1": 0
+    },
+    "description": "One-storey four-column shear-building idealization, two X roof coordinates; not the original paper building.",
+    "direction": "X",
+    "id": "cqc-1981",
+    "numModes": 2,
+    "reference": {
+      "CQC": 17.549731954095833,
+      "SRSS": 14.387570614381177,
+      "frequencies": [
+        1.605897988918848,
+        1.7664677265854307
+      ],
+      "modalBaseShear": [
+        11.871121078899838,
+        8.128878921100048
+      ],
+      "rho": 0.523274862685958,
+      "roofCQC": [
+        0.010311059452672392,
+        0.007859579137968644
+      ],
+      "roofSRSS": [
+        0.010676456573671547,
+        0.007355556151171894
+      ]
+    },
+    "relativeTolerance": 1e-8,
+    "solver": {
+      "constraints": [
+        {
+          "dofs": [
+            0
+          ],
+          "masterNode": 5,
+          "slaveNode": 7,
+          "type": "equalDOF"
+        },
+        {
+          "dofs": [
+            0
+          ],
+          "masterNode": 6,
+          "slaveNode": 8,
+          "type": "equalDOF"
+        }
+      ],
+      "elements": {
+        "1": {
+          "id": 1,
+          "materialId": 1,
+          "nodeI": 1,
+          "nodeJ": 5,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "2": {
+          "id": 2,
+          "materialId": 1,
+          "nodeI": 2,
+          "nodeJ": 6,
+          "sectionId": 2,
+          "type": "frame"
+        },
+        "3": {
+          "id": 3,
+          "materialId": 1,
+          "nodeI": 3,
+          "nodeJ": 7,
+          "sectionId": 1,
+          "type": "frame"
+        },
+        "4": {
+          "id": 4,
+          "materialId": 1,
+          "nodeI": 4,
+          "nodeJ": 8,
+          "sectionId": 2,
+          "type": "frame"
+        },
+        "5": {
+          "id": 5,
+          "materialId": 1,
+          "nodeI": 5,
+          "nodeJ": 6,
+          "sectionId": 3,
+          "type": "truss"
+        },
+        "6": {
+          "id": 6,
+          "materialId": 1,
+          "nodeI": 7,
+          "nodeJ": 8,
+          "sectionId": 3,
+          "type": "truss"
+        }
+      },
+      "loads": [],
+      "masses": {
+        "nodal": [
+          {
+            "mass": 0,
+            "massX": 5,
+            "nodeId": 5
+          },
+          {
+            "mass": 0,
+            "massX": 5,
+            "nodeId": 6
+          },
+          {
+            "mass": 0,
+            "massX": 5,
+            "nodeId": 7
+          },
+          {
+            "mass": 0,
+            "massX": 5,
+            "nodeId": 8
+          }
+        ]
+      },
+      "materials": {
+        "1": {
+          "e": 200000,
+          "id": 1,
+          "nu": 0.3
+        }
+      },
+      "nodes": {
+        "1": {
+          "id": 1,
+          "x": 0,
+          "y": 0,
+          "z": 0
+        },
+        "2": {
+          "id": 2,
+          "x": 4,
+          "y": 0,
+          "z": 0
+        },
+        "3": {
+          "id": 3,
+          "x": 0,
+          "y": 3,
+          "z": 0
+        },
+        "4": {
+          "id": 4,
+          "x": 4,
+          "y": 3,
+          "z": 0
+        },
+        "5": {
+          "id": 5,
+          "x": 0,
+          "y": 0,
+          "z": 3
+        },
+        "6": {
+          "id": 6,
+          "x": 4,
+          "y": 0,
+          "z": 3
+        },
+        "7": {
+          "id": 7,
+          "x": 0,
+          "y": 3,
+          "z": 3
+        },
+        "8": {
+          "id": 8,
+          "x": 4,
+          "y": 3,
+          "z": 3
+        }
+      },
+      "sections": {
+        "1": {
+          "a": 0.01,
+          "id": 1,
+          "iy": 5.625e-6,
+          "iz": 5.625e-6,
+          "j": 0.00001125
+        },
+        "2": {
+          "a": 0.01,
+          "id": 2,
+          "iy": 6.80625e-6,
+          "iz": 6.80625e-6,
+          "j": 0.0000136125
+        },
+        "3": {
+          "a": 2e-7,
+          "id": 3,
+          "iy": 1e-8,
+          "iz": 1e-8,
+          "j": 2e-8
+        }
+      },
+      "supports": {
+        "1": {
+          "nodeId": 1,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "2": {
+          "nodeId": 2,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "3": {
+          "nodeId": 3,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "4": {
+          "nodeId": 4,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": true,
+          "ry": true,
+          "rz": true
+        },
+        "5": {
+          "nodeId": 5,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": false,
+          "ry": true,
+          "rz": true
+        },
+        "6": {
+          "nodeId": 6,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": false,
+          "ry": true,
+          "rz": true
+        },
+        "7": {
+          "nodeId": 7,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": false,
+          "ry": true,
+          "rz": true
+        },
+        "8": {
+          "nodeId": 8,
+          "rrx": true,
+          "rry": true,
+          "rrz": true,
+          "rx": false,
+          "ry": true,
+          "rz": true
+        }
+      }
+    },
+    "spectrum": {
+      "inG": false,
+      "name": "Unit acceleration plateau",
+      "points": [
+        {
+          "period": 0,
+          "sa": 1
+        },
+        {
+          "period": 10,
+          "sa": 1
+        }
+      ]
+    },
+    "xi": 0.05
+  },
+  "results": {
+    "CQC": {
+      "baseShear": 17.549731954095936,
+      "displacements": [
+        {
+          "nodeId": 1,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 2,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 3,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 4,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 5,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.010311059452672437,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 6,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.007859579137968684,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 7,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.010311059452672437,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 8,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.007859579137968684,
+          "uy": 0.0,
+          "uz": 0.0
+        }
+      ],
+      "elementForces": [
+        {
+          "elementId": 1,
+          "mxMax": 0.0,
+          "myMax": 7.733294589504328,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 5.155529726336218
+        },
+        {
+          "elementId": 2,
+          "mxMax": 0.0,
+          "myMax": 7.132568067706583,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 4.7550453784710545
+        },
+        {
+          "elementId": 3,
+          "mxMax": 0.0,
+          "myMax": 7.733294589504328,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 5.155529726336218
+        },
+        {
+          "elementId": 4,
+          "mxMax": 0.0,
+          "myMax": 7.132568067706583,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 4.7550453784710545
+        },
+        {
+          "elementId": 5,
+          "mxMax": 0.0,
+          "myMax": 0.0,
+          "mzMax": 0.0,
+          "nMax": 0.08727116874028662,
+          "vyMax": 0.0,
+          "vzMax": 0.0
+        },
+        {
+          "elementId": 6,
+          "mxMax": 0.0,
+          "myMax": 0.0,
+          "mzMax": 0.0,
+          "nMax": 0.08727116874028662,
+          "vyMax": 0.0,
+          "vzMax": 0.0
+        }
+      ],
+      "perMode": [
+        {
+          "modalForce": 11.871121078899952,
+          "mode": 1,
+          "participation": 1.084725337156235,
+          "period": 0.6227045596297422,
+          "sa": 1.0,
+          "sd": 0.009822100076799232
+        },
+        {
+          "modalForce": 8.128878921100048,
+          "mode": 2,
+          "participation": 0.8976132292662399,
+          "period": 0.5661014831745569,
+          "sa": 1.0,
+          "sd": 0.008117622455492269
+        }
+      ],
+      "rule": "CQC"
+    },
+    "SRSS": {
+      "baseShear": 14.38757061438127,
+      "displacements": [
+        {
+          "nodeId": 1,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 2,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 3,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 4,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.0,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 5,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.010676456573671592,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 6,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.007355556151171904,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 7,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.010676456573671592,
+          "uy": 0.0,
+          "uz": 0.0
+        },
+        {
+          "nodeId": 8,
+          "rx": 0.0,
+          "ry": 0.0,
+          "rz": 0.0,
+          "ux": 0.007355556151171904,
+          "uy": 0.0,
+          "uz": 0.0
+        }
+      ],
+      "elementForces": [
+        {
+          "elementId": 1,
+          "mxMax": 0.0,
+          "myMax": 8.007342430253695,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 5.338228286835796
+        },
+        {
+          "elementId": 2,
+          "mxMax": 0.0,
+          "myMax": 6.675167207188503,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 4.450111471459002
+        },
+        {
+          "elementId": 3,
+          "mxMax": 0.0,
+          "myMax": 8.007342430253695,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 5.338228286835796
+        },
+        {
+          "elementId": 4,
+          "mxMax": 0.0,
+          "myMax": 6.675167207188503,
+          "mzMax": 0.0,
+          "nMax": 0.0,
+          "vyMax": 0.0,
+          "vzMax": 4.450111471459002
+        },
+        {
+          "elementId": 5,
+          "mxMax": 0.0,
+          "myMax": 0.0,
+          "mzMax": 0.0,
+          "nMax": 0.12517377410181743,
+          "vyMax": 0.0,
+          "vzMax": 0.0
+        },
+        {
+          "elementId": 6,
+          "mxMax": 0.0,
+          "myMax": 0.0,
+          "mzMax": 0.0,
+          "nMax": 0.12517377410181743,
+          "vyMax": 0.0,
+          "vzMax": 0.0
+        }
+      ],
+      "perMode": [
+        {
+          "modalForce": 11.871121078899952,
+          "mode": 1,
+          "participation": 1.084725337156235,
+          "period": 0.6227045596297422,
+          "sa": 1.0,
+          "sd": 0.009822100076799232
+        },
+        {
+          "modalForce": 8.128878921100048,
+          "mode": 2,
+          "participation": 0.8976132292662399,
+          "period": 0.5661014831745569,
+          "sa": 1.0,
+          "sd": 0.008117622455492269
+        }
+      ],
+      "rule": "SRSS"
+    },
+    "modal": {
+      "cumulativeMassRatioX": 1.0,
+      "cumulativeMassRatioY": 0.0,
+      "cumulativeMassRatioZ": 0.0,
+      "modes": [
+        {
+          "displacements": [
+            {
+              "nodeId": 1,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 2,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 3,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 4,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 5,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 1.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 6,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.09438958160798748,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 7,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 1.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 8,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.09438958160798748,
+              "uy": 0.0,
+              "uz": 0.0
+            }
+          ],
+          "effectiveMassX": 11.871121078899952,
+          "effectiveMassY": 0.0,
+          "effectiveMassZ": 0.0,
+          "frequency": 1.605897988918848,
+          "massRatioX": 0.5935560539449976,
+          "massRatioY": 0.0,
+          "massRatioZ": 0.0,
+          "omega": 10.090154648804152,
+          "participationX": 1.084725337156235,
+          "participationY": 0.0,
+          "participationZ": 0.0,
+          "period": 0.6227045596297422
+        },
+        {
+          "displacements": [
+            {
+              "nodeId": 1,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 2,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 3,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 4,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 0.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 5,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": -0.09438958160798748,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 6,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 1.0,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 7,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": -0.09438958160798748,
+              "uy": 0.0,
+              "uz": 0.0
+            },
+            {
+              "nodeId": 8,
+              "rx": 0.0,
+              "ry": 0.0,
+              "rz": 0.0,
+              "ux": 1.0,
+              "uy": 0.0,
+              "uz": 0.0
+            }
+          ],
+          "effectiveMassX": 8.128878921100048,
+          "effectiveMassY": 0.0,
+          "effectiveMassZ": 0.0,
+          "frequency": 1.7664677265854307,
+          "massRatioX": 0.4064439460550024,
+          "massRatioY": 0.0,
+          "massRatioZ": 0.0,
+          "omega": 11.099044065288505,
+          "participationX": 0.8976132292662399,
+          "participationY": 0.0,
+          "participationZ": 0.0,
+          "period": 0.5661014831745569
+        }
+      ],
+      "nDof": 4,
+      "rayleigh": {
+        "a0": 0.5285290519181793,
+        "a1": 0.004719385633657366,
+        "dampingRatios": [
+          0.05,
+          0.05
+        ],
+        "omega1": 10.090154648804152,
+        "omega2": 11.099044065288505
+      },
+      "totalMass": 20.0
+    }
+  }
+}

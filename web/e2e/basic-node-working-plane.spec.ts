@@ -23,6 +23,15 @@ test('@smoke a node on another level does not block placement on the working pla
   await expect.poll(() => page.evaluate(() => window.__stabileo.cameraState()!.polarDeg)).toBeLessThan(5);
   await page.getByTestId('rb-cmd-node').click();
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCreateZ())).toBe(0);
+  // Arming the tool opens the data panel, and the narrower canvas is framed again a few frames
+  // later: read where node 1 is once it has stopped moving, not where it was.
+  let last = '';
+  await expect.poll(async () => {
+    const p = JSON.stringify(await page.evaluate(() => window.__stabileo.nodeScreenPos(1)));
+    const still = p === last && p !== 'null';
+    last = p;
+    return still;
+  }, { intervals: [250] }).toBe(true);
   const top = await page.evaluate(() => window.__stabileo.nodeScreenPos(1));
   expect(top).not.toBeNull();
   await page.mouse.click(top!.x, top!.y);
