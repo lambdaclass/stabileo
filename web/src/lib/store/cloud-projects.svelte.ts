@@ -23,14 +23,14 @@ function mode(): 'basic' | 'pro' {
 
 async function payload() {
   const text = serializeProject();
-  return {
+  const meta = {
     name: modelStore.model.name.trim() || 'Stabileo',
     app_mode: mode(),
-    content: await gzipBase64(text),
     node_count: modelStore.nodes.size,
     element_count: modelStore.elements.size,
     app_version: APP_VERSION,
   };
+  return { ...meta, content: await gzipBase64(text) };
 }
 
 export const cloudProjects = {
@@ -61,10 +61,11 @@ export const cloudProjects = {
   async saveCurrent(opts: { asNew?: boolean } = {}): Promise<CloudProject> {
     saving = true;
     try {
+      const tab = tabKey();
+      const id = opts.asNew ? null : linked.get(tab);
       const body = await payload();
-      const id = opts.asNew ? null : linked.get(tabKey());
       const saved = id ? await projectsApi.update(id, body) : await projectsApi.create(body);
-      linked.set(tabKey(), saved.id);
+      linked.set(tab, saved.id);
       linkedVersion += 1;
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
@@ -79,9 +80,10 @@ export const cloudProjects = {
   async replace(id: string): Promise<CloudProject> {
     saving = true;
     try {
+      const tab = tabKey();
       const body = await payload();
       const saved = await projectsApi.update(id, body);
-      linked.set(tabKey(), saved.id);
+      linked.set(tab, saved.id);
       linkedVersion += 1;
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];

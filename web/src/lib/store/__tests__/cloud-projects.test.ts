@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cloudProjects } from '../cloud-projects.svelte';
-import { modelStore } from '..';
+import { modelStore, tabManager } from '..';
 import { gzipBase64, gunzipBase64 } from '../../utils/gzip-base64';
 import { serializeProject } from '../file';
 
@@ -120,5 +120,19 @@ describe('cloud projects', () => {
     expect(cloudProjects.linkedId).toBe('p9');
     expect(cloudProjects.items.map((p) => p.id)).toEqual(['p9']);
     expect(cloudProjects.total).toBe(1);
+  });
+  it('links the tab the save started from, even when another tab is open by the time it answers', async () => {
+    if (!tabManager.activeTabId) tabManager.init();
+    const origin = tabManager.activeTabId;
+    replies.set('POST /api/v1/projects', () => {
+      tabManager.createTab();
+      return json(201, { data: meta('p7') });
+    });
+
+    await cloudProjects.saveCurrent({ asNew: true });
+    expect(tabManager.activeTabId).not.toBe(origin);
+    expect(cloudProjects.linkedId).toBeNull();
+    tabManager.switchTab(origin!);
+    expect(cloudProjects.linkedId).toBe('p7');
   });
 });
