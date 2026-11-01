@@ -1,3 +1,11 @@
+export function choice<T extends string>(name: string, value: string | undefined, options: readonly T[], fallback: T): T {
+  if (value === undefined) return fallback;
+  const v = value.trim().toLowerCase();
+  const hit = options.find((o) => o === v);
+  if (hit === undefined) throw new AiActionError(`${name} must be one of ${options.join(', ')}, got ${JSON.stringify(promptLabel(value))}`);
+  return hit;
+}
+
 export class AiActionError extends Error {
   constructor(message: string) {
     super(message);
@@ -53,10 +61,12 @@ export function sanitizeLocale(locale?: string | null): string {
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
 const MARKUP = new Set(['`', '#', '<', '>', '{', '}', '[', ']']);
 
-export function promptLabel(name: string): string {
-  const cleaned = Array.from(name)
+export function promptLine(text: string, maxChars = Infinity): string {
+  const cleaned = Array.from(text)
     .map((c) => (CONTROL.test(c) || MARKUP.has(c) ? ' ' : c))
-    .slice(0, MAX_LABEL_CHARS)
+    .slice(0, maxChars)
     .join('');
   return cleaned.split(/\s+/).filter((w) => w.length > 0).join(' ');
 }
+
+export const promptLabel = (name: string): string => promptLine(name, MAX_LABEL_CHARS);

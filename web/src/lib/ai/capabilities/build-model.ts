@@ -3,7 +3,7 @@ import { type BuildAction, isEdit, isPlainObject, parseAction, parseActionRespon
 import { applyEdit } from './edit-executor';
 import { executeAction } from './generators';
 import {
-  AiActionError, MAX_LIST_LEN, MAX_MESSAGES, checkListLen, checkText, promptLabel, sanitizeLocale,
+  AiActionError, MAX_LIST_LEN, MAX_MESSAGES, checkListLen, checkText, promptLabel, promptLine, sanitizeLocale,
 } from './limits';
 import { type AnalysisMode, promptText } from './registry';
 import { validateSnapshot } from './validate-snapshot';
@@ -66,7 +66,7 @@ export function buildConversation(
     turns.push({ role: msg.role === 'assistant' || (msg.role as string) === 'ai' ? 'assistant' : 'user', content: msg.content });
   }
   if (diagnostics && diagnostics.length > 0) {
-    const lines = diagnostics.map((d) => `- [${promptLabel(d.severity)}] ${promptLabel(d.code)}: ${d.message}`);
+    const lines = diagnostics.map((d) => `- [${promptLabel(d.severity)}] ${promptLabel(d.code)}: ${promptLine(d.message)}`);
     turns.push({
       role: 'user',
       content: `The solver found these issues with your model:\n${lines.join('\n')}\n\nPlease fix them by calling create_model again with corrected data.`,

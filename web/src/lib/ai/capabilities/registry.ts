@@ -37,8 +37,8 @@ const ELEMENT_TYPES = [
 ];
 
 const SUPPORT_TYPES: Record<AnalysisMode, string[]> = {
-  '2d': ['fixed', 'pinned', 'rollerX', 'rollerZ', 'spring'],
-  '3d': ['fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ', 'spring3d'],
+  '2d': ['fixed', 'pinned', 'rollerX', 'rollerZ'],
+  '3d': ['fixed3d', 'pinned3d', 'rollerXZ', 'rollerXY', 'rollerYZ'],
 };
 
 const LOAD_TYPES: Record<AnalysisMode, Array<{ name: string; fields: string[]; description: string }>> = {

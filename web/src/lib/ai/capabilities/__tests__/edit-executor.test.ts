@@ -17,6 +17,8 @@ const frame = (threeD: boolean): Snap => threeD
   ? generateMultiStoryFrame3d({ n_bays_x: 1, n_bays_z: 1, n_floors: 1, bay_width: 5, floor_height: 3, q_beam: -10 })
   : makeFrame();
 
+const loadsAdded = (action: BuildAction, threeD: boolean): number => (threeD && action.action === 'add_lateral_loads' ? 2 : 1);
+
 function loadActions(snap: Snap): BuildAction[] {
   return [
     { action: 'add_nodal_load', params: { node_id: arr(snap, 'nodes')[0][0], fx: 1 } },
@@ -208,6 +210,39 @@ describe('edit executor', () => {
     expect(loadsOf(r).filter((l) => l.type === 'nodal')).toHaveLength(floors.length - 1);
   });
 
+  it('shares a 3D floor lateral load across the x=0 face, like the generator', () => {
+    const r = applyEdit({ action: 'add_lateral_loads', params: { h: 12 } }, makeMultiStory3d());
+    const added = loadsOf(r).filter((l) => l.type === 'nodal3d');
+    const xyz = (id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; z: number };
+    expect(added).toHaveLength(2 * 3);
+    for (const z of [3, 6]) {
+      const floor = added.filter((l) => xyz(l.data.nodeId).z === z);
+      expect(floor.map((l) => xyz(l.data.nodeId).x)).toEqual([0, 0, 0]);
+      expect(floor.reduce((sum, l) => sum + (l.data.fx as number), 0)).toBeCloseTo(12, 12);
+    }
+  });
+
+  it('refuses lateral loads on a floor with no node on the loaded side, rather than skipping it', () => {
+    const snap = makeMultiStory();
+    const top = Math.max(...arr(snap, 'nodes').map((n) => n[1].y as number));
+    const corner = arr(snap, 'nodes').find((n) => n[1].x === 0 && n[1].y === top)![0];
+    snap.nodes = arr(snap, 'nodes').filter((n) => n[0] !== corner);
+    snap.elements = arr(snap, 'elements').filter((e) => e[1].nodeI !== corner && e[1].nodeJ !== corner);
+    expect(() => applyEdit({ action: 'add_lateral_loads', params: { h: 5 } }, snap)).toThrow(AiActionError);
+  });
+
+  it('takes side as left or right only, in any case', () => {
+    const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
+    expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);
+    expect(() => applyEdit({ action: 'add_bay', params: { width: 4, side: 'west' } }, makeFrame())).toThrow('side must be one of left, right');
+    expect(() => applyEdit({ action: 'add_bay', params: { width: 4, side: 'up' } }, makeMultiStory3d())).toThrow('side must be one of left, right');
+  });
+
+  it('refuses spring supports, which would carry no stiffness', () => {
+    expect(() => applyEdit({ action: 'set_all_supports', params: { support_type: 'spring' } }, makeFrame())).toThrow("Unknown 2D support type 'spring'");
+    expect(() => applyEdit({ action: 'set_all_supports', params: { support_type: 'spring3d' } }, makeMultiStory3d())).toThrow("Unknown 3D support type 'spring3d'");
+  });
+
   it('refuses malformed snapshots with AiActionError, never a TypeError', () => {
     const oneElement: Snap = {
       nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 5, y: 0 }]],
@@ -278,7 +313,7 @@ describe('edit snapshot lists', () => {
       for (const action of loadActions(snapshot)) {
         const result = applyEdit(action, snapshot);
         const loads = loadsOf(result);
-        expect(loads).toHaveLength(1);
+        expect(loads).toHaveLength(loadsAdded(action, threeD));
         const expected = action.action === 'add_distributed_load'
           ? (threeD ? 'distributed3d' : 'distributed')
           : (threeD ? 'nodal3d' : 'nodal');
@@ -296,7 +331,7 @@ describe('edit snapshot lists', () => {
       expect(original.length).toBeGreaterThan(0);
       for (const action of loadActions(snapshot)) {
         const loads = loadsOf(applyEdit(action, snapshot));
-        expect(loads).toHaveLength(original.length + 1);
+        expect(loads).toHaveLength(original.length + loadsAdded(action, threeD));
         expect(loads.slice(0, original.length)).toEqual(original);
         const newId = loads[loads.length - 1].data.id;
         expect(original.every((l) => l.data.id !== newId)).toBe(true);

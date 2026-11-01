@@ -3,7 +3,7 @@ import {
   cloneElementToSnap, columnLines, elements, ensureSection, entryData, findNodeAt, findNodeAt3d,
   firstMaterialId, firstSectionId, floorLevels, getNodeCoords, isSnapshot3d, malformed, nodes,
 } from './snapshot-json';
-import { AiActionError } from './limits';
+import { AiActionError, choice } from './limits';
 import { isPlainObject } from './actions';
 
 const near = (a: number, b: number): boolean => Math.abs(a - b) < EPS;
@@ -92,7 +92,7 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
   if (cols.length === 0 || floors.length < 2) {
     throw new AiActionError('Cannot add bay: model needs at least 2 floor levels');
   }
-  const s = side ?? 'right';
+  const s = choice('side', side, ['left', 'right'] as const, 'right');
   const newX = s === 'left' ? cols[0] - width : cols[cols.length - 1] + width;
   const beamOverride = beamSection !== undefined ? ensureSection(snap, beamSection) : undefined;
   const colOverride = columnSection !== undefined ? ensureSection(snap, columnSection) : undefined;
@@ -119,7 +119,7 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
 function addBay3d(snap: Json, width: number, side?: string, beamSection?: string, columnSection?: string): void {
   const xs = columnLines(snap);
   if (xs.length < 2) throw new AiActionError('Cannot add bay: 3D model needs at least 2 x-grid lines');
-  const left = (side ?? 'right') === 'left';
+  const left = choice('side', side, ['left', 'right'] as const, 'right') === 'left';
   const last = xs.length - 1;
   const [outerX, innerX, newX] = left ? [xs[0], xs[1], xs[0] - width] : [xs[last], xs[last - 1], xs[last] + width];
   const baseZ = floorLevels(snap)[0] ?? 0;

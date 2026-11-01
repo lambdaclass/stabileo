@@ -156,6 +156,12 @@ describe('generators', () => {
     expect((howe.loads as unknown[]).length).toBe(5);
   });
 
+  it('takes the truss pattern in any case and refuses one it does not build', () => {
+    const howe = generateTruss({ span: 12, height: 2, n_panels: 4, pattern: 'howe' });
+    expect(generateTruss({ span: 12, height: 2, n_panels: 4, pattern: ' Howe ' })).toEqual(howe);
+    expect(() => generateTruss({ span: 12, height: 2, n_panels: 4, pattern: 'fink' })).toThrow('pattern must be one of pratt, warren, howe');
+  });
+
   it('3D portal frame is Z-up', () => {
     const snap = generatePortalFrame3d({ width: 6, depth: 4, height: 4, q_beam: -10 });
     expect(snap.analysisMode).toBe('3d');

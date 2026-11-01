@@ -4,7 +4,7 @@ import { AiActionError } from './limits';
 import { supportTypesFor } from './registry';
 import {
   EPS, type Json, addDistributedLoadToSnap, arrayMut, asArray, asF64, asU64, at, columnLines,
-  elements, ensureSection, findNodeAt, findNodeAt3d, floorLevels, getNodeCoords, isSnapshot3d,
+  elements, ensureSection, findNodeAt, floorLevels, getNodeCoords, isSnapshot3d,
   nextId, nodes,
 } from './snapshot-json';
 
@@ -135,20 +135,22 @@ function addLateralLoads(snap: Json, h: number): void {
   }
   const leftX = cols[0];
   if (isSnapshot3d(snap)) {
-    const minY = nodes(snap)
-      .map((n) => asF64(at(at(n, 1), 'y')))
-      .filter((v): v is number => v !== undefined)
-      .reduce((a, b) => Math.min(a, b), Infinity);
     for (const z of floors.slice(1)) {
-      const nodeId = findNodeAt3d(snap, leftX, minY, z);
-      if (nodeId === undefined) continue;
-      const id = nextId(snap, 'load');
-      arrayMut(snap, 'loads').push({ type: 'nodal3d', data: { id, nodeId, fx: h, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } });
+      const face = nodes(snap).filter((n) => {
+        const x = asF64(at(at(n, 1), 'x'));
+        const nz = asF64(at(at(n, 1), 'z'));
+        return x !== undefined && nz !== undefined && Math.abs(x - leftX) < EPS && Math.abs(nz - z) < EPS;
+      });
+      if (face.length === 0) throw new AiActionError(`Cannot add lateral loads: no node at x=${leftX}, z=${z}`);
+      for (const n of face) {
+        const id = nextId(snap, 'load');
+        arrayMut(snap, 'loads').push({ type: 'nodal3d', data: { id, nodeId: asU64(at(n, 0)), fx: h / face.length, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } });
+      }
     }
   } else {
     for (const y of floors.slice(1)) {
       const nodeId = findNodeAt(snap, leftX, y);
-      if (nodeId === undefined) continue;
+      if (nodeId === undefined) throw new AiActionError(`Cannot add lateral loads: no node at x=${leftX}, y=${y}`);
       const id = nextId(snap, 'load');
       arrayMut(snap, 'loads').push({ type: 'nodal', data: { id, nodeId, fx: h, fz: 0, my: 0 } });
     }

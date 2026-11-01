@@ -1,6 +1,6 @@
 import type { ActionParams, BuildAction } from './actions';
 import { Builder, resolveSection, resolveSupport, sectionToJson, type Snapshot } from './builder';
-import { AiActionError } from './limits';
+import { AiActionError, choice } from './limits';
 import { defaultColumnSection, defaultSection, trussSection } from './sections';
 
 const range = (n: number): number[] => Array.from({ length: Math.max(0, n) }, (_, i) => i);
@@ -73,7 +73,7 @@ export function generateTruss(p: ActionParams['create_truss']): Snapshot {
   const b = Builder.new2d(defaultSection());
   b.sections.push(sectionToJson(2, trussSection()));
   const dx = p.span / nPanels;
-  const pattern = p.pattern ?? 'pratt';
+  const pattern = choice('pattern', p.pattern, ['pratt', 'warren', 'howe'] as const, 'pratt');
 
   const bottom = range(nPanels + 1).map((i) => b.addNode2d(i * dx, 0));
   let top: number[];
