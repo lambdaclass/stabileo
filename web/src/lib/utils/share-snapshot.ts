@@ -35,8 +35,25 @@ const LOAD_NUMBERS = ['a', 'angle', 'b', 'carrier', 'caseId', 'drx', 'dry', 'drz
   'dtUniform', 'dx', 'dy', 'dz', 'eI', 'eJ', 'eM', 'force', 'fromDef', 'fx', 'fy', 'fz', 'mx', 'my', 'mz',
   'p', 'px', 'py', 'pz', 'q', 'qI', 'qJ', 'qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ', 'strain'];
 
-function loadNumbersValid(d: RecordValue): boolean {
-  return LOAD_NUMBERS.every(f => d[f] === undefined || typeof d[f] === 'number')
+const LOAD_REQUIRED: Record<Load['type'], (string | string[])[]> = {
+  nodal: ['fx', ['fz', 'fy'], ['my', 'mz']],
+  distributed: ['qI', 'qJ'],
+  pointOnElement: ['a', 'p'],
+  thermal: ['dtUniform', 'dtGradient'],
+  nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
+  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ'],
+  pointOnElement3d: ['a', 'py', 'pz'],
+  prestress3d: ['force', 'eI', 'eM', 'eJ'],
+  displacement3d: [],
+  surface3d: [['q', 'qNodes']],
+  thermalQuad3d: ['dtUniform', 'dtGradient'],
+};
+
+const CONNECTOR_NUMBERS = ['kAxial', 'kShear', 'kMoment', 'kShearZ', 'kBendY', 'kBendZ'];
+
+function loadNumbersValid(type: Load['type'], d: RecordValue): boolean {
+  return LOAD_REQUIRED[type].every(f => (Array.isArray(f) ? f : [f]).some(g => d[g] !== undefined))
+    && LOAD_NUMBERS.every(f => d[f] === undefined || typeof d[f] === 'number')
     && (d.qNodes === undefined || (Array.isArray(d.qNodes) && d.qNodes.every(q => typeof q === 'number')));
 }
 
@@ -54,10 +71,14 @@ function referencesResolve(value: RecordValue): boolean {
   const materials = keys(value.materials), sections = keys(value.sections);
   const plates = keys(value.plates ?? []), quads = keys(value.quads ?? []);
   const shellNodes = (shell: RecordValue, count: number) => Array.isArray(shell.nodes)
-    && shell.nodes.length === count && shell.nodes.every(n => nodes.has(n as number));
+    && shell.nodes.length === count && new Set(shell.nodes).size === count
+    && shell.nodes.every(n => nodes.has(n as number));
+  const node = (n: unknown) => n === undefined || nodes.has(n as number);
+  const cases = Array.isArray(value.loadCases) ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : null;
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
+      && e.nodeI !== e.nodeJ
       && materials.has(e.materialId as number) && sections.has(e.sectionId as number)
       && (e.variableSection === undefined
         || (record(e.variableSection) && sections.has(e.variableSection.sectionJ as number))))
@@ -65,11 +86,19 @@ function referencesResolve(value: RecordValue): boolean {
     && (value.quads as Entry[] ?? []).every(([, s]) => shellNodes(s, 4))
     && shells.every(([, s]) => materials.has(s.materialId as number) && typeof s.thickness === 'number')
     && (value.supports as Entry[]).every(([, s]) => nodes.has(s.nodeId as number))
+    && ((value.connectors ?? []) as Entry[]).every(([, c]) => nodes.has(c.nodeI as number)
+      && nodes.has(c.nodeJ as number) && c.nodeI !== c.nodeJ && numbers(c, [], CONNECTOR_NUMBERS))
+    && ((value.constraints ?? []) as RecordValue[]).every(c => node(c.masterNode) && node(c.slaveNode)
+      && (c.slaveNodes === undefined || (Array.isArray(c.slaveNodes) && c.slaveNodes.every(n => nodes.has(n as number))))
+      && (c.terms === undefined || (c.terms as RecordValue[]).every(t => nodes.has((t.nodeId ?? t.node) as number)
+        && typeof t.coefficient === 'number')))
+    && ((value.combinations ?? []) as RecordValue[]).every(c => (c.factors as RecordValue[]).every(f =>
+      typeof f.factor === 'number' && (cases === null || cases.has(f.caseId))))
     && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
     && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))
     && (value.loads as RecordValue[]).every(({ type, data }) => {
       const d = data as RecordValue;
-      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(d)) return false;
+      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(type as Load['type'], d)) return false;
       const target = LOAD_TARGET[type as Load['type']];
       return target === 'node' ? nodes.has(d.nodeId as number)
         : target === 'member' ? elements.has(d.elementId as number)

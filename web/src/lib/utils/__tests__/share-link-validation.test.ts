@@ -53,20 +53,21 @@ afterEach(() => {
 it('repairs every counter while preserving optional collections and larger counters', () => {
   const payload = {
     ...legacy(), nextId: { footing: 100, soilProfile: 100 },
-    loads: [{ type: 'nodal', data: { id: 8, nodeId: 1, fx: 1 } }],
+    nodes: [...legacy().nodes as unknown[], [3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]],
+    loads: [{ type: 'nodal', data: { id: 8, nodeId: 1, fx: 1, fz: 0, my: 0 } }],
     loadCases: [{ id: 9, name: 'Live' }],
     combinations: [{ id: 10, name: 'ULS', factors: [{ caseId: 9, factor: 1.5 }] }],
-    plates: [[11, { id: 11, nodes: [1, 2, 1], materialId: 1, thickness: 0.1 }]],
-    quads: [[12, { id: 12, nodes: [1, 2, 2, 1], materialId: 1, thickness: 0.1 }]],
+    plates: [[11, { id: 11, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]],
+    quads: [[12, { id: 12, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]],
     connectors: [[13, { id: 13, nodeI: 1, nodeJ: 2 }]],
-    constraints: [{ type: 'linearMpc', terms: [{ node: 1, dof: 'ux', coefficient: 1 }] }],
+    constraints: [{ type: 'linearMpc', terms: [{ nodeId: 1, dof: 0, coefficient: 1 }] }],
     provenance: { assumptions: ['review'], layerMappings: [] },
     footings: [[14, { id: 14, nodeId: 1 }]],
     geotechnical: { profiles: [{ id: 15 }] },
   };
   const snapshot = prepareSharedSnapshot(payload)!;
   expect(snapshot.nextId).toEqual({
-    node: 3, material: 2, section: 2, element: 2, support: 2, load: 9,
+    node: 5, material: 2, section: 2, element: 2, support: 2, load: 9,
     loadCase: 10, combination: 11, plate: 12, quad: 13, connector: 14,
     footing: 100, soilProfile: 100,
   });

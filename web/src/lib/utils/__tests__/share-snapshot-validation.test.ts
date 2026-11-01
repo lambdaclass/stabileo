@@ -67,7 +67,9 @@ describe('shared-link importer', () => {
       danglingSection: encode({ ...base, e: [...base.e, [2, 0, 1, 2, 1, 99]] }),
       danglingNodalLoad: encode({ ...base, l: [...base.l, { type: 'nodal', data: { id: 3, caseId: 1, nodeId: 55, fx: 0, fz: -1, my: 0 } }] }),
       danglingMemberLoad: encode({ ...base, l: [...base.l, { type: 'distributed', data: { id: 3, caseId: 1, elementId: 42, qI: -1, qJ: -1 } }] }),
-      unknownLoadType: encode({ ...base, l: [...base.l, { type: 'Distributed', data: { id: 3, caseId: 1, elementId: 42, qI: -1, qJ: -1 } }] }),
+      unknownLoadType: encode({ ...base, l: [...base.l, { type: 'Distributed', data: { id: 3, caseId: 1, elementId: 1, qI: -1, qJ: -1 } }] }),
+      missingLoadComponent: encode({ ...base, l: [...base.l, { type: 'distributed', data: { id: 3, caseId: 1, elementId: 1, qI: -1 } }] }),
+      zeroLengthMember: encode({ ...base, e: [...base.e, [2, 0, 2, 2, 1, 1]] }),
       danglingShellLoad: encode({ ...base, l: [...base.l, { type: 'surface3d', data: { id: 3, caseId: 1, quadId: 7, q: 1 } }] }),
       nullLoadComponent: encode({ ...base, l: [...base.l, { type: 'nodal', data: { id: 3, caseId: 1, nodeId: 2, fx: null, fz: -1, my: 0 } }] }),
     };
@@ -92,19 +94,46 @@ describe('shared-link importer', () => {
       stringLoadComponent: p => { p.loads[0].data.qJ = '-5'; },
       unknownLoadType: p => { p.loads[0].type = 'distributed '; },
       danglingPlateLoad: p => { p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } }); },
-      danglingPlateMaterial: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 1], materialId: 9, thickness: 0.1 }]]; },
+      danglingPlateMaterial: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.plates = [[1, { id: 1, nodes: [1, 2, 3], materialId: 9, thickness: 0.1 }]]; },
       danglingPlateNode: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 9], materialId: 1, thickness: 0.1 }]]; },
-      shortQuad: p => { p.quads = [[1, { id: 1, nodes: [1, 2, 1], materialId: 1, thickness: 0.1 }]]; },
-      stringThickness: p => { p.quads = [[1, { id: 1, nodes: [1, 2, 2, 1], materialId: 1, thickness: '0.1' }]]; },
+      shortQuad: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]]; },
+      stringThickness: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: '0.1' }]]; },
       stringSectionIz: p => { p.sections[0][1].iz = 'garbage'; },
       nullMaterialFy: p => { p.materials[0][1].fy = null; },
       danglingMemberLoad: p => { p.loads[0].data.elementId = 9; },
+      missingLoadComponent: p => { delete p.loads[0].data.qJ; },
+      zeroLengthMember: p => { p.elements[0][1].nodeJ = 1; },
+      repeatedPlateCorner: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }]); p.plates = [[1, { id: 1, nodes: [1, 2, 1], materialId: 1, thickness: 0.1 }]]; },
+      danglingConnector: p => { p.connectors = [[1, { id: 1, nodeI: 1, nodeJ: 9 }]]; },
+      stringConnectorStiffness: p => { p.connectors = [[1, { id: 1, nodeI: 1, nodeJ: 2, kAxial: '1' }]]; },
+      danglingRigidLink: p => { p.constraints = [{ type: 'rigidLink', masterNode: 1, slaveNode: 9 }]; },
+      danglingDiaphragm: p => { p.constraints = [{ type: 'diaphragm', masterNode: 1, slaveNodes: [2, 9] }]; },
+      danglingMpcTerm: p => { p.constraints = [{ type: 'linearMPC', terms: [{ nodeId: 9, dof: 0, coefficient: 1 }] }]; },
+      danglingCombinationCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 7, factor: 1.4 }] }]; },
+      stringCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: '1.4' }] }]; },
     };
     for (const [name, fault] of Object.entries(faults)) {
       const payload = legacy();
       fault(payload);
       expect(prepareSharedSnapshot(payload), name).toBeNull();
     }
+  });
+
+  it('accepts connectors, constraints and combinations that resolve', () => {
+    const payload = legacy();
+    payload.nodes.push([3, { id: 3, x: 0, y: 4 }]);
+    payload.connectors = [[1, { id: 1, nodeI: 1, nodeJ: 3, kAxial: 1000 }]];
+    payload.constraints = [
+      { type: 'rigidLink', masterNode: 1, slaveNode: 3 },
+      { type: 'diaphragm', masterNode: 1, slaveNodes: [2, 3] },
+      { type: 'linearMPC', terms: [{ nodeId: 2, dof: 0, coefficient: 1 }, { nodeId: 3, dof: 0, coefficient: -1 }] },
+    ];
+    payload.loadCases = [{ id: 1, name: 'Dead' }];
+    payload.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: 1.4 }] }];
+    payload.elements[0][1].variableSection = { sectionJ: 1 };
+    const snapshot = prepareSharedSnapshot(payload);
+    expect(snapshot?.constraints).toHaveLength(3);
+    expect(snapshot?.combinations?.[0].factors).toEqual([{ caseId: 1, factor: 1.4 }]);
   });
 
   it('accepts loads on shells that exist', () => {
