@@ -181,10 +181,13 @@ Commands are deliberately scoped; use `CARGO_BUILD_JOBS=2` and
   MPa/internal assignment, area/inertia addition, and assignments to the actual
   typed input material/section fields must fail compilation.
 - `cargo test -p dedaliano-engine --lib types::units::tests`: serde/layout,
-  typed full-input round trips, exact dense/sparse shear-frame results,
-  shear-expression bit identity and 288 frame matrix entries (8 matrices ×36) compared
-  bit-for-bit, including signed zeros, with the pre-migration kernel captured at the
-  surveyed commit in `engine/tests/fixtures/units-frame-stiffness.json`.
+  typed full-input round trips, dense/sparse shear-frame results equal to the legacy
+  `solve_2d` (compared through JSON, so `-0.0` and `0.0` are not distinguished), the
+  typed shear parameter bit-identical to `timoshenko_phi_2d` (the fixed-end-force source),
+  and 288 frame matrix entries (8 matrices ×36) compared bit-for-bit, including signed
+  zeros, with the pre-migration kernel captured at the surveyed commit in
+  `engine/tests/fixtures/units-frame-stiffness.json`. Only those 288 entries are compared
+  with the captured kernel.
 - `npm run test:units:types`: 13 `@ts-expect-error` checks plus valid assignments,
   using `tsconfig.units.json`; unused directives fail the command.
 - Targeted Vitest: `unit-types.test.ts`, `unit-input.test.ts`, `assert-finite-wire.test.ts`.

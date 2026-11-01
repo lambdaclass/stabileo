@@ -423,32 +423,17 @@ mod tests {
     }
 
     #[test]
-    fn units_shear_keeps_operation_order() {
-        for as_y in [None, Some(0.006127)] {
-            let s = ElasticSection2D {
-                id: 1,
-                a: Area::from_m2(0.01),
-                iz: SecondMoment::from_m4(0.000173),
-                as_y: as_y.map(Area::from_m2),
-            };
-            let e = 27123456.789;
-            let nu = 0.271;
-            let l = 3.14159;
-            let expected = as_y
-                .map(|a| {
-                    let g = e / (2.0 * (1.0 + nu));
-                    12.0 * e * 0.000173 / (g * a * l * l)
-                })
-                .unwrap_or(0.0);
-            assert_eq!(
-                s.shear_parameter(
-                    Modulus::from_kn_per_m2(e),
-                    Ratio::from_ratio(nu),
-                    Length::from_m(l)
-                )
-                .to_bits(),
-                expected.to_bits()
-            );
+    fn units_shear_matches_the_fixed_end_force_phi() {
+        for as_y in [None, Some(0.006127), Some(1e-9), Some(3.7)] {
+            for (e, nu, l) in [(27123456.789, 0.271, 3.14159), (2.1e8, 0.3, 0.05), (1.0e4, 0.499, 47.3)] {
+                let legacy = crate::types::SolverSection { id: 1, a: 0.01, iz: 0.000173, as_y };
+                let typed = ElasticSection2D::from(&legacy);
+                assert_eq!(
+                    typed.shear_parameter(Modulus::from_kn_per_m2(e), Ratio::from_ratio(nu), Length::from_m(l)).to_bits(),
+                    crate::element::timoshenko_phi_2d(&legacy, e, nu, l).to_bits(),
+                    "as_y {as_y:?}, e {e}, nu {nu}, l {l}"
+                );
+            }
         }
     }
 }
