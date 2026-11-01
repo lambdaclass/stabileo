@@ -30,7 +30,7 @@ export function anthropicParams(req: LlmRequest): Anthropic.MessageStreamParams 
       input_schema: tool.input_schema as Anthropic.Tool.InputSchema,
       ...(tool.strict ? { strict: true } : {}),
     }));
-    params.tool_choice = { type: 'auto' };
+    params.tool_choice = { type: 'auto', disable_parallel_tool_use: true };
   }
   return params;
 }

@@ -2,6 +2,7 @@ import { isSpaceProtocol } from './registry';
 import { isPlainObject } from './actions';
 import { AiActionError } from './limits';
 import { lookupSection } from './sections';
+import { sectionToJson } from './builder';
 
 export type Json = Record<string, unknown>;
 
@@ -44,10 +45,25 @@ export function isSnapshot3d(snap: Json): boolean {
   return isSpaceProtocol(snap.analysisMode);
 }
 
+const ID_COLLECTION: Record<string, string> = {
+  node: 'nodes', element: 'elements', material: 'materials', section: 'sections', support: 'supports', load: 'loads',
+};
+
+function entryId(entry: unknown): number | undefined {
+  if (Array.isArray(entry)) return asU64(entry[0]);
+  return asU64(at(at(entry, 'data'), 'id')) ?? asU64(at(entry, 'id'));
+}
+
+function maxUsedId(snap: Json, key: string): number {
+  let max = 0;
+  for (const entry of asArray(snap[ID_COLLECTION[key]]) ?? []) max = Math.max(max, entryId(entry) ?? 0);
+  return max;
+}
+
 export function nextId(snap: Json, key: string): number {
   if (!isPlainObject(snap.nextId)) snap.nextId = {};
   const counters = snap.nextId as Json;
-  const next = asU64(counters[key]) ?? 1;
+  const next = Math.max(asU64(counters[key]) ?? 1, maxUsedId(snap, key) + 1);
   counters[key] = next + 1;
   return next;
 }
@@ -174,10 +190,9 @@ export function ensureSection(snap: Json, name: string): number {
   for (const s of asArray(snap.sections) ?? []) {
     if (at(at(s, 1), 'name') === name) return asU64(at(s, 0)) ?? 1;
   }
-  const id = nextId(snap, 'section');
   const props = lookupSection(name);
-  arrayMut(snap, 'sections').push(props
-    ? [id, { id, name, a: props.a, iz: props.iz }]
-    : [id, { id, name, a: 0.00538, iz: 8.356e-5 }]);
+  if (!props) throw new AiActionError(`Unknown section '${name}'`);
+  const id = nextId(snap, 'section');
+  arrayMut(snap, 'sections').push(sectionToJson(id, props));
   return id;
 }

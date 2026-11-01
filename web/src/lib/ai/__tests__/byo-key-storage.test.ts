@@ -47,7 +47,7 @@ describe('BYO AI key storage', () => {
     aiKeys.setProvider('anthropic');
     expect(aiKeys.active).toEqual({ provider: 'anthropic', apiKey: ANTHROPIC_KEY });
 
-    aiKeys.forget('anthropic');
+    expect(aiKeys.forget('anthropic')).toBe(true);
     expect(storage.data.has('stabileo.ai.key.anthropic')).toBe(false);
     expect(storage.data.get('stabileo.ai.key.openai')).toBe(OPENAI_KEY);
     expect(aiKeys.active).toBeNull();
@@ -66,7 +66,7 @@ describe('BYO AI key storage', () => {
     });
     expect(() => aiKeys.setKey('openai', OPENAI_KEY)).not.toThrow();
     expect(aiKeys.keys.openai).toBe(OPENAI_KEY);
-    expect(() => aiKeys.forget('openai')).not.toThrow();
+    expect(aiKeys.forget('openai')).toBe(false);
     expect(() => aiKeys.reload()).not.toThrow();
     expect(aiKeys.keys.anthropic).toBe('');
   });

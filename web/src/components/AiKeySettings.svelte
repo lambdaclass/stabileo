@@ -10,6 +10,7 @@
   const KEY_PLACEHOLDER: Record<AiProviderId, string> = { anthropic: 'sk-ant-…', openai: 'sk-…' };
 
   let draft = $state('');
+  let forgetFailed = $state(false);
   const provider = $derived(aiKeys.provider);
   const saved = $derived(aiKeys.keys[provider]);
 
@@ -23,6 +24,7 @@
 
   function pick(p: AiProviderId) {
     aiKeys.setProvider(p);
+    forgetFailed = false;
     draft = '';
   }
 </script>
@@ -53,7 +55,7 @@
       <span class="ai-key-saved-text" data-testid="ai-key-saved">
         {tp('ai.key.savedAs', { provider: PROVIDER_ACCOUNT[provider], last: saved.slice(-4) })}
       </span>
-      <button type="button" class="ai-key-btn ai-key-forget" data-testid="ai-key-forget" onclick={() => aiKeys.forget(provider)}>
+      <button type="button" class="ai-key-btn ai-key-forget" data-testid="ai-key-forget" onclick={() => { forgetFailed = !aiKeys.forget(provider); }}>
         {t('ai.key.forget')}
       </button>
     </div>
@@ -80,6 +82,10 @@
         </button>
       </div>
     </form>
+  {/if}
+
+  {#if forgetFailed}
+    <p class="ai-key-error" role="alert" data-testid="ai-key-forget-failed">{t('ai.key.forgetFailed')}</p>
   {/if}
 
   <p class="ai-key-note" data-testid="ai-key-note">
@@ -109,6 +115,7 @@
     overflow-wrap: anywhere;
   }
   .ai-key-note { color: var(--st-text-3); }
+  .ai-key-error { margin: 0; font-size: 0.78rem; line-height: 1.45; color: var(--st-danger); overflow-wrap: anywhere; }
   .ai-key-providers {
     display: flex;
     gap: 2px;

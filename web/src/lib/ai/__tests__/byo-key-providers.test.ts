@@ -3,7 +3,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { anthropicProvider, anthropicParams, mapAnthropicError, ANTHROPIC_MODEL } from '../providers/anthropic';
 import { openaiProvider, openaiParams, mapOpenAiError, OPENAI_MODEL } from '../providers/openai';
-import { AiProviderError, type LlmRequest } from '../providers/types';
+import { AiProviderError, shortDetail, withoutKey, type LlmRequest } from '../providers/types';
+import { buildModel } from '../browser-provider';
+import { AiActionError } from '../capabilities';
 import { t } from '../../i18n';
 
 const KEY = 'sk-ant-test-0123456789abcdef';
@@ -72,6 +74,37 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('key never reaches an error message', () => {
+  it('redacts a key a provider echoes in a 400 and turns unknown failures into a generic error', async () => {
+    stubFetch(() => jsonResponse(400, { type: 'error', error: { type: 'invalid_request_error', message: `bad header ${KEY} rejected` } }));
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a beam', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiProviderError);
+    expect(err.kind).toBe('badRequest');
+    expect(err.message).not.toContain(KEY);
+    expect(err.message).not.toContain('0123456789abcdef');
+    expect(shortDetail('key sk-proj-abcdef123456 leaked')).toBe('key [redacted] leaked');
+    const generic = withoutKey(new TypeError(`fetch failed for ${KEY}`), KEY) as AiProviderError;
+    expect(generic).toBeInstanceOf(AiProviderError);
+    expect(generic.kind).toBe('unknown');
+    expect(generic.message).not.toContain(KEY);
+  });
+});
+
+describe('several tool calls in one answer', () => {
+  it('are refused instead of applying only the first', async () => {
+    stubFetch(() => sseResponse(anthropicStream({
+      content: [
+        { type: 'tool_use', name: 'create_beam', input: { span: 6, interpretation: 'a' } },
+        { type: 'tool_use', name: 'create_beam', input: { span: 8, interpretation: 'b' } },
+      ],
+      stopReason: 'tool_use',
+    })));
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build two beams', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toContain('several changes at once');
+  });
+});
+
 describe('Anthropic browser provider', () => {
   it('sends the key only to api.anthropic.com, with the browser header, the model and adaptive thinking', async () => {
     const calls = stubFetch(() => sseResponse(anthropicStream({ content: [{ type: 'text', text: 'ok' }], stopReason: 'end_turn' })));
@@ -90,7 +123,7 @@ describe('Anthropic browser provider', () => {
     expect(call.body).not.toHaveProperty('temperature');
     expect(call.body).not.toHaveProperty('top_p');
     expect(JSON.stringify(call.body)).not.toContain('budget_tokens');
-    expect(call.body.tool_choice).toEqual({ type: 'auto' });
+    expect(call.body.tool_choice).toEqual({ type: 'auto', disable_parallel_tool_use: true });
     expect(call.body.system).toBe('You are a test.');
     expect(call.body.messages).toEqual([{ role: 'user', content: 'Build a beam' }]);
 
@@ -107,7 +140,7 @@ describe('Anthropic browser provider', () => {
     expect(params).not.toHaveProperty('tools');
     expect(params.output_config?.format).toEqual({ type: 'json_schema', schema: { type: 'object' } });
     const withTools = anthropicParams(req);
-    expect(withTools.tool_choice).toEqual({ type: 'auto' });
+    expect(withTools.tool_choice).toEqual({ type: 'auto', disable_parallel_tool_use: true });
   });
 
   it('reads tool calls from the stream', async () => {
@@ -190,6 +223,7 @@ describe('OpenAI browser provider', () => {
     expect(call.body).not.toHaveProperty('temperature');
     expect(call.body).not.toHaveProperty('max_tokens');
     expect(call.body.tool_choice).toBe('auto');
+    expect(call.body.parallel_tool_calls).toBe(false);
     expect(call.body.messages).toEqual([
       { role: 'system', content: 'You are a test.' },
       { role: 'user', content: 'Build a beam' },

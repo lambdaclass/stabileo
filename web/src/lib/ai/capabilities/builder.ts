@@ -1,4 +1,5 @@
 import { isSpaceProtocol } from './registry';
+import { AiActionError } from './limits';
 import { defaultMaterial, defaultSection, lookupSection, type SectionProps } from './sections';
 
 export type Snapshot = Record<string, unknown>;
@@ -8,7 +9,10 @@ export function sectionToJson(id: number, s: SectionProps): [number, Record<stri
 }
 
 export function resolveSection(name: string | undefined, fallback: () => SectionProps = defaultSection): SectionProps {
-  return (name !== undefined ? lookupSection(name) : undefined) ?? fallback();
+  if (name === undefined) return fallback();
+  const section = lookupSection(name);
+  if (!section) throw new AiActionError(`Unknown section '${name}'`);
+  return section;
 }
 
 export function resolveSupport(name: string | undefined, fallback: string): string {

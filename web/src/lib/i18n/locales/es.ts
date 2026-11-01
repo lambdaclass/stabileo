@@ -10750,6 +10750,7 @@ const es: Record<string, string> = {
   'ai.key.label': "Clave de API de {provider}",
   'ai.key.save': "Guardar clave",
   'ai.key.forget': "Olvidar clave",
+  'ai.key.forgetFailed': 'Este navegador no permitió a Stabileo borrar la clave guardada. Borrá los datos de este sitio en la configuración del navegador para eliminarla.',
   'ai.key.done': "Listo",
   'ai.key.savedAs': "Clave de {provider} guardada (termina en {last})",
   'ai.key.privacy': "La clave se guarda solo en este navegador. Se envía solo a {host}, nunca a los servidores de Stabileo, y el uso se factura a tu cuenta de {provider}.",

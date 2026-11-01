@@ -10120,6 +10120,7 @@ const pt: Translations = {
   'ai.key.label': "Chave de API da {provider}",
   'ai.key.save': "Salvar chave",
   'ai.key.forget': "Esquecer chave",
+  'ai.key.forgetFailed': 'Este navegador não permitiu que o Stabileo apagasse a chave guardada. Limpe os dados deste site nas configurações do navegador para removê-la.',
   'ai.key.done': "Concluído",
   'ai.key.savedAs': "Chave da {provider} salva (termina em {last})",
   'ai.key.privacy': "A chave fica guardada só neste navegador. Ela é enviada só para {host}, nunca aos servidores do Stabileo, e o uso é cobrado na sua conta da {provider}.",

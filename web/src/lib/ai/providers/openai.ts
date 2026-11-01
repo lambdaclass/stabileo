@@ -33,6 +33,7 @@ export function openaiParams(req: LlmRequest): ChatCompletionCreateParamsNonStre
       function: { name: tool.name, description: tool.description, parameters: tool.input_schema },
     }));
     params.tool_choice = 'auto';
+    params.parallel_tool_calls = false;
   }
   if (req.json) {
     params.response_format = {

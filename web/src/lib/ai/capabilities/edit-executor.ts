@@ -60,10 +60,18 @@ function isHorizontalElement(snap: Json, data: unknown): boolean {
     : Math.abs(ci.y - cj.y) < EPS;
 }
 
+const FILTERS = new Set(['beam', 'beams', 'column', 'columns']);
+
 function changeSection(snap: Json, name: string, ids?: number[], filter?: string): void {
-  const secId = ensureSection(snap, name);
   const elems = asArray(snap.elements);
   if (!elems) throw new AiActionError('No elements in model');
+  if (ids === undefined && filter !== undefined && !FILTERS.has(filter)) {
+    throw new AiActionError(`Unknown element_filter '${filter}': use 'beam' or 'column'`);
+  }
+  const existing = new Set(elems.map((e) => asU64(at(e, 0))));
+  const missing = ids?.filter((id) => !existing.has(id)) ?? [];
+  if (missing.length > 0) throw new AiActionError(`Element ${missing.join(', ')} not found`);
+  const secId = ensureSection(snap, name);
   const targets = new Set<number>();
   for (const elem of elems) {
     const eid = asU64(at(elem, 0));
@@ -74,6 +82,7 @@ function changeSection(snap: Json, name: string, ids?: number[], filter?: string
     else if (filter === 'column' || filter === 'columns') matches = !isHorizontalElement(snap, at(elem, 1));
     if (matches) targets.add(eid);
   }
+  if (targets.size === 0) throw new AiActionError('No element matches the section change');
   for (const elem of elems) {
     if (!targets.has(asU64(at(elem, 0)) ?? 0)) continue;
     const data = at(elem, 1);

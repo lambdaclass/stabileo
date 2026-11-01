@@ -180,6 +180,10 @@ describe('generators', () => {
     expect(arr(generateBeam({ span: 6, section: 'IPE 400' }), 'sections')[0][1].name).toBe('IPE 400');
   });
 
+  it('refuses a section it has no properties for', () => {
+    expect(() => generateBeam({ span: 6, section: 'W 14x90' })).toThrow("Unknown section 'W 14x90'");
+  });
+
   it('unsupported and edit actions are errors', () => {
     expect(() => executeAction({ action: 'unsupported', params: {} } as BuildAction)).toThrow(AiActionError);
     expect(() => executeAction({ action: 'add_bay', params: { width: 5 } })).toThrow('Edit actions require an existing model snapshot');

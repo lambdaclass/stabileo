@@ -11,6 +11,7 @@ import type {
 } from './client';
 import type { AiCredentials } from './keys.svelte';
 import {
+  AiActionError,
   buildConversation,
   buildSystemPrompt,
   checkPromptSize,
@@ -34,7 +35,7 @@ import {
   interpretSystemPrompt,
   reviewSystemPrompt,
 } from './prompts';
-import { AiProviderError, type LlmProvider, type LlmRequest, type LlmResponse } from './providers/types';
+import { AiProviderError, withoutKey, type LlmProvider, type LlmRequest, type LlmResponse } from './providers/types';
 
 async function providerFor(creds: AiCredentials): Promise<LlmProvider> {
   if (creds.provider === 'openai') return (await import('./providers/openai')).openaiProvider;
@@ -43,7 +44,11 @@ async function providerFor(creds: AiCredentials): Promise<LlmProvider> {
 
 async function complete(creds: AiCredentials, req: LlmRequest): Promise<LlmResponse> {
   const provider = await providerFor(creds);
-  return provider.complete(creds.apiKey, req);
+  try {
+    return await provider.complete(creds.apiKey, req);
+  } catch (err) {
+    throw withoutKey(err, creds.apiKey);
+  }
 }
 
 function metaOf(resp: LlmResponse): ReviewMeta {
@@ -240,6 +245,7 @@ export async function buildModel(
     signal,
   });
   const meta = metaOf(resp);
+  if (resp.toolCalls.length > 1) throw new AiActionError('The assistant proposed several changes at once; ask for one change at a time');
   const call = resp.toolCalls[0];
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;

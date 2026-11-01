@@ -10594,6 +10594,7 @@ const fr: Translations = {
   'ai.key.label': "Clé API {provider}",
   'ai.key.save': "Enregistrer la clé",
   'ai.key.forget': "Oublier la clé",
+  'ai.key.forgetFailed': "Ce navigateur n'a pas permis à Stabileo de supprimer la clé enregistrée. Effacez les données de ce site dans les réglages du navigateur pour la retirer.",
   'ai.key.done': "Terminé",
   'ai.key.savedAs': "Clé {provider} enregistrée (se termine par {last})",
   'ai.key.privacy': "La clé est conservée uniquement dans ce navigateur. Elle n'est envoyée qu'à {host}, jamais aux serveurs de Stabileo, et l'utilisation est facturée sur votre compte {provider}.",

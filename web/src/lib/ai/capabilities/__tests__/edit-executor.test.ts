@@ -50,8 +50,26 @@ describe('edit executor', () => {
   it('changes every section', () => {
     const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, makeFrame());
     const heb = arr(r, 'sections').find((s) => s[1].name === 'HEB 400')!;
-    expect(heb[1]).toEqual({ id: 3, name: 'HEB 400', a: 198e-4, iz: 57680e-8 });
+    expect(heb[1]).toEqual({ id: 3, name: 'HEB 400', a: 198e-4, iz: 57680e-8, iy: 10820e-8, j: 3.68e-6, h: 0.4, b: 0.3, tw: 0.0135, tf: 0.024, shape: 'H' });
     expect(arr(r, 'elements').every((e) => e[1].sectionId === 3)).toBe(true);
+  });
+
+  it('refuses an unknown section, filter or element instead of guessing', () => {
+    const snap = makeFrame();
+    expect(() => applyEdit({ action: 'change_section', params: { section: 'W 14x90' } }, snap)).toThrow("Unknown section 'W 14x90'");
+    expect(() => applyEdit({ action: 'change_section', params: { section: 'HEB 400', element_filter: 'brace' } }, snap)).toThrow("Unknown element_filter 'brace'");
+    expect(() => applyEdit({ action: 'change_section', params: { section: 'HEB 400', element_ids: [1, 42] } }, snap)).toThrow('Element 42 not found');
+    expect(arr(snap, 'sections').map((x) => x[1].name)).toEqual(['IPE 300', 'HEB 300']);
+  });
+
+  it('gives new loads ids after the largest one in use when the counters are missing', () => {
+    const snap = makeFrame();
+    delete snap.nextId;
+    const before = loadsOf(snap).map((l) => l.data.id as number);
+    const r = applyEdit({ action: 'add_nodal_load', params: { node_id: 2, fx: 5 } }, snap);
+    const ids = loadsOf(r).map((l) => l.data.id as number);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids.at(-1)).toBe(Math.max(...before) + 1);
   });
 
   it('changes only columns with the column filter', () => {

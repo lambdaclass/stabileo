@@ -28,8 +28,7 @@ function collectIds(entries: unknown[], entity: string): Set<number> {
   return ids;
 }
 
-export function validateSnapshot(snapshot: unknown): string[] {
-  const warnings: string[] = [];
+export function validateSnapshot(snapshot: unknown): void {
   if (!isPlainObject(snapshot)) throw new AiActionError('snapshot must be a JSON object');
 
   const nodes = getArray(snapshot, 'nodes');
@@ -55,32 +54,38 @@ export function validateSnapshot(snapshot: unknown): string[] {
     const refs: Array<[string, Set<number>]> = [['nodeI', nodeIds], ['nodeJ', nodeIds], ['sectionId', secIds], ['materialId', matIds]];
     for (const [key, set] of refs) {
       const ref = asU64(data[key]);
-      if (ref !== undefined && !set.has(ref)) {
-        throw new AiActionError(`element ${id} references non-existent ${key}=${ref}`);
-      }
+      if (ref === undefined) throw new AiActionError(`element ${id} has no valid ${key}`);
+      if (!set.has(ref)) throw new AiActionError(`element ${id} references non-existent ${key}=${ref}`);
     }
   }
 
   for (const entry of supports) {
     const [id, data] = parseEntry(entry);
     const nid = asU64(data.nodeId);
-    if (nid !== undefined && !nodeIds.has(nid)) {
-      throw new AiActionError(`support ${id} references non-existent nodeId=${nid}`);
+    if (nid === undefined) throw new AiActionError(`support ${id} has no valid nodeId`);
+    if (!nodeIds.has(nid)) throw new AiActionError(`support ${id} references non-existent nodeId=${nid}`);
+  }
+
+  for (const entry of nodes) {
+    const [id, data] = parseEntry(entry);
+    for (const key of ['x', 'y', 'z'] as const) {
+      if (key === 'z' && data.z === undefined) continue;
+      if (asF64(data[key]) === undefined) throw new AiActionError(`node ${id} has no finite ${key}`);
     }
   }
 
   for (const entry of sections) {
     const [id, data] = parseEntry(entry);
-    const a = asF64(data.a);
-    if (a !== undefined && a <= 0) warnings.push(`section ${id}: area (a) should be positive`);
-    const iz = asF64(data.iz);
-    if (iz !== undefined && iz <= 0) warnings.push(`section ${id}: moment of inertia (iz) should be positive`);
+    for (const key of ['a', 'iz'] as const) {
+      const v = asF64(data[key]);
+      if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
+    }
   }
 
   for (const entry of materials) {
     const [id, data] = parseEntry(entry);
     const e = asF64(data.e);
-    if (e !== undefined && e <= 0) {
+    if (e === undefined || e <= 0) {
       throw new AiActionError(`material ${id}: elastic modulus (e) must be positive`);
     }
   }
@@ -89,13 +94,13 @@ export function validateSnapshot(snapshot: unknown): string[] {
   if (Array.isArray(loads)) {
     for (const load of loads) {
       const outer = Array.isArray(load) ? load[1] : load;
-      if (!isPlainObject(outer) || !isPlainObject(outer.data)) continue;
-      const eid = asU64(outer.data.elementId);
-      if (eid !== undefined && !elemIds.has(eid)) warnings.push(`load references non-existent elementId=${eid}`);
-      const nid = asU64(outer.data.nodeId);
-      if (nid !== undefined && !nodeIds.has(nid)) warnings.push(`load references non-existent nodeId=${nid}`);
+      if (!isPlainObject(outer) || !isPlainObject(outer.data)) throw new AiActionError(`invalid load: ${JSON.stringify(load)}`);
+      const eid = outer.data.elementId === undefined ? undefined : asU64(outer.data.elementId);
+      const nid = outer.data.nodeId === undefined ? undefined : asU64(outer.data.nodeId);
+      if (eid === undefined && nid === undefined) throw new AiActionError('load references no valid elementId or nodeId');
+      if (eid !== undefined && !elemIds.has(eid)) throw new AiActionError(`load references non-existent elementId=${eid}`);
+      if (nid !== undefined && !nodeIds.has(nid)) throw new AiActionError(`load references non-existent nodeId=${nid}`);
     }
   }
 
-  return warnings;
 }

@@ -10761,6 +10761,7 @@ const en: Record<string, string> = {
   'ai.key.label': "{provider} API key",
   'ai.key.save': "Save key",
   'ai.key.forget': "Forget key",
+  'ai.key.forgetFailed': "This browser did not let Stabileo delete the stored key. Clear this site's data in the browser settings to remove it.",
   'ai.key.done': "Done",
   'ai.key.savedAs': "{provider} key saved (ends in {last})",
   'ai.key.privacy': "The key is stored only in this browser. It is sent only to {host}, never to Stabileo servers, and usage is billed to your {provider} account.",

@@ -10594,6 +10594,7 @@ const de: Translations = {
   'ai.key.label': "API-Schlüssel für {provider}",
   'ai.key.save': "Schlüssel speichern",
   'ai.key.forget': "Schlüssel vergessen",
+  'ai.key.forgetFailed': 'Dieser Browser hat Stabileo das Löschen des gespeicherten Schlüssels nicht erlaubt. Löschen Sie die Daten dieser Website in den Browsereinstellungen, um ihn zu entfernen.',
   'ai.key.done': "Fertig",
   'ai.key.savedAs': "Schlüssel für {provider} gespeichert (endet auf {last})",
   'ai.key.privacy': "Der Schlüssel wird nur in diesem Browser gespeichert. Er wird nur an {host} gesendet, nie an Server von Stabileo, und die Nutzung wird Ihrem {provider}-Konto berechnet.",

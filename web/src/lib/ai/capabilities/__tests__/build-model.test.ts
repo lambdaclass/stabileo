@@ -39,7 +39,7 @@ describe('validate snapshot', () => {
     loads: [],
   });
 
-  it('passes a valid snapshot without warnings', () => expect(validateSnapshot(minimal())).toEqual([]));
+  it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
   it('fails without nodes', () => {
     const s = minimal();
     delete s.nodes;
@@ -56,9 +56,26 @@ describe('validate snapshot', () => {
   it('fails on a non-positive E', () => {
     expect(() => validateSnapshot({ ...minimal(), materials: [[1, { id: 1, name: 'Bad', e: -100 }]] })).toThrow('material 1: elastic modulus (e) must be positive');
   });
-  it('warns on dangling load references and non-positive section properties', () => {
-    const s = { ...minimal(), sections: [[1, { id: 1, name: 'x', a: 0, iz: 1 }]], loads: [{ type: 'nodal', data: { id: 1, nodeId: 9 } }] };
-    expect(validateSnapshot(s)).toEqual(['section 1: area (a) should be positive', 'load references non-existent nodeId=9']);
+  it('fails on non-positive or missing section properties', () => {
+    expect(() => validateSnapshot({ ...minimal(), sections: [[1, { id: 1, name: 'x', a: 0, iz: 1 }]] })).toThrow('section 1: a must be a positive number');
+    expect(() => validateSnapshot({ ...minimal(), sections: [[1, { id: 1, name: 'x', a: 1 }]] })).toThrow('section 1: iz must be a positive number');
+  });
+  it('fails on a material without E', () => {
+    expect(() => validateSnapshot({ ...minimal(), materials: [[1, { id: 1, name: 'x' }]] })).toThrow('material 1: elastic modulus (e) must be positive');
+  });
+  it('fails on dangling or missing load targets', () => {
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, nodeId: 9 } }] })).toThrow('load references non-existent nodeId=9');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, elementId: 4, qI: -1, qJ: -1 } }] })).toThrow('load references non-existent elementId=4');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, fx: 1 } }] })).toThrow('load references no valid elementId or nodeId');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal' }] })).toThrow('invalid load');
+  });
+  it('fails on an element without a material or section', () => {
+    const s = { ...minimal(), elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1 }]] };
+    expect(() => validateSnapshot(s)).toThrow('element 1 has no valid materialId');
+  });
+  it('fails on a support without a node and a node without coordinates', () => {
+    expect(() => validateSnapshot({ ...minimal(), supports: [[1, { id: 1, type: 'pinned' }]] })).toThrow('support 1 has no valid nodeId');
+    expect(() => validateSnapshot({ ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6 }]] })).toThrow('node 2 has no finite y');
   });
 });
 

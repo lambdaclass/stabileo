@@ -18,12 +18,13 @@ function read(name: string): string | null {
   }
 }
 
-function write(name: string, value: string | null): void {
+function write(name: string, value: string | null): boolean {
   try {
     if (value === null) globalThis.localStorage?.removeItem(name);
     else globalThis.localStorage?.setItem(name, value);
+    return (globalThis.localStorage?.getItem(name) ?? null) === value;
   } catch {
-    return;
+    return false;
   }
 }
 
@@ -62,9 +63,9 @@ class AiKeyStore {
     write(KEY_PREFIX + provider, trimmed || null);
   }
 
-  forget(provider: AiProviderId): void {
+  forget(provider: AiProviderId): boolean {
     this.keys = { ...this.keys, [provider]: '' };
-    write(KEY_PREFIX + provider, null);
+    return write(KEY_PREFIX + provider, null);
   }
 
   reload(): void {

@@ -10602,6 +10602,7 @@ const tr: Translations = {
   'ai.key.label': "{provider} API anahtarı",
   'ai.key.save': "Anahtarı kaydet",
   'ai.key.forget': "Anahtarı unut",
+  'ai.key.forgetFailed': "Bu tarayıcı Stabileo'nun kayıtlı anahtarı silmesine izin vermedi. Kaldırmak için tarayıcı ayarlarından bu sitenin verilerini temizleyin.",
   'ai.key.done': "Tamam",
   'ai.key.savedAs': "{provider} anahtarı kaydedildi (sonu {last})",
   'ai.key.privacy': "Anahtar yalnızca bu tarayıcıda saklanır. Yalnızca {host} adresine gönderilir, Stabileo sunucularına asla gönderilmez; kullanım {provider} hesabınıza faturalanır.",
