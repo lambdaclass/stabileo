@@ -97,6 +97,12 @@ export interface PlasticCollapseResult extends PlasticResult {
    * the caller says so instead of "does not collapse".
    */
   unloaded: boolean;
+  /**
+   * The analysis stopped at a mechanism it could not tell from a false one (hinges that would
+   * unload, past the closings it allows, or a linear program that did not finish): collapseFactor
+   * is then where it stopped, not a verified collapse load.
+   */
+  unresolved?: boolean;
 }
 
 interface Piece { id: number; t0: number; t1: number }
@@ -313,8 +319,8 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
    * and a second hinge beside the first is such a case). Closes those hinges and says whether any was.
    */
   let closings = 0;
+  let unresolved = false;
   const closeUnloading = (): boolean => {
-    if (closings >= MAX_CLOSINGS) return false;
     const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
     if (!open.length) return false;
     const removed = new Set(members.filter((mb) => mb.yielded).map((mb) => mb.id));
@@ -334,10 +340,12 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       free: space.map(() => true),
     });
     if (consistent.status === 'optimal') return false;
+    if (consistent.status === 'iterationLimit') { unresolved = true; return false; }
     const norm = Math.hypot(...loadWork) || 1;
     const theta = open.map((_, k) => space.reduce((acc, _d, j) => acc + (loadWork[j] / norm) * th[j][k], 0));
     const big = Math.max(...theta.map(Math.abs));
     const closing = open.filter((_, k) => theta[k] * sag[k] < -1e-6 * big);
+    if (closing.length && closings >= MAX_CLOSINGS) { unresolved = true; return false; }
     if (closing.length) closings++;
     for (const { ref, h } of closing) {
       const { mb, t, run } = ref!;
@@ -623,5 +631,6 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     redundancy: Math.max(0, kin0.degree),
     degree: kin0.degree,
     unloaded,
+    ...(unresolved ? { unresolved: true } : {}),
   };
 }

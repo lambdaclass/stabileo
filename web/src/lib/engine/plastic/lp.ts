@@ -16,9 +16,10 @@ export interface LpProblem {
 }
 export type LpResult =
   | { status: 'optimal'; x: number[]; value: number }
-  | { status: 'infeasible' | 'unbounded' };
+  | { status: 'infeasible' | 'unbounded' | 'iterationLimit' };
 
 const EPS = 1e-9;
+const MAX_ITER = 5000;
 
 export function solveLp(p: LpProblem): LpResult {
   const n = p.c.length;
@@ -48,9 +49,12 @@ export function solveLp(p: LpProblem): LpResult {
     else { row[ai] = 1; artCols.push(ai); basis.push(ai++); }
     T.push(row);
   }
-  let scale = 1;
-  for (const r of T) for (const v of r) scale = Math.max(scale, Math.abs(v));
-  const tol = EPS * scale;
+  let aScale = 0, bScale = 0;
+  for (const r of T) {
+    for (let k = 0; k < width - 1; k++) aScale = Math.max(aScale, Math.abs(r[k]));
+    bScale = Math.max(bScale, Math.abs(r[width - 1]));
+  }
+  const tol = EPS * Math.max(aScale, 1e-300);
 
   const pivot = (pr: number, pc: number) => {
     const pv = T[pr][pc];
@@ -66,35 +70,37 @@ export function solveLp(p: LpProblem): LpResult {
     basis[pr] = pc;
   };
 
-  const run = (cost: number[], allowed: (col: number) => boolean): 'optimal' | 'unbounded' => {
-    for (let iter = 0; iter < 5000; iter++) {
+  const run = (cost: number[], allowed: (col: number) => boolean): 'optimal' | 'unbounded' | 'iterationLimit' => {
+    const rcTol = EPS * Math.max(...cost.map(Math.abs), 1e-300);
+    for (let iter = 0; iter < MAX_ITER; iter++) {
       let enter = -1;
       for (let col = 0; col < width - 1; col++) {
         if (!allowed(col) || basis.includes(col)) continue;
         let rc = cost[col];
         for (let r = 0; r < T.length; r++) rc -= cost[basis[r]] * T[r][col];
-        if (rc < -tol) { enter = col; break; }
+        if (rc < -rcTol) { enter = col; break; }
       }
       if (enter < 0) return 'optimal';
       let leave = -1, best = Infinity;
       for (let r = 0; r < T.length; r++) {
         if (T[r][enter] <= tol) continue;
         const ratio = T[r][width - 1] / T[r][enter];
-        if (ratio < best - tol || (Math.abs(ratio - best) <= tol && basis[r] < basis[leave])) { best = ratio; leave = r; }
+        const tie = EPS * Math.max(1, Math.abs(best === Infinity ? ratio : best));
+        if (ratio < best - tie || (Math.abs(ratio - best) <= tie && basis[r] < basis[leave])) { best = ratio; leave = r; }
       }
       if (leave < 0) return 'unbounded';
       pivot(leave, enter);
     }
-    return 'optimal';
+    return 'iterationLimit';
   };
 
   if (nArt > 0) {
     const cost1 = new Array(width).fill(0);
     for (const a of artCols) cost1[a] = 1;
-    run(cost1, () => true);
+    if (run(cost1, () => true) === 'iterationLimit') return { status: 'iterationLimit' };
     let infeas = 0;
     for (let r = 0; r < T.length; r++) if (artCols.includes(basis[r])) infeas += T[r][width - 1];
-    if (infeas > 1e-7 * scale) return { status: 'infeasible' };
+    if (infeas > 1e-7 * Math.max(bScale, 1)) return { status: 'infeasible' };
     for (let r = 0; r < T.length; r++) {
       if (!artCols.includes(basis[r])) continue;
       const col = T[r].findIndex((v, k) => k < nx + nSlack && Math.abs(v) > tol);
@@ -104,7 +110,8 @@ export function solveLp(p: LpProblem): LpResult {
   const cost2 = new Array(width).fill(0);
   cols.forEach((c, k) => { cost2[k] = c.s * p.c[c.v]; });
   const isArt = new Set(artCols);
-  if (run(cost2, (col) => !isArt.has(col)) === 'unbounded') return { status: 'unbounded' };
+  const phase2 = run(cost2, (col) => !isArt.has(col));
+  if (phase2 !== 'optimal') return { status: phase2 };
   const x = new Array(n).fill(0);
   for (let r = 0; r < T.length; r++) {
     const k = basis[r];

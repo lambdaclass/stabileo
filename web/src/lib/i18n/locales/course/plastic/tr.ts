@@ -178,6 +178,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Momentler',
   'course.plastic.closed': 'kapandı',
   'course.plastic.closedTitle': 'Mafsal λ = {lambda} değerinde yükünü bıraktı ve yeniden rijit oldu.',
+  'course.plastic.unresolved': 'Analiz, sahte bir mekanizmadan ayıramadığı bir mekanizmada durdu (yükünü bırakacak mafsallar): bu λ durduğu yerdir, doğrulanmış bir göçme yükü değildir.',
 };
 
 export default words;

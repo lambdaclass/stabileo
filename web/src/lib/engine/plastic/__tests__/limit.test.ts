@@ -25,6 +25,18 @@ describe('a small linear program', () => {
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '<=', b: -1 }] }).status).toBe('infeasible');
     expect(solveLp({ c: [-1], rows: [{ a: [-1], op: '<=', b: 1 }] }).status).toBe('unbounded');
   });
+  it('finds the same optimum whatever the scale of the right-hand side or of the costs', () => {
+    for (const b of [1e-6, 1, 1e10]) {
+      const r = solveLp({ c: [-1], rows: [{ a: [1], op: '<=', b }] });
+      expect(r.status).toBe('optimal');
+      if (r.status === 'optimal') expect(r.x[0] / b).toBeCloseTo(1, 9);
+    }
+    for (const k of [1e-8, 1e8]) {
+      const r = solveLp({ c: [-k, -2 * k], rows: [{ a: [1, 1], op: '<=', b: 4 }, { a: [1, 3], op: '<=', b: 6 }] });
+      expect(r.status).toBe('optimal');
+      if (r.status === 'optimal') { expect(r.x[0]).toBeCloseTo(3, 9); expect(r.x[1]).toBeCloseTo(1, 9); }
+    }
+  });
 });
 
 describe('critical sections, independent mechanisms and GH', () => {

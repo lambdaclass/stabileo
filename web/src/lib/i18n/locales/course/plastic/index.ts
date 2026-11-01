@@ -3,6 +3,7 @@ import type { Translations } from '../../../types';
 export const es: Translations = {
   'course.plastic.closed': 'se cerró',
   'course.plastic.closedTitle': 'La rótula se descargó en λ = {lambda} y volvió a ser rígida.',
+  'course.plastic.unresolved': 'El análisis se detuvo en un mecanismo que no pudo distinguir de uno falso (rótulas que se descargarían): este λ es donde se detuvo, no una carga de colapso verificada.',
   'steps.group.plastic': 'Cálculo plástico',
   'steps.m.plasticKinematic.title': 'Método cinemático',
   'steps.m.plasticKinematic.help': 'Busca la carga de colapso entre los mecanismos posibles. Ubica las secciones críticas, arma los mecanismos elementales (de viga, de nudo y de desplazamiento lateral), escribe para cada uno la ecuación de trabajos virtuales y los combina para eliminar rótulas y bajar λ. El menor λ es una cota superior; si con él los momentos no superan Mp en ningún punto, es la carga de colapso.',
@@ -183,6 +184,7 @@ export const es: Translations = {
 export const en: Translations = {
   'course.plastic.closed': 'closed',
   'course.plastic.closedTitle': 'The hinge unloaded at λ = {lambda} and became rigid again.',
+  'course.plastic.unresolved': 'The analysis stopped at a mechanism it could not tell from a false one (hinges that would unload): this λ is where it stopped, not a verified collapse load.',
   'steps.group.plastic': 'Plastic analysis',
   'steps.m.plasticKinematic.title': 'Kinematic method',
   'steps.m.plasticKinematic.help': 'Finds the collapse load among the possible mechanisms. It locates the critical sections, sets up the elementary mechanisms (beam, joint and sway), writes the virtual work equation of each one and combines them to remove hinges and lower λ. The smallest λ is an upper bound; if the moments at that λ stay within Mp everywhere, it is the collapse load.',
@@ -363,6 +365,7 @@ export const en: Translations = {
 export const pt: Translations = {
   'course.plastic.closed': 'fechou',
   'course.plastic.closedTitle': 'A rótula descarregou em λ = {lambda} e voltou a ser rígida.',
+  'course.plastic.unresolved': 'A análise parou num mecanismo que não conseguiu distinguir de um falso (rótulas que descarregariam): este λ é onde parou, não uma carga de colapso verificada.',
   'steps.group.plastic': 'Análise plástica',
   'steps.m.plasticKinematic.title': 'Método cinemático',
   'steps.m.plasticKinematic.help': 'Procura a carga de colapso entre os mecanismos possíveis. Localiza as seções críticas, monta os mecanismos elementares (de viga, de nó e de deslocamento lateral), escreve a equação dos trabalhos virtuais de cada um e os combina para eliminar rótulas e reduzir λ. O menor λ é um limite superior; se com ele os momentos não ultrapassam Mp em nenhum ponto, é a carga de colapso.',

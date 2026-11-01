@@ -178,6 +178,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Momente',
   'course.plastic.closed': 'geschlossen',
   'course.plastic.closedTitle': 'Das Gelenk wurde bei λ = {lambda} entlastet und ist wieder starr.',
+  'course.plastic.unresolved': 'Die Berechnung hielt bei einem Mechanismus an, den sie nicht von einem falschen unterscheiden konnte (Gelenke, die sich entlasten würden): Dieses λ ist der Haltepunkt, keine nachgewiesene Traglast.',
 };
 
 export default words;

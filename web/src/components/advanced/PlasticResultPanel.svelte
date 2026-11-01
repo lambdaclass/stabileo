@@ -55,6 +55,7 @@
     {/if}
     · GH = {Math.max(0, r.degree)}
   </div>
+  {#if r.unresolved}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>
@@ -91,6 +92,7 @@
 {/if}
 
 <style>
+  .pl-unresolved { color: var(--st-danger); }
   .pl-table { width: 100%; border-collapse: collapse; font-size: 0.68rem; margin: 4px 0; font-variant-numeric: tabular-nums; }
   .pl-table th { color: var(--st-text-3); font-weight: 500; text-align: right; padding: 2px 4px; }
   .pl-table td { text-align: right; padding: 2px 4px; color: var(--st-text-2); }

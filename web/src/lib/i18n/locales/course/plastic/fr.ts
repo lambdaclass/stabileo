@@ -178,6 +178,7 @@ const words: Translations = {
   'course.plastic.user.showMoments': 'Moments',
   'course.plastic.closed': 'refermée',
   'course.plastic.closedTitle': 'La rotule s’est déchargée à λ = {lambda} et est redevenue rigide.',
+  'course.plastic.unresolved': 'Le calcul s’est arrêté sur un mécanisme qu’il n’a pas pu distinguer d’un faux (rotules qui se déchargeraient) : ce λ est l’endroit où il s’est arrêté, pas une charge de ruine vérifiée.',
 };
 
 export default words;
