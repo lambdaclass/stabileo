@@ -3,7 +3,9 @@
   import { viewportCanvas } from '../lib/utils/viewport-canvas';
   import { resultsStore, modelStore, uiStore, historyStore } from '../lib/store';
   import { t, tp, i18n } from '../lib/i18n';
-  import { reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg } from '../lib/ai/client';
+  import { aiKeys } from '../lib/ai/keys.svelte';
+  import AiKeySettings from './AiKeySettings.svelte';
+  import { aiBackendConfigured, reviewModel, buildArtifact, buildModel, buildModelContext, type ReviewModelResponse, type ReviewFinding, type BuildModelResponse, type ConversationMessage, type SolverDiagnosticMsg } from '../lib/ai/client';
   import { runGlobalSolve } from '../lib/engine/live-calc';
   import type { ModelSnapshot } from '../lib/store/history.svelte';
   import { compactSnapshotForAi, isValidReleaseShape, normalizeSnapshotReleases } from '../lib/ai/build-model';
@@ -17,16 +19,9 @@
    */
   let { docked = false }: { docked?: boolean } = $props();
 
-  /**
-   * The assistant is not usable yet, and every control says so from one place.
-   *
-   * A banner that announces "in development" above an input you can still type
-   * into is a notice its own surface contradicts — the reader believes the box,
-   * not the label. So this flag disables what would otherwise accept work, and
-   * the banner explains what the disabling means. One constant, so the day it
-   * ships there is one line to change and no control left behind still greyed.
-   */
-  const AI_IN_DEVELOPMENT = true;
+  const aiEnabled = $derived(aiKeys.active !== null || aiBackendConfigured);
+  let showKeySettings = $state(false);
+  const PROVIDER_ACCOUNT = { anthropic: 'Anthropic', openai: 'OpenAI' } as const;
 
   type AiTab = 'review' | 'explain' | 'query' | 'build';
   let activeTab = $state<AiTab>('build');
@@ -584,11 +579,14 @@
     <button class="tab" class:active={activeTab === 'query'} onclick={() => activeTab = 'query'}>{t('ai.tabQuery')}</button>
   </div>
 
-  <!-- Body -->
-  {#if activeTab === 'review'}
+  {#if (!aiEnabled || showKeySettings) && !pendingDraft}
+    <div class="drawer-body">
+      <AiKeySettings onDone={aiEnabled ? () => (showKeySettings = false) : undefined} />
+    </div>
+  {:else if activeTab === 'review'}
     <div class="drawer-body">
       {#if !reviewResponse && !reviewLoading}
-        <button class="action-btn" disabled={AI_IN_DEVELOPMENT || !hasResults} onclick={handleReview}>
+        <button class="action-btn" disabled={!aiEnabled || !hasResults} onclick={handleReview}>
           {t('ai.reviewModel')}
         </button>
         {#if !hasResults}
@@ -673,19 +671,6 @@
       <!-- Chat messages -->
       <div class="chat-messages" bind:this={chatContainer}>
         {#if chatMessages.length === 0}
-          <!--
-            The empty state is the panel, most of the time.
-            ──────────────────────────────────────────────
-            Nothing has been asked yet and nothing can be, so this is what a
-            reader actually sees — it is worth designing rather than filling.
-
-            The examples are chips, not a stack of italic lines. A chip is the
-            shape of something you can pick, which is the truthful shape here:
-            they are the sentences this assistant is built to understand, and
-            picking one will write it into the composer once there is an
-            assistant to send it to. Until then they are inert, and `disabled`
-            says so rather than a cursor discovering it.
-          -->
           <div class="chat-empty">
             <span class="chat-empty-mark" aria-hidden="true">△</span>
             <p class="chat-empty-title">
@@ -695,7 +680,7 @@
               {#each (hasModelOnCanvas ? ['ai.exBay', 'ai.exStory', 'ai.exProfile', 'ai.exFrame3'] : ['ai.exBeam', 'ai.exPortal', 'ai.exBridge']) as k (k)}
                 <button
                   class="chat-chip"
-                  disabled={AI_IN_DEVELOPMENT}
+                  disabled={!aiEnabled}
                   onclick={() => (chatInput = t(k))}
                 >{t(k)}</button>
               {/each}
@@ -732,20 +717,8 @@
       <!-- Apply / Retry / Cancel bar -->
       {#if pendingDraft}
         <div class="draft-actions">
-          <!--
-            Apply and Retry are gated; Cancel deliberately is NOT.
-
-            The two on the left commit or re-request a draft — `handleApply` solves and keeps
-            it, `handleRetry` asks for another. Both are the panel doing work it says it is not
-            ready to do.
-
-            Cancel only clears `pendingDraft`. Gating it would mean that if a draft ever
-            reached the screen by a path this chain did not foresee, the reader would be left
-            holding one with no way out of it. A disabled escape is not a safer state than an
-            enabled one; it is the same state with the door locked.
-          -->
-          <button class="draft-btn draft-apply" onclick={handleApply} disabled={AI_IN_DEVELOPMENT}>{t('pro.apply')}</button>
-          <button class="draft-btn draft-retry" onclick={handleRetry} disabled={AI_IN_DEVELOPMENT}>{t('ai.retry')}</button>
+          <button class="draft-btn draft-apply" onclick={handleApply} data-testid="ai-apply">{t('pro.apply')}</button>
+          <button class="draft-btn draft-retry" onclick={handleRetry} disabled={!aiEnabled}>{t('ai.retry')}</button>
           <button class="draft-btn draft-cancel" onclick={handleCancel}>{t('app.cancel')}</button>
         </div>
       {/if}
@@ -753,21 +726,7 @@
       <!-- Fix solver issues -->
       {#if justApplied && lastSolverDiagnostics.length > 0 && !pendingDraft}
         <div class="post-build-bar">
-          <!--
-            `AI_IN_DEVELOPMENT` here too, and this is the one control where it matters most.
-
-            `handleFixIssues` calls `historyStore.pushState()` and `fastRebuild()` — it is the
-            only thing in this panel that MUTATES THE USER'S MODEL. Every other control carries
-            the constant explicitly; this one was gated only by `buildLoading`.
-
-            It is unreachable today, and that is exactly the problem: it renders behind
-            `justApplied && lastSolverDiagnostics.length > 0`, `justApplied` is set only by
-            `handleApply`, which returns early without a `pendingDraft`, which only the disabled
-            composer can create. Four state variables deep, and the panel's claim that it is
-            unfinished rests on that chain staying unbroken rather than on the constant that
-            says so. One `AI_IN_DEVELOPMENT ||` makes the guarantee stated instead of derived.
-          -->
-          <button class="post-build-btn fix-issues-btn" onclick={handleFixIssues} disabled={AI_IN_DEVELOPMENT || buildLoading}>
+          <button class="post-build-btn fix-issues-btn" onclick={handleFixIssues} disabled={!aiEnabled || buildLoading}>
             {lastSolverDiagnostics.length > 1 ? tp('ai.fixIssuesMany', { n: lastSolverDiagnostics.length }) : t('ai.fixIssuesOne')}
           </button>
         </div>
@@ -784,16 +743,16 @@
       <div class="chat-input-row">
         <textarea
           class="chat-input"
-          placeholder={AI_IN_DEVELOPMENT ? t('ai.devPlaceholder') : (hasModelOnCanvas ? t('ai.describeChange') : t('ai.describeBuild'))}
+          placeholder={hasModelOnCanvas ? t('ai.describeChange') : t('ai.describeBuild')}
           bind:value={chatInput}
           onkeydown={handleBuildKeydown}
-          disabled={AI_IN_DEVELOPMENT || buildLoading || !!pendingDraft}
+          disabled={!aiEnabled || buildLoading || !!pendingDraft}
           rows="2"
         ></textarea>
         {#if buildLoading}
           <button class="chat-send stop-btn" onclick={handleAbortBuild} title={t('ai.stop')}>■</button>
         {:else}
-          <button class="chat-send" onclick={() => handleBuildSend()} disabled={AI_IN_DEVELOPMENT || !chatInput.trim() || !!pendingDraft} data-testid="ai-send">→</button>
+          <button class="chat-send" onclick={() => handleBuildSend()} disabled={!aiEnabled || !chatInput.trim() || !!pendingDraft} data-testid="ai-send">→</button>
         {/if}
       </div>
     </div>
@@ -817,26 +776,13 @@
     </div>
   {/if}
 
-  <!--
-    The in-development notice — quiet, and last.
-    ───────────────────────────────────────────
-    It sits at the foot of the panel in every tab, because the thing it
-    qualifies is the panel, not one view of it.
-
-    An earlier version was a `--st-warn` banner above the tabs. That read as a
-    warning about the model — the colour the app uses for "your structure has a
-    problem" — when it is a note about the feature. Demoted to a hairline rule
-    and `--st-text-3`: present wherever you look, loud nowhere.
-
-    The claim is not carried by this text alone. `AI_IN_DEVELOPMENT` also
-    disables the composer and its send button, and the placeholder says why, so
-    the first thing a reader tries is the thing that tells them. A notice the
-    interface contradicts is worse than no notice.
-  -->
-  <p class="ai-dev-note" data-testid="ai-dev-note">
-    <span class="ai-dev-mark" aria-hidden="true"></span>
-    {t('ai.devNote')}
-  </p>
+  {#if aiKeys.active && !showKeySettings}
+    <div class="ai-key-bar" data-testid="ai-key-bar">
+      <span class="ai-key-mark" aria-hidden="true"></span>
+      <span class="ai-key-bar-text">{tp('ai.key.using', { provider: PROVIDER_ACCOUNT[aiKeys.active.provider] })}</span>
+      <button class="ai-key-manage" data-testid="ai-key-manage" disabled={!!pendingDraft || buildLoading} onclick={() => (showKeySettings = true)}>{t('ai.key.manage')}</button>
+    </div>
+  {/if}
 </svelte:element>
 
 <style>
@@ -851,13 +797,7 @@
     flex-shrink: 0;
   }
 
-  /* ── The in-development notice ──────────────────────────────────────
-     A footnote, not a warning. It is the last thing in the panel, separated by
-     a hairline instead of a filled box, and it borrows no semantic colour —
-     `--st-warn` in this application means the structure has a problem, and
-     spending it on "this feature is unfinished" makes both meanings weaker.
-     ───────────────────────────────────────────────────────────────── */
-  .ai-dev-note {
+  .ai-key-bar {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -869,14 +809,28 @@
     font-size: 0.65rem;
     line-height: 1.4;
   }
-  /* A dot rather than an icon: at 5 px an icon is noise, and the sentence is
-     the message. It only has to say "this line is a status, not body copy". */
-  .ai-dev-mark {
+  .ai-key-mark {
     width: 5px;
     height: 5px;
     flex-shrink: 0;
     border-radius: 50%;
-    background: var(--st-text-3);
+    background: var(--st-accent);
+  }
+  .ai-key-bar-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .ai-key-manage {
+    flex-shrink: 0;
+    min-height: 28px;
+    padding: 0 0.6rem;
+    background: none;
+    border: 1px solid var(--st-surface-3);
+    border-radius: 5px;
+    color: var(--st-text-2);
+    font-size: 0.65rem;
+    cursor: pointer;
+  }
+  .ai-key-manage:disabled { opacity: 0.4; cursor: not-allowed; }
+  @media (pointer: coarse) {
+    .ai-key-manage { min-height: 44px; }
   }
 
   /* Docked: the panel owns the box, so this contributes no chrome of its own. */
@@ -890,7 +844,7 @@
        Where the parent is ordinary flow the `flex` shorthand is simply
        ignored and the drawer stays content-sized, as it was.
 
-       This is what puts the footnote at the FOOT. Content-sized, it landed
+       This is what puts the key bar at the FOOT. Content-sized, it landed
        directly under the composer with the rest of the panel empty below it
        on desktop, and at y≈1017 on a 667 px phone — a note about the feature
        that you had to scroll past the feature to reach.
@@ -899,7 +853,7 @@
     min-height: 0;
   }
   /* Whatever room is left goes above the note, not below it. */
-  .ai-drawer.ai-docked .ai-dev-note { margin-top: auto; }
+  .ai-drawer.ai-docked .ai-key-bar { margin-top: auto; }
 
   .drawer-header {
     display: flex;
