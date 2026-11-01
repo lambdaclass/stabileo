@@ -408,7 +408,7 @@ fn validation_comp_des_ext_3_full_composite_moment() {
 #[test]
 fn validation_comp_des_ext_4_partial_interaction() {
     let l_m: f64 = 9.0;
-    let n_elem = 9;
+    let n_elem = 10;
     let p_kn: f64 = 60.0;
     let mid = n_elem / 2 + 1;
 
@@ -469,7 +469,7 @@ fn validation_comp_des_ext_4_partial_interaction() {
 
     // Full composite (eta=1.0) deflection should match analytical
     let delta_full_exact: f64 = p_kn * l_m.powi(3) / (48.0 * e_eff * iz_full);
-    assert_close(deltas[3], delta_full_exact, 0.02,
+    assert_close(deltas[3], delta_full_exact, 1e-9,
         "Full composite deflection vs analytical");
 }
 

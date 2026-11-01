@@ -158,8 +158,8 @@ fn validation_tri_ext_cantilever_zero_at_root() {
 //   delta_max = 0.01304 * q*L^4 / (E*I)  at x ~= 0.5193L
 //   delta(L/2) = q*L^4 * (5/768) * correction...
 //
-// Simpler: compare to the known max deflection formula.
-// delta_max = q*L^4 / (76.68*E*I) = 0.01304*q*L^4/(E*I)
+// Elastic curve: y(x) = q*x*(7L^4 - 10L^2x^2 + 3x^4) / (360*L*E*I)
+// delta_max = 0.0065222*q*L^4/(E*I) (= 0.01304*W*L^3/(E*I), W = qL/2)
 //   at x = 0.5193*L
 //
 // Ref: Roark, Table 8.1, Case 2b
@@ -180,11 +180,16 @@ fn validation_tri_ext_ss_max_deflection() {
         .map(|d| d.uz.abs())
         .fold(0.0_f64, f64::max);
 
-    // Analytical max deflection: delta_max = 0.01304 * qL^4/(EI)
-    let delta_max_exact: f64 = 0.01304 * q * l.powi(4) / (e_eff * IZ);
-
-    assert_close(max_disp, delta_max_exact, 0.05,
-        "Tri SS: max deflection = 0.01304*qL^4/(EI)");
+    let deflection = |x: f64| q * x * (7.0 * l.powi(4) - 10.0 * l * l * x * x + 3.0 * x.powi(4))
+        / (360.0 * l * e_eff * IZ);
+    let delta_max_exact: f64 = (0..=n)
+        .map(|i| deflection(i as f64 * l / n as f64))
+        .fold(0.0_f64, f64::max);
+    assert_close(max_disp, delta_max_exact, 1e-9,
+        "Tri SS: max nodal deflection = max of qx(7L^4-10L^2x^2+3x^4)/(360LEI)");
+    let x_peak: f64 = l * (1.0 - (8.0_f64 / 15.0).sqrt()).sqrt();
+    assert_close(deflection(x_peak), 0.0065222 * q * l.powi(4) / (e_eff * IZ), 1e-5,
+        "Tri SS: true max deflection = 0.0065222*qL^4/(EI)");
 
     // Max deflection occurs near x = 0.5193*L
     // Find the node with the largest deflection
@@ -307,7 +312,7 @@ fn validation_tri_ext_antisymmetric_load() {
     let r_b = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap().rz;
 
     // Net load is zero, so R_A + R_B = 0
-    assert_close(r_a + r_b, 0.0, 0.01,
+    assert_close_abs(r_a + r_b, 0.0, 0.01, 1e-6,
         "Antisymmetric tri: sum R = 0");
 
     // R_A = qL/6 (upward, to resist the downward load on the left half)

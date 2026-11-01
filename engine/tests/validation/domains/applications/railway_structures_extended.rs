@@ -512,13 +512,10 @@ fn railway_bridge_deck_acceleration_check() {
     let delta_quarter = results.displacements.iter()
         .find(|d| d.node_id == quarter).unwrap().uz.abs();
 
-    // For SS beam with center load, delta at L/4 = P*L^3/(48EI) * 11/16
-    // Wait, exact: delta(L/4) = P*(L/4) * (3*L^2 - 4*(L/4)^2) / (48*E*I)
-    //            = P*L/4 * (3L^2 - L^2/4) / (48EI)
-    //            = P*L/4 * (11L^2/4) / (48EI)
-    //            = 11*P*L^3 / (768*E*I)
-    let delta_quarter_exact: f64 = 11.0 * p_unit * l.powi(3) / (768.0 * e_eff * iz_bridge);
-    assert_close(delta_quarter, delta_quarter_exact, 0.05, "Bridge quarter-point deflection");
+    // n is not a multiple of 4, so this node sits at x = 0.2 L, not L/4; use the node's actual x.
+    let x_q: f64 = (quarter - 1) as f64 * l / n as f64;
+    let delta_quarter_exact: f64 = p_unit * x_q * (3.0 * l * l - 4.0 * x_q * x_q) / (48.0 * e_eff * iz_bridge);
+    assert_close(delta_quarter, delta_quarter_exact, 1e-6, "Bridge quarter-point deflection");
 }
 
 // ================================================================
@@ -533,7 +530,7 @@ fn railway_bridge_deck_acceleration_check() {
 // each support (symmetric, a = L/4 for standard gauge on 2.6m sleeper):
 //   R_A = R_B = P    (by symmetry, each support carries one load)
 //   M_max = P * a    (constant moment between loads)
-//   delta_mid = P*a*(3L^2 - 4a^2) / (48*E*I)
+//   delta_mid = P*a*(3L^2 - 4a^2) / (24*E*I)
 //
 // Source: Esveld, "Modern Railway Track", Ch. 4 (Sleeper design);
 //         Timoshenko beam formula for symmetric two-point loading.
@@ -595,10 +592,9 @@ fn railway_sleeper_beam_two_rail_loads() {
         .find(|ef| ef.element_id == mid_elem).unwrap();
     assert_close(ef_mid.m_end.abs(), m_expected, 0.05, "Sleeper midspan moment P*a");
 
-    // Midspan deflection: delta = P*a*(3L^2 - 4a^2) / (48*E*I)
     let mid = n / 2 + 1;
     let delta_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap().uz.abs();
-    let delta_exact: f64 = p * a * (3.0 * l * l - 4.0 * a * a) / (48.0 * e_eff * iz_sleeper);
-    assert_close(delta_mid, delta_exact, 0.10, "Sleeper midspan deflection");
+    let delta_exact: f64 = p * a * (3.0 * l * l - 4.0 * a * a) / (24.0 * e_eff * iz_sleeper);
+    assert_close(delta_mid, delta_exact, 1e-6, "Sleeper midspan deflection");
 }
