@@ -60,6 +60,7 @@ import { fileURLToPath } from 'node:url';
 import catalog from '../../../../../research/papers.json';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../../../components/research/locales';
+import { PAPER_LOCALES } from '../../../components/paper/locales';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -80,6 +81,30 @@ const execFileAsync = promisify(execFile);
  */
 function isFile(p: string): boolean {
   return existsSync(p) && statSync(p).isFile();
+}
+
+function attributes(tag: string): Record<string, string> {
+  return Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map(([, k, v]) => [k, v]));
+}
+
+/** The hreflang set a page head or a sitemap entry declares, as sorted `<lang> <href>` lines, whatever order each tag puts its attributes in. */
+function hreflangSet(markup: string): string[] {
+  return [...markup.matchAll(/<(?:xhtml:)?link\b[^>]*>/g)]
+    .map(([tag]) => attributes(tag))
+    .filter((a) => a.rel === 'alternate' && a.hreflang !== undefined)
+    .map((a) => `${a.hreflang} ${a.href}`)
+    .sort();
+}
+
+/** Why a sitemap entry and the file it names disagree on hreflang, or null when they agree on a non-empty set. */
+function hreflangDisagreement(entry: string, page: string | null): string | null {
+  if (page === null) return 'no built file';
+  const listed = hreflangSet(entry);
+  const declared = hreflangSet(page);
+  if (listed.length === 0) return 'the sitemap lists no hreflang';
+  if (declared.length === 0) return 'the page declares no hreflang';
+  if (listed.join('\n') !== declared.join('\n')) return `sitemap: ${listed.join(', ')}\n    page:    ${declared.join(', ')}`;
+  return null;
 }
 
 /** Every <loc> in the sitemap, as an absolute URL. */
@@ -156,7 +181,7 @@ describe('every published URL is served, not redirected', () => {
       const file = fileServedWithoutRedirect(new URL(url).pathname);
       if (!file) continue;
       const html = readFileSync(file, 'utf8');
-      for (const [, href] of html.matchAll(/<link rel="alternate" hreflang="[^"]+" href="([^"]+)"/g)) {
+      for (const href of hreflangSet(html).map((line) => line.split(' ')[1])) {
         if (!href.startsWith(ORIGIN)) { broken.push(`${url} -> ${href} (foreign origin)`); continue; }
         if (fileServedWithoutRedirect(new URL(href).pathname) === null) {
           broken.push(`${url} -> ${href} (redirects)`);
@@ -165,18 +190,34 @@ describe('every published URL is served, not redirected', () => {
     }
     expect(broken, `hreflang points at URLs that redirect:\n${broken.join('\n')}`).toEqual([]);
   });
-  it('the sitemap and each page declare the same hreflang set', () => {
+  it('compares hreflang sets whatever the attribute order, and never passes an empty or missing side', () => {
+    const entry = '<loc>x</loc><xhtml:link rel="alternate" hreflang="en" href="https://stabileo.com/en/a/"/><xhtml:link href="https://stabileo.com/es/a/" hreflang="es" rel="alternate"/>';
+    const page = '<link hreflang="es" rel="alternate" href="https://stabileo.com/es/a/"><link rel="alternate" href="https://stabileo.com/en/a/" hreflang="en"><link rel="alternate" type="application/rss+xml" href="/feed.xml">';
+    expect(hreflangSet(entry)).toEqual(['en https://stabileo.com/en/a/', 'es https://stabileo.com/es/a/']);
+    expect(hreflangDisagreement(entry, page)).toBeNull();
+    expect(hreflangDisagreement(entry, null)).toBe('no built file');
+    expect(hreflangDisagreement('<loc>x</loc>', '<head></head>')).toBe('the sitemap lists no hreflang');
+    expect(hreflangDisagreement(entry, '<head></head>')).toBe('the page declares no hreflang');
+    expect(hreflangDisagreement(entry, '<link rel="alternate" hreflang="en" href="https://stabileo.com/en/a/">')).toMatch(/^sitemap: /);
+  });
+
+  it('the sitemap and each page declare the same, non-empty hreflang set', () => {
     const xml = readFileSync(SITEMAP, 'utf8');
     const differ: string[] = [];
     for (const [, block] of xml.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
       const url = block.match(/<loc>([^<]+)<\/loc>/)![1];
       const file = fileServedWithoutRedirect(new URL(url).pathname);
-      if (!file) continue;
-      const listed = [...block.matchAll(/hreflang="([^"]+)" href="([^"]+)"/g)].map(([, l, h]) => `${l} ${h}`).sort();
-      const declared = [...readFileSync(file, 'utf8').matchAll(/<link rel="alternate" hreflang="([^"]+)" href="([^"]+)"/g)].map(([, l, h]) => `${l} ${h}`).sort();
-      if (listed.join('\n') !== declared.join('\n')) differ.push(`${url}\n    sitemap: ${listed.join(', ')}\n    page:    ${declared.join(', ')}`);
+      const why = hreflangDisagreement(block, file && readFileSync(file, 'utf8'));
+      if (why) differ.push(`${url}\n    ${why}`);
     }
     expect(differ, `hreflang in the sitemap disagrees with the page:\n${differ.join('\n')}`).toEqual([]);
+  });
+
+  it('publishes /paper only in the languages it is written in', () => {
+    const paper = publishedUrls().filter((u) => /^https:\/\/stabileo\.com\/[a-z]{2}\/paper\/$/.test(u));
+    expect(paper.sort()).toEqual(PAPER_LOCALES.map((l) => `${ORIGIN}/${l}/paper/`).sort());
+    const declared = hreflangSet(readFileSync(join(DIST, 'en/paper/index.html'), 'utf8')).filter((l) => !l.startsWith('x-default '));
+    expect(declared).toEqual(PAPER_LOCALES.map((l) => `${l} ${ORIGIN}/${l}/paper/`).sort());
   });
 
   describe('research', () => {
@@ -194,6 +235,13 @@ describe('every published URL is served, not redirected', () => {
       for (const { path, url } of published) {
         const lastmod = xml.match(new RegExp(`<loc>${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</loc>\\s*<lastmod>([^<]+)</lastmod>`))?.[1];
         expect(lastmod, url).toBe(researchLastReview(path));
+      }
+    });
+
+    it('declares exactly the languages each research page is published in as its hreflang set', () => {
+      for (const { path, url } of published) {
+        const declared = hreflangSet(html(url)).filter((l) => !l.startsWith('x-default '));
+        expect(declared, url).toEqual(researchLocales(path).map((l) => `${l} ${ORIGIN}/${l}${path}/`).sort());
       }
     });
 

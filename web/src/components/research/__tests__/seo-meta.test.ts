@@ -55,8 +55,24 @@ it.each(EXPERIMENTS)('$paperId states a self canonical path, its title and a cit
 });
 
 it('does not repeat the year a page name already carries', () => {
-  expect(paperTitle('Lee frame (1968)', 'lee-frame-1968')).toBe('Lee frame (1968) — Stabileo Research');
-  expect(paperTitle('Topology optimization of an MBB beam', 'andreassen-2011')).toBe('Topology optimization of an MBB beam (Andreassen et al. 2010) — Stabileo Research');
+  expect(paperTitle('Lee frame (1968)', 'lee-frame-1968', 'en')).toBe('Lee frame (1968) — Stabileo Research');
+  expect(paperTitle('Topology optimization of an MBB beam', 'andreassen-2011', 'en')).toBe('Topology optimization of an MBB beam (Andreassen et al. 2010) — Stabileo Research');
+});
+
+it('dates the Andreassen title by the catalogue year, the one its citation and datePublished use', () => {
+  const entry = catalog.papers.find((p) => p.id === 'andreassen-2011')!;
+  expect(entry.crossref.year).toBe(2010);
+  const meta = paperMeta({ paperId: 'andreassen-2011', name: 'MBB beam', lead: 'x' }, 'en', labels);
+  const article = meta.graph.find((n) => (n as { '@id'?: string })['@id']?.endsWith('#article')) as { citation: { datePublished: string } };
+  expect(meta.title).toContain(`(Andreassen et al. ${entry.crossref.year})`);
+  expect(article.citation.datePublished).toBe(String(entry.crossref.year));
+});
+
+it('joins two authors with the conjunction of the page language', () => {
+  expect(paperTitle('Springs', 'grossman-2026', 'en')).toBe('Springs (Grossman & Boudaoud 2026) — Stabileo Research');
+  expect(paperTitle('Resortes', 'grossman-2026', 'es')).toBe('Resortes (Grossman y Boudaoud 2026) — Stabileo Research');
+  expect(paperTitle('Molas', 'grossman-2026', 'pt')).toBe('Molas (Grossman e Boudaoud 2026) — Stabileo Research');
+  expect(paperMeta({ paperId: 'ferrari-2025', name: 'Pandeo', lead: 'x' }, 'es', labels).title).toBe('Pandeo (Ferrari y Sigmund 2025) — Stabileo Research');
 });
 
 it('lists every paper in the gallery graph at the URL it is published under', () => {
@@ -65,6 +81,19 @@ it('lists every paper in the gallery graph at the URL it is published under', ()
   expect(items).toContain('https://stabileo.com/es/research/benchmarks/lee-frame-1968/');
   expect(items).toContain('https://stabileo.com/en/research/benchmarks/riks-crisfield/');
   expect(items).toHaveLength(EXPERIMENTS.length);
+});
+
+it('names each gallery graph item with the title its card shows, in every published language', () => {
+  const decode = (t: string) => t.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  for (const locale of researchLocales('/research') as PublicLocale[]) {
+    setLocale(locale);
+    const { body } = render(Gallery);
+    const shown = [...body.matchAll(/<li class="rs-g-runcard[^"]*">[\s\S]*?<h3[^>]*>([\s\S]*?)<\/h3>/g)].map(([, h]) => decode(h.replace(/<[^>]*>/g, '').trim()));
+    const graph = galleryGraph(locale, labels);
+    const named = (graph[0] as { mainEntity: { itemListElement: { name: string }[] } }).mainEntity.itemListElement.map((i) => i.name);
+    expect(shown).toHaveLength(EXPERIMENTS.length);
+    expect(named, locale).toEqual(shown);
+  }
 });
 
 it('links each gallery card to a URL the paper is published under', () => {

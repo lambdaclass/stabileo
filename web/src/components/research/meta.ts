@@ -1,6 +1,7 @@
 import catalog from '../../../../research/papers.json';
 import { bibliography } from './catalogue';
 import { EXPERIMENTS } from './experiments';
+import { cardTitle } from './card-title';
 import { RESEARCH_GALLERY, researchLastReview, researchLocales } from './locales';
 import { publicUrl } from '../../lib/i18n/public-routes';
 import { STABILEO_ORGANIZATION } from '../../lib/page-meta';
@@ -25,16 +26,18 @@ function surname(name: string): string {
   return name.trim().split(/\s+/).at(-1) ?? name;
 }
 
-function shortAuthors(authors: string[]): string {
+const AND: Record<PublicLocale, string> = { en: '&', es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' };
+
+function shortAuthors(authors: string[], locale: PublicLocale): string {
   if (authors.length === 0) return '';
   if (authors.length === 1) return surname(authors[0]);
-  if (authors.length === 2) return `${surname(authors[0])} & ${surname(authors[1])}`;
+  if (authors.length === 2) return `${surname(authors[0])} ${AND[locale]} ${surname(authors[1])}`;
   return `${surname(authors[0])} et al.`;
 }
 
-export function paperTitle(name: string, paperId: string): string {
+export function paperTitle(name: string, paperId: string, locale: PublicLocale): string {
   const p = paper(paperId);
-  const credit = name.includes(String(p.year)) ? '' : ` (${[shortAuthors(p.authors), p.year].filter(Boolean).join(' ')})`;
+  const credit = name.includes(String(p.year)) ? '' : ` (${[shortAuthors(p.authors, locale), p.year].filter(Boolean).join(' ')})`;
   return `${name}${credit} — Stabileo Research`;
 }
 
@@ -88,7 +91,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
     STABILEO_ORGANIZATION,
   ];
   return {
-    title: paperTitle(head.name, head.paperId),
+    title: paperTitle(head.name, head.paperId, own),
     description: head.lead,
     path,
     written: researchLocales(path) as readonly PublicLocale[],
@@ -96,7 +99,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
   };
 }
 
-/** The gallery's graph: a collection whose items are the paper pages, at the URL each is published under. */
+/** The gallery's graph: a collection whose items are the paper pages, at the URL each is published under, named as their cards are in the current `publicI18n.locale`. */
 export function galleryGraph(locale: PublicLocale, labels: Labels) {
   const url = publicUrl(RESEARCH_GALLERY, locale);
   return [
@@ -113,7 +116,7 @@ export function galleryGraph(locale: PublicLocale, labels: Labels) {
           '@type': 'ListItem',
           position: i + 1,
           url: publicUrl(e.path, researchUrlLocale(e.path, locale)),
-          name: e.name,
+          name: cardTitle(e),
         })),
       },
     },
