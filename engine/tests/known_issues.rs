@@ -1161,7 +1161,7 @@ fn warped_mitc_thresholds_are_the_measured_bands() {
     for (quad9, (warn, refuse)) in [(false, WARPED_MITC4_TWIST), (true, WARPED_MITC9_TWIST)] {
         let kappa = if quad9 { quad9_twist_curvature(&nine) } else { quad_twist_curvature(&corners) };
         assert!((kappa / c - 1.0).abs() < 0.1, "{quad9}: {kappa}");
-        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error))] {
+        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error)), (f64::NAN, Some(Severity::Error))] {
             let mut input = beam3d();
             input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
             let points: &[[f64; 3]] = if quad9 { &nine } else { &corners };
