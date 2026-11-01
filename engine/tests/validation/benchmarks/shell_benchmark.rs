@@ -3752,19 +3752,57 @@ fn benchmark_raasch_hook() {
 // Twisted Beam — MacNeal-Harder
 // ================================================================
 //
-// L=12, w=1.1, t=0.32, 90° linear twist from root to tip.
-// E=29000000, ν=0.22. Clamped at root.
+// L=12, w=1.1, t=0.32, 90° linear twist from root to tip, E=29·10⁶, ν=0.22 (consistent
+// units), clamped at the root, unit tip load at the mid-width node.
 //
-// Load case A: Pz=1 at tip → reference uz = 0.005424
-// Load case B: Py=1 at tip → reference uy = 0.001754
+// Load A: Pz=1 (in the tip's plane) → uz = 0.005424 (MacNeal & Harder 1985, twisted-beam problem)
+// Load B: Py=1 (normal to the tip)  → uy = 0.001754
 //
-// Reference: MacNeal & Harder, "A Proposed Standard Set of Problems", 1985
+// Second reference: Euler–Bernoulli bending of the twisted strip, δ = ∫(L−x)²·nᵀC(x)n dx with
+// the principal flexibilities rotating with the twist (`twisted_beam_beam_theory`): 0.0054259
+// and 0.0017462, within 0.05 % and 0.45 % of the paper (the paper's values add shear).
+//
+// Known issue MH-TWISTED-BEAM-MITC4 (engine/tests/benchmarks/KNOWN_ISSUES.md): MITC4 converges
+// to about 1.32 (A) and 1.26 (B) times the reference, while the curved shell on the same
+// model converges to it.
+
+/// The material table holds E in MPa and the engine multiplies it by 1000 (kN/m²), so the
+/// paper's dimensionless 29·10⁶ is entered as 29·10³.
+const TWISTED_BEAM_E: f64 = 29_000.0;
+
+fn twisted_beam_beam_theory(load_case: char) -> f64 {
+    let (l, w, t, e) = (12.0_f64, 1.1_f64, 0.32_f64, 29.0e6_f64);
+    let i_weak = w * t.powi(3) / 12.0;
+    let i_strong = t * w.powi(3) / 12.0;
+    let n = 20_000;
+    let mut sum = 0.0;
+    for k in 0..n {
+        let u = (k as f64 + 0.5) / n as f64;
+        let theta = u * std::f64::consts::FRAC_PI_2;
+        let (c2, s2) = (theta.cos().powi(2), theta.sin().powi(2));
+        let flex = match load_case {
+            'A' => c2 / i_weak + s2 / i_strong,
+            'B' => s2 / i_weak + c2 / i_strong,
+            _ => unreachable!(),
+        };
+        sum += (1.0 - u).powi(2) * flex / n as f64;
+    }
+    l.powi(3) * sum / e
+}
+
+#[test]
+fn benchmark_twisted_beam_references_agree() {
+    let a = twisted_beam_beam_theory('A');
+    let b = twisted_beam_beam_theory('B');
+    assert!((a / 0.005424 - 1.0).abs() < 0.001, "beam theory A {a:.7e} vs MacNeal-Harder 0.005424");
+    assert!((b / 0.001754 - 1.0).abs() < 0.006, "beam theory B {b:.7e} vs MacNeal-Harder 0.001754");
+}
 
 fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
-    let e = 29_000_000.0; // 29×10⁶ (psi unit system in original)
+    let e = TWISTED_BEAM_E;
     let nu = 0.22;
 
     let pi = std::f64::consts::PI;
@@ -3875,72 +3913,45 @@ fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     }
 }
 
+fn twisted_beam_mitc4_ratios(load_case: char) -> Vec<(usize, usize, f64)> {
+    let reference = if load_case == 'A' { 0.005424 } else { 0.001754 };
+    [(6, 2), (12, 4), (24, 8)]
+        .iter()
+        .map(|&(nx, ny)| {
+            let ratio = twisted_beam_solve(nx, ny, load_case) / reference;
+            eprintln!("Twisted beam {load_case} MITC4 {nx}x{ny}: ratio={ratio:.4}");
+            (nx, ny, ratio)
+        })
+        .collect()
+}
+
+/// Tripwire for MH-TWISTED-BEAM-MITC4: fails when the over-flexibility changes either way.
 #[test]
 fn benchmark_twisted_beam_load_a() {
-    let reference = 0.005424;
-    let meshes = [(6, 2), (12, 4), (24, 8)];
-
-    let mut ratios = Vec::new();
-    for &(nx, ny) in &meshes {
-        let uz = twisted_beam_solve(nx, ny, 'A');
-        let ratio = uz / reference;
-        ratios.push((nx, ny, ratio));
-        eprintln!(
-            "Twisted beam A {}x{}: uz={:.6e}, ratio={:.4}",
-            nx, ny, uz, ratio
-        );
+    let expected = [1.2751, 1.3047, 1.3180];
+    for ((nx, ny, r), e) in twisted_beam_mitc4_ratios('A').into_iter().zip(expected) {
+        assert!((r - e).abs() < 1e-3, "MH-TWISTED-BEAM-MITC4 A {nx}x{ny}: ratio {r:.4}, recorded {e:.4}");
     }
-
-    // The twisted beam has severely warped (non-planar) elements due to the
-    // 90° twist. Flat-faceted MITC4 locks on warped quads. Current EAS-7 shows
-    // ratio ~0.001 — this tracks as an aspirational benchmark.
-    for &(nx, ny, r) in &ratios {
-        assert!(
-            r > 1e-8,
-            "Twisted beam A {}x{}: ratio={:.6e} should be nonzero",
-            nx, ny, r
-        );
-    }
-
-    let (_, _, r_fine) = ratios.last().unwrap();
-    assert!(
-        *r_fine > 1e-8 && *r_fine < 100.0,
-        "Twisted beam A finest: ratio={:.6e} outside [1e-8, 100]",
-        r_fine
-    );
 }
 
 #[test]
 fn benchmark_twisted_beam_load_b() {
-    let reference = 0.001754;
-    let meshes = [(6, 2), (12, 4), (24, 8)];
-
-    let mut ratios = Vec::new();
-    for &(nx, ny) in &meshes {
-        let uy = twisted_beam_solve(nx, ny, 'B');
-        let ratio = uy / reference;
-        ratios.push((nx, ny, ratio));
-        eprintln!(
-            "Twisted beam B {}x{}: uy={:.6e}, ratio={:.4}",
-            nx, ny, uy, ratio
-        );
+    let expected = [1.2838, 1.2653, 1.2617];
+    for ((nx, ny, r), e) in twisted_beam_mitc4_ratios('B').into_iter().zip(expected) {
+        assert!((r - e).abs() < 1e-3, "MH-TWISTED-BEAM-MITC4 B {nx}x{ny}: ratio {r:.4}, recorded {e:.4}");
     }
+}
 
-    // Same warped-element locking as load case A — aspirational benchmark.
-    for &(nx, ny, r) in &ratios {
-        assert!(
-            r > 1e-8,
-            "Twisted beam B {}x{}: ratio={:.6e} should be nonzero",
-            nx, ny, r
-        );
+#[test]
+#[ignore = "MH-TWISTED-BEAM-MITC4: MITC4 is 26-32 % too flexible on the twisted beam (engine/tests/benchmarks/KNOWN_ISSUES.md)"]
+fn benchmark_twisted_beam_mitc4_accuracy() {
+    for case in ['A', 'B'] {
+        for (nx, ny, r) in twisted_beam_mitc4_ratios(case) {
+            if nx >= 12 {
+                assert!((r - 1.0).abs() < 0.02, "Twisted beam {case} MITC4 {nx}x{ny}: ratio {r:.4} outside 1 ± 0.02");
+            }
+        }
     }
-
-    let (_, _, r_fine) = ratios.last().unwrap();
-    assert!(
-        *r_fine > 1e-8 && *r_fine < 100.0,
-        "Twisted beam B finest: ratio={:.6e} outside [1e-8, 100]",
-        r_fine
-    );
 }
 
 // ================================================================
@@ -5380,7 +5391,7 @@ fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
-    let e = 29_000_000.0;
+    let e = TWISTED_BEAM_E;
     let nu = 0.22;
 
     let pi = std::f64::consts::PI;
@@ -7267,7 +7278,7 @@ fn curved_shell_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
-    let e = 29_000_000.0;
+    let e = TWISTED_BEAM_E;
     let nu = 0.22;
 
     let pi = std::f64::consts::PI;
@@ -7733,4 +7744,163 @@ fn assert_json_matches(a: &serde_json::Value, b: &serde_json::Value, at: &str) {
         }
         _ => assert_eq!(a, b, "{at}. Regenerate with UPDATE_SHELL_OBSTACLE=1"),
     }
+}
+
+fn zz_twist(nx: usize, ny: usize, case: char, family: u8, distributed: bool, tw: f64) -> (f64, Vec<String>) {
+    let (l, w, t, e, nu) = (12.0, 1.1, 0.32, 29_000.0, 0.22);
+    let mut nodes = HashMap::new();
+    let mut g = vec![vec![0usize; ny + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        let x = i as f64 / nx as f64 * l;
+        let a = x / l * tw;
+        for j in 0..=ny {
+            let s = j as f64 / ny as f64 * w - w / 2.0;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y: s * a.cos(), z: s * a.sin() });
+            g[i][j] = nid;
+            nid += 1;
+        }
+    }
+    let mut quads = HashMap::new();
+    let mut curved_shells = HashMap::new();
+    let mut id = 1;
+    for i in 0..nx { for j in 0..ny {
+        let n = [g[i][j], g[i + 1][j], g[i + 1][j + 1], g[i][j + 1]];
+        if family == 0 { quads.insert(id.to_string(), SolverQuadElement { id, nodes: n, material_id: 1, thickness: t }); }
+        else { curved_shells.insert(id.to_string(), SolverCurvedShellElement { id, nodes: n, material_id: 1, thickness: t, normals: None }); }
+        id += 1;
+    }}
+    let mut supports = HashMap::new();
+    for j in 0..=ny { supports.insert(j.to_string(), sup3d(g[0][j], true, true, true, true, true, true)); }
+    let mut loads = Vec::new();
+    let tip = g[nx][ny / 2];
+    let (fy, fz) = if case == 'A' { (0.0, 1.0) } else { (1.0, 0.0) };
+    if distributed {
+        for j in 0..=ny {
+            let wgt = if j == 0 || j == ny { 0.5 / ny as f64 } else { 1.0 / ny as f64 };
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: g[nx][j], fx: 0.0, fy: fy * wgt, fz: fz * wgt, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+        }
+    } else {
+        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: tip, fx: 0.0, fy, fz, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    }
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+    let input = SolverInput3D {
+        solver_options: None, masses: Default::default(), nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(),
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells, curved_beams: vec![], connectors: HashMap::new(),
+    };
+    let r = linear::solve_3d(&input).unwrap();
+    let d = r.displacements.iter().find(|d| d.node_id == tip).unwrap();
+    let codes = r.structured_diagnostics.iter().map(|d| format!("{:?}/{:?}", d.code, d.severity)).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    (if case == 'A' { d.uz } else { d.uy }, codes)
+}
+
+#[test]
+fn zz_twist_probe() {
+    for deg in [0.0f64, 5.0, 15.0, 45.0, 90.0] { for fam in [0u8, 1] { for case in ['A', 'B'] {
+        for (nx, ny) in [(12, 2), (24, 8), (48, 16)] {
+            if fam == 1 && nx > 24 { continue; }
+            let (u, _) = zz_twist(nx, ny, case, fam, false, deg.to_radians());
+            eprintln!("PROBE2 deg={deg} fam={fam} {case} {nx}x{ny}: u={u:.6e}");
+        }
+    }}}
+}
+
+fn zz_q9(nx: usize, ny: usize, load_case: char, tw: f64) -> f64 {
+    let l = 12.0;
+    let w = 1.1;
+    let t_shell = 0.32;
+    let e = TWISTED_BEAM_E;
+    let nu = 0.22;
+
+    let pi = std::f64::consts::PI;
+    let twist_total = tw; let _ = pi;
+
+    let (nodes, mut quad9s, grid) = build_q9_mesh(nx, ny, |xi, eta| {
+        let x = xi * l;
+        let twist_angle = (x / l) * twist_total;
+        let s = eta * w - w / 2.0;
+        let y = s * twist_angle.cos();
+        let z = s * twist_angle.sin();
+        (x, y, z)
+    });
+    for q in quad9s.values_mut() {
+        q.thickness = t_shell;
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    let rows = 2 * nx + 1;
+    let cols = 2 * ny + 1;
+
+    // Clamp root (x=0)
+    let mut supports = HashMap::new();
+    let mut sid = 1;
+    for j in 0..cols {
+        let nid_root = grid[0][j];
+        supports.insert(sid.to_string(), sup3d(nid_root, true, true, true, true, true, true));
+        sid += 1;
+    }
+
+    // Load at tip mid-width node
+    let mid_j = ny; // center node in 2*ny+1 grid
+    let tip_mid = grid[rows - 1][mid_j];
+
+    let mut loads = Vec::new();
+    match load_case {
+        'A' => {
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: tip_mid,
+                fx: 0.0, fy: 0.0, fz: 1.0,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
+        }
+        'B' => {
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: tip_mid,
+                fx: 0.0, fy: 1.0, fz: 0.0,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
+        }
+        _ => panic!("Invalid load case"),
+    }
+
+    let input = SolverInput3D {
+        solver_options: None, masses: Default::default(),
+        nodes,
+        materials: mats,
+        sections: HashMap::new(),
+        elements: HashMap::new(),
+        supports,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads: HashMap::new(),
+        quad9s, solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    let res = linear::solve_3d(&input).expect("Q9 twisted beam solve failed");
+
+    let d = res.displacements.iter()
+        .find(|d| d.node_id == tip_mid)
+        .expect("Tip node displacement not found");
+
+    match load_case {
+        'A' => d.uz.abs(),
+        'B' => d.uy.abs(),
+        _ => unreachable!(),
+    }
+}
+
+
+#[test]
+fn zz_q9_probe() {
+    for deg in [0.0f64, 15.0, 45.0, 90.0] { for case in ['A','B'] { for (nx, ny) in [(6, 2), (12, 4), (24, 8)] {
+        eprintln!("PROBEQ9 deg={deg} {case} {nx}x{ny}: u={:.6e}", zz_q9(nx, ny, case, deg.to_radians()));
+    }}}
 }
