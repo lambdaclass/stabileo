@@ -11,7 +11,7 @@ use crate::common;
 use common::*;
 use dedaliano_engine::certify::exact::{q, qi, Q};
 use dedaliano_engine::certify::plastic::*;
-use dedaliano_engine::solver::plastic::solve_plastic_2d;
+use dedaliano_engine::solver::plastic::{solve_plastic_2d, solve_plastic_2d_unrefused};
 use dedaliano_engine::types::*;
 use std::collections::HashMap;
 
@@ -66,7 +66,8 @@ fn assert_encloses(label: &str, c: &PlasticCertificate, exact: f64, rel: f64) {
 
 fn certify(input: &PlasticInput) -> PlasticCertificate {
     assert_containment(solve_plastic_2d(input), "PL-2D-INVARIANCE");
-    certify_collapse_2d(input, None)
+    let res = solve_plastic_2d_unrefused(input).ok();
+    certify_collapse_2d(input, res.as_ref())
 }
 
 #[test]
@@ -91,30 +92,20 @@ fn fixed_beam_udl_solver_hinge_at_midspan_for_any_element_count() {
     let exact = 16.0 * MP / (qv * l * l);
     for n in [1, 2, 3, 5, 7] {
         let loads = (1..=n).map(|e| udl(e, -qv)).collect();
-        crate::common::assert_containment(solve_plastic_2d(&plastic(make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads))), "PL-2D-INVARIANCE");
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(res.is_mechanism && res.warnings.is_empty(), "n={n}: {:?}", res.warnings);
-*/
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!((res.collapse_factor - exact).abs() < 1e-6 * exact, "n={n}: {} vs {exact}", res.collapse_factor);
-*/
+        let inp = plastic(make_beam(n, l, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
+        assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        let res = solve_plastic_2d_unrefused(&inp).unwrap();
+        assert!(res.is_mechanism && res.warnings.is_empty(), "n={n}: {:?}", res.warnings);
+        assert!((res.collapse_factor - exact).abs() < 1e-6 * exact, "n={n}: {} vs {exact}", res.collapse_factor);
         // the last hinge is at midspan: x = L/2 on the member that holds it
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-let last = res.hinges.last().unwrap();
-*/
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-let x = (last.element_id - 1) as f64 * l / n as f64 + last.position * l / n as f64;
-*/
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!((x - l / 2.0).abs() < 1e-6 * l, "n={n}: last hinge at x = {x}");
-*/
+        let last = res.hinges.last().unwrap();
+        let x = (last.element_id - 1) as f64 * l / n as f64 + last.position * l / n as f64;
+        assert!((x - l / 2.0).abs() < 1e-6 * l, "n={n}: last hinge at x = {x}");
         // results are reported on the model's own members and nodes
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-for st in &res.steps {
+        for st in &res.steps {
             assert_eq!(st.results.element_forces.len(), n);
             assert_eq!(st.results.displacements.len(), n + 1);
         }
-*/
     }
 }
 
@@ -123,16 +114,11 @@ fn solver_warns_when_it_stops_before_a_mechanism() {
     let loads = vec![udl(1, -10.0)];
     let mut inp = plastic(make_beam(1, 6.0, E, A_SEC, IZ_SEC, "fixed", Some("fixed"), loads));
     inp.max_hinges = Some(1);
-    crate::common::assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(!res.is_mechanism);
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(res.warnings.iter().any(|w| w.contains("lower bound")), "{:?}", res.warnings);
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(res.collapse_factor <= 37.5);
-*/
+    assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    let res = solve_plastic_2d_unrefused(&inp).unwrap();
+    assert!(!res.is_mechanism);
+    assert!(res.warnings.iter().any(|w| w.contains("lower bound")), "{:?}", res.warnings);
+    assert!(res.collapse_factor <= 37.5);
 }
 
 #[test]
@@ -196,7 +182,7 @@ fn portal_frame_mechanisms() {
         let c = certify(&inp);
         assert_encloses(&format!("portal H={hl} V={v}"), &c, exact, 1e-12);
         // the incremental solver agrees up to its own f64 round-off
-        // After #758 is fixed: assert!(c.solver_deviation.unwrap() < 1e-10, "solver value outside: {c:?}");
+        assert!(c.solver_deviation.unwrap() < 1e-10, "solver value outside: {c:?}");
         assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
     }
 }
@@ -376,22 +362,13 @@ fn unsupported_models_are_refused() {
 #[test]
 fn certify_plastic_2d_reports_solver_value() {
     let inp = plastic(portal(4.0, 6.0, 1.0, 1.0));
-    crate::common::assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(out.certificate.certified);
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(!out.certificate.mechanism.is_empty());
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let json = serde_json::to_string(&out).unwrap();
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(json.contains("lambdaLower") && json.contains("solverWithinBounds"));
-*/
+    assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
+    let out = certify_plastic_2d_unrefused(&inp).unwrap();
+    assert!(out.certificate.certified);
+    assert_eq!(out.certificate.solver_collapse_factor, Some(out.results.collapse_factor));
+    assert!(!out.certificate.mechanism.is_empty());
+    let json = serde_json::to_string(&out).unwrap();
+    assert!(json.contains("lambdaLower") && json.contains("solverWithinBounds"));
 }
 
 // ───────────────────────── random frames vs the incremental solver ─────────────────────────
@@ -453,13 +430,13 @@ fn random_frames_agree_with_incremental_solver() {
         let mp_beam = 500.0 + (g.next() * 1000.0).round();
         inp.sections.insert("2".to_string(), PlasticSectionData { a: A_SEC, iz: IZ_SEC, material_id: 1, b: Some(B), h: Some(H) });
         inp.mp_overrides.as_mut().unwrap().insert("2".to_string(), mp_beam);
-        crate::common::assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
-        let c = certify_collapse_2d(&inp, None);
+        assert_containment(solve_plastic_2d(&inp), "PL-2D-INVARIANCE");
+        let res = solve_plastic_2d_unrefused(&inp).unwrap();
+        let c = certify_collapse_2d(&inp, Some(&res));
         assert!(c.certified, "case {case}: {c:?}");
         let (lo, up) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
         assert!((up - lo) / up < 1e-9, "case {case}: [{lo}, {up}]");
-        /* Numerical expectations retained for the #758 fix (no result while refused):
-if res.is_mechanism {
+        if res.is_mechanism {
             // With nodal loads only the solver's final state is statically
             // admissible, so it can only err low (a hinge that should unload
             // stays free): never above the certified upper bound.
@@ -475,11 +452,10 @@ if res.is_mechanism {
                 eprintln!("case {case}: solver {} outside certified [{lo}, {up}]", res.collapse_factor);
             }
         }
-*/
     }
-    // After #758 is fixed: assert!(checked >= 12 && agree == checked, "agree {agree} of {checked}");
+    assert!(checked >= 12 && agree == checked, "agree {agree} of {checked}");
     // the unloading path is exercised
-    // After #758 is fixed: assert!(unloaded >= 1, "no case unloaded a hinge");
+    assert!(unloaded >= 1, "no case unloaded a hinge");
 }
 
 /// Moment sign conventions (nodal `my`, member couples, transverse loads) agree
@@ -492,7 +468,7 @@ fn moment_sign_conventions_match_solver() {
     let inp = plastic(make_beam(1, l, E, A_SEC, IZ_SEC, "fixed", None, vec![tip]));
     let c = certify(&inp);
     assert_encloses("tip force + nodal couple", &c, MP / 5.0, 1e-12);
-    // After #758 is fixed: assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
+    assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
     assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     let loads = vec![
@@ -502,7 +478,7 @@ fn moment_sign_conventions_match_solver() {
     let inp = plastic(make_beam(1, l, E, A_SEC, IZ_SEC, "fixed", None, loads));
     let c = certify(&inp);
     assert_encloses("tip force + member couple", &c, MP / 5.0, 1e-12);
-    // After #758 is fixed: assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
+    assert!(c.solver_deviation.unwrap() < 1e-12, "{c:?}");
     assert_containment(certify_plastic_2d(&inp), "PL-2D-INVARIANCE");
 
     // transverse member load q > 0 acts along local y = (−sin, cos): on a beam

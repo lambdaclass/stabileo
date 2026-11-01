@@ -821,13 +821,11 @@ fn benchmark_constraint_force_parity_across_solvers() {
         mp_overrides: None,
     };
     crate::common::assert_containment(plastic::solve_plastic_2d(&plastic_input), "PL-2D-INVARIANCE");
+    let plastic_result = plastic::solve_plastic_2d_unrefused(&plastic_input).expect("Plastic solve failed");
     // Each step's results are its increment (`PlasticStep::results`): the
     // constraint forces at the last load factor are their sum over the steps.
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let mut plastic_cf: Vec<ConstraintForce> = Vec::new();
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for step in &plastic_result.steps {
+    let mut plastic_cf: Vec<ConstraintForce> = Vec::new();
+    for step in &plastic_result.steps {
         for cf in &step.results.constraint_forces {
             match plastic_cf.iter_mut().find(|c| c.node_id == cf.node_id && c.dof == cf.dof) {
                 Some(c) => c.force += cf.force,
@@ -835,7 +833,6 @@ for step in &plastic_result.steps {
             }
         }
     }
-*/
 
     // 4. Fiber nonlinear (elastic fibers → matches linear)
     let fiber_section = FiberSectionDef {
@@ -866,9 +863,7 @@ for step in &plastic_result.steps {
     // Report
     eprintln!("Linear constraint forces: {:?}", linear_result.constraint_forces);
     eprintln!("Corotational constraint forces: {:?}", corot_cf);
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-eprintln!("Plastic constraint forces: {:?}", plastic_cf);
-*/
+    eprintln!("Plastic constraint forces: {:?}", plastic_cf);
     eprintln!("Fiber NL constraint forces: {:?}", fiber_cf);
 
     // Corotational should always have constraint forces
@@ -878,11 +873,9 @@ eprintln!("Plastic constraint forces: {:?}", plastic_cf);
     for cf in corot_cf {
         assert!(cf.force.is_finite(), "Corot constraint force should be finite: {:?}", cf);
     }
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for cf in &plastic_cf {
+    for cf in &plastic_cf {
         assert!(cf.force.is_finite(), "Plastic constraint force should be finite: {:?}", cf);
     }
-*/
     for cf in fiber_cf {
         assert!(cf.force.is_finite(), "Fiber constraint force should be finite: {:?}", cf);
     }
@@ -908,8 +901,7 @@ for cf in &plastic_cf {
     }
 
     // If plastic produces constraint forces, they should be finite and consistent
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-if !plastic_cf.is_empty() && !corot_cf.is_empty() {
+    if !plastic_cf.is_empty() && !corot_cf.is_empty() {
         let lf = plastic_result.steps.last().unwrap().load_factor;
         for pcf in &plastic_cf {
             if let Some(ccf) = corot_cf.iter().find(|c| c.node_id == pcf.node_id && c.dof == pcf.dof) {
@@ -924,7 +916,6 @@ if !plastic_cf.is_empty() && !corot_cf.is_empty() {
             }
         }
     }
-*/
 
     // Verify displacements are reasonable (structure responds to load)
     let d1 = corot_result.results.displacements.iter().find(|d| d.node_id == 1).unwrap();
