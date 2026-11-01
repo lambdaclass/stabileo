@@ -39,7 +39,7 @@ const SITE_ORIGIN = 'https://stabileo.com';
 export const REPO = 'https://github.com/lambdaclass/stabileo';
 
 /** The site the links name: this one, except on a development machine. */
-export function siteOrigin(origin: string = location.origin): string {
+export function siteOrigin(origin: string = typeof location === 'undefined' ? SITE_ORIGIN : location.origin): string {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(origin) ? SITE_ORIGIN : origin;
 }
 

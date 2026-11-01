@@ -30,6 +30,11 @@ describe('research permanent links', () => {
     expect(siteOrigin('http://localhost:4000')).toBe('https://stabileo.com');
     expect(siteOrigin('https://staging.stabileo.com')).toBe('https://staging.stabileo.com');
   });
+
+  it('names stabileo.com when rendered on the server, where there is no location', () => {
+    expect(typeof location).toBe('undefined');
+    expect(siteOrigin()).toBe('https://stabileo.com');
+  });
 });
 
 it('selects the newest snapshot of the requested version, never a different version', () => {
