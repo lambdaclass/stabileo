@@ -66,8 +66,19 @@ describe('validate snapshot', () => {
   it('fails on dangling or missing load targets', () => {
     expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, nodeId: 9 } }] })).toThrow('load references non-existent nodeId=9');
     expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, elementId: 4, qI: -1, qJ: -1 } }] })).toThrow('load references non-existent elementId=4');
-    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, fx: 1 } }] })).toThrow('load references no valid elementId or nodeId');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, fx: 1 } }] })).toThrow('nodal load has no valid nodeId');
     expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal' }] })).toThrow('invalid load');
+  });
+  it('fails on a load whose target does not match its type, an unknown type or a non-array list', () => {
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'nodal', data: { id: 1, elementId: 1, fx: 1 } }] })).toThrow('nodal load has no valid nodeId');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, nodeId: 1, qI: -1, qJ: -1 } }] })).toThrow('distributed load has no valid elementId');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'constructor', data: { id: 1, elementId: 1 } }] })).toThrow('unsupported load type');
+    expect(() => validateSnapshot({ ...minimal(), loads: { 0: { type: 'nodal', data: { nodeId: 9 } } } })).toThrow("invalid 'loads'");
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, elementId: 1, qI: -1, qJ: -1 } }] })).not.toThrow();
+  });
+  it('treats an overflowing number as missing', () => {
+    expect(() => validateSnapshot({ ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: JSON.parse('1e400'), y: 0 }]] })).toThrow('node 2 has no finite x');
+    expect(() => validateSnapshot({ ...minimal(), sections: [[1, { id: 1, name: 'x', a: Infinity, iz: 1 }]] })).toThrow('section 1: a must be a positive number');
   });
   it('fails on an element without a material or section', () => {
     const s = { ...minimal(), elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, sectionId: 1 }]] };

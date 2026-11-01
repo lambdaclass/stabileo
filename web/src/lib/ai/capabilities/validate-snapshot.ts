@@ -4,6 +4,12 @@ import { asF64, asU64 } from './snapshot-json';
 
 type Entry = [id: number, data: Record<string, unknown>];
 
+const LOAD_TARGET: Record<string, 'node' | 'element'> = {
+  nodal: 'node', nodal3d: 'node', displacement3d: 'node',
+  distributed: 'element', distributed3d: 'element', pointOnElement: 'element', pointOnElement3d: 'element',
+  thermal: 'element', prestress3d: 'element',
+};
+
 function getArray(obj: Record<string, unknown>, key: string): unknown[] {
   const v = obj[key];
   if (!Array.isArray(v)) throw new AiActionError(`missing or invalid '${key}' array`);
@@ -90,17 +96,18 @@ export function validateSnapshot(snapshot: unknown): void {
     }
   }
 
-  const loads = snapshot.loads;
-  if (Array.isArray(loads)) {
-    for (const load of loads) {
-      const outer = Array.isArray(load) ? load[1] : load;
-      if (!isPlainObject(outer) || !isPlainObject(outer.data)) throw new AiActionError(`invalid load: ${JSON.stringify(load)}`);
-      const eid = outer.data.elementId === undefined ? undefined : asU64(outer.data.elementId);
-      const nid = outer.data.nodeId === undefined ? undefined : asU64(outer.data.nodeId);
-      if (eid === undefined && nid === undefined) throw new AiActionError('load references no valid elementId or nodeId');
-      if (eid !== undefined && !elemIds.has(eid)) throw new AiActionError(`load references non-existent elementId=${eid}`);
-      if (nid !== undefined && !nodeIds.has(nid)) throw new AiActionError(`load references non-existent nodeId=${nid}`);
-    }
+  const loads = snapshot.loads ?? [];
+  if (!Array.isArray(loads)) throw new AiActionError("invalid 'loads': must be an array");
+  for (const load of loads) {
+    const outer = Array.isArray(load) ? load[1] : load;
+    if (!isPlainObject(outer) || !isPlainObject(outer.data)) throw new AiActionError(`invalid load: ${JSON.stringify(load)}`);
+    const type = outer.type;
+    if (typeof type !== 'string' || !Object.hasOwn(LOAD_TARGET, type)) throw new AiActionError(`unsupported load type: ${JSON.stringify(type)}`);
+    const onNode = LOAD_TARGET[type] === 'node';
+    const key = onNode ? 'nodeId' : 'elementId';
+    const ids = onNode ? nodeIds : elemIds;
+    const ref = asU64(outer.data[key]);
+    if (ref === undefined) throw new AiActionError(`${type} load has no valid ${key}`);
+    if (!ids.has(ref)) throw new AiActionError(`load references non-existent ${key}=${ref}`);
   }
-
 }

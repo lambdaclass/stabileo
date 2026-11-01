@@ -44,7 +44,7 @@ export function openaiParams(req: LlmRequest): ChatCompletionCreateParamsNonStre
   return params;
 }
 
-export function mapOpenAiError(err: unknown): unknown {
+export function mapOpenAiError(err: unknown, apiKey = ''): unknown {
   if (err instanceof OpenAI.APIUserAbortError) return abortError();
   if (err instanceof DOMException && err.name === 'AbortError') return err;
   if (err instanceof OpenAI.APIConnectionError) return new AiProviderError('connection');
@@ -55,7 +55,7 @@ export function mapOpenAiError(err: unknown): unknown {
   if (err instanceof OpenAI.InternalServerError) return new AiProviderError('unavailable', err.status);
   if (err instanceof OpenAI.APIError) {
     const kind = kindForStatus(err.status);
-    return new AiProviderError(kind, err.status, kind === 'badRequest' || kind === 'unknown' ? shortDetail(err.message) : undefined);
+    return new AiProviderError(kind, err.status, kind === 'badRequest' || kind === 'unknown' ? shortDetail(err.message, apiKey) : undefined);
   }
   return err;
 }
@@ -98,7 +98,7 @@ export const openaiProvider: LlmProvider = {
     try {
       completion = await client.chat.completions.create(openaiParams(req), { signal: req.signal });
     } catch (err) {
-      throw mapOpenAiError(err);
+      throw mapOpenAiError(err, apiKey);
     }
     return readOpenAiCompletion(completion, startedAt);
   },

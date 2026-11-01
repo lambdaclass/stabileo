@@ -75,11 +75,11 @@ export function kindForStatus(status: number | undefined): AiErrorKind {
   return 'unknown';
 }
 
-const KEY_LIKE = /\bsk-[A-Za-z0-9_-]{6,}/g;
+const KEY_LIKE = /sk-[A-Za-z0-9_-]{6,}/g;
 
-export function shortDetail(message: string | undefined): string | undefined {
+export function shortDetail(message: string | undefined, apiKey = ''): string | undefined {
   if (!message) return undefined;
-  const oneLine = message.replace(KEY_LIKE, '[redacted]').replace(/\s+/g, ' ').trim();
+  const oneLine = (apiKey ? message.split(apiKey).join('[redacted]') : message).replace(KEY_LIKE, '[redacted]').replace(/\s+/g, ' ').trim();
   return oneLine.length > 200 ? `${oneLine.slice(0, 200)}…` : oneLine;
 }
 
@@ -90,6 +90,6 @@ export interface LlmProvider {
 export function withoutKey(err: unknown, apiKey: string): unknown {
   if (err instanceof DOMException && err.name === 'AbortError') return err;
   if (!(err instanceof AiProviderError)) return new AiProviderError('unknown');
-  if (apiKey && err.message.includes(apiKey)) return new AiProviderError(err.kind, err.status);
+  if (apiKey && err.message.includes(apiKey.slice(0, 12))) return new AiProviderError(err.kind, err.status);
   return err;
 }

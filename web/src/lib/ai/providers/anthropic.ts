@@ -35,7 +35,7 @@ export function anthropicParams(req: LlmRequest): Anthropic.MessageStreamParams 
   return params;
 }
 
-export function mapAnthropicError(err: unknown): unknown {
+export function mapAnthropicError(err: unknown, apiKey = ''): unknown {
   if (err instanceof Anthropic.APIUserAbortError) return abortError();
   if (err instanceof DOMException && err.name === 'AbortError') return err;
   if (err instanceof Anthropic.APIConnectionError) return new AiProviderError('connection');
@@ -44,7 +44,7 @@ export function mapAnthropicError(err: unknown): unknown {
   if (err instanceof Anthropic.InternalServerError) return new AiProviderError('unavailable', err.status);
   if (err instanceof Anthropic.APIError) {
     const kind = kindForStatus(err.status);
-    return new AiProviderError(kind, err.status, kind === 'badRequest' || kind === 'unknown' ? shortDetail(err.message) : undefined);
+    return new AiProviderError(kind, err.status, kind === 'badRequest' || kind === 'unknown' ? shortDetail(err.message, apiKey) : undefined);
   }
   return err;
 }
@@ -82,7 +82,7 @@ export const anthropicProvider: LlmProvider = {
     try {
       msg = await client.messages.stream(anthropicParams(req), { signal: req.signal }).finalMessage();
     } catch (err) {
-      throw mapAnthropicError(err);
+      throw mapAnthropicError(err, apiKey);
     }
     return readAnthropicMessage(msg, startedAt);
   },

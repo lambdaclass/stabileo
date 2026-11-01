@@ -14,11 +14,11 @@ export function at(v: unknown, key: string | number): unknown {
 }
 
 export function asF64(v: unknown): number | undefined {
-  return typeof v === 'number' ? v : undefined;
+  return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
 }
 
 export function asU64(v: unknown): number | undefined {
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0 ? v : undefined;
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0 ? v : undefined;
 }
 
 export function asArray(v: unknown): unknown[] | undefined {

@@ -83,6 +83,10 @@ describe('key never reaches an error message', () => {
     expect(err.message).not.toContain(KEY);
     expect(err.message).not.toContain('0123456789abcdef');
     expect(shortDetail('key sk-proj-abcdef123456 leaked')).toBe('key [redacted] leaked');
+    expect(shortDetail('header_sk-proj-abcdef123456 leaked')).toBe('header_[redacted] leaked');
+    stubFetch(() => jsonResponse(400, { type: 'error', error: { type: 'invalid_request_error', message: `${'x'.repeat(190)}_${KEY}` } }));
+    const cut = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a beam', 'en', '2d').catch((e) => e);
+    expect(cut.message).not.toMatch(/sk-ant|0123456789abcdef/);
     const generic = withoutKey(new TypeError(`fetch failed for ${KEY}`), KEY) as AiProviderError;
     expect(generic).toBeInstanceOf(AiProviderError);
     expect(generic.kind).toBe('unknown');
