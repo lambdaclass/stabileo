@@ -16,7 +16,7 @@ def sandbox_command(paths, command, platform=sys.platform):
         return ['sandbox-exec', '-p',
                 f'(version 1)(allow default)(deny file-write*)'
                 f'(allow file-write* {rules})', *command]
-    return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/',
+    return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev',
             *[arg for path in paths for arg in ('--bind', path, path)],
             '--unshare-pid', '--proc', '/proc', '--', *command]
 
