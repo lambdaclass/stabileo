@@ -4,8 +4,7 @@
    * that PDF and the Spanish original. Its own chunk (Root.svelte, App.svelte), so KaTeX is not
    * loaded by the landing or the blog.
    */
-  import { applyPageMeta, restorePageMeta, breadcrumbs } from '../../lib/page-meta';
-  import { publicUrl } from '../../lib/i18n/public-routes';
+  import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
@@ -18,13 +17,7 @@
 
   const s = $derived(ps());
   $effect(() => {
-    const page = publicUrl('/paper', publicI18n.locale);
-    applyPageMeta({ title: s.metaTitle, description: s.metaDescription, locale: publicI18n.locale, path: '/paper',
-      graph: [
-        { '@type': 'ScholarlyArticle', '@id': `${page}#article`, headline: PAPER.title, abstract: PAPER.abstract, keywords: PAPER.keywords, inLanguage: 'en', url: page,
-          author: PAPER.authors.map((a) => ({ '@type': 'Person', name: a.name })), description: PAPER.note },
-        breadcrumbs(publicI18n.locale, [['Stabileo', '/'], [PAPER.title, '/paper']]),
-      ] });
+    applyPageMeta({ title: s.metaTitle, description: s.metaDescription, locale: publicI18n.locale, path: '/paper' });
     return () => restorePageMeta();
   });
   const display = (tex: string) => katex.renderToString(tex, { displayMode: true, throwOnError: false, output: 'htmlAndMathml' });

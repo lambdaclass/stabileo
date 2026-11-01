@@ -45,6 +45,7 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
+import { paperStructuredData } from './paper-structured-data';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 import { TOOL_IDS } from '../src/components/tools/calculators';
 import { BATCH_IDS } from '../src/components/tools/batch';
@@ -375,7 +376,7 @@ async function main() {
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
-        await writeFile(out, page(head, body, lang));
+        await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
         return { head, href };
       });
     // Pool results retain the original route order, including feed date ties.
