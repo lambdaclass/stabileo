@@ -729,3 +729,20 @@ fn buckling_compression_threshold_is_per_member() {
     let lambda = first(&slender);
     assert!((lambda / euler - 1.0).abs() < 1e-3, "{lambda} vs {euler}");
 }
+
+/// #1030: mirrored about node 3, the model is two independent cantilevers
+/// with the same modes; the 2D spectral row took 4 modes, which ended between
+/// the two copies of the second mode (12.83 Hz), so one cantilever had it and
+/// the other did not. The row now extends the cut to the end of a cluster.
+#[test]
+fn spectral_symmetry_keeps_repeated_pairs_whole() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1030.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    let sym = crate::symmetry::symmetrize_2d("issue-1030", &s, false).unwrap();
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "spectral").collect();
+    crate::symmetry::check_2d(&t, &sym, false, &anas);
+    let cells = t.cells.lock().unwrap();
+    let cell = cells.get(&("spectral".to_string(), "symmetry".to_string())).expect("spectral × symmetry ran");
+    assert!(cell.fails.is_empty() && cell.pass > 0, "{cell:?}");
+}

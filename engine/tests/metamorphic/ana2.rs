@@ -403,9 +403,13 @@ pub fn rows() -> Vec<Ana2> {
             iter_tol: 1e-10,
             full_static: false,
             run: |c| {
-                let md = modal::solve_modal_2d(&c.s, &c.dens, 4)?;
-                let modes = md
-                    .modes
+                // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
+                let md = modal::solve_modal_2d(&c.s, &c.dens, 8)?;
+                let mut n = md.modes.len().min(4);
+                while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
+                    n += 1;
+                }
+                let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput {
                         frequency: x.frequency, period: x.period, omega: x.omega,
