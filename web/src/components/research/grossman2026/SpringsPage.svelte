@@ -15,6 +15,7 @@
   import { forceScale, forceLegend } from './force-display';
   import { uniaxial } from './moduli';
   import { evidence } from './evidence';
+  import { checkText } from './check-names';
   import { Simulation } from './simulation.svelte';
   import results from '../../../../../research/metamaterials/grossman-2026/results/stabileo_results.json';
   import fig5Csv from '../../../../../research/metamaterials/grossman-2026/reference-results/fig5_simulation_digitized.csv?raw';
@@ -389,7 +390,7 @@
         <thead><tr><th scope="col">{s.springsCheck}</th><th scope="col">{s.springsObserved}</th><th scope="col">{s.springsTolerance}</th><th scope="col">{s.springsResult}</th></tr></thead>
         <tbody>
           {#each group.checks as c (c.name)}
-            <tr><td>{c.name}<br /><span class="m">{c.metric}</span></td><td>{fmtSci(c.observed)}</td><td>{fmtSci(c.tolerance)}</td><td>{c.passed ? s.pass : s.fail}</td></tr>
+            <tr><td>{checkText(c.name, locale)}<br /><span class="m">{checkText(c.metric, locale)}</span></td><td>{fmtSci(c.observed)}</td><td>{fmtSci(c.tolerance)}</td><td>{c.passed ? s.pass : s.fail}</td></tr>
           {/each}
         </tbody>
       </table>

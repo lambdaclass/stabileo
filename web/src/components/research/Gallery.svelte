@@ -21,6 +21,8 @@
   import PublicLink from '../landing/PublicLink.svelte';
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
+  import { englishOnlyCard } from './english-only-cards';
+  import { summaryIn } from './summaries';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
   import { rs, fieldName, statusName } from './i18n';
@@ -50,6 +52,8 @@
   const arches = $derived(archStrings());
   const f = $derived(fs());
   function experimentText(e: Experiment) {
+    const translated = englishOnlyCard(e.paperId, publicI18n.locale);
+    if (translated) return translated;
     if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
       const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealStrings;
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
@@ -91,7 +95,7 @@
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-first">{firstVersion} · {reviewLabel(p.id, publicI18n.locale)}</span></div>
             <h3><PublicLink to={e.path}>{cardTitle(e)}</PublicLink></h3>
             <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.lead : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.lead : e.paperId === "cqc-1981" ? cqc.lead : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
-            <p class="rs-g-by">{p.crossref.title}. {citation(p)}.</p>
+            <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>
             <div class="rs-g-actions">
               <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
               <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
@@ -133,10 +137,10 @@
           <FieldIcon field={p.area} size={28} />
           <div>
             <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{p.id === "newmark-1959" ? nm.stage : statusName(p.status)}</span></div>
-            <h3>{p.crossref.title}</h3>
-            <p class="rs-g-by">{citation(p)} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
+            <h3 lang="en">{p.crossref.title}</h3>
+            <p class="rs-g-by" lang="en">{citation(p)} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
-              <p class="rs-g-sum">{p.summary}</p>
+              <p class="rs-g-sum">{summaryIn(p, publicI18n.locale)}</p>
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
             {/if}
             {#if p.id === 'ferrari-2025'}
