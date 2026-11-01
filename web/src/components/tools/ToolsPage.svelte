@@ -4,7 +4,7 @@
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta, stabileoSoftware, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
+  import { applyPageMeta, restorePageMeta, stabileoSoftware, stabileoCalculator, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { TOOL_IDS, EXAMPLE, FORMULAS, format, formula, valid, workedExamples, type ToolId, type Parameters } from './calculators';
   import { type Warning } from './validity';
@@ -43,7 +43,8 @@
       const description = `${t(`tools.${tool}.subtitle`)} ${t('tools.free')}`;
       applyPageMeta({ title: `${title}: ${t(`tools.${tool}.case`)} — Stabileo`, description, locale, path: route,
         graph: [
-          stabileoSoftware(locale, { '@type': 'WebApplication', '@id': `${url}#calculator`, name: title, description, url, inLanguage: locale }),
+          stabileoCalculator(locale, { '@id': `${url}#calculator`, name: title, description, url }),
+          stabileoSoftware(locale),
           breadcrumbs(locale, [['Stabileo', '/'], [t('tools.index'), '/tools'], [title, route]]),
         ] });
     } else {

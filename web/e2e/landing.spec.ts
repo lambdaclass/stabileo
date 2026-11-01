@@ -589,7 +589,6 @@ test.describe('@landing landing page', () => {
       // The description is the hero lead, which now carries the positioning:
       // a free, open platform with three modes, rather than live re-solving.
       expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*tu propia clave de Claude u OpenAI/);
-      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*tu propia clave de Claude u OpenAI/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.

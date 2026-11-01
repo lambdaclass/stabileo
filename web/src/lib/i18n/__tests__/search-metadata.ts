@@ -205,6 +205,9 @@ export function searchMetadataSuite(dist: string) {
         if (app.description !== description(p)) out.push(`${p.url}: WebApplication description differs from the meta description`);
         if (app.inLanguage !== p.locale) out.push(`${p.url}: WebApplication inLanguage is ${app.inLanguage}`);
         if (app.applicationCategory !== 'EngineeringApplication') out.push(`${p.url}: WebApplication category is ${app.applicationCategory}`);
+        if ('sameAs' in app) out.push(`${p.url}: the calculator claims to be the same thing as ${JSON.stringify(app.sameAs)}`);
+        if (idOf(app.isPartOf) !== 'https://stabileo.com/#software') out.push(`${p.url}: the calculator is not part of Stabileo`);
+        if (!graphOf(p).some((n) => isA(n, 'SoftwareApplication') && n['@id'] === 'https://stabileo.com/#software')) out.push(`${p.url}: the Stabileo node the calculator is part of is not on the page`);
         for (const other of tools.filter((o) => o.locale === p.locale && o !== p)) {
           if (!p.body.includes(`href="${new URL(other.url).pathname}"`)) out.push(`${p.url} does not link ${other.url}`);
         }

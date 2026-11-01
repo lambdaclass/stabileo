@@ -152,6 +152,22 @@ export function stabileoSoftware(locale: PublicLocale, extra: object = {}) {
 	};
 }
 
+/** One calculator: its own free web application, part of Stabileo rather than the same thing as it. */
+export function stabileoCalculator(locale: PublicLocale, node: { '@id': string; name: string; description: string; url: string }) {
+	return {
+		'@type': 'WebApplication',
+		...node,
+		inLanguage: locale,
+		applicationCategory: 'EngineeringApplication',
+		operatingSystem: 'Web browser',
+		isAccessibleForFree: true,
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+		publisher: PUBLISHER,
+		author: DEVELOPER,
+		isPartOf: { '@id': SOFTWARE_ID }
+	};
+}
+
 /** `trail` is [name, unprefixed path or absolute URL] from the home page down to the page itself. */
 export function breadcrumbs(locale: PublicLocale, trail: [string, string][]) {
 	return {
