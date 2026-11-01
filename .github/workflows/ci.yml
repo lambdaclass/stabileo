@@ -57,6 +57,7 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       ai_backend: ${{ steps.filter.outputs.ai_backend }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
+      caddy: ${{ steps.filter.outputs.caddy }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -119,6 +120,10 @@ jobs:
               - 'engine/**'
               - 'Cargo.toml'
               - 'Cargo.lock'
+            caddy:
+              - 'infra/caddy/**'
+              - 'Makefile'
+              - '.github/workflows/ci.yml'
             ci_scripts:
               - 'scripts/nightly-*.py'
               - '.github/workflows/nightly.yml'
@@ -139,6 +144,20 @@ jobs:
         with:
           persist-credentials: false
       - run: docker build --tag stabileo-smoke .
+
+  caddy-routing:
+    name: Caddy Routing
+    needs: changes
+    if: needs.changes.outputs.caddy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - run: make test.infra.caddy
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
@@ -1026,6 +1045,7 @@ jobs:
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-routing
       - lint-engine
       - test-engine-gates
       - test-engine-suite
