@@ -224,7 +224,7 @@ export function actionSummary(a: BuildAction): string {
       return tp('ai.sum.multiStory3d', { floors: p.n_floors, bx: p.n_bays_x, by: p.n_bays_z, width: p.bay_width, height: p.floor_height });
     }
     case 'create_portal_frame_3d': return tp('ai.sum.portal3d', { width: a.params.width, depth: a.params.depth, height: a.params.height });
-    case 'add_bay': return tp(a.params.side === 'left' ? 'ai.sum.addBayLeft' : 'ai.sum.addBayRight', { width: a.params.width });
+    case 'add_bay': return tp(a.params.side?.trim().toLowerCase() === 'left' ? 'ai.sum.addBayLeft' : 'ai.sum.addBayRight', { width: a.params.width });
     case 'add_story': return tp('ai.sum.addStory', { height: a.params.height });
     case 'change_section': return sectionSummary(a.params);
     case 'set_all_supports': return tp('ai.sum.supports', { type: a.params.support_type });

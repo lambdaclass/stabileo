@@ -5,6 +5,8 @@ import { supportTypesFor } from './registry';
 
 type Entry = [id: number, data: Record<string, unknown>];
 
+const MEMBER_FRAMES: readonly string[] = ['local', 'global', 'projected'];
+
 const LOAD_TARGET: Record<string, 'node' | 'element'> = {
   nodal: 'node', nodal3d: 'node', displacement3d: 'node',
   distributed: 'element', distributed3d: 'element', pointOnElement: 'element', pointOnElement3d: 'element',
@@ -167,6 +169,10 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     }
     for (const [key, v] of Object.entries(outer.data)) {
       if (typeof v === 'number' && !Number.isFinite(v)) throw new AiActionError(`${type} load: ${key} is not finite`);
+    }
+    const frame = outer.data.frame;
+    if (frame !== undefined && !(typeof frame === 'string' && MEMBER_FRAMES.includes(frame))) {
+      throw new AiActionError(`${type} load: frame must be one of ${MEMBER_FRAMES.join(', ')}, got ${JSON.stringify(frame)}`);
     }
   }
 }

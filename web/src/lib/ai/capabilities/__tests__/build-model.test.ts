@@ -3,7 +3,7 @@ import {
   AiActionError, buildConversation, buildSystemPrompt, outcomeFromText, outcomeFromToolCall, validateBuildRequest,
 } from '../index';
 import { validateSnapshot } from '../validate-snapshot';
-import { generatePortalFrame } from '../generators';
+import { generatePortalFrame, generatePortalFrame3d } from '../generators';
 import type { ModelContext } from '../../client';
 import { ensureLocale, setLocale } from '../../../i18n';
 import { actionSummary } from '../build-model';
@@ -42,6 +42,18 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('takes a member load frame only from the ones the solver knows, in either kind of snapshot', () => {
+    const withFrame = (frame: unknown) => {
+      const snap = generatePortalFrame3d({ width: 6, depth: 4, height: 4, q_beam: -10 }) as Record<string, unknown>;
+      for (const l of snap.loads as Array<{ data: Record<string, unknown> }>) l.data.frame = frame;
+      return snap;
+    };
+    for (const frame of ['local', 'global', 'projected']) expect(() => validateSnapshot(withFrame(frame))).not.toThrow();
+    for (const existingModel of [false, true]) {
+      expect(() => validateSnapshot(withFrame('Global'), { existingModel })).toThrow('frame must be one of local, global, projected, got "Global"');
+      expect(() => validateSnapshot(withFrame(1), { existingModel })).toThrow(AiActionError);
+    }
+  });
   it('fails without nodes', () => {
     const s = minimal();
     delete s.nodes;
@@ -334,6 +346,7 @@ describe('change summaries', () => {
     setLocale('es');
     try {
       expect(actionSummary({ action: 'add_bay', params: { width: 5, side: 'left' } })).toBe('Se agregó un vano de 5 m a la izquierda');
+      expect(actionSummary({ action: 'add_bay', params: { width: 5, side: ' Left ' } })).toBe('Se agregó un vano de 5 m a la izquierda');
       expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
     } finally {
       setLocale('en');
