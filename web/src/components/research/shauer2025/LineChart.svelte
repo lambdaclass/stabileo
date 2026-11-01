@@ -111,7 +111,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label={ariaLabel ?? strings.axes.replace('{y}', yLabel).replace('{x}', xLabel)} onpointerdown={onMove} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={ariaLabel || strings.axes.replace('{y}', yLabel).replace('{x}', xLabel)} onpointerdown={onMove} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="12px">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}

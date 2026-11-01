@@ -6,7 +6,6 @@ import { EXPERIMENTS } from '../experiments';
 import catalog from '../../../../../research/papers.json';
 import { bibliography, citation } from '../catalogue';
 import { finalReview, reviewCount } from '../reviews';
-import { toolReviewLabel } from '../../tools/reviews';
 import { rs } from '../i18n';
 
 const original = publicI18n.locale;
@@ -48,21 +47,21 @@ it.each(EXPERIMENTS)('$paperId has authors, publication, year and its completed 
 it('omits absent bibliographic fields without dangling separators', () => {
   expect(citation({ crossref: { title: 'Book', authors: [], venue: '', year: 1979 } })).toBe('1979');
 });
-it('translates the gallery scope and review labels in all six locales', () => {
+it('translates the gallery scope in all six locales', () => {
   const titles = new Set<string>();
   for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
     setLocale(locale);
     titles.add(rs().researchTitle);
     expect(rs().galleryLead.length).toBeGreaterThan(80);
     expect(rs().galleryLead).toContain('Stabileo');
-    expect(toolReviewLabel('tools-batch-1', locale)).toContain('1');
-    expect(toolReviewLabel('tools-batch-2', locale)).toContain('1');
   }
   expect(titles.size).toBe(6);
 });
 it('shows no first-version or review-round note on any card, while the catalogue keeps the records', () => {
   expect(finalReview('mattiasson-elastica')).toBe(true);
   for (const e of EXPERIMENTS) expect(reviewCount(e.paperId)).toBeGreaterThan(0);
+  expect(reviewCount('tools-batch-1')).toBe(2);
+  expect(reviewCount('tools-batch-2')).toBe(2);
   for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
     setLocale(locale);
     const { body } = render(Gallery);
