@@ -52,6 +52,8 @@ pub fn model(layout: &Layout) -> Value {
     json!({"nodes":nodes,"elements":elements,"sections":sections,"materials":{"1":{"id":1,"e":1000.,"nu":0.3}},"supports":supports,"loads":loads})
 }
 
+// Reaction/load bookkeeping only: a converged linear solve is not evidence that
+// this bending-stiff frame carries the paper's compression-only stress field.
 pub fn check(input: Value) -> Result<Value, String> {
     let typed = serde_json::from_value(input.clone()).map_err(|e| e.to_string())?;
     let result = dedaliano_engine::solver::linear::solve_3d(&typed)?;

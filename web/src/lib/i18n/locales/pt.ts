@@ -4,6 +4,7 @@ const pt: Translations = {
 
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
+  "scalarViewer.keyboard": "Setas: orbitar. Shift + setas: deslocar. Mais/menos: zoom.",
   "scalarViewer.viewOptions": "Opções de vista",
   "scalarViewer.close": "Fechar",
   "scalarViewer.fit": "Ajustar à extensão",

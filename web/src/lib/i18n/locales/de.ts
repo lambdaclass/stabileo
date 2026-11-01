@@ -5,7 +5,8 @@ const de: Translations = {
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Ansicht',
-  'scalarViewer.viewOptions': 'Ansichtsoptionen',
+  "scalarViewer.keyboard": "Pfeiltasten: drehen. Umschalt + Pfeile: verschieben. Plus/Minus: zoomen.",
+  "scalarViewer.viewOptions": 'Ansichtsoptionen',
   'scalarViewer.close': 'Schließen',
   'scalarViewer.fit': 'Auf Ausdehnung zoomen',
   'scalarViewer.plan': '2D (Grundriss, Orbit gesperrt)',

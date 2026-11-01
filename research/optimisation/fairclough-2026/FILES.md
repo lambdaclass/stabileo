@@ -5,7 +5,7 @@ New experiment files:
 - `Cargo.toml`, `Cargo.lock`: isolated crate and pinned Rust dependencies.
 - `src/lib.rs`, `src/engine.rs`: fixed five-node SOCP, curve recovery, production-engine model/check.
 - `tests/validation.rs`: eleven numerical checks and evidence freshness.
-- `VALIDATION.json`, `PUBLISHED_COMPARISON.json`, `paper.yaml`: scoped validation and published source.
+- `VALIDATION.json`, `reference-results/published_comparison.json`, `paper.yaml`: scoped validation and published source.
 - `reference/run.py`, `reference/requirements.txt`: external unmodified GPL reference execution.
 - `reference-results/MANIFEST.json`, `reference-results/five-node.json`: provenance, hashes and outputs.
 - `results/stabileo_results.json`: published Rust result and engine input/check.

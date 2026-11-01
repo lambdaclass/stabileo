@@ -5,7 +5,8 @@ const tr: Translations = {
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
-  'scalarViewer.viewOptions': 'Görünüm seçenekleri',
+  "scalarViewer.keyboard": "Oklar: döndür. Shift + oklar: kaydır. Artı/eksi: yakınlaştır.",
+  "scalarViewer.viewOptions": 'Görünüm seçenekleri',
   'scalarViewer.close': 'Kapat',
   'scalarViewer.fit': 'Tümünü sığdır',
   'scalarViewer.plan': '2B (plan, yörünge kilitli)',
