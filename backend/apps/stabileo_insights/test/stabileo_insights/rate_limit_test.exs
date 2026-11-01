@@ -4,6 +4,13 @@ defmodule StabileoInsights.RateLimitTest do
   alias StabileoInsights.Plugs.RateLimit, as: RateLimitPlug
   alias StabileoInsights.RateLimit
 
+  defp early_in_window(window) do
+    unless rem(System.monotonic_time(:millisecond), window) < 100 do
+      Process.sleep(5)
+      early_in_window(window)
+    end
+  end
+
   defp scope, do: {:test, System.unique_integer([:positive])}
 
   test "hit/3 lets `limit` hits through per window and refuses the next" do
@@ -16,10 +23,13 @@ defmodule StabileoInsights.RateLimitTest do
 
   test "a new window starts the count again" do
     key = scope()
-    assert RateLimit.hit(key, 1, 20) == :ok
-    assert RateLimit.hit(key, 1, 20) == {:error, :rate_limited}
-    Process.sleep(45)
-    assert RateLimit.hit(key, 1, 20) == :ok
+    window = 400
+    early_in_window(window)
+
+    assert RateLimit.hit(key, 1, window) == :ok
+    assert RateLimit.hit(key, 1, window) == {:error, :rate_limited}
+    Process.sleep(window)
+    assert RateLimit.hit(key, 1, window) == :ok
   end
 
   test "the plug answers 429 with a retry-after once an address is over its limit" do

@@ -50,7 +50,7 @@ Prefix `/api/v1/admin`, router `StabileoAuth.AdminRouter`. `/auth/*` sign-in rou
 | `POST` | `/users/:id/enable` | `200 {data: <admin account>}` | 401, 404 |
 | `POST` | `/users/:id/force-logout` | `200 {data: <admin account>, revoked: <count>}` | 401, 404 |
 | `GET` | `/settings` | `200 {data: <settings>}` | 401 |
-| `PUT` | `/settings` | `200 {data: <settings>}`; any subset of the three flags, recorded in the audit log | 401, 422 `validation_error` (a flag that is not a boolean, or no known flag) |
+| `PUT` | `/settings` | `200 {data: <settings>}`; any subset of `user_login_enabled`, `usage_telemetry_enabled`, `cloud_projects_enabled`, `save_requires_account` (booleans) and `cloud_projects_limit` (1–100), written in one transaction and recorded in the audit log | 401, 422 `validation_error` (a flag that is not a boolean, a limit out of range, or no known setting) |
 | `GET` | `/audit-log` | `200 {data: [<admin action>], meta}`; newest first, filters `action`, `admin_id`, `target_id` | 401 |
 | `GET` | `/allowed-emails` | `200 {data: [<allowed email>], meta: {total, limit, offset}}` | 401 |
 | `POST` | `/allowed-emails` | `201 {data: <allowed email>}` (also reactivates a removed one) | 401, 422 `validation_error` (`details.email`: bad format, domain not allowed, already allowed) |

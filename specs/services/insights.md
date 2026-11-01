@@ -14,7 +14,7 @@ Sharing is on by default and the Terms say so; sign-up has no choice for it. A n
 - Admin metrics over 1–365 days, `{visitors, usage, gate, accounts, projects, feedback}`. A visit is a distinct `COALESCE(session_id, install_id)`. `visitors`: visits, browsers (distinct `install_id` without the `v-` prefix), visits with a `solve`, solves, and visits and solving visits per day. `usage`: per value, the visits that used it (tools, diagrams, advanced, examples, exports, step methods, gate actions, mode, version, locale), except `solve_outcomes` and `solve_dims`, which count solves. `gate`: visits shown the account request and visits that passed it. `accounts`: total, new in the window, active in 7 days (a session started in the last week), current consents. `projects`: total, owners, by mode, the per-account limit. `feedback`: unread
 - Feedback list filters by sender with `account_id`
 - Admin feedback inbox with status (`new`, `read`, `done`)
-- `StabileoInsights.Usage.prune/1` deletes events older than 395 days (13 months); there is no scheduler yet, so it runs from a release console
+- `StabileoInsights.UsagePruner` deletes events older than 395 days (13 months, the retention the privacy policy publishes) a minute after boot and every 24 hours; a failed pass is logged and retried the next day
 
 ## Data Model
 

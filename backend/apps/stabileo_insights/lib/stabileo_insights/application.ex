@@ -5,7 +5,12 @@ defmodule StabileoInsights.Application do
 
   @impl true
   def start(_type, _args) do
-    Supervisor.start_link([StabileoInsights.RateLimit],
+    pruner =
+      if Application.get_env(:stabileo_insights, :prune_usage, true),
+        do: [StabileoInsights.UsagePruner],
+        else: []
+
+    Supervisor.start_link([StabileoInsights.RateLimit | pruner],
       strategy: :one_for_one,
       name: StabileoInsights.Supervisor
     )

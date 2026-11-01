@@ -8,7 +8,7 @@ defmodule StabileoAuth.ConsentsTest do
   test "an account with no rows has not accepted the terms and shares nothing" do
     account = Factory.insert(:account)
     consents = Consents.current(account)
-    assert consents == %{terms: nil, usage_analytics: false, model_research: false}
+    assert consents == %{terms: nil, usage_analytics: nil, model_research: false}
     refute Consents.terms_current?(consents)
   end
 
@@ -58,7 +58,29 @@ defmodule StabileoAuth.ConsentsTest do
     assert %{granted: ["must be accepted"]} = errors_on(changeset)
   end
 
-  test "record_sign_up records nothing when an optional consent is invalid" do
+  test "record_sign_up undoes the terms when a later optional consent fails to write" do
+    account = Factory.insert(:account)
+
+    Repo.query!("""
+    CREATE FUNCTION pg_temp.refuse_usage() RETURNS trigger AS $$
+    BEGIN
+      IF NEW.kind = 'usage_analytics' THEN RAISE EXCEPTION 'refused'; END IF;
+      RETURN NEW;
+    END $$ LANGUAGE plpgsql
+    """)
+
+    Repo.query!(
+      "CREATE TRIGGER refuse_usage BEFORE INSERT ON consents FOR EACH ROW EXECUTE FUNCTION pg_temp.refuse_usage()"
+    )
+
+    assert_raise Postgrex.Error, ~r/refused/, fn ->
+      Consents.record_sign_up(account, %{"usage_analytics" => true}, %{})
+    end
+
+    assert Repo.aggregate(Consent, :count) == 0
+  end
+
+  test "record_sign_up records nothing when the request metadata is invalid" do
     account = Factory.insert(:account)
 
     assert {:error, %Ecto.Changeset{}} =
