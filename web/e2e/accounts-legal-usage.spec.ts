@@ -17,18 +17,18 @@ const ACCOUNT = {
   inserted_at: '2026-10-27T12:00:00Z',
 };
 
-const consents = (termsCurrent: boolean) => ({
+const consents = (termsCurrent: boolean, usage: boolean | null = null) => ({
   terms: termsCurrent ? { version: TERMS_VERSION, accepted_at: '2026-10-27T12:00:00Z' } : { version: '2020-01-01', accepted_at: '2020-01-01T12:00:00Z' },
   terms_current: termsCurrent,
-  usage_analytics: false,
+  usage_analytics: usage,
   model_research: false,
 });
 
-const session = (termsCurrent = true) => ({
+const session = (termsCurrent = true, usage: boolean | null = null) => ({
   access_token: 'access-1',
   refresh_token: 'refresh-1',
   expires_in: 900,
-  account: { ...ACCOUNT, consents: consents(termsCurrent) },
+  account: { ...ACCOUNT, consents: consents(termsCurrent, usage) },
 });
 
 interface Backend {
@@ -48,7 +48,7 @@ const savedProject = (id: string, name: string) => ({
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number } = {},
+  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number } = {},
 ): Promise<Backend> {
   const backend: Backend = { register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
@@ -74,7 +74,7 @@ async function boot(
   await page.route('**/api/v1/auth/config', (r) =>
     json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true }),
   );
-  await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true)));
+  await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true, opts.usageAnalytics ?? null)));
   await page.route('**/api/v1/auth/register', (r) => {
     const b = body(r);
     backend.register.push(b);
@@ -82,9 +82,12 @@ async function boot(
       ? json(r, 201, session())
       : json(r, 422, { error: 'validation_error', message: 'Validation failed', details: { accept_terms: ['must be accepted'] } });
   });
+  let usage: boolean | null = opts.usageAnalytics ?? null;
   await page.route('**/api/v1/auth/consents', (r) => {
-    backend.consents.push(body(r));
-    return json(r, 201, { data: { ...ACCOUNT, consents: consents(true) } });
+    const b = body(r);
+    backend.consents.push(b);
+    if (b.kind === 'usage_analytics') usage = b.granted;
+    return json(r, 201, { data: { ...ACCOUNT, consents: consents(true, usage) } });
   });
   await page.route('**/api/v1/insights/events', (r) => {
     backend.events.push(body(r));
@@ -210,9 +213,34 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.events).toEqual([]);
   });
 
+  test("an account that refused usage sharing elsewhere stops this browser sharing, without a notice", async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, usageAnalytics: false });
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+    await expect(page.getByTestId('usage-notice')).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('stabileo-usage-consent') ?? '{}').choice)).toBe('denied');
+    await solvePortal(page);
+    await page.getByTestId('results-disclaimer-ok').click();
+    await page.getByTestId('rb-cmd-momentY').click();
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.waitForTimeout(500);
+    expect(backend.events).toEqual([]);
+    expect(backend.consents).toEqual([]);
+  });
+
   test('an account under older terms is asked to accept the ones in force', async ({ page }) => {
     const backend = await boot(page, { signedIn: true, termsCurrent: false });
     await expect(page.getByTestId('terms-update')).toBeVisible();
+    let downloads = 0;
+    page.on('download', () => (downloads += 1));
+    await page.keyboard.press('Control+s');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    expect(downloads).toBe(0);
+    await expect(page.getByTestId('terms-update')).toBeVisible();
+    await expect(page.getByTestId('save-dialog')).toHaveCount(0);
     await page.getByTestId('terms-update-accept').click();
     await expect(page.getByTestId('terms-update')).toHaveCount(0);
     expect(backend.consents).toEqual([{ kind: 'terms', granted: true }]);

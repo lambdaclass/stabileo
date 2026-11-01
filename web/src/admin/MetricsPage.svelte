@@ -20,9 +20,10 @@
   const days = $derived.by(() => {
     if (!s) return [];
     const byDay = new Map(s.visitors.daily.map((d) => [d.day.slice(0, 10), d]));
-    const today = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
-    return Array.from({ length: s.days }, (_, i) => {
-      const day = new Date(today - (s.days - 1 - i) * DAY_MS).toISOString().slice(0, 10);
+    const first = Date.parse(`${s.since.slice(0, 10)}T00:00:00Z`);
+    const last = Math.max(first, Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`), ...s.visitors.daily.map((d) => Date.parse(`${d.day.slice(0, 10)}T00:00:00Z`)));
+    return Array.from({ length: Math.round((last - first) / DAY_MS) + 1 }, (_, i) => {
+      const day = new Date(first + i * DAY_MS).toISOString().slice(0, 10);
       const d = byDay.get(day);
       return { day, visits: d?.visits ?? 0, solving: d?.solving ?? 0 };
     });

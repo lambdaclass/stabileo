@@ -82,7 +82,7 @@
   .fb-overlay {
     position: fixed;
     inset: 0;
-    z-index: 220;
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;

@@ -156,7 +156,7 @@
   .cp-overlay {
     position: fixed;
     inset: 0;
-    z-index: 210;
+    z-index: 10000;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -213,7 +213,7 @@
     border-radius: 999px;
     font-size: 0.6rem;
   }
-  .cp-actions { display: flex; gap: 4px; flex: none; }
+  .cp-actions { display: flex; flex-wrap: wrap; gap: 4px; flex: none; }
   .empty { font-size: 0.74rem; color: var(--st-text-3); }
   .err { margin: 0 0 8px; font-size: 0.7rem; color: var(--st-bad, #e06c75); }
   .footer { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--st-hair); }

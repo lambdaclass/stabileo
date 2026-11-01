@@ -9,6 +9,21 @@
 
   const date = $derived(new Date(`${authStore.termsVersion ?? LEGAL_VERSION}T12:00:00Z`).toLocaleDateString(i18n.locale, { dateStyle: 'long' }));
 
+  let dialog = $state<HTMLDialogElement | undefined>();
+
+  $effect(() => {
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal();
+    const block = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.ctrlKey || e.metaKey || e.altKey || !dialog?.contains(e.target as Node)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener('keydown', block, true);
+    return () => window.removeEventListener('keydown', block, true);
+  });
+
   async function accept() {
     busy = true;
     error = null;
@@ -23,35 +38,27 @@
 </script>
 
 {#if authStore.needsTerms}
-  <div class="tu-overlay">
-    <div class="tu" role="dialog" aria-modal="true" aria-labelledby="tu-title" data-testid="terms-update">
-      <h3 id="tu-title">{t('legal.updateTitle')}</h3>
-      <p>{tp('legal.updateBody', { date })}</p>
-      <p class="links">
-        <a href={legalHref(TERMS_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.termsLink')}</a>
-        ·
-        <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a>
-      </p>
-      {#if error}<p class="err" role="alert">{error}</p>{/if}
-      <div class="actions">
-        <button class="btn" onclick={() => authStore.logout()}>{t('legal.signOut')}</button>
-        <button class="btn primary" onclick={accept} disabled={busy} data-testid="terms-update-accept">{t('legal.accept')}</button>
-      </div>
+  <dialog class="tu" bind:this={dialog} aria-labelledby="tu-title" data-testid="terms-update" oncancel={(e) => e.preventDefault()}>
+    <h3 id="tu-title">{t('legal.updateTitle')}</h3>
+    <p>{tp('legal.updateBody', { date })}</p>
+    <p class="links">
+      <a href={legalHref(TERMS_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.termsLink')}</a>
+      ·
+      <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a>
+    </p>
+    {#if error}<p class="err" role="alert">{error}</p>{/if}
+    <div class="actions">
+      <button class="btn" onclick={() => authStore.logout()}>{t('legal.signOut')}</button>
+      <button class="btn primary" onclick={accept} disabled={busy} data-testid="terms-update-accept">{t('legal.accept')}</button>
     </div>
-  </div>
+  </dialog>
 {/if}
 
 <style>
-  .tu-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 960;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: color-mix(in srgb, var(--st-bg) 72%, transparent);
-  }
+  .tu::backdrop { background: color-mix(in srgb, var(--st-bg) 72%, transparent); }
   .tu {
+    margin: auto;
+    box-sizing: border-box;
     width: min(28rem, calc(100vw - 32px));
     padding: 1.1rem 1.2rem;
     background: var(--st-surface);
