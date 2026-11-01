@@ -194,7 +194,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
-        run: .github/scripts/retry-infra.sh gh run download "$RUN_ID" --name site-production --dir ci-site
+        run: |
+          .github/scripts/retry-infra.sh gh run download "$RUN_ID" --name site-production --dir ci-site
+          test -s ci-site/index.html
       # Also exercise Compose's default frontend/WASM compiler stages.
       - run: docker build --tag stabileo-source-smoke .
       - run: docker build --build-arg FRONTEND_STAGE=web-prebuilt --tag stabileo-smoke .
