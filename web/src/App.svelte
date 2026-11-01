@@ -789,6 +789,7 @@
 
   const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
   provideEditorActivity(() => editorActive);
+  $effect(() => { if (editorActive) document.documentElement.lang = t('file.htmlLang'); });
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {

@@ -2,6 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import { loadToolsPage } from '../load-page';
 import { BATCH_IDS } from '../batch';
+import { TOOL_IDS } from '../calculators';
 import { batchTranslations } from '../batch-i18n';
 import { setPublicLocale } from '../../../lib/i18n/store.svelte';
 
@@ -15,8 +16,22 @@ for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
       const { body } = render(ToolsPage, { props: { path: `/tools/${id}` } });
       expect(body).toContain(batchTranslations[locale][`tools.${id}`]);
       expect(body).toContain('class="tool-viewer');
+      expect(body).toContain('class="viewer-heading');
       expect(body).toContain('<form');
       expect(body).toContain(`href="/${locale}/tools/"`);
+      expect(body).not.toMatch(/>tools\.[\w.-]+</);
+    });
+  }
+}
+
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+  for (const id of TOOL_IDS) {
+    it(`renders the ${id} calculator with its viewer in ${locale}`, async () => {
+      setPublicLocale(locale);
+      const ToolsPage = await loadToolsPage(`/tools/${id}`);
+      const { body } = render(ToolsPage, { props: { path: `/tools/${id}` } });
+      expect(body).toContain('class="tool-viewer');
+      expect(body).toContain('class="viewer-heading');
       expect(body).not.toMatch(/>tools\.[\w.-]+</);
     });
   }

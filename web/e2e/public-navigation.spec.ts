@@ -138,3 +138,19 @@ for (const rootSize of [16, 20, 24]) {
     expect(edges.inner).toBeLessThanOrEqual(edges.header);
   });
 }
+
+for (const width of [390, 1440]) {
+  test(`@smoke a header section link from another page opens the landing at that section at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/en/tools/');
+    await expect(page.locator('#app .landing h1')).toBeVisible();
+    const header = page.locator('#app .site-header');
+    if (width === 390) await header.locator('.nav-toggle').click();
+    await header.locator('[data-nav="pricing"]').click();
+    await expect(page).toHaveURL(/\/en\/#pricing$/);
+    const section = page.locator('#app .landing #pricing');
+    await expect(section).toBeVisible();
+    await expect.poll(() => section.evaluate((el) => Math.round(el.getBoundingClientRect().top - document.querySelector('#app .landing')!.getBoundingClientRect().top))).toBeLessThan(80);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+}
