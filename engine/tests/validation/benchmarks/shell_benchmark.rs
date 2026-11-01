@@ -7,7 +7,7 @@
 ///   4. Pinched hemisphere — MacNeal-Harder standard test
 ///
 /// MITC4 with Bathe-Dvorkin ANS shear tying eliminates transverse shear locking:
-///   - Scordelis-Lo 6×6: ratio ~0.80 (was ~0.14 before ANS)
+///   - Scordelis-Lo 6×6: ratio ~1.016 with corrected symmetry (#810)
 ///   - Navier plate 4×4: ratio ~0.93 (was ~0.08 before ANS)
 ///   - Cantilever pressure: ratio ~1.05 (was ~0.10 before ANS)
 ///   - Buckling 8×8: ratio ~1.02 (was highly variable before ANS)
@@ -66,8 +66,121 @@ fn hemisphere_hole_displacement(displacements: &[Displacement3D], node_id: usize
         .expect("Equator node displacement not found").ux
 }
 
-/// Build a Scordelis-Lo barrel vault quarter model and return the midspan
-/// free-edge signed vertical displacement (negative under gravity).
+fn scordelis_lo_fixities(i: usize, j: usize, nx: usize) -> [bool; 6] {
+    [i == 0, i == nx || j == 0, i == nx, j == 0, i == 0, i == 0 || j == 0]
+}
+
+fn scordelis_lo_supports(node_grid: &[Vec<usize>]) -> HashMap<String, SolverSupport3D> {
+    let mut supports = HashMap::new();
+    for i in 0..node_grid.len() {
+        for j in 0..node_grid[0].len() {
+            let f = scordelis_lo_fixities(i, j, node_grid.len() - 1);
+            if f.iter().any(|&fixed| fixed) {
+                let nid = node_grid[i][j];
+                supports.insert(nid.to_string(), sup3d(nid, f[0], f[1], f[2], f[3], f[4], f[5]));
+            }
+        }
+    }
+
+    supports
+}
+
+/// Build the Scordelis-Lo quarter model and return its midspan free-edge node.
+fn scordelis_lo_model(nx: usize, ntheta: usize) -> (SolverInput3D, usize) {
+    let e = 4.32e8 / 1000.0;
+    let nu = 0.0;
+    let t = 0.25;
+    let r = 25.0;
+    let half_l = 25.0;
+    let theta_deg = 40.0;
+    let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
+    let gravity_per_area = 90.0;
+
+    let mut nodes = HashMap::new();
+    let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
+    let mut nid = 1;
+
+    for i in 0..=nx {
+        for j in 0..=ntheta {
+            let x = (i as f64 / nx as f64) * half_l;
+            let th = (j as f64 / ntheta as f64) * theta_rad;
+            let y = r * th.sin();
+            let z = r * th.cos() - r;
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
+            node_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ntheta {
+            let n1 = node_grid[i][j];
+            let n2 = node_grid[i + 1][j];
+            let n3 = node_grid[i + 1][j + 1];
+            let n4 = node_grid[i][j + 1];
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [n1, n2, n3, n4],
+                material_id: 1,
+                thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    let supports = scordelis_lo_supports(&node_grid);
+
+    // Equivalent nodal gravity loads
+    let dx_len = half_l / nx as f64;
+    let dtheta = theta_rad / ntheta as f64;
+
+    let mut loads = Vec::new();
+    for i in 0..=nx {
+        for j in 0..=ntheta {
+            let on_x_edge = i == 0 || i == nx;
+            let on_t_edge = j == 0 || j == ntheta;
+            let factor = match (on_x_edge, on_t_edge) {
+                (true, true)   => 0.25,
+                (true, false) | (false, true) => 0.5,
+                (false, false) => 1.0,
+            };
+            let trib_area = dx_len * r * dtheta;
+            let fz = -gravity_per_area * trib_area * factor;
+
+            let nid = node_grid[i][j];
+            // Retain loads at supports as well, so reactions recover total dead weight.
+            loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id: nid,
+                fx: 0.0, fy: 0.0, fz,
+                mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
+        }
+    }
+
+    let input = SolverInput3D {
+        solver_options: None, masses: Default::default(),
+        nodes,
+        materials: mats,
+        sections: HashMap::new(),
+        elements: HashMap::new(),
+        supports,
+        loads,
+        constraints: vec![],
+        left_hand: None,
+        plates: HashMap::new(),
+        quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(),
+        curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    (input, node_grid[0][ntheta])
+}
+
 fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
     obstacle::solve("roof", nx, ntheta)
 }
@@ -78,9 +191,8 @@ fn scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
 //
 // Reference midspan free-edge vertical displacement = 0.3024
 //
-// Current MITC4 is stiffer than reference on coarse meshes (~14% at 6×6).
-// Verify non-trivial deflection and convergence with refinement.
-// Target: ratio approaching 1.0 on fine meshes (Program 3).
+// Correct symmetry and dead weight: ratios 1.0156, 1.0069, 1.0016, 1.0001
+// at 6, 8, 12, 16 per direction. Strict 2% checks are below.
 
 #[test]
 fn benchmark_scordelis_lo_roof_mitc4() {
@@ -93,7 +205,7 @@ fn benchmark_scordelis_lo_roof_mitc4() {
         "Scordelis-Lo 6x6: should produce meaningful deflection, got uz={:.6e}", uz_6
     );
 
-    // 6×6 coarse mesh: EAS-7 gives ~84% of reference (up from ~80% with EAS-4)
+    // Corrected quarter model: 6×6 is within 2% of the reference.
     let ratio = uz_6 / reference;
     assert!(
         ratio > 0.7 && ratio < 1.2,
@@ -1670,146 +1782,31 @@ fn benchmark_shell_thermal_gradient_bending() {
 /// since QuadPressure assembles consistent nodal loads internally.
 #[test]
 fn benchmark_shell_scordelis_lo_pressure() {
-    let e = 4.32e8 / 1000.0; // E in MPa (solver uses *1000)
-    let nu = 0.0;
-    let t = 0.25;
-    let r = 25.0;
-    let half_l = 25.0;
-    let theta_deg = 40.0;
-    let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
-    let gravity_per_area = 90.0; // force/area in solver units (kN/m²)
-    let nx = 6;
-    let ntheta = 6;
-
-    // Build geometry (shared between both models)
-    let build_model = |use_pressure: bool| {
-        let mut nodes = HashMap::new();
-        let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
-        let mut nid = 1;
-        for i in 0..=nx {
-            for j in 0..=ntheta {
-                let x = (i as f64 / nx as f64) * half_l;
-                let th = (j as f64 / ntheta as f64) * theta_rad;
-                let y = r * th.sin();
-                let z = r * th.cos() - r;
-                nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
-                node_grid[i][j] = nid;
-                nid += 1;
-            }
+    let (mut input, target) = scordelis_lo_model(6, 6);
+    input.loads.clear();
+    for q in input.quads.values() {
+        let a = &input.nodes[&q.nodes[0].to_string()];
+        let b = &input.nodes[&q.nodes[1].to_string()];
+        let d = &input.nodes[&q.nodes[3].to_string()];
+        let dx = b.x - a.x;
+        let fy = 90.0 * dx * (d.z - a.z) / 4.0;
+        let fz = -90.0 * dx * (d.y - a.y) / 4.0;
+        for &node_id in &q.nodes {
+            input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
+                node_id, fx: 0.0, fy, fz, mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+            }));
         }
-
-        let mut quads = HashMap::new();
-        let mut qid = 1;
-        for i in 0..nx {
-            for j in 0..ntheta {
-                quads.insert(qid.to_string(), SolverQuadElement {
-                    id: qid,
-                    nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
-                    material_id: 1, thickness: t,
-                });
-                qid += 1;
-            }
-        }
-
-        let mut mats = HashMap::new();
-        mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
-
-        let mut supports = HashMap::new();
-        let mut sid = 1;
-
-        // x = 0: symmetry — restrain ux, rry
-        for j in 0..=ntheta {
-            let n = node_grid[0][j];
-            supports.insert(sid.to_string(), sup3d(n, true, false, false, false, true, false));
-            sid += 1;
-        }
-        // x = half_L: rigid diaphragm — restrain uy, uz
-        for j in 0..=ntheta {
-            let n = node_grid[nx][j];
-            supports.insert(sid.to_string(), sup3d(n, false, true, true, false, false, false));
-            sid += 1;
-        }
-        // theta = 0 (crown): symmetry — restrain uy, rrx
-        for i in 0..=nx {
-            let n = node_grid[i][0];
-            if !supports.values().any(|s| s.node_id == n) {
-                supports.insert(sid.to_string(), sup3d(n, false, true, false, true, false, false));
-                sid += 1;
-            }
-        }
-        // Pin corner
-        if let Some(s) = supports.values_mut().find(|s| s.node_id == node_grid[0][0]) {
-            s.ry = true; s.rz = true;
-        }
-
-        let mut loads = Vec::new();
-        if use_pressure {
-            // QuadPressure: negative pressure = gravity (normal to surface → approx -z)
-            for qid_l in 1..=(nx * ntheta) {
-                loads.push(SolverLoad3D::QuadPressure(SolverPressureLoad {
-                    element_id: qid_l, pressure: -gravity_per_area,
-                }));
-            }
-        } else {
-            // Equivalent nodal forces (same as scordelis_lo_solve helper)
-            let dx_len = half_l / nx as f64;
-            let dtheta = theta_rad / ntheta as f64;
-            for i in 0..=nx {
-                for j in 0..=ntheta {
-                    let on_x = i == 0 || i == nx;
-                    let on_t = j == 0 || j == ntheta;
-                    let factor = match (on_x, on_t) {
-                        (true, true) => 0.25,
-                        (true, false) | (false, true) => 0.5,
-                        (false, false) => 1.0,
-                    };
-                    let trib = dx_len * r * dtheta;
-                    let fz = -gravity_per_area * trib * factor;
-                    let n = node_grid[i][j];
-                    let rz_fixed = supports.values().any(|s| s.node_id == n && s.rz);
-                    if !rz_fixed {
-                        loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-                            node_id: n, fx: 0.0, fy: 0.0, fz,
-                            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-                        }));
-                    }
-                }
-            }
-        }
-
-        let input = SolverInput3D {
-            solver_options: None, masses: Default::default(),
-            nodes, materials: mats, sections: HashMap::new(),
-            elements: HashMap::new(), supports, loads,
-            constraints: vec![], left_hand: None,
-            plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-            connectors: HashMap::new(),
-        };
-
-        let res = linear::solve_3d(&input).expect("Scordelis-Lo solve failed");
-        let free_nid = node_grid[0][ntheta];
-        res.displacements.iter().find(|d| d.node_id == free_nid).unwrap().uz.abs()
-    };
-
-    let uz_nodal = build_model(false);
-    let uz_pressure = build_model(true);
-
-    eprintln!(
-        "Scordelis-Lo pressure: nodal uz={:.6e}, pressure uz={:.6e}, ratio={:.4}",
-        uz_nodal, uz_pressure, uz_pressure / uz_nodal.max(1e-20)
-    );
-
-    // Both should produce non-trivial deflection
-    assert!(uz_nodal > 1e-6, "Nodal load should produce deflection");
-    assert!(uz_pressure > 1e-6, "Pressure load should produce deflection");
-
-    // QuadPressure applies normal to element surface (not global -z), so the
-    // results differ from pure gravity nodal loads. Accept within factor of 5.
-    let ratio = uz_pressure / uz_nodal;
-    assert!(
-        ratio > 0.05 && ratio < 20.0,
-        "Pressure/nodal ratio {:.3} outside [0.05, 20.0]", ratio
-    );
+    }
+    let nodal = linear::solve_3d(&input).expect("Normal nodal roof solve failed");
+    input.loads = input.quads.values().map(|q| {
+        SolverLoad3D::QuadPressure(SolverPressureLoad { element_id: q.id, pressure: -90.0 })
+    }).collect();
+    let pressure = linear::solve_3d(&input).expect("Pressure roof solve failed");
+    let uz_nodal = scordelis_lo_displacement(&nodal.displacements, target);
+    let uz_pressure = scordelis_lo_displacement(&pressure.displacements, target);
+    eprintln!("Roof pressure: nodal={uz_nodal:.10}, pressure={uz_pressure:.10}");
+    assert!(uz_nodal < -1e-6 && uz_pressure < -1e-6);
+    assert!((uz_pressure / uz_nodal - 1.0).abs() < 1e-7);
 }
 
 /// Benchmark: single-story building with columns (3D frames) and floor slab
@@ -2959,8 +2956,92 @@ fn benchmark_distortion_random() {
 //
 // R=300, L=600, t=3, E=3e6, ν=0.3.
 // Two diametrically opposed radial point loads at midspan.
-// Quarter model with symmetry BCs.
+// One-eighth model with symmetry BCs.
 // Reference: u_radial = 1.8248e-5 (MacNeal-Harder 1985).
+
+fn pinched_cylinder_model(nx: usize, ntheta: usize) -> (SolverInput3D, usize) {
+    let r = 300.0;
+    let half_l = 300.0; // half-length; one quarter of the circumference
+    let t = 3.0;
+    // Standard MacNeal-Harder: E=3×10^6, solver takes E in MPa (internally ×1000→kPa).
+    // Use e=3000.0 → internal 3×10^6, making R=300, L=600, t=3 consistent.
+    let e = 3000.0;
+    let nu = 0.3;
+    let f_load = 1.0;
+    let pi = std::f64::consts::PI;
+
+    // One-eighth model: x in [0, half_L], theta in [0, π/2]
+    let mut nodes = HashMap::new();
+    let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
+    let mut nid = 1;
+    for i in 0..=nx {
+        for j in 0..=ntheta {
+            let x = (i as f64 / nx as f64) * half_l;
+            let th = (j as f64 / ntheta as f64) * (pi / 2.0);
+            let y = r * th.cos();
+            let z = r * th.sin();
+            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
+            node_grid[i][j] = nid;
+            nid += 1;
+        }
+    }
+
+    let mut quads = HashMap::new();
+    let mut qid = 1;
+    for i in 0..nx {
+        for j in 0..ntheta {
+            quads.insert(qid.to_string(), SolverQuadElement {
+                id: qid,
+                nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
+                material_id: 1, thickness: t,
+            });
+            qid += 1;
+        }
+    }
+
+    let mut mats = HashMap::new();
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
+
+    // Union constraints at intersections: rotations are axial vectors, so a
+    // symmetry plane fixes its normal translation and both tangential rotations.
+    // Definitions and isolation experiments: docs/audits/810-mitc4-curved-shells.md.
+    let mut supports = HashMap::new();
+    for i in 0..=nx {
+        for j in 0..=ntheta {
+            let mut f = [false; 6];
+            if i == 0 { f[0] = true; f[4] = true; f[5] = true; }
+            if i == nx { f[1] = true; f[2] = true; }
+            if j == 0 { f[2] = true; f[3] = true; f[4] = true; }
+            if j == ntheta { f[1] = true; f[3] = true; f[5] = true; }
+            if f.iter().any(|&fixed| fixed) {
+                let nid = node_grid[i][j];
+                supports.insert(nid.to_string(), sup3d(nid, f[0], f[1], f[2], f[3], f[4], f[5]));
+            }
+        }
+    }
+
+    // Point load at midspan (x=0), top (theta=0) → radial inward (-y)
+    // Each unit point force is shared by four sectors at the loaded point; apply P/4.
+    let load_node = node_grid[0][0];
+    let loads = vec![
+        SolverLoad3D::Nodal(SolverNodalLoad3D {
+            node_id: load_node,
+            fx: 0.0, fy: -f_load / 4.0, fz: 0.0,
+            mx: 0.0, my: 0.0, mz: 0.0, bw: None,
+        }),
+    ];
+
+    let input = SolverInput3D {
+        solver_options: None, masses: Default::default(),
+        nodes, materials: mats, sections: HashMap::new(),
+        elements: HashMap::new(), supports, loads,
+        constraints: vec![], left_hand: None,
+        plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
+        connectors: HashMap::new(),
+    };
+
+    (input, load_node)
+}
 
 fn pinched_cylinder_solve(nx: usize, ntheta: usize) -> f64 {
     obstacle::solve("cylinder", nx, ntheta)
@@ -3008,125 +3089,25 @@ fn benchmark_pinched_cylinder_8x8() {
 
 #[test]
 fn benchmark_shell_self_weight_scordelis_lo() {
-    // Scordelis-Lo parameters (same as scordelis_lo_solve)
-    let e = 4.32e8 / 1000.0; // MPa
-    let nu = 0.0;
-    let t = 0.25;
-    let r = 25.0;
-    let half_l = 25.0;
-    let theta_deg = 40.0;
-    let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
-    let gravity_per_area = 90.0; // kN/m²
-
-    // Density such that rho * g * t = gravity_per_area
-    // rho * 9.81 * 0.25 / 1000 = 90 → rho = 90 * 1000 / (9.81 * 0.25) = 36697 kg/m³
-    // (artificial density to match the loading)
-    let g = 9.81;
-    let density = gravity_per_area * 1000.0 / (g * t);
-
-    let nx = 6;
-    let ntheta = 6;
-
-    let mut nodes = HashMap::new();
-    let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
-    let mut nid = 1;
-    for i in 0..=nx {
-        for j in 0..=ntheta {
-            let x = (i as f64 / nx as f64) * half_l;
-            let th = (j as f64 / ntheta as f64) * theta_rad;
-            let y = r * th.sin();
-            let z = r * th.cos() - r;
-            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
-            node_grid[i][j] = nid;
-            nid += 1;
-        }
+    for n in [6, 16] {
+        let (mut input, target) = scordelis_lo_model(n, n);
+        let nodal = linear::solve_3d(&input).expect("Nodal roof solve failed");
+        let uz_nodal = scordelis_lo_displacement(&nodal.displacements, target);
+        input.loads = input.quads.values().map(|q| {
+            SolverLoad3D::QuadSelfWeight(SolverQuadSelfWeightLoad {
+                element_id: q.id, density: 90.0 * 1000.0 / (9.81 * q.thickness),
+                gx: 0.0, gy: 0.0, gz: -9.81,
+            })
+        }).collect();
+        let result = linear::solve_3d(&input).expect("Self-weight roof solve failed");
+        let uz_sw = scordelis_lo_displacement(&result.displacements, target);
+        let half_step = 40.0_f64.to_radians() / (2 * n) as f64;
+        let chord_to_arc = half_step.sin() / half_step;
+        let ratio = uz_sw / uz_nodal;
+        eprintln!("Roof self-weight {n}x{n}: ratio={ratio:.10}, chord/arc={chord_to_arc:.10}");
+        assert!(uz_sw < -1e-6 && uz_nodal < -1e-6);
+        assert!((ratio / chord_to_arc - 1.0).abs() < 1e-7);
     }
-
-    let mut quads = HashMap::new();
-    let mut qid = 1;
-    for i in 0..nx {
-        for j in 0..ntheta {
-            quads.insert(qid.to_string(), SolverQuadElement {
-                id: qid,
-                nodes: [node_grid[i][j], node_grid[i+1][j], node_grid[i+1][j+1], node_grid[i][j+1]],
-                material_id: 1, thickness: t,
-            });
-            qid += 1;
-        }
-    }
-
-    let mut mats = HashMap::new();
-    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
-
-    let mut supports = HashMap::new();
-    let mut sid = 1;
-    // x = 0: symmetry — ux, rry
-    for j in 0..=ntheta {
-        let n = node_grid[0][j];
-        supports.insert(sid.to_string(), sup3d(n, true, false, false, false, true, false));
-        sid += 1;
-    }
-    // x = half_L: diaphragm — uy, uz
-    for j in 0..=ntheta {
-        let n = node_grid[nx][j];
-        supports.insert(sid.to_string(), sup3d(n, false, true, true, false, false, false));
-        sid += 1;
-    }
-    // theta = 0: symmetry — uy, rrx
-    for i in 0..=nx {
-        let n = node_grid[i][0];
-        if !supports.values().any(|s| s.node_id == n) {
-            supports.insert(sid.to_string(), sup3d(n, false, true, false, true, false, false));
-            sid += 1;
-        }
-    }
-    // Pin corner
-    if let Some(s) = supports.values_mut().find(|s| s.node_id == node_grid[0][0]) {
-        s.ry = true; s.rz = true;
-    }
-
-    // Self-weight loads on all elements
-    let loads: Vec<SolverLoad3D> = (1..=(nx * ntheta))
-        .map(|qid_l| SolverLoad3D::QuadSelfWeight(SolverQuadSelfWeightLoad {
-            element_id: qid_l,
-            density,
-            gx: 0.0, gy: 0.0, gz: -g,
-        }))
-        .collect();
-
-    let input = SolverInput3D {
-        solver_options: None, masses: Default::default(),
-        nodes, materials: mats, sections: HashMap::new(),
-        elements: HashMap::new(), supports, loads,
-        constraints: vec![], left_hand: None,
-        plates: HashMap::new(), quads, quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells: HashMap::new(), curved_beams: vec![],
-        connectors: HashMap::new(),
-    };
-
-    let res = linear::solve_3d(&input).expect("Self-weight Scordelis-Lo solve failed");
-
-    let free_nid = node_grid[0][ntheta];
-    let d = res.displacements.iter().find(|d| d.node_id == free_nid)
-        .expect("Free edge displacement not found");
-    let uz_sw = d.uz;
-
-    // Compare to existing nodal-load result
-    let uz_nodal = scordelis_lo_solve(6, 6);
-
-    eprintln!(
-        "Self-weight Scordelis-Lo: uz_sw={:.6e}, uz_nodal={:.6e}, ratio={:.4}",
-        uz_sw, uz_nodal, uz_sw / uz_nodal.min(-1e-20)
-    );
-
-    // Self-weight applies gravity globally (-z), while nodal loads are also -z.
-    // For a curved shell, the self-weight integration distributes forces more
-    // accurately than tributary area. Results should be in the same ballpark.
-    assert!(uz_sw < -1e-6, "Self-weight should produce deflection");
-    let ratio = uz_sw / uz_nodal.min(-1e-20);
-    assert!(
-        ratio > 0.1 && ratio < 10.0,
-        "Self-weight/nodal ratio {:.3} outside [0.1, 10.0]", ratio
-    );
 }
 
 // ================================================================
@@ -4925,79 +4906,15 @@ fn q9_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
     }
 
     let mut mats = HashMap::new();
-    mats.insert("1".to_string(), SolverMaterial { id: 1, e: e / 1000.0, nu });
-    // e is in kPa; SolverMaterial expects MPa, so e_mpa = e/1000 ... wait, let me check
-    // In the MITC4 version, e = 4.32e8 / 1000.0 = 432000 (MPa). That's right, no further division needed.
-    mats.clear();
-    mats.insert("1".to_string(), SolverMaterial { id: 1, e: 4.32e8 / 1000.0, nu });
-
-    let rows = 2 * nx + 1;
+    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
     let cols = 2 * ntheta + 1;
-
-    let mut supports = HashMap::new();
-    let mut sid = 1;
-
-    // x = 0: symmetry — restrain ux, rry
-    for j in 0..cols {
-        let nid_s = grid[0][j];
-        supports.insert(sid.to_string(), sup3d(nid_s, true, false, false, false, true, false));
-        sid += 1;
-    }
-
-    // x = half_L: rigid diaphragm — restrain uy, uz
-    for j in 0..cols {
-        let nid_s = grid[rows - 1][j];
-        supports.insert(sid.to_string(), sup3d(nid_s, false, true, true, false, false, false));
-        sid += 1;
-    }
-
-    // theta = 0 (crown): symmetry — restrain uy, rrx
-    for i in 0..rows {
-        let nid_s = grid[i][0];
-        if !supports.values().any(|s| s.node_id == nid_s) {
-            supports.insert(sid.to_string(), sup3d(nid_s, false, true, false, true, false, false));
-            sid += 1;
-        }
-    }
-
-    // Pin corner for rigid body
-    let corner = grid[0][0];
-    if let Some(s) = supports.values_mut().find(|s| s.node_id == corner) {
-        s.ry = true;
-        s.rz = true;
-    }
-
-    // Equivalent nodal gravity loads (matching MITC4 pattern)
-    // For q9 mesh: nodes on element edges/interiors have different tributary weights.
-    // Use uniform tributary area approach: each node's tributary area from the
-    // regular grid of (2*nx+1)×(2*ntheta+1) nodes.
-    let dx_len = half_l / (2 * nx) as f64;
-    let dtheta = theta_rad / (2 * ntheta) as f64;
-
-    let mut loads = Vec::new();
-    for i in 0..rows {
-        for j in 0..cols {
-            let on_x_edge = i == 0 || i == rows - 1;
-            let on_t_edge = j == 0 || j == cols - 1;
-            let factor = match (on_x_edge, on_t_edge) {
-                (true, true)   => 0.25,
-                (true, false) | (false, true) => 0.5,
-                (false, false) => 1.0,
-            };
-            let trib_area = dx_len * r * dtheta;
-            let fz = -gravity_per_area * trib_area * factor;
-
-            let nid_l = grid[i][j];
-            let is_rz_restrained = supports.values().any(|s| s.node_id == nid_l && s.rz);
-            if !is_rz_restrained {
-                loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-                    node_id: nid_l,
-                    fx: 0.0, fy: 0.0, fz,
-                    mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-                }));
-            }
-        }
-    }
+    let supports = scordelis_lo_supports(&grid);
+    let loads = quad9s.values().map(|q| {
+        SolverLoad3D::Quad9SelfWeight(SolverQuadSelfWeightLoad {
+            element_id: q.id, density: gravity_per_area * 1000.0 / t,
+            gx: 0.0, gy: 0.0, gz: -1.0,
+        })
+    }).collect();
 
     let input = SolverInput3D {
         solver_options: None, masses: Default::default(),
@@ -5024,16 +4941,18 @@ fn q9_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
         .find(|d| d.node_id == free_edge_nid)
         .expect("Free edge node displacement not found");
 
-    d_free.uz.abs()
+    -d_free.uz
 }
 
 #[test]
 fn benchmark_q9_scordelis_lo() {
     let reference = mh::reference("scordelis");
-    let meshes = [(2, 2), (4, 4), (6, 6)];
+    // Published ratios are 1.1744, 1.0070, and 0.9992. Preserve the
+    // acknowledged coarse-mesh overprediction while bounding every mesh.
+    let meshes = [(2, 2, 1.15, 1.20), (4, 4, 0.99, 1.01), (6, 6, 0.98, 1.02)];
     let mut ratios = Vec::new();
 
-    for &(nx, nt) in &meshes {
+    for &(nx, nt, lower, upper) in &meshes {
         let uz = q9_scordelis_lo_solve(nx, nt);
         let ratio = uz / reference;
         ratios.push((nx, nt, uz, ratio));
@@ -5041,22 +4960,34 @@ fn benchmark_q9_scordelis_lo() {
             "Q9 Scordelis-Lo {}x{}: uz={:.6e}, ratio={:.4}",
             nx, nt, uz, ratio
         );
-    }
-
-    // All meshes should produce nonzero deflection
-    for &(nx, nt, uz, _) in &ratios {
+        // uz is signed downward displacement; do not mask an upward response
+        // with abs(). Explicit finiteness also rejects infinite displacement.
         assert!(
-            uz > 1e-15,
-            "Q9 Scordelis-Lo {}x{}: should deflect, got uz={:.6e}",
-            nx, nt, uz
+            uz.is_finite() && ratio.is_finite() && uz > 1e-15,
+            "Q9 Scordelis-Lo {}x{}: expected finite downward deflection, got uz={:.6e}, ratio={:.6}",
+            nx, nt, uz, ratio
+        );
+        assert!(
+            ratio > lower && ratio < upper,
+            "Q9 Scordelis-Lo {}x{}: signed ratio={:.6} outside ({:.2}, {:.2})",
+            nx, nt, ratio, lower, upper
         );
     }
 
-    // Finest mesh should converge well (Q9 should beat MITC4 at same element count)
+    for pair in ratios.windows(2) {
+        let (nx_coarse, nt_coarse, _, r_coarse) = pair[0];
+        let (nx_fine, nt_fine, _, r_fine) = pair[1];
+        assert!(
+            (r_fine - 1.0).abs() < (r_coarse - 1.0).abs(),
+            "Q9 Scordelis-Lo: error must decrease from {}x{} (ratio={:.6}) to {}x{} (ratio={:.6})",
+            nx_coarse, nt_coarse, r_coarse, nx_fine, nt_fine, r_fine
+        );
+    }
+
     let (_, _, _, r_fine) = *ratios.last().unwrap();
     assert!(
-        r_fine > 0.5,
-        "Q9 Scordelis-Lo 6x6: ratio={:.4} too low (expected > 0.5)", r_fine
+        (r_fine - 1.0).abs() < 0.02,
+        "Q9 Scordelis-Lo 6x6: ratio={:.4} outside 2% accuracy gate", r_fine
     );
 }
 
@@ -6108,33 +6039,15 @@ fn benchmark_ss_scordelis_lo() {
         let mut mats = HashMap::new();
         mats.insert("1".to_string(), SolverMaterial { id: 1, e: e_mpa, nu });
 
-        // Boundary conditions:
-        // x=0 (rigid diaphragm): uy=0, uz=0
-        // x=half_l (midspan symmetry): ux=0
-        // θ=0 (crown symmetry): uy=0
-        // θ=θ_max (free edge): all free
         let mut supports = HashMap::new();
-
-        // x=0 end: rigid diaphragm (uy=0, uz=0)
-        for j in 0..=n {
-            for &nid in &grid[0][j] {
-                supports.insert(nid.to_string(), sup3d(nid, false, true, true, false, false, false));
-            }
-        }
-
-        // θ=0 (crown, j=0): symmetry, uy=0
-        for i in 1..=n {
-            for &nid in &grid[i][0] {
-                supports.entry(nid.to_string())
-                    .or_insert_with(|| sup3d(nid, false, true, false, false, false, false));
-            }
-        }
-
-        // x=half_l (midspan symmetry): ux=0. Without it the quarter vault can
-        // rotate rigidly about the y axis through the pinned corner.
-        for j in 0..=n {
-            for &nid in &grid[n][j] {
-                supports.insert(nid.to_string(), sup3d(nid, true, j == 0, false, false, false, false));
+        for i in 0..=n {
+            for j in 0..=n {
+                let f = scordelis_lo_fixities(n - i, j, n);
+                for &nid in &grid[i][j] {
+                    if f[..3].iter().any(|&fixed| fixed) {
+                        supports.insert(nid.to_string(), sup3d(nid, f[0], f[1], f[2], false, false, false));
+                    }
+                }
             }
         }
 
@@ -6842,143 +6755,15 @@ fn benchmark_curved_shell_navier_plate() {
 /// Scordelis-Lo barrel vault with curved shell elements.
 /// Reference: midspan free-edge vertical displacement = 0.3024
 fn curved_shell_scordelis_lo_solve(nx: usize, ntheta: usize) -> f64 {
-    let e = 4.32e8 / 1000.0;
-    let nu = 0.0;
-    let t = 0.25;
-    let r = 25.0;
-    let half_l = 25.0;
-    let theta_deg = 40.0;
-    let theta_rad = theta_deg * std::f64::consts::PI / 180.0;
-    let gravity_per_area = 90.0;
-
-    let mut nodes = HashMap::new();
-    let mut node_grid = vec![vec![0usize; ntheta + 1]; nx + 1];
-    let mut nid = 1;
-
-    for i in 0..=nx {
-        for j in 0..=ntheta {
-            let x = (i as f64 / nx as f64) * half_l;
-            let th = (j as f64 / ntheta as f64) * theta_rad;
-            let y = r * th.sin();
-            let z = r * th.cos() - r;
-            nodes.insert(nid.to_string(), SolverNode3D { id: nid, x, y, z });
-            node_grid[i][j] = nid;
-            nid += 1;
-        }
-    }
-
-    let mut curved_shells = HashMap::new();
-    let mut eid = 1;
-    for i in 0..nx {
-        for j in 0..ntheta {
-            curved_shells.insert(eid.to_string(), SolverCurvedShellElement {
-                id: eid,
-                nodes: [
-                    node_grid[i][j],
-                    node_grid[i + 1][j],
-                    node_grid[i + 1][j + 1],
-                    node_grid[i][j + 1],
-                ],
-                material_id: 1,
-                thickness: t,
-                normals: None,
-            });
-            eid += 1;
-        }
-    }
-
-    let mut mats = HashMap::new();
-    mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
-
-    let mut supports = HashMap::new();
-    let mut sid = 1;
-
-    // x = 0: symmetry — restrain ux, rry
-    for j in 0..=ntheta {
-        let nid = node_grid[0][j];
-        supports.insert(sid.to_string(), sup3d(nid, true, false, false, false, true, false));
-        sid += 1;
-    }
-
-    // x = half_L: rigid diaphragm — restrain uy, uz
-    for j in 0..=ntheta {
-        let nid = node_grid[nx][j];
-        supports.insert(sid.to_string(), sup3d(nid, false, true, true, false, false, false));
-        sid += 1;
-    }
-
-    // theta = 0 (crown): symmetry — restrain uy, rrx
-    for i in 0..=nx {
-        let nid = node_grid[i][0];
-        if !supports.values().any(|s| s.node_id == nid) {
-            supports.insert(sid.to_string(), sup3d(nid, false, true, false, true, false, false));
-            sid += 1;
-        }
-    }
-
-    // Pin corner for rigid body stability
-    let corner = node_grid[0][0];
-    if let Some(s) = supports.values_mut().find(|s| s.node_id == corner) {
-        s.ry = true;
-        s.rz = true;
-    }
-
-    // Equivalent nodal gravity loads
-    let dx_len = half_l / nx as f64;
-    let dtheta = theta_rad / ntheta as f64;
-
-    let mut loads = Vec::new();
-    for i in 0..=nx {
-        for j in 0..=ntheta {
-            let on_x_edge = i == 0 || i == nx;
-            let on_t_edge = j == 0 || j == ntheta;
-            let factor = match (on_x_edge, on_t_edge) {
-                (true, true)   => 0.25,
-                (true, false) | (false, true) => 0.5,
-                (false, false) => 1.0,
-            };
-            let trib_area = dx_len * r * dtheta;
-            let fz = -gravity_per_area * trib_area * factor;
-
-            let nid = node_grid[i][j];
-            let is_rz_restrained = supports.values().any(|s| s.node_id == nid && s.rz);
-            if !is_rz_restrained {
-                loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
-                    node_id: nid,
-                    fx: 0.0, fy: 0.0, fz,
-                    mx: 0.0, my: 0.0, mz: 0.0, bw: None,
-                }));
-            }
-        }
-    }
-
-    let input = SolverInput3D {
-        solver_options: None, masses: Default::default(),
-        nodes,
-        materials: mats,
-        sections: HashMap::new(),
-        elements: HashMap::new(),
-        supports,
-        loads,
-        constraints: vec![],
-        left_hand: None,
-        plates: HashMap::new(),
-        quads: HashMap::new(),
-        quad9s: HashMap::new(),
-        solid_shells: HashMap::new(),
-        curved_shells,
-        curved_beams: vec![],
-        connectors: HashMap::new(),
-    };
-
-    let res = linear::solve_3d(&input).expect("Curved shell Scordelis-Lo solve failed");
-
-    let free_edge_nid = node_grid[0][ntheta];
-    let d_free = res.displacements.iter()
-        .find(|d| d.node_id == free_edge_nid)
-        .expect("Free edge node displacement not found");
-
-    d_free.uz.abs()
+    let (mut input, target) = scordelis_lo_model(nx, ntheta);
+    input.curved_shells = input.quads.drain().map(|(id, q)| {
+        (id, SolverCurvedShellElement {
+            id: q.id, nodes: q.nodes, material_id: q.material_id,
+            thickness: q.thickness, normals: None,
+        })
+    }).collect();
+    let result = linear::solve_3d(&input).expect("Curved shell roof solve failed");
+    -scordelis_lo_displacement(&result.displacements, target)
 }
 
 #[test]
@@ -6993,9 +6778,10 @@ fn benchmark_curved_shell_scordelis_lo() {
     let ratio_8 = uz_8 / ref_uz;
     println!("Curved shell Scordelis-Lo 8×8: uz={uz_8:.6e}, ratio={ratio_8:.4}");
 
-    // Curved shell should perform at least as well as flat MITC4 on this singly-curved geometry
-    assert!(ratio_8 > 0.70, "Curved shell Scordelis-Lo 8×8 too stiff: ratio {ratio_8:.4}");
-    assert!(ratio_8 < 1.30, "Curved shell Scordelis-Lo 8×8 too soft: ratio {ratio_8:.4}");
+    for (n, ratio) in [(6, ratio_6), (8, ratio_8)] {
+        assert!((ratio - 1.0).abs() < 0.05, "Curved shell Scordelis-Lo {n}×{n}: ratio {ratio:.4} outside 5% accuracy gate");
+    }
+    assert!((ratio_8 - 1.0).abs() < (ratio_6 - 1.0).abs());
 }
 
 /// Pinched hemisphere with curved shell elements — the KEY benchmark.
@@ -7756,7 +7542,8 @@ fn benchmark_curved_shell_cross_family_comparison() {
 // the older capability floors above. MacNeal & Harder (1985); NAFEMS TNSB Rev 3
 // (1990), LE3 for the hemisphere with 18° hole. Page source: this file's
 // benchmark_scordelis_lo_convergence, benchmark_pinched_cylinder_8x8, and
-// benchmark_hemisphere_hole_convergence; numerical paper table/page unverified.
+// benchmark_hemisphere_hole_convergence. Roof/cylinder model and reference audit:
+// docs/audits/810-mitc4-curved-shells.md; hemisphere provenance unchanged.
 fn research_shell_accuracy(value: f64, reference: f64) {
     let error = (value/reference-1.).abs();
     assert!(value.is_finite() && error < 0.02,
@@ -7764,35 +7551,31 @@ fn research_shell_accuracy(value: f64, reference: f64) {
 }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_6() { research_shell_accuracy(scordelis_lo_solve(6, 6), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_8() { research_shell_accuracy(scordelis_lo_solve(8, 8), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_12() { research_shell_accuracy(scordelis_lo_solve(12, 12), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
 fn research_roof_16() { research_shell_accuracy(scordelis_lo_solve(16, 16), -0.3024); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_6() { research_shell_accuracy(pinched_cylinder_solve(6, 6), -1.8248e-05); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_8() { research_shell_accuracy(pinched_cylinder_solve(8, 8), -1.8248e-05); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_12() { research_shell_accuracy(pinched_cylinder_solve(12, 12), -1.8248e-05); }
 
 #[test]
-#[ignore = "known wrong result: #810"]
+#[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_16() { research_shell_accuracy(pinched_cylinder_solve(16, 16), -1.8248e-05); }
 
 #[test]
@@ -7842,4 +7625,112 @@ fn research_cylinder_rejects_reversed_response() {
 #[test]
 fn research_hemisphere_rejects_reversed_response() {
     check_shell_response_sign(hemisphere_hole_displacement, [0.185, 0.0, 0.0], 0.185);
+}
+
+#[test]
+fn research_shell_model_constraints_and_equilibrium() {
+    // Check intersections explicitly: these were silently skipped by the old builders.
+    let n = 8;
+    for roof in [true, false] {
+        let (input, target) = if roof { scordelis_lo_model(n, n) } else { pinched_cylinder_model(n, n) };
+        let flags = |id| {
+            let s = input.supports.values().find(|s| s.node_id == id).unwrap();
+            [s.rx, s.ry, s.rz, s.rrx, s.rry, s.rrz]
+        };
+        assert_eq!(flags(1), if roof { [true, true, false, true, true, true] }
+            else { [true, false, true, true, true, true] });
+        assert_eq!(flags(n + 1), if roof { [true, false, false, false, true, true] }
+            else { [true, true, false, true, true, true] });
+        assert_eq!(flags(n * (n + 1) + 1), if roof { [false, true, true, true, false, true] }
+            else { [false, true, true, true, true, false] });
+        assert_eq!(flags((n + 1) * (n + 1)), if roof { [false, true, true, false, false, false] }
+            else { [false, true, true, true, false, true] });
+        assert_eq!(target, if roof { n + 1 } else { 1 });
+        let applied: f64 = input.loads.iter().map(|l| match l {
+            SolverLoad3D::Nodal(l) => if roof { l.fz } else { l.fy },
+            _ => panic!("benchmark uses nodal loads"),
+        }).sum();
+        let expected = if roof { -90.0 * 25.0 * 25.0 * 40_f64.to_radians() } else { -0.25 };
+        assert!((applied / expected - 1.0).abs() < 1e-12, "dead weight / point-force partition");
+        let res = linear::solve_3d(&input).unwrap();
+        let reaction: f64 = res.reactions.iter().map(|r| if roof { r.fz } else { r.fy }).sum();
+        assert!(((reaction + applied) / expected).abs() < 1e-8, "reaction balance: {reaction} + {applied}");
+    }
+}
+
+#[test]
+fn research_cylinder_32() {
+    research_shell_accuracy(pinched_cylinder_solve(32, 32), -1.8248e-5);
+}
+
+#[test]
+fn research_cylinder_corrected_convergence() {
+    let mut previous_error = f64::INFINITY;
+    for n in [6, 8, 12, 16] {
+        let ratio = pinched_cylinder_solve(n, n) / -1.8248e-5;
+        let error = (ratio - 1.0).abs();
+        assert!(ratio > 0.0 && error < previous_error,
+            "corrected cylinder {n}×{n}: ratio={ratio}, previous error={previous_error}");
+        previous_error = error;
+    }
+}
+
+// The builders above also supply the pressure/self-weight and other element-family
+// controls. Regenerate the publication inputs with UPDATE_SHELL_OBSTACLE=1 and
+// this test; normal runs enforce JSON value equality (including all loads).
+#[test]
+fn research_shell_fixture_matches_corrected_builders() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/benchmarks/shell_obstacle_course.json");
+    let committed: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let mut generated = committed.clone();
+    for key in ["cases", "nativeCases"] {
+        for case in generated[key].as_array_mut().unwrap() {
+            let n = case["mesh"].as_u64().unwrap() as usize;
+            let (input, target) = match case["group"].as_str().unwrap() {
+                "roof" => scordelis_lo_model(n, n),
+                "cylinder" => pinched_cylinder_model(n, n),
+                _ => continue, // Keep the established hemisphere cases unchanged.
+            };
+            case["input"] = serde_json::to_value(input).unwrap();
+            case["measurement"]["node"] = serde_json::json!(target);
+        }
+    }
+    if std::env::var_os("UPDATE_SHELL_OBSTACLE").is_some() {
+        std::fs::write(path, serde_json::to_string_pretty(&generated).unwrap() + "\n").unwrap();
+    } else {
+        assert_json_matches(&committed, &generated, "$");
+    }
+}
+
+// Structure, keys and strings must match exactly; numbers to 1e-12 relative,
+// because macOS and Linux libm differ by one ulp in the mesh trigonometry.
+fn assert_json_matches(a: &serde_json::Value, b: &serde_json::Value, at: &str) {
+    use serde_json::Value;
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => {
+            let (x, y) = (x.as_f64().unwrap(), y.as_f64().unwrap());
+            assert!(
+                (x - y).abs() <= 1e-12 * x.abs().max(y.abs()),
+                "{at}: committed {x} vs generated {y}. Regenerate with UPDATE_SHELL_OBSTACLE=1"
+            );
+        }
+        (Value::Array(x), Value::Array(y)) => {
+            assert_eq!(x.len(), y.len(), "{at}: length. Regenerate with UPDATE_SHELL_OBSTACLE=1");
+            for (i, (x, y)) in x.iter().zip(y).enumerate() {
+                assert_json_matches(x, y, &format!("{at}[{i}]"));
+            }
+        }
+        (Value::Object(x), Value::Object(y)) => {
+            assert_eq!(
+                x.keys().collect::<Vec<_>>(),
+                y.keys().collect::<Vec<_>>(),
+                "{at}: keys. Regenerate with UPDATE_SHELL_OBSTACLE=1"
+            );
+            for (k, x) in x {
+                assert_json_matches(x, &y[k], &format!("{at}.{k}"));
+            }
+        }
+        _ => assert_eq!(a, b, "{at}. Regenerate with UPDATE_SHELL_OBSTACLE=1"),
+    }
 }

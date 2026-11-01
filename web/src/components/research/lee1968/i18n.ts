@@ -1,7 +1,8 @@
+import { reviewLabel } from '../reviews';
 export const strings = {
   en: {
     sourceLabel: 'de Souza, Vanalli & de Luz (2020), §3.3, Figure 10',
-    title: 'Lee frame (1968)', stage: 'First version · 0 reviews',
+    title: 'Lee frame (1968)', stage: `First version · ${reviewLabel('lee-frame-1968', 'en')}`,
     lead: 'A pinned L-frame traced through its first limit point with Stabileo’s production corotational arc-length solver.',
     model: 'One example', description: 'Two 120 cm legs, pinned at both ends, with a downward point load 24 cm from the corner. Twenty Euler–Bernoulli frame elements; E = 720 kN/cm², A = 6 cm², I = 2 cm⁴. Inputs use metres, kN and MPa. Elastic material, rigid corner, no shear deformation.',
     method: 'The spherical arc-length constraint follows equilibrium beyond the peak. Each displayed shape is the final state of a production-solver run ending at that step. This repeats work because the API returns only the last full displacement vector. No new solver is used.',
@@ -13,7 +14,7 @@ export const strings = {
   },
   es: {
     sourceLabel: 'de Souza, Vanalli y de Luz (2020), §3.3, Figura 10',
-    title: 'Pórtico de Lee (1968)', stage: 'Primera versión · 0 revisiones',
+    title: 'Pórtico de Lee (1968)', stage: `Primera versión · ${reviewLabel('lee-frame-1968', 'es')}`,
     lead: 'Un pórtico en L articulado, seguido más allá del primer punto límite con el solver corrotacional de longitud de arco de Stabileo.',
     model: 'Un ejemplo', description: 'Dos tramos de 120 cm, extremos articulados y carga vertical hacia abajo a 24 cm de la esquina. Veinte elementos de pórtico Euler–Bernoulli; E = 720 kN/cm², A = 6 cm², I = 2 cm⁴. Entradas en metros, kN y MPa. Material elástico, esquina rígida, sin deformación por corte.',
     method: 'La restricción esférica de longitud de arco sigue el equilibrio más allá del máximo. Cada forma es el estado final de una ejecución del solver hasta ese paso. Se repite trabajo porque la API devuelve solo el último vector completo de desplazamientos. No se usa un solver nuevo.',
@@ -25,7 +26,7 @@ export const strings = {
   },
   pt: {
     sourceLabel: 'de Souza, Vanalli e de Luz (2020), §3.3, Figura 10',
-    title: 'Pórtico de Lee (1968)', stage: 'Primeira versão · 0 revisões',
+    title: 'Pórtico de Lee (1968)', stage: `Primeira versão · ${reviewLabel('lee-frame-1968', 'pt')}`,
     lead: 'Um pórtico em L articulado, acompanhado além do primeiro ponto limite com o solver corrotacional de comprimento de arco do Stabileo.',
     model: 'Um exemplo', description: 'Dois trechos de 120 cm, extremos articulados e carga vertical para baixo a 24 cm do canto. Vinte elementos de pórtico Euler–Bernoulli; E = 720 kN/cm², A = 6 cm², I = 2 cm⁴. Entradas em metros, kN e MPa. Material elástico, canto rígido, sem deformação por cisalhamento.',
     method: 'A restrição esférica de comprimento de arco segue o equilíbrio além do máximo. Cada forma é o estado final de uma execução do solver até esse passo. O trabalho é repetido porque a API retorna apenas o último vetor completo de deslocamentos. Nenhum solver novo é usado.',

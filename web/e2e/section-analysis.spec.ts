@@ -36,10 +36,10 @@ type Page = import('@playwright/test').Page;
  */
 async function openBasic(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await expect
     .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), {
-      timeout: 60_000,
+      timeout: 45_000,
       message: 'real WASM solver must be initialised (not the Vite stub)',
     })
     .toBe(true);
@@ -53,7 +53,7 @@ async function armSectionAnalysis(page: Page) {
   // not advance here at all.
   await page.getByRole('button', { name: 'Solve', exact: true }).click();
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo.hasResults?.() ?? true), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo.hasResults?.() ?? true), { timeout: 45_000 })
     .toBeTruthy();
   await page.getByRole('button', { name: 'Advanced', exact: true }).click();
   await page.getByRole('button', { name: /^Section analysis$/i }).click();

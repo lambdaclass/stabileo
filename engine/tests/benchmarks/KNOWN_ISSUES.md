@@ -33,69 +33,51 @@ claiming a verified transcription. Frame cases are explicitly analytical adaptat
 
 ## MATTIASSON-REFERENCE-AND-ACCURACY
 
-The Mattiasson page remains **proposed**. Its four reference pairs are copied
-unchanged from `BENCHMARK_REFERENCES.md`, which says to verify them against the
-original paper. The Table 1 attribution and numerical transcription are not
-verified. Citation metadata was checked through the catalogue checker; this is
-not a check of published numbers.
+Resolved benchmark-input and reference errors (review round 2, 2026-10-30).
+The live model now uses A=1 m², 100 increments and tolerance 1e-8 for force cases.
+All 21 cases reach full load; four force checks and the one-radian circular-arc
+moment check pass the strict 0.1% signed-component limit. The current numerical
+report and reproduction commands are in
+[`README.md`](../../../research/benchmarks/mattiasson-elastica/README.md) and
+[`RESULTS.json`](../../../research/benchmarks/mattiasson-elastica/RESULTS.json).
 
-Fresh production native results (L = 2, 16 elements, settings in
-`mattiasson_elastica.json`):
+References are independent elliptic integrals, corroborated by Nanakorn & Vu
+(2006), Table 1, p.1245; moment references are circular-arc formulas. No direct
+transcription of Mattiasson's original table is claimed. Historical 1/4 and 3/4
+counts used superseded references or mismatched area/stepping. No production
+numerical change or solver-defect attribution is needed.
 
-| PL²/EI | Reference u/L, v/L | Computed u/L, v/L | Relative errors | Page classification |
-|---:|---|---|---|---|
-| 1 | 0.0566, 0.3015 | 0.0557827218712, 0.302243545400 | 1.443954%, 0.246615% | Pass (provisional) |
-| 2 | 0.1632, 0.4929 | 0.159191217091, 0.495808283573 | 2.456362%, 0.590035% | Fail |
-| 5 | 0.4054, 0.6647 | 0.385315745120, 0.722972888604 | 4.954182%, 8.766795% | Fail |
-| 10 | 0.5584, 0.6854 | Not computed at requested load | — | Fail: nonconvergence, load factor 0.1 |
-
-Native and production WASM agree on all 21 cases, including every nodal
-displacement and rotation for complete solves. Parameters 7.5 and 9.5 also fail
-to converge; the curves show gaps, never a line through a missing result.
-
-For parameter 10 the solver returns a last-converged state at 10% of the requested
-load. The page intentionally does not plot or compare that state at parameter 10.
-The page target is strict relative error below 2% in **both signed components**;
-it is a new exploratory comparison, not an existing native accuracy assertion.
-Every existing native assertion, tolerance and regression floor is unchanged.
-The moment regression (ML/EI = 1) converges with u/L = 0.158392041418 and
-v/L = -0.459772523245 under the page's downward-positive convention. It has no
-paper accuracy reference and does not demonstrate a full circle.
-
-Do not infer a solver defect solely from discrepancies with these unverified
-references. Confirm paper transcription, load convention and extensibility
-assumptions; then ask the solver owner to triage accuracy and convergence.
-The production runtime registry has not been changed and no runtime issue ID is
-claimed. Reproduce via `research/benchmarks/mattiasson-elastica/README.md`.
 ## SHELL-OBSTACLE-COURSE
 
-The production MITC4 page preserves the existing `shell_benchmark.rs` models exactly,
-including their support precedence at symmetry/diaphragm corners. It is not a new
-implementation of Belytschko et al.'s stress-projection element. Its strict 2% accuracy
-policy is inherited from the benchmark-page format; all historical native assertions
-remain unchanged. Native regression success does not establish published accuracy.
+The shared MITC4 inputs include the [#810 test-model correction](../../../docs/audits/810-mitc4-curved-shells.md):
+remove the artificial roof crown support, retain all gravity loads, and union complete
+symmetry constraints at intersecting edges. No engine source or tolerance changed.
+The fixture is checked against the corrected builders. This is not an implementation
+of Belytschko et al.'s stress-projection element.
 
-Fresh native and production WASM measurements agree (rounded below):
+Fresh native measurements (signed, with direction-aware relative error):
 
-| Case | Mesh | Reference | Computed | Error | Page verdict |
+| Case | Mesh | Signed reference | Computed | Absolute error | Verdict |
 |---|---:|---:|---:|---:|---|
-| roof | 6 | 0.3024 | 0.2551645854 | 15.62018% | Fail |
-| roof | 8 | 0.3024 | 0.255375241 | 15.55052% | Fail |
-| roof | 12 | 0.3024 | 0.2555954865 | 15.47768% | Fail |
-| roof | 16 | 0.3024 | 0.2555908778 | 15.47921% | Fail |
-| cylinder | 6 | 1.8248e-05 | 1.900068993e-05 | 4.12478% | Fail |
-| cylinder | 8 | 1.8248e-05 | 1.997897942e-05 | 9.48586% | Fail |
-| cylinder | 12 | 1.8248e-05 | 2.035360372e-05 | 11.53882% | Fail |
-| cylinder | 16 | 1.8248e-05 | 2.022948432e-05 | 10.85864% | Fail |
-| hemisphere | 4 | 0.185 | 0.185219187 | 0.11848% | Pass |
-| hemisphere | 8 | 0.185 | 0.185741985 | 0.40107% | Pass |
-| hemisphere | 16 | 0.185 | 0.186206839 | 0.65235% | Pass |
+| roof | 6 | -0.3024 | -0.307105245101 | 1.555967% | Pass |
+| roof | 8 | -0.3024 | -0.304476905273 | 0.686807% | Pass |
+| roof | 12 | -0.3024 | -0.302885911279 | 0.160685% | Pass |
+| roof | 16 | -0.3024 | -0.302425539214 | 0.008446% | Pass |
+| cylinder | 6 | -1.8248e-05 | -1.13360236859e-05 | 37.877994% | Fail |
+| cylinder | 8 | -1.8248e-05 | -1.37558255336e-05 | 24.617352% | Fail |
+| cylinder | 12 | -1.8248e-05 | -1.60504470647e-05 | 12.042706% | Fail |
+| cylinder | 16 | -1.8248e-05 | -1.70116168007e-05 | 6.775445% | Fail |
+| hemisphere | 4 | 0.185 | 0.185219186992 | 0.118479% | Pass |
+| hemisphere | 8 | 0.185 | 0.185741984976 | 0.401073% | Pass |
+| hemisphere | 16 | 0.185 | 0.186206839041 | 0.652345% | Pass |
+| cylinder | 32 | -1.8248e-05 | -1.80643677592e-05 | 1.006314% | Pass |
 
-The roof plateaus below reference; the cylinder moves away from reference under the
-available refinement. Do not describe either as converging to the reference. Their
-boundary conditions warrant solver-owner review before attributing the discrepancies
-to locking. The runtime registry has no open shell entry; these are test-ledger findings,
-not assigned runtime issue numbers. No engine source or numerical behaviour is changed.
+All four roof meshes pass the unchanged strict 2% gate. Cylinder error decreases
+with refinement; the four 6–16 checks remain ignored because they still exceed 2%.
+The native-only 32×32 cylinder passes at 1.006314% error. The browser retains its
+16×16 cap and reports 2/3 finest selected meshes passing. The old roof plateau and
+cylinder over-compliance were model-definition errors, not engine failures.
+See [replay evidence](../../../research/benchmarks/shell-obstacle-course/README.md).
 
 The live hemisphere is the NAFEMS LE3-labelled 18°-hole case in
 `benchmark_hemisphere_hole_convergence`: quarter loads ±2, reference 0.185. The solid-shell
@@ -107,5 +89,5 @@ DOI 10.1016/0045-7825(85)90035-0; Crossref metadata checked by the catalogue che
 References are inherited from the named tests. Exact numerical table/page provenance,
 NAFEMS load convention and the relationship to the 1985 paper remain unverified against
 primary text. Status stays proposed. Browser selection is bounded at 16 divisions (289 nodes) for every model. Cylinder
-12/16 extend the existing builder geometry and restraints without altering assertions.
+12/16 use corrected models and retain their explicit ignored 2% accuracy checks.
 The workload cap is not a browser capacity measurement. Chromium was not launched.

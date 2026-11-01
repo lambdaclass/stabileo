@@ -30,6 +30,6 @@ for (const [width,height] of [[360,800],[390,844],[844,390],[810,1080]]) {
     await expect.poll(async () => page.evaluate(() => {
       const hooks = (window as unknown as {__stabileo?: {hasDrawnResults(): boolean; nodeCount():number}}).__stabileo;
       return hooks?.hasDrawnResults() ? hooks.nodeCount() : 0;
-    }), {timeout:60000}).toBe(129);
+    }), {timeout:60000}).toBe(129); // slow-ok: The editor initializes WASM and solves the imported 129-node gridshell before drawing results.
   });
 }
