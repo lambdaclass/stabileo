@@ -14,7 +14,7 @@
     footer = '',
     ariaLabel = title,
     colourMap = 'shell',
-    format = formatContourLabel,
+    format,
   }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap; format?: typeof formatContourLabel } = $props();
   const shellContourColor = (v: number, lo: number, hi: number) => colourFor(colourMap, v, lo, hi);
 
@@ -39,7 +39,7 @@
     return `linear-gradient(to top, ${stops.join(', ')})`;
   });
 
-  const fmt = (value: number) => format(value, min, max, bands);
+  const fmt = (value: number) => (format ?? formatContourLabel)(value, min, max, bands);
   const mid = $derived((min + max) / 2);
 </script>
 
