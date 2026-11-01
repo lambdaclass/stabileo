@@ -28,8 +28,8 @@ regression floors document related distortion sensitivity and remain unchanged.
 The MacNeal–Harder twisted beam (L = 12, w = 1.1, t = 0.32, 90° linear twist, E = 29·10⁶,
 ν = 0.22, unit tip load) used to enter E = 29·10⁶ into the MPa field, so every shell family
 was 1000× too stiff and the ~0.1 % ratios were read as "flat-faceted locking". With E entered
-as 29·10³ MPa (consistent units), MITC4 and MITC9 converge to a wrong, too-flexible answer and
-no warning is attached to the result:
+as 29·10³ MPa (consistent units), MITC4 converges to a wrong, too-flexible answer, MITC9 stays
+too flexible without converging (load A still rising), and no warning is attached to the result:
 
 | Family | Load | 6×2 (Q9 3×1) | 12×4 (Q9 6×2) | 24×8 (Q9 12×4) | 48×16 |
 |---|---|---:|---:|---:|---:|
