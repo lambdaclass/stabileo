@@ -363,7 +363,7 @@
     <div class="sfv viewport-container" style:height>
       <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
       <div class="sfv-canvas" bind:this={container} role="application" tabindex="0" onkeydown={onKey} aria-label={ariaLabel} title={t('scalarViewer.keyboard')} aria-describedby={keysId} aria-keyshortcuts={SCALAR_FIELD_SHORTCUTS}></div>
-      <span id={keysId} class="sfv-keys">{t('scalarViewer.keyboard')}</span>
+      <span id={keysId} hidden>{t('scalarViewer.keyboard')}</span>
       <canvas bind:this={gizmo} class="axis-gizmo" class:sfv-hidden={!showAxes} width="80" height="80" aria-hidden="true"></canvas>
       {#if displayMode === 'field' && values && !geometryOnly}
         <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} format={legendFormat} ariaLabel={`${title}${unit ? ` [${unit}]` : ''}: ${legendFormat(range.min, range.min, range.max, bands)} – ${legendFormat(range.max, range.min, range.max, bands)}`} />
@@ -429,14 +429,6 @@
   .sfv-canvas:focus-visible {
     outline: 2px solid var(--st-accent, #4ea1ff);
     outline-offset: -2px;
-  }
-  .sfv-keys {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
   .sfv-canvas :global(canvas) {
     display: block;

@@ -69,7 +69,7 @@ test.describe('@smoke CQC first version', () => {
     await page.goto(route(locale));
     await expect(page.getByRole('heading', { level: 1, name: title, exact: true })).toBeVisible();
     await expect(page.locator('h1')).toHaveAttribute('lang', locale);
-    await expect(page).toHaveTitle(new RegExp(meta.replace(/[()]/g, '\\$&')));
+    await expect(page).toHaveTitle(`${title} (Wilson et al. 1981) — Stabileo Research`);
     await expect(page.getByTestId('result-CQC')).toHaveText(cqc);
     await expect(page.getByRole('button', { name: run, exact: true })).toBeEnabled();
     await expect(page.locator('.rs-viewer-host canvas').first()).toBeVisible();

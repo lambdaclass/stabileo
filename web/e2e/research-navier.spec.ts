@@ -121,7 +121,7 @@ for (const [locale, title, replayLabel] of LOCALES) {
   test(`@smoke Navier plate in ${locale}`, async ({ page }) => {
     await open(page, locale, 390, 844);
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(title);
-    await expect(page).toHaveTitle(`${title} — Stabileo Research`);
+    await expect(page).toHaveTitle(`${title} (Ventsel & Krauthammer 2001) — Stabileo Research`);
     await expect(page.getByTestId('navier-source')).toHaveText(replayLabel);
     await expectRows(page, replay.rows);
     await expect(page.getByTestId('navier-reference')).toHaveText(new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(reference));

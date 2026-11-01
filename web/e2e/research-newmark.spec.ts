@@ -102,6 +102,6 @@ for (const [locale, title, label, published] of [
     await expect(page.locator('.rs-verify dt').first()).toHaveText(label);
     await expect(page.locator('.rs-verify dd').nth(1)).toContainText(published);
     await expect(page.getByTestId('description')).toContainText('E = 10 MPa, A = 0,01 m²');
-    await expect(page).toHaveTitle('Newmark (1959) — Stabileo Research');
+    await expect(page).toHaveTitle(`${title} (Newmark 1959) — Stabileo Research`);
   });
 }
