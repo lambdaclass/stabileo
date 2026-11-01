@@ -1,0 +1,30 @@
+{
+  "batches": [
+    {
+      "id": "tools-batch-1",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewers": [
+            "codex",
+            "kimi"
+          ],
+          "date": "2026-10-30"
+        }
+      ]
+    },
+    {
+      "id": "tools-batch-2",
+      "reviews": [
+        {
+          "round": 1,
+          "reviewers": [
+            "codex",
+            "kimi"
+          ],
+          "date": "2026-10-30"
+        }
+      ]
+    }
+  ]
+}

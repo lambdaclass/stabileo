@@ -7,7 +7,7 @@ import { test, expect, loadModel } from './fixtures';
 test.describe('@smoke displacements on the deformed shape', () => {
   test('Basic 2D: off by default beside Animate; turning it on writes them on the drawing', async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     await page.evaluate(() => window.__stabileoActions.solve());
     await page.getByTestId('rb-cmd-deformed').first().click();

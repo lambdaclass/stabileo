@@ -1,3 +1,4 @@
+import { galleryStrings } from './gallery-i18n';
 import { publicI18n } from '../../lib/i18n/store.svelte';
 
 /** Research interface and article strings; unsupported locales fall back to English. */
@@ -724,8 +725,8 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     replaySource: "Replay of a run precomputed with this solver",
     liveSource: "Live computation in your browser",
     cachedSource: "Cached result (computed in this browser)",
-    researchTitle: "Stabileo Research",
-    galleryLead: "Computational-mechanics papers you can run. We re-implement published methods and validate against available reference code, published results, and independent checks, and let you run it here with your own parameters, in Stabileo’s viewer.",
+    researchTitle: "Research in structural engineering",
+    galleryLead: "Classic and recent papers, benchmarks and methods you can run and check in Stabileo, the structural engineering software with AI. Each page states what is reproduced and how it was checked.",
     galleryDisclaimer: "Nothing here is an engineering result; agreement with a reference code is not a certification. Contributions:",
     damageAlt: "Damage field from our run of the experiment",
     missingPage: "No such research page",
@@ -864,7 +865,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reproduction of",
     implementationLabel: ". Implementation:",
     atCommit: "at commit",
-    engineCitation: ". Engine: the Stabileo engine at the same commit. Permanent links to this exact build are planned.",
+    engineCitation: ". Engine: the Stabileo engine at the same commit.",
     theExperiment: "The experiment",
     experiment: "Experiment",
     viewerUnavailable: "Stabileo’s viewer couldn’t be loaded in this build.",
@@ -1176,8 +1177,8 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     replaySource: "Reproducción de una ejecución precalculada con este solver",
     liveSource: "Cálculo en vivo en tu navegador",
     cachedSource: "Resultado en caché (calculado en este navegador)",
-    researchTitle: "Stabileo Research",
-    galleryLead: "Artículos de mecánica computacional que podés ejecutar. Reimplementamos métodos publicados y los validamos contra el código de referencia disponible, resultados publicados y controles independientes, y te dejamos ejecutarlos aquí con tus propios parámetros, en el visor de Stabileo.",
+    researchTitle: "Investigación en ingeniería estructural",
+    galleryLead: "Artículos clásicos y recientes, ensayos de referencia y métodos que podés ejecutar y comprobar en Stabileo, el software de ingeniería estructural con IA. Cada página indica qué se reproduce y cómo se comprobó.",
     galleryDisclaimer: "Nada de esto es un resultado de ingeniería; la concordancia con un código de referencia no es una certificación. Contribuciones:",
     damageAlt: "Campo de daño de nuestra ejecución del experimento",
     missingPage: "No existe esa página de investigación",
@@ -1316,7 +1317,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reproducción de",
     implementationLabel: ". Implementación:",
     atCommit: "en el commit",
-    engineCitation: ". Motor: el motor de Stabileo en el mismo commit. Se prevén enlaces permanentes a esta compilación exacta.",
+    engineCitation: ". Motor: el motor de Stabileo en el mismo commit.",
     theExperiment: "El experimento",
     experiment: "Experimento",
     viewerUnavailable: "No se pudo cargar el visor de Stabileo en esta compilación.",
@@ -1628,8 +1629,8 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     replaySource: "Reprodução de uma execução pré-calculada com este solver",
     liveSource: "Cálculo ao vivo no seu navegador",
     cachedSource: "Resultado em cache (calculado neste navegador)",
-    researchTitle: "Stabileo Research",
-    galleryLead: "Artigos de mecânica computacional que você pode executar. Reimplementamos métodos publicados e validamos em relação ao código de referência disponível, resultados publicados e verificações independentes, e permitimos que você os execute aqui com seus próprios parâmetros, no visualizador do Stabileo.",
+    researchTitle: "Pesquisa em engenharia estrutural",
+    galleryLead: "Artigos clássicos e recentes, testes de referência e métodos que você pode executar e verificar no Stabileo, o software de engenharia estrutural com IA. Cada página informa o que é reproduzido e como foi verificado.",
     galleryDisclaimer: "Nada aqui é um resultado de engenharia; a concordância com um código de referência não é uma certificação. Contribuições:",
     damageAlt: "Campo de dano da nossa execução do experimento",
     missingPage: "Essa página de pesquisa não existe",
@@ -1768,7 +1769,7 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
     reproductionOf: "”, reprodução de",
     implementationLabel: ". Implementação:",
     atCommit: "no commit",
-    engineCitation: ". Motor: o motor do Stabileo no mesmo commit. Estão previstos links permanentes para esta compilação exata.",
+    engineCitation: ". Motor: o motor do Stabileo no mesmo commit.",
     theExperiment: "O experimento",
     experiment: "Experimento",
     viewerUnavailable: "Não foi possível carregar o visualizador do Stabileo nesta compilação.",
@@ -1811,11 +1812,71 @@ const STRINGS: Record<'en' | 'es' | 'pt', ResearchStrings> = {
   },
 };
 
+const SHELL_TRANSLATIONS: Record<string, Partial<ResearchStrings>> = {
+  "de": {
+    "afterAuthors": "Nach",
+    "citeThis": "Zitieren",
+    "citationTitle": "Stabileo Research, „",
+    "reproductionOf": "“, Reproduktion von",
+    "implementationLabel": ". Implementierung:",
+    "atCommit": "im Commit",
+    "engineCitation": ". Engine: Stabileo im selben Commit.",
+    "theExperiment": "Das Experiment",
+    "checksPass": "Prüfungen bestanden",
+    "research": "Forschung",
+    "againstCode": "Vergleich mit dem Autorencode",
+    "againstPaper": "Vergleich mit Abbildungen",
+    "of": "von",
+    "seeChecks": "Prüfungen ansehen",
+    "disclaimer": "Forschung, kein Bemessungswerkzeug. Dies sind keine technischen Nachweise.",
+    "viewerUnavailable": "Die Ansicht konnte nicht geladen werden."
+  },
+  "fr": {
+    "afterAuthors": "D’après",
+    "citeThis": "Citer ce travail",
+    "citationTitle": "Stabileo Research, « ",
+    "reproductionOf": " », reproduction de",
+    "implementationLabel": ". Implémentation :",
+    "atCommit": "au commit",
+    "engineCitation": ". Moteur : Stabileo au même commit.",
+    "theExperiment": "L’expérience",
+    "checksPass": "vérifications réussies",
+    "research": "Recherche",
+    "againstCode": "Comparaison avec le code des auteurs",
+    "againstPaper": "Comparaison avec les figures",
+    "of": "sur",
+    "seeChecks": "voir les vérifications",
+    "disclaimer": "Recherche, pas un outil de dimensionnement. Aucun résultat ne constitue une justification technique.",
+    "viewerUnavailable": "Impossible de charger la vue."
+  },
+  "tr": {
+    "afterAuthors": "Kaynak",
+    "citeThis": "Alıntıla",
+    "citationTitle": "Stabileo Research, “",
+    "reproductionOf": "”, yeniden üretim:",
+    "implementationLabel": ". Uygulama:",
+    "atCommit": "commit:",
+    "engineCitation": ". Çözücü: aynı commit içindeki Stabileo.",
+    "theExperiment": "Deney",
+    "checksPass": "kontrol geçti",
+    "research": "Araştırma",
+    "againstCode": "Yazarların koduyla karşılaştırma",
+    "againstPaper": "Makale şekilleriyle karşılaştırma",
+    "of": "/",
+    "seeChecks": "kontrollere bakın",
+    "disclaimer": "Araştırma amaçlıdır, tasarım aracı değildir. Buradaki sonuçlar mühendislik onayı değildir.",
+    "viewerUnavailable": "Görüntüleyici yüklenemedi."
+  }
+};
+
 export function rs(): ResearchStrings {
-  return STRINGS[publicI18n.locale as keyof typeof STRINGS] ?? STRINGS.en;
+  const locale = publicI18n.locale;
+  const base = STRINGS[locale as keyof typeof STRINGS] ?? { ...STRINGS.en, ...SHELL_TRANSLATIONS[locale] };
+  return { ...base, ...(galleryStrings[locale] ?? galleryStrings.en) };
 }
 
 export const FIELD_NAMES: Record<string, Record<string, string>> = {
+  de: { optimization: 'Optimierung' }, fr: { optimization: 'Optimisation' }, tr: { optimization: 'Optimizasyon' },
   en: { fracture: 'Fracture and damage', 'differentiable-fem': 'Differentiable FEM', optimization: 'Optimization', metamaterials: 'Metamaterials', constitutive: 'Constitutive models', 'digital-twins': 'Digital twins', 'numerical-methods': 'Numerical methods', seismic: 'Seismic and dynamics', shells: 'Shells and buckling' },
   es: { fracture: 'Fractura y daño', 'differentiable-fem': 'FEM diferenciable', optimization: 'Optimización', metamaterials: 'Metamateriales', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gemelos digitales', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica y dinámica', shells: 'Cáscaras y pandeo' },
   pt: { fracture: 'Fratura e dano', 'differentiable-fem': 'MEF diferenciável', optimization: 'Otimização', metamaterials: 'Metamateriais', constitutive: 'Modelos constitutivos', 'digital-twins': 'Gêmeos digitais', 'numerical-methods': 'Métodos numéricos', seismic: 'Sísmica e dinâmica', shells: 'Cascas e flambagem' },

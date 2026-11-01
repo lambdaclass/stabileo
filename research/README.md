@@ -1,7 +1,14 @@
 # Stabileo Research
 
-Research you can run: computational-mechanics papers whose numerical experiments are reproduced,
-re-implemented and made interactive, with the evidence for each claim kept next to the code.
+Research you can run: structural-engineering papers whose numerical experiments are reproduced,
+re-implemented and made interactive in Stabileo, the structural engineering software with AI.
+The scope includes classic and recent papers, benchmarks and methods across structural engineering.
+Each page states what is reproduced and how it was checked.
+
+Completed post-launch review rounds are recorded in each live entry’s `reviews` list in
+`papers.yaml`; Tools batches use `tools/batches/VALIDATION.json`. A round records `round`, `reviewers`
+and `date`. Round 1 (Codex and Kimi) completed on 2026-10-30. Round 2 is in progress
+and must only be added when complete. Earlier implementation review notes are retained.
 
 This directory is **research, not engineering design**. The application may read the catalogue and published results data, but never research code;
 no result here is a design result. A benchmark agreement is not a
@@ -23,9 +30,9 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 | `optimisation/fairclough-2026/` | One five-node self-weight gridshell from Table 1, externally executed reference and isolated Rust/Clarabel implementation |
 | `benchmarks/macneal-harder-1985/` | Production engine accuracy cases using the shared benchmark page format |
 | `benchmarks/mattiasson-elastica/` | Production corotational cantilever benchmark with provisional reference transcriptions |
-| `benchmarks/cqc-1981/` | First version, 0 reviews: close building modes, production modal + spectrum solvers versus closed form |
+| `benchmarks/cqc-1981/` | First version, 1 review round: close building modes, production modal + spectrum solvers versus closed form |
 | `benchmarks/navier-plate/` | First version: one simply supported plate, production DKT/MITC4 vs Navier series; published `results/stabileo_results.json` |
-| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay and provisional limit-load comparison (0 reviews) |
+| `benchmarks/lee-frame-1968/` | First-version pinned Lee frame, production arc-length replay and provisional limit-load comparison (1 review round) |
 | `numerical-methods/riks-crisfield/` | Production arc-length benchmarks against closed-form snap-through paths, with native/WASM parity checks |
 | `templates/` | Starting point for a new paper entry |
 | `tools/` | Catalog checker and other research-only tooling |
@@ -111,14 +118,14 @@ research results. Reference transcriptions remain unverified and status proposed
 production Newmark average acceleration. Shared input and native tests live under
 `engine/tests/benchmarks/newmark_1959.*`; published native replay data is
 `benchmarks/newmark-1959/results/stabileo_results.json`. The page uses the existing
-production WASM wrapper and shared Stabileo viewer. Stage: first-version; 0 reviews.
+production WASM wrapper and shared Stabileo viewer. Stage: first-version; 1 review round.
 ## First-version engine benchmarks
 
 `benchmarks/plastic-collapse/` documents one Horne-style portal using the production
 3D plastic-collapse solver. Its shared case lives in
 `engine/tests/benchmarks/plastic_collapse.json` (test data only); its published
 `results/stabileo_results.json` is allowed web replay data. Stage: first-version,
-0 reviews. The page reports hand mechanism bounds separately from the solver result.
+1 review round. The page reports hand mechanism bounds separately from the solver result.
 ## First-version engine benchmark
 
-`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the published replay `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json`. Stage: first-version, 0 reviews. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.
+`benchmarks/dadeppo-arch-1975/` is one 215° clamped–hinged arch solved by the production corotational arc-length solver. Its shared case lives in `engine/tests/benchmarks/dadeppo_arch.json`; the web reads only that engine-owned input and the published replay `research/benchmarks/dadeppo-arch-1975/results/stabileo_results.json`. Stage: first-version, 1 review round. See its README for the corrected normalization (PR²/EI = 8.97), source, reproduction commands and limitations.

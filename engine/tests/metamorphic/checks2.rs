@@ -27,12 +27,21 @@ pub fn guarded<T>(f: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
 /// a time-stepping analysis (per-step errors accumulate without
 /// amplification in an unconditionally stable scheme).
 pub fn rel_for(ana_name: &str, iter_tol: f64, c: &Conditioning) -> f64 {
+    if crate::generated::strict() && (ana_name.starts_with("linear") || REDUCES_TO_LINEAR.contains(&ana_name) || ana_name.contains("time history") || ana_name == "harmonic" || ana_name == "Winkler (active)") {
+        return 2.5e-10;
+    }
     let steps = if ana_name.contains("time history") { 60.0 } else { 1.0 };
     (c.rel() * steps + 20.0 * iter_tol).max(64.0 * f64::EPSILON)
 }
 
 fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
-    guarded(|| (a.run)(c))
+    guarded(|| {
+        let r = (a.run)(c)?;
+        if crate::generated::strict() {
+            crate::generated::validate_2d(a.name, &r, c)?;
+        }
+        Ok(r)
+    })
 }
 
 fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, rel: f64) -> Verdict {
@@ -68,7 +77,7 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
 /// limitation; anything else is a violation.
 pub fn transformed_failure(e: String) -> Verdict {
     let l = e.to_lowercase();
-    if ["not supported", "not yet supported", "unsupported", "does not support", "refuse"].iter().any(|k| l.contains(k)) {
+    if !crate::generated::strict() && l.contains("inclined support") && ["not supported", "not yet supported", "unsupported", "does not support"].iter().any(|k| l.contains(k)) {
         Verdict::Refused(format!("transformed model: {e}"))
     } else {
         Verdict::Fail(format!("original solved but transformed model failed: {e}"))
@@ -145,7 +154,7 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
             Ok(b) => b,
             Err(e) => {
                 for inv in invariants.iter().filter(|i| applicable(a, i)) {
-                    ctx.tally.record(a.name, inv, &c.name, Verdict::Refused(e.clone()));
+                    ctx.tally.record(a.name, inv, &c.name, if crate::generated::strict() { Verdict::Fail(format!("generated baseline refused: {e}")) } else { Verdict::Refused(e.clone()) });
                 }
                 continue;
             }
@@ -195,9 +204,12 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
                     same(a, &c.relabel(&rl, seed), Ok(base.relabel(&rl)), &cond)
                 }
                 "reversal" => {
-                    let flipped: std::collections::HashSet<usize> = c.s.elements.values().map(|e| e.id).filter(|_| rng.f64() < 0.5).collect();
+                    let mut ids: Vec<_> = c.s.elements.values().map(|e| e.id).collect();
+                    ids.sort_unstable();
+                    let mut flipped: std::collections::HashSet<usize> = ids.iter().copied().filter(|_| rng.f64() < 0.5).collect();
+                    if crate::generated::strict() && flipped.is_empty() { flipped.insert(ids[0]); }
                     let tc = Case2 { s: dedaliano_engine::metamorphic::reversal::reverse_2d(&c.s, &|id| flipped.contains(&id)), ..c.clone() };
-                    same(a, &tc, base.reverse(&flipped, false), &cond)
+                    same(a, &tc, if a.name == "influence line" { base.reverse_influence(&flipped, c.path.as_ref().unwrap()[1]) } else { base.reverse(&flipped, false) }, &cond)
                 }
                 "units" => {
                     let (l, f) = [(1e-3, 1e3), (25.0, 1e-2), (0.3048, 4.448)][rng.below(3)];
@@ -291,12 +303,14 @@ fn superposition(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdi
         let rk = run(a, &c.with_loads(scale_loads_2d(&la, k)))?.without_stress().flat();
         let r0 = match run(a, &c.with_loads(vec![])) {
             Ok(r) => r.without_stress().flat(),
+            Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
             Err(_) => Flat::lin_comb(0.0, &ra, 0.0, &ra),
         };
         Ok((ra, rb, rab, rk, r0))
     })();
     let (ra, rb, rab, rk, r0) = match r {
         Ok(x) => x,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(format!("load subset: {e}")),
         Err(e) => return Verdict::Refused(format!("load subset: {e}")),
     };
     let da = Flat::lin_comb(1.0, &ra, -1.0, &r0);
@@ -365,11 +379,16 @@ fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdi
         let ra = run(a, &ca)?;
         let rb = run(a, &cb)?;
         c0.probes = vec![nb, na];
-        let r0a = run(a, &c0).ok();
+        let r0a = match run(a, &c0) {
+            Ok(r) => Some(r),
+            Err(e) if crate::generated::strict() => return Err(format!("zero-load solve: {e}")),
+            Err(_) => None,
+        };
         Ok((ra, rb, r0a))
     })();
     let (ra, rb, r0) = match r {
         Ok(x) => x,
+        Err(e) if crate::generated::strict() => return Verdict::Fail(e),
         Err(e) => return Verdict::Refused(e),
     };
     // Settlement baseline: only matters for static analyses; dynamic ones

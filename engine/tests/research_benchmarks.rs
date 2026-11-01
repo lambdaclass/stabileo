@@ -219,7 +219,7 @@ fn elastica(parameter: f64, u: f64, w: f64) {
     // All tolerances are tighter than the former 2%; refinement must improve
     // BOTH signed displacements, not merely land inside an acceptance band.
     let mut previous = (f64::INFINITY, f64::INFINITY);
-    for (n, tolerance) in [(16, 0.001), (32, 0.0005), (64, 0.0003)] {
+    for (n, tolerance) in [(16, 0.000801), (32, 0.000384), (64, 0.000281)] {
         let actual = elastica_response(parameter, n, 1., 100);
         relative(actual.0, u, tolerance);
         relative(actual.1, w, tolerance);

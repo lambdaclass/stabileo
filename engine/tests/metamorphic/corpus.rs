@@ -86,7 +86,7 @@ pub fn cases_2d(tier: Tier, seed: u64) -> Vec<Case2> {
         .chain(extra_dirs(tier))
         .filter_map(|(n, m)| if let Model::D2(s) = m { Some(Case2::new(n, s)) } else { None })
         .collect();
-    let n_rand = if tier == Tier::Pr { 6 } else { 120 };
+    let n_rand = if tier == Tier::Pr { 6 } else { nightly_cases(120) };
     let base = if tier == Tier::Pr { 0 } else { seed };
     for k in 0..n_rand {
         let sd = base.wrapping_add(k);
@@ -108,7 +108,7 @@ pub fn cases_3d(tier: Tier, seed: u64) -> Vec<Case3> {
         .filter_map(|(n, m)| if let Model::D3(s) = m { Some(Case3::new(n, s)) } else { None })
         .filter(|c| tier == Tier::Nightly || c.s.nodes.len() <= 120)
         .collect();
-    let n_rand = if tier == Tier::Pr { 4 } else { 80 };
+    let n_rand = if tier == Tier::Pr { 4 } else { nightly_cases(80) };
     let base = if tier == Tier::Pr { 0 } else { seed };
     for k in 0..n_rand {
         let sd = base.wrapping_add(k);
@@ -121,4 +121,8 @@ pub fn cases_3d(tier: Tier, seed: u64) -> Vec<Case3> {
         out.push(c);
     }
     out
+}
+
+fn nightly_cases(default: u64) -> u64 {
+    std::env::var("METAMORPHIC_CASES").map(|v| v.parse().expect("METAMORPHIC_CASES must be an integer")).unwrap_or(default)
 }

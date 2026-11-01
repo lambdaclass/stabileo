@@ -1,6 +1,6 @@
 # Stabileo Research: design
 
-Status: agreed direction, 2026-10-28. "Research you can run": published computational-mechanics
+Status: agreed direction, 2026-10-28. "Research you can run": published structural-engineering
 papers as experiments anyone can run, change, compare and cite, on the same engine and viewer as
 the Stabileo app. This document is the plan every research page and contribution follows.
 
@@ -179,7 +179,7 @@ of the work because it is worth it to them. In order of leverage:
 1. **One benchmark, many methods** (next after the first three experiments). Standard problems
    (the notched plate, the MBB beam, …) with fixed geometry, meshes and metrics; every method on
    the same problem, side by side, with comparison tables of accuracy against cost. A new paper
-   in an area lands on its area's benchmark. Nobody offers this for computational mechanics.
+   in an area lands on its area's benchmark. Nobody offers this for structural engineering.
 2. **Authors publish their own runnable papers.** The contribution template and CI make it easy;
    academic credit makes it worth it: a citable DOI per experiment version (Zenodo), the author's
    review recorded on the page, and later journal partnerships accepting a Stabileo experiment as
@@ -200,7 +200,7 @@ Order: finish the first three experiments; then 1 (cheap, unique); then 2 (credi
 to Shauer and DTU); then 3 once the template has proven itself; 4 follows from §5; 5 and 6 with
 academic partners.
 
-## 12. The platform: GitHub for computational mechanics, safely
+## 12. The platform: GitHub for structural engineering, safely
 
 > **Not now.** For now Stabileo runs the experiments and the comparisons itself: we choose the
 > papers, implement them, validate them and publish them, and no outside code runs anywhere. This

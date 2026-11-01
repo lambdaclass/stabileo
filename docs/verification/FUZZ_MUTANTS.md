@@ -114,8 +114,8 @@ JSON), find the root cause, fix it, and keep the test. A timeout is a finding to
 the engine does unbounded work on that input (a bug), or the input is legitimately large,
 in which case record it under *Slow but correct* above and tighten the harness caps.
 
-CI (`.github/workflows/nightly.yml`, job `fuzz`) runs each target for 30 minutes nightly
-and on manual dispatch, seeded from the templates, and uploads failing inputs as an
+CI (`.github/workflows/nightly.yml`, job `fuzz`) runs each target for 2 hours on self-hosted runners
+and 30 minutes on hosted fallback runners, nightly and on manual dispatch, seeded from the templates, and uploads failing inputs as an
 artifact.
 
 ## Mutation testing
@@ -140,8 +140,8 @@ in the `solver` and `element` scopes too: a mutant in an element kernel or in th
 assembly makes the engine's `K` or `f` disagree with the independent re-assembly. Results
 land in `mutants.out/`: `caught.txt`, `missed.txt`,
 `timeout.txt`, `unviable.txt`. CI (`.github/workflows/nightly.yml`, job `mutants`) splits
-the ~23,000 mutants into 128 shards and runs 8 of them each night, rotating with the day, so
-every mutant is tested every 16 nights (docs/verification/NIGHTLY.md). A shard fails on any
+the ~23,000 mutants into 512 shards and runs 4 of them each night, rotating with the day, so
+every mutant is tested every 128 nights (docs/verification/NIGHTLY.md). A shard fails on any
 missed mutant, and fails loudly if it does not finish within its time budget;
 `scripts/mutants-summary.py` prints how far it got and the time per mutant. One shard by
 hand: `gh workflow run nightly.yml -f only=mutants -f mutants_shards='[5]'`.

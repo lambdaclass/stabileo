@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toolReviewLabel } from "./reviews";
  import PublicLink from '../landing/PublicLink.svelte';
  import ParamRow from '../research/shell/ParamRow.svelte';
  import Sci from '../research/shell/Sci.svelte';
@@ -35,7 +36,7 @@
  const formula=$derived(id==='portal-frame'?'δpinned = Hh²(L + 2h)/(12EI); δfixed = Hh³(4L + 6h)/[24EI(L + 6h)]':id==='beam-natural-frequency'?'fn = βn²/(2πL²) √(EI/μ); βsimple = nπ; βcantilever = 1.875104, 4.694091, 7.854757; βfixed = 4.730041, 7.853205, 10.995608':t(id==='continuous-beam'?'tools.batch.continuousMethod':id==='truss-2d'?'tools.batch.trussMethod':'tools.batch.influenceMethod'));
 </script>
 <div class="tool-layout">
- <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><span class="badge">{t('tools.firstVersion')}</span><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
+ <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><span class="badge">{t('tools.firstVersion')} · {toolReviewLabel('tools-batch-2', publicI18n.locale)}</span><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
  <aside class="tool-viewer" aria-label={t(`tools.${id}`)}><BatchViewer {id} {result}/></aside>
  <section class="tool-inputs"><form onsubmit={event=>event.preventDefault()}>
   {#each fields as [key,label,unit,min,max]}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{/each}
