@@ -27,7 +27,7 @@ use super::assembly;
 use super::linear;
 use super::constraints::FreeConstraintSystem;
 use super::sparse_tangent::{
-    solve_tangent_sparse, tangent_free_sparse_triplets, SparseSymbolicCache,
+    solve_tangent_sparse_diagnosed, tangent_free_sparse_triplets, SparseSymbolicCache,
 };
 
 use serde::{Serialize, Deserialize};
@@ -412,6 +412,7 @@ fn solve_contact_state(
     nf: usize,
     cs: &Option<FreeConstraintSystem>,
     sparse_sym_cache: &mut Option<SparseSymbolicCache>,
+    conditioning: &mut Option<StructuredDiagnostic>,
 ) -> Result<Vec<f64>, String> {
     let n = f_base.len();
     let mut u0 = vec![0.0; n];
@@ -468,7 +469,7 @@ fn solve_contact_state(
                 }
             }
             let k_s = tangent_free_sparse_triplets(&rows, &cols, &vals, nf, cs);
-            solve_tangent_sparse(&k_s, &rhs_s, sparse_sym_cache)?
+            solve_tangent_sparse_diagnosed(&k_s, &rhs_s, sparse_sym_cache, conditioning)?
         }
         BaseStiffness::Dense(k) => {
             let mut k_ff = vec![0.0; nf * nf];
@@ -492,7 +493,9 @@ fn solve_contact_state(
             };
             let ns = rhs_s.len();
             let mut k_work = k_s.clone();
-            match cholesky_solve(&mut k_work, &rhs_s, ns) {
+            let solved = cholesky_solve(&mut k_work, &rhs_s, ns);
+            *conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+            match solved {
                 Some(u) => u,
                 None => {
                     let mut k_work = k_s;
@@ -833,6 +836,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
     let mut elem_flips: HashMap<usize, usize> = HashMap::new();
 
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     let mut u_global = vec![0.0; n];
     let mut converged = false;
@@ -856,7 +860,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
                 base_inactive = inactive;
             }
             let corr = contact_corrections_2d(input, &st, &node_by_id, &dof_num, &u_global, damping, al, &its);
-            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
             u_global = to_global(&u);
 
             let mut any_change = false;
@@ -971,7 +975,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         base = BaseStiffness::build(&input.solver, &inactive, &dof_num, use_sparse).0;
     }
     let corr = contact_corrections_2d(input, &st, &node_by_id, &dof_num, &u_global, None, al, &its);
-    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
     // The iterate the final corrections were built from (sliding friction
     // forces are μ·N of this state).
     let u_iter = std::mem::replace(&mut u_global, to_global(&u));
@@ -1034,7 +1038,7 @@ fn solve_contact_2d_contained(input: &ContactInput) -> Result<ContactResult, Str
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: conditioning.into_iter().collect(),
         equilibrium: None,
         result_summary: None,
         solver_run_meta: None,
@@ -1350,6 +1354,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
 
     let mut base_inactive: Vec<usize> = Vec::new();
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
     let mut u_global = vec![0.0; n];
     let mut converged = false;
     let mut total_iters = 0;
@@ -1370,7 +1375,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
                 base_inactive = inactive;
             }
             let corr = corrections(&gap_status, &gap_flips, &gap_lambda, &gap_slip, &u_global, damping);
-            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+            let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
             u_global = to_global(&u);
 
             let mut any_change = false;
@@ -1448,7 +1453,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
         base = BaseStiffness::build_3d(input_solver, &inactive, &dof_num, use_sparse);
     }
     let corr = corrections(&gap_status, &gap_flips, &gap_lambda, &gap_slip, &u_global, None);
-    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache)?;
+    let u = solve_contact_state(&base, &corr, &f_base, &u_r, nf, &cs, &mut sparse_sym_cache, &mut conditioning)?;
     let u_iter = std::mem::replace(&mut u_global, to_global(&u));
 
     let diagnostics = build_diagnostics_3d(&gap_flips, &input.gap_elements, &elem_flips, &input.element_behaviors, max_flips);
@@ -1501,7 +1506,7 @@ fn solve_contact_3d_contained(input: &ContactInput3D) -> Result<ContactResult3D,
         constraint_forces,
         diagnostics: vec![],
         solver_diagnostics: vec![],
-        structured_diagnostics: vec![],
+        structured_diagnostics: conditioning.into_iter().collect(),
         equilibrium: None,
         timings: None,
         result_summary: None,

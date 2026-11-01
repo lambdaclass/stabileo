@@ -920,3 +920,29 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
         else { assert!(response.unwrap().base_shear > 0.0); }
     }
 }
+
+fn transverse_loaded_bar() -> SolverInput {
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": -53.39259906210398, "z": -85.39605063257972}, "2": {"id": 2, "x": -28.598050853224024, "z": -52.92016340104717}},
+        "materials": {"1": {"id": 1, "e": 10530.127602377152, "nu": 0.2681219095578359}},
+        "sections": {"1": {"id": 1, "a": 0.01819587776383571, "iz": 0.00011849462806740683}},
+        "elements": {"1": {"id": 1, "type": "truss", "nodeI": 2, "nodeJ": 1, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}},
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": [{"type": "distributed", "data": {"elementId": 1, "qI": -24.880367155551312, "qJ": -13.982488394650844}}]
+    })).unwrap()
+}
+
+#[test]
+fn contact_ssi_and_corotational_solves_of_a_mechanism_are_flagged() {
+    let check = |input: &SolverInput, flagged: bool| {
+        let contact: dedaliano_engine::solver::contact::ContactInput = serde_json::from_value(serde_json::json!({ "solver": input })).unwrap();
+        let contact = dedaliano_engine::solver::contact::solve_contact_2d(&contact).unwrap();
+        let ssi = solve_ssi_2d(&SSIInput { solver: input.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-10 }).unwrap();
+        let corotational = dedaliano_engine::solver::corotational::solve_corotational_2d(input, 100, 1e-10, 4, false).unwrap();
+        for (name, d) in [("contact", &contact.results.structured_diagnostics), ("SSI", &ssi.results.structured_diagnostics), ("corotational", &corotational.results.structured_diagnostics)] {
+            assert_eq!(ids(d).contains(&"NUM-INVARIANCE".to_string()), flagged, "{name}: {:?}", ids(d));
+        }
+    };
+    check(&transverse_loaded_bar(), true);
+    check(&make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)), false);
+}
