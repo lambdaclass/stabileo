@@ -50,6 +50,24 @@ defmodule StabileoRepo.Schemas.FeedbackTest do
     assert [_] = errors.message
   end
 
+  test "model_link must be an http(s) link, so the admin inbox never renders a script URL" do
+    for link <- ["javascript:alert(1)", "data:text/html,x", "https://x y"] do
+      changeset =
+        Feedback.create_changeset(%Feedback{}, Map.put(valid_attrs(), :model_link, link))
+
+      assert %{model_link: ["must be an http(s) link"]} = errors_on(changeset)
+    end
+
+    {:ok, feedback} =
+      %Feedback{}
+      |> Feedback.create_changeset(
+        Map.put(valid_attrs(), :model_link, "https://stabileo.com/app/basic#m=abc")
+      )
+      |> Repo.insert()
+
+    assert Repo.get!(Feedback, feedback.id).model_link == "https://stabileo.com/app/basic#m=abc"
+  end
+
   test "status moves only to a known status" do
     {:ok, feedback} = %Feedback{} |> Feedback.create_changeset(valid_attrs()) |> Repo.insert()
 

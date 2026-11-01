@@ -89,7 +89,7 @@
                 <button class="ins-btn" onclick={() => mark(f.id, s)} data-testid={`admin-feedback-mark-${s}`}>{t(`admin.feedback.mark.${s}`)}</button>
               {/if}
             {/each}
-            {#if f.model_link}<a href={f.model_link} target="_blank" rel="noopener noreferrer">{t('admin.feedback.openModel')}</a>{/if}
+            {#if f.model_link && /^https?:\/\//i.test(f.model_link)}<a href={f.model_link} target="_blank" rel="noopener noreferrer">{t('admin.feedback.openModel')}</a>{/if}
             {#if f.account}<a href={reply(f)} data-testid="admin-feedback-reply">{t('admin.feedback.reply')}</a>{/if}
           </div>
         </li>

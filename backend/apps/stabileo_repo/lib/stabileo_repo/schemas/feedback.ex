@@ -57,6 +57,7 @@ defmodule StabileoRepo.Schemas.Feedback do
     |> validate_length(:page, max: 255)
     |> validate_length(:app_version, max: 32)
     |> validate_length(:model_link, max: 500_000)
+    |> validate_format(:model_link, ~r/^https?:\/\/[^\s]+$/, message: "must be an http(s) link")
     |> assoc_constraint(:account)
   end
 
