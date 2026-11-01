@@ -19,6 +19,7 @@
   import { strings as dadeppoStrings } from './dadeppo1975/i18n';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
+  import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
   import { englishOnlyCard } from './english-only-cards';
@@ -84,23 +85,23 @@
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
         <li class="rs-g-runcard">
-          <PublicLink to={e.path} class="rs-g-thumb" aria-label={cardTitle(e)}>
+          <ResearchLink to={e.path} class="rs-g-thumb" aria-label={cardTitle(e)}>
             {#if e.thumbnail && !thumbFailed[e.paperId]}
               <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.thumbnailAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}
-          </PublicLink>
+          </ResearchLink>
           <div class="rs-g-runbody">
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span><span class="rs-g-status rs-g-first">{firstVersion} · {reviewLabel(p.id, publicI18n.locale)}</span></div>
-            <h3><PublicLink to={e.path}>{cardTitle(e)}</PublicLink></h3>
+            <h3><ResearchLink to={e.path}>{cardTitle(e)}</ResearchLink></h3>
             <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.lead : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.lead : e.paperId === "cqc-1981" ? cqc.lead : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
             <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>
             <div class="rs-g-actions">
-              <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
+              <ResearchLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</ResearchLink>
               <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
               {#if isHttpUrl(e.code)}<a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>{/if}
-              {#if e.editor}<PublicLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</PublicLink>{/if}
+              {#if e.editor}<ResearchLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</ResearchLink>{/if}
             </div>
           </div>
         </li>

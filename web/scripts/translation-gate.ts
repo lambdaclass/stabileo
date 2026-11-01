@@ -9,13 +9,6 @@ const MIN_WORDS = 4;
 
 export type GateFailure = { page: string; locale: string; rule: string; offending: string[] };
 
-/** The keys a page in `locale` looked up and got in English instead. */
-export function englishFallbacks(locale: string, misses: readonly string[]): string[] {
-  if (locale === 'en') return [];
-  const prefix = `${locale} `;
-  return [...new Set(misses.filter((m) => m.startsWith(prefix)).map((m) => m.slice(prefix.length)))].sort();
-}
-
 function decode(s: string): string {
   return s
     .replace(/&nbsp;|&#160;/g, ' ')

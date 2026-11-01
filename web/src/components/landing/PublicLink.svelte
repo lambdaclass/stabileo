@@ -27,16 +27,13 @@
    * behave.
    */
   import type { Snippet } from 'svelte';
-  import { publicI18n, type PublicLocale } from '../../lib/i18n/store.svelte';
+  import { publicI18n } from '../../lib/i18n/store.svelte';
   import { publicHref } from '../../lib/i18n/public-routes';
-  import { publishedLocale } from '../../lib/i18n/published';
   import { goPublic } from './landing-utils';
 
   type Props = {
     /** Unprefixed: '/', '/blog', '/blog/<slug>'. The language is added here. */
     to: string;
-    /** Overrides the language the page is published in for this reader (`publishedLocale`). */
-    locale?: PublicLocale;
     class?: string;
     title?: string;
     'aria-label'?: string;
@@ -44,14 +41,13 @@
     'data-nav'?: string;
     children: Snippet;
   };
-  let { to, locale, class: cls = '', children, ...rest }: Props = $props();
+  let { to, class: cls = '', children, ...rest }: Props = $props();
 
-  const target = $derived(locale ?? publishedLocale(to, publicI18n.locale));
-  const href = $derived(publicHref(to, target));
+  const href = $derived(publicHref(to, publicI18n.locale));
 
   function onclick(e: MouseEvent) {
     // Anything but a plain left click belongs to the browser.
-    if (target !== publicI18n.locale || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     goPublic(to);
   }
