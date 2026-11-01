@@ -2443,6 +2443,7 @@ export function solveCombinations3D(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }
@@ -2948,6 +2949,7 @@ export async function solveCombinations3DParallel(
   } catch (err) {
     const said = loadRefusal(err);
     if (said) return said;
+    if (isContainmentRefusal(err)) return err instanceof Error ? err.message : String(err);
     throw err;
   }
 }

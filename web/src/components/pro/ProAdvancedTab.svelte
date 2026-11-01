@@ -206,19 +206,21 @@
       const t0 = performance.now();
       res = wasmPDelta3D(input);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(res, 'Error') }); solving = false; return; }
+      if (typeof res === 'string') { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(res, t('pro.unknownError')) }); solving = false; return; }
+      const containment = knownIssueResultDisposition(res);
+      if (containment.refused) { forgetPDelta(); solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: containment.messages.join('\n') }); solving = false; return; }
       pdeltaElapsed = elapsed;
       const amp = res.results ? amplification(res) : { b2: Infinity, stable: false };
       const converged = !!res.converged;
       pdeltaResult = { ...res, converged, iterations: res.iterations ?? 0, b2: amp.b2, stable: amp.stable };
-      pdeltaRefused = knownIssueResultDisposition(res).refused ? knownIssueResultDisposition(res).messages.join('\n') : !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
+      pdeltaRefused = !amp.stable ? t('pro.pdeltaUnstable') : !converged ? tp('pro.pdeltaNotConverged', { n: res.iterations ?? 0 }) : null;
       if (pdeltaRefused === null) resultsStore.setPDeltaResult3D(res);
       // A result of an earlier run is not left on screen as if it were this one's.
       else if (resultsStore.pdeltaResult3D) resultsStore.clearPDelta3D();
-      advancedResults = { ...advancedResults, pdelta: { disposition: knownIssueResultDisposition(res), converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
+      advancedResults = { ...advancedResults, pdelta: { disposition: containment, converged, iterations: res.iterations, b2Factor: amp.b2, isStable: amp.stable } };
     } catch (e: any) {
       forgetPDelta();
-      solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.pdelta'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -274,12 +276,12 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(res, 'Error') }); solving = false; return; }
+      if (typeof res === 'string') { forgetModal(); solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(res, t('pro.unknownError')) }); solving = false; return; }
+      const containment = knownIssueResultDisposition(res);
+      if (containment.refused) { forgetModal(); solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: containment.messages.join('\n') }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
-      // Published, so the viewport can draw and animate the mode picked in the table below.
-      // PRO kept this result to itself: the table listed modes and none of them could be seen.
-      if (!knownIssueResultDisposition(res).refused) resultsStore.setModalResult3D(res);
+      resultsStore.setModalResult3D(res);
       modalModelVersion = modelStore.modelVersion;
       if (res.modes || res.frequencies) {
         const modes = (res.modes ?? res.frequencies ?? []).map((m: any, i: number) => ({
@@ -293,11 +295,11 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { disposition: knownIssueResultDisposition(res), modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
+        advancedResults = { ...advancedResults, modal: { disposition: containment, modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
       forgetModal();
-      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -369,13 +371,15 @@
       const byDir: Record<string, any> = {};
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = wasmSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: spectralCombination, importanceFactor, reductionFactor, xi: spectralXi });
-        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${errorText(res, 'Error')}`; solving = false; return; }
+        if (typeof res === 'string') { solveError = `${t('pro.spectralTitle')}: ${errorText(res, t('pro.unknownError'))}`; solving = false; return; }
         byDir[direction] = res;
       }
+      const containment = knownIssueResultDisposition(byDir);
+      if (containment.refused) { solveError = `${t('pro.spectralTitle')}: ${containment.messages.join('\n')}`; solving = false; return; }
       spectralResult = byDir;
-      advancedResults = { ...advancedResults, spectral: { disposition: knownIssueResultDisposition(byDir), baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
+      advancedResults = { ...advancedResults, spectral: { disposition: containment, baseShearX: byDir.X.baseShear, baseShearY: byDir.Y.baseShear } };
     } catch (e: any) {
-      solveError = `${t('pro.spectralTitle')}: ${errorText(e, 'Error')}`;
+      solveError = `${t('pro.spectralTitle')}: ${errorText(e, t('pro.unknownError'))}`;
     }
     solving = false;
   }
@@ -403,15 +407,17 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(res, 'Error') }); solving = false; return; }
+      if (typeof res === 'string') { forgetBuckling(); solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(res, t('pro.unknownError')) }); solving = false; return; }
+      const containment = knownIssueResultDisposition(res);
+      if (containment.refused) { forgetBuckling(); solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: containment.messages.join('\n') }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
-      if (!knownIssueResultDisposition(res).refused) resultsStore.setBucklingResult3D(res);
+      resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
-      advancedResults = { ...advancedResults, buckling: { disposition: knownIssueResultDisposition(res), factors } };
+      advancedResults = { ...advancedResults, buckling: { disposition: containment, factors } };
     } catch (e: any) {
       forgetBuckling();
-      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -453,7 +459,7 @@
       harmonicElapsed = elapsed;
       harmResult = res;
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.harmonic'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.harmonic'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -565,7 +571,7 @@
       // The fibre analysis was offered here and never ran: the engine needs fibre sections and
       // material laws this panel does not build, so it is out of the list until it does.
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.nonlinear'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -600,7 +606,7 @@
       // Shown in this panel only; see `handleStaged` for why it is not published.
       imperfResult = { ...asModel(solve3D(withN)), notionalTotal: totalH };
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.imperfections'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.imperfections'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -645,7 +651,7 @@
       winklerResult = asModel(res);
       if (res.displacements) resultsStore.setResults3D(res);
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.winkler'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.winkler'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -720,7 +726,7 @@
       ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
       if (res.results) resultsStore.setResults3D(res.results);
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -815,7 +821,7 @@
        */
       stagedResult = res;
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.staged'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.staged'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -858,7 +864,7 @@
       // Shown in this panel only; see `handleStaged` for why it is not published.
       creepResult = { steps: steps.map((st: any) => (st.results ? { ...st, results: asModel(st.results) } : st)) };
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.creep'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.creep'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -897,7 +903,7 @@
         gravityDirection: 'z',
       });
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.influence3d'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.influence3d'), error: errorText(e, t('pro.unknownError')) });
     }
     solving = false;
   }
@@ -982,7 +988,7 @@
         if (Number.isFinite(j) && j > 0) secResult = { ...secResult, j };
       } catch { /* J stays unavailable */ }
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.section'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.section'), error: errorText(e, t('pro.unknownError')) });
     }
   }
 

@@ -42,13 +42,69 @@ it.each([false, true])('envelopes built over a refused case or combination are w
     expect(resultsStore.envelope3D).toBeNull();
     expect(resultsStore.fullEnvelope3D).toBeNull();
     expect(resultsStore.hasCombinations3D).toBe(false);
-    expect(resultsStore.perCase).toBe(resultsStore.perCase);
+    expect(resultsStore.fullEnvelope).toBeNull();
+    expect(resultsStore.perCase.size).toBe(0);
+    expect(resultsStore.perCase.get(1)).toBeUndefined();
+    expect(resultsStore.perCombo3D.size).toBe(0);
+    expect(resultsStore.perCombo3D.get(2)).toBeUndefined();
     resultsStore.activeView = 'envelope';
     expect(JSON.stringify([resultsStore.results, resultsStore.results3D])).not.toContain('987654');
   } else {
     expect(resultsStore.envelope?.maxAbsResults.displacements[0]!.ux).toBe(987654);
+    expect(resultsStore.fullEnvelope?.maxAbsResults.displacements[0]!.ux).toBe(987654);
+    expect(resultsStore.perCase.get(1)).toBeTruthy();
+    expect(resultsStore.perCombo3D.get(2)).toBeTruthy();
     expect(resultsStore.envelope3D?.maxAbsResults3D.displacements[0]!.ux).toBe(987654);
     expect(resultsStore.fullEnvelope3D).not.toBeNull();
     expect(resultsStore.hasCombinations3D).toBe(true);
   }
+});
+
+it.each([false, true])('a refused load case is unavailable through perCase and perCase3D (refused: %s)', bad => {
+  const withValue = (r: object) => ({ ...r, displacements: [{ nodeId: 1, ux: 555555, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] });
+  const env2D = { maxAbsResults: clean };
+  const env3D = { maxAbsResults3D: clean };
+  resultsStore.setResults(clean as never);
+  resultsStore.setCombinationResults(new Map([[1, withValue(bad ? refused : clean)]]) as never, new Map([[2, clean]]) as never, env2D as never);
+  resultsStore.setResults3D(clean as never);
+  resultsStore.setCombinationResults3D(new Map([[1, withValue(bad ? refused : clean)]]) as never, new Map([[2, clean]]) as never, env3D as never);
+  for (const map of [resultsStore.perCase, resultsStore.perCase3D] as Map<number, { displacements: Array<{ ux: number }> }>[]) {
+    if (bad) {
+      expect(map.size).toBe(0);
+      expect(map.get(1)).toBeUndefined();
+      expect(JSON.stringify([...map.values()])).not.toContain('555555');
+    } else {
+      expect(map.get(1)?.displacements[0]!.ux).toBe(555555);
+    }
+  }
+});
+
+it.each([false, true])('a refused single solve reaches no viewport getter (3D: %s)', is3D => {
+  const v = 444444;
+  const solved = is3D
+    ? {
+      displacements: [{ nodeId: 1, ux: v, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }],
+      reactions: [{ nodeId: 1, fx: v, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 }],
+      elementForces: [{ elementId: 1, nStart: v, nEnd: v, vyStart: v, vyEnd: v, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: v, myEnd: v, mzStart: 0, mzEnd: 0 }],
+      constraintForces: [{ nodeId: 1, dof: 'ux', force: v }],
+    }
+    : {
+      displacements: [{ nodeId: 1, ux: v, uz: 0, ry: 0 }],
+      reactions: [{ nodeId: 1, rx: v, rz: 0, my: 0 }],
+      elementForces: [{ elementId: 1, nStart: v, nEnd: v, vStart: v, vEnd: v, mStart: v, mEnd: v }],
+      constraintForces: [{ nodeId: 1, dof: 'ux', force: v }],
+    };
+  uiStore.analysisMode = is3D ? 'pro' : '2d';
+  const store = resultsStore as any;
+  const publish = (r: object) => is3D ? resultsStore.setResults3D(r as never) : resultsStore.setResults(r as never);
+  const read = () => is3D
+    ? [store.results3D, store.singleResults3D, store.getDisplacement3D(1), store.getReaction3D(1), store.getElementForces3D(1), store.constraintForces3D, store.maxDisplacement3D]
+    : [store.results, store.singleResults, store.getDisplacement(1), store.getReaction(1), store.getElementForces(1), store.constraintForces, store.maxDisplacement, store.maxMoment, store.maxShear];
+  publish(solved);
+  resultsStore.diagramType = 'deformed';
+  expect(JSON.stringify(read())).toContain(String(v));
+  publish({ ...solved, structuredDiagnostics: [diagnostic] });
+  resultsStore.diagramType = 'deformed';
+  expect(resultsStore.diagramType).toBe('none');
+  expect(JSON.stringify(read())).not.toContain(String(v));
 });

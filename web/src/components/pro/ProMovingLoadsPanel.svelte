@@ -94,7 +94,7 @@
       notes = r.notes.map(noteText);
       uiStore.toast(tp('moving.casesCreated', { n: r.cases }), 'success');
     } catch (e) {
-      error = errorText(e, 'Error');
+      error = errorText(e, t('pro.unknownError'));
     }
   }
   let step = $state(0.25);
@@ -128,7 +128,7 @@
       base = movingLoadBase3D(modelStore.model as never, uiStore.axisConvention3D === 'leftHand');
     } catch (e) {
       // What the builder refuses (a semi-rigid end it cannot model) is said, not thrown past the panel.
-      error = errorText(e, 'Error'); return;
+      error = errorText(e, t('pro.unknownError')); return;
     }
     if (!base) { error = t('moving.noModel'); return; }
     const path = buildPath3D(base, pathIds);
@@ -152,7 +152,7 @@
       if (result) notes = [...notes, ...knownIssueResultDisposition(result).messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
-      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, 'Error');
+      error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, t('pro.unknownError'));
     } finally {
       running = false; controller = null;
     }

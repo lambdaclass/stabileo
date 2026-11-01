@@ -64,19 +64,43 @@ describe('advanced reruns retire panel, viewport and report results', () => {
       expect(scope.solving).toBe(false);
     }
   });
-  it('P-Delta retains nested diagnostics and refuses publication after a clean run', () => {
+  it('P-Delta with a nested refusal after a clean run keeps only the diagnostic', () => {
     const scope = setup();
+    scope.amplification = () => ({ b2: 7.654321, stable: true });
     scope.wasmPDelta3D = vi.fn().mockReturnValueOnce({ converged: true, iterations: 2, results: {} })
-      .mockReturnValueOnce({ converged: true, iterations: 2, results: { structuredDiagnostics: [diagnostic] } });
+      .mockReturnValueOnce({ converged: true, iterations: 2, results: { displacements: [{ ux: 987654 }], structuredDiagnostics: [diagnostic] } });
     const run = handler('handlePDelta', scope);
     run();
     expect(scope.resultsStore.pdeltaResult3D).toBeTruthy();
+    expect(scope.advancedResults.pdelta.b2Factor).toBe(7.654321);
     run();
-    expect(knownIssueResultDisposition(scope.pdeltaResult).refused).toBe(true);
+    expect(scope.pdeltaResult).toBeNull();
     expect(scope.resultsStore.pdeltaResult3D).toBeNull();
-    expect(scope.advancedResults.pdelta.disposition.refused).toBe(true);
-    expect(scope.pdeltaRefused).toContain('#741');
+    expect(scope.advancedResults.pdelta).toBeUndefined();
+    expect(JSON.stringify(scope.advancedResults)).not.toMatch(/7\.654321|987654/);
+    expect(scope.solveError).toContain('#741');
+    expect(scope.solving).toBe(false);
     expect(source).toContain('pdeltaResult && !knownIssueResultDisposition(pdeltaResult).refused');
+  });
+  it.each(['Modal', 'Buckling'] as const)('%s returned with a refusal after a clean run keeps only the diagnostic', name => {
+    const scope = setup();
+    const clean = name === 'Modal' ? { modes: [{ frequency: 2, period: 0.5 }], totalMass: 3 } : { factors: [2] };
+    const refused = name === 'Modal'
+      ? { modes: [{ frequency: 12345, period: 1 }], totalMass: 54321, structuredDiagnostics: [diagnostic] }
+      : { factors: [12345], structuredDiagnostics: [diagnostic] };
+    scope[`wasm${name}3D`] = vi.fn().mockReturnValueOnce(clean).mockReturnValueOnce(refused);
+    const run = handler(`handle${name}`, scope);
+    const key = name.toLowerCase();
+    run();
+    expect(scope[`${key}Result`]).toEqual(clean);
+    expect(scope.resultsStore[`${key}Result3D`]).toEqual(clean);
+    run();
+    expect(scope[`${key}Result`]).toBeNull();
+    expect(scope.resultsStore[`${key}Result3D`]).toBeNull();
+    expect(scope.advancedResults[key]).toBeUndefined();
+    expect(JSON.stringify(scope.advancedResults)).not.toMatch(/12345|54321/);
+    expect(scope.solveError).toContain('#741');
+    expect(scope.solving).toBe(false);
   });
 });
 
@@ -119,6 +143,24 @@ it('spectral success followed by string or thrown refusal retires report and loc
     expect(scope.solveError).toContain('#741');
     expect(scope.solveError).not.toContain('structuredDiagnostics');
   }
+});
+
+it('spectral returned with a refusal publishes no base shear', () => {
+  const scope = setup();
+  Object.assign(scope, {
+    modalResult: { modes: [] }, modalModelVersion: 1, modelStore: { modelVersion: 1, model: {} },
+    spectralSource: 'code', codeSpectrum: { zone: 3 }, siteClass: 'SD', destinationGroup: 'B', spectralR: 1,
+    spectralCombination: 'SRSS', spectralXi: 0.05, HORIZONTAL_DIRECTIONS: ['X', 'Y'],
+    RISK_FACTOR: { B: 1 }, isBlocked: () => false, spectrumPoints: () => [], spectralModesFrom: () => [],
+    wasmSpectral3D: () => ({ baseShear: 12345, structuredDiagnostics: [diagnostic] }),
+  });
+  scope.resultsStore.clearSpectral3D = vi.fn();
+  handler('handleSpectral', scope)();
+  expect(scope.spectralResult).toBeNull();
+  expect(scope.advancedResults.spectral).toBeUndefined();
+  expect(JSON.stringify(scope.advancedResults)).not.toContain('12345');
+  expect(scope.solveError).toContain('#741');
+  expect(scope.solving).toBe(false);
 });
 
 it('time-history success then refusal clears chart, peaks and selected node', () => {

@@ -127,14 +127,15 @@ export async function copyView(req: ViewExportRequest): Promise<boolean> {
     uiStore.toast(t('viewExport.noClipboard'), 'error');
     return false;
   }
-  const warnings = exportMessages();
-  if (warnings === null) return false;
+  if (exportMessages() === null) return false;
   // The clipboard write has to start inside the click, so it is handed a promise of the picture.
   // A model that cannot be solved is told by `drawable`; the failed copy is then not told again.
   let told = false;
   const picture = (async () => {
     const contents = await drawable(req.contents);
     if (contents.length === 0) { told = req.contents.length > 0; throw new Error('empty'); }
+    const warnings = exportMessages();
+    if (warnings === null) { told = true; throw new Error('refused'); }
     const ps = plans(contents, { ...req, sheet: true });
     const blob = ps[0] ? await canvasToBlob(warningCanvas(toCanvas(ps[0]), warnings)) : null;
     if (!blob) throw new Error('empty');

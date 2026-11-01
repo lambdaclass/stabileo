@@ -65,13 +65,14 @@ export function knownIssueResultDisposition(result: unknown): ReturnType<typeof 
     if (!value || typeof value !== 'object' || seen.has(value)) return;
     seen.add(value);
     if (Array.isArray(value)) { value.forEach(visit); return; }
+    if (value instanceof Map) { value.forEach(visit); return; }
     const record = value as Record<string, unknown>;
     if (Array.isArray(record.structuredDiagnostics)) {
       for (const d of record.structuredDiagnostics) {
         if (d && d.code === 'known_issue' && typeof d.message === 'string') diagnostics.push(d);
       }
     }
-    for (const key of ['positions', 'results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'caseResults', 'combinationResults', 'maxAbsResults', 'maxAbsResults3D', 'envelope', 'envelope3D']) visit(record[key]);
+    for (const key of ['positions', 'results', 'linearResults', 'finalResults', 'steps', 'stages', 'X', 'Y', 'Z', 'perCase', 'perCombo', 'perMode', 'caseResults', 'combinationResults', 'maxAbsResults', 'maxAbsResults3D', 'envelope', 'envelope3D']) visit(record[key]);
   }
   visit(result);
   return knownIssueDisposition(diagnostics);

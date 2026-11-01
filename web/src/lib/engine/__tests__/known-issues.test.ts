@@ -139,3 +139,17 @@ it('refuses an envelope whose maxAbsResults3D carries a refusal', () => {
   expect(knownIssueResultDisposition({ envelope3D: { maxAbsResults3D: { structuredDiagnostics: [refusal] } } }).refused).toBe(true);
   expect(knownIssueResultDisposition({ unrelated: { structuredDiagnostics: [refusal] } }).refused).toBe(false);
 });
+
+describe('the result walker finds a refusal wherever a bundle keeps it', () => {
+  const refused = { structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }] };
+  it.each([
+    ['a vertical spectral direction', { X: {}, Y: {}, Z: refused }],
+    ['a per-case Map', new Map([[1, refused]])],
+    ['a bundle with a per-combination Map', { perCase: new Map([[1, {}]]), perCombo: new Map([[2, refused]]) }],
+    ['a mode of a modal-force result', { perMode: [refused] }],
+  ])('%s', (_label, source) => {
+    const d = knownIssueResultDisposition(source);
+    expect(d.refused).toBe(true);
+    expect(d.messages.join()).toContain('#741');
+  });
+});

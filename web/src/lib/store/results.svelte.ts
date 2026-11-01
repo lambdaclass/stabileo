@@ -565,11 +565,11 @@ function createResultsStore() {
         results3D = perCase3D.get(v) ?? singleResults3D;
       }
     },
-    get singleResults() { return singleResults; },
-    get singleResults3D() { return singleResults3D; },
+    get singleResults() { return knownIssueResultDisposition(singleResults).refused ? null : singleResults; },
+    get singleResults3D() { return knownIssueResultDisposition(singleResults3D).refused ? null : singleResults3D; },
     get hasCombinations() { return (perCombo.size > 0 && !anyRefused(perCombo)) || (perCombo3D.size > 0 && !anyRefused(perCombo3D)); },
     get isEnvelopeActive() { return activeView === 'envelope' && (envelope !== null || envelope3D !== null); },
-    get fullEnvelope() { return envelope; },
+    get fullEnvelope() { return this.envelope; },
 
     get combinationsDirty() { return combinationsDirty; },
     set combinationsDirty(v: boolean) { combinationsDirty = v; },
@@ -1302,20 +1302,21 @@ function createResultsStore() {
     },
 
     getDisplacement3D(nodeId: number): Displacement3D | undefined {
-      return results3D?.displacements.find(d => d.nodeId === nodeId);
+      return this.results3D?.displacements.find(d => d.nodeId === nodeId);
     },
 
     getReaction3D(nodeId: number): Reaction3D | undefined {
-      return results3D?.reactions.find(r => r.nodeId === nodeId);
+      return this.results3D?.reactions.find(r => r.nodeId === nodeId);
     },
 
     getElementForces3D(elementId: number): ElementForces3D | undefined {
-      return results3D?.elementForces.find(f => f.elementId === elementId);
+      return this.results3D?.elementForces.find(f => f.elementId === elementId);
     },
 
     get maxDisplacement3D(): number {
-      if (!results3D) return 0;
-      return Math.max(...results3D.displacements.map(d =>
+      const r = this.results3D;
+      if (!r) return 0;
+      return Math.max(...r.displacements.map(d =>
         Math.sqrt(d.ux ** 2 + d.uy ** 2 + d.uz ** 2)
       ));
     },
@@ -1327,8 +1328,8 @@ function createResultsStore() {
     // ─── Diagnostics ───────────────────────────────────────────
     get diagnostics() { return diagnostics2D; },
     get diagnostics3D() { return diagnostics3DArr; },
-    get constraintForces() { return constraintForces2D; },
-    get constraintForces3D() { return constraintForces3DArr; },
+    get constraintForces() { return this.knownIssues.refused ? [] : constraintForces2D; },
+    get constraintForces3D() { return this.knownIssues3D.refused ? [] : constraintForces3DArr; },
 
     /** Add diagnostics (appends to existing list) */
     addDiagnostics(diags: SolverDiagnostic[], is3D: boolean = false) {
@@ -1359,27 +1360,29 @@ function createResultsStore() {
     },
 
     getDisplacement(nodeId: number) {
-      return results?.displacements.find(d => d.nodeId === nodeId);
+      return this.results?.displacements.find(d => d.nodeId === nodeId);
     },
 
     getReaction(nodeId: number) {
-      return results?.reactions.find(r => r.nodeId === nodeId);
+      return this.results?.reactions.find(r => r.nodeId === nodeId);
     },
 
     getElementForces(elementId: number) {
-      return results?.elementForces.find(f => f.elementId === elementId);
+      return this.results?.elementForces.find(f => f.elementId === elementId);
     },
 
     get maxMoment(): number {
-      if (!results) return 0;
-      return Math.max(...results.elementForces.map(f =>
+      const r = this.results;
+      if (!r) return 0;
+      return Math.max(...r.elementForces.map(f =>
         Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))
       ));
     },
 
     get maxShear(): number {
-      if (!results) return 0;
-      return Math.max(...results.elementForces.map(f =>
+      const r = this.results;
+      if (!r) return 0;
+      return Math.max(...r.elementForces.map(f =>
         Math.max(Math.abs(f.vStart), Math.abs(f.vEnd))
       ));
     },
@@ -1406,8 +1409,9 @@ function createResultsStore() {
     },
 
     get maxDisplacement(): number {
-      if (!results) return 0;
-      return Math.max(...results.displacements.map(d =>
+      const r = this.results;
+      if (!r) return 0;
+      return Math.max(...r.displacements.map(d =>
         Math.sqrt(d.ux ** 2 + get2DDisplayDisplacementVertical(d) ** 2)
       ));
     },

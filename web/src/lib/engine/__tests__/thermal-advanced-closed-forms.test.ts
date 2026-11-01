@@ -70,7 +70,7 @@ describe('P-Delta reads the compression a temperature causes', () => {
 });
 
 describe('plastic collapse is not moved by a temperature', () => {
-  // After #758: const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
+  const MP = 250e3 * 0.1 * 0.3464 ** 2 / 4;
   const beam = (extra: SolverLoad[]) => solvePlastic({
     solver: {
       nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 3, z: 0 }], [3, { id: 3, x: 6, z: 0 }]]),
@@ -92,14 +92,13 @@ describe('plastic collapse is not moved by a temperature', () => {
     ['a gradient on one half', [grad(1, 30)]],
     ['a reversed gradient on the other half', [grad(2, -25)]],
   ] as Array<[string, SolverLoad[]]>) {
-    it(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL)`, () => {
+    it(`fixed-fixed beam, central load, ${label}: withheld while PL-2D-INVARIANCE (#758) is open`, () => {
       expectPlasticRefusal(() => beam(extra));
-      /* Numerical expectations for the #758 fix (no result while refused):
-expect(r.isMechanism).toBe(true);
-*/
-      /* Numerical expectations for the #758 fix (no result while refused):
-expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
-*/
+    });
+    it.skip(`fixed-fixed beam, central load, ${label}: λ = 8Mp/(PL) (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)`, () => {
+      const r = beam(extra);
+      expect(r.isMechanism).toBe(true);
+      expect(r.collapseFactor).toBeCloseTo(8 * MP / (50 * 6), 2);
     });
   }
 });
