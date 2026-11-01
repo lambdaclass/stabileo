@@ -245,6 +245,7 @@ fn generated_buckling_enclosures(cases: u64) {
     let mut rng = rand::rngs::StdRng::seed_from_u64(741);
     let mut certified = [0; 2];
     let mut refused = [0; 2];
+    let mut above_upper = [0; 2];
     let mut errors = [std::collections::BTreeMap::new(), std::collections::BTreeMap::new()];
     for seed in 0..cases {
         let mut input = buckling_741_input();
@@ -284,6 +285,7 @@ fn generated_buckling_enclosures(cases: u64) {
                     BucklingCertificate::Uncertified { refusal, .. } => {
                         refused[dimension] += 1;
                         if let Some(BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }) = refusal {
+                            above_upper[dimension] += 1;
                             assert_eq!(lambda_computed, factor, "seed {seed}");
                             assert!(lambda_computed > lambda_upper, "seed {seed}: {refusal:?}");
                         }
@@ -297,15 +299,18 @@ fn generated_buckling_enclosures(cases: u64) {
         let reached_checker = certified[dimension] + refused[dimension];
         let solver_errors: u64 = errors[dimension].values().sum();
         eprintln!(
-            "{}D: {cases} generated, {reached_checker} reached certification, {} certified, {} refused, {solver_errors} solver errors: {:#?}",
-            dimension + 2, certified[dimension], refused[dimension], errors[dimension]
+            "{}D: {cases} generated, {reached_checker} reached certification, {} certified, {} refused ({} computedAboveUpperBound), {solver_errors} solver errors: {:#?}",
+            dimension + 2, certified[dimension], refused[dimension], above_upper[dimension], errors[dimension]
         );
-        assert_eq!(reached_checker + solver_errors, cases);
+        assert!(
+            errors[dimension].keys().all(|reason| reason == "No compressed elements — buckling not applicable"),
+            "{}D solver failed for a reason other than no compression: {:#?}", dimension + 2, errors[dimension]
+        );
     }
     assert_eq!(certified[0], cases, "every generated 2D column must certify");
     assert!(certified[1] > 0, "no generated 3D certificates");
     assert!(certified[1] + refused[1] >= cases / 8, "too few 3D cases reached certification");
-    assert!(refused[1] > 0, "no generated 3D refusals");
+    assert!(above_upper[1] > 0, "no generated 3D computedAboveUpperBound refusals");
 }
 
 #[test]

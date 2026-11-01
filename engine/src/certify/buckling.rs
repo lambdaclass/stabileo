@@ -251,7 +251,7 @@ pub fn certify_critical_factor_enclosed(
 
     let lambda_upper = rayleigh_upper(k, kv, n_mat, nv, phi);
     if let Some(upper) = lambda_upper {
-        if lambda_hat > upper {
+        if lambda_hat.is_nan() || lambda_hat > upper {
             return BucklingCertificate::computed_above_upper(lambda_hat, upper);
         }
     }

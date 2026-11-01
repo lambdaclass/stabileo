@@ -176,7 +176,6 @@
     box-shadow: 0 8px 32px rgb(0 0 0 / 0.35);
     outline: none;
   }
-  /* The change list scrolls first; below its floor the notice itself scrolls, so no control is clipped. */
   .rc-title, .rc-intro, .rc-stale, .rc-ack, .rc-actions { flex-shrink: 0; }
   .rc-title { margin: 0 0 6px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
   .rc-recovery > :global(*) { flex-shrink: 0; }
@@ -234,6 +233,10 @@
     box-shadow: 0 4px 16px rgb(0 0 0 / 0.25);
   }
   .rc-banner-btn { padding: 3px 8px; font-size: 0.75rem; }
+  /* Only one of .rc and .rc-list may scroll: a drag on a nested list never reaches the controls below it. */
+  @media (max-height: 520px) {
+    .rc-list { flex-shrink: 0; overflow-y: visible; overscroll-behavior: auto; }
+  }
   @media (max-width: 600px) {
     .rc { padding: 12px; max-height: calc(100dvh - 24px); }
     .rc-actions .rc-btn { flex: 1 1 100%; }

@@ -39,9 +39,10 @@ The regression records the original two option bytes and minimized JSON, verifie
 the enclosure against exact arithmetic, and checks reported-factor containment (or
 the explicit refusal). Deterministically generated 2D and 3D models exercise the
 invariant in 64 pairs normally and 4096 pairs in the ignored extended test.
-Both runs report solver errors by dimension and reason, require every generated
-2D column to certify, and require at least one eighth of the generated 3D cases
-to reach certification, including both certified and refused outcomes.
+Both runs report solver errors by dimension and reason, require every solver
+error to be the not-applicable one, require every generated 2D column to certify,
+and require at least one eighth of the generated 3D cases to reach certification,
+including certified outcomes and `computedAboveUpperBound` refusals.
 
 ## Regression evidence and validation
 
@@ -63,10 +64,10 @@ The affected library/certificates/robustness targets passed (572/149/231 tests;
 8 existing certificate tests and the extended generated test ignored in that run).
 The strengthened buckling unit tests then passed all 4 tests. The final generated
 runs passed at 64 and 4096 pairs, including the ignored extended test; the latter
-produced 4096 certified 2D cases, 430 certified 3D cases and 381 uncertified results.
-The remaining 3285 3D cases returned “No compressed elements — buckling not
+produced 4096 certified 2D cases, 428 certified 3D cases and 381 uncertified results,
+all `computedAboveUpperBound`. The remaining 3287 3D cases returned “No compressed elements — buckling not
 applicable”; no 2D cases returned solver errors. The 64-pair run produced
-64 certified 2D cases, 7 certified and 5 uncertified 3D cases, and 52 3D cases
+64 certified 2D cases, 7 certified and 5 uncertified (`computedAboveUpperBound`) 3D cases, and 52 3D cases
 with the same solver error.
 The final exact-arithmetic regression passed separately.
 
