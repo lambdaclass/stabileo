@@ -63,18 +63,16 @@ Top-level full-PR build counts, excluding builds spawned by tests (including
 
 | Output | Cold / research cache hit |
 | --- | ---: |
-| Engine WASM | 2 / 2 |
+| Engine WASM | 5 / 5 |
 | Research WASM set (both crates) | 2 / 1 |
 | Site builds | 6 / 6 |
 
 Docker smoke tests both the default source build used by Compose and the
 `site-production` artifact from Web Build. The four site builds are production,
 E2E with test hooks, admin, and Docker source. Route budgets additionally
-build main and the candidate with a deterministic engine stub. Shipped research
-changes (or an unavailable comparison base) select the unchanged 128-byte isolation
-tolerance. Other changes use `web/scripts/product-route-budget.json`: a separate
-64 KiB per-route growth budget, explicitly adjustable in review as product features
-grow. This allowance does not change research isolation or solver tolerances.
+build main and the candidate with a deterministic engine stub. Every change is
+held to the per-route budgets in `web/scripts/product-route-growth-budgets.json`
+(128 bytes per route), the same tolerance as research isolation.
 All E2E consumers share `site-e2e`; other WASM consumers share `wasm` and
 `research-wasm` from the current run. Artifact reads use the read-only Actions
 token and the pinned flake's gh CLI (hosted Docker uses gh).
@@ -87,7 +85,7 @@ Research's exact source cache includes engine/research Rust sources, manifests,
 lockfiles, toolchain and build scripts, and reference data. There is no fallback
 key. Viewer assets are rebuilt and their identity republished even on a hit;
 Node reference checks still run. A cache outage falls back to compilation.
-The 30-minute research timeout stays: hosted run 40969889257 completed in
+The research WASM job has a 60-minute timeout (about 15 crates); before the cache, hosted run 40969889257 completed in
 22m26s, including 17m17s building research WASM/viewer. An unchanged-source hit
 should save roughly 15–17 runner minutes. Docker smoke previously took 21m38s
 in that run. It retains the default source build and also tests the prebuilt-site
