@@ -78,7 +78,8 @@ export function freeResponse(p: SdofProps, u0: number, v0: number): (t: number) 
     case 'critical': return (t) => Math.exp(-p.omega * t) * (A + B * t);
     case 'overdamped': {
       const w = p.omega * Math.sqrt(p.xi * p.xi - 1);
-      return (t) => Math.exp(-s * t) * (A * Math.cosh(w * t) + B * Math.sinh(w * t));
+      const slow = (A + B) / 2, fast = (A - B) / 2;
+      return (t) => slow * Math.exp(-(s - w) * t) + fast * Math.exp(-(s + w) * t);
     }
   }
 }

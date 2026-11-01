@@ -68,7 +68,7 @@
           <td>{fmtCoord(h.x)}</td>
           <td>{h.kind === 'axial' ? `N = ${fmtQ(h.moment, 'force')} ${unitQ('force')}` : `M = ${fmtQ(h.moment, 'moment')} ${unitQ('moment')}`}</td>
           <td>{h.loadFactor.toFixed(3)}</td>
-          <td data-testid="plastic-rotation">{h.kind === 'axial' || h.step > step ? '—' : fmtQ(Math.abs(rotation(i) ?? 0), 'rotation')}</td>
+          <td data-testid="plastic-rotation">{h.kind === 'axial' || h.step > step || rotation(i) === undefined ? '—' : fmtQ(Math.abs(rotation(i)!), 'rotation')}</td>
         </tr>
       {/each}
     </tbody>

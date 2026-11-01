@@ -2,7 +2,7 @@
  * The mass Basic's dynamic analyses solve with: the members' own mass through
  * their density (section-mass.ts) plus the point masses the user put at nodes
  * (`MassSource.points`, the same field PRO uses), as the engine's nodal masses.
- * A point mass marked horizontal only moves with X alone.
+ * A point mass marked horizontal only has no vertical (Z) mass.
  */
 import type { ModelData } from '../solver-service';
 import type { PointMass } from './mass-source';

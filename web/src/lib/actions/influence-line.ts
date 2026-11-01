@@ -86,6 +86,7 @@ export function setInfluenceQuantity(q: InfluenceQuantity): void {
   if (family === 'reaction' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
   else if (family !== 'reaction' && il.targetElementId !== undefined) runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);
   else if (family === 'displacement' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
+  else { resultsStore.setInfluenceLine(null); uiStore.toast(t('viewport.ilClickHint'), 'info'); }
 }
 
 /**

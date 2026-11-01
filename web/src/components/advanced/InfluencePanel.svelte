@@ -12,6 +12,7 @@
   import { positionToT, otherSideOf } from '../../lib/engine/influence/section-pick';
   import { canonicalQuantity, familyOf, ordinateUnit } from '../../lib/engine/influence/quantities';
   import { numText } from '../../lib/engine/steps/format';
+  import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
 
   const il = $derived(resultsStore.influenceLine);
   const q = $derived(il ? canonicalQuantity(il.quantity) : canonicalQuantity(uiStore.ilQuantity));
@@ -33,7 +34,7 @@
   function setX(x: number) {
     if (!elem) return;
     const tt = positionToT(x, L);
-    if (tt === null) { posError = tp('course.influence.panel.xRange', { L: numText(L, 4) }); return; }
+    if (tt === null) { posError = tp('course.influence.panel.xRange', { L: `${fmtQ(L, 'length')} ${unitQ('length')}` }); return; }
     posError = null;
     moveInfluenceSection(elem.id, tt);
   }
@@ -46,7 +47,7 @@
       const e = modelStore.elements.get(p.elementId);
       const a = e && modelStore.nodes.get(e.nodeI), b = e && modelStore.nodes.get(e.nodeJ);
       const len = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
-      return tp('course.influence.panel.atLoad', { e: p.elementId, x: numText(p.t * len, 3) });
+      return tp('course.influence.panel.atLoad', { e: p.elementId, x: `${fmtQ(p.t * len, 'length')} ${unitQ('length')}` });
     };
     return { max: { v: max.value, where: where(max) }, min: { v: min.value, where: where(min) } };
   });

@@ -56,6 +56,14 @@ describe('single degree of freedom: free vibration from u0, v0', () => {
     expect(p.omegaD).toBe(0);
   });
 
+  it('overdamped long after the start: finite and decaying, not 0·∞', () => {
+    const p = sdofProps(1, 400, 2);
+    const u = freeResponse(p, 0.01, 0);
+    for (const tt of [21, 100, 1000]) expect(Number.isFinite(u(tt))).toBe(true);
+    expect(Math.abs(u(21))).toBeLessThan(0.01);
+    expect(Math.abs(u(100))).toBeLessThan(Math.abs(u(21)));
+  });
+
   it('every regime starts from u0 and satisfies m·ü + c·u̇ + k·u = 0', () => {
     for (const xi of [0, 0.05, 1, 2]) {
       const p = sdofProps(m, k, xi);

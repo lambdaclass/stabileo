@@ -46,6 +46,9 @@ export function exactBeam(model: ModelData, points: readonly PointMass[], count 
   const sup = new Map([...model.supports.values()].map((s) => [s.nodeId, s.type as string]));
   if (sup.size !== model.supports.size || [...sup.keys()].some((n) => n !== e.nodeI && n !== e.nodeJ)) return null;
   const sa = sup.get(e.nodeI), sb = sup.get(e.nodeJ);
+  const classical = new Set(['fixed', 'pinned', 'rollerX', 'rollerZ']);
+  if ([sa, sb].some((t) => t !== undefined && !classical.has(t))) return null;
+  if ([...model.supports.values()].some((s) => (s as { dx?: number; dy?: number; dz?: number; angle?: number }).angle)) return null;
   const c = Math.hypot(b.x - a.x, b.y - a.y);
   const ex = (b.x - a.x) / c, ez = (b.y - a.y) / c;
   const axisAligned = Math.abs(ex) < 1e-9 || Math.abs(ez) < 1e-9;

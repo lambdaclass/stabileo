@@ -50,7 +50,8 @@ export function leastEnergy(A: number[][], b: number[], w: number[]): { x: numbe
   if (!S.length) return { x: x0, free: false };
   const K = S.map((a) => S.map((c) => a.reduce((s, v, k) => s + v * w[k] * c[k], 0)));
   const rhs = S.map((a) => -a.reduce((s, v, k) => s + v * w[k] * x0[k], 0));
-  const cs = solveDense(K, rhs) ?? new Array(S.length).fill(0);
+  const cs = solveDense(K, rhs);
+  if (!cs) return null;
   return { x: x0.map((v, k) => v + S.reduce((s, vec, q) => s + vec[k] * cs[q], 0)), free: true };
 }
 

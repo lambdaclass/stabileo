@@ -99,14 +99,17 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
     ed.dofIndices.forEach((gi, a) => ed.dofIndices.forEach((gj, b) => { Mt[gi][gj] += mg[a][b]; }));
   }
   const pts: MdofSystem['points'] = [];
+  const frameAngle = new Map(det.nodeFrames.map((f) => [f.nodeId, f.angle]));
   const indexOf = (nodeId: number, ld: number) => det.dofNumbering.dofs.find((d) => d.nodeId === nodeId && d.localDof === ld)?.globalIndex;
   for (const p of points) {
     if (!(p.m > 0) || !input.nodes.has(p.nodeId)) continue;
     const mz = p.horizontalOnly ? 0 : p.m;
     pts.push({ nodeId: p.nodeId, mx: p.m, mz });
     const ix = indexOf(p.nodeId, 0), iz = indexOf(p.nodeId, 1);
-    if (ix !== undefined) Mt[ix][ix] += p.m;
-    if (iz !== undefined) Mt[iz][iz] += mz;
+    const a = frameAngle.get(p.nodeId) ?? 0, c = Math.cos(a), s = Math.sin(a);
+    const m = [[c * c * p.m + s * s * mz, c * s * (mz - p.m)], [c * s * (mz - p.m), s * s * p.m + c * c * mz]];
+    const at = [ix, iz];
+    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) { const gi = at[r], gj = at[q]; if (gi !== undefined && gj !== undefined) Mt[gi][gj] += m[r][q]; }
   }
 
   const fullK = det.Kff.map((r) => [...r]);

@@ -133,13 +133,14 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
 
   const chosen = generalizedEigen(sys.K, sys.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
   const eng = engineAt?.(n) ?? null;
+  const sameMass = st.massModel === 'consistent' && !sys.members.some((m) => m.kind === 'released');
   const head = [dt('mdof.mode'), dt(`mass.col.${st.massModel}`), ...(exact ? [dt('mass.col.exact')] : [])];
   steps.push({
     title: dt('mass.s5'),
     blocks: [
       p('mass.freq.lead', { n }),
       { kind: 'table', head, rows: chosen.map((f, i) => [i + 1, f, ...(exact ? [exact.modes[i]?.f ?? '—'] : [])]), caption: dt('mass.freq.caption') },
-      ...(eng ? [p(st.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), st.massModel === 'consistent', dt('mdof.eig.engineCaption')), ...(st.massModel !== 'consistent' ? consistentCheck(ctx.model!, pts, n, true, eng.slice(0, chosen.length)) : [])] : []),
+      ...(eng ? [p(sameMass ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), sameMass, dt('mdof.eig.engineCaption')), ...(!sameMass ? consistentCheck(ctx.model!, pts, n, true, eng.slice(0, chosen.length)) : [])] : []),
       ...(exact ? [p(`mass.exact.${exact.beamCase}`, { L: numText(exact.L) })] : [p('mass.exact.none', undefined, true)]),
       ...(exact ? [{ kind: 'eq', tex: `\\omega_1 = ${num(exactCoef(exact))}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(exactCoef(exact))}\\sqrt{\\frac{${num(exact.EI)}}{${num(exact.rhoA)} \\cdot ${num(exact.L)}^4}}` } as Block] : []),
     ],

@@ -72,7 +72,7 @@
       <div class="so-row">
         <label class="so-label" for="so-modes">{t(`${K}.modes`)}</label>
         <input id="so-modes" class="so-num" type="number" min="1" max={MAX_MODES} step="1" value={s.modes} data-testid="so-modes"
-          onchange={(e) => apply({ modes: Number((e.currentTarget as HTMLInputElement).value) })} />
+          onchange={(e) => { const el = e.currentTarget as HTMLInputElement; const v = Math.round(Number(el.value)); const m = Number.isFinite(v) ? Math.min(MAX_MODES, Math.max(1, v)) : s.modes; el.value = String(m); apply({ modes: m }); }} />
         <button class="so-q" class:on={help === 'modes'} onclick={() => toggle('modes')} aria-expanded={help === 'modes'}>?</button>
       </div>
       {#if help === 'modes'}<p class="so-help">{t(`${K}.help.modes`)}</p>{/if}

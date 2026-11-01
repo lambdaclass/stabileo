@@ -58,6 +58,9 @@
         λ = {mom(work.Wi)} / {fmtQ(work.We, 'moment')} = {work.lambda.toFixed(3)}
       </div>
       <p>{tp('course.plastic.mech.vwAgree', { lambda: r.collapseFactor.toFixed(3) })}</p>
+      {#if !(Number.isFinite(work.lambda) && Number.isFinite(r.collapseFactor) && Math.abs(work.lambda - r.collapseFactor) <= 1e-3 * Math.abs(r.collapseFactor))}
+        <p class="mt-bad" data-testid="plastic-mechanism-vw-differ">{t('course.plastic.mech.vwDiffer')}</p>
+      {/if}
     {/if}
   </PlasticSection>
 {/if}
@@ -68,5 +71,6 @@
   .mt td { text-align: right; padding: 1px 3px; color: var(--st-text-2); }
   .mt-eq { font-family: var(--st-mono); font-size: 0.64rem; color: var(--st-value); margin: 2px 0 4px; overflow-wrap: anywhere; }
   .mt-note { color: var(--st-text-3); }
+  .mt-bad { color: var(--st-danger); }
   p { margin: 3px 0; }
 </style>

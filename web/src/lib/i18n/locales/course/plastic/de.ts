@@ -145,6 +145,7 @@ const words: Translations = {
   'course.plastic.mech.axialNote': 'Einige Stäbe sind unter Normalkraft geflossen: Ihre Arbeit Np·Δ gehört ebenfalls in die Gleichung, die hier nicht aufgestellt wird.',
   'course.plastic.mech.vwLead': 'Virtuelle Arbeit mit diesem Mechanismus:',
   'course.plastic.mech.vwAgree': 'Die schrittweise Berechnung ergab λc = {lambda}.',
+  'course.plastic.mech.vwDiffer': 'Sie stimmen nicht überein: Der Mechanismus in der Abbildung ist nicht der der schrittweisen Berechnung. Prüfen Sie das Modell, bevor Sie λc verwenden.',
 
   'course.plastic.user.title': 'Mechanismus vorschlagen',
   'course.plastic.user.help': 'Ein Mechanismus braucht im Allgemeinen GH + 1 Gelenke. Mit genau GH + 1 ist er vollständig, und die Momente folgen allein aus dem Gleichgewicht. Mit weniger ist er ein Teilmechanismus: Er betrifft einen Teil des Tragwerks, und einige Unbekannte bleiben frei. Mit mehr ist er überzählig: Er hat mehr als einen Freiheitsgrad. Über die virtuelle Arbeit liefert jeder Mechanismus ein λ, das eine obere Schranke ist (kinematischer Satz). Bleiben die Momente bei diesem λ überall unter Mp, ist es auch eine untere Schranke (statischer Satz) und damit die Traglast (Eindeutigkeit).',

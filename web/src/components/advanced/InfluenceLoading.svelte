@@ -67,7 +67,7 @@
       <button class:on={influenceTool.placement === 'zones'} onclick={() => (influenceTool.placement = 'zones')} title={t('course.influence.load.zonesTip')} data-testid="il-zones">{t('course.influence.load.zones')}</button>
       <button class:on={influenceTool.placement === 'spans'} onclick={() => (influenceTool.placement = 'spans')} title={t('course.influence.load.spansTip')} data-testid="il-spans">{t('course.influence.load.spans')}</button>
     </div>
-    <p class="ill-note">{selectedCount ? tp('course.influence.load.loadedSelected', { n: selectedCount }) : t('course.influence.load.loadedAll')}</p>
+    <p class="ill-note">{selectedCount ? tp('course.influence.load.loadedSelected', { n: loadedIds.length }) : t('course.influence.load.loadedAll')}</p>
 
     {#if reading}
       {#each extremes as [k, ex, direct] (k)}

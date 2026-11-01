@@ -19,12 +19,19 @@
   let busy = $state(false);
   const phiValue = $derived(conv?.find((r) => r.label === 'phi')?.lambda1 ?? null);
 
+  let run = 0;
+  $effect(() => { void result; run++; conv = null; busy = false; });
+
   function runConvergence() {
     if (!info) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) return;
     busy = true;
-    setTimeout(() => { try { conv = bucklingConvergence(input, info.settings); } finally { busy = false; } }, 0);
+    const mine = ++run;
+    setTimeout(() => {
+      if (mine !== run) return;
+      try { conv = bucklingConvergence(input, info.settings); } finally { busy = false; }
+    }, 0);
   }
   const num = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
   const err = (v: number | null) => (v === null || phiValue === null ? '—' : `${(100 * (v / phiValue - 1)).toFixed(2)} %`);

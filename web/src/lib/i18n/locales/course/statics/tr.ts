@@ -69,6 +69,7 @@ const words: Translations = {
   'course.statics.fm.s5.axialOff': 'Eksenel şekil değiştirme yok: çerçeve çubukları yalnızca eğilme katkısı yapar. Pandül çubuklar eksenel terimlerini korur.',
   'course.statics.fm.s5.axialKept': '{list} yalnızca eksenel çalışır: satırı ve sütunu eksenel terimi korur, çünkü bu terim olmadan denklemi bir şey söylemez.',
   'course.statics.fm.s9.axialOff': 'Eksenel şekil değiştirme olmadan yapı, bunu hesaba katan rijitlik yöntemindekinden daha rijittir. En büyük fark {d}, en büyük kuvvete oranı {pct}: dışarıda bıraktığınız eksenel terimin katkısı budur.',
+  'course.statics.fm.s9.rigidOk': 'Eksenel olarak rijit çubuklarla çözülen rijitlik yöntemiyle, yani seçtiğiniz aynı varsayımla uyuşuyor.',
 
   // Virtüel iş
   'course.statics.vw.choose': 'Belgenin üstünde, Ne hesaplanacak bölümünde büyüklüğü (yer değiştirme, dönme, göreli yer değiştirme veya göreli dönme), düğümü veya düğümleri ve doğrultuyu seçersiniz. Adım adım çözümü açmadan önce modelde bir düğüm de seçebilirsiniz.',

@@ -51,7 +51,7 @@ export function runPlasticCollapse(): PlasticRun | null {
 /** Mp of every frame member of `input`, kN·m (Infinity where its section has none). */
 export function memberPlasticMoments(input: SolverInput, mpOfSection?: Map<number, number>): Map<number, number> {
   const bySection = mpOfSection ?? new Map(plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements).map((m) => [m.sectionId, m.mp]));
-  return new Map([...input.elements.values()].map((e) => [e.id, bySection.get(e.sectionId) ?? Infinity]));
+  return new Map([...input.elements.values()].filter((e) => e.type === 'frame').map((e) => [e.id, bySection.get(e.sectionId) ?? Infinity]));
 }
 
 /**

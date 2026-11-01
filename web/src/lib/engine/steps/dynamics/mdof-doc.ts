@@ -92,11 +92,12 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
   eqs.push({ kind: 'table', head: [dt('mdof.mode'), { tex: '\\omega\\ [\\text{rad/s}]' }, { tex: 'f\\ [\\text{Hz}]' }, { tex: 'T\\ [\\text{s}]' }], rows: c.sol.modes.slice(0, Math.max(shown, Math.min(nModes, 8))).map((m, i) => [i + 1, m.omega, m.f, m.T]), caption: dt('mdof.eig.tableCaption') });
   const eng = engineModal?.() ?? null;
   if (eng?.length) {
+    const sameMass = c.kind !== 'shear' && c.settings.mass.massModel === 'consistent' && !(c.sys?.members.some((m) => m.kind === 'released') ?? false);
     const rows = c.sol.modes.slice(0, Math.min(6, eng.length)).map((m, i) => ({ label: `f_{${i + 1}}`, method: m.f, matrix: eng[i], unit: 'Hz' }));
     eqs.push(
-      p(c.kind === 'shear' ? 'mdof.eig.engineShear' : c.settings.mass.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'),
-      engineFrequencies(rows, c.kind !== 'shear' && c.settings.mass.massModel === 'consistent', dt('mdof.eig.engineCaption')),
-      ...(c.kind !== 'shear' && c.settings.mass.massModel !== 'consistent' && ctx.model
+      p(c.kind === 'shear' ? 'mdof.eig.engineShear' : sameMass ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'),
+      engineFrequencies(rows, sameMass, dt('mdof.eig.engineCaption')),
+      ...(c.kind !== 'shear' && !sameMass && ctx.model
         ? consistentCheck(ctx.model, ctx.model.massSource?.points ?? [], c.settings.mass.nPerMember, c.settings.mdof.barMass, eng.slice(0, rows.length))
         : []),
     );

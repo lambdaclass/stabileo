@@ -147,6 +147,7 @@ export const es: Translations = {
   'course.plastic.mech.axialNote': 'Hay barras que fluyeron por esfuerzo axil: su trabajo Np·Δ también entra en la ecuación, que acá no se escribe.',
   'course.plastic.mech.vwLead': 'Trabajos virtuales con este mecanismo:',
   'course.plastic.mech.vwAgree': 'El paso a paso dio λc = {lambda}.',
+  'course.plastic.mech.vwDiffer': 'No coinciden: el mecanismo que muestra la figura no es el del paso a paso. Revisá el modelo antes de usar λc.',
 
   'course.plastic.user.title': 'Proponé un mecanismo',
   'course.plastic.user.help': 'Un mecanismo necesita, en general, GH + 1 rótulas. Con exactamente GH + 1 es completo y los momentos salen solo del equilibrio. Con menos es parcial: involucra una parte de la estructura y quedan incógnitas libres. Con más es sobrecompleto: tiene más de un grado de libertad. Por trabajos virtuales cada mecanismo da un λ que es cota superior (teorema cinemático). Si con ese λ los momentos no superan Mp en ningún punto, también es cota inferior (teorema estático) y por lo tanto la carga de colapso (unicidad).',
@@ -326,6 +327,7 @@ export const en: Translations = {
   'course.plastic.mech.axialNote': 'Some members yielded axially: their work Np·Δ also enters the equation, which is not written here.',
   'course.plastic.mech.vwLead': 'Virtual work with this mechanism:',
   'course.plastic.mech.vwAgree': 'The step-by-step analysis gave λc = {lambda}.',
+  'course.plastic.mech.vwDiffer': 'They differ: the mechanism in the figure is not the one the step-by-step analysis reached. Check the model before using λc.',
 
   'course.plastic.user.title': 'Propose a mechanism',
   'course.plastic.user.help': 'A mechanism generally needs GH + 1 hinges. With exactly GH + 1 it is complete and the moments follow from equilibrium alone. With fewer it is partial: it involves part of the structure and some redundants stay free. With more it is over-complete: it has more than one degree of freedom. By virtual work each mechanism gives a λ that is an upper bound (kinematic theorem). If at that λ the moments stay within Mp everywhere, it is also a lower bound (static theorem) and therefore the collapse load (uniqueness).',
@@ -505,6 +507,7 @@ export const pt: Translations = {
   'course.plastic.mech.axialNote': 'Algumas barras escoaram por esforço normal: seu trabalho Np·Δ também entra na equação, que aqui não é escrita.',
   'course.plastic.mech.vwLead': 'Trabalhos virtuais com este mecanismo:',
   'course.plastic.mech.vwAgree': 'O passo a passo deu λc = {lambda}.',
+  'course.plastic.mech.vwDiffer': 'Não coincidem: o mecanismo da figura não é o do passo a passo. Revise o modelo antes de usar λc.',
 
   'course.plastic.user.title': 'Proponha um mecanismo',
   'course.plastic.user.help': 'Um mecanismo precisa, em geral, de GH + 1 rótulas. Com exatamente GH + 1 ele é completo e os momentos saem só do equilíbrio. Com menos é parcial: envolve parte da estrutura e algumas incógnitas ficam livres. Com mais é sobrecompleto: tem mais de um grau de liberdade. Por trabalhos virtuais cada mecanismo dá um λ que é limite superior (teorema cinemático). Se com esse λ os momentos não ultrapassam Mp em nenhum ponto, ele também é limite inferior (teorema estático) e portanto a carga de colapso (unicidade).',

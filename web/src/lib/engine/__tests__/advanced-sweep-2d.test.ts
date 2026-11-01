@@ -443,7 +443,7 @@ function checkBuckling(label: string, input: SolverInput, res: AnalysisResults):
 function checkBasicBuckling(label: string, res: AnalysisResults, input: SolverInput): number | null {
   ran('buckling-basic');
   const nScale = Math.max(1e-9, ...res.elementForces.map((f) => Math.max(Math.abs(f.nStart), Math.abs(f.nEnd))));
-  const compressed = res.elementForces.some((f) => Math.min(f.nStart, f.nEnd) < -1e-6 * nScale && Math.min(f.nStart, f.nEnd) < -1e-9);
+  const compressed = res.elementForces.some((f) => Math.min(f.nStart, f.nEnd) < -1e-9 * Math.max(1, nScale));
   let got;
   try { got = runBuckling2D(input, DEFAULT_SETTINGS); } catch (e) {
     const m = errMsg(e);
@@ -499,8 +499,9 @@ function checkBasicB2(label: string, input: SolverInput, lambda1: number | null)
   const got = runPDelta2D(input, DEFAULT_SETTINGS);
   if (!got.ok) { fail('pdelta-b2', `${label}: refused ${got.reason.key}`); return; }
   const exp = 1 / (1 - 1 / lambda1);
-  const b2 = got.result.secondOrder.b2;
-  if (!(Math.abs(b2 - exp) <= 0.25 * exp)) fail('pdelta-b2', `${label}: λ1=${lambda1.toFixed(3)} → 1/(1−1/λ1)=${exp.toFixed(3)}, Basic B2=${b2.toFixed(3)}`);
+  const { b2, lambda1: own } = got.result.secondOrder;
+  if (!(own !== null && Math.abs(own - lambda1) <= 1e-9 * lambda1)) fail('pdelta-b2', `${label}: P-Δ λ1=${own} but the Basic buckling gives ${lambda1}`);
+  if (!(Math.abs(b2 - exp) <= 1e-9 * exp)) fail('pdelta-b2', `${label}: λ1=${lambda1.toFixed(3)} → 1/(1−1/λ1)=${exp.toFixed(6)}, Basic B2=${b2.toFixed(6)}`);
 }
 
 const densities = () => new Map([...modelStore.materials].map(([id, m]) => [id, (m.rho * 1000) / 9.81]));
@@ -973,7 +974,7 @@ describe('advanced 2D functions on generated models', () => {
     ['pdelta', 'P-Δ: converges, finite, stable/unstable as λ1 says'],
     ['pdelta-noloads', 'P-Δ: a model without loads converges'],
     ['buckling-basic', 'Basic buckling (members cut at the solve): λ > 0, ascending'],
-    ['pdelta-b2', 'P-Δ (Basic panel): B2 = 1/(1 − 1/λ1) of the Basic buckling within 25 %'],
+    ['pdelta-b2', 'P-Δ (Basic panel): B2 = 1/(1 − 1/λ1) of the Basic buckling, same λ1'],
     ['pdelta-b2-engine', 'P-Δ: the engine\'s b2Factor ≈ 1/(1 − 1/λ1) within 25 %'],
     ['modal', 'modal: frequencies and mass ratios'],
     ['modal-scaling', 'modal: f ∝ √E and f ∝ 1/√ρ'],

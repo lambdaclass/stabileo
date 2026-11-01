@@ -102,6 +102,12 @@ describe('point masses in Basic reach the engine', () => {
     expect(mine).toBeCloseTo(after, 6);
   });
 
+  it('a cantilever propped by a spring is not taken for the exact cantilever', () => {
+    cantilever(3);
+    modelStore.addSupport(2, 'spring', { ky: 500 });
+    expect(exactBeam(modelStore.model, points())).toBeNull();
+  });
+
   it('a horizontal-only mass moves only the horizontal frequency', () => {
     cantilever(2);
     modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 2, horizontalOnly: true }] });
@@ -111,6 +117,19 @@ describe('point masses in Basic reach the engine', () => {
     const half = ((78.5 / 9.81) * RECT.a * 2) / 2;
     expect(s.fullM[ix][ix]).toBeCloseTo(2 + half, 10);
     expect(s.fullM[iz][iz]).toBeCloseTo(half, 10);
+  });
+
+  it('a horizontal-only mass on an inclined roller: the mass goes into the support\'s frame, and the frequencies are the engine\'s', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 0);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'pinned');
+      modelStore.addSupport(b, 'inclinedRoller', undefined, { angle: 0.6 });
+    });
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 5, horizontalOnly: true }] });
+    const mine = convergenceTable(modelStore.model, points(), [4], 3, true)[0].f.consistent;
+    const eng = engineFrequencies(4);
+    mine.forEach((f, i) => expect(f / eng[i]).toBeCloseTo(1, 6));
   });
 });
 

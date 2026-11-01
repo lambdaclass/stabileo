@@ -145,6 +145,7 @@ const words: Translations = {
   'course.plastic.mech.axialNote': 'Bazı çubuklar eksenel kuvvetle aktı: onların Np·Δ işi de denkleme girer; denklem burada yazılmıyor.',
   'course.plastic.mech.vwLead': 'Bu mekanizmayla virtüel iş:',
   'course.plastic.mech.vwAgree': 'Adım adım hesap λc = {lambda} verdi.',
+  'course.plastic.mech.vwDiffer': 'Uyuşmuyorlar: şekildeki mekanizma adım adım hesabın ulaştığı mekanizma değil. λc değerini kullanmadan önce modeli kontrol edin.',
 
   'course.plastic.user.title': 'Bir mekanizma önerin',
   'course.plastic.user.help': 'Bir mekanizma genel olarak GH + 1 mafsal gerektirir. Tam GH + 1 mafsalla tam mekanizmadır ve momentler yalnızca dengeden çıkar. Daha azıyla kısmi mekanizmadır: yapının bir bölümünü kapsar ve bazı bilinmeyenler serbest kalır. Daha fazlasıyla fazla mafsallı mekanizmadır: birden fazla serbestlik derecesi vardır. Virtüel işle her mekanizma bir üst sınır olan bir λ verir (kinematik teorem). Bu λ için momentler hiçbir yerde Mp değerini aşmıyorsa λ aynı zamanda bir alt sınırdır (statik teorem) ve dolayısıyla göçme yüküdür (teklik).',

@@ -76,7 +76,7 @@ export interface ForceMethodResult {
   delta0Check: number[];
   X: number[];
   final: StateResult;
-  verification: { maxForceDiff: number; maxReactionDiff: number; scale: number; ok: boolean; axialOff?: boolean };
+  verification: { maxForceDiff: number; maxReactionDiff: number; scale: number; ok: boolean; axialOff?: boolean; rigidOk?: boolean };
   /** The stiffness method's answer on the original structure, for Step 9's table. */
   stiffness: StateResult;
   /** Whether frame members' axial term is in the coefficients (bielas keep theirs either way). */

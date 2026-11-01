@@ -202,13 +202,36 @@ export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = 
   const final: StateResult = { bars: finalBars, reactions: finalReactions };
 
   const dsmState = stateOf(solveState(input), input.loads);
+  const rigidOk = withAxial ? undefined : rigidReferenceAgrees(input, final);
   return {
     count, isostatic: false, redundants, original, primary: geometryOf(p0.input),
     states: [stateOf(s0, p0.input.loads), ...unit.map((u) => stateOf(u, []))],
     delta, delta0, prescribed, deltaTerms, delta0Terms, deltaCheck, delta0Check, X, final,
-    verification: { ...verify(input, final, dsmState), ...(withAxial ? {} : { axialOff: true }) },
+    verification: { ...verify(input, final, dsmState), ...(withAxial ? {} : { axialOff: true, rigidOk }) },
     stiffness: dsmState, axial: withAxial, axialKept: [...kept].sort((a, b) => a - b), choice: manual ? 'manual' : 'auto', gh, releaseOptions: releaseOptions(input),
   };
+}
+
+/** The stiffness method on the same structure with its frame members' areas × 10⁶: what leaving the axial term out should give. */
+function rigidReferenceAgrees(input: SolverInput, final: StateResult): boolean {
+  const sections = new Map(input.sections);
+  const elements = new Map(input.elements);
+  let next = Math.max(0, ...sections.keys()) + 1;
+  for (const [id, e] of input.elements) {
+    if (e.type !== 'frame') continue;
+    const sec = input.sections.get(e.sectionId);
+    if (!sec) return false;
+    sections.set(next, { ...sec, id: next, a: sec.a * 1e6 });
+    elements.set(id, { ...e, sectionId: next });
+    next++;
+  }
+  const stiff: SolverInput = { ...input, sections, elements };
+  try {
+    const v = verify(stiff, final, stateOf(solveState(stiff), stiff.loads));
+    return Math.max(v.maxForceDiff, v.maxReactionDiff) / v.scale < 1e-4;
+  } catch {
+    return false;
+  }
 }
 
 /*

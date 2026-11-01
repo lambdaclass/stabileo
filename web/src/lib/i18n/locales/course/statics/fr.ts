@@ -69,6 +69,7 @@ const words: Translations = {
   'course.statics.fm.s5.axialOff': 'Sans déformation axiale : les barres de portique n\'apportent que la flexion. Les bielles conservent leur terme axial.',
   'course.statics.fm.s5.axialKept': '{list} ne travaille qu\'axialement : sa ligne et sa colonne conservent le terme axial, car sans lui son équation ne dirait rien.',
   'course.statics.fm.s9.axialOff': 'Sans déformation axiale, la structure est plus rigide que celle de la méthode des rigidités, qui l\'inclut. L\'écart maximal est de {d}, soit {pct} de l\'effort le plus grand : c\'est l\'apport du terme axial que vous avez laissé de côté.',
+  'course.statics.fm.s9.rigidOk': 'Cela concorde avec la méthode des déplacements résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie.',
 
   // Travaux virtuels
   'course.statics.vw.choose': 'Au-dessus du document, dans Objet du calcul, vous choisissez la grandeur (déplacement, rotation, déplacement relatif ou rotation relative), le ou les nœuds et la direction. Vous pouvez aussi sélectionner un nœud dans le modèle avant d\'ouvrir le pas à pas.',

@@ -21,12 +21,17 @@
   let convError = $state<string | null>(null);
   let busy = $state(false);
 
+  let run = 0;
+  $effect(() => { void result; run++; conv = null; convError = null; busy = false; });
+
   function runConvergence() {
     if (!full) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) return;
     busy = true;
+    const mine = ++run;
     setTimeout(() => {
+      if (mine !== run) return;
       try { conv = pdeltaConvergence(input, full.settings); convError = null; } catch (e) { convError = String((e as Error)?.message ?? e); }
       busy = false;
     }, 0);
@@ -37,7 +42,7 @@
 
 <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
   P-Δ: B₂ = {formatPDeltaFactor(result.b2Factor)} |
-  {result.converged ? `${result.iterations} iter` : t('advanced.notConvergedShort')} |
+  {result.converged ? `${result.iterations} ${t('pro.iterationsAbbr')}` : t('advanced.notConvergedShort')} |
   {result.isStable ? t('advanced.stable') : t('advanced.unstable')}
 </div>
 {#if info && info.lambda1 !== null && Number.isFinite(info.lambda1)}

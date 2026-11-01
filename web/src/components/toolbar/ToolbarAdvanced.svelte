@@ -550,9 +550,10 @@
     try {
       const t0 = performance.now();
       let result: any;
-      result = withFirstModeB2(input, wasmPDelta3D(input));
-      const dt = performance.now() - t0;
+      result = wasmPDelta3D(input);
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      result = withFirstModeB2(input, result);
+      const dt = performance.now() - t0;
       publishPDelta(result, true, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');

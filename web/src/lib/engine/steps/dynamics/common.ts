@@ -10,6 +10,7 @@ import type { Mat } from '../../dynamics/course/dense';
 import type { ModelData } from '../../solver-service';
 import type { PointMass } from '../../dynamics/mass-source';
 import { frequenciesOf } from '../../dynamics/course/convergence';
+import { modelSystem } from '../../dynamics/course/mdof-system';
 
 export const K = 'course.dynamics.';
 export const p = (key: string, params?: Record<string, string | number>, detail = false): Block => ({ kind: 'p', text: tx(K + key, params), ...(detail ? { detail } : {}) });
@@ -105,8 +106,9 @@ export function engineFrequencies(rows: { label: string; method: number; matrix:
   };
 }
 
-/** The same bars with consistent mass against the engine, so a lumped or condensed document still checks its K and M. */
+/** The same bars with consistent mass against the engine, so a lumped or condensed document still checks its K and M; none when a hinged member takes lumped mass anyway. */
 export function consistentCheck(model: ModelData, points: readonly PointMass[], nPerMember: number, barMass: boolean, eng: number[]): Block[] {
+  if (modelSystem(model, points, { nPerMember, massModel: 'consistent', barMass }).members.some((m) => m.kind === 'released')) return [];
   const mine = frequenciesOf(model, points, { nPerMember, massModel: 'consistent', barMass }, eng.length).f;
   const rows = mine.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i], unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix));
   if (!rows.length) return [];

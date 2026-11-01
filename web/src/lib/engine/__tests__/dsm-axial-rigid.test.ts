@@ -34,7 +34,9 @@ function check(input: SolverInput): DSMStepData {
   const r = wasm.solve(rigidFrames(input));
   const scale = (xs: number[]) => Math.max(1e-9, ...xs.map(Math.abs));
   const uScale = scale(r.displacements.flatMap((x) => [x.ux, x.uz]));
+  const framed = new Set(d.nodeFrames.map((f) => f.nodeId));
   for (const x of r.displacements) {
+    if (framed.has(x.nodeId)) continue;
     for (const [ld, v] of [[0, x.ux], [1, x.uz]] as const) {
       const dof = d.dofNumbering.dofs.find((q) => q.nodeId === x.nodeId && q.localDof === ld)!;
       expect(Math.abs(d.uAll[dof.globalIndex] - v) / uScale, `u ${x.nodeId}:${ld}`).toBeLessThan(1e-4);
@@ -51,6 +53,7 @@ function check(input: SolverInput): DSMStepData {
   const rScale = scale(reac);
   d.restrDofLabels.forEach((_, i) => {
     const dof = d.dofNumbering.dofs.find((q) => q.globalIndex === d.dofNumbering.nFree + i)!;
+    if (framed.has(dof.nodeId)) return;
     const e = r.reactions.find((x) => x.nodeId === dof.nodeId)!;
     const v = [e.rx, e.rz, e.my][dof.localDof];
     expect(Math.abs(d.reactionsRaw[i] - v) / rScale, `R ${dof.nodeId}:${dof.localDof}`).toBeLessThan(1e-4);
@@ -86,6 +89,15 @@ describe('stiffness wizard with axially rigid members', () => {
     modelStore.addElement(p.a, p.c, 'truss');
     const d = check(modelStore.buildSolverInput(false)!);
     expect(d.rigid!.members.length).toBe(3);
+  });
+
+  it('a portal on an inclined roller: member forces from the node-frame displacements, as the engine with stiff members', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 4), c = modelStore.addNode(6, 4), dn = modelStore.addNode(6, 0);
+    modelStore.addElement(a, b); const beam = modelStore.addElement(b, c); modelStore.addElement(dn, c);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(dn, 'inclinedRoller', undefined, { angle: 0.5 });
+    modelStore.addDistributedLoad(beam, -10, -10); modelStore.addNodalLoad(b, 20, 0, 0);
+    const d = check(modelStore.buildSolverInput(false)!);
+    expect(d.nodeFrames.map((f) => f.nodeId)).toEqual([dn]);
   });
 
   it('the two-story frame example', async () => {

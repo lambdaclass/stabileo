@@ -39,6 +39,7 @@ export const esFm: Translations = {
   'course.statics.fm.s5.axialOff': 'Sin deformación axil: las barras de pórtico aportan solo flexión. Las bielas conservan su término axil.',
   'course.statics.fm.s5.axialKept': '{list} trabaja solo a axil: su fila y su columna conservan el término axil, porque sin él su ecuación no diría nada.',
   'course.statics.fm.s9.axialOff': 'Sin deformación axil la estructura es más rígida que la del método de rigidez, que sí la incluye. La mayor diferencia es {d}, el {pct} de la mayor fuerza: es lo que aporta el término axil que dejaste afuera.',
+  'course.statics.fm.s9.rigidOk': 'Coincide con el método de rigidez resuelto con las barras axialmente rígidas, la misma hipótesis que elegiste.',
 };
 
 export const enFm: Translations = {
@@ -80,6 +81,7 @@ export const enFm: Translations = {
   'course.statics.fm.s5.axialOff': 'Without axial deformation: frame members contribute bending only. Two-force members keep their axial term.',
   'course.statics.fm.s5.axialKept': '{list} works only axially: its row and column keep the axial term, because without it its equation would say nothing.',
   'course.statics.fm.s9.axialOff': 'Without axial deformation the structure is stiffer than the stiffness method\'s, which includes it. The largest difference is {d}, {pct} of the largest force: that is what the axial term you left out contributes.',
+  'course.statics.fm.s9.rigidOk': 'It agrees with the stiffness method solved with axially rigid members, the same assumption you chose.',
 };
 
 export const ptFm: Translations = {
@@ -121,4 +123,5 @@ export const ptFm: Translations = {
   'course.statics.fm.s5.axialOff': 'Sem deformação axial: as barras de pórtico contribuem só com flexão. As bielas conservam seu termo axial.',
   'course.statics.fm.s5.axialKept': '{list} trabalha só a esforço normal: sua linha e sua coluna conservam o termo axial, porque sem ele sua equação não diria nada.',
   'course.statics.fm.s9.axialOff': 'Sem deformação axial a estrutura é mais rígida que a do método da rigidez, que a inclui. A maior diferença é {d}, {pct} da maior força: é o que contribui o termo axial que você deixou de fora.',
+  'course.statics.fm.s9.rigidOk': 'Coincide com o método da rigidez resolvido com as barras axialmente rígidas, a mesma hipótese que você escolheu.',
 };

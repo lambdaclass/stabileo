@@ -145,6 +145,7 @@ const words: Translations = {
   'course.plastic.mech.axialNote': 'Certaines barres se sont plastifiées en effort normal : leur travail Np·Δ entre aussi dans l\'équation, qui n\'est pas écrite ici.',
   'course.plastic.mech.vwLead': 'Travaux virtuels avec ce mécanisme :',
   'course.plastic.mech.vwAgree': 'Le calcul pas à pas a donné λc = {lambda}.',
+  'course.plastic.mech.vwDiffer': 'Ils ne concordent pas : le mécanisme de la figure n’est pas celui du calcul pas à pas. Vérifiez le modèle avant d’utiliser λc.',
 
   'course.plastic.user.title': 'Proposer un mécanisme',
   'course.plastic.user.help': 'Un mécanisme demande en général GH + 1 rotules. Avec exactement GH + 1, il est complet et les moments découlent de l\'équilibre seul. Avec moins, il est partiel : il concerne une partie de la structure et certaines inconnues restent libres. Avec plus, il est surabondant : il a plus d\'un degré de liberté. Par les travaux virtuels, chaque mécanisme donne un λ qui est une borne supérieure (théorème cinématique). Si, pour ce λ, les moments ne dépassent Mp nulle part, c\'est aussi une borne inférieure (théorème statique) et donc la charge de ruine (unicité).',

@@ -91,6 +91,7 @@ test.describe('@slow virtual work: what to compute', () => {
     await shot(page, 'vw-rotation-compare');
     await page.getByTestId('steps-param-quantity').selectOption('relDisp');
     await page.getByTestId('steps-param-node2').selectOption('2');
+    await expect(page.getByTestId('steps-doc')).toContainText(/Relative (horizontal |vertical )?displacement|Desplazamiento relativo/);
     await expect(page.getByTestId('steps-doc')).toContainText(/agree up to rounding|coinciden salvo por el redondeo/);
     expect(errors).toEqual([]);
   });
