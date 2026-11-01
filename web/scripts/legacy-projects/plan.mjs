@@ -24,7 +24,9 @@ export function workspaceOf(id, is2D) {
 /**
  * Members + shells above which an example is saved but not solved: the showcase models (stadiums,
  * towers, bridges, CAD imports, the 408-member frame) would make the results megabytes and the
- * test minutes. Their files are still opened and migrated by the test.
+ * test minutes. Their files are still opened and migrated by the test, and the model each opens
+ * to (members' sections and materials, supports, load cases and their load totals) is compared
+ * with the example's.
  */
 export const SOLVE_LIMIT = 300;
 

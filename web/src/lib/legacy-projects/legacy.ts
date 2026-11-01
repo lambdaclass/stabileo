@@ -27,7 +27,8 @@ import { detailingStore } from '../store/detailing.svelte';
 import { designRunStore } from '../store/design-run.svelte';
 import { recheckStore } from '../store/recheck.svelte';
 import '../store';
-import { deserializeProject } from '../store/file';
+import { deserializeProject, loadFile } from '../store/file';
+import { tabManager } from '../store/tabs.svelte';
 import { solveNow } from '../actions/solve';
 import { setLocale } from '../i18n';
 import type { ResultChange } from '../provenance/registry';
@@ -68,6 +69,7 @@ export interface Manifest {
 export const CORPUS_DIR = new URL('../../../legacy-projects/', import.meta.url);
 const SNAPSHOT_DIR = new URL('../../../results-snapshots/', import.meta.url);
 const FIXTURE_DIR = new URL('../templates/fixtures/', import.meta.url);
+const EDITED_FIXTURE_DIR = new URL('fixtures/', CORPUS_DIR);
 
 /** The released versions in the corpus, oldest first. */
 export function corpusVersions(): string[] {
@@ -88,12 +90,34 @@ export function readResults(path: string): Values {
   return parseSnapshot(readCorpusText(path)).values as Values;
 }
 
+function gitBlob(bytes: Buffer): string {
+  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+}
+
 /** Today's fixture of an example as a git blob id, to tell an example edited since the release. */
 export function currentFixtureBlob(id: string): string | null {
   const f = new URL(`${id}.json`, FIXTURE_DIR);
   if (!existsSync(f)) return null;
+  return gitBlob(readFileSync(f));
+}
+
+/**
+ * The example a version saved, for the current code to open as the reference: today's fixture
+ * when it is the same, else the version's own fixture as recorded in
+ * `legacy-projects/fixtures/<example>@<blob>.json` (written by `generate.mjs`, checked here
+ * against the blob id). An example edited since with no recorded fixture fails: without it
+ * nothing tells a fixture edit from a migration that reads the old file as another model.
+ */
+export function savedFixture(id: string, blob: string): { fixture?: () => Promise<unknown>; edited: boolean } {
+  if (blob === currentFixtureBlob(id)) return { edited: false };
+  const f = new URL(`${id}@${blob}.json`, EDITED_FIXTURE_DIR);
+  if (!existsSync(f)) {
+    throw new Error(`${id}: the fixture the version saved (blob ${blob}) is not today's, and legacy-projects/fixtures/${id}@${blob}.json does not record it. Regenerate the corpus (generate.mjs writes it) so the file is compared with the example it was saved from.`);
+  }
   const bytes = readFileSync(f);
-  return createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+  if (gitBlob(bytes) !== blob) throw new Error(`legacy-projects/fixtures/${id}@${blob}.json is not that blob (${gitBlob(bytes)}): it was edited.`);
+  const json = JSON.parse(bytes.toString('utf8')) as unknown;
+  return { fixture: async () => json, edited: true };
 }
 
 /** Every store an open writes to, back to a fresh session's state (the snapshot gate's reset). */
@@ -132,6 +156,8 @@ export interface Opened {
   values: Values;
   /** The registered result changes the app lists for this file on open. */
   changes: ResultChange[];
+  /** The model as opened, before the solve (`modelFingerprint`). */
+  fingerprint: Values;
 }
 
 /**
@@ -149,8 +175,40 @@ export async function openAndSolve(text: string, opts: { solve?: boolean; before
   if (!deserializeProject(body)) throw new Error('the current code refused to open it');
   const changes = await assessedChanges();
   const values = modelCounts();
+  const fingerprint = modelFingerprint();
   if (opts.solve !== false) await solveAndRecord(values);
-  return { values, changes };
+  return { values, changes, fingerprint };
+}
+
+export interface OpenedTab extends Opened {
+  /** The workspace the tab restored into. */
+  analysisMode: string;
+}
+
+/**
+ * Open a session file's text as the app does, and solve each tab in turn. `beforeOpen` edits the
+ * parsed session first: the negative tests' deliberately broken migration.
+ */
+export async function openSession(text: string, opts: { beforeOpen?: (session: Record<string, unknown>) => void } = {}): Promise<{ loaded: unknown; tabs: OpenedTab[] }> {
+  reset('2d');
+  let body = text;
+  if (opts.beforeOpen) {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    opts.beforeOpen(parsed);
+    body = JSON.stringify(parsed);
+  }
+  const loaded = await loadFile(new File([body], 'session.ded'));
+  const tabs: OpenedTab[] = [];
+  for (const id of tabManager.tabs.map((t) => t.id)) {
+    if (tabManager.activeTabId !== id) tabManager.switchTab(id);
+    const changes = await assessedChanges();
+    const values = modelCounts();
+    const fingerprint = modelFingerprint();
+    const analysisMode = uiStore.analysisMode;
+    await solveAndRecord(values);
+    tabs.push({ values, changes, fingerprint, analysisMode });
+  }
+  return { loaded, tabs };
 }
 
 /** The registered result changes the app lists for the project just opened, once its lazily loaded assessment has settled. */
@@ -160,13 +218,113 @@ export async function assessedChanges(): Promise<ResultChange[]> {
   return [...(recheckStore.assessment?.changes ?? [])];
 }
 
-/** An example as the current code opens and solves it in `workspace`, the reference for a legacy file of it. */
-export async function captureExample(id: string, workspace: Workspace): Promise<Values> {
+/**
+ * An example as the current code opens it in `workspace` (and solves it, unless `solve: false`),
+ * the reference for a legacy file of it: its results and its model fingerprint. `fixture` opens
+ * the version's own fixture instead of today's (`savedFixture`).
+ */
+export async function captureExample(
+  id: string, workspace: Workspace, opts: { solve?: boolean; fixture?: () => Promise<unknown> } = {},
+): Promise<Values> {
+  return (await openExample(id, workspace, opts)).values;
+}
+
+export async function openExample(
+  id: string, workspace: Workspace, opts: { solve?: boolean; fixture?: () => Promise<unknown> } = {},
+): Promise<{ values: Values; fingerprint: Values }> {
   reset(workspace);
-  await modelStore.loadExample(id);
+  await modelStore.loadExample(id, opts.fixture);
   const values = modelCounts();
-  await solveAndRecord(values);
-  return values;
+  const fingerprint = modelFingerprint();
+  if (opts.solve !== false) await solveAndRecord(values);
+  return { values, fingerprint };
+}
+
+const LOAD_REFERENCES = new Set(['id', 'nodeId', 'elementId', 'quadId', 'caseId', 'fromDef', 'carrier']);
+
+/**
+ * What the model on screen is, beyond its counts, as flat values: each member's ends, material
+ * and section; each material's and section's stiffness properties; each shell's material and
+ * thickness; each support; each load case, and per case and kind of load the number of loads and
+ * the sum of each of their force, moment and position fields; each combination's factors; the
+ * self-weight rule. A migration that drops a load, swaps a section or frees a support changes it
+ * without a solve.
+ */
+export function modelFingerprint(): Values {
+  const out: Values = {};
+  for (const e of modelStore.elements.values()) {
+    const k = `element[${e.id}]`;
+    out[`${k}.type`] = e.type;
+    out[`${k}.nodes`] = `${e.nodeI}-${e.nodeJ}`;
+    out[`${k}.material`] = e.materialId;
+    out[`${k}.section`] = e.sectionId;
+    if (e.variableSection) out[`${k}.sectionJ`] = e.variableSection.sectionJ;
+  }
+  for (const m of modelStore.materials.values()) {
+    for (const f of ['e', 'nu', 'rho'] as const) out[`material[${m.id}].${f}`] = m[f];
+  }
+  for (const sec of modelStore.sections.values()) {
+    for (const f of ['a', 'iz', 'iy', 'j', 'rotation'] as const) if (sec[f] !== undefined) out[`section[${sec.id}].${f}`] = sec[f]!;
+  }
+  for (const [kind, shells] of [['quad', modelStore.quads], ['plate', modelStore.plates]] as const) {
+    for (const q of shells.values()) {
+      out[`${kind}[${q.id}].material`] = q.materialId;
+      out[`${kind}[${q.id}].thickness`] = q.thickness;
+    }
+  }
+  for (const sup of modelStore.supports.values()) {
+    for (const [f, v] of Object.entries(sup)) {
+      if (f === 'id' || f === 'nodeId' || v === undefined) continue;
+      out[`support[${sup.nodeId}].${f}`] = typeof v === 'object' ? JSON.stringify(v) : v as Values[string];
+    }
+  }
+  for (const c of modelStore.loadCases) out[`loadCase[${c.id}].type`] = c.type;
+  for (const l of modelStore.loads) {
+    const data = l.data as unknown as Record<string, unknown>;
+    const k = `loads[${data.caseId ?? 1}].${l.type}`;
+    out[`${k}.count`] = ((out[`${k}.count`] as number | undefined) ?? 0) + 1;
+    for (const [f, v] of Object.entries(data)) {
+      if (LOAD_REFERENCES.has(f) || typeof v !== 'number') continue;
+      out[`${k}.${f}`] = ((out[`${k}.${f}`] as number | undefined) ?? 0) + v;
+    }
+  }
+  for (const c of modelStore.combinations) {
+    out[`combination[${c.id}].factors`] = c.factors.map((f) => `${f.caseId}:${f.factor}`).sort().join(' ');
+  }
+  out['selfWeight'] = JSON.stringify(modelStore.model.analysis?.selfWeight ?? null);
+  return out;
+}
+
+/**
+ * A legacy file as the current code opened it (and solved it, when `solved`), against the example
+ * it was saved from opened by the current code: the same model (`modelFingerprint`) and, when
+ * solved, the same results under the snapshot gate's tolerance. Both sides ran the current code,
+ * so no registered result change can excuse a difference. The solved reference is the results
+ * snapshot gate's committed snapshot (#716) when there is one for today's fixture, else solved here.
+ */
+export async function againstExample(
+  name: string, version: string, entry: Pick<ManifestEntry, 'example' | 'workspace' | 'fixtureBlob'>,
+  opened: Pick<Opened, 'values' | 'fingerprint'>, solved: boolean,
+): Promise<{ failure: string | null; verdict: Verdict | null; reference: string }> {
+  const { fixture, edited } = savedFixture(entry.example, entry.fixtureBlob);
+  const snap = solved && !edited ? committedSnapshot(entry.example, entry.workspace) : null;
+  const ref = await openExample(entry.example, entry.workspace, { solve: solved && !snap, fixture });
+  const reference = snap ? snap.name : edited ? `${entry.example} as ${version} saved it (${entry.fixtureBlob.slice(0, 9)})` : `today's ${entry.example}`;
+  const model = fingerprintDifference(`${name} against ${reference}: the model`, ref.fingerprint, opened.fingerprint);
+  if (model) return { failure: model, verdict: null, reference };
+  if (!solved) return { failure: null, verdict: null, reference };
+  const verdict = judge(`${name} against ${reference}`, snap?.values ?? ref.values, opened.values, []);
+  return { failure: verdict.kind === 'same' ? null : migrationMessage(verdict, version), verdict, reference };
+}
+
+/** What differs between two model fingerprints, for a person, or null when they are the same model. */
+export function fingerprintDifference(name: string, reference: Values, current: Values): string | null {
+  const diff = compareValues(reference, current) as Diff;
+  if (!diff.differs && diff.added.length === 0) return null;
+  const lines = [formatCaseReport(name, diff) as string];
+  for (const p of diff.added) lines.push(`    ${p}: only in the migrated file, ${JSON.stringify(current[p])}`);
+  lines.push('', 'The file, opened by the current code, is another model than the example it was saved from (the same code opened both). No registered result change explains it: the migration reads the old file wrongly. Fix the migration, not the corpus.');
+  return lines.join('\n');
 }
 
 /**
