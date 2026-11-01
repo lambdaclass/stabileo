@@ -186,3 +186,40 @@ for (const adapter of ['opensees', 'codeaster']) test(`${adapter}: adapter quant
   assert.equal(created.length, adapter === 'codeaster' ? 3 : 5);
   assert.equal(created.filter(c => c.args.body.includes('**2 findings**')).length, 1);
 }));
+
+const relabeled = [
+  [1055, 'certified linear/relabel', 'fuzz_rich_3d/21463: stress[0]: label vm_quad@e382[0] vs expected vm_quad@e1[0]'],
+  [1054, 'linear/relabel', 'fuzz_rich_3d/21463: stress[0]: label vm_quad@e83[0] vs expected vm_quad@e1[0]'],
+  [1006, 'certified linear/relabel', 'fuzz_rich_3d/21500: stress[0]: label vm_plate@e80[0] vs expected vm_quad@e1[0]'],
+  [1038, 'cable solver/relabel', 'fuzz_rich_3d/21021: force N@e308[0]: got 1.4824886988e-17, expected -2.7789125665e-17, |diff| 4.261e-17 > tol 1.425e-23 (scale 6.939e-16, rel 2.05e-8)'],
+  [1039, 'staged (one stage)/relabel', 'fuzz_rich_3d/21021: force N@e838[0]: got 5.2891896818e-18, expected -9.5509834709e-18, |diff| 1.484e-17 > tol 2.854e-25 (scale 5.274e-16, rel 5.41e-10)'],
+  [1037, 'load combinations/superposition', 'fuzz_rich_3d/21180: R(kA) ≠ k·R(A): force N@e1[0]: got -1.4921397451e-13, expected -7.1054273576e-14, |diff| 7.816e-14 > tol 7.348e-23 (scale 7.105e-14, rel 1.03e-9)'],
+  [1010, 'linear (PCG)/linear agreement', 'fuzz_rich_2d/21477: translation u@n8[1]: got -5.7853999336e-1, expected -5.7854234972e-1, |diff| 2.356e-6 > tol 2.142e-6 (scale 6.907e-1, rel 3.10e-6)'],
+  [1011, 'fiber nonlinear/mirror', 'replay: translation u@n3[0]: got 1.9972805791e-5, expected 1.7853492689e-5, |diff| 2.119e-6 > tol 8.126e-13 (scale 4.063e-5, rel 2.00e-8)'],
+  [1033, 'harmonic/rotation', 'replay: translation H_im1@n2[0]: got -9.8706895406e-5, expected 3.3948969682e-4, |diff| 4.382e-4 > tol 1.346e-4 (scale 1.282e0, rel 1.05e-4)'],
+  [1031, 'Winkler (no foundation)/reversal', 'replay: rotation ry@n2[0]: got 5.9109295926e-2, expected 5.9109295926e-2, |diff| 6.196e-13 > tol 2.421e-15 (scale 5.911e-2, rel 4.10e-14)'],
+  [993, 'linear (sparse path)/units', 'fuzz_rich_2d/20892: rotation ry@n6[0]: got 1.8326633534e3, expected 1.8327897428e3, |diff| 1.264e-1 > tol 4.607e-2 (scale 1.833e3, rel 2.51e-5)'],
+  [1009, 'time history/reciprocity', 'fuzz_rich_3d/21721: u_t020: δ(n4←n2) = 2.5970546145e-3 vs δ(n2←n4) = 2.4937973053e-3, |diff| 1.033e-4 > tol 9.840e-5'],
+];
+
+test('node and element ids in quantity labels do not split a root cause (issues #993-#1055)', () => fixture(async ({args, calls, save}) => {
+  for (const [issue, analysisRelation, message] of relabeled) save(String(issue), {...finding, seed: issue, test: `metamorphic/${analysisRelation}`, model: {loads: [issue]}, details: [message]});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  const causes = created.map(c => c.args.body.match(/^Root cause: (.*)$/m)[1]).sort();
+  assert.deepEqual(causes, [
+    'force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'r(ka) ≠ k·r(a): force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'rotation ry@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'stress[#]: label vm_plate@e#[#] vs expected vm_quad@e#[#]',
+    'stress[#]: label vm_quad@e#[#] vs expected vm_quad@e#[#]',
+    'translation h_im1@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'translation u@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)',
+    'u_t020: δ(n#←n#) = # vs δ(n#←n#) = #, |diff| # > tol #',
+  ]);
+  const hits = cause => Number(created.find(c => c.args.body.includes(`Root cause: ${cause}\n`)).args.body.match(/\*\*(\d+) findings/)[1]);
+  assert.equal(hits('stress[#]: label vm_quad@e#[#] vs expected vm_quad@e#[#]'), 2);
+  assert.equal(hits('force n@e#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)'), 2);
+  assert.equal(hits('translation u@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)'), 2);
+  assert.equal(hits('rotation ry@n#[#]: got #, expected #, |diff| # > tol # (scale #, rel #)'), 2);
+}));
