@@ -13,17 +13,18 @@ export const issue = 'https://github.com/lambdaclass/stabileo/blob/main/engine/t
 export function inputFor(c: Case): SolverInput {
   return { ...c.input, ...Object.fromEntries(['nodes', 'materials', 'sections', 'elements', 'supports', 'connectors'].map(key => [key, new Map(Object.entries(c.input[key as keyof typeof c.input]).map(([id, value]) => [Number(id), value]))])) } as unknown as SolverInput;
 }
+export const withinTolerance = (error: number) => Number.isFinite(error) && error < tolerance;
 export function compare(c: Case, output: Output): Result {
-  if (!output.converged || output.loadFactor !== 1) throw new Error('Incomplete load step');
+  if (!output.converged || output.loadFactor !== 1) throw new Error('incomplete');
   const displacement = output.results.displacements;
   for (const node of Object.values(c.input.nodes)) {
     const d = displacement.find(d => d.nodeId === node.id);
-    if (!d || ![d.ux, d.uz, d.ry].every(Number.isFinite)) throw new Error('Missing or non-finite displacement');
+    if (!d || ![d.ux, d.uz, d.ry].every(Number.isFinite)) throw new Error('invalid');
   }
   const tip = displacement.find(d => d.nodeId === c.tipNode)!;
   const u = -tip.ux / c.length, v = -tip.uz / c.length;
   const errors = c.reference?.map((ref, i) => Math.abs(([u, v][i] - ref) / ref)) ?? null;
-  return { id: c.id, u, v, errors, pass: errors ? errors.every(e => e < tolerance) : null, displacement };
+  return { id: c.id, u, v, errors, pass: errors ? errors.every(withinTolerance) : null, displacement };
 }
 export async function runCases(onResult?: (r: Result) => void, stopped = () => false): Promise<Result[]> {
   const engine = await import('../../../lib/engine/wasm-solver');
@@ -33,7 +34,7 @@ export async function runCases(onResult?: (r: Result) => void, stopped = () => f
     if (stopped()) break;
     let row: Result;
     try { row = compare(c, engine.solveCorotational2D(inputFor(c), c.solver.maxIter, c.solver.tolerance, c.solver.nIncrements)); }
-    catch (error) { row = { id: c.id, u: null, v: null, errors: null, pass: false, failure: String(error) }; }
+    catch (error) { row = { id: c.id, u: null, v: null, errors: null, pass: false, failure: error instanceof Error && ['incomplete', 'invalid'].includes(error.message) ? error.message : 'solveError' }; }
     rows.push(row); onResult?.(row);
     await new Promise(resolve => setTimeout(resolve, 0));
   }

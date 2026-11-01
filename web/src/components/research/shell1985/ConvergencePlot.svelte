@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Case, Result } from './cases';
+  import { responseRatio, type Case, type Result } from './cases';
   let { cases, rows, title, xLabel, yLabel, locale }: { cases: Case[]; rows: Result[]; title: string; xLabel: string; yLabel: string; locale: string } = $props();
-  const points = $derived(cases.map(c => ({ n: c.mesh, ratio: rows.find(r => r.id === c.id)?.value == null ? null : rows.find(r => r.id === c.id)!.value! / c.reference })));
+  const points = $derived(cases.map(c => ({ n: c.mesh, ratio: rows.find(r => r.id === c.id)?.value == null ? null : responseRatio(c, rows.find(r => r.id === c.id)!.value!) })));
   const ymax = $derived(Math.max(1.1, ...points.map(p => (p.ratio ?? 0) * 1.1)));
   const xmin = $derived(Math.min(...cases.map(c => c.mesh)));
   const xmax = $derived(Math.max(...cases.map(c => c.mesh)));

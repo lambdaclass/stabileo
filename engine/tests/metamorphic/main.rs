@@ -78,14 +78,22 @@ fn run_2d(name: &str, cases: Vec<case::Case2>, only: Option<&str>) {
     let t = Tally::default();
     let ctx = checks2::Ctx { tally: &t, rng_seed: seed() };
     let anas: Vec<ana2::Ana2> = ana2::rows().into_iter().filter(|a| only.map_or(true, |o| a.name.contains(o))).collect();
-    for c in &cases {
+    for (index, c) in cases.iter().enumerate() {
+        let before = t.failures().len();
         checks2::check_case(&ctx, c, &anas, INV_2D);
+        if t.failures().len() > before {
+            save_failing_model(name, index, &c.s, &c.name, &c.dens);
+        }
     }
-    for c in &cases {
+    for (index, c) in cases.iter().enumerate() {
+        let before = t.failures().len();
         for anti in [false, true] {
             if let Some(sym) = symmetry::symmetrize_2d(&c.name, &c.s, anti) {
                 symmetry::check_2d(&t, &sym, anti, &anas);
             }
+        }
+        if t.failures().len() > before {
+            save_failing_model(name, index, &c.s, &c.name, &c.dens);
         }
     }
     finish(name, &t);
@@ -98,14 +106,22 @@ fn run_3d(name: &str, cases: Vec<case::Case3>, only: Option<&str>) {
     let t = Tally::default();
     let ctx = checks3::Ctx { tally: &t, rng_seed: seed() };
     let anas: Vec<ana3::Ana3> = ana3::rows().into_iter().filter(|a| only.map_or(true, |o| a.name.contains(o))).collect();
-    for c in &cases {
+    for (index, c) in cases.iter().enumerate() {
+        let before = t.failures().len();
         checks3::check_case(&ctx, c, &anas, INV_3D);
+        if t.failures().len() > before {
+            save_failing_model(name, index, &c.s, &c.name, &c.dens);
+        }
     }
-    for c in &cases {
+    for (index, c) in cases.iter().enumerate() {
+        let before = t.failures().len();
         for anti in [false, true] {
             if let Some(sym) = symmetry::symmetrize_3d(&c.name, &c.s, anti) {
                 symmetry::check_3d(&t, &sym, anti, &anas);
             }
+        }
+        if t.failures().len() > before {
+            save_failing_model(name, index, &c.s, &c.name, &c.dens);
         }
     }
     finish(name, &t);
@@ -138,4 +154,58 @@ fn metamorphic_nightly_2d() {
 #[ignore]
 fn metamorphic_nightly_3d() {
     run_3d("nightly_3d", corpus::cases_3d(corpus::Tier::Nightly, seed()), only().as_deref());
+}
+
+/// Replay one JSON model, emitting structured results for the nightly reducer.
+#[test]
+#[ignore]
+fn metamorphic_replay() {
+    let Ok(path) = std::env::var("NIGHTLY_MODEL") else { return };
+    let text = std::fs::read_to_string(path).unwrap();
+    let metadata: serde_json::Value = serde_json::from_str(&text).unwrap();
+    let name = metadata["_nightly_name"].as_str().unwrap_or("replay").to_owned();
+    let model = corpus::parse(&text).expect("valid model JSON");
+    let t = Tally::default();
+    match model {
+        corpus::Model::D2(s) => {
+            let mut c = case::Case2::new(name, s);
+            if let Some(dens) = metadata.get("_nightly_dens") {
+                c.dens = serde_json::from_value(dens.clone()).unwrap();
+            }
+            let anas = ana2::rows();
+            checks2::check_case(&checks2::Ctx { tally: &t, rng_seed: seed() }, &c, &anas, INV_2D);
+            for anti in [false, true] {
+                if let Some(sym) = symmetry::symmetrize_2d(&c.name, &c.s, anti) {
+                    symmetry::check_2d(&t, &sym, anti, &anas);
+                }
+            }
+        }
+        corpus::Model::D3(s) => {
+            let mut c = case::Case3::new(name, s);
+            if let Some(dens) = metadata.get("_nightly_dens") {
+                c.dens = serde_json::from_value(dens.clone()).unwrap();
+            }
+            let anas = ana3::rows();
+            checks3::check_case(&checks3::Ctx { tally: &t, rng_seed: seed() }, &c, &anas, INV_3D);
+            for anti in [false, true] {
+                if let Some(sym) = symmetry::symmetrize_3d(&c.name, &c.s, anti) {
+                    symmetry::check_3d(&t, &sym, anti, &anas);
+                }
+            }
+        }
+    }
+    let results = t.replay_results();
+    std::fs::write(std::env::var("NIGHTLY_RESULTS").unwrap(), serde_json::to_vec(&results).unwrap()).unwrap();
+    assert!(t.failures().is_empty(), "metamorphic violations: {results}");
+}
+
+fn save_failing_model<T: serde::Serialize>(name: &str, index: usize, model: &T, case_name: &str, dens: &std::collections::HashMap<String, f64>) {
+    if let Ok(dir) = std::env::var("METAMORPHIC_REPORT_DIR") {
+        let dir = std::path::Path::new(&dir).join("models");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut value = serde_json::to_value(model).unwrap();
+        value["_nightly_name"] = serde_json::json!(case_name);
+        value["_nightly_dens"] = serde_json::json!(dens);
+        std::fs::write(dir.join(format!("{name}-{index}.json")), serde_json::to_vec(&value).unwrap()).unwrap();
+    }
 }

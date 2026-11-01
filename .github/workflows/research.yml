@@ -204,9 +204,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
-      - run: nix develop -c sh -c 'cd web && npm ci'
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - run: .github/scripts/retry-infra.sh nix develop -c sh -c 'cd web && npm ci'
       - run: make wasm
       - name: Compute native results from the engine-owned cases
         run: MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
@@ -345,8 +354,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - name: Native production results reproduce the committed evidence, including known failures
         run: nix develop . -c cargo run --release --locked --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
       - name: Build the production browser engine

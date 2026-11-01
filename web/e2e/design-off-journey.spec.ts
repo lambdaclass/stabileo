@@ -10,18 +10,18 @@ import { bootPro, loadModel, designAll, solveModel, PRO_URL } from './fixtures';
  * for that visit only; and turning it on says it is in development, with its limits listed.
  */
 test.describe.configure({ mode: 'serial' });
-test.setTimeout(240_000);
 
 async function openFresh(page: Page, url = PRO_URL): Promise<void> {
   await page.goto(url);
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-  await expect.poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 60_000 }).toBe(true);
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+  await expect.poll(() => page.evaluate(() => window.__stabileo.solverReady()), { timeout: 45_000 }).toBe(true);
 }
 
 const reinforced = (page: Page) => page.evaluate(() =>
   window.__stabileo.elementIds().filter((id) => !!window.__stabileo.reinforcement(id)).length);
 
 test('@slow a designed project opened with design off: kept whole, nothing of design run or shown as current', async ({ browser }) => {
+  test.setTimeout(240_000);
   // Designed in a browser that turned design on.
   const designer = await (await browser.newContext()).newPage();
   await bootPro(designer);
@@ -63,6 +63,7 @@ test('@slow a designed project opened with design off: kept whole, nothing of de
 });
 
 test('@slow a restored tab cannot bring the verification colouring back while design is off', async ({ browser }) => {
+  test.setTimeout(240_000);
   const page = await (await browser.newContext()).newPage();
   await bootPro(page);
   await loadModel(page, 'rc-design-qa-8');

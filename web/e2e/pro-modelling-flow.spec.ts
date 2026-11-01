@@ -17,8 +17,8 @@ const N = [
   [0, 0, 0], [4, 0, 0], [4, 0, 3], [0, 0, 3],
 ] as const;
 
-test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
-  test('type four nodes, connect them, hold them down, and solve', async ({ pro: page }) => {
+test.describe('PRO — the modelling flow, coordinates first', () => {
+  test('@slow type four nodes, connect them, hold them down, and solve', async ({ pro: page }) => {
     test.setTimeout(180_000);
 
     // ── 1. Nodes, by coordinate, in the panel ───────────────────────
@@ -86,7 +86,7 @@ test.describe('@smoke PRO — the modelling flow, coordinates first', () => {
     await expect(page.getByTestId('pr-cmd-solve')).toBeEnabled();
   });
 
-  test('moving between tables never leaves a tool armed behind you', async ({ pro: page }) => {
+  test('@smoke moving between tables never leaves a tool armed behind you', async ({ pro: page }) => {
     /*
      * Going to Materials to change a section used to leave a node behind on
      * the next click in the model. A ribbon command opens a panel and arms

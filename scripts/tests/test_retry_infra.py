@@ -18,6 +18,13 @@ class RetryInfra(unittest.TestCase):
             'Failed to restore: actions/cache: 429 Too Many Requests',
             'gh: HTTP 429: Too Many Requests',
             'Error [ERR_SOCKET_CLOSED_BEFORE_CONNECTION]: Socket closed before the connection was established',
+            '##[error]Unable to authenticate to FlakeHub. Individuals must register at FlakeHub.com; Organizations must create an organization at FlakeHub.com.',
+            'GitHub API error: Twirp error: twirp error: TwirpErrorResponse { code: ResourceExhausted, msg: "rate limit exceeded", meta: {} }',
+            "error: unable to download 'https://cache.nixos.org/0123.narinfo': Error in the HTTP2 framing layer (16) ",
+            "error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': Failed sending data to the peer (55) Send failure: Broken pipe",
+            "error: unable to download 'https://cache.nixos.org/0123.narinfo': Failed sending data to the peer (55) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0",
+            "error: some substitutes for the outputs of derivation '/nix/store/0123-postgresql-18.3.drv' failed (usually happens due to networking issues); try '--fallback' to build derivation from source",
+            'HTTP 403: You have exceeded a secondary rate limit and have been temporarily blocked from content creation.',
         ]
         genuine = [
             'error[E0308]: mismatched types',
@@ -30,6 +37,9 @@ class RetryInfra(unittest.TestCase):
             'Artifact named wasm not found',
             'HTTP 403: Resource not accessible by integration',
             'test result: FAILED. 429 passed; 1 failed;',
+            "warning: unable to download 'https://cache.nixos.org/0123.narinfo': Error in the HTTP2 framing layer (16) ; retrying in 280 ms (attempt 1/5)",
+            "warning: unable to download 'https://cache.nixos.org/0123.narinfo': Failed sending data to the peer (55) Send failure: Broken pipe; retrying in 301 ms (attempt 1/5)",
+            "error: builder for '/nix/store/0123-stabileo-engine.drv' failed with exit code 101",
         ]
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / 'log'
@@ -65,6 +75,10 @@ sys.exit(0 if lines[min(n, len(lines)-1)] == 'success' else ''' + str(status) + 
 
     def test_genuine_failure_stops_immediately(self):
         self.assertEqual(self.run_attempts(['error[E0308]: mismatched types'])[:2], (7, 1))
+
+    def test_recovered_download_warning_does_not_retry_a_genuine_failure(self):
+        lines = ["warning: unable to download 'https://cache.nixos.org/0123.narinfo': Error in the HTTP2 framing layer (16) ; retrying in 280 ms (attempt 1/5)\nerror: hash mismatch in fixed-output derivation"]
+        self.assertEqual(self.run_attempts(lines)[:2], (7, 1))
 
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
