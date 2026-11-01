@@ -78,6 +78,40 @@ class ConnectorMatrix(unittest.TestCase):
         self.assertNotEqual(self.k[1][5], 0.0)
 
 
+class Diaphragm(unittest.TestCase):
+    """Diaphragm rows (constraints.rs): an in-plane rigid motion of the whole
+    diaphragm satisfies them, a slave rotating on its own does not."""
+
+    PTS = {1: [1.0, 2.0, 3.0], 2: [4.0, -1.0, 5.5]}
+
+    def rows(self, plane):
+        return T._constraint_rows({"constraints": [{"type": "diaphragm", "masterNode": 1, "slaveNodes": [2], "plane": plane}]}, self.PTS)
+
+    def motion(self, plane, slave_twist=0.0):
+        axis = {"XY": 2, "YZ": 0, "XZ": 1}[plane]
+        w = [0.0, 0.0, 0.0]
+        w[axis] = 0.01
+        t = [0.3, -0.2, 0.1]
+        r = [self.PTS[2][k] - self.PTS[1][k] for k in range(3)]
+        us = [t[k] + T._cross(w, r)[k] for k in range(3)]
+        ws = list(w)
+        ws[axis] += slave_twist
+        return {1: t + w, 2: us + ws}
+
+    def residuals(self, plane, u):
+        return [sum(c * u[n][k] for n, k, c in row) for row in self.rows(plane)]
+
+    def test_in_plane_rigid_motion_satisfies_every_row(self):
+        for plane in ("XY", "YZ", "XZ"):
+            self.assertEqual(len(self.rows(plane)), 3, plane)
+            for res in self.residuals(plane, self.motion(plane)):
+                self.assertAlmostEqual(res, 0.0, places=14, msg=plane)
+
+    def test_slave_in_plane_rotation_is_tied(self):
+        for plane in ("XY", "YZ", "XZ"):
+            self.assertTrue(any(abs(res) > 1e-6 for res in self.residuals(plane, self.motion(plane, 0.003))), plane)
+
+
 def _beam(support2):
     return {
         "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}},

@@ -38,7 +38,10 @@ ASTER_PYTHON=.work/conda/bin/python python3 run.py ...       # native Code_Aster
 
 Inputs:
 
-- `FILES`: any `SolverInput3D` JSON files.
+- `FILES`: any `SolverInput3D` JSON files. The nightly job also passes
+  `regressions/*.json`: reduced models from past nightly findings that were
+  harness errors (diaphragm kinematics; settlements on DOFs no rigid restraint
+  carries). Each must now compare `ok` or end `refused`.
 - `--fixtures`: the 3D `engine/tests/fixtures/*-input.json` files, which
   include the example models (buildings, industrial hall, tower, grid slab,
   space truss and so on).

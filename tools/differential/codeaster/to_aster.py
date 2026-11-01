@@ -862,8 +862,9 @@ def _constraint_rows(d, pts):
     documented in engine/src/types/input.rs + solver/constraints.rs:
       rigidLink   u_s = u_m + th_m x r (dofs listed; default translations),
                   rotations listed: th_s = th_m; r = x_s - x_m
-      diaphragm   in-plane translations of each slave follow the master's
-                  in-plane rigid motion (slave rotation is NOT tied)
+      diaphragm   each slave follows the master's in-plane rigid motion,
+                  u_s = u_m + th_m x r in the plane, and its in-plane rotation
+                  is the master's (the diaphragm rotates as one body)
       equalDOF    u_s,k = u_m,k
       linearMPC   sum c_i u_i = 0
       eccentricConnection  rigidLink with an explicit offset, every DOF not
@@ -902,14 +903,15 @@ def _constraint_rows(d, pts):
         elif t == "linearMPC":
             rows.append([(tm["nodeId"], tm["dof"], tm["coefficient"]) for tm in x["terms"]])
         elif t == "diaphragm":
-            plane = x.get("plane", "XY")
-            d0, d1, dr, i0, i1 = {"XZ": (0, 2, 4, 0, 2), "YZ": (1, 2, 3, 1, 2)}.get(plane, (0, 1, 5, 0, 1))
+            plane = (x.get("plane") or "XY").upper()
+            d0, d1, dr = {"XZ": (0, 2, 4), "YZ": (1, 2, 3)}.get(plane, (0, 1, 5))
+            axis = [1.0 if k == dr - 3 else 0.0 for k in range(3)]
             ms = x["masterNode"]
             for sl in x["slaveNodes"]:
-                o0 = pts[sl][i0] - pts[ms][i0]
-                o1 = pts[sl][i1] - pts[ms][i1]
-                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, o1)] if abs(t_[2]) > 1e-15])
-                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -o0)] if abs(t_[2]) > 1e-15])
+                lever = _cross(axis, [pts[sl][k] - pts[ms][k] for k in range(3)])
+                for dk in (d0, d1):
+                    rows.append([t_ for t_ in [(sl, dk, 1.0), (ms, dk, -1.0), (ms, dr, -lever[dk])] if abs(t_[2]) > 1e-15])
+                rows.append([(sl, dr, 1.0), (ms, dr, -1.0)])
         else:
             raise Unsupported(f"constraint {t}")
     return rows
