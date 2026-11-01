@@ -47,8 +47,9 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
   `research/<field>/<paper>/VALIDATION.json`, and CSV/JSON files in that paper’s
   `reference-results/`, plus `results/stabileo_results.json`; engine tests may read reference JSON case files; production engine code has no exception. `tools/check_isolation.sh` enforces this.
 - Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
-  catalogue, isolation, route budgets) are part of the required CI OK whenever research, web or engine
-  files change; the online checks (Crossref, licences, links) run only as the standalone Research
+  catalogue, isolation, route budgets) are part of the required CI OK on pull requests that touch
+  research or mix areas (full pipeline); a tools-only PR runs only the route budgets and an engine-only
+  or docs-only PR skips them. The merge queue and main always run all of them. The online checks (Crossref, licences, links) run only as the standalone Research
   workflow on research/catalog PRs, pushes to main and weekly runs. Unrelated PRs do not run the online audit.
 
 ## Reproducibility statuses
