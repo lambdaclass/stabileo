@@ -106,7 +106,11 @@ describe('validate snapshot', () => {
   it('fails on an unknown element type, a zero-length element or an impossible Poisson ratio', () => {
     expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, type: 'cable', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]] })).toThrow("element 1: type must be 'frame' or 'truss'");
     expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]] })).toThrow("element 1: type must be 'frame' or 'truss'");
-    expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 1, sectionId: 1, materialId: 1 }]] })).toThrow('element 1 starts and ends at the same node');
+    expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 1, sectionId: 1, materialId: 1 }]] })).toThrow('element 1 has zero length');
+    expect(() => validateSnapshot({ ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 0, y: 0 }]] })).toThrow('element 1 has zero length');
+    expect(() => validateSnapshot({ ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0 }], ['two', { id: 2, x: 6, y: 0 }]] })).toThrow('invalid id "two"');
+    expect(() => validateSnapshot({ ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 3, x: 6, y: 0 }]] })).toThrow('entry 2 carries a different id 3');
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'pointOnElement', data: { id: 1, elementId: 1 } }] })).toThrow('unsupported load type: "pointOnElement"');
     expect(() => validateSnapshot({ ...minimal(), materials: [[1, { id: 1, name: 'x', e: 200000, nu: 0.5 }]] })).toThrow("Poisson's ratio");
   });
   it('validates what a generator builds, so an overflowing geometry never becomes a draft', () => {

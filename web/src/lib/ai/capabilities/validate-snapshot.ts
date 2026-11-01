@@ -11,6 +11,8 @@ const LOAD_TARGET: Record<string, 'node' | 'element'> = {
   thermal: 'element', prestress3d: 'element',
 };
 
+const MIN_LENGTH = 1e-6;
+
 const LOAD_SPACE: Record<string, boolean> = {
   nodal: false, distributed: false, pointOnElement: false, thermal: false,
   nodal3d: true, distributed3d: true, pointOnElement3d: true, displacement3d: true, prestress3d: true,
@@ -30,11 +32,13 @@ function getArray(obj: Record<string, unknown>, key: string): unknown[] {
 }
 
 function parseEntry(entry: unknown): Entry {
-  if (Array.isArray(entry) && entry.length >= 2 && isPlainObject(entry[1])) {
-    return [asU64(entry[0]) ?? 0, entry[1]];
-  }
-  if (isPlainObject(entry)) return [asU64(entry.id) ?? 0, entry];
-  throw new AiActionError(`invalid entry format: ${JSON.stringify(entry)}`);
+  const [rawId, data] = Array.isArray(entry) && entry.length >= 2 && isPlainObject(entry[1]) ? [entry[0], entry[1]]
+    : isPlainObject(entry) ? [entry.id, entry] : [undefined, undefined];
+  if (!data) throw new AiActionError(`invalid entry format: ${JSON.stringify(entry)}`);
+  const id = asU64(rawId);
+  if (id === undefined) throw new AiActionError(`invalid id ${JSON.stringify(rawId)}`);
+  if (data.id !== undefined && asU64(data.id) !== id) throw new AiActionError(`entry ${id} carries a different id ${JSON.stringify(data.id)}`);
+  return [id, data];
 }
 
 function collectIds(entries: unknown[], entity: string): Set<number> {
@@ -76,7 +80,6 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
   for (const entry of elements) {
     const [id, data] = parseEntry(entry);
     if (!existingModel && data.type !== 'frame' && data.type !== 'truss') throw new AiActionError(`element ${id}: type must be 'frame' or 'truss', not ${JSON.stringify(data.type)}`);
-    if (data.nodeI === data.nodeJ) throw new AiActionError(`element ${id} starts and ends at the same node`);
     const refs: Array<[string, Set<number>]> = [['nodeI', nodeIds], ['nodeJ', nodeIds], ['sectionId', secIds], ['materialId', matIds]];
     for (const [key, set] of refs) {
       const ref = asU64(data[key]);
@@ -95,12 +98,20 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     }
   }
 
+  const coords = new Map<number, [number, number, number]>();
   for (const entry of nodes) {
     const [id, data] = parseEntry(entry);
     for (const key of ['x', 'y', 'z'] as const) {
       if (key === 'z' && (!space || existingModel) && data.z === undefined) continue;
       if (asF64(data[key]) === undefined) throw new AiActionError(`node ${id} has no finite ${key}`);
     }
+    coords.set(id, [data.x as number, data.y as number, (data.z as number | undefined) ?? 0]);
+  }
+
+  for (const entry of elements) {
+    const [id, data] = parseEntry(entry);
+    const [a, b] = [coords.get(asU64(data.nodeI) ?? -1), coords.get(asU64(data.nodeJ) ?? -1)];
+    if (a && b && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < MIN_LENGTH) throw new AiActionError(`element ${id} has zero length`);
   }
 
   for (const entry of sections) {
@@ -140,7 +151,7 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     loadIds.add(loadId);
     const type = outer.type;
     if (typeof type !== 'string') throw new AiActionError(`unsupported load type: ${JSON.stringify(type)}`);
-    if (!Object.hasOwn(LOAD_TARGET, type)) {
+    if (!Object.hasOwn(LOAD_TARGET, type) || (!existingModel && !Object.hasOwn(LOAD_REQUIRED, type))) {
       if (existingModel) continue;
       throw new AiActionError(`unsupported load type: ${JSON.stringify(type)}`);
     }
