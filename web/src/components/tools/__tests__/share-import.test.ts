@@ -53,3 +53,21 @@ it('preserves an explicitly requested E2E gate across the shared-model handoff',
     expect(editorUrl(model, 'beam')).toMatch(/^\/app\/basic#data=2\./);
   } finally { vi.unstubAllGlobals(); }
 });
+
+import { calculateBatch } from '../batch-solve';
+
+it('keeps a hostile tool name as inert text', () => {
+  const name = '<img src=x onerror="alert(1)">';
+  const snapshot = decompressSnapshot(editorUrl(batchModel('truss-2d', DEFAULT_BATCH), name).split('#data=')[1]);
+  expect(snapshot!.name).toBe(name);
+  modelStore.restore(snapshot!);
+  expect(modelStore.model.name).toBe(name);
+});
+
+it('imports the calculated influence-line model with its critical axle', async () => {
+  const result = await calculateBatch('influence-line', DEFAULT_BATCH);
+  modelStore.restore(decompressSnapshot(editorUrl(result.model, 'influence').split('#data=')[1])!);
+  const imported = modelStore.buildSolverInput(false)!;
+  expect(imported.loads).toHaveLength(1);
+  expect(solve(imported).reactions).toEqual(result.linear.reactions);
+});
