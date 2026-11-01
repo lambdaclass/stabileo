@@ -3,6 +3,7 @@
  * (`pro/export-results.ts`), written by `dxf/writer.ts`. An envelope's set (chosen, or on screen)
  * is handed with its envelope, whose station curves the diagrams are, as the figures draw them.
  */
+import { trackUsage } from '../telemetry/usage';
 import { zipSync } from 'fflate';
 import { downloadResultText, dxfWithProvenance, prepareExportProvenance } from '../export/provenance-attach';
 import { downloadBlob } from '../store/file';
@@ -46,6 +47,7 @@ export function proDxf(req: ProDxfRequest): string {
 const safeName = () => modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultStructure');
 
 export function downloadProDxf(req: ProDxfRequest): Promise<boolean> {
+  trackUsage('export', { format: 'dxf' });
   // The DXF carries its provenance as 999 comments (export/provenance-attach.ts).
   return downloadResultText(proDxf(req), `${safeName()}.dxf`, 'application/dxf');
 }

@@ -3,7 +3,7 @@ defmodule StabileoAuth.Controllers.Admin.AllowedEmailController do
 
   action_fallback(StabileoUtils.FallbackController)
 
-  alias StabileoAuth.AdminAllowedEmails
+  alias StabileoAuth.{AdminAllowedEmails, AdminAudit}
 
   def index(conn, params) do
     {rows, meta} = AdminAllowedEmails.list(params)
@@ -12,6 +12,13 @@ defmodule StabileoAuth.Controllers.Admin.AllowedEmailController do
 
   def create(conn, params) do
     with {:ok, allowed} <- AdminAllowedEmails.allow(params["email"], conn.assigns.current_account) do
+      AdminAudit.record(
+        conn.assigns.current_account,
+        "allowlist.add",
+        {"allowed_email", allowed.id},
+        %{email: allowed.email}
+      )
+
       conn
       |> put_status(:created)
       |> json(%{data: row_json(allowed)})
@@ -21,6 +28,13 @@ defmodule StabileoAuth.Controllers.Admin.AllowedEmailController do
   def delete(conn, %{"id" => id}) do
     with {:ok, allowed} <- AdminAllowedEmails.get(id),
          {:ok, removed} <- AdminAllowedEmails.remove(conn.assigns.current_account, allowed) do
+      AdminAudit.record(
+        conn.assigns.current_account,
+        "allowlist.remove",
+        {"allowed_email", removed.id},
+        %{email: removed.email}
+      )
+
       json(conn, %{data: row_json(removed)})
     end
   end

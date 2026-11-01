@@ -7,10 +7,13 @@ import { reliabilityPage } from './reliability';
 import { sap2000AlternativePage } from './sap2000-alternative';
 import { addTranslations } from '../types';
 import { changelogPage } from './changelog';
+import { termsPage } from './terms';
+import { privacyPage } from './privacy';
+import { usageDataPage } from './usage-data';
 
 export type { StandingPage };
 
-export const STANDING_PAGES: StandingPage[] = [cirsocPage, reliabilityPage, sap2000AlternativePage, changelogPage];
+export const STANDING_PAGES: StandingPage[] = [cirsocPage, reliabilityPage, sap2000AlternativePage, changelogPage, termsPage, privacyPage, usageDataPage];
 
 addTranslations(STANDING_PAGES, (p) => `page-${p.path.slice(1)}`, import.meta.glob('../translations/*/page-*.ts', { eager: true, import: 'default' }));
 

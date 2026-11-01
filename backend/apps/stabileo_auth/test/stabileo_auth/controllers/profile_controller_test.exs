@@ -18,7 +18,7 @@ defmodule StabileoAuth.Controllers.ProfileControllerTest do
       assert body["data"]["locale"] == "es"
 
       assert Enum.sort(Map.keys(body["data"])) ==
-               ~w(company country email email_verified_at id inserted_at job_title locale name)
+               ~w(company consents country email email_verified_at id inserted_at job_title locale name)
     end
 
     test "401 missing_token without a token" do

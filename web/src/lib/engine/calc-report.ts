@@ -243,6 +243,7 @@ function buildCover(cfg: CalcReportConfig, modeLabel: AnalysisModeLabel, nodeCou
   if (cfg.engineerName) h.push(`<div>${t('calcReport.engineerName')}: ${esc(cfg.engineerName)}</div>`);
   h.push(`<div>${t('file.csvDate')}: ${esc(cfg.date)}</div>`);
   h.push('</div>');
+  h.push(`<div class="disclaimer" style="margin-top:24px;font-size:8pt;color:#777">${esc(t('disclaimer.report'))}</div>`);
   h.push(`<div class="footer">${esc(t('calcReport.generatedBy'))}</div>`);
   h.push('</div><div class="page-break"></div>');
   return h.join('\n');

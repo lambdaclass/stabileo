@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { trackUsage } from '../../lib/telemetry/usage';
   import Prose from './Prose.svelte';
   import StepsHeader from './StepsHeader.svelte';
   /**
@@ -47,6 +48,7 @@
   });
 
   function open(m: ExplainedMethod) {
+    trackUsage('steps.open', { method: m.id });
     if (m.wizard === 'dsm') openStiffnessWizard();
     else if (m.wizard === 'fm') openFlexibilityWizard();
     else explainedSteps.openMethod(m.id);

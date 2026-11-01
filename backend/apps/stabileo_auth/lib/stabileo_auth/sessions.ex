@@ -111,6 +111,21 @@ defmodule StabileoAuth.Sessions do
     |> Map.new()
   end
 
+  @doc """
+  When each account last used Stabileo: its newest session. An open app
+  refreshes its session every few minutes, and each refresh starts a new one.
+  """
+  def last_active([]), do: %{}
+
+  def last_active(account_ids) when is_list(account_ids) do
+    Session
+    |> where([s], s.account_id in ^account_ids)
+    |> group_by([s], s.account_id)
+    |> select([s], {s.account_id, max(s.inserted_at)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
   defp session_attrs(account_id, metadata, ttl) do
     %{
       account_id: account_id,

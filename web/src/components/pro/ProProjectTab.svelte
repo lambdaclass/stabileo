@@ -1,4 +1,7 @@
 <script lang="ts">
+  import CloudProjectsDialog from '../account/CloudProjectsDialog.svelte';
+  import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import ProProjectInfo from './ProProjectInfo.svelte';
   import ProExampleGallery from './ProExampleGallery.svelte';
   import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
@@ -222,6 +225,7 @@
     }
     input.value = '';
   }
+  let cloudOpen = $state(false);
 </script>
 
 <div class="pp" data-testid="pro-project-tab">
@@ -315,17 +319,20 @@
         click and the same click puts it away, which is the toggle Basic has.
       -->
       <HelpTip text={t('project.saveTooltip')}>
-        <button class="pp-btn pp-btn-primary" onclick={() => (showSave = true)}
+        <button class="pp-btn pp-btn-primary" onclick={() => accountGate.guard('save', () => (showSave = true))}
                 data-testid="pp-save">{t('project.save')}</button>
       </HelpTip>
       <HelpTip text={t('project.openTooltip')}>
         <button class="pp-btn" onclick={() => fileInput?.click()}
                 data-testid="pp-open">{t('project.open')}</button>
       </HelpTip>
+      {#if authStore.isAuthenticated && authStore.cloudProjectsEnabled}
+        <button class="pp-btn" onclick={() => (cloudOpen = true)} data-testid="cloud-projects-open">{t('account.myProjects')}</button>
+      {/if}
       <HelpTip text={linkTooLong ? tp('project.linkTooLong', { n: proLink?.length ?? 0 }) : t('project.copyLinkTooltip')}>
         <button
           class="pp-btn"
-          onclick={copyShareLink}
+          onclick={() => accountGate.guard('share', copyShareLink)}
           disabled={!hasModel || linkTooLong}
           data-testid="pp-share"
         >{t('project.shareLink')}</button>
@@ -562,6 +569,8 @@
   style="display:none"
   onchange={handleLoad}
 />
+
+<CloudProjectsDialog bind:open={cloudOpen} />
 
 <style>
   .pg-overlay { position: fixed; inset: 0; z-index: 900; display: flex; align-items: center; justify-content: center; }

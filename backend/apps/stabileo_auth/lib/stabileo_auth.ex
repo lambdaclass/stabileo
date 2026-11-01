@@ -6,17 +6,41 @@ defmodule StabileoAuth do
   it was issued to.
   """
 
-  alias StabileoAuth.{AccountJSON, Accounts, Sessions, Tokens}
-  alias StabileoRepo.Features
+  alias StabileoAuth.{AccountJSON, Accounts, Consents, Sessions, Tokens}
+  alias StabileoRepo.{Features, Repo}
   alias StabileoRepo.Schemas.{Account, Session}
 
-  @doc "Closed while `user_login_enabled` is off; see `StabileoRepo.Features`."
+  @doc """
+  Closed while `user_login_enabled` is off; see `StabileoRepo.Features`.
+
+  Needs `"accept_terms" => true`: the account and the acceptance of the terms
+  in force are written together, with the optional `"usage_analytics"` and
+  `"model_research"` choices when given.
+  """
   def register(attrs, metadata \\ %{}) do
     with :ok <- user_login_open(),
-         {:ok, account} <- Accounts.register(attrs) do
-      start_session(account, metadata, "app")
+         {:ok, account} <- create_account(attrs, metadata) do
+      sign_in(account, metadata, "app")
     end
   end
+
+  defp create_account(attrs, metadata) do
+    changeset = attrs |> Account.registration_changeset() |> require_terms(attrs)
+
+    Repo.transaction(fn ->
+      with {:ok, account} <- Repo.insert(changeset),
+           {:ok, :ok} <- Consents.record_sign_up(account, attrs, metadata) do
+        account
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
+  end
+
+  defp require_terms(changeset, %{"accept_terms" => true}), do: changeset
+
+  defp require_terms(changeset, _attrs),
+    do: Ecto.Changeset.add_error(changeset, :accept_terms, "must be accepted")
 
   @doc "Closed while `user_login_enabled` is off. Refresh is not: existing sessions keep working."
   def login(email, password, metadata \\ %{}) do
@@ -26,7 +50,15 @@ defmodule StabileoAuth do
     end
   end
 
-  def config, do: %{user_login_enabled: Features.user_login_enabled?()}
+  def config do
+    %{
+      user_login_enabled: Features.user_login_enabled?(),
+      terms_version: Consents.terms_version(),
+      usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
+      cloud_projects_enabled: Features.cloud_projects_enabled?(),
+      save_requires_account: Features.save_requires_account?()
+    }
+  end
 
   defp user_login_open do
     if Features.user_login_enabled?(), do: :ok, else: {:error, :user_login_disabled}
@@ -77,7 +109,7 @@ defmodule StabileoAuth do
          access_token: access_token,
          refresh_token: refresh_token,
          expires_in: Tokens.access_token_ttl(),
-         account: AccountJSON.render(account)
+         account: AccountJSON.render_with_consents(account)
        }}
     end
   end
