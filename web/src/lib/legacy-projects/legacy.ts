@@ -36,6 +36,7 @@ import registry from '../provenance/result-changes.json';
 import { resultValues, type Values } from './capture-results';
 // @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
 import { compareValues, formatCaseReport, parseSnapshot } from '../../../scripts/results-snapshot/compare.mjs';
+import { compareLegacy } from './vector-floor';
 
 export type Workspace = '2d' | '3d' | 'pro';
 
@@ -454,7 +455,7 @@ export function judge(name: string, reference: Values, current: Values, changes:
   const applicable = changes.map(label);
   const solve: Verdict['solve'] = refGated['solve.ok'] === curGated['solve.ok'] ? null
     : curGated['solve.ok'] === false ? 'now refuses' : refGated['solve.ok'] === false ? 'now solves' : null;
-  const diff = compareValues(solve ? outsideResults(refGated) : refGated, solve ? outsideResults(curGated) : curGated, { vectorFloor: true }) as Diff;
+  const diff = compareLegacy(solve ? outsideResults(refGated) : refGated, solve ? outsideResults(curGated) : curGated);
   if (!diff.differs && diff.added.length === 0) return { kind: 'same', solve, report: '', explainedBy: [], applicable, notes };
   const used = new Set<ResultChange>();
   const explained = (path: string) => {
