@@ -124,7 +124,7 @@ describe('point masses in Basic reach the engine', () => {
       const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 0);
       modelStore.addElement(a, b);
       modelStore.addSupport(a, 'pinned');
-      modelStore.addSupport(b, 'inclinedRoller', undefined, { angle: 0.6 });
+      modelStore.addSupport(b, 'rollerX', undefined, { angle: 35 });
     });
     modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 5, horizontalOnly: true }] });
     const mine = convergenceTable(modelStore.model, points(), [4], 3, true)[0].f.consistent;

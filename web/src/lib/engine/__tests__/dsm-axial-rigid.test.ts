@@ -94,7 +94,7 @@ describe('stiffness wizard with axially rigid members', () => {
   it('a portal on an inclined roller: member forces from the node-frame displacements, as the engine with stiff members', () => {
     const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 4), c = modelStore.addNode(6, 4), dn = modelStore.addNode(6, 0);
     modelStore.addElement(a, b); const beam = modelStore.addElement(b, c); modelStore.addElement(dn, c);
-    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(dn, 'inclinedRoller', undefined, { angle: 0.5 });
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(dn, 'rollerX', undefined, { angle: 30 });
     modelStore.addDistributedLoad(beam, -10, -10); modelStore.addNodalLoad(b, 20, 0, 0);
     const d = check(modelStore.buildSolverInput(false)!);
     expect(d.nodeFrames.map((f) => f.nodeId)).toEqual([dn]);

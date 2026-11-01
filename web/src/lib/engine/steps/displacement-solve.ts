@@ -143,7 +143,6 @@ export function solveDisplacement(ks: KinSet): DispSolution {
   const pm = ks.pm;
   const fk = ks.fk ?? plainKin(pm);
   const md = memberData(fk);
-  const n = ks.unknowns.length;
 
   const F = new Map<number, { x: number; z: number }>();
   for (const q of ks.nodes) { const l = nodalLoadAt(pm, q); F.set(q, { x: l.fx, z: l.fz }); }
