@@ -123,21 +123,24 @@ def valid_code_url(value):
 REVIEW_VERDICTS = {"ready to merge", "ready after should-fix items", "not ready"}
 
 
+def check_review_record(r):
+    if "verdict" not in r:
+        return bool({"round", "reviewer", "reviewers"} & set(r))
+    return (set(r) == {"reviewer", "sha", "verdict"}
+            and isinstance(r["reviewer"], str) and bool(r["reviewer"].strip())
+            and isinstance(r["sha"], str) and re.fullmatch(r"[0-9a-f]{40}", r["sha"]) is not None
+            and isinstance(r["verdict"], str) and r["verdict"] in REVIEW_VERDICTS)
+
+
 def check_reviews(reviews):
-    return isinstance(reviews, list) and all(
-        isinstance(r, dict) and set(r) == {"reviewer", "sha", "verdict"}
-        and isinstance(r["reviewer"], str) and bool(r["reviewer"].strip())
-        and isinstance(r["sha"], str) and re.fullmatch(r"[0-9a-f]{40}", r["sha"])
-        and isinstance(r["verdict"], str) and r["verdict"] in REVIEW_VERDICTS
-        for r in reviews
-    )
+    return isinstance(reviews, list) and all(isinstance(r, dict) and check_review_record(r) for r in reviews)
 
 
 def check_entry(p, errors):
     pid = p.get("id", "?")
     # Absent reviews are equivalent to an empty list for older entries.
     if not check_reviews(p.get("reviews", [])):
-        errors.append(f"{pid}: reviews must contain reviewer, full sha and a review verdict")
+        errors.append(f"{pid}: reviews must be review rounds or records with reviewer, full sha and a review verdict")
     for k in REQUIRED:
         if k not in p:
             errors.append(f"{pid}: missing field '{k}'")

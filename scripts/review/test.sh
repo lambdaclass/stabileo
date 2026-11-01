@@ -224,7 +224,9 @@ with open('research/papers.yaml') as f:
 assert len(reviews) == 2
 assert [r['reviewer'] for r in reviews] == ['Kimi', 'Grok']
 assert check_reviews([])
-for invalid in (None, {}, [None], [{'reviewer': 'Kimi', 'sha': 'bad', 'verdict': 'ready to merge'}]):
+assert check_reviews([{'round': 1, 'reviewers': ['codex', 'kimi'], 'date': '2026-10-30'}])
+for invalid in (None, {}, [None], [{}], [{'reviewer': 'Kimi', 'sha': 'bad', 'verdict': 'ready to merge'}],
+                [{'reviewer': 'Kimi', 'sha': 'a' * 40, 'verdict': 'maybe'}]):
     assert not check_reviews(invalid)
 PY
 # Exercise an existing block-style list, not only the flow list written above.
