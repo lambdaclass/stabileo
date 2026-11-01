@@ -3,7 +3,7 @@ import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { validateRegistry, githubSlug, changelogUrl, conditionGroups } from '../registry';
+import { validateRegistry, githubSlug, changelogUrl, conditionGroups, type ResultChangeRegistry } from '../registry';
 import { FEATURE_IDS } from '../model-features';
 
 const repo = resolve(__dirname, '../../../../..');
@@ -17,12 +17,18 @@ describe('result-change registry', () => {
     expect(JSON.stringify(metadata)).not.toContain('title');
   });
 
-  it('losslessly decodes the complete source registry', () => {
-    expect(RESULT_CHANGES).toEqual(JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')));
+  const source = () => JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')) as ResultChangeRegistry;
+
+  it('decodes the complete source registry except the test-only quantities', () => {
+    const registry = source();
+    expect(registry.changes.some((c) => c.quantities)).toBe(true);
+    expect(RESULT_CHANGES.changes.some((c) => 'quantities' in c)).toBe(false);
+    expect(RESULT_CHANGES).toEqual({ ...registry, changes: registry.changes.map(({ quantities: _, ...c }) => c) });
   });
 
-  it('is well formed: ids, versions, three languages, known features', () => {
+  it('is well formed: ids, versions, three languages, known features, quantities', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
+    expect(validateRegistry(source(), new Set(FEATURE_IDS))).toEqual([]);
   });
 
   it('links every entry to a heading that exists in the named file', () => {

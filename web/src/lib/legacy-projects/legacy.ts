@@ -32,6 +32,7 @@ import { tabManager } from '../store/tabs.svelte';
 import { solveNow } from '../actions/solve';
 import { setLocale } from '../i18n';
 import type { ResultChange } from '../provenance/registry';
+import registry from '../provenance/result-changes.json';
 import { resultValues, type Values } from './capture-results';
 // @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
 import { compareValues, formatCaseReport, parseSnapshot } from '../../../scripts/results-snapshot/compare.mjs';
@@ -215,7 +216,8 @@ export async function openSession(text: string, opts: { beforeOpen?: (session: R
 export async function assessedChanges(): Promise<ResultChange[]> {
   await recheckStore.retry();
   if (recheckStore.loadFailed || recheckStore.pending) throw new Error('the re-check assessment did not complete');
-  return [...(recheckStore.assessment?.changes ?? [])];
+  const declared = new Map(registry.changes.map((c) => [c.id, (c as { quantities?: string[] }).quantities]));
+  return (recheckStore.assessment?.changes ?? []).map((c) => ({ ...c, quantities: declared.get(c.id) }));
 }
 
 /**
