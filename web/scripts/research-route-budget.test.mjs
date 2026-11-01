@@ -29,9 +29,16 @@ for (const [route, budget] of Object.entries({
   });
 }
 
+test('isolation caps a larger product budget at 128 bytes; product mode uses the budget', () => {
+  const budgets = { '/en/': 512 };
+  compareRouteSizes({ '/en/': 1000 }, { '/en/': 1512 }, false, budgets);
+  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1513 }, false, budgets), /512 byte tolerance/);
+  compareRouteSizes({ '/en/': 1000 }, { '/en/': 1128 }, true, budgets);
+  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1129 }, true, budgets), /128 byte tolerance/);
+});
 test('environment selects product budgets only when isolation is explicitly false', () => {
   for (const [mode, growth, status] of [
-    ['false', 128, 0], ['false', 129, 1],
+    ['false', 512, 0], ['false', 513, 1],
     ['true', 128, 0], ['true', 129, 1],
     [undefined, 129, 1], ['', 129, 1],
   ]) {
@@ -40,7 +47,7 @@ test('environment selects product budgets only when isolation is explicitly fals
     if (mode !== undefined) env.RESEARCH_ISOLATION = mode;
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
       import { compareRouteSizes } from ${JSON.stringify(new URL('./research-route-budget.mjs', import.meta.url).href)};
-      compareRouteSizes({ '/en/': 1000 }, { '/en/': ${1000 + growth} });
+      compareRouteSizes({ '/en/': 1000 }, { '/en/': ${1000 + growth} }, undefined, { '/en/': 512 });
     `], { env, encoding: 'utf8' });
     assert.equal(result.status, status, result.stderr);
     if (status) assert.match(result.stderr, /grew/);

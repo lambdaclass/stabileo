@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Only wrap dependency acquisition, never a combined install/build/test command.
 set -uo pipefail
-infra_pattern='FlakeHub: cache initialized failed: Unauthenticated|Unable to authenticate to FlakeHub|GitHub Actions Cache throttled Magic Nix Cache|HTTP error 418|Connection reset by peer|429 Too Many Requests|HTTP 429|rate limit exceeded|exceeded a secondary rate limit|ERR_SOCKET_CLOSED_BEFORE_CONNECTION|Error in the HTTP2 framing layer|Failed sending data to the peer|SSL_ERROR_SYSCALL|usually happens due to networking issues|HTTP error 416|there is no substituter that can build it|could not be realised|\(429\) Too Many Requests|Failed to GetCacheEntryDownloadURL: Rate limited'
+infra_pattern='FlakeHub: cache initialized failed: Unauthenticated|Unable to authenticate to FlakeHub|GitHub Actions Cache throttled Magic Nix Cache|HTTP error 418|Connection reset by peer|429 Too Many Requests|HTTP 429|rate limit exceeded|exceeded a secondary rate limit|ERR_SOCKET_CLOSED_BEFORE_CONNECTION|Error in the HTTP2 framing layer|Failed sending data to the peer|SSL_ERROR_SYSCALL|usually happens due to networking issues|HTTP error 416|\(429\) Too Many Requests|Failed to GetCacheEntryDownloadURL: Rate limited'
 is_infra() { grep -v 'warning: unable to download' "$1" | grep -Ei "$infra_pattern" >/dev/null; }
 if [[ ${1:-} == --matches ]]; then
   is_infra "$2"

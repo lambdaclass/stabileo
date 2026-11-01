@@ -26,8 +26,6 @@ class RetryInfra(unittest.TestCase):
             "error: some substitutes for the outputs of derivation '/nix/store/0123-postgresql-18.3.drv' failed (usually happens due to networking issues); try '--fallback' to build derivation from source",
             'HTTP 403: You have exceeded a secondary rate limit and have been temporarily blocked from content creation.',
             "error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': HTTP error 416",
-            "error: path '/nix/store/0123-libgpg-error-1.55' is required, but there is no substituter that can build it",
-            "error: some references of path '/nix/store/0123-postgresql-18.3-dev' could not be realised",
             '##[warning]Failed to restore: Failed to GetCacheEntryDownloadURL: Rate limited: Failed request: (429) Too Many Requests: rate limit exceeded',
             'Attempt 1 of 5 failed with error: Failed request: (429) Too Many Requests: rate limit exceeded. Retrying request in 3000 ms...',
             "error: unable to download 'http://127.0.0.1:37515/0123.narinfo': HTTP error 418",
@@ -49,6 +47,8 @@ class RetryInfra(unittest.TestCase):
             "error: builder for '/nix/store/0123-stabileo-engine.drv' failed with exit code 101",
             "error: Cannot build '/nix/store/0123-stabileo.drv'.",
             'AssertionError: expected status 416 to equal 200',
+            "error: path '/nix/store/0123-libgpg-error-1.55' is required, but there is no substituter that can build it",
+            "error: some references of path '/nix/store/0123-postgresql-18.3-dev' could not be realised",
         ]
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / 'log'
@@ -88,6 +88,14 @@ sys.exit(0 if lines[min(n, len(lines)-1)] == 'success' else ''' + str(status) + 
     def test_recovered_download_warning_does_not_retry_a_genuine_failure(self):
         lines = ["warning: unable to download 'https://cache.nixos.org/0123.narinfo': Error in the HTTP2 framing layer (16) ; retrying in 280 ms (attempt 1/5)\nerror: hash mismatch in fixed-output derivation"]
         self.assertEqual(self.run_attempts(lines)[:2], (7, 1))
+
+    def test_unrealisable_path_after_a_genuine_build_failure_does_not_retry(self):
+        lines = ["error: builder for '/nix/store/0123-stabileo-engine.drv' failed with exit code 101\nerror: some references of path '/nix/store/0123-stabileo-engine' could not be realised"]
+        self.assertEqual(self.run_attempts(lines)[:2], (7, 1))
+
+    def test_unrealisable_path_after_a_cache_transport_failure_retries(self):
+        lines = ["error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': HTTP error 416\nerror: some references of path '/nix/store/0123-postgresql-18.3-dev' could not be realised", 'success']
+        self.assertEqual(self.run_attempts(lines)[:2], (0, 2))
 
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))

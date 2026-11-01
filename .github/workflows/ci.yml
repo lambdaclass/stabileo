@@ -3,7 +3,7 @@
 # retry-infra.sh retries dependency downloads twice only for known infra log patterns;
 # builds/tests/timeouts are never retried. Optional Actions caches may fail open.
 # Top-level full PR build audit, excluding builds spawned by tests:
-# engine WASM 2; research WASM sets 2 (1 on source-cache hit); site builds
+# engine WASM 5 (WASM job, Docker source, three research validation jobs); research WASM sets 2 (1 on source-cache hit); site builds
 # 6: production, E2E, admin, Docker source, and route-budget main/candidate.
 # Docker tests both source and site-production paths; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
