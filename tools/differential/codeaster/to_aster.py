@@ -306,6 +306,8 @@ def translate(d):
     mats = {x["id"]: x for x in d["materials"].values()}
     secs = {x["id"]: x for x in d["sections"].values()}
     elems = sorted(d["elements"].values(), key=lambda e: e["id"])
+    if not elems:
+        raise Unsupported("no members")
     for nid in sorted(pts):
         m.node(f"N{nid}", pts[nid])
     extra = [0]

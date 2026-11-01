@@ -202,5 +202,47 @@ class Classification(unittest.TestCase):
         self.assertEqual(r["status"], "silent_unimposed")
 
 
+class SingularVerdict(unittest.TestCase):
+    """Code_Aster singular at NPREC=10 and disagreeing with the check off:
+    `silent_singular` only when stabileo gave no conditioning warning; every
+    such result carries `why`, and the summary never needs one."""
+
+    def finish(self, diags):
+        import json as J
+        import tempfile
+        from unittest import mock
+        import run as R
+        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0)]
+        with tempfile.TemporaryDirectory() as job, \
+                mock.patch.object(R.to_aster, "postprocess", lambda meta, raw: {"skip_reac": [], "reac": {}, "forces": {}}), \
+                mock.patch.object(R.C, "compare", lambda model, s, a, tol: (bad, {"disp_r": 1.0})):
+            with open(os.path.join(job, "result.json"), "w") as f:
+                J.dump({}, f)
+            r = {"name": "m", "job": job, "sres": {"diags": diags, "forces": {}}, "meta": {"elements": []}, "near_singular": True}
+            return R.finish(r, 1e-6, None, _beam({f: True for f in T.FLAGS}))
+
+    def test_unwarned_singular_solve_is_silent(self):
+        r = self.finish(["dense_lu", "residual_ok"])
+        self.assertEqual(r["status"], "silent_singular")
+        self.assertTrue(r["why"])
+
+    def test_warned_singular_solve_is_not_silent(self):
+        r = self.finish(["high_diagonal_ratio"])
+        self.assertEqual(r["status"], "warned_singular")
+        self.assertIn("stabileo warned: high_diagonal_ratio", r["why"])
+
+    def test_summary_survives_a_result_without_why(self):
+        import contextlib
+        import io
+        import sys as S
+        from unittest import mock
+        import run as R
+        argv = ["run.py", "--bin", os.path.abspath(__file__)]
+        with mock.patch.object(S, "argv", argv), mock.patch.object(R, "collect", lambda a: [("m", {})]), \
+                mock.patch.object(R, "prepare", lambda *a: {"name": "m", "status": "silent_singular", "max_err": {"disp_r": 1.0}}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(R.main(), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

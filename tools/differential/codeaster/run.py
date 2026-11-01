@@ -138,6 +138,11 @@ def prepare(name, model, binary, workdir, flagged=False):
 UNIMPOSED = re.compile(r"^stabileo: Support (\S+) \(node \d+\): the prescribed (d[xyz]|dr[xyz]) = \S+ would not be applied, because ")
 
 
+# Warning-level conditioning diagnostics (not in C.ILL_CONDITIONED, which skips
+# the model): a singular Code_Aster verdict on such a model is not silent.
+WARNED_CONDITIONING = {"high_diagonal_ratio"}
+
+
 # The translator's own reasons for rejecting a model that say it has no
 # unique answer either: a load on a rotation nothing stiffens, a mechanism.
 REFUSED_TOO = ("nodal moment on a rotation-free", "rotational mechanism", "free body")
@@ -277,10 +282,17 @@ def finish(r, tol, dump_dir, model):
     if bad is None:
         return dict(r, status="unloaded")
     st = "mismatch" if bad else "ok"
+    why = []
     if r.pop("near_singular", False):
         st = "silent_singular" if bad else "near_singular"
+        warned = sorted(set(sres["diags"]) & WARNED_CONDITIONING)
+        if bad and warned:
+            st = "warned_singular"
+        if bad:
+            why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [
+                f"stabileo warned: {w}" for w in warned]
     r = dict(r, status=st, max_err=groups, tol=tol, n_bad=len(bad),
-             worst=sorted(bad, key=lambda b: -b[5])[:8])
+             worst=sorted(bad, key=lambda b: -b[5])[:8], **({"why": why} if why else {}))
     if bad and dump_dir:
         os.makedirs(dump_dir, exist_ok=True)
         base = os.path.join(dump_dir, r["name"].replace("/", "_"))
@@ -395,8 +407,8 @@ def main():
     if g:
         print("max normalized error over compared models: " + json.dumps({k: f"{v:.2e}" for k, v in sorted(g.items())}))
     for st in ("unsupported", "refused", "false_reject", "stabileo_failed", "ill_conditioned", "silent_singular",
-               "silent_unimposed", "aster_failed"):
-        reasons = Counter(w[:120] for r in results if r["status"] == st for w in r["why"])
+               "warned_singular", "silent_unimposed", "aster_failed"):
+        reasons = Counter(w[:120] for r in results if r["status"] == st for w in r.get("why", []))
         if reasons:
             print(f"{st} reasons: " + json.dumps(dict(reasons.most_common(8))))
     if a.report:

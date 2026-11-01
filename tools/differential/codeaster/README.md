@@ -41,7 +41,8 @@ Inputs:
 - `FILES`: any `SolverInput3D` JSON files. The nightly job also passes
   `regressions/*.json`: reduced models from past nightly findings that were
   harness errors (diaphragm kinematics; settlements on DOFs no rigid restraint
-  carries). Each must now compare `ok` or end `refused`.
+  carries; a twist mechanism nothing loads, on which stabileo warns
+  `high_diagonal_ratio`). Each must now end `ok`, `refused` or `warned_singular`.
 - `--fixtures`: the 3D `engine/tests/fixtures/*-input.json` files, which
   include the example models (buildings, industrial hall, tower, grid slab,
   space truss and so on).
@@ -77,6 +78,7 @@ Statuses:
 | `ok` | agrees within tolerance |
 | `mismatch` | disagrees: a stabileo bug or a translation error, to be triaged |
 | `silent_singular` | Code_Aster finds the stiffness singular (a pivot lost more than 10 digits) where stabileo solved without a warning, and with the check off Code_Aster's solution disagrees with stabileo or cannot be computed |
+| `warned_singular` | as `silent_singular`, but stabileo gave a warning-level conditioning diagnostic (`high_diagonal_ratio`): inconclusive, not silent |
 | `near_singular` | Code_Aster's singularity check trips, but with the check off (`NPREC=-1`) its solution agrees with stabileo: an ill-conditioned model, not a mechanism |
 | `ill_conditioned` | stabileo flags it (`stiffness_not_positive_definite`, `residual_high`, ...), or MUMPS cannot reach its residual check (FACTOR_57, also after a FACTOR_11 rerun with the check off) |
 | `refused` | stabileo refuses the model and Code_Aster agrees there is no unique answer: its stiffness is singular (`FACTOR_11`/`FACTOR_42` at `NPREC=10`, or `FACTOR_57`), or the translator rejects the model for the same reason (a nodal moment on a rotation nothing stiffens, a rotational mechanism), or stabileo refuses a prescribed displacement that no rigid restraint carries (AC-10) on the same support and DOF the translator finds unrestrained (it would drop it and solve a different model) |
