@@ -25,16 +25,18 @@ function surname(name: string): string {
   return name.trim().split(/\s+/).at(-1) ?? name;
 }
 
-function shortAuthors(authors: string[]): string {
+const AND: Record<PublicLocale, string> = { en: '&', es: 'y', pt: 'e', de: 'und', fr: 'et', tr: 've' };
+
+function shortAuthors(authors: string[], locale: PublicLocale): string {
   if (authors.length === 0) return '';
   if (authors.length === 1) return surname(authors[0]);
-  if (authors.length === 2) return `${surname(authors[0])} & ${surname(authors[1])}`;
+  if (authors.length === 2) return `${surname(authors[0])} ${AND[locale]} ${surname(authors[1])}`;
   return `${surname(authors[0])} et al.`;
 }
 
-export function paperTitle(name: string, paperId: string): string {
+export function paperTitle(name: string, paperId: string, locale: PublicLocale): string {
   const p = paper(paperId);
-  const credit = name.includes(String(p.year)) ? '' : ` (${[shortAuthors(p.authors), p.year].filter(Boolean).join(' ')})`;
+  const credit = name.includes(String(p.year)) ? '' : ` (${[shortAuthors(p.authors, locale), p.year].filter(Boolean).join(' ')})`;
   return `${name}${credit} — Stabileo Research`;
 }
 
@@ -88,7 +90,7 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
     STABILEO_ORGANIZATION,
   ];
   return {
-    title: paperTitle(head.name, head.paperId),
+    title: paperTitle(head.name, head.paperId, own),
     description: head.lead,
     path,
     written: researchLocales(path) as readonly PublicLocale[],
