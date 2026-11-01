@@ -19,7 +19,9 @@
  *      `serializeProject`; a session of three tabs by its `sessionPayload`;
  *   4. writes `web/legacy-projects/<tag>/`: the files exactly as written (gzipped when large, so
  *      the corpus stays small; the bytes inside are untouched), the results in the snapshot
- *      gate's committed format, and `manifest.json`.
+ *      gate's committed format, and `manifest.json`; and, for an example whose fixture was
+ *      edited since the tag, the tag's fixture as `web/legacy-projects/fixtures/<id>@<blob>.json`,
+ *      the example the test compares that file with.
  *
  * Heavy: run it when a release is tagged, not in CI. Throttled (CARGO_BUILD_JOBS=4, nice).
  */
@@ -130,7 +132,14 @@ function generate(tag) {
     try { return JSON.parse(git('show', `${tag}:web/src/lib/provenance/result-changes.json`)).currentResultsVersion; } catch { return 0; }
   })();
   const entries = [];
+  const editedFixtures = join(corpus, 'fixtures');
   for (const ex of examples) {
+    const blob = git('rev-parse', `${tag}:web/src/lib/templates/fixtures/${ex.id}.json`);
+    if (spawnSync('git', ['-C', repo, 'cat-file', '-e', `HEAD:web/src/lib/templates/fixtures/${ex.id}.json`]).status !== 0
+      || git('rev-parse', `HEAD:web/src/lib/templates/fixtures/${ex.id}.json`) !== blob) {
+      mkdirSync(editedFixtures, { recursive: true });
+      writeFileSync(join(editedFixtures, `${ex.id}@${blob}.json`), execFileSync('git', ['-C', repo, 'cat-file', 'blob', blob]));
+    }
     const text = readFileSync(join(raw, `${ex.id}.ded`));
     const fileName = put(dest, `${ex.id}.ded`, text);
     const parsed = JSON.parse(text.toString('utf8'));
@@ -150,7 +159,7 @@ function generate(tag) {
       results,
       ...(results ? {} : { notSolved: `larger than ${SOLVE_LIMIT} members and shells: opened and migrated only` }),
       solvedWithResultsVersion: parsed.snapshot?.solvedWith?.resultsVersion ?? null,
-      fixtureBlob: git('rev-parse', `${tag}:web/src/lib/templates/fixtures/${ex.id}.json`),
+      fixtureBlob: blob,
     });
   }
   let session = null;

@@ -4683,8 +4683,8 @@ function createModelStore() {
       };
     },
 
-    async loadExample(name: string): Promise<void> {
-      const loader = getFixture(name);
+    async loadExample(name: string, fixture?: () => Promise<unknown>): Promise<void> {
+      const loader = fixture ?? getFixture(name);
       if (!loader) return;
 
       if (!_undoBatching) _pushUndo?.();

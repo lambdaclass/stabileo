@@ -4,8 +4,8 @@ import { initSolver } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import {
-  captureExample, declaresMove, judge, migrationMessage, openAndSolve, readCorpusText, readManifest, readResults,
-  unexplainedMessage,
+  againstExample, captureExample, currentFixtureBlob, declaresMove, judge, migrationMessage, openAndSolve, openSession,
+  readCorpusText, readManifest, readResults, savedFixture, unexplainedMessage,
 } from '../legacy';
 import type { Values } from '../capture-results';
 
@@ -193,4 +193,98 @@ describe('against real corpus files', () => {
     expect(v.kind).toBe('unexplained');
     expect(migrationMessage(v, 'v0.2.0')).toContain('no registered result change explains it');
   }, 120_000);
+
+  describe('a large example, opened but not solved, is compared with its example as a model', () => {
+    type Snapshot = {
+      loads: Array<{ type: string; data: Record<string, number> }>;
+      elements: Array<[number, { sectionId: number }]>;
+      supports: Array<[number, { type: string }]>;
+    };
+    const tower = readManifest('v0.2.0').examples.find((e) => e.example === 'torre-irregular-con-retiros')!;
+    const open = (edit?: (s: Snapshot) => void) => openAndSolve(readCorpusText(`v0.2.0/${tower.file}`), {
+      solve: false, beforeOpen: edit && ((f) => edit(f.snapshot as Snapshot)),
+    });
+
+    it('the tower as saved is the same model', async () => {
+      expect(tower.results).toBeNull();
+      expect(tower.model.elements).toBeGreaterThan(1000);
+      const opened = await open();
+      expect(Object.keys(opened.fingerprint).filter((k) => k.startsWith('loads[')).length).toBeGreaterThan(8);
+      expect(await againstExample('tower', 'v0.2.0', tower, opened, false)).toMatchObject({ failure: null });
+    }, 120_000);
+
+    it('NEGATIVE: a migration that drops one of its 1696 loads fails', async () => {
+      const opened = await open((s) => { s.loads.pop(); });
+      const { failure } = await againstExample('tower', 'v0.2.0', tower, opened, false);
+      expect(failure).toContain('loads[3].nodal3d.count: 20 → 19');
+      expect(failure).toContain('Fix the migration');
+    }, 120_000);
+
+    it('NEGATIVE: one load 1 % larger fails', async () => {
+      const opened = await open((s) => { const d = s.loads[0].data; d.qZI *= 1.01; d.qZJ *= 1.01; });
+      const { failure } = await againstExample('tower', 'v0.2.0', tower, opened, false);
+      expect(failure).toContain('loads[1].distributed3d.qZI');
+      expect(failure).toContain('loads[1].distributed3d.qZJ');
+    }, 120_000);
+
+    it('NEGATIVE: a member given another section fails', async () => {
+      const opened = await open((s) => { const e = s.elements[0][1]; e.sectionId = e.sectionId === 2 ? 3 : 2; });
+      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toContain('element[1].section');
+    }, 120_000);
+
+    it('NEGATIVE: a support released from fixed to pinned fails', async () => {
+      const opened = await open((s) => { s.supports[0][1].type = 'pinned3d'; });
+      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toContain('support[1].type');
+    }, 120_000);
+  });
+
+  describe('an example edited since the release is compared with the fixture that release saved', () => {
+    const arch = readManifest('v0.2.0').examples.find((e) => e.example === 'hinged-arch-3d')!;
+
+    it('its recorded fixture is that release\'s, and the file is the same model and results', async () => {
+      expect(arch.fixtureBlob).not.toBe(currentFixtureBlob('hinged-arch-3d'));
+      expect(savedFixture('hinged-arch-3d', arch.fixtureBlob).edited).toBe(true);
+      const opened = await openAndSolve(readCorpusText(`v0.2.0/${arch.file}`));
+      expect(await againstExample('hinged-arch', 'v0.2.0', arch, opened, true)).toMatchObject({ failure: null, verdict: { kind: 'same' } });
+    }, 120_000);
+
+    it('NEGATIVE: against today\'s edited example it differs, so the comparison is not vacuous', async () => {
+      const opened = await openAndSolve(readCorpusText(`v0.2.0/${arch.file}`));
+      const { failure } = await againstExample('hinged-arch', 'v0.2.0', { ...arch, fixtureBlob: currentFixtureBlob('hinged-arch-3d')! }, opened, true);
+      expect(failure).toContain('loads[1].distributed3d.qZI');
+    }, 120_000);
+
+    it('NEGATIVE: a fixture edit with no recorded fixture fails', () => {
+      expect(() => savedFixture('hinged-arch-3d', '0'.repeat(40))).toThrow(/does not record it/);
+    });
+  });
+
+  describe('a session file\'s tabs are compared with their examples', () => {
+    const m = readManifest('v0.4.0');
+    const entry = (i: number) => {
+      const tab = m.session.tabs![i];
+      return { ...m.examples.find((e) => e.example === tab.id)!, workspace: tab.workspace };
+    };
+    type Session = { tabs: Array<{ modelSnapshot: { loads: unknown[] } }> };
+
+    it('every tab of the v0.4.0 session is its example, model and results', async () => {
+      const { tabs } = await openSession(readCorpusText(`v0.4.0/${m.session.file}`));
+      expect(tabs).toHaveLength(3);
+      for (const [i, tab] of tabs.entries()) {
+        expect(await againstExample(`tab ${i + 1}`, 'v0.4.0', entry(i), tab, true)).toMatchObject({ failure: null, verdict: { kind: 'same' } });
+      }
+    }, 120_000);
+
+    it('NEGATIVE: a migration that drops a load in a session tab fails, with no registered change to excuse it', async () => {
+      const { tabs } = await openSession(readCorpusText(`v0.4.0/${m.session.file}`), {
+        beforeOpen: (f) => { const t = (f as Session).tabs[1].modelSnapshot; t.loads = t.loads.slice(1); },
+      });
+      const { failure } = await againstExample('tab 2', 'v0.4.0', entry(1), tabs[1], true);
+      expect(failure).toContain('loads[1].distributed3d.count: 2 → 1');
+      expect(failure).toContain('loads[1].distributed3d.qZI: -20 → -10');
+      const results = judge('tab 2 against today', await captureExample('3d-portal-frame', '3d'), tabs[1].values, []);
+      expect(results.kind).toBe('unexplained');
+    }, 120_000);
+  });
 });
+
