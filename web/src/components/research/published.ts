@@ -5,7 +5,7 @@ const BASE = ['en', 'es', 'pt'] as const;
 
 /** The languages each research page is written in; `research-locales.test.ts` holds this to every page's own dictionaries. */
 const PUBLISHED: Record<string, readonly string[]> = {
-  '/research': ALL,
+  '/research': BASE,
   '/research/optimization/andreassen-2011': ALL,
   '/research/mechanics/biggins-2026': ALL,
   '/research/benchmarks/cqc-1981': ALL,

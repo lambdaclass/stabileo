@@ -25,7 +25,7 @@ const defined = (...dictionaries: object[]) => ALL.filter((l) => dictionaries.ev
 
 /** Every dictionary a page renders its own copy from: the page is written only in the languages all of them define. */
 const DICTIONARIES: Record<string, object[]> = {
-  [RESEARCH_GALLERY]: [galleryStrings],
+  [RESEARCH_GALLERY]: [galleryStrings, STRINGS],
   '/research/optimization/andreassen-2011': [andreassen],
   '/research/mechanics/biggins-2026': [biggins],
   '/research/benchmarks/cqc-1981': [cqc],

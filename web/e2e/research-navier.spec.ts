@@ -125,9 +125,9 @@ for (const [locale, title, replayLabel] of LOCALES) {
     await expect(page.getByTestId('navier-source')).toHaveText(replayLabel);
     await expectRows(page, replay.rows);
     await expect(page.getByTestId('navier-reference')).toHaveText(new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(reference));
-    const keys = page.locator('.sfv-keys');
-    await expect(keys).not.toHaveText('');
-    await expect(keys).not.toContainText('Arrow keys pan');
+    const viewer = page.locator('.sfv-canvas');
+    await expect(viewer).toHaveAccessibleDescription(/\S/);
+    if (locale !== 'en') await expect(viewer).not.toHaveAccessibleDescription(/arrow keys pan/i);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
