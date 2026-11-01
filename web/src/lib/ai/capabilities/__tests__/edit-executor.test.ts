@@ -105,6 +105,24 @@ describe('edit executor', () => {
     expect(sec(given, arr(given, 'elements')[3][1].sectionId as number)).toBe('HEB 400');
   });
 
+  it('new members copy the type, releases and orientation of the member they continue', () => {
+    const snap = makeFrame();
+    const col = arr(snap, 'elements')[0][1];
+    Object.assign(col, { hingeStart: true, type: 'frame' });
+    const beam = arr(snap, 'elements')[1][1];
+    Object.assign(beam, { hingeEnd: true });
+    const story = applyEdit({ action: 'add_story', params: { height: 3 } }, snap);
+    const added = arr(story, 'elements').slice(3).map((e) => e[1]);
+    const y = (id: unknown) => arr(story, 'nodes').find((n) => n[0] === id)![1].y as number;
+    expect(added[0]).toMatchObject({ hingeStart: true, hingeEnd: false });
+    expect(y(added[0].nodeI)).toBeLessThan(y(added[0].nodeJ));
+    expect(added[2]).toMatchObject({ hingeEnd: true });
+    const truss = makeFrame();
+    for (const [, e] of arr(truss, 'elements')) e.type = 'truss';
+    const bay = applyEdit({ action: 'add_bay', params: { width: 5 } }, truss);
+    expect(arr(bay, 'elements').slice(3).map((e) => e[1].type)).toEqual(['truss', 'truss']);
+  });
+
   it('a new bay keeps the base support of the frame it extends', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
     expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);

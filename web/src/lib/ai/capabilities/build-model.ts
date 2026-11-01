@@ -175,7 +175,9 @@ function runAction(action: BuildAction, current?: Record<string, unknown>): Reco
     if (!current) throw new AiActionError('Edit actions require an existing model (send currentSnapshot)');
     return applyEdit(action, current);
   }
-  return executeAction(action);
+  const snapshot = executeAction(action);
+  validateSnapshot(snapshot);
+  return snapshot;
 }
 
 const capitalize = (s: string): string => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));

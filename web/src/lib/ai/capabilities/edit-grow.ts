@@ -49,7 +49,7 @@ function elementBetween(snap: Json, a: number | undefined, b: number | undefined
   return undefined;
 }
 
-type Props = { matId: number; secId: number };
+type Props = { matId: number; secId: number; from?: Json };
 
 function addSupportLike(snap: Json, nodeId: number, from: number | undefined, fallback: string): void {
   for (const entry of asArray(snap.supports) ?? []) {
@@ -70,7 +70,19 @@ function inherit(snap: Json, from: Json | undefined, override: number | undefine
   if (from === undefined && override === undefined) {
     throw new AiActionError(`Cannot tell which section the new ${what} should have: give ${what}_section`);
   }
-  return { matId: matId ?? firstMaterialId(snap), secId: secId ?? firstSectionId(snap) };
+  return { matId: matId ?? firstMaterialId(snap), secId: secId ?? firstSectionId(snap), from };
+}
+
+function place(snap: Json, props: Props, a: number, b: number): void {
+  if (!props.from) {
+    addElementToSnap(snap, a, b, props.matId, props.secId);
+    return;
+  }
+  const [ti, tj] = nodeRefs(props.from).map((id) => coordsOf(snap, id));
+  const [ca, cb] = [coordsOf(snap, a), coordsOf(snap, b)];
+  const dot = (tj.x - ti.x) * (cb.x - ca.x) + (tj.y - ti.y) * (cb.y - ca.y) + ((tj.z ?? 0) - (ti.z ?? 0)) * ((cb.z ?? 0) - (ca.z ?? 0));
+  const [ni, nj] = dot < 0 ? [b, a] : [a, b];
+  cloneElementToSnap(snap, { ...props.from, sectionId: props.secId, materialId: props.matId }, ni, nj);
 }
 
 export function addBay(snap: Json, width: number, side?: string, beamSection?: string, columnSection?: string): void {
@@ -97,8 +109,8 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
   let prev: number | undefined;
   plan.forEach(({ y, adj, column, beam }, i) => {
     const nodeId = addNodeToSnap(snap, newX, y);
-    if (prev !== undefined && column) addElementToSnap(snap, prev, nodeId, column.matId, column.secId);
-    if (adj !== undefined && beam) addElementToSnap(snap, adj, nodeId, beam.matId, beam.secId);
+    if (prev !== undefined && column) place(snap, column, prev, nodeId);
+    if (adj !== undefined && beam) place(snap, beam, adj, nodeId);
     if (i === 0) addSupportLike(snap, nodeId, adj, 'fixed');
     prev = nodeId;
   });
@@ -173,9 +185,9 @@ function addStory2d(snap: Json, height: number, beamSection?: string, columnSect
   cols.forEach((_, i) => {
     const topNode = tops[i];
     const column = columns[i];
-    if (topNode !== undefined && column) addElementToSnap(snap, topNode, newIds[i], column.matId, column.secId);
+    if (topNode !== undefined && column) place(snap, column, topNode, newIds[i]);
   });
-  beams.forEach((beam, i) => addElementToSnap(snap, newIds[i], newIds[i + 1], beam.matId, beam.secId));
+  beams.forEach((beam, i) => place(snap, beam, newIds[i], newIds[i + 1]));
 }
 
 function addStory3d(snap: Json, height: number, beamSection?: string, columnSection?: string): void {
@@ -217,7 +229,7 @@ function addStory3d(snap: Json, height: number, beamSection?: string, columnSect
     const newNode = mapped(nodeMap, topNode);
     const matId = asU64(elem.materialId) ?? firstMaterialId(snap);
     const secId = colOverride ?? asU64(elem.sectionId) ?? firstSectionId(snap);
-    addElementToSnap(snap, topNode, newNode, matId, secId);
+    place(snap, { matId, secId, from: elem }, topNode, newNode);
   }
 
   for (const elem of topFloor) {

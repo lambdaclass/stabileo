@@ -103,6 +103,15 @@ describe('validate snapshot', () => {
     expect(() => validateSnapshot({ ...minimal(), loads: [dist({}), dist({})] })).toThrow('duplicate load id: 1');
     expect(() => validateSnapshot({ ...minimal(), loads: [dist({ id: 'one' })] })).toThrow('load has no valid id');
   });
+  it('fails on an unknown element type, a zero-length element or an impossible Poisson ratio', () => {
+    expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, type: 'cable', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]] })).toThrow("element 1: type must be 'frame' or 'truss'");
+    expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]] })).toThrow("element 1: type must be 'frame' or 'truss'");
+    expect(() => validateSnapshot({ ...minimal(), elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 1, sectionId: 1, materialId: 1 }]] })).toThrow('element 1 starts and ends at the same node');
+    expect(() => validateSnapshot({ ...minimal(), materials: [[1, { id: 1, name: 'x', e: 200000, nu: 0.5 }]] })).toThrow("Poisson's ratio");
+  });
+  it('validates what a generator builds, so an overflowing geometry never becomes a draft', () => {
+    expect(() => outcomeFromText('{"action":"create_multi_story_frame","params":{"n_bays":3,"n_floors":2,"bay_width":1e308,"floor_height":3},"interpretation":""}')).toThrow(AiActionError);
+  });
   it('starts the load counter of a custom model above its largest load id', () => {
     const o = outcomeFromText(JSON.stringify({ action: 'create_model', params: {
       analysis_mode: '2d', nodes: minimal().nodes, elements: minimal().elements, materials: minimal().materials,

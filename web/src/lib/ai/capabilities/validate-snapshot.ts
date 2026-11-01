@@ -74,6 +74,8 @@ export function validateSnapshot(snapshot: unknown): void {
 
   for (const entry of elements) {
     const [id, data] = parseEntry(entry);
+    if (data.type !== 'frame' && data.type !== 'truss') throw new AiActionError(`element ${id}: type must be 'frame' or 'truss', not ${JSON.stringify(data.type)}`);
+    if (data.nodeI === data.nodeJ) throw new AiActionError(`element ${id} starts and ends at the same node`);
     const refs: Array<[string, Set<number>]> = [['nodeI', nodeIds], ['nodeJ', nodeIds], ['sectionId', secIds], ['materialId', matIds]];
     for (const [key, set] of refs) {
       const ref = asU64(data[key]);
@@ -118,6 +120,10 @@ export function validateSnapshot(snapshot: unknown): void {
     const e = asF64(data.e);
     if (e === undefined || e <= 0) {
       throw new AiActionError(`material ${id}: elastic modulus (e) must be positive`);
+    }
+    if (data.nu !== undefined) {
+      const nu = asF64(data.nu);
+      if (nu === undefined || nu < 0 || nu >= 0.5) throw new AiActionError(`material ${id}: Poisson's ratio (nu) must be at least 0 and below 0.5`);
     }
   }
 
