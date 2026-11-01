@@ -1,4 +1,5 @@
 import type { ModelSnapshot } from '../store/history.svelte';
+import type { Load } from '../store/model.svelte';
 import { migrateFootings } from '../model/footing';
 import { migrateGeotechnical } from '../model/geotechnical';
 import { DEFAULT_COVER } from '../engine/design/member-context';
@@ -23,19 +24,46 @@ function finiteThroughout(value: unknown): boolean {
     : value === null || typeof value !== 'object' || Object.values(value).every(finiteThroughout);
 }
 
-const NODE_LOADS = ['nodal', 'nodal3d', 'displacement3d'];
-const MEMBER_LOADS = ['distributed', 'pointOnElement', 'thermal', 'distributed3d', 'pointOnElement3d', 'prestress3d'];
+const LOAD_TARGET = {
+  nodal: 'node', nodal3d: 'node', displacement3d: 'node',
+  distributed: 'member', pointOnElement: 'member', thermal: 'member',
+  distributed3d: 'member', pointOnElement3d: 'member', prestress3d: 'member',
+  surface3d: 'shell', thermalQuad3d: 'shell',
+} as const satisfies Record<Load['type'], 'node' | 'member' | 'shell'>;
+
+const LOAD_NUMBERS = ['a', 'angle', 'b', 'carrier', 'caseId', 'drx', 'dry', 'drz', 'dtGradient', 'dtGradientY',
+  'dtUniform', 'dx', 'dy', 'dz', 'eI', 'eJ', 'eM', 'force', 'fromDef', 'fx', 'fy', 'fz', 'mx', 'my', 'mz',
+  'p', 'px', 'py', 'pz', 'q', 'qI', 'qJ', 'qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ', 'strain'];
+
+function loadNumbersValid(d: RecordValue): boolean {
+  return LOAD_NUMBERS.every(f => d[f] === undefined || typeof d[f] === 'number')
+    && (d.qNodes === undefined || (Array.isArray(d.qNodes) && d.qNodes.every(q => typeof q === 'number')));
+}
+
+const numeric = (entry: RecordValue, ...fields: string[]) => fields.every(f => typeof entry[f] === 'number');
 
 function referencesResolve(value: RecordValue): boolean {
   const keys = (family: unknown) => new Set((family as Entry[]).map(([key]) => key));
   const nodes = keys(value.nodes), elements = keys(value.elements);
+  const materials = keys(value.materials), sections = keys(value.sections);
+  const plates = keys(value.plates ?? []), quads = keys(value.quads ?? []);
+  const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
-    && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number))
+    && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
+      && materials.has(e.materialId as number) && sections.has(e.sectionId as number)
+      && (e.variableSection === undefined
+        || (record(e.variableSection) && sections.has(e.variableSection.sectionJ as number))))
+    && shells.every(([, s]) => materials.has(s.materialId as number))
     && (value.supports as Entry[]).every(([, s]) => nodes.has(s.nodeId as number))
+    && (value.materials as Entry[]).every(([, m]) => numeric(m, 'e', 'nu'))
+    && (value.sections as Entry[]).every(([, sec]) => numeric(sec, 'a'))
     && (value.loads as RecordValue[]).every(({ type, data }) => {
       const d = data as RecordValue;
-      return NODE_LOADS.includes(type as string) ? nodes.has(d.nodeId as number)
-        : !MEMBER_LOADS.includes(type as string) || elements.has(d.elementId as number);
+      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(d)) return false;
+      const target = LOAD_TARGET[type as Load['type']];
+      return target === 'node' ? nodes.has(d.nodeId as number)
+        : target === 'member' ? elements.has(d.elementId as number)
+          : (d.on === 'plate' ? plates : quads).has(d.quadId as number);
     });
 }
 

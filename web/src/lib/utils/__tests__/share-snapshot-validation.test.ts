@@ -63,8 +63,13 @@ describe('shared-link importer', () => {
       nonnumeric: encode({ ...base, n: [[1, 'x', 0], base.n[1]] }),
       danglingMember: encode({ ...base, e: [...base.e, [2, 0, 1, 99, 1, 1]] }),
       danglingSupport: encode({ ...base, s: [...base.s, [2, 77, 'pinned']] }),
+      danglingMaterial: encode({ ...base, e: [...base.e, [2, 0, 1, 2, 99, 1]] }),
+      danglingSection: encode({ ...base, e: [...base.e, [2, 0, 1, 2, 1, 99]] }),
       danglingNodalLoad: encode({ ...base, l: [...base.l, { type: 'nodal', data: { id: 3, caseId: 1, nodeId: 55, fx: 0, fz: -1, my: 0 } }] }),
       danglingMemberLoad: encode({ ...base, l: [...base.l, { type: 'distributed', data: { id: 3, caseId: 1, elementId: 42, qI: -1, qJ: -1 } }] }),
+      unknownLoadType: encode({ ...base, l: [...base.l, { type: 'Distributed', data: { id: 3, caseId: 1, elementId: 42, qI: -1, qJ: -1 } }] }),
+      danglingShellLoad: encode({ ...base, l: [...base.l, { type: 'surface3d', data: { id: 3, caseId: 1, quadId: 7, q: 1 } }] }),
+      nullLoadComponent: encode({ ...base, l: [...base.l, { type: 'nodal', data: { id: 3, caseId: 1, nodeId: 2, fx: null, fz: -1, my: 0 } }] }),
     };
     for (const [name, data] of Object.entries(rejected)) expect(decompressSnapshot(data), name).toBeNull();
   });
@@ -78,6 +83,16 @@ describe('shared-link importer', () => {
       nonnumericZ: p => { p.nodes[0][1].z = null; },
       danglingMember: p => { p.elements[0][1].nodeJ = 9; },
       danglingSupport: p => { p.supports[0][1].nodeId = 9; },
+      danglingMaterial: p => { p.elements[0][1].materialId = 9; },
+      danglingSection: p => { p.elements[0][1].sectionId = 9; },
+      danglingVariableSection: p => { p.elements[0][1].variableSection = { sectionJ: 9 }; },
+      nullMaterialE: p => { p.materials[0][1].e = null; },
+      stringSectionA: p => { p.sections[0][1].a = '0.01'; },
+      nullLoadComponent: p => { p.loads[0].data.qI = null; },
+      stringLoadComponent: p => { p.loads[0].data.qJ = '-5'; },
+      unknownLoadType: p => { p.loads[0].type = 'distributed '; },
+      danglingPlateLoad: p => { p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } }); },
+      danglingPlateMaterial: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 1], materialId: 9, thickness: 0.1 }]]; },
       danglingMemberLoad: p => { p.loads[0].data.elementId = 9; },
     };
     for (const [name, fault] of Object.entries(faults)) {
@@ -85,6 +100,14 @@ describe('shared-link importer', () => {
       fault(payload);
       expect(prepareSharedSnapshot(payload), name).toBeNull();
     }
+  });
+
+  it('accepts loads on shells that exist', () => {
+    const payload = legacy();
+    payload.nodes.push([3, { id: 3, x: 0, y: 4 }]);
+    payload.plates = [[1, { id: 1, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]];
+    payload.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } });
+    expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'surface3d']);
   });
 
   it('keeps a hostile model name as inert text', () => {
