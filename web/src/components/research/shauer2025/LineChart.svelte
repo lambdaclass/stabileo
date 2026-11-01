@@ -4,6 +4,7 @@
    * ours on top as a thin line, so agreement reads as a line inside a halo. Series are labelled on
    * the plot (`labels`), not in a legend box. A crosshair tooltip reads every series at the nearest x.
    */
+  import { chartReadout } from './chart-readout';
   import type { Series } from './protocol';
   import { num, tickDecimals } from '../shell/format';
 
@@ -75,16 +76,7 @@
   }
   const ordered = $derived([...series].sort((a, b) => Number(!!b.dashed) - Number(!!a.dashed)));
 
-  const readout = $derived.by(() => {
-    if (hoverX === null) return null;
-    const rows = series.map((s) => {
-      let best: [number, number] | null = null;
-      for (const p of s.points) if (!best || Math.abs(p[0] - hoverX!) < Math.abs(best[0] - hoverX!)) best = p;
-      return { s, p: best };
-    });
-    const x = rows.find((r) => r.p)?.p?.[0];
-    return x === undefined ? null : { x, rows };
-  });
+  const readout = $derived(chartReadout(series, hoverX));
   const atMarker = $derived(
     marker === null ? [] : series.filter((s) => !s.dashed).map((s) => ({ s, p: s.points.reduce<[number, number] | null>((b, p) => (!b || Math.abs(p[0] - marker!) < Math.abs(b[0] - marker!) ? p : b), null) })),
   );
@@ -100,13 +92,13 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label="{yLabel} against {xLabel}" onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
-    <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="75%">{num(yExp, {})}</tspan>){/if}</text>
+  <svg {width} {height} role="img" aria-label={`${yLabel} / ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+    <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="12px">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
       <line x1={M.l} x2={width - M.r} y1={yy} y2={yy} class="grid" />
       {#if log}
-        <text x={M.l - 6} y={yy} class="tick" text-anchor="end" dominant-baseline="middle">10<tspan baseline-shift="super" font-size="75%">{num(t, {})}</tspan></text>
+        <text x={M.l - 6} y={yy} class="tick" text-anchor="end" dominant-baseline="middle">10<tspan baseline-shift="super" font-size="12px">{num(t, {})}</tspan></text>
       {:else}
         <text x={M.l - 6} y={yy} class="tick" text-anchor="end" dominant-baseline="middle">{fmtY(t)}</text>
       {/if}
@@ -186,16 +178,16 @@
   }
   .tick {
     fill: var(--fg-2);
-    font: var(--rs-micro) var(--st-sans);
+    font: max(12px, var(--rs-micro)) var(--st-sans);
     font-variant-numeric: tabular-nums;
   }
   .label {
     fill: var(--fg-2);
-    font: var(--rs-micro) var(--st-sans);
+    font: max(12px, var(--rs-micro)) var(--st-sans);
   }
   .dlabel {
     fill: var(--fg);
-    font: var(--rs-micro) var(--st-sans);
+    font: max(12px, var(--rs-micro)) var(--st-sans);
   }
   .readout {
     position: absolute;
@@ -204,7 +196,7 @@
     background: var(--lp-ink, #0c1620);
     border: 1px solid var(--hair);
     color: var(--fg);
-    font: var(--rs-micro) / 1.5 var(--st-sans);
+    font: max(12px, var(--rs-micro)) / 1.5 var(--st-sans);
     font-variant-numeric: tabular-nums;
     padding: 0.35rem 0.55rem;
     border-radius: 3px;
