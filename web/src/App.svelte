@@ -575,7 +575,6 @@
   $effect(() => {
     if (showBlog || showExperiment || showPaper) return idlePrefetchPublicPages();
   });
-  $effect(() => { if (!editorActive) return manualPublicScrollRestoration(); });
   $effect(() => { if (publicShell().kind !== 'app') void syncRouteState(); });
   let showBlog = $state(initialShell.kind === 'blog');
   /** The address the blog reads its slug from; kept in state so it is reactive. */
@@ -790,7 +789,7 @@
 
   const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
   provideEditorActivity(() => editorActive);
-  $effect(() => { if (editorActive) document.documentElement.lang = t('file.htmlLang'); });
+  $effect(() => { if (!editorActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {
