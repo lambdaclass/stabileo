@@ -614,6 +614,8 @@ fn nightly_harness_findings_hold() {
         (1014, 20758, &[("linear", "superposition")]),
         (1022, 20758, &[("load combinations", "reversal")]),
         (1037, 20758, &[("load combinations", "superposition")]),
+        (955, 20757, &[("linear", "mirror")]),
+        (982, 20758, &[("buckling", "relabel"), ("buckling", "rotation"), ("buckling", "units")]),
     ];
     for &(issue, seed, cells) in cases {
         let f = format!("{}/tests/metamorphic_corpus/nightly/issue-{issue}.json", env!("CARGO_MANIFEST_DIR"));
@@ -644,5 +646,24 @@ fn nightly_harness_findings_hold() {
             assert!(cell.fails.is_empty(), "#{issue}: {a} × {i}: {:?}", cell.fails);
             assert!(cell.pass > 0, "#{issue}: {a} × {i} did not complete: {cell:?}");
         }
+    }
+}
+
+/// #959: a cantilever under a purely transverse load has N = 0; its round-off
+/// axial force (-3e-6 kN on EA/L = 1.3e7 kN/m) passed the absolute compression
+/// test and gave load factors from 2.4e7 to 9.4e7, or a refusal, depending on
+/// the model's orientation. Every orientation now refuses alike.
+#[test]
+fn buckling_without_compression_refuses_in_every_orientation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-959.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    for deg in [0.0f64, 37.0, 90.0, 180.0] {
+        let (c, sn) = (deg.to_radians().cos(), deg.to_radians().sin());
+        let mut r = s.clone();
+        for n in r.nodes.values_mut() {
+            (n.x, n.z) = (c * n.x - sn * n.z, sn * n.x + c * n.z);
+        }
+        let e = dedaliano_engine::solver::buckling::solve_buckling_2d(&r, 3).map(|b| b.modes.iter().map(|m| m.load_factor).collect::<Vec<_>>()).unwrap_err();
+        assert!(e.contains("No compressed elements"), "{deg}°: {e}");
     }
 }

@@ -91,7 +91,8 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     //    The mean force Kg is built from, not the end average: under an axial
     //    span load both end forces can be 0 with the member compressed.
     let mean_n = super::geometric_stiffness::mean_axial_forces_2d(input, &dof_num, &u);
-    if !mean_n.values().any(|&n| n < -1e-6) {
+    let axial_noise = axial_force_round_off_2d(input, &linear);
+    if !mean_n.iter().any(|(id, &n)| n < -axial_noise.get(id).map_or(0.0, |x| x.0).max(1e-6)) {
         return Err("No compressed elements — buckling not applicable".into());
     }
 
@@ -118,6 +119,29 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
         kg_csc
     };
     Ok(BucklingSystem2D { linear, dof_num, k_ff, neg_kg_csc, inclined_transforms_2d, mean_n })
+}
+
+/// Per member, the axial force that is round-off of its elongation (N = EA·δ/L
+/// with δ the difference of end translations of size |u|, so 100·ε·EA·|u|/L),
+/// and that force over the member's Euler load π²EI/L².
+fn axial_force_round_off_2d(input: &SolverInput, linear: &AnalysisResults) -> HashMap<usize, (f64, f64)> {
+    let u: HashMap<usize, f64> = linear.displacements.iter().map(|d| (d.node_id, d.ux.hypot(d.uz))).collect();
+    let nodes: HashMap<usize, &SolverNode> = crate::ordered::values(&input.nodes).map(|n| (n.id, n)).collect();
+    let mats: HashMap<usize, &SolverMaterial> = crate::ordered::values(&input.materials).map(|m| (m.id, m)).collect();
+    let secs: HashMap<usize, &SolverSection> = crate::ordered::values(&input.sections).map(|s| (s.id, s)).collect();
+    let mut out = HashMap::new();
+    for e in crate::ordered::values(&input.elements) {
+        let (Some(a), Some(b)) = (nodes.get(&e.node_i), nodes.get(&e.node_j)) else { continue };
+        let (Some(m), Some(s)) = (mats.get(&e.material_id), secs.get(&e.section_id)) else { continue };
+        let l = (b.x - a.x).hypot(b.z - a.z);
+        let umax = u.get(&e.node_i).copied().unwrap_or(0.0).max(u.get(&e.node_j).copied().unwrap_or(0.0));
+        if l > 0.0 {
+            let (ea, ei) = (m.e * 1000.0 * s.a, m.e * 1000.0 * s.iz);
+            let noise = 100.0 * f64::EPSILON * ea * umax / l;
+            out.insert(e.id, (noise, if ei > 0.0 { noise * l * l / (std::f64::consts::PI.powi(2) * ei) } else { 0.0 }));
+        }
+    }
+    out
 }
 
 /// Solve 2D buckling analysis.
@@ -163,9 +187,10 @@ pub fn solve_buckling_2d(
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
+    let mu_noise = axial_force_round_off_2d(input, &linear).values().fold(1e-12f64, |m, x| m.max(x.1));
     let mut mode_pairs: Vec<(f64, usize)> = Vec::new();
     for (idx, &mu) in result.values.iter().enumerate() {
-        if mu > 1e-12 {
+        if mu > mu_noise {
             let lambda = 1.0 / mu;
             mode_pairs.push((lambda, idx));
         }
