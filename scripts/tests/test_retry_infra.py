@@ -25,6 +25,13 @@ class RetryInfra(unittest.TestCase):
             "error: unable to download 'https://cache.nixos.org/0123.narinfo': Failed sending data to the peer (55) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 0",
             "error: some substitutes for the outputs of derivation '/nix/store/0123-postgresql-18.3.drv' failed (usually happens due to networking issues); try '--fallback' to build derivation from source",
             'HTTP 403: You have exceeded a secondary rate limit and have been temporarily blocked from content creation.',
+            "error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': HTTP error 416",
+            "error: path '/nix/store/0123-libgpg-error-1.55' is required, but there is no substituter that can build it",
+            "error: some references of path '/nix/store/0123-postgresql-18.3-dev' could not be realised",
+            '##[warning]Failed to restore: Failed to GetCacheEntryDownloadURL: Rate limited: Failed request: (429) Too Many Requests: rate limit exceeded',
+            'Attempt 1 of 5 failed with error: Failed request: (429) Too Many Requests: rate limit exceeded. Retrying request in 3000 ms...',
+            "error: unable to download 'http://127.0.0.1:37515/0123.narinfo': HTTP error 418",
+            "error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': Error in the HTTP2 framing layer (16) Send failure: Connection reset by peer",
         ]
         genuine = [
             'error[E0308]: mismatched types',
@@ -40,6 +47,8 @@ class RetryInfra(unittest.TestCase):
             "warning: unable to download 'https://cache.nixos.org/0123.narinfo': Error in the HTTP2 framing layer (16) ; retrying in 280 ms (attempt 1/5)",
             "warning: unable to download 'https://cache.nixos.org/0123.narinfo': Failed sending data to the peer (55) Send failure: Broken pipe; retrying in 301 ms (attempt 1/5)",
             "error: builder for '/nix/store/0123-stabileo-engine.drv' failed with exit code 101",
+            "error: Cannot build '/nix/store/0123-stabileo.drv'.",
+            'AssertionError: expected status 416 to equal 200',
         ]
         with tempfile.TemporaryDirectory() as directory:
             log = Path(directory) / 'log'
