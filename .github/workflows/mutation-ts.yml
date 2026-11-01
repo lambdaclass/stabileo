@@ -17,13 +17,11 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # The critical set no longer fits one runner: 3765 mutants took 5 h 31 min on 2026-10-26, and
-  # with 4434 mutants (and a 1243-test dry run, 5 min 48 s) the 2026-10-27 and -28 runs were
-  # cancelled at the 345 min timeout with 3455 tested. Shards split by file run in parallel;
-  # together they cover every file of web/stryker.config.json. Measured on this split's first
-  # version (run 40721067826): gate-verify 65 min, cirsoc301-serviceability 140 min, while
-  # "detailing" and "design" (three files each) passed 4 h, so those two are split further. A file added there
-  # must be added to a shard below (the check step fails otherwise).
+  # Shards split by file run in parallel; together they cover every file of
+  # web/stryker.config.json, and a file added there must be added to a shard below (the check
+  # step fails otherwise). A shard with `split: "k/n"` mutates part k of n of its one file, cut
+  # between top-level statements by web/scripts/mutation-shard.mjs, so no mutant falls between
+  # two parts.
   stryker:
     name: stryker (${{ matrix.shard }})
     runs-on: ubuntu-latest
@@ -41,7 +39,20 @@ jobs:
           - shard: punching-anchorage
             mutate: >-
               src/lib/engine/detailing/punching-shear.ts,src/lib/codes/cirsoc201/anchorage.ts
-          - shard: candidate-search
+          - shard: candidate-search-1
+            split: "1/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: candidate-search-2
+            split: "2/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: candidate-search-3
+            split: "3/4"
+            mutate: >-
+              src/lib/engine/design/candidate-search.ts
+          - shard: candidate-search-4
+            split: "4/4"
             mutate: >-
               src/lib/engine/design/candidate-search.ts
           - shard: design-results
@@ -51,7 +62,9 @@ jobs:
             mutate: >-
               src/lib/engine/auto-verify.ts,src/lib/engine/codes/argentina/cirsoc201-engine-gate.ts,src/lib/engine/design/outcome.ts
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master
         with:
@@ -67,11 +80,11 @@ jobs:
           tool: wasm-pack@0.13.1
         timeout-minutes: 5
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: engine
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -99,11 +112,17 @@ jobs:
         working-directory: web
         env:
           MUTATE: ${{ matrix.mutate }}
-        run: npx stryker run --mutate "$MUTATE"
+          SPLIT: ${{ matrix.split }}
+        run: |
+          if [ -n "$SPLIT" ]; then
+            MUTATE=$(node scripts/mutation-shard.mjs "$MUTATE" "$SPLIT")
+          fi
+          echo "mutate: $MUTATE"
+          npx stryker run --mutate "$MUTATE"
 
       - name: Upload report
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: stryker-report-${{ matrix.shard }}
           path: web/reports/mutation/
