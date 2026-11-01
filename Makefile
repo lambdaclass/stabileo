@@ -365,7 +365,7 @@ test.ci-scripts: test.nightly-scripts
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
 test.infra.caddy.redirects:
-	nix shell nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-language-redirects.sh
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-language-redirects.sh
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

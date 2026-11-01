@@ -314,7 +314,6 @@ async function main() {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href, misses } = result;
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
-
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(head, body, lang));
