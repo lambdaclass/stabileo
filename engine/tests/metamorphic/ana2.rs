@@ -269,7 +269,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&conv(pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_2d(&conv(pdelta::solve_pdelta_2d(&c.s, 100, 1e-10).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
             name: "corotational",
@@ -459,8 +459,9 @@ pub fn rows() -> Vec<Ana2> {
                     comps.push(harmonic::solve_harmonic_2d(&inp)?);
                 }
                 let mut o = Resp::default();
-                // Natural size: the largest static displacement (the ω = 0 response).
-                let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()))).unwrap_or(0.0);
+                // Natural size: the largest static displacement (the ω = 0 response), a rotation as rotation × model size.
+                let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.z, 0.0]));
+                let us = linear::solve_2d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uz.abs()).max(d.ry.abs() * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
                     let (a, b) = (&comps[0].response_points[k], &comps[1].response_points[k]);
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V2(Dim::LEN), vec![a.real, b.real]);

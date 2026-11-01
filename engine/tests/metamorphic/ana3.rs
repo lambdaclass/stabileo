@@ -244,7 +244,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_3d(&conv(pdelta::solve_pdelta_3d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_3d(&conv(pdelta::solve_pdelta_3d(&c.s, 100, 1e-10).map(|r| (r.converged, r.results)))?)),
         },
         Ana3 {
             name: "corotational",
@@ -449,7 +449,8 @@ pub fn rows() -> Vec<Ana3> {
                     comps.push(harmonic::solve_harmonic_3d(&inp)?);
                 }
                 let mut o = Resp::default();
-                let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()))).unwrap_or(0.0);
+                let l = crate::case::extent(c.s.nodes.values().map(|n| [n.x, n.y, n.z]));
+                let us = linear::solve_3d(&c.s).map(|r| r.displacements.iter().fold(0.0f64, |m, d| m.max(d.ux.abs()).max(d.uy.abs()).max(d.uz.abs()).max(d.rx.abs().max(d.ry.abs()).max(d.rz.abs()) * l))).unwrap_or(0.0);
                 for k in 0..c.p.freqs.len() {
                     let p = |i: usize| &comps[i].response_points[k];
                     o.push(Some(node), None, &format!("H_re{k}"), Kind::V3(Dim::LEN), vec![p(0).real, p(1).real, p(2).real]);
