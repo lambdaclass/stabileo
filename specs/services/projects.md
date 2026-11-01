@@ -7,7 +7,7 @@ Cloud copies of the projects users already save to disk: the same `.ded` documen
 ## Features
 
 - Save the open project, update it, or save it as a new one
-- List, open, rename and delete (soft) the account's own projects
+- List, open, rename and delete the account's own projects; delete erases the row and its content, as the privacy policy promises
 - A per-account limit of active projects, `cloud_projects_limit` in `system_settings` (1 to 100, 1 when unset), set from the admin site's Settings; lowering it deletes nothing. The app offers to replace a saved project with the open one at the limit; a compressed upload of at most 5 MB that inflates to at most 50 MB
 - Admin listing of every account's projects, metadata only, with whether the owner allows research use
 - Everything behind the runtime flag `cloud_projects_enabled`, off by default
@@ -16,7 +16,7 @@ Cloud copies of the projects users already save to disk: the same `.ded` documen
 
 | Table | Columns that matter | Ownership |
 |-------|---------------------|-----------|
-| `projects` | `name` (1–200), `app_mode` (`basic`, `pro`), `content` (gzip), `content_bytes` (uncompressed size), `node_count`, `element_count`, `app_version`, `is_active` (soft delete) | `account_id`, set from the session, never from input; an account reads and writes only its own rows |
+| `projects` | `name` (1–200), `app_mode` (`basic`, `pro`), `content` (gzip), `content_bytes` (uncompressed size), `node_count`, `element_count`, `app_version`, `is_active` (always true for rows the app writes; every query also filters on it) | `account_id`, set from the session, never from input; an account reads and writes only its own rows |
 
 ## Endpoints
 
@@ -28,7 +28,7 @@ Product: `/api/v1/projects`, behind `StabileoAuth.Plugs.Authenticate` (product t
 | `POST` | `/` | owner | `201 {data}` (metadata) | 401, 403, 409 `project_limit_reached`, 422 |
 | `GET` | `/:id` | owner | `200 {data}` with `content` (gzip, base64) | 401, 403, 404 |
 | `PUT` | `/:id` | owner | `200 {data}`; `name`, `content` or both | 401, 403, 404, 422 |
-| `DELETE` | `/:id` | owner | `200 {data}`; sets `is_active` false | 401, 403, 404 |
+| `DELETE` | `/:id` | owner | `200 {data}`; deletes the row | 401, 403, 404 |
 
 Admin: `/api/v1/admin/projects`, behind `StabileoAuth.Plugs.Authenticate, app: "admin"`.
 

@@ -58,7 +58,7 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
     assert request(:get, "/#{id}", %{}, token) |> json_body(404) |> Map.get("error") ==
              "not_found"
 
-    refute Repo.get!(Project, id).is_active
+    assert Repo.get(Project, id) == nil
   end
 
   test "422 with the failing field", %{token: token} do

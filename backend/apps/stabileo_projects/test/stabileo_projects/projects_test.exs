@@ -97,10 +97,10 @@ defmodule StabileoProjects.ProjectsTest do
     assert Jason.decode!(:zlib.gunzip(saved.content)) == %{"version" => "2.1"}
   end
 
-  test "delete keeps the row, inactive", %{account: account} do
+  test "delete erases the row, content included", %{account: account} do
     {:ok, project} = Projects.create(account, attrs())
     {:ok, _} = Projects.delete(account, project.id)
-    assert Repo.get!(Project, project.id).is_active == false
+    assert Repo.get(Project, project.id) == nil
     assert {:error, :not_found} = Projects.get(account, project.id)
   end
 

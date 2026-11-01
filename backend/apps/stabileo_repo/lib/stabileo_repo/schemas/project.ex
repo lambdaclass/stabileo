@@ -3,7 +3,7 @@ defmodule StabileoRepo.Schemas.Project do
   A project an account saved to the cloud: the same `.ded` document the app
   writes to disk, stored gzipped in `content`, plus the metadata the project
   list and the admin site show without opening it (`content_bytes` is the
-  size of the uncompressed document). Deleting sets `is_active` to false.
+  size of the uncompressed document). Deleting removes the row.
   """
 
   use StabileoRepo.Schema

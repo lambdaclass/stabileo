@@ -93,7 +93,7 @@ defmodule StabileoProjects.Projects do
   def delete(%Account{} = account, id) do
     with :ok <- enabled(),
          {:ok, project} <- fetch(account, id) do
-      project |> Ecto.Changeset.change(is_active: false) |> Repo.update()
+      Repo.delete(project)
     end
   end
 
