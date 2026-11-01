@@ -115,8 +115,8 @@ pub fn buckling_bound(computed: f64, lower: f64, upper: Option<f64>) -> Result<(
     }
 }
 
-const WARPED_MITC4: &str = "Results withheld: MITC4 shells on twisted (warped) surfaces are too flexible, by over 5 % here and up to about twice as flexible on more twisted geometry, and refining the mesh does not reduce the error. Model the twisted region with curved-shell elements";
-const WARPED_MITC9: &str = "Results withheld: MITC9 shells on twisted (warped) surfaces are too flexible, by over 5 % here and up to about 2.5 times on more twisted geometry, and refining the mesh does not reduce the error. Model the twisted region with curved-shell elements";
+const WARPED_MITC4: &str = "Results withheld: the twist of these MITC4 shells is beyond the measured 5 % accuracy band. On twisted (warped) surfaces MITC4 can be too flexible by more than 5 %, up to about twice as flexible, and refining the mesh does not reduce the error. Model the twisted region with curved-shell elements";
+const WARPED_MITC9: &str = "Results withheld: the twist of these MITC9 shells is beyond the measured 5 % accuracy band. On twisted (warped) surfaces MITC9 can be too flexible by more than 5 %, up to about 2.5 times as flexible, and refining the mesh does not reduce the error. Model the twisted region with curved-shell elements";
 
 /// Twist curvature × thickness (warn, refuse): measured over-flexibility about 1.5 % and 5 % (#1057).
 pub const WARPED_MITC4_TWIST: (f64, f64) = (0.009, 0.016);

@@ -96,7 +96,7 @@ describe('known-issue warnings in the reader’s language', () => {
     }
     setLocale('en');
     const refusal = JSON.stringify({ message: 'm', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-WARPED-MITC9', value: 1057, message: 'ENGINE' }] });
-    expect(knownIssueRefusal(`solver failed: ${refusal}`)).toMatch(/^Results withheld: MITC9 shells on twisted/);
+    expect(knownIssueRefusal(`solver failed: ${refusal}`)).toMatch(/^Results withheld: the twist of these MITC9 shells/);
   });
 });
 
