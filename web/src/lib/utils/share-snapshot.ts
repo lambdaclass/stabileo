@@ -65,6 +65,23 @@ function numbers(entry: RecordValue, required: string[], optional: string[]): bo
     && optional.every(f => entry[f] === undefined || typeof entry[f] === 'number');
 }
 
+const dof = (d: unknown) => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 5;
+
+function constraintResolves(c: RecordValue, has: (n: unknown) => boolean): boolean {
+  const pair = has(c.masterNode) && has(c.slaveNode) && c.masterNode !== c.slaveNode;
+  const dofs = (required: boolean) => c.dofs === undefined ? !required : Array.isArray(c.dofs) && c.dofs.every(dof);
+  switch (c.type) {
+    case 'rigidLink': return pair && dofs(false);
+    case 'equalDOF': return pair && dofs(true);
+    case 'eccentricConnection': return pair;
+    case 'diaphragm': return has(c.masterNode) && Array.isArray(c.slaveNodes) && c.slaveNodes.length > 0
+      && c.slaveNodes.every(n => has(n) && n !== c.masterNode);
+    case 'linearMPC': case 'linearMpc': return records(c.terms) && c.terms.length > 0
+      && c.terms.every(t => has(t.nodeId ?? t.node) && dof(t.dof) && typeof t.coefficient === 'number');
+    default: return false;
+  }
+}
+
 function referencesResolve(value: RecordValue): boolean {
   const keys = (family: unknown) => new Set((family as Entry[]).map(([key]) => key));
   const nodes = keys(value.nodes), elements = keys(value.elements);
@@ -73,8 +90,10 @@ function referencesResolve(value: RecordValue): boolean {
   const shellNodes = (shell: RecordValue, count: number) => Array.isArray(shell.nodes)
     && shell.nodes.length === count && new Set(shell.nodes).size === count
     && shell.nodes.every(n => nodes.has(n as number));
-  const node = (n: unknown) => n === undefined || nodes.has(n as number);
-  const cases = Array.isArray(value.loadCases) ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : null;
+  const has = (n: unknown) => nodes.has(n as number);
+  const cases = Array.isArray(value.loadCases) && value.loadCases.length > 0
+    ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : null;
+  const inCase = (caseId: unknown) => cases === null || caseId === undefined || cases.has(caseId);
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
@@ -88,17 +107,19 @@ function referencesResolve(value: RecordValue): boolean {
     && (value.supports as Entry[]).every(([, s]) => nodes.has(s.nodeId as number))
     && ((value.connectors ?? []) as Entry[]).every(([, c]) => nodes.has(c.nodeI as number)
       && nodes.has(c.nodeJ as number) && c.nodeI !== c.nodeJ && numbers(c, [], CONNECTOR_NUMBERS))
-    && ((value.constraints ?? []) as RecordValue[]).every(c => node(c.masterNode) && node(c.slaveNode)
-      && (c.slaveNodes === undefined || (Array.isArray(c.slaveNodes) && c.slaveNodes.every(n => nodes.has(n as number))))
-      && (c.terms === undefined || (c.terms as RecordValue[]).every(t => nodes.has((t.nodeId ?? t.node) as number)
-        && typeof t.coefficient === 'number')))
+    && ((value.constraints ?? []) as RecordValue[]).every(c => constraintResolves(c, has))
     && ((value.combinations ?? []) as RecordValue[]).every(c => (c.factors as RecordValue[]).every(f =>
-      typeof f.factor === 'number' && (cases === null || cases.has(f.caseId))))
+      typeof f.factor === 'number' && inCase(f.caseId)))
+    && (!Array.isArray(value.footings) || value.footings.every(f => {
+      const footing = Array.isArray(f) ? f[1] : f;
+      return !record(footing) || typeof footing.nodeId !== 'number' || has(footing.nodeId);
+    }))
     && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
     && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))
     && (value.loads as RecordValue[]).every(({ type, data }) => {
       const d = data as RecordValue;
-      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(type as Load['type'], d)) return false;
+      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(type as Load['type'], d)
+        || !inCase(d.caseId)) return false;
       const target = LOAD_TARGET[type as Load['type']];
       return target === 'node' ? nodes.has(d.nodeId as number)
         : target === 'member' ? elements.has(d.elementId as number)

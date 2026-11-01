@@ -110,6 +110,15 @@ describe('shared-link importer', () => {
       danglingDiaphragm: p => { p.constraints = [{ type: 'diaphragm', masterNode: 1, slaveNodes: [2, 9] }]; },
       danglingMpcTerm: p => { p.constraints = [{ type: 'linearMPC', terms: [{ nodeId: 9, dof: 0, coefficient: 1 }] }]; },
       danglingCombinationCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 7, factor: 1.4 }] }]; },
+      danglingLoadCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.loads[0].data.caseId = 4; },
+      rigidLinkWithoutSlave: p => { p.constraints = [{ type: 'rigidLink', masterNode: 1 }]; },
+      selfLink: p => { p.constraints = [{ type: 'equalDOF', masterNode: 1, slaveNode: 1, dofs: [0] }]; },
+      emptyDiaphragm: p => { p.constraints = [{ type: 'diaphragm', masterNode: 1 }]; },
+      emptyMpc: p => { p.constraints = [{ type: 'linearMPC' }]; },
+      mpcDofOutOfRange: p => { p.constraints = [{ type: 'linearMPC', terms: [{ nodeId: 1, dof: 6, coefficient: 1 }] }]; },
+      unknownConstraint: p => { p.constraints = [{ type: 'weld', masterNode: 1, slaveNode: 2 }]; },
+      nullMpcTerm: p => { p.constraints = [{ type: 'linearMPC', terms: [null] }]; },
+      danglingFooting: p => { p.footings = [[1, { id: 1, nodeId: 9 }]]; },
       stringCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: '1.4' }] }]; },
     };
     for (const [name, fault] of Object.entries(faults)) {
@@ -132,7 +141,8 @@ describe('shared-link importer', () => {
     payload.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: 1.4 }] }];
     payload.elements[0][1].variableSection = { sectionJ: 1 };
     const snapshot = prepareSharedSnapshot(payload);
-    expect(snapshot?.constraints).toHaveLength(3);
+    expect(snapshot?.constraints?.map(c => (c as { type: string }).type)).toEqual(['rigidLink', 'diaphragm', 'linearMPC']);
+    expect(snapshot?.connectors).toEqual([[1, { id: 1, nodeI: 1, nodeJ: 3, kAxial: 1000 }]]);
     expect(snapshot?.combinations?.[0].factors).toEqual([{ caseId: 1, factor: 1.4 }]);
   });
 
@@ -144,7 +154,7 @@ describe('shared-link importer', () => {
     expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'surface3d']);
   });
 
-  it('keeps a hostile model name as inert text', () => {
+  it('keeps a hostile model name as a plain string in the store', () => {
     const name = '<img src=x onerror="alert(1)">';
     const snapshot = decompressSnapshot(encode({ ...compact(), nm: name }));
     expect(snapshot!.name).toBe(name);
