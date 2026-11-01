@@ -993,3 +993,278 @@ fn an_influence_line_of_a_mechanism_is_an_error_not_zeros() {
     let error = compute_influence_line(&serde_json::from_value(influence).unwrap()).expect_err("no influence line for a mechanism");
     assert!(error.starts_with("Influence line: the unit load on element 1 at t = 0 could not be solved: "), "{error}");
 }
+
+fn warped_id(quad9: bool) -> &'static str {
+    if quad9 { "SH-WARPED-MITC9" } else { "SH-WARPED-MITC4" }
+}
+
+fn warped_findings(ds: &[StructuredDiagnostic]) -> Vec<&StructuredDiagnostic> {
+    ds.iter().filter(|d| d.phase.as_deref().is_some_and(|p| p.starts_with("SH-WARPED-"))).collect()
+}
+
+/// MacNeal–Harder twisted cantilever (L 12, width 1.1, E 29000, ν 0.22), clamped at the root,
+/// with the tip load at the mid-width node.
+fn twisted_strip(quad9: bool, nx: usize, ny: usize, degrees: f64, t: f64, load: [f64; 3]) -> (SolverInput3D, usize) {
+    let (l, w) = (12.0, 1.1);
+    let mut input = beam3d();
+    input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
+    *input.materials.get_mut("1").unwrap() = SolverMaterial { id: 1, e: 29_000.0, nu: 0.22 };
+    let order = if quad9 { 2 } else { 1 };
+    let (rows, cols) = (order * nx + 1, order * ny + 1);
+    let node = |i: usize, j: usize| 1 + i * cols + j;
+    for i in 0..rows {
+        for j in 0..cols {
+            let x = i as f64 / (rows - 1) as f64 * l;
+            let s = j as f64 / (cols - 1) as f64 * w - w / 2.0;
+            let a = x / l * degrees.to_radians();
+            input.nodes.insert(node(i, j).to_string(), SolverNode3D { id: node(i, j), x, y: s * a.cos(), z: s * a.sin() });
+        }
+    }
+    let mut id = 1;
+    for i in 0..nx {
+        for j in 0..ny {
+            if quad9 {
+                let (i, j) = (2 * i, 2 * j);
+                let nodes = [node(i, j), node(i + 2, j), node(i + 2, j + 2), node(i, j + 2), node(i + 1, j), node(i + 2, j + 1), node(i + 1, j + 2), node(i, j + 1), node(i + 1, j + 1)];
+                input.quad9s.insert(id.to_string(), SolverQuad9Element { id, nodes, material_id: 1, thickness: t });
+            } else {
+                input.quads.insert(id.to_string(), SolverQuadElement { id, nodes: [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)], material_id: 1, thickness: t });
+            }
+            id += 1;
+        }
+    }
+    for j in 0..cols {
+        input.supports.insert(j.to_string(), serde_json::from_value(serde_json::json!({"nodeId":node(0, j),"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true})).unwrap());
+    }
+    let tip = node(rows - 1, cols / 2);
+    input.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: tip, fx: load[0], fy: load[1], fz: load[2], mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    (input, tip)
+}
+
+#[test]
+fn warped_mitc_shells_on_the_twisted_beam_are_withheld() {
+    // #1057: ratio to the reference 0.005424 (load A), mesh-independent, ×1.30-1.32 (MITC4)
+    // and ×1.7-2.5 (MITC9); the twist curvature × thickness is (π/2)/12 × 0.32 = 0.042.
+    for (quad9, meshes) in [(false, vec![(6, 2), (12, 4), (24, 8)]), (true, vec![(3, 1), (6, 2), (12, 4)])] {
+        for (nx, ny) in meshes {
+            let (input, _) = twisted_strip(quad9, nx, ny, 90.0, 0.32, [0.0, 0.0, 1.0]);
+            let found = for_3d(&input, Analysis::Linear);
+            let found = warped_findings(&found);
+            assert_eq!(found.len(), 1, "{quad9} {nx}x{ny}");
+            assert_eq!(found[0].phase.as_deref(), Some(warped_id(quad9)));
+            assert_eq!((found[0].severity, found[0].value), (Severity::Error, Some(1057.0)));
+            assert_eq!(found[0].element_kind, Some(if quad9 { ElementKind::Quad9 } else { ElementKind::Quad }));
+            assert_eq!(found[0].element_ids, (1..=nx * ny).collect::<Vec<_>>(), "{quad9} {nx}x{ny}");
+            common::assert_containment(dedaliano_engine::solver::linear::solve_3d(&input), warped_id(quad9));
+        }
+    }
+}
+
+#[test]
+fn warped_mitc_twist_measure_is_the_helicoid_twist() {
+    let kappa = std::f64::consts::FRAC_PI_2 / 12.0;
+    for (quad9, nx, ny) in [(false, 24, 8), (true, 12, 4)] {
+        {
+            let (input, _) = twisted_strip(quad9, nx, ny, 90.0, 0.32, [0.0, 0.0, 1.0]);
+            let points = |nodes: &[usize]| nodes.iter().map(|n| { let n = &input.nodes[&n.to_string()]; [n.x, n.y, n.z] }).collect::<Vec<_>>();
+            let twists: Vec<f64> = if quad9 {
+                input.quad9s.values().map(|q| { let p = points(&q.nodes); dedaliano_engine::element::quad9::quad9_twist_curvature(&std::array::from_fn(|i| p[i])) }).collect()
+            } else {
+                input.quads.values().map(|q| { let p = points(&q.nodes); dedaliano_engine::element::quad::quad_twist_curvature(&[p[0], p[1], p[2], p[3]]) }).collect()
+            };
+            let (lo, hi) = twists.iter().fold((f64::INFINITY, 0.0f64), |(lo, hi), &k| (lo.min(k), hi.max(k)));
+            let edge = kappa / (1.0 + (0.55 * kappa).powi(2));
+            assert!(hi <= kappa * (1.0 + 1e-3) && lo >= edge * (1.0 - 1e-3), "{quad9}: {lo} {hi} vs helicoid {edge}..{kappa}");
+        }
+    }
+}
+
+#[test]
+fn warped_mitc_untwisted_flat_and_planar_curved_shells_are_not_flagged() {
+    use dedaliano_engine::element::{quad::quad_twist_curvature, quad9::quad9_twist_curvature};
+    for quad9 in [false, true] {
+        let (strip, tip) = twisted_strip(quad9, 12, 4, 0.0, 0.32, [0.0, 0.0, 1.0]);
+        let r = dedaliano_engine::solver::linear::solve_3d(&strip).unwrap();
+        assert!(warped_findings(&r.structured_diagnostics).is_empty(), "{quad9}");
+        let uz = r.displacements.iter().find(|d| d.node_id == tip).unwrap().uz;
+        let beam = 12.0f64.powi(3) / (3.0 * 29.0e6 * 1.1 * 0.32f64.powi(3) / 12.0);
+        assert!((uz / beam - 1.0).abs() < 0.01, "{quad9}: untwisted tip {uz} vs beam theory {beam}");
+    }
+
+    let twist = |f: &dyn Fn(f64, f64) -> [f64; 3], n: usize, quad9: bool| -> f64 {
+        let order = if quad9 { 2 } else { 1 };
+        let m = order * n;
+        let p = |i: usize, j: usize| f(i as f64 / m as f64, j as f64 / m as f64);
+        let mut worst = 0.0f64;
+        for i in 0..n {
+            for j in 0..n {
+                let k = if quad9 {
+                    let (i, j) = (2 * i, 2 * j);
+                    quad9_twist_curvature(&[p(i, j), p(i + 2, j), p(i + 2, j + 2), p(i, j + 2), p(i + 1, j), p(i + 2, j + 1), p(i + 1, j + 2), p(i, j + 1), p(i + 1, j + 1)])
+                } else {
+                    quad_twist_curvature(&[p(i, j), p(i + 1, j), p(i + 1, j + 1), p(i, j + 1)])
+                };
+                worst = worst.max(k);
+            }
+        }
+        worst
+    };
+    let flat = |u: f64, v: f64| [3.0 * u, 2.0 * v + 0.3 * u, 0.0];
+    let (r, angle) = (25.0, 40f64.to_radians());
+    let scordelis = |u: f64, v: f64| { let a = (v - 0.5) * 2.0 * angle; [50.0 * u, r * a.sin(), r * a.cos()] };
+    let cylinder_panel = |u: f64, v: f64| { let a = v * std::f64::consts::FRAC_PI_2; [4.0 * u, a.cos(), a.sin()] };
+    let sphere = |u: f64, v: f64| { let (lat, lon) = (0.2 + 1.2 * u, 1.5 * v); [10.0 * lat.cos() * lon.cos(), 10.0 * lat.cos() * lon.sin(), 10.0 * lat.sin()] };
+    for quad9 in [false, true] {
+        for (name, f, tol) in [("flat", &flat as &dyn Fn(f64, f64) -> [f64; 3], 1e-12), ("Scordelis-Lo", &scordelis, 1e-12), ("cylinder", &cylinder_panel, 1e-12), ("sphere", &sphere, if quad9 { 1e-3 } else { 1e-12 })] {
+            for n in [4, 16] {
+                let k = twist(f, n, quad9);
+                assert!(k < tol, "{name} quad9={quad9} {n}: twist {k}");
+            }
+        }
+    }
+
+    let mut cylinder = beam3d();
+    cylinder.nodes.clear(); cylinder.elements.clear(); cylinder.supports.clear(); cylinder.loads.clear();
+    let (nx, nc) = (8, 6);
+    let node = |i: usize, j: usize| 1 + i * (nc + 1) + j;
+    for i in 0..=nx {
+        for j in 0..=nc {
+            let p = cylinder_panel(i as f64 / nx as f64, j as f64 / nc as f64);
+            cylinder.nodes.insert(node(i, j).to_string(), SolverNode3D { id: node(i, j), x: p[0], y: p[1], z: p[2] });
+        }
+    }
+    for i in 0..nx {
+        for j in 0..nc {
+            let id = 1 + i * nc + j;
+            cylinder.quads.insert(id.to_string(), SolverQuadElement { id, nodes: [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)], material_id: 1, thickness: 0.3 });
+        }
+    }
+    for j in 0..=nc {
+        cylinder.supports.insert(j.to_string(), serde_json::from_value(serde_json::json!({"nodeId":node(0, j),"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true})).unwrap());
+    }
+    cylinder.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: node(nx, nc / 2), fx: 0.0, fy: -1.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    let r = dedaliano_engine::solver::linear::solve_3d(&cylinder).unwrap();
+    assert!(warped_findings(&r.structured_diagnostics).is_empty());
+    assert!(r.displacements.iter().any(|d| d.uz.abs() > 0.0));
+}
+
+#[test]
+fn warped_mitc_thresholds_are_the_measured_bands() {
+    use dedaliano_engine::known_issues::{WARPED_MITC4_TWIST, WARPED_MITC9_TWIST};
+    use dedaliano_engine::element::{quad::quad_twist_curvature, quad9::quad9_twist_curvature};
+    let c = 0.3;
+    let corners = [[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, c], [0.0, 1.0, 0.0]];
+    let mut nine = [[0.0; 3]; 9];
+    for (k, (u, v)) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.5, 0.0), (1.0, 0.5), (0.5, 1.0), (0.0, 0.5), (0.5, 0.5)].into_iter().enumerate() {
+        nine[k] = [u, v, c * u * v];
+    }
+    for (quad9, (warn, refuse)) in [(false, WARPED_MITC4_TWIST), (true, WARPED_MITC9_TWIST)] {
+        let kappa = if quad9 { quad9_twist_curvature(&nine) } else { quad_twist_curvature(&corners) };
+        assert!((kappa / c - 1.0).abs() < 0.1, "{quad9}: {kappa}");
+        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error))] {
+            let mut input = beam3d();
+            input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
+            let points: &[[f64; 3]] = if quad9 { &nine } else { &corners };
+            for (k, p) in points.iter().enumerate() {
+                input.nodes.insert((k + 1).to_string(), SolverNode3D { id: k + 1, x: p[0], y: p[1], z: p[2] });
+            }
+            if quad9 {
+                input.quad9s.insert("3".into(), SolverQuad9Element { id: 3, nodes: std::array::from_fn(|i| i + 1), material_id: 1, thickness: kt / kappa });
+            } else {
+                input.quads.insert("3".into(), SolverQuadElement { id: 3, nodes: [1, 2, 3, 4], material_id: 1, thickness: kt / kappa });
+            }
+            let ds = for_3d(&input, Analysis::Linear);
+            let found = warped_findings(&ds);
+            assert_eq!(found.iter().map(|d| d.severity).next(), expected, "{quad9} {kt}");
+            if let Some(d) = found.first() {
+                assert_eq!((d.phase.as_deref(), d.element_ids.clone(), d.value), (Some(warped_id(quad9)), vec![3], Some(1057.0)));
+                let refused = dedaliano_engine::known_issues::refuse(&ds);
+                assert_eq!(refused.is_err(), expected == Some(Severity::Error));
+                if expected == Some(Severity::Warning) {
+                    assert!(d.message.contains("1.5 to 5 %") && d.message.ends_with(&format!("(known issue #1057, {})", warped_id(quad9))), "{}", d.message);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn warped_mitc_refusal_reaches_every_3d_entry_point() {
+    use dedaliano_engine::solver::{buckling::*, cable::*, constraints::*, contact::*, creep_shrinkage::*, harmonic::*, linear::*, load_cases::*, modal::*, moving_loads::*, pdelta::*, reduction::*, spectral::*, ssi::*, staged::*, time_integration::*, winkler::*};
+    use dedaliano_engine::certify;
+    fn withheld<T>(result: Result<T, String>, id: &str) -> bool {
+        result.err().and_then(|e| serde_json::from_str::<serde_json::Value>(&e).ok())
+            .is_some_and(|v| v["structuredDiagnostics"].as_array().is_some_and(|ds| ds.iter().any(|d| d["phase"] == id && d["severity"] == "error")))
+    }
+    let densities = HashMap::from([("1".to_string(), 7.85)]);
+    for (quad9, nx, ny) in [(false, 12, 4), (true, 3, 1)] {
+        let id = warped_id(quad9);
+        let (mut input, tip) = twisted_strip(quad9, nx, ny, 90.0, 0.32, [0.0, 0.0, 1.0]);
+        let mut member = beam3d().elements["1"].clone();
+        member.node_i = tip - 1; member.node_j = tip;
+        input.elements.insert("1".into(), member);
+        let section = input.sections.get_mut("1").unwrap();
+        section.a = 1e-9; section.iy = 1e-12; section.iz = 1e-12; section.j = 1e-12;
+        let (flat, _) = twisted_strip(quad9, nx, ny, 0.0, 0.32, [0.0, 0.0, 1.0]);
+        let modes = solve_modal_3d(&flat, &densities, 2).unwrap().modes;
+        let tie: Constraint = serde_json::from_value(serde_json::json!({"type":"equalDOF","masterNode":tip,"slaveNode":tip - 1,"dofs":[2]})).unwrap();
+        let mut constrained = input.clone();
+        constrained.constraints = vec![tie.clone()];
+        let multi = MultiCaseInput3D { solver: input.clone(), load_cases: vec![LoadCase3D { name: "A".into(), loads: input.loads.clone() }],
+            combinations: vec![CombinationDef { name: "C".into(), factors: HashMap::from([("A".into(), 1.0)]) }] };
+        let harmonic = HarmonicInput3D { solver: input.clone(), densities: densities.clone(), frequencies: vec![0.1, 1.0], damping_ratio: 0.05, response_node_id: tip, response_dof: "z".into() };
+        let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({"solver": input, "densities": densities, "timeStep": 0.01, "nSteps": 2, "groundAccelZ": [1.0, 1.0, 1.0]})).unwrap();
+        let spectral: SpectralInput3D = serde_json::from_value(serde_json::json!({
+            "solver": input, "densities": densities, "modes": modes,
+            "spectrum": {"name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}]}, "direction": "Z"})).unwrap();
+        let plastic: PlasticInput3D = serde_json::from_value(serde_json::json!({"solver": input, "sections": {}, "materials": {}})).unwrap();
+        let creep: CreepShrinkageInput3D = serde_json::from_value(serde_json::json!({"solver": input, "creepParams": {}, "timeSteps": [{"tDays": 28.0}]})).unwrap();
+        let mut staged = serde_json::to_value(&input).unwrap();
+        staged["stages"] = serde_json::json!([{ "name": "all", "elementsAdded": [1], "supportsAdded": input.supports.keys().map(|k| k.parse::<usize>().unwrap()).collect::<Vec<_>>(), "loadIndices": [0] }]);
+        let influence = serde_json::from_value(serde_json::json!({"solver": input, "quantity": "Fz", "targetNodeId": 1, "gravityDirection": "z", "nPointsPerElement": 2})).unwrap();
+        let moving: MovingLoadInput3D = serde_json::from_value(serde_json::json!({"solver": input, "train": {"name": "unit", "axles": [{"offset": 0.0, "weight": 1.0}]}, "step": 0.5})).unwrap();
+        let outcomes: Vec<(&str, bool)> = vec![
+            ("linear", withheld(solve_3d(&input), id)),
+            ("prepared", withheld(prepare_static_3d(&input).and_then(|p| p.solve_loads(&input.loads)), id)),
+            ("constrained direct", withheld(solve_constrained_3d(&ConstrainedInput3D { solver: input.clone(), constraints: vec![tie] }), id)),
+            ("constrained dispatch", withheld(solve_3d(&constrained), id)),
+            ("multi-case", withheld(solve_multi_case_3d(&multi), id)),
+            ("pdelta", withheld(solve_pdelta_3d(&input, 10, 1e-6), id)),
+            ("winkler", withheld(solve_winkler_3d(&WinklerInput3D { solver: input.clone(), foundation_springs: vec![] }), id)),
+            ("ssi", withheld(solve_ssi_3d(&SSIInput3D { solver: input.clone(), soil_springs: vec![], max_iter: 50, tolerance: 1e-6 }), id)),
+            ("contact", withheld(solve_contact_3d(&serde_json::from_value(serde_json::json!({"solver": input})).unwrap()), id)),
+            ("cable", withheld(solve_cable_3d(&input, &HashMap::new(), 20, 1e-6), id)),
+            ("modal", withheld(solve_modal_3d(&input, &densities, 2), id)),
+            ("spectral", withheld(solve_spectral_3d(&spectral), id)),
+            ("time history", withheld(solve_time_history_3d(&th), id)),
+            ("harmonic", withheld(solve_harmonic_3d(&harmonic), id)),
+            ("guyan", withheld(guyan_reduce_3d(&GuyanInput3D { solver: input.clone(), boundary_nodes: vec![tip] }), id)),
+            ("craig-bampton", withheld(craig_bampton_3d(&CraigBamptonInput3D { solver: input.clone(), densities: densities.clone(), boundary_nodes: vec![tip], n_modes: 2 }), id)),
+            ("buckling", withheld(solve_buckling_3d(&input, 1), id)),
+            ("creep", withheld(solve_creep_shrinkage_3d(&creep), id)),
+            ("staged", match solve_staged_3d(&serde_json::from_value(staged).unwrap()) {
+                Err(e) if quad9 => e.starts_with("Nine-node shell elements are not yet supported in staged construction"),
+                outcome => withheld(outcome, id),
+            }),
+            ("plastic", withheld(dedaliano_engine::solver::plastic::solve_plastic_3d(&plastic), id)),
+            ("influence", withheld(dedaliano_engine::postprocess::influence::compute_influence_line_3d(&influence), id)),
+            ("moving loads", withheld(solve_moving_loads_3d(&moving), id)),
+            ("convergence study", withheld(dedaliano_engine::postprocess::discretization::convergence::convergence_study_3d(&input, &Default::default()), id)),
+            ("discretization estimate", withheld(dedaliano_engine::postprocess::discretization::solve_and_estimate_3d(&input), id)),
+            ("certified linear", withheld(certify::solver::certify_linear_3d_full(&input), id)),
+            ("certified pdelta", withheld(certify::pdelta::certify_pdelta_3d(&input, 10, 1e-6), id)),
+            ("certified modal", withheld(certify::modal::certify_modal_3d(&input, &densities, 2), id)),
+            ("certified spectral", withheld(certify::spectral::certify_spectral_3d(&spectral), id)),
+            ("certified harmonic", withheld(certify::harmonic::certify_harmonic_3d(&harmonic), id)),
+            ("certified buckling", withheld(certify::buckling::certify_buckling_3d(&input, 1), id)),
+            ("certified plastic", withheld(certify::plastic_3d::certify_plastic_3d(&plastic), id)),
+            ("linear bundle", withheld(certify::bundle::export_linear_bundle_3d(&input), id)),
+            ("combination bundle", withheld(certify::combination_bundle::export_combination_bundle_3d(&multi), id)),
+            ("plastic bundle", withheld(certify::plastic_bundle::export_plastic_bundle_3d(&plastic), id)),
+        ];
+        let missed: Vec<_> = outcomes.iter().filter(|(_, refused)| !refused).map(|(name, _)| *name).collect();
+        assert!(missed.is_empty(), "{id} not withheld by: {missed:?}");
+        let kinematics = dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&input);
+        assert!(kinematics.invalid_input.is_none(), "{:?}", kinematics.invalid_input);
+    }
+}

@@ -1408,6 +1408,32 @@ pub fn quad_quality_metrics(coords: &[[f64; 3]; 4]) -> QuadQualityMetrics {
     }
 }
 
+/// Largest twist curvature |n·x,ξη| / |x,ξ × x,η| of the bilinear surface over the 2×2 Gauss
+/// points (1/length): 4h/(a·b) for an a×b quad whose corners lie ±h off its mean plane.
+/// Infinite for a degenerate mapping.
+pub fn quad_twist_curvature(coords: &[[f64; 3]; 4]) -> f64 {
+    const CORNERS: [(f64, f64); 4] = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];
+    let mut x_xe = [0.0; 3];
+    for (p, (a, b)) in coords.iter().zip(CORNERS) {
+        for k in 0..3 { x_xe[k] += 0.25 * a * b * p[k]; }
+    }
+    let mut worst = 0.0f64;
+    for ((xi, eta), _) in gauss_2x2() {
+        let (mut x_x, mut x_e) = ([0.0; 3], [0.0; 3]);
+        for (p, (a, b)) in coords.iter().zip(CORNERS) {
+            for k in 0..3 {
+                x_x[k] += 0.25 * a * (1.0 + b * eta) * p[k];
+                x_e[k] += 0.25 * b * (1.0 + a * xi) * p[k];
+            }
+        }
+        let n = cross3(&x_x, &x_e);
+        let area = norm3(&n);
+        let kappa = dot3(&n, &x_xe).abs() / (area * area);
+        worst = if kappa.is_finite() { worst.max(kappa) } else { f64::INFINITY };
+    }
+    worst
+}
+
 /// Check Jacobian determinant over all 4 Gauss points.
 ///
 /// Returns `(min_det_j, max_det_j, has_negative)` where `has_negative` is true
@@ -1672,6 +1698,18 @@ mod tests {
             fx_total
         );
         assert!((fx_total - 2.0).abs() < 1e-10, "total force = qn·L: {}", fx_total);
+    }
+
+    #[test]
+    fn twist_curvature_is_four_h_over_ab() {
+        let (a, b, h) = (2.0, 0.5, 1e-4);
+        let corners = [[0.0, 0.0, -h], [a, 0.0, h], [a, b, -h], [0.0, b, h]];
+        let kappa = quad_twist_curvature(&corners);
+        assert!((kappa / (4.0 * h / (a * b)) - 1.0).abs() < 1e-6, "{kappa}");
+        let tilted = corners.map(|p| [p[0], p[1] * 0.6 - p[2] * 0.8, p[1] * 0.8 + p[2] * 0.6]);
+        assert!((quad_twist_curvature(&tilted) / kappa - 1.0).abs() < 1e-12);
+        assert_eq!(quad_twist_curvature(&[[0.0, 0.0, 1.0], [a, 0.0, 1.0], [a, b, 1.0], [0.0, b, 1.0]]), 0.0);
+        assert_eq!(quad_twist_curvature(&[[0.0; 3], [a, 0.0, 0.0], [a, 0.0, 0.0], [0.0; 3]]), f64::INFINITY);
     }
 
     /// A rigid rotation of a warped quad leaves no strain: the stress recovery sees

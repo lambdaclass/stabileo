@@ -1287,6 +1287,35 @@ pub fn quad9_quality_metrics(coords: &[[f64; 3]; 9]) -> Quad9QualityMetrics {
     }
 }
 
+/// Largest twist curvature |n·x,ξη| / |x,ξ × x,η| of the nine-node surface over the 3×3 Gauss
+/// points (1/length): 4h/(a·b) for a bilinear a×b patch whose corners lie ±h off its mean
+/// plane, zero on cylinders meshed along their generators. Infinite for a degenerate mapping.
+pub fn quad9_twist_curvature(coords: &[[f64; 3]; 9]) -> f64 {
+    const AT: [(f64, f64); 9] = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, 0.0)];
+    let lagrange = |node: f64, s: f64| match node as i8 {
+        -1 => (0.5 * s * (s - 1.0), s - 0.5),
+        0 => (1.0 - s * s, -2.0 * s),
+        _ => (0.5 * s * (s + 1.0), s + 0.5),
+    };
+    let mut worst = 0.0f64;
+    for ((xi, eta), _) in gauss_3x3() {
+        let (mut x_x, mut x_e, mut x_xe) = ([0.0; 3], [0.0; 3], [0.0; 3]);
+        for (p, (a, b)) in coords.iter().zip(AT) {
+            let ((la, da), (lb, db)) = (lagrange(a, xi), lagrange(b, eta));
+            for k in 0..3 {
+                x_x[k] += da * lb * p[k];
+                x_e[k] += la * db * p[k];
+                x_xe[k] += da * db * p[k];
+            }
+        }
+        let n = cross3(&x_x, &x_e);
+        let area = norm3(&n);
+        let kappa = dot3(&n, &x_xe).abs() / (area * area);
+        worst = if kappa.is_finite() { worst.max(kappa) } else { f64::INFINITY };
+    }
+    worst
+}
+
 // ==================== Jacobian Check ====================
 
 /// Check Jacobian determinant over all 3×3 Gauss points.
@@ -1332,6 +1361,17 @@ pub fn quad9_element_dofs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn twist_curvature_of_bilinear_patch_and_cylinder() {
+        let at = [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.5, 0.0), (1.0, 0.5), (0.5, 1.0), (0.0, 0.5), (0.5, 0.5)];
+        let (a, b, h) = (2.0, 0.5, 1e-4);
+        let patch = at.map(|(u, v)| [a * u, b * v, h * (1.0 - 2.0 * u) * (1.0 - 2.0 * v)]);
+        assert!((quad9_twist_curvature(&patch) / (4.0 * h / (a * b)) - 1.0).abs() < 1e-6);
+        let cylinder = at.map(|(u, v): (f64, f64)| [3.0 * u, (0.8 * v).cos(), (0.8 * v).sin()]);
+        assert!(quad9_twist_curvature(&cylinder) < 1e-12);
+        assert_eq!(quad9_twist_curvature(&[[0.0; 3]; 9]), f64::INFINITY);
+    }
 
     fn make_unit_square_9() -> [[f64; 3]; 9] {
         [

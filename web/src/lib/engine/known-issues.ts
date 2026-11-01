@@ -9,6 +9,8 @@
  */
 import { t, tp } from '../i18n';
 
+const WARNING_BANDS = new Set(['SH-MITC4-DISTORTION', 'SH-WARPED-MITC4', 'SH-WARPED-MITC9']);
+
 export function knownIssueMessage(d: { code: string; phase?: string; value?: number; message: string; severity?: string }): string {
   // A thermal load solved with a default it did not state (#407): `phase` names the default.
   if (d.code === 'thermal_default_assumed' && d.phase) {
@@ -22,7 +24,7 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
     return tp('cableDiag.selfWeight', { pct: Math.round(100 * Math.min(1, d.value ?? 1)) });
   }
   if (d.code !== 'known_issue' || !d.phase) return d.message;
-  const key = `knownIssue.${d.phase}${d.phase === 'SH-MITC4-DISTORTION' && d.severity === 'warning' ? '.warning' : ''}`;
+  const key = `knownIssue.${d.phase}${WARNING_BANDS.has(d.phase) && d.severity === 'warning' ? '.warning' : ''}`;
   const text = t(key);
   if (text === key) return d.message;
   return d.value !== undefined ? `${text} (#${d.value})` : text;
