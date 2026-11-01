@@ -154,3 +154,25 @@ for (const width of [390, 1440]) {
     expect(await page.evaluate(() => window.scrollY)).toBe(0);
   });
 }
+
+test('@smoke a public page whose code fails to load is opened by a full load, never left under the old page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
+  });
+  await page.goto('/en/');
+  await expect(page.locator('#app .landing h1')).toBeVisible();
+  let aborted = 0;
+  await page.route(/\/assets\/(?:load-page|ToolsPage)-[^/]*\.js$/, async (route) => {
+    if (aborted++ === 0) return route.abort();
+    await route.continue();
+  });
+  const reloaded = page.waitForEvent('load');
+  await page.locator('#app .site-header [data-nav="tools"]').click();
+  await reloaded;
+  await expect(page).toHaveURL(/\/en\/tools\/$/);
+  await expect(page.locator('#app .site-header')).toHaveAttribute('data-current', 'tools');
+  await expect(page.locator('#app .tools-wrap')).toBeVisible();
+  await expect(page.locator('#app [data-section="pricing"]')).toHaveCount(0);
+  expect(aborted).toBeGreaterThan(0);
+});

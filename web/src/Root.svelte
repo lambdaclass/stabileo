@@ -64,8 +64,8 @@
       await tick();
       if (token === revision) resetPublicScroll(hash);
     } catch (error) {
-      // Keep the rendered page usable after a failed chunk request.
       console.error('Public navigation failed', error);
+      if (token === revision && token > 1) location.reload();
     }
   }
   $effect(() => { void sync(); });
