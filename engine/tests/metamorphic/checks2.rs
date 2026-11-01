@@ -254,9 +254,10 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
 
 /// Magnitude of the applied actions (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e,
 /// plus the force a thermal strain or a settlement would cause if restrained
-/// (E·A·α·ΔT, E·I·α·ΔT_grad/(h·L), E·A·d/L_e, E·I·θ/L_e²): a statically
-/// determinate model under those has member forces that are zero up to
-/// round-off of that size, not of zero.
+/// (E·A·α·ΔT, E·I·α·ΔT_grad/(h·L); for a settlement, the end forces of each
+/// member at that node: EA/L·d_axial + 12EI/L³·d_transverse + 6EI/L²·θ): a
+/// statically determinate model under those has member forces that are zero
+/// up to round-off of that size, not of zero.
 pub fn load_floor_2d(s: &SolverInput, lchar: f64) -> f64 {
     let member = |id: usize| -> Option<(f64, f64, f64, f64)> {
         let e = s.elements.get(&id.to_string())?;
@@ -265,15 +266,18 @@ pub fn load_floor_2d(s: &SolverInput, lchar: f64) -> f64 {
         let x = s.sections.get(&e.section_id.to_string())?;
         Some((m.e * 1000.0, x.a, x.iz, ((b.x - a.x).powi(2) + (b.z - a.z).powi(2)).sqrt()))
     };
-    let (mut k_axial, mut k_rot) = (0.0f64, 0.0f64);
-    for e in s.elements.values() {
-        if let Some((em, a, i, l)) = member(e.id).filter(|m| m.3 > 0.0) {
-            k_axial = k_axial.max(em * a / l);
-            k_rot = k_rot.max(em * i / (l * l));
-        }
-    }
     let imposed: f64 = s.supports.values().map(|x| {
-        (x.dx.unwrap_or(0.0).abs() + x.dz.unwrap_or(0.0).abs()) * k_axial + x.dry.unwrap_or(0.0).abs() * k_rot
+        let (dx, dz, th) = (x.dx.unwrap_or(0.0), x.dz.unwrap_or(0.0), x.dry.unwrap_or(0.0).abs());
+        if dx == 0.0 && dz == 0.0 && th == 0.0 {
+            return 0.0;
+        }
+        s.elements.values().filter(|e| e.node_i == x.node_id || e.node_j == x.node_id).filter_map(|e| {
+            let (em, a, i, l) = member(e.id).filter(|m| m.3 > 0.0)?;
+            let (n1, n2) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+            let (cx, cz) = ((n2.x - n1.x) / l, (n2.z - n1.z) / l);
+            let (axial, transverse) = ((dx * cx + dz * cz).abs(), (dx * cz - dz * cx).abs());
+            Some(em * (a / l * axial + 12.0 * i / l.powi(3) * transverse + 6.0 * i / (l * l) * th))
+        }).sum::<f64>()
     }).sum();
     let thermal: f64 = s.loads.iter().map(|l| match l {
         SolverLoad::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, i, _)| {

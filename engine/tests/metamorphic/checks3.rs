@@ -71,6 +71,7 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
 }
 
 /// Magnitude of the applied actions (force units), see `load_floor_2d`; a
+/// settled rotation about the member axis adds E·J/L²·θ (E bounds G), and a
 /// bimoment B counts as B/L².
 pub fn load_floor_3d(s: &SolverInput3D, lchar: f64) -> f64 {
     let member = |id: usize| -> Option<(f64, f64, f64, f64, f64)> {
@@ -80,16 +81,22 @@ pub fn load_floor_3d(s: &SolverInput3D, lchar: f64) -> f64 {
         let x = s.sections.get(&e.section_id.to_string())?;
         Some((m.e * 1000.0, x.a, x.iy, x.iz, ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt()))
     };
-    let (mut k_axial, mut k_rot) = (0.0f64, 0.0f64);
-    for e in s.elements.values() {
-        if let Some((em, a, iy, iz, l)) = member(e.id).filter(|m| m.4 > 0.0) {
-            k_axial = k_axial.max(em * a / l);
-            k_rot = k_rot.max(em * iy.max(iz) / (l * l));
-        }
-    }
-    let abs = |v: Option<f64>| v.unwrap_or(0.0).abs();
     let imposed: f64 = s.supports.values().map(|x| {
-        (abs(x.dx) + abs(x.dy) + abs(x.dz)) * k_axial + (abs(x.drx) + abs(x.dry) + abs(x.drz)) * k_rot
+        let v = |o: Option<f64>| o.unwrap_or(0.0);
+        let (d, r) = ([v(x.dx), v(x.dy), v(x.dz)], [v(x.drx), v(x.dry), v(x.drz)]);
+        if d.iter().chain(&r).all(|c| *c == 0.0) {
+            return 0.0;
+        }
+        s.elements.values().filter(|e| e.node_i == x.node_id || e.node_j == x.node_id).filter_map(|e| {
+            let (em, a, iy, iz, l) = member(e.id).filter(|m| m.4 > 0.0)?;
+            let (n1, n2) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+            let c = [(n2.x - n1.x) / l, (n2.y - n1.y) / l, (n2.z - n1.z) / l];
+            let along = |w: [f64; 3]| w[0] * c[0] + w[1] * c[1] + w[2] * c[2];
+            let across = |w: [f64; 3]| (w.iter().map(|q| q * q).sum::<f64>() - along(w).powi(2)).max(0.0).sqrt();
+            let i = iy.max(iz);
+            let j = s.sections.get(&e.section_id.to_string()).map_or(0.0, |x| x.j);
+            Some(em * (a / l * along(d).abs() + 12.0 * i / l.powi(3) * across(d) + 6.0 * i / (l * l) * across(r) + j / (l * l) * along(r).abs()))
+        }).sum::<f64>()
     }).sum();
     let other: f64 = s.loads.iter().map(|l| match l {
         SolverLoad3D::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, iy, iz, _)| {
