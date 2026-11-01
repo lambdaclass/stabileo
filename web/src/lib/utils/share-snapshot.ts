@@ -109,10 +109,10 @@ function referencesResolve(value: RecordValue): boolean {
       && nodes.has(c.nodeJ as number) && c.nodeI !== c.nodeJ && numbers(c, [], CONNECTOR_NUMBERS))
     && ((value.constraints ?? []) as RecordValue[]).every(c => constraintResolves(c, has))
     && ((value.combinations ?? []) as RecordValue[]).every(c => (c.factors as RecordValue[]).every(f =>
-      typeof f.factor === 'number' && inCase(f.caseId)))
+      typeof f.factor === 'number' && typeof f.caseId === 'number' && inCase(f.caseId)))
     && (!Array.isArray(value.footings) || value.footings.every(f => {
       const footing = Array.isArray(f) ? f[1] : f;
-      return !record(footing) || typeof footing.nodeId !== 'number' || has(footing.nodeId);
+      return !record(footing) || footing.nodeId === undefined || has(footing.nodeId);
     }))
     && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
     && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))

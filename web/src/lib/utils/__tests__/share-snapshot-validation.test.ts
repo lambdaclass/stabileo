@@ -119,6 +119,9 @@ describe('shared-link importer', () => {
       unknownConstraint: p => { p.constraints = [{ type: 'weld', masterNode: 1, slaveNode: 2 }]; },
       nullMpcTerm: p => { p.constraints = [{ type: 'linearMPC', terms: [null] }]; },
       danglingFooting: p => { p.footings = [[1, { id: 1, nodeId: 9 }]]; },
+      stringFootingNode: p => { p.footings = [[1, { id: 1, nodeId: '1' }]]; },
+      nullFootingNode: p => { p.footings = [[1, { id: 1, nodeId: null }]]; },
+      combinationWithoutCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.combinations = [{ id: 1, name: 'ULS', factors: [{ factor: 1.4 }] }]; },
       stringCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: '1.4' }] }]; },
     };
     for (const [name, fault] of Object.entries(faults)) {
