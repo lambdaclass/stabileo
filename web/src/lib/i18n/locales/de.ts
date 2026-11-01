@@ -268,7 +268,7 @@ const de: Translations = {
   'landing.badgeDevOpen': "IN ENTWICKLUNG",
   'landing.proDesignH': 'Normnachweise und Bemessung von Bauteilen.',
   'landing.proDesignP': 'Nach der Berechnung werden die Bauteile nach Norm nachgewiesen und bemessen. Derzeit weist es Stahlbeton (CIRSOC 201) und Stahl (CIRSOC 301, experimentell) nach und erzeugt Lasten und Kombinationen nach CIRSOC 101, 102, 103 und 104; es ist so aufgebaut, dass Normen anderer Länder ergänzt werden können.',
-  'landing.metaDescription': "Kostenlose, quelloffene Tragwerksberechnung im Browser: Rahmen und Fachwerke in 2D und 3D. CIRSOC-Bemessung kostenpflichtig, für Hochschulen kostenlos.",
+  'landing.metaDescription': "Kostenlose, quelloffene Tragwerksberechnung im Browser: Rahmen und Fachwerke in 2D und 3D. CIRSOC-Bemessung kostenpflichtig, für Universitäten kostenlos.",
   'landing.metaTitle': 'Stabileo — Kostenlose Software für die Tragwerksberechnung im Browser',
   'landing.proDesignCirsocLink': 'Was es heute nach CIRSOC nachweist',
   'landing.ebAi': 'STABILEO AI',

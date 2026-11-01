@@ -1,7 +1,7 @@
 import type { StandingPage } from '../../pages';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "SAP2000'e ücretsiz ve açık kaynaklı bir alternatif, tarayıcınızda",
+  "title": "Analiz için SAP2000'e ücretsiz ve açık kaynaklı bir alternatif, tarayıcınızda",
   "description": "Stabileo: tarayıcıda ücretsiz, açık kaynaklı yapı analizi. 2B/3B çerçeve, kabuk, P-Delta, modal ve spektral analiz; tasarım ücretli modüllerde.",
   "eyebrow": "SAP2000 alternatifi",
   "lead": "Stabileo, tarayıcınızda kurulum, lisans anahtarı veya hesap gerektirmeden çalışan, ücretsiz ve açık kaynaklı (AGPL-3.0) bir yapı analizi yazılımıdır. Çözücü Rust ile yazılmış ve WebAssembly'ye derlenmiştir; böylece model sizin bilgisayarınızda çözülür. Temel modda 2B ve 3B çerçeveler ile kafes kirişler modellenir, yüklenir, çözülür ve sonuçları okunur; geliştirme aşamasında olan PRO modu ise döşemeler ve perde duvarlar, DXF ve IFC içe aktarma, yönetmelik yükleri ve çubuk kontrolleri ekler. Analiz herkes için ücretsizdir; tasarım modülleri ücretlidir ve üniversiteler için ücretsizdir.",

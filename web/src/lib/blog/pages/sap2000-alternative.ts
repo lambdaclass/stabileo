@@ -18,7 +18,7 @@ export const sap2000AlternativePage: StandingPage = {
   updated: '2026-10-30',
   i18n: {
     es: {
-      title: 'Una alternativa gratis y de código abierto a SAP2000, en el navegador',
+      title: 'Una alternativa gratis y de código abierto a SAP2000 para el análisis, en el navegador',
       description:
         'Stabileo: cálculo estructural gratis y abierto en el navegador. Pórticos 2D y 3D, láminas, P-Delta, modal y espectro; diseño en módulos pagos.',
       eyebrow: 'Alternativa a SAP2000',
@@ -53,7 +53,7 @@ export const sap2000AlternativePage: StandingPage = {
       ],
     },
     en: {
-      title: 'A free, open-source alternative to SAP2000, in your browser',
+      title: 'A free, open-source alternative to SAP2000 for analysis, in your browser',
       description:
         'Stabileo: free, open-source structural analysis in your browser. 2D/3D frames, shells, P-Delta, modal and spectrum; code checks in paid modules.',
       eyebrow: 'SAP2000 alternative',
@@ -88,7 +88,7 @@ export const sap2000AlternativePage: StandingPage = {
       ],
     },
     pt: {
-      title: 'Uma alternativa grátis e de código aberto ao SAP2000, no navegador',
+      title: 'Uma alternativa grátis e de código aberto ao SAP2000 para análise, no navegador',
       description:
         'Stabileo: cálculo estrutural grátis e aberto no navegador. Pórticos 2D e 3D, cascas, P-Delta, modal e espectro; dimensionamento em módulos pagos.',
       eyebrow: 'Alternativa ao SAP2000',

@@ -91,7 +91,7 @@ export const PRICING = {
       "Basique",
       "PRO · Calcul",
       "PRO · Dimensionnement réglementaire",
-      "Stabileo AI",
+      "Stabileo IA",
       "Enseignement"
     ],
     "audiences": [
@@ -101,10 +101,10 @@ export const PRICING = {
     "free": "Gratuit",
     "paid": "Payant",
     "atCost": "Au prix coûtant",
-    "intro": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo AI et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût.",
+    "intro": "Le programme principal, pour l’analyse de structures dans le navigateur, est open source et gratuit pour tout le monde. Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement. Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût.",
     "notes": [
       "Certains modules spécialisés sont payants ; les universités les obtiennent gratuitement.",
-      "Stabileo AI et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
+      "Stabileo IA et les calculs lourds dans le cloud sont payants pour tout le monde, universités comprises, à un prix qui couvre leur coût."
     ]
   },
   "tr": {

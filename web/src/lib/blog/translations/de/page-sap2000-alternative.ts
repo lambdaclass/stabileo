@@ -1,7 +1,7 @@
 import type { StandingPage } from '../../pages';
 
 const body: StandingPage['i18n']['en'] = {
-  "title": "Eine kostenlose Open-Source-Alternative zu SAP2000, im Browser",
+  "title": "Eine kostenlose Open-Source-Alternative zu SAP2000 für die Berechnung, im Browser",
   "description": "Stabileo: kostenlose Open-Source-Statik im Browser. 2D/3D-Rahmen, Schalen, P-Delta, Modal- und Spektrenanalyse; Bemessung in kostenpflichtigen Modulen.",
   "eyebrow": "Alternative zu SAP2000",
   "lead": "Stabileo ist kostenlose Open-Source-Software (AGPL-3.0) für die Tragwerksberechnung, die im Browser läuft, ohne Installation, Lizenzschlüssel oder Konto. Der Rechenkern ist in Rust geschrieben und nach WebAssembly kompiliert, sodass das Modell auf Ihrem eigenen Computer berechnet wird. Im Basis-Modus modellieren, belasten und berechnen Sie Rahmen und Fachwerke in 2D und 3D und lesen die Ergebnisse ab; der PRO-Modus, in Entwicklung, ergänzt Decken und Wände, DXF- und IFC-Import, Lasten nach Norm und Stabnachweise. Die Berechnung ist für alle kostenlos; die Bemessungsmodule sind kostenpflichtig und für Universitäten kostenlos.",
