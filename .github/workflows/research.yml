@@ -154,6 +154,7 @@ jobs:
           PY
 
   topopt:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Topology optimization (Andreassen 2011)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -169,6 +170,7 @@ jobs:
       - run: nix develop -c make wasm
       - run: nix develop -c sh -c 'cd web && npm ci && npx vitest run src/components/research/andreassen2011/model.test.ts'
   engine-benchmarks:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Production engine benchmarks (native and WASM)
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -270,6 +272,7 @@ jobs:
       - name: Buckling, energy derivatives and every replay frame
         run: cargo test --release --locked -- --nocapture
   form-finding:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Four-cable FDM (Pastrana 2026) validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -281,6 +284,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/Cargo.toml
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
   arches:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Curvature-patterned arches validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -292,6 +296,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
       - run: cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
   fairclough:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Five-node gridshell (Fairclough 2026) validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -302,6 +307,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
   riks-crisfield:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
