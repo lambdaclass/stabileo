@@ -1783,6 +1783,10 @@ fn strict_validator_rejects_bad_spectral_shear_and_modal_tensors() {
                 "spectral: expected positive base shear and nonzero motion",
             ),
             (vec![1.0, 1.0], "spectral: response shape mismatch"),
+            (
+                vec![f64::INFINITY],
+                "spectral: empty, nonfinite or duplicate response",
+            ),
         ] {
             let mut r = spectral.clone();
             r.0.iter_mut().find(|i| i.tag == "base_shear").unwrap().v = shear;
@@ -1790,6 +1794,14 @@ fn strict_validator_rejects_bad_spectral_shear_and_modal_tensors() {
                 .unwrap_err()
                 .starts_with(error));
         }
+        let mut still = spectral.clone();
+        for item in still.0.iter_mut().filter(|i| i.tag == "u") {
+            item.v.iter_mut().for_each(|v| *v = 0.0);
+        }
+        assert!(still.0.iter().any(|i| i.tag == "base_shear" && i.v[0] > 0.0));
+        assert!(validate_response("spectral", &still, shape)
+            .unwrap_err()
+            .starts_with("spectral: expected positive base shear and nonzero motion"));
     }
     for (modal, shape) in [run2("modal"), run3("modal")].into_iter().zip(&shapes) {
         validate_response("modal", &modal, shape).unwrap();
