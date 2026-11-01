@@ -46,6 +46,7 @@ import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { PAPER_LOCALES } from '../src/components/paper/locales';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, isResearchRoute, researchLastReview, researchLocales } from '../src/components/research/locales';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -132,7 +133,8 @@ const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
   if (isResearchRoute(path)) return LOCALES.filter((l) => researchLocales(path).includes(l));
-  if (path === '/' || path === '/blog' || path === '/paper' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
+  if (path === '/paper') return LOCALES.filter((l) => PAPER_LOCALES.includes(l));
+  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
     (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
