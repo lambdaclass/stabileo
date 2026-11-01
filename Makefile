@@ -1,6 +1,7 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
+       perf.budget perf.budget.write perf.budget.accept perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
@@ -258,7 +259,26 @@ test.web.unit:
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && node scripts/perf-budget.mjs && npx vitest run --project build"
+
+## Route sizes of web/dist against web/perf-budget.json (docs/performance/README.md); after a build
+perf.budget:
+	$(NIX_RUN) bash -c "cd web && node scripts/perf-budget.mjs"
+
+## Lower web/perf-budget.json where a route shrank (a ratchet only tightens)
+perf.budget.write:
+	$(NIX_RUN) bash -c "cd web && node scripts/perf-budget.mjs --write"
+
+## Record a deliberate growth in web/perf-budget.json; say why in the pull request
+perf.budget.accept:
+	$(NIX_RUN) bash -c "cd web && node scripts/perf-budget.mjs --accept-growth"
+
+perf.lighthouse.deps:
+	$(NIX_RUN) bash -c "cd web/lighthouse && npm ci --no-audit --no-fund"
+
+## Lighthouse median of RUNS against web/perf-lighthouse.json: BASE=url PRESET=mobile|desktop ARGS=--write
+perf.lighthouse:
+	$(NIX_RUN) bash -c "cd web && node scripts/perf-lighthouse.mjs --base $(or $(BASE),https://stabileo.com) --runs $(or $(RUNS),5) --preset $(or $(PRESET),mobile) $(ARGS)"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.

@@ -6,6 +6,7 @@ import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
+import { bundleGraphPlugin } from './scripts/perf-bundle-graph.mjs';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -206,7 +207,7 @@ if (researchBuildId !== 'unavailable') {
 }
 
 export default defineConfig({
-  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [])],
+  plugins: [wasmStubPlugin(), publicI18nPlugin(), resultChangeMetadataPlugin(), svelte(), ...(ADMIN ? [adminRootPlugin(), adminPublicAssetsPlugin()] : [bundleGraphPlugin()])],
   define: {
     "import.meta.env.RESEARCH_BUILD_ID": JSON.stringify(researchBuildId),
     __STABILEO_COMMIT__: JSON.stringify(buildCommit()),

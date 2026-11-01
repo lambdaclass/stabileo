@@ -19,6 +19,7 @@ on:
       - Differential
       - Mutation testing (TypeScript engine logic)
       - Supply chain
+      - Performance
     types: [completed]
   workflow_dispatch:
     inputs:
