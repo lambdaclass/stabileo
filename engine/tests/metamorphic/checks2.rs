@@ -252,8 +252,41 @@ pub fn check_case(ctx: &Ctx, c: &Case2, anas: &[Ana2], invariants: &[&str]) {
     }
 }
 
-/// Magnitude of the applied loads (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e.
+/// Magnitude of the applied actions (force units): Σ|F| + Σ|M|/L + Σ|q|·L_e,
+/// plus the force a thermal strain or a settlement would cause if restrained
+/// (E·A·α·ΔT, E·I·α·ΔT_grad/(h·L), E·A·d/L_e, E·I·θ/L_e²): a statically
+/// determinate model under those has member forces that are zero up to
+/// round-off of that size, not of zero.
 pub fn load_floor_2d(s: &SolverInput, lchar: f64) -> f64 {
+    let member = |id: usize| -> Option<(f64, f64, f64, f64)> {
+        let e = s.elements.get(&id.to_string())?;
+        let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+        let m = s.materials.get(&e.material_id.to_string())?;
+        let x = s.sections.get(&e.section_id.to_string())?;
+        Some((m.e * 1000.0, x.a, x.iz, ((b.x - a.x).powi(2) + (b.z - a.z).powi(2)).sqrt()))
+    };
+    let (mut k_axial, mut k_rot) = (0.0f64, 0.0f64);
+    for e in s.elements.values() {
+        if let Some((em, a, i, l)) = member(e.id).filter(|m| m.3 > 0.0) {
+            k_axial = k_axial.max(em * a / l);
+            k_rot = k_rot.max(em * i / (l * l));
+        }
+    }
+    let imposed: f64 = s.supports.values().map(|x| {
+        (x.dx.unwrap_or(0.0).abs() + x.dz.unwrap_or(0.0).abs()) * k_axial + x.dry.unwrap_or(0.0).abs() * k_rot
+    }).sum();
+    let thermal: f64 = s.loads.iter().map(|l| match l {
+        SolverLoad::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, i, _)| {
+            let alpha = t.alpha.unwrap_or(1.2e-5);
+            let h = t.depth.unwrap_or((12.0 * i / a).sqrt());
+            em * alpha * (a * t.dt_uniform.abs() + i * t.dt_gradient.abs() / (h * lchar))
+        }),
+        _ => 0.0,
+    }).sum();
+    imposed + thermal + applied_2d(s, lchar)
+}
+
+fn applied_2d(s: &SolverInput, lchar: f64) -> f64 {
     let len = |id: usize| -> f64 {
         s.elements.get(&id.to_string()).and_then(|e| {
             let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
