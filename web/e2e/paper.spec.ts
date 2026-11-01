@@ -20,6 +20,16 @@ test.describe('@smoke paper', () => {
     await expect(page.locator('[data-testid="paper"] h1')).toContainText('Developing a structural calculation agent on top of a verified solver');
   });
 
+  test('the paper structured data is in the prerendered page and gone after leaving it', async ({ page }) => {
+    const html = await (await page.request.get('/en/paper/')).text();
+    expect(html).toContain('"@type":"ScholarlyArticle"');
+    await page.goto('/en/paper/');
+    await expect(page.locator('[data-testid="paper"] h1')).toBeVisible();
+    await page.locator('nav.site-header [data-nav="blog"]').first().click();
+    await expect(page).toHaveURL(/\/en\/blog\/$/);
+    await expect(page.locator('script[type="application/ld+json"]').filter({ hasText: 'ScholarlyArticle' })).toHaveCount(0);
+  });
+
   test('renders the whole paper: sections, equations, tables, figures and references', async ({ page }) => {
     await page.goto('/es/paper/');
     const paper = page.locator('[data-testid="paper"]');

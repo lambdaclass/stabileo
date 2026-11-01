@@ -23,5 +23,5 @@ export function paperStructuredData(origin: string, locale: string): string {
       ],
     },
   ];
-  return `<script type="application/ld+json">${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')}</script>`;
+  return `<script type="application/ld+json" data-paper-ld>${JSON.stringify({ '@context': 'https://schema.org', '@graph': graph }).replace(/</g, '\\u003c')}</script>`;
 }
