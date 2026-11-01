@@ -1,0 +1,47 @@
+order: 27
+id: navier-plate
+doi: 10.1201/9780203908723-3
+crossref:
+  title: Rectangular Plates
+  authors:
+  - Eduard Ventsel
+  - Theodor Krauthammer
+  year: 2001
+  venue: Thin Plates and Shells
+area: shells
+keywords:
+- Navier
+- simply-supported
+- plate
+- Fourier-series
+- mesh-refinement
+summary: ''
+summary_source: null
+summary_note: Historical benchmark label Navier (1823) is not a verified publication date; this DOI identifies
+  the modern reference chapter.
+code: []
+data:
+- https://civil-terje.sites.olt.ubc.ca/files/2019/06/Naviers-Plate-Solution-for-Uniform-Load.pdf
+methods:
+- DKT
+- MITC4
+- double Fourier series
+dependencies:
+- Stabileo production WASM engine
+complexity: low
+relevance: One rectangular plate reuses production shell elements and the shared viewer; low effort, clear
+  numerical comparison and visible mesh refinement.
+status: proposed
+stage: first-version
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+reproduced_published_results: false
+benchmarks:
+- Centre displacement of the 3 by 5 metre uniformly loaded simply supported plate
+implementation: benchmarks/navier-plate
+page: web/src/components/research/navier1823/NavierPage.svelte
+contacts: []

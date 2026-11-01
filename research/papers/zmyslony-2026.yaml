@@ -33,10 +33,18 @@ methods:
 dependencies: []
 complexity: low
 relevance: Queue item 5. The theory's basis is the Euler buckling modes the production engine already
-  computes; passive arches run on the 2D corotational and arc-length solvers. Zenodo record (data and
-  software, CC-BY-4.0 per the record) not yet inspected file by file.
-status: proposed
-reproduced_published_results: false
+  computes. Centered-pattern shallow-arch thresholds are checked against Zenodo software outputs. Production
+  arc-length rejects thermal loading and prescribed displacements; the curvature-driven equilibrium path
+  uses a research modal layer. Experimental snap dynamics are not reproduced.
+status: interactive
+reproduced_published_results: true
 benchmarks: []
-implementation: null
+implementation: mechanics/biggins-2026
+page: web/src/components/research/biggins2026/BigginsPage.svelte
 contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

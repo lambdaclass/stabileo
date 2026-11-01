@@ -1,0 +1,29 @@
+order: 39
+id: zienkiewicz-zhu-1987
+doi: 10.1002/nme.1620240206
+crossref:
+  title: A simple error estimator and adaptive procedure for practical engineerng analysis
+  authors:
+  - O. C. Zienkiewicz
+  - J. Z. Zhu
+  year: 1987
+  venue: International Journal for Numerical Methods in Engineering
+area: numerical-methods
+keywords: &id001
+- error estimation
+- adaptive refinement
+summary: Presents an inexpensive estimator of global energy-norm and local finite element errors. The
+  estimates guide adaptive refinement or mesh redesign to reach a chosen accuracy.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's existing recovery-based energy-norm error estimator and shell mesh-refinement
+  workflow.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

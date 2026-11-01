@@ -1,0 +1,31 @@
+order: 43
+id: batoz-1980
+doi: 10.1002/nme.1620151205
+crossref:
+  title: A study of three‐node triangular plate bending elements
+  authors:
+  - Jean‐Louis Batoz
+  - Klaus‐JÜRgen Bathe
+  - Lee‐Wing Ho
+  year: 1980
+  venue: International Journal for Numerical Methods in Engineering
+area: shells
+keywords: &id001
+- DKT
+- triangular plates
+- plate bending
+summary: Compares three-node triangular plate bending elements with nine displacement degrees of freedom.
+  Theoretical and numerical assessments favour the discrete Kirchhoff and hybrid-stress formulations among
+  the alternatives examined.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's DKT triangular plate bending elements against formulation examples.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

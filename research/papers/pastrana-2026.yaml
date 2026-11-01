@@ -38,11 +38,19 @@ dependencies:
 - JAX
 - COMPAS
 complexity: medium
-relevance: Queue item 7. Form-finding is one sparse solve with the engine's Cholesky; the found form opens
-  in the editor as a gridshell and is checked with the production 3D analysis and buckling. MIT reference
-  code with ready examples.
-status: proposed
+relevance: Forward form-finding uses the engine sparse Cholesky API. The four-cable form opens as a 3D
+  truss and is checked with the production linear solver. No buckling, prestress transfer or inverse optimization
+  is claimed.
+status: numerically-validated
 reproduced_published_results: false
-benchmarks: []
-implementation: null
+benchmarks:
+- Fig. 2 four-bar topology; explicit demonstration inputs, Eq. (7), pinned jax_fdm and production truss
+  checks
+implementation: form-finding/pastrana-2026
 contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

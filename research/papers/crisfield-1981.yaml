@@ -1,0 +1,27 @@
+order: 32
+id: crisfield-1981
+doi: 10.1016/0045-7949(81)90108-5
+crossref:
+  title: A fast incremental/iterative solution procedure that handles “snap-through”
+  authors:
+  - M.A. Crisfield
+  year: 1981
+  venue: Computers & Structures
+area: numerical-methods
+keywords: &id001
+- arc-length
+- snap-through
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Method behind Stabileo's Crisfield arc-length solver for 2D frame snap-through and snap-back.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
+contacts: []

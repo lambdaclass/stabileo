@@ -1,0 +1,32 @@
+order: 38
+id: belytschko-1985
+doi: 10.1016/0045-7825(85)90035-0
+crossref:
+  title: Stress projection for membrane and shear locking in shell finite elements
+  authors:
+  - Ted Belytschko
+  - Henryk Stolarski
+  - Wing Kam Liu
+  - Nicholas Carpenter
+  - Jame S.J. Ong
+  year: 1985
+  venue: Computer Methods in Applied Mechanics and Engineering
+area: shells
+keywords: &id001
+- stress projection
+- membrane locking
+- shear locking
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: medium
+relevance: Would add a stress-projection option to reduce membrane and shear locking in Stabileo's shell
+  elements.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

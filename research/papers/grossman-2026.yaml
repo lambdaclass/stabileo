@@ -38,3 +38,9 @@ benchmarks:
 - exact lattice moduli, Cauchy-Born, rigidity, production-engine agreement
 implementation: metamaterials/grossman-2026
 contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

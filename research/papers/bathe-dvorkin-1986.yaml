@@ -1,0 +1,30 @@
+order: 36
+id: bathe-dvorkin-1986
+doi: 10.1002/nme.1620220312
+crossref:
+  title: A formulation of general shell elements—the use of mixed interpolation of tensorial components
+  authors:
+  - Klaus‐Jürgen Bathe
+  - Eduardo N. Dvorkin
+  year: 1986
+  venue: International Journal for Numerical Methods in Engineering
+area: shells
+keywords: &id001
+- MITC
+- mixed interpolation
+- shell elements
+summary: Discusses practical requirements for general shell elements, explains a four-node mixed-interpolation
+  formulation and introduces an eight-node element using the same approach.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises the mixed-interpolation basis of Stabileo's MITC shells, restricted to supported
+  linear shell analysis.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

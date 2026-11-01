@@ -42,7 +42,7 @@ test.describe('@smoke exporting by what comes out', () => {
 test.describe('@smoke exporting by what comes out, in Basic', () => {
   test('three buttons by content; Excel or CSV, PDF, Word or HTML, and SVG, PNG or JPG chosen inside', async ({ page }) => {
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
     const panel = page.locator('[data-testid="basic-panel"][data-panel="project"]');
     if (await panel.count() === 0) await page.getByTestId('hdr-project').click();
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));

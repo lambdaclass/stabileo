@@ -1,0 +1,70 @@
+{
+  "stage": "first-version",
+  "reviews": [],
+  "command": "nix develop -c cargo test -p dedaliano-engine --test solver cqc_1981 -- --nocapture",
+  "checks": [
+    {
+      "name": "frequency 1",
+      "metric": "relative difference",
+      "observed": 0.0,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "frequency 2",
+      "metric": "relative difference",
+      "observed": 0.0,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "X effective mass sum",
+      "metric": "relative difference",
+      "observed": 0.0,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "SRSS base shear",
+      "metric": "relative difference",
+      "observed": 6.420163495599703e-15,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "SRSS roof 5 X displacement",
+      "metric": "relative difference",
+      "observed": 4.224511200337932e-15,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "SRSS roof 6 X displacement",
+      "metric": "relative difference",
+      "observed": 1.4150311195982886e-15,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "CQC base shear",
+      "metric": "relative difference",
+      "observed": 5.8706706720480275e-15,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "CQC roof 5 X displacement",
+      "metric": "relative difference",
+      "observed": 4.374216886481763e-15,
+      "tolerance": 1e-08,
+      "passed": true
+    },
+    {
+      "name": "CQC roof 6 X displacement",
+      "metric": "relative difference",
+      "observed": 5.076434659805284e-15,
+      "tolerance": 1e-08,
+      "passed": true
+    }
+  ]
+}

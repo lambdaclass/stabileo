@@ -4,8 +4,7 @@
   import { activeQuantity, activeRepresentation, representationsFor, showQuantityAs, activeMapMeasure, showStressMap, hasLiveColourScale, type MapMeasure } from '../../lib/store/result-view';
   import { showDiagram } from '../../lib/store/view-mode';
   import ResultsTable from '../tables/ResultsTable.svelte';
-  import CertificateStatus from '../CertificateStatus.svelte';
-  import DiscretizationStatus from '../DiscretizationStatus.svelte';
+  import ResultChecks from '../ResultChecks.svelte';
   import ResultsViewPicker from './ResultsViewPicker.svelte';
   import { t } from '../../lib/i18n';
   import { hasInvalid2DDisplacements, hasInvalid3DDisplacements } from '../../lib/geometry/coordinate-system';
@@ -153,8 +152,6 @@
   {/if}
   {#if showResultsPanel || flat}
     {#if resultsStore.results || resultsStore.results3D || resultsStore.influenceLine}
-      <CertificateStatus />
-      <DiscretizationStatus />
       {#if !hideDiagrams}
       <div class="diagram-grid">
         <button class="diagram-btn" class:active={resultsStore.diagramType === 'none'} onclick={() => showDiagram('none')} title={t('results.noDiagramTooltip')} use:tooltip={'diag-none'}>{t('results.none')}</button>
@@ -194,10 +191,16 @@
         </div>
       {/if}
       {#if resultsStore.diagramType === 'deformed'}
-        <label class="checkbox-item">
-          <input type="checkbox" bind:checked={resultsStore.animateDeformed} />
-          <span>{t('results.animate')}</span>
-        </label>
+        <div class="deformed-checks">
+          <label class="checkbox-item">
+            <input type="checkbox" bind:checked={resultsStore.animateDeformed} />
+            <span>{t('results.animate')}</span>
+          </label>
+          <label class="checkbox-item">
+            <input type="checkbox" bind:checked={resultsStore.showDeformedValues} data-testid="deformed-values" />
+            <span>{t('results.showDisplacements')}</span>
+          </label>
+        </div>
         {#if resultsStore.animateDeformed}
           <div class="input-group">
             <label>{t('results.speed')}:</label>
@@ -447,6 +450,7 @@
             </div>
           </div>
         {/if}
+        <ResultChecks />
 
     {:else}
       <p class="no-results-msg">{t('results.noResultsMsg')}</p>
@@ -489,6 +493,7 @@
     letter-spacing: 0.05em;
   }
 
+  .deformed-checks { display: flex; gap: 14px; flex-wrap: wrap; }
   .checkbox-item {
     display: flex;
     align-items: center;

@@ -1,0 +1,38 @@
+order: 29
+id: dadeppo-arch-1975
+doi: 10.1115/1.3423734
+crossref:
+  title: Instability of Clamped-Hinged Circular Arches Subjected to a Point Load
+  authors:
+  - D. A. DaDeppo
+  - R. Schmidt
+  year: 1975
+  venue: Journal of Applied Mechanics
+area: numerical-methods
+keywords:
+- arch
+- limit load
+- arc length
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- production corotational frames
+- Crisfield arc length
+dependencies: []
+complexity: low
+relevance: One deep arch exercises the production path-following solver and shared viewer.
+status: implementation-in-progress
+stage: first-version
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+reproduced_published_results: false
+benchmarks:
+- 215 degree clamped–hinged arch under a crown point load
+implementation: benchmarks/dadeppo-arch-1975
+contacts: []

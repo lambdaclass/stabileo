@@ -1,0 +1,38 @@
+order: 28
+id: lee-frame-1968
+doi: 10.1061/JMCEA3.0000966
+crossref:
+  title: Large Deflections and Stability of Elastic Frame
+  authors:
+  - Seng-Lip Lee
+  - Francisco S. Manuel
+  - Edwin C. Rossow
+  year: 1968
+  venue: Journal of the Engineering Mechanics Division
+area: numerical-methods
+keywords:
+- Lee frame
+- arc-length
+- snap-through
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- Production corotational arc-length solver
+dependencies: []
+complexity: low
+relevance: A small frame exercises the existing nonlinear path-following solver and shared viewer.
+status: proposed
+stage: first-version
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+reproduced_published_results: false
+benchmarks:
+- Pinned Lee frame, first limit point (provisional reference)
+implementation: benchmarks/lee-frame-1968
+contacts: []

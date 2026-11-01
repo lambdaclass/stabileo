@@ -15,9 +15,12 @@ keywords:
 - brittle fracture
 - staggered scheme
 - educational code
-summary: ''
-summary_source: null
-summary_note: No permitted summary source recorded; reference code alone is insufficient.
+summary: An educational single-file Python implementation of two-dimensional phase-field fracture with
+  linear quadrilateral elements. It provides sparse and dense examples of a bar in tension and a single-edge
+  notched plate, plus a sparse three-point bending example, with VTK output and stress or reaction-force
+  plots for comparison.
+summary_source: repository-readme
+summary_note: Code facts only; README at https://github.com/nathanshauer/phasefield-jr-py/blob/61037c6ce7833a4f92a3ec098a9d60fd477eff2b/README.md
 code:
 - url: https://github.com/nathanshauer/phasefield-jr-py
   commit: 61037c6ce7833a4f92a3ec098a9d60fd477eff2b
@@ -47,3 +50,9 @@ benchmarks:
 - three-point bending force-displacement
 implementation: fracture/shauer-2025
 contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

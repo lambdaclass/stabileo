@@ -24,16 +24,19 @@ import steelEn from '../locales/steel/en';
 import steelEs from '../locales/steel/es';
 import steelPt from '../locales/steel/pt';
 import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
+import { toolTranslations } from '../../../components/tools/translations';
+import { batchTranslations } from '../../../components/tools/batch-i18n';
 
 /*
  * What the app reads is each locale merged with its companion dictionaries
  * (i18n/store.svelte.ts): the metallic surface's and the explained
  * step-by-step catalog's. A key defined in a companion is defined.
  */
+// This source scan also visits public tools; their companion dictionaries load only on that route.
 const merged = {
-  en: { ...en, ...steelEn, ...stepsEn },
-  es: { ...es, ...steelEs, ...stepsEs },
-  pt: { ...pt, ...steelPt, ...stepsPt },
+  en: { ...en, ...steelEn, ...stepsEn, ...batchTranslations.en, ...toolTranslations.en },
+  es: { ...es, ...steelEs, ...stepsEs, ...batchTranslations.es, ...toolTranslations.es },
+  pt: { ...pt, ...steelPt, ...stepsPt, ...batchTranslations.pt, ...toolTranslations.pt },
 };
 
 const SRC = join(import.meta.dirname, '../../..');

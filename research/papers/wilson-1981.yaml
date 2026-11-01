@@ -1,0 +1,31 @@
+order: 35
+id: wilson-1981
+doi: 10.1002/eqe.4290090207
+crossref:
+  title: A replacement for the srss method in seismic analysis
+  authors:
+  - E. L. Wilson
+  - A. Der Kiureghian
+  - E. P. Bayo
+  year: 1981
+  venue: Earthquake Engineering & Structural Dynamics
+area: seismic
+keywords: &id001
+- CQC
+- response spectrum
+- modal combination
+summary: Introduces complete quadratic combination for seismic modal maxima. In the examples studied it
+  reduces modal-combination errors, and it approaches SRSS when natural frequencies are well separated.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's CQC response-spectrum combination, including closely spaced modes and
+  comparison with SRSS.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

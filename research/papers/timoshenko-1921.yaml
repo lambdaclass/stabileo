@@ -1,0 +1,27 @@
+order: 37
+id: timoshenko-1921
+doi: 10.1080/14786442108636264
+crossref:
+  title: LXVI. <i>On the correction for shear of the differential equation for transverse vibrations of
+    prismatic bars</i>
+  authors:
+  - S.P. Timoshenko
+  year: 1921
+  venue: The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science
+area: numerical-methods
+keywords: &id001
+- shear deformation
+- beam vibration
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's shear-deformable Timoshenko frame elements and their modal response.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

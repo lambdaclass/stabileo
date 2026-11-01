@@ -1,0 +1,31 @@
+order: 46
+id: zupan-2004
+doi: 10.1016/j.finel.2003.10.001
+crossref:
+  title: 'On “A proposed standard set of problems to test finite element accuracy”: the twisted beam'
+  authors:
+  - D. Zupan
+  - M. Saje
+  year: 2004
+  venue: Finite Elements in Analysis and Design
+area: shells
+keywords: &id001
+- twisted beam
+- benchmark geometry
+summary: Compares three interpretations of an initially twisted beam with different twist distributions
+  and cross-sections. The numerical results identify the MacNeal-Harder reference as a linearly twisted
+  beam with curved edges.
+summary_source: publisher-abstract
+summary_note: 'Publisher abstract: https://www.sciencedirect.com/science/article/pii/S0168874X03002130'
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Clarifies the twisted-beam geometry used to check Stabileo's shell tip deflections against
+  MacNeal-Harder references.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []
