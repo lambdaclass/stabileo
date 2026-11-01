@@ -1145,6 +1145,10 @@ fn warped_mitc_untwisted_flat_and_planar_curved_shells_are_not_flagged() {
     cylinder.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: node(nx, nc / 2), fx: 0.0, fy: -1.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
     let r = dedaliano_engine::solver::linear::solve_3d(&cylinder).unwrap();
     assert!(warped_findings(&r.structured_diagnostics).is_empty());
+    let mut collapsed = cylinder.clone();
+    collapsed.quads.retain(|_, e| e.id == 1);
+    collapsed.quads.get_mut("1").unwrap().nodes = [1, 2, 2, 1];
+    assert!(warped_findings(&for_3d(&collapsed, Analysis::Linear)).is_empty(), "a collapsed quad is the collapse gate's to refuse");
     assert!(r.displacements.iter().any(|d| d.uz.abs() > 0.0));
 }
 

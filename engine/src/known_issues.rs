@@ -122,6 +122,11 @@ const WARPED_MITC9: &str = "Results withheld: the twist of these MITC9 shells is
 pub const WARPED_MITC4_TWIST: (f64, f64) = (0.009, 0.016);
 pub const WARPED_MITC9_TWIST: (f64, f64) = (0.0035, 0.0065);
 
+/// A collapsed element has no twist to measure; the pre-solve collapse gate refuses it by name.
+fn measured(id: usize, kappa: f64, thickness: f64) -> Option<(usize, f64)> {
+    kappa.is_finite().then_some((id, kappa * thickness))
+}
+
 fn warped(id: &str, kind: ElementKind, (warn_at, refuse_at): (f64, f64), twists: impl Iterator<Item = (usize, f64)>, warning: &str) -> Option<StructuredDiagnostic> {
     let mut affected: Vec<(usize, f64)> = twists.filter(|(_, kt)| kt.is_nan() || *kt > warn_at).collect();
     if affected.is_empty() { return None }
@@ -421,13 +426,13 @@ pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
         out.push(d);
     }
     let point = |id: &usize| input.nodes.get(&id.to_string()).map(|n| [n.x, n.y, n.z]);
-    out.extend(warped("SH-WARPED-MITC4", ElementKind::Quad, WARPED_MITC4_TWIST, input.quads.values().map(|e| {
-        let p: Option<Vec<_>> = e.nodes.iter().map(point).collect();
-        (e.id, p.map_or(f64::INFINITY, |p| crate::element::quad::quad_twist_curvature(&[p[0], p[1], p[2], p[3]]) * e.thickness))
+    out.extend(warped("SH-WARPED-MITC4", ElementKind::Quad, WARPED_MITC4_TWIST, input.quads.values().filter_map(|e| {
+        let p: Vec<_> = e.nodes.iter().map(point).collect::<Option<_>>()?;
+        measured(e.id, crate::element::quad::quad_twist_curvature(&[p[0], p[1], p[2], p[3]]), e.thickness)
     }), "MITC4 shells on twisted (warped) surfaces can be about 1.5 to 5 % too flexible, and refining the mesh does not reduce the error. Verify the twisted region with curved-shell elements"));
-    out.extend(warped("SH-WARPED-MITC9", ElementKind::Quad9, WARPED_MITC9_TWIST, input.quad9s.values().map(|e| {
-        let p: Option<Vec<_>> = e.nodes.iter().map(point).collect();
-        (e.id, p.map_or(f64::INFINITY, |p| crate::element::quad9::quad9_twist_curvature(&std::array::from_fn(|i| p[i])) * e.thickness))
+    out.extend(warped("SH-WARPED-MITC9", ElementKind::Quad9, WARPED_MITC9_TWIST, input.quad9s.values().filter_map(|e| {
+        let p: Vec<_> = e.nodes.iter().map(point).collect::<Option<_>>()?;
+        measured(e.id, crate::element::quad9::quad9_twist_curvature(&std::array::from_fn(|i| p[i])), e.thickness)
     }), "MITC9 shells on twisted (warped) surfaces can be about 1.5 to 5 % too flexible, and refining the mesh does not reduce the error. Verify the twisted region with curved-shell elements"));
     if input.connectors.values().any(|c| c.k_shear != c.k_shear_z || c.k_bend_y != c.k_bend_z) {
         out.push(diagnostic("SP-17"));
