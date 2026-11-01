@@ -467,7 +467,7 @@ test.describe('@landing landing page', () => {
    */
   test.describe('metadata', () => {
     const SOCIAL = 'https://stabileo.com/og/stabileo-social.png';
-    const EN_TITLE = 'Stabileo — Free structural analysis software, in your browser';
+    const EN_TITLE = 'Stabileo — Open-source structural engineering software';
 
     function readHead(page: Page) {
       return page.evaluate(() => {
@@ -509,7 +509,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/Free, open-source structural analysis/i);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*bring your own Claude or OpenAI key/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -580,15 +580,15 @@ test.describe('@landing landing page', () => {
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('es');
-      expect(h.title).toBe('Stabileo — Software de cálculo estructural gratis, en el navegador');
+      expect(h.title).toBe('Stabileo — Software de ingeniería estructural de código abierto');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
       // The description is the hero lead, which now carries the positioning:
       // a free, open platform with three modes, rather than live re-solving.
-      expect(one(h, 'description')).toMatch(/Programa de cálculo estructural gratis/);
-      expect(one(h, 'description')).toMatch(/Programa de cálculo estructural gratis/);
+      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*tu propia clave de Claude u OpenAI/);
+      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*tu propia clave de Claude u OpenAI/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -603,7 +603,7 @@ test.describe('@landing landing page', () => {
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('pt');
-      expect(h.title).toBe('Stabileo — Software de cálculo estrutural grátis, no navegador');
+      expect(h.title).toBe('Stabileo — Software de engenharia estrutural de código aberto');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('pt_BR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('pt'));
@@ -630,7 +630,7 @@ test.describe('@landing landing page', () => {
       await bootLanding(page, { manual: false });
       const h = await readHead(page);
       expect(h.lang).toBe('es');
-      expect(h.title).toMatch(/cálculo estructural/);
+      expect(h.title).toMatch(/ingeniería estructural/);
       expect(h.headTitles).toBe(1);
       await ctx.close();
     });
@@ -659,7 +659,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/Free, open-source structural analysis/i);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*bring your own Claude or OpenAI key/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {

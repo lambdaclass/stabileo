@@ -46,6 +46,9 @@ import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
+import { TOOL_IDS } from '../src/components/tools/calculators';
+import { BATCH_IDS } from '../src/components/tools/batch';
+import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -234,6 +237,11 @@ async function publicPaths(): Promise<string[]> {
     }
   }
   if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
+  POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
+  const reviewed = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1)!;
+  for (const id of TOOL_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-1'));
+  for (const id of BATCH_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-2'));
+  POST_LASTMOD.set('/tools', [reviewed('tools-batch-1'), reviewed('tools-batch-2')].sort().at(-1)!);
   // Standing pages, read from their own files, with their last edit for the sitemap.
   const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
   const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);

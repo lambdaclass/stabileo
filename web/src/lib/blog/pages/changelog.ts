@@ -16,6 +16,7 @@ export const changelogPage: StandingPage = {
     },
     en: {
       title: 'Stabileo changelog',
+      metaTitle: 'Stabileo changelog: what changed in Basic, PRO and the engine',
       description: 'What reached Stabileo since February 2026: new Basic and PRO features, and improvements to the analysis engine and the website. Updated every Friday.',
       eyebrow: 'Changelog',
       lead: 'What reached Stabileo since the first version in February 2026, newest first. From February to April it goes month by month, and from June, week by week. Every Friday we add what was released that week in Basic, PRO, the analysis engine and the website.',
