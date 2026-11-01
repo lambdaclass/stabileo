@@ -1,4 +1,5 @@
 import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
+import { ContainmentExportError } from './containment-error';
 // PRO Report Generator — HTML-based report with KaTeX math rendering
 // Generates the structural analysis report; the design is reported by the memoria
 // (`lib/report/memoria`).
@@ -336,7 +337,7 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('advancedAnalysis') && data.advancedResults) tocEntries.push({ label: (tr('report.advancedAnalysis') || 'Advanced Analysis'), anchor: 'sec-advanced' });
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   const dispositions = [knownIssueResultDisposition([data.results, data.resultSets]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
-  if (dispositions.some(d => d?.refused)) throw new Error(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
+  if (dispositions.some(d => d?.refused)) throw new ContainmentExportError(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
   for (const message of new Set(dispositions.flatMap(d => d?.messages ?? []))) html.push(`<p role="alert">${escHtml(message)}</p>`);
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
   if (showSection('quantities') && quantities) tocEntries.push({ label: (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });

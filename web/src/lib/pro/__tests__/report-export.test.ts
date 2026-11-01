@@ -57,3 +57,16 @@ it('a refused workspace result is explained before the report builder sees a nul
   expect(toast).toHaveBeenCalledWith(expect.stringContaining('#741'), 'error');
   vi.restoreAllMocks(); resultsStore.clear();
 });
+
+it('a defect in report assembly is not turned into a toast', async () => {
+  const { vi } = await import('vitest');
+  const inputs = await import('../../engine/pro-report-inputs');
+  const { uiStore } = await import('../../store/ui.svelte');
+  const { exportReportAs } = await import('../report-export');
+  const { t } = await import('../../i18n');
+  vi.spyOn(inputs, 'buildProReportData').mockImplementation(() => { throw new TypeError('defect'); });
+  const toast = vi.spyOn(uiStore, 'toast');
+  await expect(exportReportAs({ config: { sections: { modelData: false } } as never, advancedResults: {}, t })).rejects.toThrow('defect');
+  expect(toast).not.toHaveBeenCalledWith(expect.stringContaining('defect'), 'error');
+  vi.restoreAllMocks();
+});

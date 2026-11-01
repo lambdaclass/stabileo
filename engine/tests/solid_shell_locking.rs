@@ -562,4 +562,16 @@ fn rotated_solid_shell_nonstatic_containment() {
     let response = solve_spectral_3d(&spectral).unwrap();
     assert!(response.base_shear.is_finite());
     assert!(response.base_shear > 0.0);
+    let issue_757 = |ds: &[dedaliano_engine::types::StructuredDiagnostic]| ds.iter().any(|d| d.value == Some(757.0));
+    assert!(!issue_757(&system.linear.structured_diagnostics));
+    assert!(!issue_757(&modes.structured_diagnostics));
+    assert!(!issue_757(&response.structured_diagnostics));
+    let forces: Vec<f64> = response.per_mode.iter().map(|m| m.modal_force).collect();
+    for (m, mode) in response.per_mode.iter().zip(&modes.modes) {
+        assert_eq!(m.sa, 1.0);
+        assert!((m.modal_force - mode.effective_mass_x).abs() <= 1e-12 * mode.effective_mass_x.abs().max(1e-300), "{} vs {}", m.modal_force, mode.effective_mass_x);
+    }
+    let largest = forces.iter().fold(0.0f64, |a, f| a.max(f.abs()));
+    let sum: f64 = forces.iter().map(|f| f.abs()).sum();
+    assert!(largest > 0.0 && response.base_shear >= largest * (1.0 - 1e-12) && response.base_shear <= sum * (1.0 + 1e-12), "{} not in [{largest}, {sum}]", response.base_shear);
 }

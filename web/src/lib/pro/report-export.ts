@@ -26,6 +26,7 @@ import { runEngineActionAsync } from '../store/engine-action';
 import { tick } from 'svelte';
 import { errorText } from '../utils/error-text';
 import { exportMessages } from '../export/containment';
+import { ContainmentExportError, isContainmentRefusal } from '../engine/containment-error';
 import { viewportCanvas } from '../utils/viewport-canvas';
 import { uiStore } from '../store/ui.svelte';
 import { viewState } from '../store/view-state.svelte';
@@ -98,7 +99,10 @@ export async function exportReportAs(input: ReportExportInputs): Promise<void> {
   // What the report is taken from, checked again before its provenance is written.
   const token = captureProvenanceToken();
   try { await runEngineActionAsync(() => exportReportWithEngine(input, token)); }
-  catch (error) { uiStore.toast(errorText(error, 'Error'), 'error'); }
+  catch (error) {
+    if (!(error instanceof ContainmentExportError) && !isContainmentRefusal(error)) throw error;
+    uiStore.toast(errorText(error, tr('knownIssue.exportHeading')), 'error');
+  }
 }
 
 async function exportReportWithEngine(input: ReportExportInputs, token: ReturnType<typeof captureProvenanceToken>): Promise<void> {

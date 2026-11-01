@@ -7273,11 +7273,7 @@ fn research_cylinder_16() { research_shell_accuracy(pinched_cylinder_solve(16, 1
 // Shared research fixtures must retain their strict signed accuracy check if a
 // numerical result is available, and validate the registered refusal otherwise.
 fn research_hemisphere_accuracy_or_containment(n: usize) {
-    match obstacle::try_solve("hemisphere", n, n) {
-        Ok(value) => research_shell_accuracy(value, 0.185),
-        Err(error) => crate::common::assert_containment(
-            Err::<f64, _>(error), "SH-MITC4-DISTORTION"),
-    }
+    crate::common::assert_containment(obstacle::try_solve("hemisphere", n, n), "SH-MITC4-DISTORTION");
 }
 
 #[test]

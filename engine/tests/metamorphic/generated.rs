@@ -1575,6 +1575,23 @@ fn structured_refusals_require_exact_identity() {
 }
 
 #[test]
+fn refusals_must_be_registered_and_in_scope() {
+    use crate::response::{outcome, scoped};
+    use dedaliano_engine::known_issues;
+    let plastic = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err())).unwrap();
+    assert!(scoped("plastic collapse", false, plastic()).is_ok());
+    assert!(scoped("linear", false, plastic()).is_err(), "an ordinary linear model that always refuses must fail");
+    let distortion = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("SH-MITC4-DISTORTION")]).unwrap_err())).unwrap();
+    assert!(scoped("linear", true, distortion()).is_ok());
+    assert!(scoped("linear", false, distortion()).is_err());
+    let mut promoted = known_issues::diagnostic("NUM-INVARIANCE");
+    promoted.severity = dedaliano_engine::types::Severity::Error;
+    assert!(outcome(Err(known_issues::refuse(&[promoted]).unwrap_err())).is_err(), "a warning-only issue is not a registered refusal");
+    let error = known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err();
+    assert!(outcome(Err(error.replace("\"value\":758.0", "\"value\":759.0"))).is_err(), "issue number must match the registry");
+}
+
+#[test]
 fn refusal_changes_under_units_fail_in_both_directions() {
     fn refusal() -> Result<crate::response::Resp, String> {
         Err(

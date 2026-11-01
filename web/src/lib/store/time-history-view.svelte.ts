@@ -52,6 +52,7 @@ function createTimeHistoryView() {
    * component.
    */
   let peak = $state(0);
+  let refused = $state(false);
   function peakOf(r: TimeHistoryResult3D): number {
     let m = 0;
     for (const h of r.nodeHistories) {
@@ -67,7 +68,8 @@ function createTimeHistoryView() {
   }
 
   return {
-    get result() { return result; },
+    get result() { return refused ? null : result; },
+    get stored() { return result; },
     get source() { return source; },
     get modelVersion() { return modelVersion; },
     get step() { return step; },
@@ -80,14 +82,16 @@ function createTimeHistoryView() {
     set(r: TimeHistoryResult3D, version: number, from: 'timeHistory' | 'pushover' = 'timeHistory') {
       stop();
       result = r;
+      refused = knownIssueResultDisposition(r).refused;
       source = from;
-      peak = peakOf(r);
+      peak = refused ? 0 : peakOf(r);
       modelVersion = version;
       step = 0;
     },
     clear() {
       stop();
       result = null;
+      refused = false;
       source = 'timeHistory';
       peak = 0;
       modelVersion = null;
@@ -119,7 +123,7 @@ function createTimeHistoryView() {
 
     /** The displacement field at the current step, rotations included, as the renderer reads it. */
     frame(): Displacement3D[] | null {
-      if (!result || knownIssueResultDisposition(result).refused) return null;
+      if (!result || refused) return null;
       const k = step;
       return result.nodeHistories.map((h) => ({
         nodeId: h.nodeId,
@@ -130,7 +134,7 @@ function createTimeHistoryView() {
 
     /** One node's history, for the chart. */
     historyOf(nodeId: number): NodeTimeHistory3D | undefined {
-      return result?.nodeHistories.find((h) => h.nodeId === nodeId);
+      return refused ? undefined : result?.nodeHistories.find((h) => h.nodeId === nodeId);
     },
   };
 }

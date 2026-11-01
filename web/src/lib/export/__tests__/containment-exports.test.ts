@@ -12,7 +12,9 @@ import { initSolver } from '../../engine/wasm-solver';
 import { downloadResultText } from '../provenance-attach';
 import { buildExcelWorkbook, exportToExcel } from '../excel';
 import { currentWorkbookSheets, downloadProjectCsv, downloadProjectWorkbook } from '../../store/project-workbook';
-import { setLocale } from '../../i18n';
+import { setLocale, t } from '../../i18n';
+import { pngWithProvenance, jpegWithProvenance } from '../provenance-attach';
+import { copyView } from '../view-export';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => {
@@ -37,7 +39,9 @@ it('CSV and XLSX refuse unsafe payloads with localized feedback, including extra
   expect(output.texts).toEqual([]);
   expect(XLSX.writeFile).not.toHaveBeenCalled();
   expect(toast.mock.calls).toHaveLength(2);
-  for (const [message] of toast.mock.calls) { expect(message).toContain('#741'); expect(message).not.toMatch(/ENGINE|structuredDiagnostics/); }
+  const spanish = t('knownIssue.BU-BOUND');
+  expect(spanish).toMatch(/Resultados bloqueados/);
+  for (const [message] of toast.mock.calls) { expect(message).toContain('#741'); expect(message).toContain(spanish); expect(message).not.toMatch(/ENGINE|structuredDiagnostics/); }
 });
 it('both project workbook download formats refuse without an unhandled rejection', async () => {
   publish('error');
@@ -47,7 +51,24 @@ it('both project workbook download formats refuse without an unhandled rejection
   await expect(downloadProjectWorkbook(2)).resolves.toBeUndefined();
   expect(output.blobs).toEqual([]);
   expect(XLSX.writeFile).not.toHaveBeenCalled();
-  expect(toast.mock.calls.every(([message]) => message.includes('#741'))).toBe(true);
+  expect(toast.mock.calls.length).toBeGreaterThanOrEqual(2);
+  for (const [message] of toast.mock.calls) { expect(message).toContain('#741'); expect(message).toContain(t('knownIssue.BU-BOUND')); }
+});
+it('PNG, JPEG and clipboard exports refuse an unsafe result with the localized refusal', async () => {
+  publish('error');
+  expect(() => pngWithProvenance(new Uint8Array([137, 80, 78, 71]), {} as never)).toThrow(/#741/);
+  expect(() => jpegWithProvenance(new Uint8Array([255, 216]), {} as never)).toThrow(/#741/);
+  const write = vi.fn(async () => {});
+  vi.stubGlobal('ClipboardItem', class { constructor(public items: unknown) {} });
+  vi.stubGlobal('navigator', { clipboard: { write } });
+  const toast = vi.spyOn(uiStore, 'toast');
+  try {
+    expect(await copyView({ contents: [] } as never)).toBe(false);
+  } finally { vi.unstubAllGlobals(); }
+  expect(write).not.toHaveBeenCalled();
+  expect(toast.mock.calls).toHaveLength(1);
+  expect(toast.mock.calls[0]![0]).toContain('#741');
+  expect(toast.mock.calls[0]![0]).toContain(t('knownIssue.BU-BOUND'));
 });
 it('warning-only CSV, XLSX and zipped workbooks preserve numbers and mandatory warnings', async () => {
   publish('warning');

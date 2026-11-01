@@ -9,3 +9,5 @@ export function isContainmentRefusal(error: unknown): boolean {
     );
   } catch { return false; }
 }
+
+export class ContainmentExportError extends Error {}

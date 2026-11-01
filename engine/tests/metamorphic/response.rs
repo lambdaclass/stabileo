@@ -80,6 +80,10 @@ pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
                 let phase = d.phase.filter(|p| !p.is_empty()).ok_or_else(|| error.clone())?;
                 let issue = d.value.filter(|n| n.is_finite() && *n > 0.0 && n.fract() == 0.0)
                     .ok_or_else(|| error.clone())?;
+                use dedaliano_engine::known_issues::{Mode, ENTRIES};
+                if !ENTRIES.iter().any(|e| e.id == phase && f64::from(e.issue) == issue && e.mode == Mode::Refuse) {
+                    return Err(format!("unregistered refusal {phase} #{issue}: {error}"));
+                }
                 ids.push((phase, issue as u64));
             }
         }
@@ -88,6 +92,22 @@ pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
         ids.dedup();
         Ok(Resp(Vec::new(), ids))
     })
+}
+
+/// A registered refusal is a pass only where its known issue applies; anywhere else it is a regression.
+pub fn scoped(analysis: &str, has_quads: bool, r: Resp) -> Result<Resp, String> {
+    for (id, issue) in &r.1 {
+        let expected = match id.as_str() {
+            "PL-2D-INVARIANCE" => analysis == "plastic collapse",
+            "SH-MITC4-DISTORTION" => has_quads,
+            "BU-BOUND" => analysis.contains("buckling"),
+            _ => false,
+        };
+        if !expected {
+            return Err(format!("{analysis}: unexpected refusal {id} (#{issue})"));
+        }
+    }
+    Ok(r)
 }
 
 fn item(node: Option<usize>, elem: Option<usize>, tag: &str, kind: Kind, v: Vec<f64>) -> Item {

@@ -1399,7 +1399,7 @@ mod tests {
             "nodes": {}, "elements": {}, "materials": {}, "sections": {}, "supports": {}, "loads": []
         })).unwrap();
         let step = |id: &str| {
-            let mut results = AnalysisResults3D::default();
+            let mut results: AnalysisResults3D = serde_json::from_value(serde_json::json!({"displacements": [], "reactions": [], "elementForces": []})).unwrap();
             results.structured_diagnostics.push(crate::known_issues::diagnostic(id));
             PlasticStep3D { load_factor: 1.0, hinges_formed: vec![], results }
         };

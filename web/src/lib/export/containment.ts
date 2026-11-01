@@ -2,8 +2,9 @@ import { knownIssueResultDisposition } from '../engine/known-issues';
 import { resultsStore } from '../store/results.svelte';
 import { uiStore } from '../store/ui.svelte';
 import { t } from '../i18n';
+import { ContainmentExportError } from '../engine/containment-error';
 
-export class ContainmentExportError extends Error {}
+export { ContainmentExportError };
 
 export function exportWarnings(sources: unknown): string[] {
   const disposition = knownIssueResultDisposition(sources);

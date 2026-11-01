@@ -75,12 +75,31 @@ describe('production containment', () => {
       disposition: resultsStore.knownIssues3D,
       children: createRawSnippet(() => ({ render: () => '<span>Response 123.45</span>' })),
     } }).body;
-    expect(resultsStore.knownIssues.messages.join(' ')).toContain('#760');
+    expect(resultsStore.knownIssues3D.messages.join(' ')).toContain('#760');
+    expect(resultsStore.knownIssues.messages.join(' ')).not.toContain('#760');
     expect(html).toContain('#760');
     expect(html).toContain('role="alert"');
     expect(html).toContain('Response 123.45');
     timeHistoryView.clear();
     expect(resultsStore.knownIssues3D.messages).toEqual([]);
+  });
+
+  it('a refused time history is withheld even while hidden, and only from the 3D workspace', () => {
+    timeHistoryView.set({
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' }],
+      timeSteps: [0, 0.1], nodeHistories: [{ nodeId: 1, ux: [0, 9.87], uy: [0, 0], uz: [0, 0], rx: [0, 0], ry: [0, 0], rz: [0, 0] }],
+      peakDisplacements: [], peakReactions: [], nSteps: 1, method: 'newmark',
+    }, modelStore.modelVersion);
+    expect(timeHistoryView.shown).toBe(false);
+    expect(timeHistoryView.result).toBeNull();
+    expect(timeHistoryView.frame()).toBeNull();
+    expect(timeHistoryView.historyOf(1)).toBeUndefined();
+    expect(timeHistoryView.peak).toBe(0);
+    expect(timeHistoryView.stored).not.toBeNull();
+    expect(resultsStore.knownIssues3D.refused).toBe(true);
+    expect(resultsStore.knownIssues.refused).toBe(false);
+    timeHistoryView.clear();
+    expect(resultsStore.knownIssues3D.refused).toBe(false);
   });
 
   it('Basic plastic refuses before displaying or tagging a legacy result', async () => {
