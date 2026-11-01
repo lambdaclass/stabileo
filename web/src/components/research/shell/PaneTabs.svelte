@@ -52,7 +52,7 @@
     border: 0;
     border-bottom: 2px solid transparent;
     padding: 0.6rem 0.75rem;
-    min-height: 2.25rem;
+    min-height: 44px;
     cursor: pointer;
   }
   .rs-tabs button[aria-selected='true'] {
