@@ -981,3 +981,15 @@ fn a_mechanism_solve_keeps_its_warning_after_a_later_stable_iteration() {
     assert!(r.gap_status[0].status == "closed", "{:?}", r.gap_status);
     assert!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{:?}", ids(&r.results.structured_diagnostics));
 }
+
+#[test]
+fn an_influence_line_of_a_mechanism_is_an_error_not_zeros() {
+    use dedaliano_engine::postprocess::influence::compute_influence_line;
+    let mut model = make_beam(2, 4.0, E, 0.045, 3.375e-4, "fixed", None, vec![]);
+    model.supports.get_mut("1").unwrap().support_type = "rollerX".into();
+    model.constraints = vec![serde_json::from_value(serde_json::json!({"type":"equalDOF","masterNode":1,"slaveNode":3,"dofs":[0]})).unwrap()];
+    assert!(solve_2d(&model).is_err());
+    let influence = serde_json::json!({"solver": model, "quantity": "Rz", "targetNodeId": 1, "nPointsPerElement": 2});
+    let error = compute_influence_line(&serde_json::from_value(influence).unwrap()).expect_err("no influence line for a mechanism");
+    assert!(error.starts_with("Influence line: the unit load on element 1 at t = 0 could not be solved: "), "{error}");
+}
