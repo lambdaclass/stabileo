@@ -12,7 +12,7 @@
  */
 import { test, expect, loadModel, solveModel, alSection, designPlace } from './fixtures';
 
-test.describe('@smoke the everyday path', () => {
+test.describe('@slow the everyday path', () => {
   test('a steel portal frame, from code loads to the report', async ({ pro: page }) => {
     test.setTimeout(240_000);
     await loadModel(page, '3d-portal-frame');

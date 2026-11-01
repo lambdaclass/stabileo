@@ -47,7 +47,7 @@
     <span>{t('sheet.ui.barLabel')}</span>
     <input class="order" value={label.order.join(' ')} onchange={(e) => set({ barLabel: { ...label, order: e.currentTarget.value.split(/\s+/).filter((x): x is LabelPart => (PARTS as string[]).includes(x)) } })} data-testid="sheets-label-order" />
     {#each PARTS as p}
-      <label>{t(`sheet.ui.part.${p}`)}<input class="aff" placeholder="pre" value={label.prefix?.[p] ?? ''} onchange={(e) => set({ barLabel: { ...label, prefix: { ...label.prefix, [p]: e.currentTarget.value } } })} /><input class="aff" placeholder="suf" value={label.suffix?.[p] ?? ''} onchange={(e) => set({ barLabel: { ...label, suffix: { ...label.suffix, [p]: e.currentTarget.value } } })} /></label>
+      <label>{t(`sheet.ui.part.${p}`)}<input class="aff" placeholder={t('sheet.ui.prefixShort')} value={label.prefix?.[p] ?? ''} onchange={(e) => set({ barLabel: { ...label, prefix: { ...label.prefix, [p]: e.currentTarget.value } } })} /><input class="aff" placeholder={t('sheet.ui.suffixShort')} value={label.suffix?.[p] ?? ''} onchange={(e) => set({ barLabel: { ...label, suffix: { ...label.suffix, [p]: e.currentTarget.value } } })} /></label>
     {/each}
     <span class="muted" data-testid="sheets-label-sample">{sample}</span>
   </div>

@@ -9,15 +9,16 @@ import { uiStore } from '../store';
 import { t } from '../i18n';
 import { ensureResults } from '../actions/solve';
 import { downloadExcel, downloadResultsCSV } from '../store/file';
+import { tellIfEmpty } from './empty-model';
 
 export async function exportWorkbook(): Promise<void> {
   const solved = await ensureResults();
   await downloadExcel(solved.ok ? {} : { solveError: solved.error });
-  if (!solved.ok) uiStore.toast(t('exportResults.withError'), 'info');
+  if (!solved.ok && !tellIfEmpty()) uiStore.toast(t('exportResults.withError'), 'info');
 }
 
 export async function exportResultsCsv(): Promise<void> {
   const solved = await ensureResults();
   await downloadResultsCSV(solved.ok ? undefined : solved.error);
-  if (!solved.ok) uiStore.toast(t('exportResults.withErrorCsv'), 'info');
+  if (!solved.ok && !tellIfEmpty()) uiStore.toast(t('exportResults.withErrorCsv'), 'info');
 }

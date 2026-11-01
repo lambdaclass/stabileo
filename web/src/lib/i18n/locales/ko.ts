@@ -588,10 +588,7 @@ const ko: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': '모든 시트가 포함된 Excel 보고서 내보내기 (모델 + 결과)',
-  'project.exportPdfTooltip': '인쇄 가능한 PDF 보고서 생성',
   'project.exportDxfTooltip': '다이어그램이 포함된 AutoCAD DXF로 내보내기',
-  'project.exportSvgTooltip': 'SVG 벡터 그래픽 내보내기',
-  'project.exportPngTooltip': 'PNG 스크린샷 내보내기',
   'project.exportCsvTooltip': '결과 표를 CSV로 내보내기',
   'project.openDedTooltip': '프로젝트 파일 열기 (.ded / .json)',
   'project.openDxfTooltip': 'AutoCAD DXF 파일에서 형상 가져오기',
@@ -2504,7 +2501,6 @@ const ko: Translations = {
   'report.printBtn': '인쇄 / PDF',
   'report.docTitle': '{name} — 계산 보고서',
   'report.coverSubtitle': '구조 계산 보고서',
-  'report.coverCode': 'CIRSOC 201 검증',
   'report.coverFooter': 'Stabileo — 구조 해석',
   'report.modelData': '1. 모델 데이터',
   'report.view3d': '3D 뷰',
@@ -2906,7 +2902,6 @@ const ko: Translations = {
   'pro.noSlabs': '모델에 응력 결과가 있는 슬래브(사각형)가 없습니다.',
   'pro.driftTitle': '층간 변위 — CIRSOC 103 §5.2.8',
   'pro.driftLimit': '한계',
-  'pro.solveFirst': '먼저 구조물을 풀이하세요',
   'pro.noVerifiableElems': '검증 가능한 요소를 찾을 수 없습니다. 재료에 f\'c ≤ 80 MPa (콘크리트) 또는 fy > 80 MPa (강재)가 있고 단면이 정의되었는지 확인하세요.',
   'pro.verifyPrompt': '"요소 검증"을 눌러 CIRSOC 201 / 301 검증을 실행하세요',
   'pro.wasmNotice': 'WASM 재컴파일 필요 — 네이티브 엔진에서 컴파일하면 {code} 검증이 활성화됩니다.',

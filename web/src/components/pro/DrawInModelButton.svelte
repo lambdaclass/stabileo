@@ -18,7 +18,7 @@
    * makes the reader hunt for the way out.
    */
   import { uiStore } from '../../lib/store';
-  import { t } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import Icon from '../ribbon/Icon.svelte';
   import { drawState } from '../../lib/store/draw-state.svelte';
 
@@ -49,7 +49,7 @@
   title={armed ? t('pro.drawStopHint') : t('pro.drawStartHint')}
 >
   <Icon name={icon} size={13} />
-  <span>{armed ? t('pro.drawStop') : `${t('pro.drawInModel')} ${label}`}</span>
+  <span>{armed ? t('pro.drawStop') : capitalized(tp('pro.drawWhat', { what: label }))}</span>
 </button>
 
 <style>

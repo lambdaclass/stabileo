@@ -1,0 +1,216 @@
+{
+  "checks": [
+    {
+      "metric": "exact",
+      "name": "ex1: mesh identical to the reference (node and element fingerprints)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex1: same number of load steps",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex1: same number of staggered iterations at every step",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "relative difference",
+      "name": "ex1: maximum damage at every step",
+      "observed": 8.333559466198972e-12,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "absolute difference / AT2 peak stress",
+      "name": "ex1: stress at the bar centre at every step",
+      "observed": 1.0792473270419046e-12,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex1: nodal damage at step 50",
+      "observed": 4.5168713214138734e-10,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex1: nodal damage at step 73",
+      "observed": 3.8440650662607823e-10,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference / max |u|",
+      "name": "ex1: nodal displacement at step 50",
+      "observed": 1.605198387714803e-10,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "absolute difference / AT2 peak stress",
+      "name": "ex1: centre stress vs 1D AT2 homogeneous solution while max damage < 0.25",
+      "observed": 0.00007255088238527897,
+      "passed": true,
+      "tolerance": 0.001
+    },
+    {
+      "metric": "exact",
+      "name": "ex2: mesh identical to the reference (node and element fingerprints)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex2: same number of load steps",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex2: same number of staggered iterations at every step",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex2: peak force at the same load step",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "relative difference",
+      "name": "ex2: peak force",
+      "observed": 1.2218965622655707e-12,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "relative difference",
+      "name": "ex2: force at every step up to the peak",
+      "observed": 1.5606483340127005e-12,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "relative difference",
+      "name": "ex2: maximum damage at every step up to the peak",
+      "observed": 4.198952507776388e-12,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "absolute difference, kN",
+      "name": "ex2: force at every step, including fracture (comparison tolerance)",
+      "observed": 2.194403730101718e-7,
+      "passed": true,
+      "tolerance": 0.00001
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex2: nodal damage at the peak step 56",
+      "observed": 5.0418669239604696e-11,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference / max |u|",
+      "name": "ex2: nodal displacement at the peak step 56",
+      "observed": 8.491098239482427e-11,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex2: nodal damage at step 57, reference or its mirror image",
+      "observed": 0.000029327367075282496,
+      "passed": true,
+      "tolerance": 0.0001
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex2: nodal damage at step 78, reference or its mirror image",
+      "observed": 3.085970368132962e-10,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "exact",
+      "name": "ex3: mesh identical to the reference (node and element fingerprints)",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex3: same number of load steps",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex3: same number of staggered iterations at every step",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "exact",
+      "name": "ex3: peak force at the same load step",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "metric": "relative difference",
+      "name": "ex3: force at every step up to the peak",
+      "observed": 3.99638935610333e-11,
+      "passed": true,
+      "tolerance": 1e-9
+    },
+    {
+      "metric": "absolute difference, kN",
+      "name": "ex3: force at every step, including fracture (comparison tolerance)",
+      "observed": 1.033201445777704e-6,
+      "passed": true,
+      "tolerance": 0.0001
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex3: nodal damage at the peak step 56",
+      "observed": 6.918654538168312e-11,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference / max |u|",
+      "name": "ex3: nodal displacement at the peak step 56",
+      "observed": 1.1185547443359639e-10,
+      "passed": true,
+      "tolerance": 1e-8
+    },
+    {
+      "metric": "max absolute difference",
+      "name": "ex3: nodal damage at the last step 98, reference or its mirror image",
+      "observed": 4.112774565356858e-10,
+      "passed": true,
+      "tolerance": 1e-8
+    }
+  ],
+  "produced_by": "cargo test --release --test reference",
+  "reference": "reference-results/ (phasefield-jr-py, see MANIFEST.json)"
+}

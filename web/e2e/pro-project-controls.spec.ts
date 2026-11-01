@@ -42,7 +42,8 @@ test.describe('@smoke PRO — the Project panel', () => {
   test('the importers exist once, under Import', async ({ pro: page }) => {
     /* They were under "New model" as well. What belongs there is what starts
        a model with no file to start it from — today Examples. */
-    await expect(page.getByRole('button', { name: /DXF/ })).toHaveCount(2); // import + export
+    // The import; the DXF export is a format inside Drawings.
+    await expect(page.getByRole('button', { name: /DXF/ })).toHaveCount(1);
     const newModel = page.locator('.pp-card').first();
     await expect(newModel.getByRole('button', { name: /IFC/ })).toHaveCount(0);
     await expect(page.getByTestId('pp-examples')).toBeVisible();
@@ -63,10 +64,10 @@ test.describe('@smoke PRO — the Project panel', () => {
   test('the report is offered with the other exports of the same numbers', async ({ pro: page }) => {
     /* It was reachable only from a command in ANALYSE, which put the three
        ways of getting the same results out of the application in two
-       different places. Disabled until there is a model; it solves first. */
+       different places. Offered with an empty model too, as Basic does; it solves first. */
     const btn = page.getByTestId('pp-export-report');
     await expect(btn).toBeVisible();
-    await expect(btn, 'no model yet').toBeDisabled();
+    await expect(btn, 'no model yet').toBeEnabled();
   });
 
   test('the spreadsheet template downloads', async ({ pro: page }) => {

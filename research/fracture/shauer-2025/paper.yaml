@@ -1,0 +1,26 @@
+id: shauer-2025
+doi: 10.1016/j.advengsoft.2025.104013
+reference_code: {url: https://github.com/nathanshauer/phasefield-jr-py, commit: 61037c6ce7833a4f92a3ec098a9d60fd477eff2b, license: MIT}
+equations: README.md#formulation-as-implemented-by-the-reference-code-read-in-full
+assumptions: [small strain, quasi-static, 2D plane stress or plane strain, isotropic linear elasticity, AT2 phase field, hybrid tensile driving energy, no irreversibility (reference) or history field (option)]
+units: {force: kN, length: mm, E: kN/mm^2, Gc: kN/mm, l0: mm}
+experiments:
+  - name: ex1-bar-tension
+    inputs: {E: 30, nu: 0.2, Gc: 1.2e-4, l0: 10, plane: stress, imposed: u_peak AT2 at t = 1}
+    mesh: {type: rectangle, size: [200, 20], elements: [100, 10]}
+    solver: {dt: 0.02, total_time: 1.5, tolerance: 1e-6, max_iterations: 600}
+    references: [reference-results/ex1_steps.csv, 1D AT2 homogeneous solution]
+  - name: ex2-single-edge-notched-tension
+    inputs: {E: 210, nu: 0.3, Gc: 2.7e-3, l0: 0.0075, plane: strain, top_displacement: 0.01}
+    mesh: {type: notched square, nx: 70, ny: 80, nx_fine: 32, ny_fine: 16, h_fine: 0.00125}
+    solver: {dt: 0.01, total_time: 0.8, tolerance: 1e-5, max_iterations: 1000}
+    references: [reference-results/ex2_steps.csv]
+  - name: ex3-three-point-bending
+    inputs: {E: 20.8, nu: 0.3, Gc: 5e-4, l0: 0.03, plane: stress, imposed: -0.08}
+    mesh: {type: notched beam, size: [8, 2], notch: 0.4}
+    solver: {dt: 0.01, total_time: 1.0, tolerance: 1e-4, max_iterations: 1000}
+    references: [reference-results/ex3_steps.csv]
+environment:
+  rust: 1.99.1 (rust-toolchain.toml)
+  linear_solver: dedaliano-engine supernodal sparse Cholesky, AMD ordering
+  reference: reference-results/MANIFEST.json

@@ -5,7 +5,7 @@
   import LazySelect from '../tables/LazySelect.svelte';
   import { progressiveRows } from '../../lib/utils/progressive-rows.svelte';
   import { modelStore, uiStore } from '../../lib/store';
-  import { t, tp } from '../../lib/i18n';
+  import { t, tp, capitalized } from '../../lib/i18n';
   import DrawInModelButton from './DrawInModelButton.svelte';
   import NextMemberFields from './NextMemberFields.svelte';
   import BatchEditBar from './BatchEditBar.svelte';
@@ -363,7 +363,7 @@
   {/if}
 
   {#if drawState.writing === 'element'}
-    <WriteCard title={`${t('pro.writeIn')} ${t('pro.oneElement')}`} submitLabel={`${t('pro.add')} ${t('pro.oneElement')}`} onsubmit={writeMember} error={wError} testid="write-element-card">
+    <WriteCard title={capitalized(tp('pro.writeWhat', { what: t('pro.oneElement') }))} submitLabel={capitalized(tp('pro.addWhat', { what: t('pro.oneElement') }))} onsubmit={writeMember} error={wError} testid="write-element-card">
       <label>{t('pro.thNodeI')} <input class="wc-num" inputmode="numeric" bind:value={wI} placeholder="ID" data-testid="write-element-i" /></label>
       <label>{t('pro.thNodeJ')} <input class="wc-num" inputmode="numeric" bind:value={wJ} placeholder="ID" data-testid="write-element-j" /></label>
       <NextMemberFields />

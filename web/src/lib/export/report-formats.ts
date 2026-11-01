@@ -10,7 +10,8 @@
  */
 import { strToU8, zipSync } from 'fflate';
 import type * as Xlsx from 'xlsx';
-import { docxBytes, type DocBlock } from './docx';
+import { docxBytes, type DocBlock, type DocModel } from './docx';
+import { htmlToDocxBlocks, type Rasterize } from './report-docx';
 
 export type ReportFormat = 'pdf' | 'html' | 'docx' | 'xlsx' | 'csv';
 export const REPORT_FORMATS: readonly ReportFormat[] = ['pdf', 'html', 'docx', 'xlsx', 'csv'];
@@ -20,7 +21,7 @@ export const decodeEntities = (s: string) => s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]
   if (e[0] === '#') { const k = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return Number.isFinite(k) ? String.fromCodePoint(k) : m; }
   return ENT[e.toLowerCase()] ?? m;
 });
-const clean = (s: string) => decodeEntities(s).replace(/\s+/g, ' ').trim();
+const clean = (s: string) => decodeEntities(s).replace(/[\u200b\u2061]/g, '').replace(/\s+/g, ' ').trim();
 
 /** A report's HTML as blocks: headings, paragraphs and tables, in order. */
 export function htmlToBlocks(html: string): DocBlock[] {
@@ -28,6 +29,7 @@ export function htmlToBlocks(html: string): DocBlock[] {
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<![^>]*>/g, '')
     .replace(/<(script|style|svg|head|title|noscript)\b[\s\S]*?<\/\1>/gi, '')
+    .replace(/<span class="katex-mathml">[\s\S]*?<\/math><\/span>/gi, '')
     .replace(/<img\b[^>]*>/gi, '');
   const out: DocBlock[] = [];
   const BLOCK = new Set(['p', 'li', 'div', 'caption', 'section', 'header', 'footer', 'figcaption', 'dt', 'dd', 'ul', 'ol', 'figure', 'main', 'article', 'body']);
@@ -118,14 +120,23 @@ export function blocksCsv(blocks: readonly DocBlock[], provenance?: ReportProven
   };
 }
 
+/** How a Word file is laid out: header, footer and page label, and how its figures become images. */
+export interface DocxOptions { header?: string; footer?: DocModel['footer']; rasterize?: Rasterize; missingFigure?: string }
+
 /** A report in a format, as a file: name and bytes (or null for the PDF, which the browser prints). */
-export async function reportFile(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; loadXlsx: () => Promise<typeof Xlsx | null> }): Promise<{ filename: string; mime: string; bytes: Uint8Array | string } | null> {
+export async function reportFile(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions; loadXlsx: () => Promise<typeof Xlsx | null> }): Promise<{ filename: string; mime: string; bytes: Uint8Array | string } | null> {
   const own = () => r.blocks ?? htmlToBlocks(r.html);
-  const blocks = () => (r.provenance ? [...own(), ...provenanceTable(r.provenance)] : own());
+  // A report whose HTML already prints its provenance block is not given a second one.
+  const withProvenance = (b: DocBlock[]) => (r.provenance && !(!r.blocks && r.html.includes('id="stabileo-provenance"')) ? [...b, ...provenanceTable(r.provenance)] : b);
+  const blocks = () => withProvenance(own());
   switch (format) {
     case 'pdf': return null;
     case 'html': return { filename: `${r.stem}.html`, mime: 'text/html', bytes: r.html };
-    case 'docx': return { filename: `${r.stem}.docx`, mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', bytes: docxBytes({ title: r.title, blocks: blocks(), landscape: blocks().some((b) => b.kind === 'table' && b.head.length > 7) }) };
+    case 'docx': {
+      const rich = r.blocks ? { blocks: r.blocks, cover: false } : await htmlToDocxBlocks(r.html, r.docx?.rasterize, r.docx?.missingFigure);
+      const b = withProvenance(rich.blocks);
+      return { filename: `${r.stem}.docx`, mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', bytes: docxBytes({ title: r.title, blocks: b, landscape: b.some((x) => x.kind === 'table' && x.head.length > 7), showTitle: !rich.cover, cover: rich.cover, ...(r.docx?.header ? { header: r.docx.header } : {}), ...(r.docx?.footer ? { footer: r.docx.footer } : {}) }) };
+    }
     case 'xlsx': { const X = await r.loadXlsx(); return X ? { filename: `${r.stem}.xlsx`, mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', bytes: blocksWorkbook(X, r.title, blocks()) } : null; }
     case 'csv': { const c = blocksCsv(own(), r.provenance); return { filename: `${r.stem}${c.name === 'zip' ? '-csv.zip' : '.csv'}`, mime: c.name === 'zip' ? 'application/zip' : 'text/csv', bytes: c.bytes }; }
   }

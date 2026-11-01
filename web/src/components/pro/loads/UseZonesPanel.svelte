@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { editorActivity } from '../../../lib/utils/editor-activity';
+  const editorActive = editorActivity();
   /**
    * The floors' use zones (`store/use-zones.ts`), level by level: each zone's name, use, state,
    * area, value and what it adds, and the totals. Zones are drawn in the model, read from a
@@ -72,6 +74,7 @@
 </script>
 
 <svelte:window onkeydown={(e) => {
+    if (!editorActive()) return;
   if (!zoneDraw.active) return;
   const el = e.target as HTMLElement | null;
   if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT')) return;

@@ -220,7 +220,8 @@ export function reportStoryDrifts(): { drifts: ReportData['storyDrifts']; basis?
  * Assemble the whole report.
  *
  * Returns `null` when there are no 3-D results: the report is a document about a solve, and
- * there is no honest version of it without one. The design is reported by the memoria
+ * there is no honest version of it without one. An empty model has nothing to solve, and its
+ * report comes out empty. The design is reported by the memoria
  * (`store/memoria-inputs.ts`), which reads the design's own results.
  */
 export function buildProReportData(opts: {
@@ -238,7 +239,8 @@ export function buildProReportData(opts: {
   t: Translate;
 }): ReportData | null {
   const { config, advancedResults, screenshot, t } = opts;
-  const results = resultsStore.results3D;
+  const results = resultsStore.results3D
+    ?? (modelStore.nodes.size === 0 ? { displacements: [], reactions: [], elementForces: [] } : null);
   if (!results) return null;
 
   const data: ReportData = {

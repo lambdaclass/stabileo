@@ -73,6 +73,9 @@ const filtered = forwarded.length > 0;
 const PASSES = [
   { project: 'unit', label: 'unit + integration (bounded parallel pool)' },
   { project: 'build', label: 'production builds and performance budgets (serial, whole machine)' },
+  // The results snapshot gate (#716): the reference corpus solved through the app's path and
+  // compared with web/results-snapshots/. Its own pass so a result change reads as one.
+  { project: 'results', label: 'results snapshots (the reference corpus against web/results-snapshots/)' },
 ];
 
 const results = [];

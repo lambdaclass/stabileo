@@ -34,7 +34,7 @@ export function goPublic(path: string) {
  */
 export function switchPublicLocale(locale: PublicLocale) {
   setPublicLocale(locale);
-  goPublic(parsePublicPath(window.location.pathname).path);
+  goPublic(parsePublicPath(window.location.pathname).path + window.location.search + window.location.hash);
 }
 
 /**

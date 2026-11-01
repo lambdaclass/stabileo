@@ -1,0 +1,30 @@
+{
+  "source": "Grossman & Boudaoud, Phys. Rev. Research 8, 013224 (2026), doi:10.1103/17sg-gzhl (CC BY 4.0) and its Supplemental Material. Values are transcribed from the text; nothing here is our own result.",
+  "foam_poisson_ratio": {
+    "where": "main text p. 6, Sec. II C 2 (Foamlike); Fig. 5",
+    "construction": "regular triangular lattice (phi = psi = 1, unit spacing), each vertex moved by a fixed distance eta in a uniformly random direction; the moved distances become the rest lengths (stress-free); all spring constants equal to 1",
+    "statements": [
+      {"eta": 0.0, "nu": 0.3333333333, "kind": "regular triangular lattice (exact, implied)"},
+      {"eta": 0.46, "nu": 0.0, "kind": "text: 'reaching nu = 0 at eta ~ 0.46'"},
+      {"eta": 0.5, "nu": -0.1, "kind": "text: 'reaching nu = -0.1 when eta -> 0.5' (limit)"}
+    ],
+    "simulation_protocol": "strip 0 <= x <= 13, 0 <= y <= 52 (about 676 vertices), top and bottom rows held, top moved to y = 52 (1 + 0.01), energy minimised; width measured between the vertices initially closest to (0, 26) and (13, 26); nu = -delta / epsilon; 10 realizations (main text p. 9, Sec. V A)"
+  },
+  "honeycomb_poisson_ratio": {
+    "where": "main text p. 7, Eq. (23); Fig. 6",
+    "formula": "nu(l) = -(2 - 4 l)(l + 1/2) / (3 + 4 l - 4 l^2), 0 < l < 1",
+    "geometry_as_we_read_it": "hexagons with all six edges of unit length, distance 2 l between the two opposing vertices on the loading axis (l = 1 regular, l < 1/2 re-entrant); each hexagon triangulated with a centre vertex joined to the corners by springs of stiffness 1e-3 of the edges",
+    "claim": "very high degree of agreement between Eq. (23) and the network calculation"
+  },
+  "ordered_lattice_poisson_ratio": {
+    "where": "Supplemental Material p. 2-3, Appendix C, Eq. (9); main text Fig. 4 and Eq. (25)",
+    "edges": "(1, 0), (phi/2, psi sqrt(3)/2), (1 - phi/2, -psi sqrt(3)/2)",
+    "formula": "nu = -P(phi, psi, Theta) / (4 Q(phi, psi, Theta)); P and Q as printed in Appendix C",
+    "fig4_cases": [[2, 2], [3, 0.9], [1, 1], [1.5, 1], [1, 0.5], [2, 0.5]]
+  },
+  "triangular_lattice_moduli": {
+    "where": "Fig. 9 at eta = 0 (read from the vector data in paper_figures_vector.json)",
+    "B": 0.8633, "G": 0.4312,
+    "note": "unit spring constant and spacing; consistent with the exact values sqrt(3)/2 and sqrt(3)/4"
+  }
+}
