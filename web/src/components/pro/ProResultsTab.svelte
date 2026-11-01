@@ -8,6 +8,7 @@
   import ProResultScopes from './ProResultScopes.svelte';
   import ProNonlinearReport from './ProNonlinearReport.svelte';
   import ResultChecks from '../ResultChecks.svelte';
+  import ResultSelfChecks from '../ResultSelfChecks.svelte';
   import { certificateStore, formatBound } from '../../lib/store/certificate.svelte';
   import ProResultTableModes, { type TableMode } from './ProResultTableModes.svelte';
   import ProDeflectionTable from './ProDeflectionTable.svelte';
@@ -403,7 +404,7 @@
 
 
 <div class="pro-res">
-  <ResultChecks />
+  <ResultSelfChecks />
   <div class="pro-res-header">
     <!--
       Solve lives in the ribbon, once. It was here too — a filled slab at the
@@ -1063,6 +1064,7 @@
       {/if}
 
     </div>
+    <ResultChecks />
   {:else}
     <div class="pro-empty">
       {#if hasModel}

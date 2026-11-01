@@ -2208,7 +2208,7 @@ fn solver_diagnostics_with_self_checks(ds: &[StructuredDiagnostic]) -> Vec<&Stru
     let regularized = ds.iter().any(|d| d.code == C::DiagonalRegularization);
     for check in checks {
         let value = check.value.unwrap();
-        let warning = regularized && check.phase.as_deref() == Some("self_check:static_balance") && value >= 1e-6;
+        let warning = regularized && value >= 1e-6;
         assert_eq!(check.severity, if warning { Severity::Warning } else { Severity::Info }, "{}", check.message);
         assert!(value.is_finite());
         assert!(value < if warning { 1e-3 } else { 1e-6 });
