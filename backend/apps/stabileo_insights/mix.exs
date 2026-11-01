@@ -17,7 +17,10 @@ defmodule StabileoInsights.MixProject do
   end
 
   def application do
-    [extra_applications: [:logger]]
+    [
+      extra_applications: [:logger],
+      mod: {StabileoInsights.Application, []}
+    ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]

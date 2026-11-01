@@ -29,8 +29,8 @@ Product: `/api/v1/insights`.
 
 | Method | Path | Permission | Success | Errors |
 |--------|------|------------|---------|--------|
-| `POST` | `/events` | anyone | `202 {accepted, rejected, enabled}` | 422 (empty or > 100 events, no `install_id`) |
-| `POST` | `/feedback` | signed in | `201 {data: {id, status}}` | 401, 422 |
+| `POST` | `/events` | anyone | `202 {accepted, rejected, enabled}` | 422 (empty or > 100 events, no `install_id`), 429 |
+| `POST` | `/feedback` | signed in | `201 {data: {id, status}}` | 401, 422, 429 |
 
 Admin: `/api/v1/admin/insights`, admin tokens only.
 
@@ -53,7 +53,8 @@ Usage ingestion is open, as it must be for anonymous browsers. Feedback needs a 
 
 ## Non-functional Requirements
 
-- No rate limiting yet: the batch size cap and the per-event validation bound what one request can store
+- Rate limits, fixed one-minute windows counted in each node's memory (`StabileoInsights.RateLimit`): 300 `/events` batches per client address, 10 `/feedback` posts per account; over the limit answers `429 {error: "rate_limited"}` with `retry-after`
+- The batch size cap and the per-event validation bound what one request can store
 - Events are inserted with one `insert_all` per batch
 
 ## Dependencies
@@ -74,5 +75,6 @@ None.
 | Switch off | `202 {enabled: false}`, nothing stored |
 | Mixed batch | Valid events stored with the batch's shared fields; nested props, bad names, long strings, old timestamps dropped and counted |
 | Feedback without a session | 401, nothing stored |
+| 301st `/events` batch from one address in a minute | 429 `rate_limited`, nothing stored |
 | Feedback status change | Updated, and an `feedback.status` audit row |
 | Summary | Counts match the rows: browsers are distinct stable `install_id`, visits are distinct sessions, breakdowns count visits and solve breakdowns count solves, consents are each account's latest decision |

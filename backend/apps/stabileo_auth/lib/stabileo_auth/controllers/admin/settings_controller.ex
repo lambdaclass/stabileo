@@ -4,7 +4,7 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
   action_fallback(StabileoUtils.FallbackController)
 
   alias StabileoAuth.{AdminAudit, Consents}
-  alias StabileoRepo.Features
+  alias StabileoRepo.{Features, Repo}
 
   @flags %{
     "user_login_enabled" => &Features.set_user_login_enabled/1,
@@ -58,12 +58,17 @@ defmodule StabileoAuth.Controllers.Admin.SettingsController do
   defp invalid(_key, value), do: unless(is_boolean(value), do: "must be true or false")
 
   defp write(changes) do
-    Enum.reduce_while(changes, :ok, fn {key, value}, :ok ->
-      case Map.fetch!(@settings, key).(value) do
-        {:ok, _} -> {:cont, :ok}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
+    case Repo.transaction(fn -> Enum.each(changes, &write_one/1) end) do
+      {:ok, :ok} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp write_one({key, value}) do
+    case Map.fetch!(@settings, key).(value) do
+      {:ok, _} -> :ok
+      {:error, reason} -> Repo.rollback(reason)
+    end
   end
 
   defp settings do

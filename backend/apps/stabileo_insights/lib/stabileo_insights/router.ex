@@ -15,18 +15,26 @@ defmodule StabileoInsights.Router do
     plug(StabileoRepo.Plugs.RequestMetadata)
   end
 
+  pipeline :usage_rate_limit do
+    plug(StabileoInsights.Plugs.RateLimit, scope: :usage_events, limit: 300)
+  end
+
+  pipeline :feedback_rate_limit do
+    plug(StabileoInsights.Plugs.RateLimit, scope: :feedback, limit: 10)
+  end
+
   pipeline :authenticated do
     plug(StabileoAuth.Plugs.Authenticate)
   end
 
   scope "/", StabileoInsights.Controllers do
-    pipe_through(:api)
+    pipe_through([:api, :usage_rate_limit])
 
     post("/events", UsageController, :create)
   end
 
   scope "/", StabileoInsights.Controllers do
-    pipe_through([:api, :authenticated])
+    pipe_through([:api, :authenticated, :feedback_rate_limit])
 
     post("/feedback", FeedbackController, :create)
   end
