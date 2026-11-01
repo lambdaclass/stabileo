@@ -78,5 +78,95 @@ class ConnectorMatrix(unittest.TestCase):
         self.assertNotEqual(self.k[1][5], 0.0)
 
 
+def _beam(support2):
+    return {
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 3.0, "y": 0.0, "z": 0.0}},
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-4, "iz": 1e-4, "j": 2e-4}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"nodeId": 1, **{f: True for f in T.FLAGS}}, "2": {"nodeId": 2, **support2}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fy": 0.0, "fz": -1.0, "mx": 0.0, "my": 0.0, "mz": 0.0}}],
+    }
+
+
+def _engine_refusal(key, node, name, value, why):
+    return (f"stabileo: Support {key} (node {node}): the prescribed {name} = {value} would not be applied, "
+            f"because {why}. Restrain that direction to impose it, or remove the prescribed value.")
+
+
+class UnimposedSettlements(unittest.TestCase):
+    """A settlement no rigid restraint carries: the translator drops it, the
+    engine refuses it (AC-10). The harness must not call that refusal false."""
+
+    def test_unflagged_and_spring_freed_dofs(self):
+        free = {**{f: True for f in T.FLAGS}, "ry": False, "dy": -0.001}
+        spring = {**{f: True for f in T.FLAGS}, "kz": 1e4, "dz": 0.002}
+        self.assertEqual(T.unimposed_settlements(_beam(free)), [("2", "dy")])
+        self.assertEqual(T.unimposed_settlements(_beam(spring)), [("2", "dz")])
+
+    def test_restrained_settlement_is_imposed(self):
+        held = {**{f: True for f in T.FLAGS}, "dy": -0.001, "drz": 0.0}
+        self.assertEqual(T.unimposed_settlements(_beam(held)), [])
+        self.assertIn("DY=-0.001", T.translate(_beam(held))[0].replace(" ", ""))
+
+    def test_inclined_support_carries_translations_but_not_free_rotations(self):
+        inc = {**{f: False for f in T.FLAGS}, "isInclined": True, "normalX": 0.0, "normalY": 0.0, "normalZ": 1.0,
+               "dz": 0.001, "drx": 0.001}
+        self.assertEqual(T.unimposed_settlements(_beam(inc)), [("2", "drx")])
+
+    def test_engine_message_format_is_the_one_parsed(self):
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..",
+                               "engine", "src", "solver", "linear.rs")) as f:
+            src = f.read()
+        self.assertIn('"{what}: the prescribed {name} = {v} would not be applied, because {why}.', src)
+        self.assertIn('format!("Support {key} (node {})", sup.node_id)', src)
+
+
+class Classification(unittest.TestCase):
+    """run.prepare: the refusal of a settlement the translator would drop is
+    `refused`; any other refusal still goes to Code_Aster; a solved model with
+    such a settlement is flagged; refusal messages are kept whole."""
+
+    def prepare(self, model, outcome):
+        import tempfile
+        from unittest import mock
+        import run as R
+
+        def stabileo(_model, _binary):
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        with tempfile.TemporaryDirectory() as wd, mock.patch.object(R.C, "stabileo", stabileo), \
+                mock.patch.object(R.C, "normalize_stabileo", lambda raw, dim: {"diags": []}):
+            return R.prepare("m", model, "solve_json", wd)
+
+    def test_refusal_of_the_dropped_settlement_is_agreed(self):
+        model = _beam({**{f: True for f in T.FLAGS}, "ry": False, "dy": -0.00010986903031340312})
+        msg = _engine_refusal("2", 2, "dy", -0.00010986903031340312, "that direction is not restrained (its flag is not set)")
+        r = self.prepare(model, RuntimeError("stabileo: " + msg[len("stabileo: "):]))
+        self.assertEqual(r["status"], "refused")
+        self.assertEqual(r["why"][0], msg)
+        self.assertGreater(len(r["why"][0]), 200)
+
+    def test_refusal_naming_another_dof_still_goes_to_code_aster(self):
+        model = _beam({**{f: True for f in T.FLAGS}, "ry": False, "dy": -0.001})
+        msg = _engine_refusal("2", 2, "dz", -0.001, "that direction is not restrained (its flag is not set)")
+        r = self.prepare(model, RuntimeError(msg))
+        self.assertEqual(r["status"], "pending")
+        self.assertEqual(r["refused"], [msg])
+
+    def test_other_refusals_are_kept_whole(self):
+        msg = "stabileo: " + "x" * 150 + " 0.000123456789012345 " + "y" * 150
+        r = self.prepare(_beam({f: True for f in T.FLAGS}), RuntimeError(msg))
+        self.assertEqual(r["status"], "pending")
+        self.assertEqual(r["refused"], [msg])
+
+    def test_solving_with_a_dropped_settlement_is_flagged(self):
+        model = _beam({**{f: True for f in T.FLAGS}, "kz": 1e4, "dz": 0.002})
+        r = self.prepare(model, {})
+        self.assertEqual(r["status"], "silent_unimposed")
+
+
 if __name__ == "__main__":
     unittest.main()

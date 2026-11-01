@@ -21,8 +21,9 @@ session (aster_batch.py).
 
 Exit status: 0 = every compared model agrees, 1 = mismatches, models
 Code_Aster finds singular that stabileo solved without a warning
-(silent_singular) or models stabileo refused that Code_Aster solves
-(false_reject), 2 = harness error (Code_Aster failing for another reason).
+(silent_singular), models stabileo solved although a prescribed displacement
+has no rigid restraint to carry it (silent_unimposed) or models stabileo
+refused that Code_Aster solves (false_reject), 2 = harness error (Code_Aster failing for another reason).
 """
 
 import argparse
@@ -30,6 +31,7 @@ import glob
 import importlib.util
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -99,10 +101,21 @@ def prepare(name, model, binary, workdir, flagged=False):
     why = to_aster.check_supported(model)
     if why:
         return dict(r, status="unsupported", why=why)
+    unimposed = to_aster.unimposed_settlements(model)
     try:
         sraw = C.stabileo(model, binary)
     except RuntimeError as ex:
-        return _prepare_refused(dict(r, status="stabileo_failed", why=[str(ex)[:200]]), model, workdir)
+        why = [str(ex)]
+        named = UNIMPOSED.search(why[0])
+        if named and named.group(1, 2) in unimposed:
+            return dict(r, status="refused", why=why + [
+                "code_aster translator: the same prescribed displacement has no rigid restraint to carry it "
+                "(the translation would drop it and solve a different model)"])
+        return _prepare_refused(dict(r, status="stabileo_failed", why=why), model, workdir)
+    if unimposed:
+        return dict(r, status="silent_unimposed", why=[
+            f"stabileo solved a model whose prescribed displacements {unimposed} no rigid restraint carries "
+            "(validate_input_3d refuses these, AC-10)"])
     sres = C.normalize_stabileo(sraw, 3)
     ill = sorted(set(sres["diags"]) & C.ILL_CONDITIONED)
     if ill and not flagged:
@@ -118,6 +131,11 @@ def prepare(name, model, binary, workdir, flagged=False):
     with open(os.path.join(job, "model.comm"), "w") as f:
         f.write(comm)
     return dict(r, status="pending", job=job, sres=sres, meta=meta)
+
+
+# The engine's refusal of a prescribed displacement no rigid restraint carries
+# (linear.rs, unimposed_settlement): support key and DOF name.
+UNIMPOSED = re.compile(r"^stabileo: Support (\S+) \(node \d+\): the prescribed (d[xyz]|dr[xyz]) = \S+ would not be applied, because ")
 
 
 # The translator's own reasons for rejecting a model that say it has no
@@ -351,6 +369,9 @@ def main():
 
     results = [safe_finish(r) if r["status"] == "pending" else r for r in results]
     for r in results:
+        if r["status"] == "silent_unimposed" and a.dump_dir:
+            C._dump(a.dump_dir, r["name"], by_name[r["name"]])
+    for r in results:
         if r.get("flagged"):
             r["status"] = "flagged-" + ("silent" if r["status"] == "silent_singular" else r["status"])
     if a.keep:
@@ -359,7 +380,7 @@ def main():
         shutil.rmtree(workdir, ignore_errors=True)
 
     for r in results:
-        if a.verbose or r["status"] in ("mismatch", "aster_failed", "silent_singular", "false_reject", "harness_error"):
+        if a.verbose or r["status"] in ("mismatch", "aster_failed", "silent_singular", "silent_unimposed", "false_reject", "harness_error"):
             extra = r.get("why") or {k: f"{v:.1e}" for k, v in r.get("max_err", {}).items()}
             print(f"{r['status']:16} {r['name']}  {extra}")
             for w in r.get("worst", [])[:5] if r["status"] in ("mismatch", "silent_singular") else []:
@@ -374,7 +395,7 @@ def main():
     if g:
         print("max normalized error over compared models: " + json.dumps({k: f"{v:.2e}" for k, v in sorted(g.items())}))
     for st in ("unsupported", "refused", "false_reject", "stabileo_failed", "ill_conditioned", "silent_singular",
-               "aster_failed"):
+               "silent_unimposed", "aster_failed"):
         reasons = Counter(w[:120] for r in results if r["status"] == st for w in r["why"])
         if reasons:
             print(f"{st} reasons: " + json.dumps(dict(reasons.most_common(8))))
@@ -383,7 +404,7 @@ def main():
             json.dump(results, f, indent=1, default=str)
     if cnt.get("aster_failed") or cnt.get("harness_error"):
         return 2
-    return 1 if cnt.get("mismatch") or cnt.get("silent_singular") or cnt.get("false_reject") else 0
+    return 1 if any(cnt.get(st) for st in ("mismatch", "silent_singular", "silent_unimposed", "false_reject")) else 0
 
 
 if __name__ == "__main__":

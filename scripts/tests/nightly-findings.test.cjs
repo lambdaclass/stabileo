@@ -186,3 +186,14 @@ for (const adapter of ['opensees', 'codeaster']) test(`${adapter}: adapter quant
   assert.equal(created.length, adapter === 'codeaster' ? 3 : 5);
   assert.equal(created.filter(c => c.args.body.includes('**2 findings**')).length, 1);
 }));
+
+test('whole codeaster refusals that differ only in numbers are one root cause', () => fixture(async ({args, calls, save}) => {
+  const refusal = v => ({...finding, test: 'codeaster/false_reject', details: {status: 'false_reject', why: [
+    `stabileo: Support 3 (node 2): the prescribed dy = ${v} would not be applied, because that direction is not restrained (its flag is not set). Restrain that direction to impose it, or remove the prescribed value.`]}});
+  save('a', refusal(-0.00010986903031340312));
+  save('b', {...refusal(0.0025), model: {loads: [2], elements: {b: {}}}});
+  await report(args);
+  const created = calls.filter(c => c.name === 'create');
+  assert.equal(created.length, 1);
+  assert.match(created[0].args.title, /remove the prescribed value\./);
+}));

@@ -76,14 +76,15 @@ Statuses:
 | `silent_singular` | Code_Aster finds the stiffness singular (a pivot lost more than 10 digits) where stabileo solved without a warning, and with the check off Code_Aster's solution disagrees with stabileo or cannot be computed |
 | `near_singular` | Code_Aster's singularity check trips, but with the check off (`NPREC=-1`) its solution agrees with stabileo: an ill-conditioned model, not a mechanism |
 | `ill_conditioned` | stabileo flags it (`stiffness_not_positive_definite`, `residual_high`, ...), or MUMPS cannot reach its residual check (FACTOR_57, also after a FACTOR_11 rerun with the check off) |
-| `refused` | stabileo refuses the model and Code_Aster agrees there is no unique answer: its stiffness is singular (`FACTOR_11`/`FACTOR_42` at `NPREC=10`, or `FACTOR_57`), or the translator rejects the model for the same reason (a nodal moment on a rotation nothing stiffens, a rotational mechanism) |
+| `refused` | stabileo refuses the model and Code_Aster agrees there is no unique answer: its stiffness is singular (`FACTOR_11`/`FACTOR_42` at `NPREC=10`, or `FACTOR_57`), or the translator rejects the model for the same reason (a nodal moment on a rotation nothing stiffens, a rotational mechanism), or stabileo refuses a prescribed displacement that no rigid restraint carries (AC-10) on the same support and DOF the translator finds unrestrained (it would drop it and solve a different model) |
+| `silent_unimposed` | stabileo solved a model with a prescribed displacement that no rigid restraint carries (an unflagged DOF, a DOF a spring frees, a rotation an inclined support leaves free): flagged |
 | `false_reject` | stabileo refuses a model Code_Aster solves with its singularity check on: flagged |
 | `stabileo_failed` | stabileo refuses a model the translator cannot express (undecided) |
 | `unsupported` | uses a feature with no clean Code_Aster equivalent here (shells, warping, ...) |
 | `aster_failed` | Code_Aster fails for another reason: a harness bug |
 
-Exit status: 0 when all agree, 1 on `mismatch`, `silent_singular` or
-`false_reject`, 2 on `aster_failed`.
+Exit status: 0 when all agree, 1 on `mismatch`, `silent_singular`,
+`silent_unimposed` or `false_reject`, 2 on `aster_failed`.
 
 ## Comparison and tolerance
 
