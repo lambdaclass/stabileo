@@ -7,7 +7,7 @@ import { test, expect } from './fixtures';
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
 
-test.describe('@smoke modelling on a phone', () => {
+test.describe('@slow modelling on a phone', () => {
   test('options in the sheet, ribbon order, other sheets disarm, toast above the sheet', async ({ page }) => {
     test.setTimeout(120_000);
     await page.goto('/app/basic?e2e=1');
@@ -50,7 +50,7 @@ test.describe('@smoke modelling on a phone', () => {
   });
 });
 
-test.describe('@smoke the phone results menu', () => {
+test.describe('@slow the phone results menu', () => {
   test.use({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
   test('one row in 2D and 3D, every command but None the same width', async ({ page }) => {
     test.setTimeout(120_000);

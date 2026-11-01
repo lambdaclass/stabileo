@@ -1,6 +1,14 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "recheck.saveAndReload": "Açık projeleri kaydet ve sayfayı yeniden yükle",
+  "recheck.recoveryFailed": "Projeler tarayıcıya kaydedilemedi. Sayfa yeniden yüklenmedi. Çalışmanızı korumak için oturum yedeğini indirin.",
+  "recheck.downloadBackup": "Tüm açık projeleri indir",
+  "recheck.backupHelp": "İndirilen oturum dosyasını saklayın, ardından sayfayı yeniden yükleyip tüm projeleri geri yüklemek için dosyayı açın. Bildirim yine onay gerektirecektir.",
+  "recheck.loading": "Hesap sonuçlarındaki değişiklikler yükleniyor…",
+  "recheck.detailsUnavailable": "Değişikliğin ayrıntılarına erişilemiyor. Bildirimi yüklemeyi tekrar deneyin.",
+  "recheck.loadFailed": "Hesap sonuçlarındaki değişiklikler yüklenemedi. Okuduğunuzu onaylamadan önce tekrar deneyin.",
+  "recheck.retry": "Tekrar dene",
   "landing.navTools": "Araçlar",
 
   // ─── Shared scalar-field viewer ───

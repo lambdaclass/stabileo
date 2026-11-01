@@ -33,7 +33,7 @@ test.describe('@smoke P-Delta stability', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
     await page.goto('/app/basic?e2e=1');
-    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 60_000 });
+    await page.waitForFunction(() => !!window.__stabileoActions, null, { timeout: 45_000 });
   });
 
   for (const mode of ['2d', '3d'] as const) {
