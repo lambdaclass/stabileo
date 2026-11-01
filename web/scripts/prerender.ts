@@ -266,6 +266,7 @@ async function newCapturePage(browser: Browser) {
   await page.addInitScript(() => {
     // Capture only the visited route's dependencies, never idle/hover prefetches.
     Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
+    (window as { __stabileoPrerender?: boolean }).__stabileoPrerender = true;
     try {
       localStorage.clear();
       sessionStorage.clear();
@@ -296,6 +297,21 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
     if (scroller) scroller.scrollTo(0, 0);
   });
   await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const listed = new Set([...document.querySelectorAll<HTMLLinkElement | HTMLScriptElement>('link[rel=modulepreload], script[src]')]
+      .map((e) => new URL(e instanceof HTMLLinkElement ? e.href : e.src).pathname));
+    for (const entry of performance.getEntriesByType('resource') as PerformanceResourceTiming[]) {
+      const path = new URL(entry.name).pathname;
+      if (entry.initiatorType !== 'script' || !/^\/assets\/[^/]+\.js$/.test(path) || listed.has(path)) continue;
+      listed.add(path);
+      const link = document.createElement('link');
+      link.rel = 'modulepreload';
+      link.setAttribute('as', 'script');
+      link.crossOrigin = '';
+      link.href = path;
+      document.head.appendChild(link);
+    }
+  });
 
   const { head, body } = await page.evaluate(() => ({
     head: document.head.innerHTML,

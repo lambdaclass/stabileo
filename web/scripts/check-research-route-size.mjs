@@ -1,8 +1,9 @@
 /** Build and compare each route's dependency footprint. Run from web/ with --baseline <file> and optional --update.
- * Landing: entry's static closure. /app/*: that closure plus App's static and lazy product
+ * Landing: entry's static closure plus the landing page's. /app/*: that closure plus App's static and lazy product
  * dependencies. Modes share an entry, so receive the same conservative byte budget.
  * /en/research/ and /en/tools/: the landing's closure plus the page loader's static closure and
  * its page chunk; per-page details (load-detail) are excluded, so every paper's code stays out.
+ * A tool page adds its own detail chunk's static closure (never the solver, which is lazy).
  */
 import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
@@ -45,7 +46,7 @@ try {
   const manifest = JSON.parse(readFileSync(join(outDir, '.vite/manifest.json'), 'utf8'));
   const appEntry = Object.keys(manifest).find((key) => manifest[key].name === 'App');
   if (!appEntry) throw new Error('missing App entry');
-  function footprint(app, feature = null) {
+  function footprint(app, feature = null, detail = null) {
     const files = new Set(['index.html']);
     const seen = new Set();
     function visit(key, lazy = false, inFeature = false) {
@@ -65,6 +66,7 @@ try {
       }
     }
     visit('index.html');
+    if (!feature && manifest['src/components/LandingPage.svelte']) visit('src/components/LandingPage.svelte');
     if (feature) {
       const loader = `src/components/${feature}/load-page.ts`;
       if (!manifest[loader]) throw new Error(`missing manifest entry ${loader}`);
@@ -72,6 +74,8 @@ try {
       for (const dep of manifest[loader].dynamicImports ?? []) {
         if (!/load-detail\.ts$/.test(dep)) visit(dep, false, true);
       }
+      // A base where the page is not yet its own chunk already counted it in the loader's closure.
+      if (detail && manifest[`src/components/${feature}/${detail}`]) visit(`src/components/${feature}/${detail}`, false, true);
     }
     if (app) {
       visit(appEntry, true);
@@ -92,7 +96,9 @@ try {
   const landing = footprint(false), app = footprint(true);
   const measured = { '/en/': landing, '/es/': landing, '/pt/': landing,
     '/app/basic': app, '/app/education': app, '/app/pro': app,
-    '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools') };
+    '/en/research/': footprint(false, 'research'), '/en/tools/': footprint(false, 'tools'),
+    '/en/tools/simply-supported-beam/': footprint(false, 'tools', 'ToolViewer.svelte'),
+    '/en/tools/continuous-beam/': footprint(false, 'tools', 'BatchTool.svelte') };
   for (const [route, bytes] of Object.entries(measured)) console.log(`${route}: ${bytes} bytes`);
   if (process.argv.includes('--update')) {
     writeFileSync(baselinePath, JSON.stringify({ tolerance_bytes: 128, routes: measured }, null, 2) + '\n');

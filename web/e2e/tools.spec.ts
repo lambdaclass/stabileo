@@ -86,3 +86,30 @@ test('@smoke tools shared model survives a client-side editor transition', async
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(origin);
   await expect(page.locator('canvas').first()).toBeVisible();
 });
+
+for (const id of [...TOOL_IDS, ...BATCH_IDS]) test(`@smoke tools ${id} shows the build's engine result before the engine downloads, and the engine agrees`, async ({ page }) => {
+  const requested: string[] = [];
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route(/dedaliano_engine_bg[^/]*\.wasm$/, async route => { requested.push(route.request().url()); await held; await route.continue(); });
+  await page.goto(`/en/tools/${id}/?e2e=1`);
+  const values = page.locator('#app [data-testid=engine-value]');
+  await expect(values.first()).toBeVisible();
+  await expect(page.locator('#prerender')).toHaveCount(0);
+  await expect(page.locator('#app a.btn-primary[href*="#data=2."]')).toBeVisible();
+  const shown = await values.allTextContents();
+  const difference = await page.getByTestId('agreement').getAttribute('data-difference');
+  expect(shown.every(text => /\d/.test(text))).toBe(true);
+  expect(requested).toEqual([]);
+  release();
+  await page.evaluate(() => document.querySelectorAll('script[data-prerendered-result]').forEach(script => script.remove()));
+  const input = page.getByTestId(id === 'influence-line' ? 'load' : 'e');
+  const original = await input.inputValue();
+  await input.fill(String(Number(original) / 2));
+  await expect(values.first()).not.toHaveText(shown[0]);
+  await input.fill(original);
+  await expect(values).toHaveText(shown);
+  if (difference === null) await expect(page.getByTestId('agreement')).not.toHaveAttribute('data-difference');
+  else await expect(page.getByTestId('agreement')).toHaveAttribute('data-difference', difference);
+  expect(requested).toHaveLength(1);
+});

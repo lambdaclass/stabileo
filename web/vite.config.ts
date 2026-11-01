@@ -31,35 +31,44 @@ function wasmStubPlugin(): Plugin {
 
 /**
  * `virtual:public-i18n`: the dictionaries' entries the public pages read (`landing.*`, `blog.*`, `lang.*`,
- * `contact.*`), in en, es and pt. The landing and the blog load these instead of the whole
- * dictionaries (3 MB of source, most of the public bundle); the application registers the rest
- * when it loads (`lib/i18n/full-dictionaries.ts`). The entries are copied line by line, which
+ * `contact.*`). The landing and the blog load these instead of the whole dictionaries (3 MB of
+ * source, most of the public bundle); the application registers the rest when it loads
+ * (`lib/i18n/full-dictionaries.ts`). English is bundled; every other language is its own chunk
+ * (`loaders`, awaited by `ensurePublicLocale` before a page renders in it), except under Vitest,
+ * which gets them all bundled. The entries are copied line by line, which
  * `union-merge-safe.test.ts` keeps possible: one entry per line.
  */
 function publicI18nPlugin(): Plugin {
   const id = 'virtual:public-i18n';
+  const eager = !!process.env.VITEST;
+  const entries = (loc: string, watch: (file: string) => void) => {
+    const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
+    watch(file);
+    const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
+      const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
+      return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
+    });
+    return `{\n${lines.join('\n')}\n}`;
+  };
   return {
     name: 'public-i18n',
     resolveId(s) {
-      return s === id ? '\0' + id : null;
+      return s === id || s.startsWith(`${id}/`) ? '\0' + s : null;
     },
     load(resolved) {
+      if (resolved.startsWith(`\0${id}/`)) return `export default ${entries(resolved.slice(id.length + 2), (f) => this.addWatchFile(f))};\n`;
       if (resolved !== '\0' + id) return null;
       let out = '';
+      const lazy: string[] = [];
       for (const loc of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
-        if (!isComplete(loc)) {
+        if (!isComplete(loc) || (!eager && loc !== 'en')) {
           out += `export const ${loc} = {};\n`;
+          if (isComplete(loc)) lazy.push(`${loc}: () => import(${JSON.stringify(`${id}/${loc}`)})`);
           continue;
         }
-        const file = resolve(__dirname, 'src/lib/i18n/locales', `${loc}.ts`);
-        this.addWatchFile(file);
-        const lines = readFileSync(file, 'utf8').split('\n').filter((l) => {
-          const m = /^\s*(['"])([^'"]+)\1: /.exec(l);
-          return !!m && PUBLIC_KEY_PREFIXES.some((p) => m[2].startsWith(p));
-        });
-        out += `export const ${loc} = {\n${lines.join('\n')}\n};\n`;
+        out += `export const ${loc} = ${entries(loc, (f) => this.addWatchFile(f))};\n`;
       }
-      return out;
+      return out + `export const loaders = {${lazy.join(', ')}};\n`;
     },
   };
 }

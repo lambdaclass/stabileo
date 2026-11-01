@@ -16,7 +16,6 @@
   import PublicPending from './components/site/PublicPending.svelte';
   import { loadPublicPage, idlePrefetchPublicPages, resetPublicScroll, manualPublicScrollRestoration } from './lib/public-navigation';
   import { tick } from 'svelte';
-  import LandingPage from './components/LandingPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
@@ -33,7 +32,7 @@
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;
 
-  let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog', import('svelte').Component<{ path: string }>>>>({});
+  let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
   $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
   $effect(manualPublicScrollRestoration);
@@ -58,7 +57,7 @@
       if (next.kind === 'app') { await loadApp(); return; }
       const page = await loadPublicPage(location.href);
       if (token !== revision) return;
-      if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog')) pages[next.kind] = page;
+      if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
       adoptLocaleFromPath();
       current = next;
       await tick();
@@ -114,6 +113,7 @@
 {:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'paper' || current.kind === 'blog'}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} />{/if}
-{:else if current.kind === 'landing'}
-  <LandingPage />
+{:else if current.kind === 'landing' && pages.landing}
+  {@const Landing = pages.landing}
+  <Landing path={current.path} />
 {/if}

@@ -18,6 +18,8 @@ export function loadPublicPage(path: string): Promise<Page | null> {
           ? import('../components/blog/BlogPage.svelte').then(m => m.default)
         : route.kind === 'paper'
           ? import('../components/paper/PaperPage.svelte').then(m => m.default)
+        : route.kind === 'landing'
+          ? import('../components/LandingPage.svelte').then(m => m.default as unknown as Page)
           : Promise.resolve(null);
     pending.set(key, loading.catch(error => { pending.delete(key); throw error; }));
   }
@@ -53,10 +55,18 @@ export function idlePrefetchPublicPages() {
   return () => window.clearTimeout(id);
 }
 
-/** Run after Svelte's DOM commit. Public pages scroll inside .landing. */
+/**
+ * Run after Svelte's DOM commit. Public pages scroll inside .landing. Also retires the prerendered
+ * copy, which stays on screen (and #app hidden, index.html) until the route's page has rendered.
+ */
 export function resetPublicScroll(hash = '') {
+  const prerender = document.getElementById('prerender');
+  const readTop = prerender?.querySelector<HTMLElement>('.landing')?.scrollTop ?? 0;
+  const focused = prerender?.contains(document.activeElement) ? document.activeElement?.id : '';
+  prerender?.remove();
   const root = document.querySelector<HTMLElement>('.landing');
-  root?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  root?.scrollTo({ top: hash ? 0 : readTop, left: 0, behavior: 'instant' });
+  if (focused) document.getElementById(focused)?.focus({ preventScroll: true });
   if (hash) {
     let id = hash.slice(1);
     try { id = decodeURIComponent(id); } catch { /* Treat malformed escapes literally. */ }

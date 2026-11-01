@@ -9,10 +9,12 @@
  import { knownIssueMessage } from '../../lib/engine/known-issues';
  import { DEFAULT_BATCH, validateBatch, type BatchId, type BatchParameters } from './batch';
  import type { BatchResult } from './batch-solve';
+ import { prerenderedResult, recordPrerenderedResult } from './prerendered-result';
  let {id}:{id:BatchId}=$props();
  let p=$state<BatchParameters>({...DEFAULT_BATCH});
  let result=$state<BatchResult|null>(null), error=$state(''),busy=$state(false),href=$state('');
  let revision=0;
+ const warmSolver=()=>{void import('../../lib/engine/wasm-solver').then(m=>m.initSolver()).catch(()=>{});};
  const number=(n:number)=>new Intl.NumberFormat(publicI18n.locale,{maximumSignificantDigits:6}).format(n);
  const fields=$derived(([
   ['e','tools.modulus','MPa',1,1e6],['i','tools.inertia','m⁴',1e-10,10],['area','tools.batch.area','m²',1e-6,10],
@@ -23,13 +25,20 @@
   ...(id==='influence-line'?[['position','tools.batch.section','m',.000001,p.length*p.count-.000001]]:[])
  ] as [keyof Pick<BatchParameters,'e'|'i'|'area'|'length'|'height'|'horizontal'|'load'|'mass'|'position'>,string,string,number,number][]).filter(([key])=>id!=='truss-2d'||key!=='i'));
  $effect(()=>{
-  const tool=id,values={...p}; revision++; result=null;href='';error='';busy=true;
+  const tool=id,values={...p}; revision++;
+  const ready=prerenderedResult<BatchResult>(tool,values);
+  if(ready) {
+   const token=revision; result=ready;href='';error='';busy=false;
+   void import('./share').then(({editorUrl})=>{if(token===revision)href=editorUrl(ready.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);});
+   return ()=>{revision++;};
+  }
+  result=null;href='';error='';busy=true;
   const timer=setTimeout(()=>void run(tool,values),250);
   return ()=>{clearTimeout(timer);revision++;};
  });
  async function run(tool:BatchId,values:BatchParameters) {
   const token=++revision;
-  try {validateBatch(tool,values); const [{calculateBatch},{editorUrl}]=await Promise.all([import('./batch-solve'),import('./share')]);const answer=await calculateBatch(tool,values);if(token!==revision)return; result=answer;href=editorUrl(answer.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
+  try {validateBatch(tool,values); const [{calculateBatch},{editorUrl}]=await Promise.all([import('./batch-solve'),import('./share')]);const answer=await calculateBatch(tool,values);if(token!==revision)return; recordPrerenderedResult(tool,values,answer); result=answer;href=editorUrl(answer.model,t(`tools.${tool}`),tool==='beam-natural-frequency'?{massPerLength:values.mass}:undefined);}
   catch(e) {if(token===revision)error=e instanceof Error&&e.message.startsWith('tools.')?t(e.message):`${t('tools.failed')} ${e instanceof Error?e.message:String(e)}`;}
   finally {if(token===revision)busy=false;}
  }
@@ -38,7 +47,7 @@
 <div class="tool-layout">
  <header class="tool-intro"><p class="crumb"><PublicLink to="/tools">{t('tools.index')}</PublicLink></p><span class="badge">{t('tools.firstVersion')} · {toolReviewLabel('tools-batch-2', publicI18n.locale)}</span><h1>{t(`tools.${id}`)}</h1><p class="lead">{t(`tools.${id}.subtitle`)}</p></header>
  <aside class="tool-viewer" aria-label={t(`tools.${id}`)}><BatchViewer {id} {result}/></aside>
- <section class="tool-inputs"><form onsubmit={event=>event.preventDefault()}>
+ <section class="tool-inputs"><form onsubmit={event=>event.preventDefault()} onfocusin={warmSolver} onpointerdown={warmSolver}>
   {#each fields as [key,label,unit,min,max]}<ParamRow id={key} name={t(label)} {unit}><input id={key} data-testid={key} type="number" bind:value={p[key]} {min} {max} step="any" required/></ParamRow>{/each}
   {#if id==='continuous-beam'}
    <label for="spans">{t('tools.batch.spans')} (m; 0.1–100)</label><input id="spans" bind:value={p.spans} />

@@ -1,4 +1,4 @@
-import { setPublicLocale, type PublicLocale } from '../../lib/i18n/store.svelte';
+import { ensurePublicLocale, setPublicLocale, type PublicLocale } from '../../lib/i18n/store.svelte';
 import { parsePublicPath } from '../../lib/i18n/public-routes';
 
 export const REPO_URL = 'https://github.com/lambdaclass/stabileo';
@@ -32,9 +32,11 @@ export function goPublic(path: string) {
  * address is the part that gets shared and indexed, so it is the part that has
  * to be right — the rendering follows it, never the other way round.
  */
-export function switchPublicLocale(locale: PublicLocale) {
+export async function switchPublicLocale(locale: PublicLocale) {
+  const target = parsePublicPath(window.location.pathname).path + window.location.search + window.location.hash;
+  await ensurePublicLocale(locale);
   setPublicLocale(locale);
-  goPublic(parsePublicPath(window.location.pathname).path + window.location.search + window.location.hash);
+  goPublic(target);
 }
 
 /**
