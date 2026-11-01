@@ -1,17 +1,18 @@
 <script lang="ts">
   /**
    * An experiment's latest permanent link, for its gallery card: the newest snapshot (/@<commit>/)
-   * holding the page, from the host's index. Renders nothing until one exists.
+   * holding the page at its current experiment version, from the host's index (the version Cite this names). Renders nothing until one exists.
    */
   import { citeStrings } from './cite-i18n';
   import { onMount } from 'svelte';
   import { publicI18n } from '../../../lib/i18n/store.svelte';
-  import { permalinkUrl, pickSnapshot, snapshotIndex, type Permalink } from './permalink';
+  import { BUILD_COMMIT, THIS_SNAPSHOT, permalinkUrl, pickSnapshot, snapshotIndex, type Permalink } from './permalink';
+  import { experimentVersions } from './versions';
 
   let { path }: { path: string } = $props();
   let link = $state<Permalink | null>(null);
   onMount(() => {
-    void snapshotIndex().then((entries) => (link = pickSnapshot(entries, path)));
+    void snapshotIndex().then((entries) => (link = pickSnapshot(entries, path, BUILD_COMMIT, THIS_SNAPSHOT, experimentVersions(path.split('/').at(-1)!).at(-1)?.version)));
   });
   const label = $derived(citeStrings(publicI18n.locale).permalink);
 </script>

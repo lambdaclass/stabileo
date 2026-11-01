@@ -102,7 +102,11 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
    * alone: the canonical and hreflang links name the latest site on purpose.
    */
   const add = <T>(u: T): T | string => {
-    if (u == null || u instanceof URL) return u;
+    if (u == null) return u;
+    if (u instanceof URL) {
+      const w = u.origin === L.origin ? add(u.pathname + u.search + u.hash) : u;
+      return w === u.pathname + u.search + u.hash ? u : w;
+    }
     const s = String(u);
     if (!/^\/(?!\/)/.test(s)) return u;
     let url: URL;
@@ -150,7 +154,11 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
   } as typeof window.open;
   const fetch0 = window.fetch;
   window.fetch = function (this: Window, input: RequestInfo | URL, init?: RequestInit) {
-    return fetch0.call(this, typeof input === 'string' ? (add(input) as string) : input, init);
+    if (input instanceof Request) {
+      const w = add(new URL(input.url));
+      return fetch0.call(this, typeof w === 'string' ? new Request(new URL(w, L.href), input) : input, init);
+    }
+    return fetch0.call(this, add(input) as string | URL, init);
   } as typeof window.fetch;
 
   // Links and images written root-relative: rewritten as they enter the document, so hovering,
@@ -233,7 +241,7 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
   let el: HTMLElement | null = null;
   function banner() {
     const path = strip(L.pathname);
-    const lang = /^\/(es|pt|en|de|fr|tr)(\/|$)/.exec(path)?.[1] ?? 'en';
+    const lang = /^\/(es|pt|en|de|fr|tr)(\/|$)/.exec(path)?.[1] ?? /^(es|pt|en|de|fr|tr)\b/.exec(document.documentElement.lang)?.[1] ?? 'en';
     const [lead, latest, compare, hide] = TEXT[lang];
     let hidden = false;
     try {
@@ -254,6 +262,7 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
         '<span data-lead></span><span data-services></span><a data-latest></a><a data-compare rel="noopener"></a><button type="button">×</button>';
       el.querySelector('button')!.addEventListener('click', () => {
         el!.remove();
+        document.body.style.removeProperty('padding-bottom');
         try {
           sessionStorage.setItem('stabileo-snapshot-banner', 'hidden');
         } catch {
@@ -280,6 +289,7 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
     toCompare.textContent = compare;
     toCompare.href = cfg.repo + '/compare/' + cfg.commit + '...main';
     el.querySelector('button')!.setAttribute('aria-label', hide);
+    document.body.style.paddingBottom = el.offsetHeight + 'px';
   }
   window.addEventListener('popstate', banner);
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', banner);
@@ -290,9 +300,14 @@ function runtime(cfg: { prefix: string; short: string; commit: string; date: str
  * Vite's half: inactive (returns no plugin) for a normal build. For a snapshot it rewrites the
  * application's `location` reads and puts the runtime in index.html.
  */
+/** Replaced by FrozenServicesNotice in a snapshot build, so the live site's bundle carries none of it. */
+export const ONLINE_SERVICE_COMPONENTS = ['AiDrawer.svelte', 'FeedbackWidget.svelte', 'toolbar/ToolbarAiReview.svelte'];
+
 export function snapshotPlugin(s: Snapshot | null, root: string): Plugin[] {
   if (!s) return [];
   const src = resolve(root, 'src') + '/';
+  const notice = resolve(src, 'components/FrozenServicesNotice.svelte');
+  const online = new Set(ONLINE_SERVICE_COMPONENTS.map((c) => resolve(src, 'components', c)));
   return [
     {
       name: 'stabileo-snapshot',
@@ -326,6 +341,15 @@ export function snapshotPlugin(s: Snapshot | null, root: string): Plugin[] {
       transformIndexHtml: {
         order: 'post',
         handler: () => [{ tag: 'script', attrs: { src: `${s.prefix}/snapshot-runtime.js` }, injectTo: 'head-prepend' }],
+      },
+    },
+    {
+      name: 'stabileo-snapshot-frozen-services',
+      enforce: 'pre',
+      async resolveId(source, importer, options) {
+        if (!ONLINE_SERVICE_COMPONENTS.some((c) => source.endsWith(c.split('/').at(-1)!))) return null;
+        const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });
+        return resolved && online.has(resolved.id) ? notice : resolved;
       },
     },
   ];

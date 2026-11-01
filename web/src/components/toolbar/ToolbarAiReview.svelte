@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { onlineServicesAvailable } from '../../lib/frozen-services';
-  import FrozenServicesNotice from '../FrozenServicesNotice.svelte';
   import { resultsStore, modelStore, uiStore } from '../../lib/store';
   import { t, i18n } from '../../lib/i18n';
   import { reviewModel, buildArtifact, type ReviewModelResponse, type ReviewFinding } from '../../lib/ai/client';
@@ -73,9 +71,6 @@
   }
 </script>
 
-{#if !onlineServicesAvailable()}
-  <FrozenServicesNotice />
-{:else}
 <div class="toolbar-section" data-tour="ai-review-section">
   <button class="section-toggle" onclick={() => showSection = !showSection}>
     {showSection ? '▾' : '▸'} {t('ai.title')}
@@ -185,8 +180,6 @@
     </div>
   {/if}
 </div>
-
-{/if}
 
 <style>
   .toolbar-section {

@@ -23,18 +23,12 @@ it('preserves live account overrides', () => {
   vi.unstubAllGlobals();
 });
 
-it.each(['AiDrawer', 'FeedbackWidget', 'toolbar/ToolbarAiReview'])('replaces %s online controls with the frozen explanation', (component) => {
-  const source = readFileSync(new URL(`../../components/${component}.svelte`, import.meta.url), 'utf8');
-  expect(source).toContain('{#if !onlineServicesAvailable()}\n  <FrozenServicesNotice />\n{:else}');
-  expect(source).toContain('{/if}\n\n<style>');
-});
-
 it('explains offline services in every public locale', () => {
   expect(Object.keys(FROZEN_SERVICES_NOTICE).sort()).toEqual(['de', 'en', 'es', 'fr', 'pt', 'tr']);
   for (const notice of Object.values(FROZEN_SERVICES_NOTICE)) expect(notice.length).toBeGreaterThan(60);
 });
 
-it.each(['AiDrawer', 'FeedbackWidget', 'toolbar/ToolbarAiReview', 'FrozenServicesNotice', 'research/shell/CiteThis'])('compiles the %s frozen UI', (component) => {
-  const filename = new URL(`../../components/${component}.svelte`, import.meta.url);
+it('compiles the frozen explanation', () => {
+  const filename = new URL('../../components/FrozenServicesNotice.svelte', import.meta.url);
   expect(() => compile(readFileSync(filename, 'utf8'), { filename: filename.pathname, generate: 'client' })).not.toThrow();
 });

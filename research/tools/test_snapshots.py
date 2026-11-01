@@ -43,6 +43,18 @@ with patch.object(snapshots, 'git', side_effect=history):
     assert set(snapshots.protected('main')) == {'aaaaaaa', 'bbbbbbb'}
 print('all pinned commits and every indexed experiment version are protected')
 
+def corrupt(*args):
+    return history(*args) if args[0] != 'show' else '{"versions": '
+
+with patch.object(snapshots, 'git', side_effect=corrupt):
+    try:
+        snapshots.protected('main')
+    except SystemExit as e:
+        assert 'refusing' in str(e), e
+    else:
+        raise AssertionError('an unreadable versions.json must stop the plan, not drop its pins')
+print('an unreadable versions.json in history stops the prune plan')
+
 replacement = {"snapshots": [
     {"short": short, "date": date, "research": [PAGE],
      "experimentVersions": {"shauer-2025": {"version": 1, "commit": None}}}

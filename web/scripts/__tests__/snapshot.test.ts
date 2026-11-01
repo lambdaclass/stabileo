@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
-import { snapshotPlugin, snapshotRuntime } from '../snapshot';
+import { ONLINE_SERVICE_COMPONENTS, snapshotPlugin, snapshotRuntime } from '../snapshot';
 
 import { autosaveWrite, autosaveRead, resetAutosaveDbForTests } from '../../src/lib/store/autosave-db';
 
@@ -24,9 +24,12 @@ function backingStorage(): Storage {
   };
 }
 function runtime(backing = backingStorage(), config = snapshot) {
+  const sent: unknown[][] = [];
   const context = vm.createContext({
-    URL, Map, location: new URL('https://stabileo.com/@abcdef0/app/basic'),
-    history: { pushState() {}, replaceState() {} },
+    URL, Map, Request, sent, location: new URL('https://stabileo.com/@abcdef0/app/basic'),
+    history: { pushState(...a: unknown[]) { sent.push(['pushState', a[2]]); }, replaceState() {} },
+    fetch: (input: unknown) => sent.push(['fetch', input]),
+    open: (u: unknown) => sent.push(['open', u]),
     Node: class { appendChild(node: unknown) { return node; } },
     Element: class {
       tagName = 'IFRAME';
@@ -53,6 +56,30 @@ function runtime(backing = backingStorage(), config = snapshot) {
   vm.runInContext(snapshotRuntime(config), context);
   return { context, backing };
 }
+
+it('URL objects and Requests for this site stay under the prefix; others are left alone', () => {
+  const { context } = runtime();
+  const sent = context.sent as unknown[][];
+  vm.runInContext(`
+    history.pushState(null, '', new URL('/en/blog/', 'https://stabileo.com'));
+    open(new URL('https://stabileo.com/app/pro?x=1#y'));
+    fetch(new URL('/research-wasm/build.json', 'https://stabileo.com'));
+    fetch(new Request('https://stabileo.com/papers/a.pdf'));
+    fetch(new Request('https://stabileo.com/api/v1/health'));
+    fetch(new URL('https://example.com/x.js'));
+    fetch(new URL('https://stabileo.com/@abcdef0/assets/a.js'));
+  `, context);
+  const urls = sent.map(([kind, u]) => [kind, u instanceof Request ? u.url : String(u)]);
+  expect(urls).toEqual([
+    ['pushState', '/@abcdef0/en/blog/'],
+    ['open', '/@abcdef0/app/pro?x=1#y'],
+    ['fetch', '/@abcdef0/research-wasm/build.json'],
+    ['fetch', 'https://stabileo.com/@abcdef0/papers/a.pdf'],
+    ['fetch', 'https://stabileo.com/api/v1/health'],
+    ['fetch', 'https://example.com/x.js'],
+    ['fetch', 'https://stabileo.com/@abcdef0/assets/a.js'],
+  ]);
+});
 
 it('snapshot storage operations leave production keys untouched', () => {
   const { context, backing } = runtime();
@@ -90,6 +117,18 @@ it('both Web Storage namespaces persist only for their full commit', () => {
     expect(first.getItem('token')).toBe('snapshot');
     expect(backing.getItem('token')).toBe('live');
   }
+});
+
+it.each(ONLINE_SERVICE_COMPONENTS)('a snapshot build mounts the frozen explanation in place of %s; the live build keeps it', async (component) => {
+  const root = resolve('.');
+  const resolveId = snapshotPlugin(snapshot, root).find((p) => p.name === 'stabileo-snapshot-frozen-services')!.resolveId as Function;
+  const real = resolve(root, 'src/components', component);
+  const context = { resolve: async () => ({ id: real }) };
+  expect(await resolveId.call(context, `./${component.split('/').at(-1)}`, resolve(root, 'src/App.svelte'), {})).toBe(resolve(root, 'src/components/FrozenServicesNotice.svelte'));
+  const elsewhere = { resolve: async () => ({ id: resolve(root, 'src/other', component) }) };
+  expect(await resolveId.call(elsewhere, `./${component.split('/').at(-1)}`, resolve(root, 'src/App.svelte'), {})).toEqual({ id: resolve(root, 'src/other', component) });
+  expect(await resolveId.call(context, './Toolbar.svelte', resolve(root, 'src/App.svelte'), {})).toBeNull();
+  expect(snapshotPlugin(null, root)).toEqual([]);
 });
 
 it('rewrites routing location but preserves the actual address for exported URLs', async () => {
@@ -199,15 +238,17 @@ it('loads the snapshot runtime as an external script for the strict CSP', () => 
 });
 
 it.each([
-  ['de', 'Hier ist die neueste Version', 'Ausblenden'],
-  ['fr', 'La dernière version est ici', 'Masquer'],
-  ['tr', 'En son sürüm burada', 'Gizle'],
-])('localizes the snapshot banner and latest-version exit for %s', (locale, latest, hide) => {
+  ['de', 'Hier ist die neueste Version', 'Ausblenden', `/de/research/`],
+  ['fr', 'La dernière version est ici', 'Masquer', `/fr/research/`],
+  ['tr', 'En son sürüm burada', 'Gizle', `/tr/research/`],
+  ['pt', 'A versão mais recente está aqui', 'Ocultar', `/app/basic/`],
+])('localizes the snapshot banner and latest-version exit for %s at %s', (locale, latest, hide, page) => {
   const { context } = runtime();
-  context.location.href = `https://snapshots.staging.stabileo.com/@abcdef0/${locale}/research/?view=1#cite`;
+  context.location.href = `https://snapshots.staging.stabileo.com/@abcdef0${page}?view=1#cite`;
+  context.document.documentElement.lang = locale;
   const nodes = new Map<string, any>();
   const node = () => ({
-    textContent: '', attrs: new Map<string, string>(),
+    textContent: '', attrs: new Map<string, string>(), offsetHeight: 52,
     setAttribute(name: string, value: string) { this.attrs.set(name, value); },
     append() {}, addEventListener() {},
     querySelector(selector: string) {
@@ -217,11 +258,12 @@ it.each([
   });
   let banner: ReturnType<typeof node> | undefined;
   context.document.createElement = node;
-  context.document.body = { appendChild(value: ReturnType<typeof node>) { banner = value; } };
+  context.document.body = { style: {} as Record<string, string>, appendChild(value: ReturnType<typeof node>) { banner = value; } };
   context.history.pushState(null, '', context.location.href);
   expect(banner?.attrs.get('lang')).toBe(locale);
   expect(nodes.get('[data-latest]').textContent).toBe(latest);
   expect(nodes.get('[data-services]').textContent).toBeTruthy();
-  expect(nodes.get('[data-latest]').href).toBe(`https://staging.stabileo.com/${locale}/research/?view=1#cite`);
+  expect(nodes.get('[data-latest]').href).toBe(`https://staging.stabileo.com${page}?view=1#cite`);
   expect(nodes.get('button').attrs.get('aria-label')).toBe(hide);
+  expect(context.document.body.style.paddingBottom).toBe('52px');
 });

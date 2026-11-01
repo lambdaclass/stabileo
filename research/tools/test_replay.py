@@ -61,6 +61,36 @@ class ReplayTests(unittest.TestCase):
         for produced in [[], [{**CHECK, 'observed': float('inf')}], [{**CHECK, 'passed': False}]]:
             self.assertTrue(self.run_replay(json.dumps({'checks': [CHECK]}), produced)[0])
 
+    def test_passed_beyond_tolerance_fails(self):
+        contradictory = {**CHECK, 'observed': 1.0}
+        failed, rows = self.run_replay(json.dumps({'checks': [CHECK]}), [contradictory])
+        self.assertTrue(failed)
+        self.assertEqual(rows[0][-1], 'FAIL')
+
+    def test_checks_without_names_are_keyed_by_metric(self):
+        unnamed = {k: v for k, v in CHECK.items() if k != 'name'}
+        self.assertFalse(self.run_replay(json.dumps({'checks': [unnamed]}), [unnamed])[0])
+        self.assertTrue(self.run_replay(json.dumps({'checks': [unnamed, unnamed]}), [unnamed])[0])
+
+    def test_in_place_writers_are_compared_and_the_committed_file_restored(self):
+        committed = json.dumps({'checks': [CHECK]})
+        for produced, should_fail in [([CHECK], False), ([{**CHECK, 'passed': False}], True), (None, True)]:
+            with self.subTest(produced=produced), tempfile.TemporaryDirectory() as tmp:
+                paper = Path(tmp) / 'field' / 'paper'
+                paper.mkdir(parents=True)
+                (paper / 'VALIDATION.json').write_text(committed)
+
+                def writer(*args, **kwargs):
+                    self.assertFalse((paper / 'VALIDATION.json').exists())
+                    if produced is not None:
+                        (paper / 'VALIDATION.json').write_text(json.dumps({'checks': produced}))
+                    return type('Run', (), {'returncode': 0})()
+
+                with contextlib.redirect_stdout(io.StringIO()), patch.object(replay.subprocess, 'run', side_effect=writer), \
+                        patch.dict(replay.IN_PLACE, {'field/paper': (['writer'], {})}):
+                    self.assertEqual(replay.replay(paper)[0], should_fail)
+                self.assertEqual((paper / 'VALIDATION.json').read_text(), committed)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -38,7 +38,7 @@ export function canonicalSections(): boolean {
 }
 
 export function accounts(): boolean {
-  return onlineServicesAvailable() && readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
+  return (import.meta.env.BASE_URL === '/' || onlineServicesAvailable()) && readFlag('accounts', import.meta.env.DEV || import.meta.env.VITE_ACCOUNTS === '1');
 }
 
 /** Override a flag for the current session (used by tests and support). */

@@ -79,11 +79,12 @@ process: validation, the results snapshot gate, review by solver owners, a chang
 **Rule: every experiment has frozen versions and Cite this before it is published.** No research
 page goes to production without a permanent link that serves it and a Cite this block on it.
 
-- **Permanent links by commit.** Every commit on `main` that changes `research/`, the engine or the
-  viewer is also built under its commit and kept immutably, e.g.
-  `stabileo.com/@9aad844/en/research/fracture/shauer-2025/`: that exact app, engine and
-  experiment, forever (the whole site is there, not only the page). The plain URL is always the
-  latest. The host lists the kept builds at `/@/` (JSON). How: `docs/DEPLOY.md` "Snapshots".
+- **Permanent links by commit.** A commit on `main` that changes an experiment's `version` in
+  `papers.yaml`, a `research-v*` tag, or a manual run is also built under its commit and kept
+  immutably, e.g. `snapshots.stabileo.com/@9aad844/en/research/fracture/shauer-2025/`: that exact
+  app, engine and experiment, forever (the whole site is there, not only the page). Engine or
+  viewer changes alone make no snapshot: bump the experiment's version when its results change.
+  The plain URL is always the latest. The host lists the kept builds at `/@/` (JSON). How: `docs/DEPLOY.md` "Snapshots".
 - **Cite this** (the shell's `CiteThis` component, `web/src/components/research/shell/`) gives the
   permanent link (this build's own when it has one, else the newest one holding the page), the
   commit, the engine's and the experiment's WASM SHA-256, our experiment version and the paper's

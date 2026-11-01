@@ -28,6 +28,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 RESEARCH = ROOT / "research"
 MOVED_FACTOR = 10.0
+# Papers whose writer regenerates VALIDATION.json in place rather than target/VALIDATION.json:
+# their command and environment. The committed files are restored after the run.
+IN_PLACE = {
+    "form-finding/pastrana-2026": (["cargo", "test", "--release", "--locked"], {"WRITE_VALIDATION": "1"}),
+    "mechanics/biggins-2026": (["cargo", "run", "--release", "--locked", "--bin", "validate", "--", "--write"], {}),
+    "optimization/andreassen-2011": (["cargo", "test", "--release", "--locked"], {"UPDATE_VALIDATION": "1"}),
+}
 
 
 def papers(args):
@@ -49,9 +56,10 @@ def checks(path):
             return None
         result = {}
         for check in entries:
-            if not isinstance(check, dict) or not isinstance(check.get("name"), str) or not check["name"] or check["name"] in result:
+            if not isinstance(check, dict) or not isinstance(check.get("metric"), str) or not isinstance(check.get("passed"), bool):
                 return None
-            if not isinstance(check.get("metric"), str) or not isinstance(check.get("passed"), bool):
+            key = check.get("name", check["metric"])
+            if not isinstance(key, str) or not key or key in result:
                 return None
             for field in ("observed", "tolerance"):
                 value = check.get(field)
@@ -59,7 +67,7 @@ def checks(path):
                     return None
             if check["tolerance"] < 0:
                 return None
-            result[check["name"]] = check
+            result[key] = check
         return result
     except (OSError, ValueError, KeyError, TypeError):
         return None
@@ -76,16 +84,22 @@ def replay(paper):
     if committed is None:
         annotate("error", title, "missing or invalid committed VALIDATION.json")
         return True, [(name, "(invalid committed checks)", "", "", "", "", "FAIL")]
-    produced = paper / "target" / "VALIDATION.json"
+    command, env = IN_PLACE.get(name, (["cargo", "test", "--release", "--locked"], {}))
+    produced = paper / "VALIDATION.json" if name in IN_PLACE else paper / "target" / "VALIDATION.json"
+    kept = {f: f.read_bytes() for f in (paper / "VALIDATION.json", paper / "PUBLISHED_COMPARISON.json") if f.exists()}
     produced.unlink(missing_ok=True)
-    print(f"::group::{name}: cargo test --release --locked", flush=True)
-    run = subprocess.run(["cargo", "test", "--release", "--locked"], cwd=paper)
+    print(f"::group::{name}: {' '.join(command)}", flush=True)
+    try:
+        run = subprocess.run(command, cwd=paper, env={**os.environ, **env})
+        now = checks(produced)
+    finally:
+        for f, data in kept.items():
+            f.write_bytes(data)
     print("::endgroup::", flush=True)
 
-    now = checks(produced)
     rows, failed = [], run.returncode != 0
     if now is None:
-        annotate("error", title, f"the tests exited {run.returncode} without writing target/VALIDATION.json: a build or test failure before the reference checks ran")
+        annotate("error", title, f"the tests exited {run.returncode} without writing {produced.relative_to(paper)}: a build or test failure before the reference checks ran")
         return True, [(name, "(no checks written)", "", "", "", "", "FAIL")]
     for key in sorted(set(committed) | set(now)):
         c, n = committed.get(key), now.get(key)
@@ -96,7 +110,7 @@ def replay(paper):
             continue
         was = c["observed"] if c else None
         status = "ok"
-        if not n["passed"]:
+        if not n["passed"] or n["observed"] > n["tolerance"]:
             status = "FAIL"
             failed = True
             annotate("error", title, f"{key} moved: {n['metric']} is now {fmt(n['observed'])}, above the tolerance {fmt(n['tolerance'])} (committed: {fmt(was)})")

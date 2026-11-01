@@ -16,6 +16,7 @@
   import { BUILD_COMMIT, REPO, THIS_SNAPSHOT, permalinkUrl, pickSnapshot, siteOrigin, snapshotIndex, type Permalink } from './permalink';
   import { citeStrings } from './cite-i18n';
   import { bibliography } from '../catalogue';
+  import { experimentVersions } from './versions';
   import { citationBuild, citation, type CitationInput } from './citation';
 
   type Props = {
@@ -30,14 +31,10 @@
   };
   let { paperId, name, path, sourcePath, citationAuthors }: Props = $props();
 
-  type Version = { version: number; date: string; commit: string | null; changes: string };
-  const VERSIONS = import.meta.glob<{ versions: Version[] }>('../../../../../research/*/*/versions.json', { eager: true, import: 'default' });
 
   const paper = $derived(catalog.papers.find((p) => p.id === paperId));
   const bib = $derived(paper ? bibliography(paper) : null);
-  const versions = $derived(
-    Object.entries(VERSIONS).find(([file]) => file.endsWith(`/${paperId}/versions.json`))?.[1].versions ?? [],
-  );
+  const versions = $derived(experimentVersions(paperId));
   const version = $derived(versions.at(-1) ?? null);
   const s = $derived(citeStrings(publicI18n.locale));
 

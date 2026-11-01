@@ -37,8 +37,8 @@ def protected(ref):
                 continue
             try:
                 versions = json.loads(git("show", f"{commit}:{path}"))["versions"]
-            except (subprocess.CalledProcessError, ValueError, KeyError):
-                continue
+            except (ValueError, KeyError) as e:
+                raise SystemExit(f"unreadable {path} at {commit[:7]}: {e}; refusing to plan a prune that could drop a released snapshot")
             for v in versions:
                 if v.get("commit"):
                     keep.setdefault(v["commit"][:7], set()).add(f"{path.split('/')[2]} v{v.get('version')}")

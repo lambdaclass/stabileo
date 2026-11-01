@@ -31,6 +31,22 @@ class TriggerTests(unittest.TestCase):
         self.assertFalse(trigger.changed(before, 'papers: [{id: one, version: 1}, {id: two}]'))
         self.assertFalse(trigger.changed(before, before + '\n# comment'))
 
+    def test_catalog_versions_match_each_experiments_versions_file(self):
+        import json
+        import yaml
+        research = Path(__file__).resolve().parents[1]
+        papers = yaml.safe_load((research / 'papers.yaml').read_text())['papers']
+        files = {f.parent.name: f for f in research.glob('*/*/versions.json')}
+        for paper in papers:
+            with self.subTest(paper=paper['id']):
+                file = files.pop(paper['id'], None)
+                if 'version' not in paper:
+                    self.assertIsNone(file, 'versions.json without a catalog version')
+                    continue
+                self.assertIsNotNone(file, 'catalog version without versions.json')
+                self.assertEqual(paper['version'], json.loads(file.read_text())['versions'][-1]['version'])
+        self.assertEqual(files, {}, 'versions.json for an experiment not in papers.yaml')
+
 
 if __name__ == '__main__':
     unittest.main()
