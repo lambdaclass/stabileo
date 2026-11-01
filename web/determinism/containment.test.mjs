@@ -60,8 +60,11 @@ test('WASM static and constrained static retain the distortion warning for trans
 test('multi-case checks cancellation for both prepared and constrained solves', () => {
   for (const constraints of [[], [tie]]) {
     const solver = { ...shell(), constraints };
-    const loadCases = [10000, -10000].map((fx, i) => ({ name: String(i), loads: solver.loads.map(l => ({ ...l, data: { ...l.data, fx } })) }));
+    const loadCases = [10000, -10000].map((fx, i) => ({ name: String(i), loads: solver.loads.map(l => ({ ...l, data: { ...l.data, fx, fy: 0, fz: 0.5 } })) }));
     for (const c of loadCases) assert.throws(() => wasm.solve_3d({ ...solver, loads: c.loads }), /SH-MITC4-DISTORTION/);
+    const combined = wasm.solve_3d({ ...solver, loads: solver.loads.map(l => ({ ...l, data: { ...l.data, fx: 0, fy: 0, fz: 1 } })) });
+    assert.ok(!combined.structuredDiagnostics.some(d => d.severity === 'error'));
+    assert.ok(Math.abs(combined.displacements.find(d => d.nodeId === 13).uz) > 0);
     assert.throws(() => wasm.solve_multi_case_3d({ solver, loadCases, combinations: [{ name: 'cancel', factors: { 0: 1, 1: 1 } }] }), error => {
       const d = JSON.parse(String(error)).structuredDiagnostics;
       return d.some(d => d.code === 'known_issue' && d.severity === 'error' && d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
