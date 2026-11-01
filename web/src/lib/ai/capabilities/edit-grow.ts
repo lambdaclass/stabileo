@@ -149,7 +149,7 @@ function addBay3d(snap: Json, width: number, side?: string, beamSection?: string
       if (inner.z === undefined) throw malformed(`node ${oldInner} has no z in a 3D model`);
       const shiftedOuter = findNodeAt3d(snap, outerX, inner.y, inner.z);
       if (shiftedOuter === undefined) throw malformed(`no node on the outer face at y=${inner.y}, z=${inner.z}`);
-      pair = [shiftedOuter, mapped(nodeMap, oldOuter)];
+      pair = oldOuter === ni ? [mapped(nodeMap, oldOuter), shiftedOuter] : [shiftedOuter, mapped(nodeMap, oldOuter)];
     }
     if (pair) {
       const cloned: Json = { ...elem };

@@ -235,7 +235,8 @@ export async function buildModel(
     }
   }
   const mode = analysisMode as AnalysisMode;
-  const system = buildSystemPrompt(sanitizeLocale(locale), mode, modelContext);
+  const current = currentSnapshot ? { ...currentSnapshot, analysisMode: mode } : undefined;
+  const system = buildSystemPrompt(sanitizeLocale(locale), mode, modelContext, current);
   const conversation = buildConversation(description, messages, solverDiagnostics);
   checkPromptSize(system, conversation.map((m) => m.content).join(''));
   const resp = await complete(creds, {
@@ -250,9 +251,9 @@ export async function buildModel(
   const call = resp.toolCalls[0];
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;
-    const outcome = outcomeFromToolCall(call.name, call.input, currentSnapshot);
+    const outcome = outcomeFromToolCall(call.name, call.input, current);
     if (outcome) return toBuildResponse(outcome, raw, meta);
   }
   const text = resp.text.trim();
-  return toBuildResponse(outcomeFromText(text, currentSnapshot), text, meta);
+  return toBuildResponse(outcomeFromText(text, current), text, meta);
 }

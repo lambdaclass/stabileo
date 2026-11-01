@@ -98,10 +98,21 @@ Prefer edit tools when the user says "add", "change", "make it taller", "more ba
 Use create tools when the user wants something entirely different.`;
 }
 
-export function buildSystemPrompt(locale: string, mode: string, ctx?: ModelContext): string {
+export const MAX_SNAPSHOT_PROMPT_BYTES = 120 * 1024;
+
+function snapshotSection(snapshot: Record<string, unknown>): string {
+  const { nodes, elements, materials, sections, supports, loads } = snapshot;
+  const json = JSON.stringify({ nodes, elements, materials, sections, supports, loads });
+  if (new TextEncoder().encode(json).length > MAX_SNAPSHOT_PROMPT_BYTES) {
+    return '\n\n## Current model\nThe model is too large to include. Ask the user for the node, element or load IDs an edit needs; never guess them.';
+  }
+  return `\n\n## Current model (JSON, entries are [id, data])\nUse these IDs for edits; never invent one.\n${json}`;
+}
+
+export function buildSystemPrompt(locale: string, mode: string, ctx?: ModelContext, snapshot?: Record<string, unknown>): string {
   const safeLocale = sanitizeLocale(locale);
   const capabilities = promptText(mode);
-  const context = ctx ? contextSection(ctx) : '';
+  const context = (ctx ? contextSection(ctx) : '') + (snapshot ? snapshotSection(snapshot) : '');
   return `You are a helpful assistant embedded in Stabileo, a structural analysis app.
 
 Respond in locale: ${safeLocale}
@@ -173,7 +184,9 @@ function runAction(action: BuildAction, current?: Record<string, unknown>): Reco
   if (action.action === 'create_model') return assembleCreateModel(action.params);
   if (isEdit(action)) {
     if (!current) throw new AiActionError('Edit actions require an existing model (send currentSnapshot)');
-    return applyEdit(action, current);
+    const edited = applyEdit(action, current);
+    validateSnapshot(edited, { existingModel: true });
+    return edited;
   }
   const snapshot = executeAction(action);
   validateSnapshot(snapshot);

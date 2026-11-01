@@ -123,6 +123,21 @@ describe('edit executor', () => {
     expect(arr(bay, 'elements').slice(3).map((e) => e[1].type)).toEqual(['truss', 'truss']);
   });
 
+  it('a new 3D bay keeps the direction and releases of each member it repeats', () => {
+    const snap = frame(true);
+    const xyz = (r: Snap, id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number; z: number };
+    const beam = arr(snap, 'elements').find(([, e]) => xyz(snap, e.nodeI).z === 3 && xyz(snap, e.nodeJ).z === 3 && xyz(snap, e.nodeI).y === xyz(snap, e.nodeJ).y)![1];
+    const [i, j] = [beam.nodeI, beam.nodeJ];
+    if (xyz(snap, i).x < xyz(snap, j).x) Object.assign(beam, { nodeI: j, nodeJ: i });
+    beam.hingeStart = true;
+    const y = xyz(snap, beam.nodeI).y;
+    const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, snap);
+    const copy = arr(r, 'elements').slice(arr(snap, 'elements').length).map((e) => e[1])
+      .find((e) => xyz(r, e.nodeI).z === 3 && xyz(r, e.nodeJ).z === 3 && xyz(r, e.nodeI).y === y && xyz(r, e.nodeJ).y === y && e.hingeStart === true)!;
+    expect(copy).toBeDefined();
+    expect(xyz(r, copy.nodeI).x).toBeGreaterThan(xyz(r, copy.nodeJ).x);
+  });
+
   it('a new bay keeps the base support of the frame it extends', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
     expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);

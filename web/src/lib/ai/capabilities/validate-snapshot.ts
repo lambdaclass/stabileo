@@ -47,7 +47,8 @@ function collectIds(entries: unknown[], entity: string): Set<number> {
   return ids;
 }
 
-export function validateSnapshot(snapshot: unknown): void {
+/** `existingModel`: the user's own model after an edit, which may hold entity kinds the AI never creates. */
+export function validateSnapshot(snapshot: unknown, { existingModel = false } = {}): void {
   if (!isPlainObject(snapshot)) throw new AiActionError('snapshot must be a JSON object');
 
   const nodes = getArray(snapshot, 'nodes');
@@ -62,7 +63,7 @@ export function validateSnapshot(snapshot: unknown): void {
   if (materials.length === 0) throw new AiActionError('materials must not be empty');
   if (sections.length === 0) throw new AiActionError('sections must not be empty');
 
-  if (snapshot.analysisMode !== '2d' && snapshot.analysisMode !== '3d') {
+  if (!existingModel && snapshot.analysisMode !== '2d' && snapshot.analysisMode !== '3d') {
     throw new AiActionError(`analysisMode must be '2d' or '3d', not ${JSON.stringify(snapshot.analysisMode)}`);
   }
   const space = isSnapshot3d(snapshot);
@@ -74,7 +75,7 @@ export function validateSnapshot(snapshot: unknown): void {
 
   for (const entry of elements) {
     const [id, data] = parseEntry(entry);
-    if (data.type !== 'frame' && data.type !== 'truss') throw new AiActionError(`element ${id}: type must be 'frame' or 'truss', not ${JSON.stringify(data.type)}`);
+    if (!existingModel && data.type !== 'frame' && data.type !== 'truss') throw new AiActionError(`element ${id}: type must be 'frame' or 'truss', not ${JSON.stringify(data.type)}`);
     if (data.nodeI === data.nodeJ) throw new AiActionError(`element ${id} starts and ends at the same node`);
     const refs: Array<[string, Set<number>]> = [['nodeI', nodeIds], ['nodeJ', nodeIds], ['sectionId', secIds], ['materialId', matIds]];
     for (const [key, set] of refs) {
@@ -89,7 +90,7 @@ export function validateSnapshot(snapshot: unknown): void {
     const nid = asU64(data.nodeId);
     if (nid === undefined) throw new AiActionError(`support ${id} has no valid nodeId`);
     if (!nodeIds.has(nid)) throw new AiActionError(`support ${id} references non-existent nodeId=${nid}`);
-    if (typeof data.type !== 'string' || !supportTypesFor(space).includes(data.type)) {
+    if (!existingModel && (typeof data.type !== 'string' || !supportTypesFor(space).includes(data.type))) {
       throw new AiActionError(`support ${id}: unknown ${space ? '3D' : '2D'} support type ${JSON.stringify(data.type)}`);
     }
   }
@@ -97,7 +98,7 @@ export function validateSnapshot(snapshot: unknown): void {
   for (const entry of nodes) {
     const [id, data] = parseEntry(entry);
     for (const key of ['x', 'y', 'z'] as const) {
-      if (key === 'z' && !space && data.z === undefined) continue;
+      if (key === 'z' && (!space || existingModel) && data.z === undefined) continue;
       if (asF64(data[key]) === undefined) throw new AiActionError(`node ${id} has no finite ${key}`);
     }
   }
@@ -109,7 +110,7 @@ export function validateSnapshot(snapshot: unknown): void {
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }
     for (const key of ['iy', 'j'] as const) {
-      if (!space && data[key] === undefined) continue;
+      if ((!space || existingModel) && data[key] === undefined) continue;
       const v = asF64(data[key]);
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }
@@ -138,7 +139,11 @@ export function validateSnapshot(snapshot: unknown): void {
     if (loadIds.has(loadId)) throw new AiActionError(`duplicate load id: ${loadId}`);
     loadIds.add(loadId);
     const type = outer.type;
-    if (typeof type !== 'string' || !Object.hasOwn(LOAD_TARGET, type)) throw new AiActionError(`unsupported load type: ${JSON.stringify(type)}`);
+    if (typeof type !== 'string') throw new AiActionError(`unsupported load type: ${JSON.stringify(type)}`);
+    if (!Object.hasOwn(LOAD_TARGET, type)) {
+      if (existingModel) continue;
+      throw new AiActionError(`unsupported load type: ${JSON.stringify(type)}`);
+    }
     if (LOAD_SPACE[type] !== space) throw new AiActionError(`${type} load does not belong in a ${space ? '3D' : '2D'} model`);
     const onNode = LOAD_TARGET[type] === 'node';
     const key = onNode ? 'nodeId' : 'elementId';

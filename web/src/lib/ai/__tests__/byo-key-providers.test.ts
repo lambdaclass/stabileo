@@ -115,6 +115,39 @@ describe('several tool calls in one answer', () => {
   });
 });
 
+describe('an edit of the model on the canvas', () => {
+  const pro = (): Record<string, unknown> => ({
+    analysisMode: 'pro',
+    nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 3 }], [3, { id: 3, x: 5, y: 0, z: 3 }], [4, { id: 4, x: 5, y: 0, z: 0 }]],
+    elements: [[11, { id: 11, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }], [12, { id: 12, type: 'frame', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1 }], [13, { id: 13, type: 'frame', nodeI: 4, nodeJ: 3, materialId: 1, sectionId: 1 }]],
+    materials: [[1, { id: 1, name: 'Steel', e: 200000 }]],
+    sections: [[1, { id: 1, name: 'IPE 300', a: 0.005, iz: 0.00008 }]],
+    supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }], [2, { id: 2, nodeId: 4, type: 'fixed3d' }]],
+    loads: [],
+  });
+
+  it('sends the model with its IDs and connectivity, and edits a PRO model as a space model', async () => {
+    const calls = stubFetch(() => sseResponse(anthropicStream({
+      content: [{ type: 'tool_use', name: 'add_nodal_load', input: { node_id: 2, fy: 7, interpretation: 'load' } }],
+      stopReason: 'tool_use',
+    })));
+    const resp = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'push node 2 sideways', 'en', '3d', undefined, pro());
+    const system = JSON.stringify(calls[0].body.system);
+    expect(system).toContain('[12,{\\"id\\":12,\\"type\\":\\"frame\\",\\"nodeI\\":2,\\"nodeJ\\":3');
+    const loads = (resp.snapshot as { loads: Array<{ type: string; data: Record<string, number> }> }).loads;
+    expect(loads).toEqual([{ type: 'nodal3d', data: { id: 1, nodeId: 2, fx: 0, fy: 7, fz: 0, mx: 0, my: 0, mz: 0 } }]);
+  });
+
+  it('refuses an edit whose result is not a valid model', async () => {
+    stubFetch(() => sseResponse(anthropicStream({
+      content: [{ type: 'tool_use', name: 'delete_element', input: { element_id: 11, interpretation: 'remove' } }],
+      stopReason: 'tool_use',
+    })));
+    const single = { ...pro(), elements: [pro().elements as unknown[]][0].slice(0, 1) };
+    await expect(buildModel({ provider: 'anthropic', apiKey: KEY }, 'remove it', 'en', '3d', undefined, single)).rejects.toThrow('elements must not be empty');
+  });
+});
+
 describe('Anthropic browser provider', () => {
   it('sends the key only to api.anthropic.com, with the browser header, the model and adaptive thinking', async () => {
     const calls = stubFetch(() => sseResponse(anthropicStream({ content: [{ type: 'text', text: 'ok' }], stopReason: 'end_turn' })));
