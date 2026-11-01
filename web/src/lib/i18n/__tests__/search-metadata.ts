@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import toolReviews from '../../../../../research/tools/batches/VALIDATION.json';
+import { BATCH_IDS } from '../../../components/tools/batch';
 
 const ORIGIN = 'https://stabileo.com';
 const ORGANIZATION = 'https://stabileo.com/#organization';
@@ -230,14 +231,17 @@ export function searchMetadataSuite(dist: string) {
       const lastmod = new Map(
         [...readFileSync(join(dist, 'sitemap.xml'), 'utf8').matchAll(/<loc>([^<]+)<\/loc>\s*<lastmod>([^<]+)<\/lastmod>/g)].map(([, url, day]) => [url, day]),
       );
-      const reviewed = toolReviews.batches.flatMap((b) => b.reviews.map((r) => r.date)).sort().at(-1);
+      const latest = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1);
+      const reviewed = (path: string) => path === '/tools'
+        ? toolReviews.batches.flatMap((b) => b.reviews.map((r) => r.date)).sort().at(-1)
+        : latest((BATCH_IDS as readonly string[]).includes(path.slice('/tools/'.length)) ? 'tools-batch-2' : 'tools-batch-1');
       const problems = ownPages().flatMap((p) => {
         const day = lastmod.get(p.url);
         if (p.path === '/blog') {
           const newest = ownPages().filter((o) => o.path.startsWith('/blog/')).map((o) => lastmod.get(o.url)!).sort().at(-1);
           return day === newest ? [] : [`${p.url}: lastmod ${day}, newest post ${newest}`];
         }
-        if (p.path.startsWith('/tools')) return day === reviewed ? [] : [`${p.url}: lastmod ${day}, latest review ${reviewed}`];
+        if (p.path.startsWith('/tools')) return day === reviewed(p.path) ? [] : [`${p.url}: lastmod ${day}, latest review ${reviewed(p.path)}`];
         return [];
       });
       expect(problems, report(problems)).toEqual([]);
