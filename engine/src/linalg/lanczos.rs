@@ -533,7 +533,6 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
     // Symmetric elimination constructs T with TᵀBT diagonal. A small positive
     // pivot remains massive; only exactly zero residual rows are massless.
     let mut mass = b.to_vec();
-    let rounding = 16.0 * n as f64 * f64::EPSILON * b.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let mut transform = vec![0.0; n*n];
     for i in 0..n { transform[i*n+i] = 1.0; }
     for h in 0..n {
@@ -541,9 +540,8 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
         for i in 0..n { mass.swap(i*n+h,i*n+p); transform.swap(i*n+h,i*n+p); }
         for j in 0..n { mass.swap(h*n+j,p*n+j); }
         let pivot = mass[h*n+h];
-        if pivot == 0.0 || (pivot < 0.0 && -pivot <= rounding) {
-            if (h..n).any(|i| (h..n).any(|j| mass[i*n+j].abs() > if pivot == 0.0 { 0.0 } else { rounding })) { return None; }
-            for i in h..n { for j in h..n { mass[i*n+j] = 0.0; } }
+        if pivot == 0.0 {
+            if (h..n).any(|i| (h..n).any(|j| mass[i*n+j] != 0.0)) { return None; }
             break;
         }
         if !pivot.is_finite() || pivot < 0.0 { return None; }
@@ -1755,23 +1753,13 @@ mod completeness_tests {
     }
 
     #[test]
-    fn rounding_negative_mass_pivot_is_condensed_not_refused() {
+    fn negative_mass_pivots_refuse_even_at_rounding_level() {
+        let a = [1.,0., 0.,1.];
+        assert!(dense_generalized_eigen_semidefinite(&a,&[1.,0., 0.,-1e-15],2).is_none());
         let v = [0.85, 0.6, 0.68];
         let b: Vec<f64> = (0..9).map(|e| v[e/3]*v[e%3]).collect();
         let a = [4.,-1.,0., -1.,4.,-1., 0.,-1.,4.];
-        let r = dense_generalized_eigen_semidefinite(&a,&b,3).expect("positive semidefinite mass refused");
-        let finite: Vec<_> = r.values.iter().copied().filter(|x| x.is_finite()).collect();
-        assert_eq!(finite.len(), 1);
-        let solve = |rhs: &[f64]| {
-            let mut l = a.to_vec(); assert!(cholesky_decompose(&mut l,3));
-            back_solve(&l,&forward_solve(&l,rhs,3),3)
-        };
-        let k_inv_v = solve(&v);
-        let expected = 1.0 / dot(&v,&k_inv_v);
-        assert!((finite[0]/expected - 1.0).abs() < 1e-12, "{} against {expected}", finite[0]);
-        let mut indefinite = b.clone();
-        indefinite[8] -= 1e-6;
-        assert!(dense_generalized_eigen_semidefinite(&a,&indefinite,3).is_none());
+        assert!(dense_generalized_eigen_semidefinite(&a,&b,3).is_none());
     }
 
     #[test]

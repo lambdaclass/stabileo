@@ -128,8 +128,9 @@ and checks that bound, that the accepted pair's Rayleigh quotient is within
 10⁻⁸ of the exact eigenvalue, and that eigenvalue errors of ±10⁻⁷ and an
 eigenvector carrying 10⁻⁵ of another mode are still rejected.
 
-A rounding-level negative mass pivot (|pivot| ≤ 16·n·ε·max|M|) in the dense
-semidefinite path is now condensed as massless instead of refusing the model;
-a larger negative pivot (an indefinite mass) is still refused.
+A negative mass pivot in the dense semidefinite path still refuses the model,
+even at rounding level: a mass that is semidefinite but loses a pivot to
+cancellation cannot be told apart from a slightly indefinite one, and treating
+the pivot as massless would discard a finite eigenvalue of the original pencil.
 
 Verification of the final head is in the PR.
