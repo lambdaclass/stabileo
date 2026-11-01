@@ -3,19 +3,7 @@
   import Eyebrow from './Eyebrow.svelte';
   import Shot from './Shot.svelte';
 
-  /**
-   * The agent, with the one view of it that exists.
-   *
-   * Laid out as a split rather than as a full-width card. The panel is 1240 by
-   * 1026 — nearly square, and about a third of a screen in the application —
-   * so a card the width of the deck rendered it four times the size it is in
-   * the product, which is both wrong and the loudest thing on the page. It
-   * sits beside the copy at the size it actually has.
-   *
-   * The screen IS the argument the section makes: a request in plain language,
-   * the change set out before anything happens, and Cancel next to Apply. The
-   * agent proposes and a person decides.
-   */
+  const points = ['aiPt1', 'aiPt2', 'aiPt3', 'aiPt4'];
 </script>
 
 <section class="sec sec--paper ai reveal" data-section="ai" id="ai" aria-labelledby="ai-title">
@@ -29,6 +17,10 @@
           <span class="badge badge-dev">{t('landing.badgeDevPaid')}</span>
         </div>
         <p class="lead">{t('landing.aiP')}</p>
+        <ul class="tick-list">
+          {#each points as key}<li>{t('landing.' + key)}</li>{/each}
+        </ul>
+        <p class="mode-note">{t('landing.aiStatus')}</p>
       </div>
 
       <figure class="mode-split-shot">

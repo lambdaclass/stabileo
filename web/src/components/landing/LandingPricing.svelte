@@ -17,19 +17,9 @@
    * document, and a landing that prices a module differently from the plan is
    * worse than a landing that does not price it at all.
    */
-  /*
-   * Five modules, two audiences. The previous shape had a "for whom" column
-   * and repeated Education twice to split public from private universities;
-   * they are one audience now and everything is free for them.
-   */
-  /*
-   * Five modules, two audiences, and the tone belongs to the CELL.
-   *
-   * PRO · Design is paid for firms and free for universities. With the tone
-   * on the row, that "Gratis" came out in the paid red — the table saying one
-   * thing in words and the opposite in colour.
-   */
+  // The tone belongs to the cell, not the row: one module can be free for one audience and paid for the other.
   const FREE = { k: 'priceFree', tone: 'free' } as const;
+  const PER_TOKEN = { k: 'pricePerToken', tone: 'paid', note: 2 } as const;
 
   /*
    * Footnote markers live in the markup, not in the strings.
@@ -54,13 +44,7 @@
      * is published, deliberately.
      */
     { mod: 'modProDesign', firms: { k: 'priceFreeDev', tone: 'free', note: 1 }, unis: FREE },
-    /*
-     * The AI's university cell is deliberately blank. Repeating "pago por
-     * token" there answered a question the paragraph below answers better: a
-     * university can connect its own language-model API. A price in the cell
-     * contradicted that; a blank leaves the explanation to do the work.
-     */
-    { mod: 'modAi',        firms: { k: 'pricePerToken', tone: 'paid', note: 2 }, unis: null },
+    { mod: 'modAi',        firms: PER_TOKEN, unis: PER_TOKEN },
     /*
      * Education's firms cell is blank, not "free". The mode is aimed at
      * teaching; saying "gratis" to a firm invites the question of what a firm

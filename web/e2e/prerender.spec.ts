@@ -58,9 +58,9 @@ const ORIGIN = 'https://stabileo.com';
 
 /** A sentence that only exists in one language, from `landing.heroP`. */
 const HERO = {
-  en: 'An open structural-analysis platform',
-  es: 'Una plataforma abierta de análisis estructural',
-  pt: 'Uma plataforma aberta de análise estrutural',
+  en: 'Open-source structural engineering software',
+  es: 'Software de ingeniería estructural de código abierto',
+  pt: 'Software de engenharia estrutural de código aberto',
 } as const;
 
 /** The same, for the blog index — `blog.lead`. */
