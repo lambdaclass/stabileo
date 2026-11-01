@@ -533,6 +533,7 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
     // Symmetric elimination constructs T with TᵀBT diagonal. A small positive
     // pivot remains massive; only exactly zero residual rows are massless.
     let mut mass = b.to_vec();
+    let rounding = 16.0 * n as f64 * f64::EPSILON * b.iter().fold(0.0f64, |m, x| m.max(x.abs()));
     let mut transform = vec![0.0; n*n];
     for i in 0..n { transform[i*n+i] = 1.0; }
     for h in 0..n {
@@ -540,8 +541,9 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
         for i in 0..n { mass.swap(i*n+h,i*n+p); transform.swap(i*n+h,i*n+p); }
         for j in 0..n { mass.swap(h*n+j,p*n+j); }
         let pivot = mass[h*n+h];
-        if pivot == 0.0 {
-            if (h..n).any(|i| (h..n).any(|j| mass[i*n+j] != 0.0)) { return None; }
+        if pivot == 0.0 || (pivot < 0.0 && -pivot <= rounding) {
+            if (h..n).any(|i| (h..n).any(|j| mass[i*n+j].abs() > if pivot == 0.0 { 0.0 } else { rounding })) { return None; }
+            for i in h..n { for j in h..n { mass[i*n+j] = 0.0; } }
             break;
         }
         if !pivot.is_finite() || pivot < 0.0 { return None; }
@@ -1671,6 +1673,105 @@ mod completeness_tests {
             assert!(residual2.sqrt() > bound, "relative error {relative} accepted");
             assert!((residual2.sqrt() - relative.abs()*mu).abs() < 1e-2*relative.abs()*mu);
         }
+    }
+
+    #[test]
+    fn projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs() {
+        let na = 200;
+        let n = na + 1;
+        let h = std::f64::consts::PI / (na+1) as f64;
+        let d: Vec<f64> = (0..n).map(|i| if i < na { 10f64.powf(-3.0 + 6.0*i as f64/(na-1) as f64) } else { 1e2 }).collect();
+        let (mut rows, mut cols, mut kv, mut mv) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        for i in 0..na {
+            rows.push(i); cols.push(i); kv.push(2.0*d[i]*d[i]); mv.push(d[i]*d[i]);
+            if i+1 < na { rows.push(i+1); cols.push(i); kv.push(-d[i]*d[i+1]); mv.push(0.0); }
+        }
+        rows.push(na); cols.push(na); kv.push(1e-6*d[na]*d[na]); mv.push(d[na]*d[na]);
+        let k = CscMatrix::from_triplets(n,&rows,&cols,&kv);
+        let m = CscMatrix::from_triplets(n,&rows,&cols,&mv);
+        let op = SparseShiftInvertOp::new(&k,&m).unwrap();
+        let exact = |j: usize| -> (Vec<f64>, f64) {
+            if j == 0 {
+                let mut x = vec![0.0;n]; x[na] = 1.0/d[na];
+                return (x, 1e6);
+            }
+            let raw: Vec<f64> = (0..na).map(|i| ((i+1) as f64*j as f64*h).sin()).collect();
+            let norm = dot(&raw,&raw).sqrt();
+            let mut x: Vec<f64> = (0..na).map(|i| raw[i]/norm/d[i]).collect();
+            x.push(0.0);
+            (x, 1.0/(2.0-2.0*(j as f64*h).cos()))
+        };
+        let m_norm = |x: &[f64]| { let mut y = vec![0.0;n]; op.b_mul(x,&mut y); dot(x,&y).sqrt() };
+        let lock = |locked: &[(Vec<f64>,Vec<f64>)], mut v: Vec<f64>| {
+            project_locked(&mut v, locked);
+            let norm = m_norm(&v);
+            for x in &mut v { *x /= norm; }
+            let mut bv = vec![0.0;n]; op.b_mul(&v,&mut bv);
+            (v,bv)
+        };
+        let unprojected = |v: &[f64], mu: f64| {
+            let mut r = vec![0.0;n]; op.mul_vec(v,&mut r);
+            for i in 0..n { r[i] -= mu*v[i]; }
+            r
+        };
+        let (x3, mu3) = exact(3);
+        let mut locked: Vec<(Vec<f64>,Vec<f64>)> = Vec::new();
+        let mut locked_residuals = Vec::new();
+        for j in 0..3 {
+            let (x, mu) = exact(j);
+            let noise: Vec<f64> = (0..n).map(|i| 1e-10*((1.7*(i+1) as f64*(j+1) as f64).sin())/d[i] + 1e-9*x3[i]).collect();
+            let v: Vec<f64> = x.iter().zip(&noise).map(|(a,b)| a+b).collect();
+            let (v,bv) = lock(&locked, v);
+            assert!(operator_residual(&op,&v,mu,&locked).sqrt() <= 1e-8*mu, "locked pair {j} would not have been accepted");
+            locked_residuals.push(m_norm(&unprojected(&v,mu)));
+            locked.push((v,bv));
+        }
+        let (v,_) = lock(&locked, x3.clone());
+        let bound = 1e-8*mu3;
+        let r = unprojected(&v,mu3);
+        let mut removed2 = 0.0;
+        for (i,(_,bvi)) in locked.iter().enumerate() {
+            let c = dot(&r,bvi);
+            assert!(c.abs() <= locked_residuals[i]*(1.0+1e-6) + 1e-14*mu3, "removed component {c} along locked {i} exceeds its residual {}", locked_residuals[i]);
+            removed2 += c*c;
+        }
+        assert!(removed2.sqrt() > bound, "the scenario must remove more than the acceptance tolerance");
+        let accepted = operator_residual(&op,&v,mu3,&locked).sqrt();
+        assert!(accepted <= bound);
+        let mut opv = vec![0.0;n]; op.mul_vec(&v,&mut opv);
+        let mut bv = vec![0.0;n]; op.b_mul(&v,&mut bv);
+        assert!((dot(&opv,&bv) - mu3).abs() <= bound, "Rayleigh quotient {} against {mu3}", dot(&opv,&bv));
+        for relative in [1e-7, -1e-7, 1e-6, -1e-6, 1e-3] {
+            let residual = operator_residual(&op,&v,mu3*(1.0+relative),&locked).sqrt();
+            assert!(residual > bound, "relative eigenvalue error {relative} accepted");
+        }
+        let (x5, _) = exact(5);
+        let contaminated: Vec<f64> = x3.iter().zip(&x5).map(|(a,b)| a+1e-5*b).collect();
+        let (v,_) = lock(&locked, contaminated);
+        for relative in [0.0, 1e-9, -1e-9] {
+            let residual = operator_residual(&op,&v,mu3*(1.0+relative),&locked).sqrt();
+            assert!(residual > bound, "eigenvector contaminated by 1e-5 of mode 5 accepted");
+        }
+    }
+
+    #[test]
+    fn rounding_negative_mass_pivot_is_condensed_not_refused() {
+        let v = [0.85, 0.6, 0.68];
+        let b: Vec<f64> = (0..9).map(|e| v[e/3]*v[e%3]).collect();
+        let a = [4.,-1.,0., -1.,4.,-1., 0.,-1.,4.];
+        let r = dense_generalized_eigen_semidefinite(&a,&b,3).expect("positive semidefinite mass refused");
+        let finite: Vec<_> = r.values.iter().copied().filter(|x| x.is_finite()).collect();
+        assert_eq!(finite.len(), 1);
+        let solve = |rhs: &[f64]| {
+            let mut l = a.to_vec(); assert!(cholesky_decompose(&mut l,3));
+            back_solve(&l,&forward_solve(&l,rhs,3),3)
+        };
+        let k_inv_v = solve(&v);
+        let expected = 1.0 / dot(&v,&k_inv_v);
+        assert!((finite[0]/expected - 1.0).abs() < 1e-12, "{} against {expected}", finite[0]);
+        let mut indefinite = b.clone();
+        indefinite[8] -= 1e-6;
+        assert!(dense_generalized_eigen_semidefinite(&a,&indefinite,3).is_none());
     }
 
     #[test]

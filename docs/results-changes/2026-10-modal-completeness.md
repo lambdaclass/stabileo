@@ -115,18 +115,21 @@ found the projection changing a lock decision only on this plate (the gate and
 the harmonic test) and on that refused fuzz model; every other eigensolve locks
 the same vectors in the same order, so its results are bit-identical.
 
-Review-fix validation uses only targeted tests, with CARGO_BUILD_JOBS=2 and
-CARGO_TARGET_DIR=/private/tmp/claude-501/codex-827fix3-target:
+Projecting the acceptance residual against the locked vectors removes, along
+each locked vector v_i, the coefficient c_i = (M v_i)ᵀ(Opv − μv). Op = K⁻¹M is
+self-adjoint in the M inner product and v is M-orthogonal to v_i, so
+c_i = r_iᵀ M v, where r_i = Op v_i − μ_i v_i is the locked pair's own residual:
+|c_i| ≤ ‖r_i‖_M whatever error v carries. The projection therefore cannot hide
+an error in the candidate pair; it only discards what the locked pairs'
+inexactness explains. `projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
+locks a near-mechanism mode (μ = 10⁶) and two frame modes, each carrying 10⁻⁹
+of the candidate mode, on a pencil scaled by 10⁻³…10³, so the removed part exceeds the acceptance tolerance,
+and checks that bound, that the accepted pair's Rayleigh quotient is within
+10⁻⁸ of the exact eigenvalue, and that eigenvalue errors of ±10⁻⁷ and an
+eigenvector carrying 10⁻⁵ of another mode are still rejected.
 
-- Engine `cargo test --locked --lib lanczos`: 27 passed.
-- Engine `cargo test --locked --lib modal`: 6 passed.
-- Engine `cargo test --locked --test core modal`: 31 passed.
-- Web touched Vitest files: finite-spectrum-warning and report-says-what-ran,
-  17 tests passed.
-- TypeScript: 0 new errors against the unchanged 247-error baseline.
-- Guarded Svelte check and shared site-header check passed.
+A rounding-level negative mass pivot (|pivot| ≤ 16·n·ε·max|M|) in the dense
+semidefinite path is now condensed as massless instead of refusing the model;
+a larger negative pivot (an indefinite mass) is still refused.
 
-RecheckNotice.svelte and registry loading are unchanged: PR #814 owns the
-readability, action targets and lazy-loading work. This review fix does not claim
-to resolve those findings or validate their route-byte budgets. No Playwright or
-full test suites were run for this follow-up.
+Verification of the final head is in the PR.

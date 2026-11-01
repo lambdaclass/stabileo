@@ -7,7 +7,9 @@ import { setLocale, t } from '../../i18n';
 import { solveModal3D } from '../wasm-solver';
 import type { ModalResult3D } from '../result-types';
 import type { SolverInput3D } from '../types-3d';
-import { finiteSpectrumWarning } from '../finite-spectrum-warning';
+import { finiteSpectrumWarning, modalFailureText } from '../finite-spectrum-warning';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 // A cantilever with translational tip mass and exactly massless rotations.
 const input: SolverInput3D = {
@@ -54,5 +56,36 @@ describe('finite spectrum result warnings', () => {
     const result = { modes: [{ frequency: 1 }] };
     expect(finiteSpectrumWarning(result, t)).toBe('');
     expect(render(FiniteSpectrumWarning, { props: { result } }).body).not.toContain('role="status"');
+  });
+
+  it('says one finite mode in the singular', () => {
+    setLocale('en');
+    expect(finiteSpectrumWarning({ modes: [{}], finiteSpectrumDiagnostic: 'x' }, t)).toBe('Only 1 finite mode exists. Massless directions have no finite frequency.');
+  });
+});
+
+describe('modal refusals in the user language', () => {
+  const engine = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../../engine/src/${path}`, import.meta.url)), 'utf8');
+  const belowThreshold = 'Eigenvalue decomposition failed: Modal completeness could not be established: only 5 of 7 computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.';
+  const notCertified = 'Eigenvalue decomposition failed: could not establish convergence and Sturm completeness for 42 free DOFs (factorization failure or iteration limit). Check supports and releases for mechanisms, stiffness/mass conditioning, or request fewer modes; no incomplete modes were returned.';
+
+  it('matches the sentences the engine emits', () => {
+    const modal = engine('solver/modal.rs');
+    expect(modal.split(belowThreshold.replace('only 5 of 7', 'only {} of {}')).length - 1).toBe(2);
+    expect(engine('linalg/lanczos.rs')).toContain(notCertified.replace('42', '{n}'));
+  });
+
+  it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'])('translates both refusals in %s', (locale) => {
+    setLocale(locale);
+    const below = modalFailureText(belowThreshold, t);
+    const failed = modalFailureText(notCertified, t);
+    for (const text of [below, failed]) {
+      expect(text).not.toMatch(/advanced\.|\{n\}|\{m\}/);
+      if (locale !== 'en') expect(text).not.toContain('Eigenvalue decomposition');
+    }
+    expect(below).toContain('5');
+    expect(below).toContain('7');
+    expect(failed).toContain('42');
+    expect(modalFailureText('No valid modes found', t)).toBe('No valid modes found');
   });
 });

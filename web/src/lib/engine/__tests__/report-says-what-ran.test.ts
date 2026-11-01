@@ -55,7 +55,7 @@ describe('advanced analyses, and which of them the report claims', () => {
         finiteSpectrumDiagnostic: 'Requested 3; all 1 finite modes certified.' } },
       config: cfg(),
     }));
-    expect(html).toContain('Only 1 finite modes exist. Massless directions have no finite frequency.');
+    expect(html).toContain('Only 1 finite mode exists. Massless directions have no finite frequency.');
     expect(html).not.toContain('Requested 3;');
   });
 
