@@ -17,7 +17,7 @@
   import { uniaxial } from './moduli';
   import { checkLabel, checkMetric } from './check-labels';
   import { evidence, stripComparison } from './evidence';
-  import replayFrames from '../../../../../research/metamaterials/grossman-2026/reference-results/replay.json';
+  import replayJson from '../../../../../research/metamaterials/grossman-2026/reference-results/replay.json?raw';
   import type { solveAll } from './solve-all';
   import { Simulation } from './simulation.svelte';
   import results from '../../../../../research/metamaterials/grossman-2026/results/stabileo_results.json';
@@ -33,6 +33,7 @@
   import { loadSprings, type LatticeKind, type NetworkSpec, type PeriodicResult, type StripResult } from './springs';
   import { embeddedEditorUrl, fullEditorUrl, type StripLabel } from './open-in-stabileo';
 
+  const replayFrames: ReturnType<typeof solveAll>[] = JSON.parse(replayJson);
   const SOURCE = `${REPO_URL}/tree/main/research/metamaterials/grossman-2026`;
   const DOI = 'https://doi.org/10.1103/17sg-gzhl';
   // Hue is the source (ours blue, the paper orange); dashes mark a variant within a source.
@@ -124,7 +125,7 @@
   $effect(() => {
     if (!autoplaying) return;
     eta = SWEEP[playback.shown];
-    simulation.replay(replayFrames[playback.shown] as unknown as ReturnType<typeof solveAll>);
+    simulation.replay(replayFrames[playback.shown]);
   });
 
   let pane: HTMLElement;
@@ -135,7 +136,7 @@
     const qEta = Number(q.get('eta'));
     const deepLinked = q.has('eta') && Number.isFinite(qEta) && qEta >= 0 && qEta <= 0.5;
     if (deepLinked) { eta = qEta; userEdited = true; }
-    else simulation.replay(replayFrames[15] as unknown as ReturnType<typeof solveAll>);
+    else simulation.replay(replayFrames[15]);
     thumbMode = q.has('thumb');
     const cancelLoad = initializePage(loadSprings(), (g) => {
       glue = g;
