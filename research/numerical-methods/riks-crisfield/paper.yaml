@@ -7,7 +7,7 @@ references:
   - M. A. Crisfield, A fast incremental/iterative solution procedure that handles snap-through, Computers & Structures 13 (1981), doi:10.1016/0045-7949(81)90108-5
   - M. A. Crisfield, Non-linear Finite Element Analysis of Solids and Structures, Vol. 1, Ch. 9
   - von Mises two-bar engineering-strain equilibrium, as documented in engine/tests/validation/domains/nonlinear/nonlinear_extended.rs
-equations: README.md#closed-form-reference
+equations: README.md#models-and-references
 assumptions: [2D corotational frame elements, quasi-static equilibrium, pinned bases, axial engineering-strain reference for the slender von Mises frame, bending-inclusive energy derivative for the shallow rigid frame]
 units: {force: kN, length: m, youngsModulus: MPa}
 experiments:

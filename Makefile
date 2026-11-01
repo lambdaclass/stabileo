@@ -616,7 +616,7 @@ test.research.biggins:
 evidence.research.biggins:
 	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin replay > research/mechanics/biggins-2026/reference-results/replay.json
 	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate -- --write
-	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("research/mechanics/biggins-2026/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]["replay.json"]=hashlib.sha256(p.with_name("replay.json").read_bytes()).hexdigest(); p.write_text(json.dumps(d,indent=2)+"\n")'
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("research/mechanics/biggins-2026/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
 
 wasm.research.biggins:
 	$(NIX_RUN) research/mechanics/biggins-2026/build.sh

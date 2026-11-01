@@ -36,7 +36,11 @@
       playback.setCount(next.steps.length);
       if (!onLoad) playback.seek(next.steps.length - 1);
     } catch (e) {
-      if (token === generation) error = e instanceof Error ? e.message : String(e);
+      if (token !== generation) return;
+      error = e instanceof Error ? e.message : String(e);
+      result = replay.result as Result;
+      source = 'replay';
+      playback.setCount(result.steps.length);
     } finally { if (token === generation) running = false; }
   }
   function restart() {

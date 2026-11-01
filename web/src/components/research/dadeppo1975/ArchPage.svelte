@@ -34,7 +34,7 @@
   const pct = (n: number, digits = 3, signDisplay: 'exceptZero' | 'auto' = 'exceptZero') => new Intl.NumberFormat(publicI18n.locale, { style: 'percent', maximumFractionDigits: digits, signDisplay }).format(n);
   const verdict = $derived(
     !complete ? (busy ? s.running : s.incomplete.replace('{n}', String(steps.length)).replace('{total}', String(benchmark.input.maxSteps)))
-      : !rows ? s.running
+      : !rows ? (busy ? s.running : s.verdictFail)
       : comparison?.pass && rows.every(r => r.pass) ? s.verdictPass : s.verdictFail,
   );
   function stop() {

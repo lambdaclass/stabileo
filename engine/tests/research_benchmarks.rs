@@ -826,9 +826,9 @@ fn ferrari_model_matches_published_parameters() {
             assert_eq!(node["x"], x);
             assert_eq!(node["z"], z);
         }
-        assert_eq!(m["materials"]["1"]["e"].as_f64(), p["young_MPa"].as_f64());
-        assert_eq!(m["sections"]["1"]["a"], p["area_m2"]);
-        assert_eq!(m["sections"]["1"]["iz"], p["inertia_m4"]);
+        assert_eq!(m["materials"]["1"]["e"].as_f64().unwrap(), p["young_MPa"].as_f64().unwrap());
+        assert_eq!(m["sections"]["1"]["a"].as_f64().unwrap(), p["area_m2"].as_f64().unwrap());
+        assert_eq!(m["sections"]["1"]["iz"].as_f64().unwrap(), p["inertia_m4"].as_f64().unwrap());
         assert_eq!(m["supports"].as_object().unwrap().len(), 2);
         for (id, node) in [(1, 1), (2, 2 * n + 1)] {
             assert_eq!(m["supports"][id.to_string()]["nodeId"], node);

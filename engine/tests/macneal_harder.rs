@@ -6,11 +6,9 @@ use serde_json::{json, Value};
 
 fn conjugate_load(c: &Value) -> f64 {
     let component = c["measurement"]["component"].as_str().unwrap();
-    let planar = c["dimension"] == 2;
     c["input"]["loads"].as_array().unwrap().iter().map(|l| {
         let f = |k: &str| l["data"][k].as_f64().unwrap_or(0.0);
         match component {
-            "uz" if planar => f("fz") + f("my"),
             "uz" => f("fz"),
             "uy" => f("fy"),
             "ry" => f("my"),
@@ -23,7 +21,12 @@ fn conjugate_load(c: &Value) -> f64 {
 fn every_reference_lies_along_its_load() {
     for c in cases::DATA["cases"].as_array().unwrap() {
         let reference = c["reference"].as_f64().unwrap();
-        assert!(conjugate_load(c) * reference > 0.0, "{}: reference {reference} opposes the load", c["id"]);
+        let load = conjugate_load(c);
+        if load == 0.0 {
+            assert_eq!(c["id"], "frame-moment-4-uz", "only the tip-moment deflection has no conjugate force");
+            continue;
+        }
+        assert!(load * reference > 0.0, "{}: reference {reference} opposes the load", c["id"]);
     }
 }
 

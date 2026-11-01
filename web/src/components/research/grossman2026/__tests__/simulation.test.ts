@@ -63,3 +63,27 @@ it('terminates superseded workers, ignores late results and can restart after St
     expect(sim.error).toBeNull();
   } finally { vi.unstubAllGlobals(); }
 });
+
+it('drops the previous result when Stop interrupts a solve of changed inputs', () => {
+  const workers: { terminate: ReturnType<typeof vi.fn>; postMessage: ReturnType<typeof vi.fn>; onmessage: ((event: {data: unknown}) => void) | null; onerror: unknown }[] = [];
+  class FakeWorker {
+    terminate = vi.fn(); postMessage = vi.fn(); onmessage = null; onerror = null;
+    constructor() { workers.push(this); }
+  }
+  vi.stubGlobal('Worker', FakeWorker);
+  try {
+    const sim = new Simulation();
+    sim.runLive(input);
+    workers[0].onmessage!({data: {result: {input}}});
+    expect(sim.result?.input).toEqual(input);
+    sim.cancel();
+    expect(sim.result?.input).toEqual(input);
+    const next = structuredClone(input);
+    next.label.strain = 0.02;
+    sim.runLive(next);
+    sim.cancel();
+    expect(workers[1].terminate).toHaveBeenCalledOnce();
+    expect(sim.result).toBeNull();
+    expect(sim.busy).toBe(false);
+  } finally { vi.unstubAllGlobals(); }
+});

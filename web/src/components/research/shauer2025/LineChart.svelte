@@ -54,6 +54,11 @@
   let readIndex = $state(0);
   let hoverX = $state<number | null>(null);
   let hoverY = $state(0);
+  function readAt(index: number) {
+    const p = series[0]?.points[index];
+    hoverX = p?.[0] ?? null;
+    if (p) hoverY = sy(p[1]);
+  }
   const M = { l: 48, r: 28, t: 22, b: 36 };
 
   function niceTicks(lo: number, hi: number, n = 5): { ticks: number[]; step: number } {
@@ -170,14 +175,14 @@
   {/if}
   {#if scrubber}
   <input type="range" min="0" max={Math.max(0, (series[0]?.points.length ?? 1) - 1)} bind:value={readIndex}
-    aria-label={xLabel} oninput={(e) => hoverX = series[0]?.points[e.currentTarget.valueAsNumber]?.[0] ?? null}
-    onfocus={() => hoverX = series[0]?.points[readIndex]?.[0] ?? null} />
+    aria-label={xLabel} oninput={(e) => readAt(e.currentTarget.valueAsNumber)}
+    onfocus={() => readAt(readIndex)} />
   {/if}
   {#if readout}
     <div aria-live="polite" class="readout" style:left="{Math.max(0, Math.min(sx(readout.x) + 10, width - 230))}px">
       <div class="rx">{xLabel}: {fmtVal(readout.x)}</div>
       {#each readout.rows as r (r.s.name)}
-        {#if r.p}<div><span class="sw" style:background={r.s.color}></span>{r.s.name}: {fmtVal(r.p[1])}</div>{/if}
+        {#if r.p}<div><span class="sw" style:background={r.s.color}></span>{r.s.name}: {#if readout.ownX}{fmtVal(r.p[0])}, {/if}{fmtVal(r.p[1])}</div>{/if}
       {/each}
     </div>
   {/if}

@@ -11,8 +11,8 @@ export const ENGLISH_ONLY_CARDS: Record<string, { es: Card; pt: Card }> = {
     pt: { title: 'MacNeal–Harder (1985): testes do motor', hook: 'Execute o motor de produção em casos de precisão compartilhados; examine cada resultado, falhas incluídas.' },
   },
   'riks-1979': {
-    es: { title: 'Salto por longitud de arco: Riks y Crisfield', hook: 'Seguí reticulados de dos barras a través de sus puntos límite con el motor de longitud de arco de producción de Stabileo, comparado con trayectorias de equilibrio en forma cerrada.' },
-    pt: { title: 'Salto por comprimento de arco: Riks e Crisfield', hook: 'Acompanhe treliças de duas barras através de seus pontos limite com o motor de comprimento de arco de produção do Stabileo, comparado com trajetórias de equilíbrio em forma fechada.' },
+    es: { title: 'Salto por longitud de arco: Riks y Crisfield', hook: 'El solver de longitud de arco de producción de Stabileo sigue dos pórticos de dos barras, y cada punto registrado se compara con una trayectoria de equilibrio analítica.' },
+    pt: { title: 'Salto por comprimento de arco: Riks e Crisfield', hook: 'O solver de comprimento de arco de produção do Stabileo acompanha dois pórticos de duas barras, e cada ponto registrado é comparado com uma trajetória de equilíbrio analítica.' },
   },
 };
 

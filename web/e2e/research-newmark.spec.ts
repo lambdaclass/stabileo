@@ -79,8 +79,8 @@ test('@smoke Newmark live recompute matches the replay and keeps every check', a
 
   await page.getByLabel('Time step', { exact: true }).selectOption('0.2');
   await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
+  await expect.poll(async () => Number(await page.getByTestId('comparison').getAttribute('data-error')), { timeout: 60_000 }).toBeGreaterThan(fine); // slow-ok: The production WASM engine recomputes at the coarse step.
   await expect(page.getByTestId('source')).toContainText('Live computation');
-  expect(Number(await page.getByTestId('comparison').getAttribute('data-error'))).toBeGreaterThan(fine);
 
   const slider = page.getByRole('slider', { name: 'Sample' });
   await slider.focus();
