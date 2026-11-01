@@ -148,7 +148,7 @@ test('@smoke moving through history onto another language shows that language wi
   });
   expect(samples.length).toBeGreaterThan(20);
   for (const s of samples) if (s.href?.startsWith('/de/')) expect(s.text).toBe('Werkzeuge');
-||||||| b09851435
+});
 
 for (const rootSize of [16, 20, 24]) {
   test(`@smoke the public page starts exactly under the header with a ${rootSize}px root font size`, async ({ page }) => {
