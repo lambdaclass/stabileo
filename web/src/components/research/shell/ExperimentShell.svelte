@@ -35,10 +35,11 @@
     /** One column with the app first and not sticky (e.g. while an embedded editor is shown). */
     wide?: boolean;
     compactHeader?: boolean;
+    locale?: string;
     /** Keep the title above the experiment and put detailed context in the article. */
     introInArticle?: boolean;
   };
-  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, compactHeader = false, introInArticle = true }: Props = $props();
+  let { paperId, citationAuthors, name, lead, checks = null, verification = null, referenceLabel = null, actions, sourcePath, article, app, wide = false, locale, compactHeader = false, introInArticle = true }: Props = $props();
   provideExperiment(actions);
 
   const entry = catalog.papers.find((p) => p.id === paperId)!;
@@ -60,18 +61,18 @@
         {referenceLabel}
       />
       <p class="rs-review">{reviewLabel(paperId, publicI18n.locale)}</p>
-      <p class="rs-lead" lang={researchLocale()}>{lead}</p>
+      <p class="rs-lead" lang={locale ?? researchLocale()}>{lead}</p>
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={researchLocale()}>{name}</h1>
+      <h1 lang={locale ?? researchLocale()}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
-      <article class="rs-shell-article rs-prose" lang={researchLocale()}>
+      <article class="rs-shell-article rs-prose" lang={locale ?? researchLocale()}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>
