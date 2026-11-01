@@ -155,7 +155,7 @@ noindex; successful frozen files are immutable, while the index is no-cache and 
 Storage namespacing remains defence in depth between versions, not a security boundary.
 Frozen builds disable accounts (including local overrides) and replace AI/feedback controls with
 an explanation in all six public languages; online services require the latest live version.
-Before production rollout, record host approval of the actual scope in `PR-777-summary.md`,
+Before production rollout, record host approval of the actual scope in PR #777,
 including the separate origin/workflow, shared assets and both cloud-init Caddy changes.
 
 **Which commits.** `.github/workflows/research-snapshot.yml` runs on a push to main only
