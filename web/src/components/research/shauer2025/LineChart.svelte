@@ -19,6 +19,7 @@
     labels = [],
     log = false,
     rules = [],
+    ariaLabel = '',
   }: {
     series: Series[];
     xLabel: string;
@@ -28,6 +29,7 @@
     marker?: number | null;
     markerLabel?: string;
     labels?: Label[];
+    ariaLabel?: string;
     /** A log10 y axis (for differences spanning orders of magnitude). */
     log?: boolean;
     /** Horizontal reference rules (tolerances), drawn dashed with their label. */
@@ -92,7 +94,7 @@
 </script>
 
 <div class="chart" bind:clientWidth={width}>
-  <svg {width} {height} role="img" aria-label={`${yLabel} / ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
+  <svg {width} {height} role="img" aria-label={ariaLabel || `${yLabel} / ${xLabel}`} onpointermove={onMove} onpointerleave={() => (hoverX = null)}>
     <text x={M.l - 6} y={11} class="label" text-anchor="start">{yLabel}{#if yExp}&#8201;(×10<tspan baseline-shift="super" font-size="12px">{num(yExp, {})}</tspan>){/if}</text>
     {#each yt.ticks as t (t)}
       {@const yy = log ? syRaw(t) : sy(t * 10 ** yExp)}
