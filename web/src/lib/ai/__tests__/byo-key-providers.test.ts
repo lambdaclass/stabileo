@@ -256,6 +256,13 @@ describe('OpenAI browser provider', () => {
     expect(resp.toolCalls).toEqual([{ name: 'create_beam', input: { span: 8 } }]);
   });
 
+  it('reports tool call arguments that are not JSON as a bad response, not as an empty call', async () => {
+    stubFetch(() => jsonResponse(200, chatCompletion({
+      tool_calls: [{ id: 'c1', type: 'function', function: { name: 'create_beam', arguments: '{"span":' } }],
+    }, 'tool_calls')));
+    expect((await openaiProvider.complete(OKEY, req).catch((e) => e)).kind).toBe('badResponse');
+  });
+
   it('throws on a refusal, a content filter and a cut-off answer', async () => {
     stubFetch(() => jsonResponse(200, chatCompletion({ refusal: 'no' }, 'stop')));
     expect((await openaiProvider.complete(OKEY, req).catch((e) => e)).kind).toBe('refusal');

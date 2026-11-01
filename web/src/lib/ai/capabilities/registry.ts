@@ -87,7 +87,7 @@ export function generatorCatalog(): GeneratorDef[] {
       preq('height', 'f64', 'Truss height (m)'),
       pdef('n_panels', 'u32', 4, 'Number of panels (>= 2)'),
       pdef('pattern', 'string', 'pratt', 'pratt | warren | howe'),
-      popt('top_load', 'f64', 'Point load at each top node (kN, negative = down)'),
+      pdef('top_load', 'f64', -10, 'Point load at each top node (kN, negative = down; 0 for none)'),
     ] },
     { action: 'create_multi_story_frame', description: 'Multi-bay, multi-story 2D frame', params: [
       preq('n_bays', 'u32', 'Number of bays'),
@@ -101,7 +101,7 @@ export function generatorCatalog(): GeneratorDef[] {
     ] },
     { action: 'create_multi_story_frame_3d', description: 'Multi-story 3D space frame with X-bracing on perimeter', params: [
       preq('n_bays_x', 'u32', 'Bays in X direction'),
-      preq('n_bays_z', 'u32', 'Bays in Z direction'),
+      preq('n_bays_z', 'u32', 'Bays in Y (plan depth); floors stack along Z'),
       preq('n_floors', 'u32', 'Number of floors'),
       preq('bay_width', 'f64', 'Bay width (m)'),
       preq('floor_height', 'f64', 'Floor height (m)'),
@@ -115,7 +115,7 @@ export function generatorCatalog(): GeneratorDef[] {
       preq('width', 'f64', 'X span (m)'),
       preq('depth', 'f64', 'Y plan depth (m)'),
       preq('height', 'f64', 'Column height (m)'),
-      popt('q_beam', 'f64', 'Distributed load on beams (kN/m)'),
+      popt('q_beam', 'f64', 'Distributed load on each of the four beams (kN/m)'),
       pdef('base_support', 'string', 'fixed3d', 'Base support type'),
       popt('beam_section', 'string', 'Beam section name'),
       popt('column_section', 'string', 'Column section name'),
@@ -156,9 +156,12 @@ export function editToolCatalog(): GeneratorDef[] {
     ] },
     { action: 'add_nodal_load', description: 'Add point load at a specific node', params: [
       preq('node_id', 'u32', 'Target node ID'),
-      popt('fx', 'f64', 'Horizontal force (kN)'),
-      popt('fz', 'f64', 'Vertical force (kN, negative = downward)'),
+      popt('fx', 'f64', 'Force along X (kN)'),
+      popt('fy', 'f64', '3D: force along Y, plan depth (kN). 2D: a legacy name for fz'),
+      popt('fz', 'f64', 'Vertical force along Z (kN, negative = downward)'),
+      popt('mx', 'f64', 'Moment about X (kN·m), 3D only'),
       popt('my', 'f64', 'Moment about Y (kN·m)'),
+      popt('mz', 'f64', '3D: moment about Z (kN·m). 2D: a legacy name for my'),
     ] },
     { action: 'delete_element', description: 'Delete an element by ID', params: [
       preq('element_id', 'u32', 'Element ID to delete'),
@@ -170,6 +173,7 @@ export function editToolCatalog(): GeneratorDef[] {
 }
 
 export const isSpaceProtocol = (mode: unknown): boolean => mode === '3d';
+export const supportTypesFor = (space: boolean): readonly string[] => SUPPORT_TYPES[space ? '3d' : '2d'];
 const modeOf = (mode: string): AnalysisMode => (isSpaceProtocol(mode) ? '3d' : '2d');
 
 export function promptText(analysisMode: string): string {
@@ -246,8 +250,8 @@ const CREATE_MODEL_SCHEMA: Record<string, unknown> = {
       name: { type: 'string' },
       a: { type: 'number', description: 'Cross-section area (m²)' },
       iz: { type: 'number', description: 'Moment of inertia about Z (m⁴)' },
-      iy: { type: 'number', description: 'Moment of inertia about Y, only for 3D (m⁴)' },
-      j: { type: 'number', description: 'Torsional constant, only for 3D (m⁴)' },
+      iy: { type: 'number', description: 'Moment of inertia about Y (m⁴), required in 3D' },
+      j: { type: 'number', description: 'Torsional constant (m⁴), required in 3D' },
     }, required: ['id', 'name', 'a', 'iz'] } },
     supports: { type: 'array', items: { type: 'object', properties: {
       id: { type: 'integer' },

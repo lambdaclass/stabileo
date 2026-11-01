@@ -1,6 +1,7 @@
 import { isPlainObject, type BuildAction } from './actions';
 import { addBay, addStory } from './edit-grow';
 import { AiActionError } from './limits';
+import { supportTypesFor } from './registry';
 import {
   EPS, type Json, addDistributedLoadToSnap, arrayMut, asArray, asF64, asU64, at, columnLines,
   elements, ensureSection, findNodeAt, findNodeAt3d, floorLevels, getNodeCoords, isSnapshot3d,
@@ -40,7 +41,7 @@ export function applyEdit(action: BuildAction, snapshot: unknown): Json {
     case 'add_distributed_load': addDistributedLoad(snap, action.params.element_id, action.params.q); break;
     case 'add_nodal_load': {
       const p = action.params;
-      addNodalLoad(snap, p.node_id, p.fx, p.fz, p.my);
+      addNodalLoad(snap, p);
       break;
     }
     case 'delete_element': deleteElement(snap, action.params.element_id); break;
@@ -58,6 +59,13 @@ function isHorizontalElement(snap: Json, data: unknown): boolean {
   return isSnapshot3d(snap)
     ? Math.abs((ci.z ?? 0) - (cj.z ?? 0)) < EPS
     : Math.abs(ci.y - cj.y) < EPS;
+}
+
+function isVerticalElement(snap: Json, data: unknown): boolean {
+  const ci = getNodeCoords(snap, asU64(at(data, 'nodeI')) ?? 0);
+  const cj = getNodeCoords(snap, asU64(at(data, 'nodeJ')) ?? 0);
+  if (!ci || !cj) return false;
+  return Math.abs(ci.x - cj.x) < EPS && (!isSnapshot3d(snap) || Math.abs(ci.y - cj.y) < EPS);
 }
 
 const FILTERS = new Set(['beam', 'beams', 'column', 'columns']);
@@ -79,7 +87,7 @@ function changeSection(snap: Json, name: string, ids?: number[], filter?: string
     let matches = true;
     if (ids !== undefined) matches = ids.includes(eid);
     else if (filter === 'beam' || filter === 'beams') matches = isHorizontalElement(snap, at(elem, 1));
-    else if (filter === 'column' || filter === 'columns') matches = !isHorizontalElement(snap, at(elem, 1));
+    else if (filter === 'column' || filter === 'columns') matches = isVerticalElement(snap, at(elem, 1));
     if (matches) targets.add(eid);
   }
   if (targets.size === 0) throw new AiActionError('No element matches the section change');
@@ -94,6 +102,8 @@ function changeSection(snap: Json, name: string, ids?: number[], filter?: string
 function setAllSupports(snap: Json, type: string): void {
   const supports = asArray(snap.supports);
   if (!supports) throw new AiActionError('No supports in model');
+  const space = isSnapshot3d(snap);
+  if (!supportTypesFor(space).includes(type)) throw new AiActionError(`Unknown ${space ? '3D' : '2D'} support type '${type}'`);
   for (const s of supports) {
     const data = at(s, 1);
     if (!isPlainObject(data)) throw new AiActionError('snapshot is malformed: support data is not an object');
@@ -152,15 +162,25 @@ function addDistributedLoad(snap: Json, elementId: number, q: number): void {
   addDistributedLoadToSnap(snap, elementId, q);
 }
 
-function addNodalLoad(snap: Json, nodeId: number, fx?: number, fz?: number, my?: number): void {
+type NodalParams = Extract<BuildAction, { action: 'add_nodal_load' }>['params'];
+
+function planar(p: NodalParams): { fx: number; fz: number; my: number } {
+  if (p.mx !== undefined) throw new AiActionError('mx does not exist in a 2D model');
+  if (p.fy !== undefined && p.fz !== undefined) throw new AiActionError('give fz or fy, not both, in a 2D model');
+  if (p.mz !== undefined && p.my !== undefined) throw new AiActionError('give my or mz, not both, in a 2D model');
+  return { fx: p.fx ?? 0, fz: p.fz ?? p.fy ?? 0, my: p.my ?? p.mz ?? 0 };
+}
+
+function addNodalLoad(snap: Json, p: NodalParams): void {
+  const nodeId = p.node_id;
   if (!nodes(snap).some((n) => asU64(at(n, 0)) === nodeId)) {
     throw new AiActionError(`Node ${nodeId} not found`);
   }
+  const data = isSnapshot3d(snap)
+    ? { fx: p.fx ?? 0, fy: p.fy ?? 0, fz: p.fz ?? 0, mx: p.mx ?? 0, my: p.my ?? 0, mz: p.mz ?? 0 }
+    : planar(p);
   const id = nextId(snap, 'load');
-  const load = isSnapshot3d(snap)
-    ? { type: 'nodal3d', data: { id, nodeId, fx: fx ?? 0, fy: 0, fz: fz ?? 0, mx: 0, my: my ?? 0, mz: 0 } }
-    : { type: 'nodal', data: { id, nodeId, fx: fx ?? 0, fz: fz ?? 0, my: my ?? 0 } };
-  arrayMut(snap, 'loads').push(load);
+  arrayMut(snap, 'loads').push({ type: isSnapshot3d(snap) ? 'nodal3d' : 'nodal', data: { id, nodeId, ...data } });
 }
 
 function deleteElement(snap: Json, elementId: number): void {

@@ -5,6 +5,8 @@ import {
 import { validateSnapshot } from '../validate-snapshot';
 import { generatePortalFrame } from '../generators';
 import type { ModelContext } from '../../client';
+import { ensureLocale, setLocale } from '../../../i18n';
+import { actionSummary } from '../build-model';
 
 type Tuple = [number, Record<string, unknown>];
 const arr = (snap: Record<string, unknown>, key: string): Tuple[] => snap[key] as Tuple[];
@@ -77,11 +79,20 @@ describe('validate snapshot', () => {
     expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, elementId: 1, qI: -1, qJ: -1 } }] })).not.toThrow();
   });
   it('fails on a 3D node without z and on non-positive 3D section properties', () => {
-    const space = (): Record<string, unknown> => ({ ...minimal(), analysisMode: '3d', nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]] });
+    const space = (): Record<string, unknown> => ({
+      ...minimal(), analysisMode: '3d', nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 0.005381, iz: 0.00008356, iy: 0.00000604, j: 2e-7 }]],
+      supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]],
+    });
     expect(() => validateSnapshot(space())).not.toThrow();
+    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, j: 1 }]] })).toThrow('section 1: iy must be a positive number');
+    expect(() => validateSnapshot({ ...space(), supports: [[1, { id: 1, nodeId: 1, type: 'pinned' }]] })).toThrow('support 1: unknown 3D support type "pinned"');
+    expect(() => validateSnapshot({ ...minimal(), supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]] })).toThrow('support 1: unknown 2D support type "fixed3d"');
+    expect(() => validateSnapshot({ ...minimal(), analysisMode: 'pro' })).toThrow("analysisMode must be '2d' or '3d'");
+    expect(() => validateSnapshot({ ...minimal(), analysisMode: undefined })).toThrow("analysisMode must be '2d' or '3d'");
     expect(() => validateSnapshot({ ...space(), nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0 }]] })).toThrow('node 2 has no finite z');
-    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, iy: 0 }]] })).toThrow('section 1: iy must be a positive number');
-    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, j: -1 }]] })).toThrow('section 1: j must be a positive number');
+    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, iy: 0, j: 1 }]] })).toThrow('section 1: iy must be a positive number');
+    expect(() => validateSnapshot({ ...space(), sections: [[1, { id: 1, name: 'x', a: 1, iz: 1, iy: 1, j: -1 }]] })).toThrow('section 1: j must be a positive number');
   });
   it('fails on a load of the other dimension, a missing or non-finite magnitude, or a reused id', () => {
     const dist = (data: Record<string, unknown>) => ({ type: 'distributed', data: { id: 1, elementId: 1, qI: -1, qJ: -1, ...data } });
@@ -144,7 +155,7 @@ describe('outcomeFromText (legacy and action JSON)', () => {
   it('runs every action', () => {
     const beam = outcomeFromText('{"action":"create_beam","params":{"span":6,"q":-10},"interpretation":"Viga biapoyada de 6m"}');
     expect(arr(snapshotOf(beam), 'nodes')).toHaveLength(2);
-    expect(beam).toMatchObject({ message: 'Viga biapoyada de 6m', changeSummary: 'Beam 6m, -10 kN/m' });
+    expect(beam).toMatchObject({ message: 'Viga biapoyada de 6m', changeSummary: 'Beam 6 m, q = -10 kN/m' });
 
     const cant = snapshotOf(outcomeFromText('{"action":"create_cantilever","params":{"length":3,"p_tip":-15},"interpretation":"Cantilever 3m"}'));
     expect(arr(cant, 'supports').map((s) => s[1].type)).toEqual(['fixed']);
@@ -185,7 +196,7 @@ describe('outcomeFromText (legacy and action JSON)', () => {
 
   it('summarises a portal frame', () => {
     const o = outcomeFromText('{"action":"create_portal_frame","params":{"width":8,"height":5},"interpretation":"test"}');
-    expect(o.kind === 'snapshot' && o.changeSummary).toBe('Portal frame 8x5m');
+    expect(o.kind === 'snapshot' && o.changeSummary).toBe('Portal frame 8 × 5 m');
   });
 
   it('keeps an empty interpretation as the message on the text path', () => {
@@ -197,7 +208,7 @@ describe('outcomeFromToolCall', () => {
   it('builds from a tool call and uses the interpretation as the message', () => {
     const o = outcomeFromToolCall('create_beam', { span: 6, q: -10, interpretation: 'Simply supported beam, 6m' });
     expect(snapshotOf(o)).toHaveProperty('elements');
-    expect(o).toMatchObject({ kind: 'snapshot', message: 'Simply supported beam, 6m', changeSummary: 'Beam 6m, -10 kN/m' });
+    expect(o).toMatchObject({ kind: 'snapshot', message: 'Simply supported beam, 6m', changeSummary: 'Beam 6 m, q = -10 kN/m' });
   });
 
   it('produces the geometry the e2e mock relies on', () => {
@@ -210,7 +221,7 @@ describe('outcomeFromToolCall', () => {
   });
 
   it('falls back to the summary when there is no interpretation', () => {
-    expect(outcomeFromToolCall('create_portal_frame', { width: 8, height: 5, q_beam: -15 })?.message).toBe('Portal frame 8x5m');
+    expect(outcomeFromToolCall('create_portal_frame', { width: 8, height: 5, q_beam: -15 })?.message).toBe('Portal frame 8 × 5 m');
   });
 
   it('returns null for a call that does not parse', () => {
@@ -228,7 +239,7 @@ describe('outcomeFromToolCall', () => {
     const snap = generatePortalFrame({ width: 6, height: 4 });
     const o = outcomeFromToolCall('add_bay', { width: 5, interpretation: 'Adding a bay' }, snap);
     expect(arr(snapshotOf(o), 'nodes')).toHaveLength(6);
-    expect(o?.kind === 'snapshot' && o.changeSummary).toBe('Added bay 5m (right)');
+    expect(o?.kind === 'snapshot' && o.changeSummary).toBe('Added a 5 m bay on the right');
   });
 
   it('assembles create_model into tuples with counters and validates it', () => {
@@ -301,5 +312,18 @@ describe('request, conversation and prompt', () => {
     expect(p).toContain('create_beam');
     expect(buildSystemPrompt('pt-BR', '3d')).not.toContain('existing model on canvas');
     expect(buildSystemPrompt('pt-BR', '3d', { ...ctx, bounds: { ...ctx.bounds, yMin: -1, yMax: 5 } })).toContain(', Y (depth) [-1, 5]');
+  });
+});
+
+describe('change summaries', () => {
+  it('are written in the reader\'s language', async () => {
+    await ensureLocale('es');
+    setLocale('es');
+    try {
+      expect(actionSummary({ action: 'add_bay', params: { width: 5, side: 'left' } })).toBe('Se agregó un vano de 5 m a la izquierda');
+      expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
+    } finally {
+      setLocale('en');
+    }
   });
 });

@@ -10,6 +10,7 @@ import type {
   SolverDiagnosticMsg,
 } from './client';
 import type { AiCredentials } from './keys.svelte';
+import { t } from '../i18n';
 import {
   AiActionError,
   buildConversation,
@@ -245,7 +246,7 @@ export async function buildModel(
     signal,
   });
   const meta = metaOf(resp);
-  if (resp.toolCalls.length > 1) throw new AiActionError('The assistant proposed several changes at once; ask for one change at a time');
+  if (resp.toolCalls.length > 1) throw new AiActionError(t('ai.err.oneChange'));
   const call = resp.toolCalls[0];
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;

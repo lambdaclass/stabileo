@@ -8,6 +8,7 @@ import {
 import { type AnalysisMode, promptText } from './registry';
 import { validateSnapshot } from './validate-snapshot';
 import { asU64 } from './snapshot-json';
+import { tp } from '../../i18n';
 
 export type ToolOutcome =
   | { kind: 'snapshot'; snapshot: Record<string, unknown>; message: string; changeSummary?: string }
@@ -114,7 +115,7 @@ Rules for create_model:
 - Every element must reference valid node, section, and material IDs
 - At least one support is required for stability
 - Default material: Steel A36 (E=200000, nu=0.3, rho=78.5, fy=250)
-- Section properties: pick from the available sections list, or use reasonable custom values (a in m², iz in m⁴)
+- Section properties: pick from the available sections list, or use reasonable custom values (a in m², iz in m⁴; in 3D also iy and j in m⁴, all positive)
 - For 2D: nodes have x, y where y = vertical (up). Nodal loads use fx/fz/my (Z-up convention). Gravity = negative fz. Downward loads use negative fz.
 - For 3D: nodes have x, y, z where z = elevation (up). Gravity = negative z. Downward loads use negative fz.
 - Generate DETAILED structures with realistic geometry: use 20-60 nodes for complex structures like stadiums, bridges, towers. Don't oversimplify — a stadium needs columns, tiers, roof trusses with diagonals. A bridge needs deck, piers, cables or trusses.
@@ -178,39 +179,47 @@ function runAction(action: BuildAction, current?: Record<string, unknown>): Reco
 }
 
 const capitalize = (s: string): string => (s.length === 0 ? s : s[0].toUpperCase() + s.slice(1));
+const withLoad = (text: string, q?: number): string => (q !== undefined ? `${text}, q = ${q} kN/m` : text);
+
+function sectionSummary(p: Extract<BuildAction, { action: 'change_section' }>['params']): string {
+  const section = p.section;
+  if (p.element_ids !== undefined) return tp('ai.sum.sectionIds', { ids: p.element_ids.join(', '), section });
+  if (p.element_filter === 'beam' || p.element_filter === 'beams') return tp('ai.sum.sectionBeams', { section });
+  if (p.element_filter === 'column' || p.element_filter === 'columns') return tp('ai.sum.sectionColumns', { section });
+  return tp('ai.sum.sectionAll', { section });
+}
 
 export function actionSummary(a: BuildAction): string {
   switch (a.action) {
-    case 'create_beam': return `Beam ${a.params.span}m${a.params.q !== undefined ? `, ${a.params.q} kN/m` : ''}`;
+    case 'create_beam': return withLoad(tp('ai.sum.beam', { span: a.params.span }), a.params.q);
     case 'create_cantilever': {
       const { p_tip, q } = a.params;
-      const load = p_tip !== undefined ? `, P=${p_tip} kN` : q !== undefined ? `, q=${q} kN/m` : '';
-      return `Cantilever ${a.params.length}m${load}`;
+      const base = tp('ai.sum.cantilever', { length: a.params.length });
+      return p_tip !== undefined ? `${base}, P = ${p_tip} kN` : withLoad(base, q);
     }
-    case 'create_continuous_beam':
-      return `Continuous beam [${a.params.spans.join('+')}]${a.params.q !== undefined ? `, ${a.params.q} kN/m` : ''}`;
-    case 'create_portal_frame': return `Portal frame ${a.params.width}x${a.params.height}m`;
-    case 'create_truss': return `${capitalize(a.params.pattern ?? 'pratt')} truss ${a.params.span}x${a.params.height}m`;
+    case 'create_continuous_beam': return withLoad(tp('ai.sum.continuousBeam', { spans: a.params.spans.join(' + ') }), a.params.q);
+    case 'create_portal_frame': return tp('ai.sum.portal', { width: a.params.width, height: a.params.height });
+    case 'create_truss': return tp('ai.sum.truss', { pattern: capitalize(a.params.pattern ?? 'pratt'), span: a.params.span, height: a.params.height });
     case 'create_multi_story_frame': {
       const p = a.params;
-      return `${p.n_floors}-story frame, ${p.n_bays} bays @ ${p.bay_width}m x ${p.floor_height}m`;
+      return tp('ai.sum.multiStory', { floors: p.n_floors, bays: p.n_bays, width: p.bay_width, height: p.floor_height });
     }
     case 'create_multi_story_frame_3d': {
       const p = a.params;
-      return `${p.n_floors}-story 3D frame, ${p.n_bays_x}x${p.n_bays_z} bays @ ${p.bay_width}m x ${p.floor_height}m`;
+      return tp('ai.sum.multiStory3d', { floors: p.n_floors, bx: p.n_bays_x, by: p.n_bays_z, width: p.bay_width, height: p.floor_height });
     }
-    case 'create_portal_frame_3d': return `3D frame ${a.params.width}x${a.params.depth}x${a.params.height}m`;
-    case 'add_bay': return `Added bay ${a.params.width}m (${a.params.side ?? 'right'})`;
-    case 'add_story': return `Added story ${a.params.height}m`;
-    case 'change_section': return `Changed ${a.params.element_filter ?? 'all elements'} to ${a.params.section}`;
-    case 'set_all_supports': return `Set all supports to ${a.params.support_type}`;
-    case 'set_all_beam_loads': return `Set beam loads to ${a.params.q} kN/m`;
-    case 'add_lateral_loads': return `Added ${a.params.h} kN lateral per floor`;
-    case 'add_distributed_load': return `Added ${a.params.q} kN/m on element ${a.params.element_id}`;
-    case 'add_nodal_load': return `Added load at node ${a.params.node_id}`;
-    case 'delete_element': return `Deleted element ${a.params.element_id}`;
-    case 'delete_load': return `Deleted load ${a.params.load_id}`;
-    case 'create_model': return `Custom model (${a.params.nodes.length} nodes, ${a.params.elements.length} elements)`;
+    case 'create_portal_frame_3d': return tp('ai.sum.portal3d', { width: a.params.width, depth: a.params.depth, height: a.params.height });
+    case 'add_bay': return tp(a.params.side === 'left' ? 'ai.sum.addBayLeft' : 'ai.sum.addBayRight', { width: a.params.width });
+    case 'add_story': return tp('ai.sum.addStory', { height: a.params.height });
+    case 'change_section': return sectionSummary(a.params);
+    case 'set_all_supports': return tp('ai.sum.supports', { type: a.params.support_type });
+    case 'set_all_beam_loads': return tp('ai.sum.beamLoads', { q: a.params.q });
+    case 'add_lateral_loads': return tp('ai.sum.lateral', { h: a.params.h });
+    case 'add_distributed_load': return tp('ai.sum.distLoad', { q: a.params.q, id: a.params.element_id });
+    case 'add_nodal_load': return tp('ai.sum.nodalLoad', { id: a.params.node_id });
+    case 'delete_element': return tp('ai.sum.deleteElement', { id: a.params.element_id });
+    case 'delete_load': return tp('ai.sum.deleteLoad', { id: a.params.load_id });
+    case 'create_model': return tp('ai.sum.custom', { nodes: a.params.nodes.length, elements: a.params.elements.length });
     case 'unsupported': return '';
   }
 }

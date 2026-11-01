@@ -64,7 +64,7 @@ function parseArguments(raw: string): unknown {
   try {
     return JSON.parse(raw);
   } catch {
-    return {};
+    throw new AiProviderError('badResponse');
   }
 }
 

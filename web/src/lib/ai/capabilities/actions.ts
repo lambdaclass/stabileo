@@ -28,7 +28,7 @@ export interface ActionParams {
   set_all_beam_loads: { q: number };
   add_lateral_loads: { h: number };
   add_distributed_load: { element_id: number; q: number };
-  add_nodal_load: { node_id: number; fx?: number; fz?: number; my?: number };
+  add_nodal_load: { node_id: number; fx?: number; fy?: number; fz?: number; mx?: number; my?: number; mz?: number };
   delete_element: { element_id: number };
   delete_load: { load_id: number };
   create_model: {
@@ -64,7 +64,7 @@ const SPECS: Record<ActionName, Field[]> = {
   set_all_beam_loads: [req('q', 'f64')],
   add_lateral_loads: [req('h', 'f64')],
   add_distributed_load: [req('element_id', 'u32'), req('q', 'f64')],
-  add_nodal_load: [req('node_id', 'u32'), opt('fx', 'f64'), opt('fz', 'f64', ['fy']), opt('my', 'f64', ['mz'])],
+  add_nodal_load: [req('node_id', 'u32'), opt('fx', 'f64'), opt('fy', 'f64'), opt('fz', 'f64'), opt('mx', 'f64'), opt('my', 'f64'), opt('mz', 'f64')],
   delete_element: [req('element_id', 'u32')],
   delete_load: [req('load_id', 'u32')],
   create_model: [
@@ -176,7 +176,7 @@ function loadValues(a: BuildAction): Array<[string, number | undefined]> {
     case 'add_distributed_load':
       return [['q', a.params.q]];
     case 'add_nodal_load':
-      return [['fx', a.params.fx], ['fz', a.params.fz], ['my', a.params.my]];
+      return (['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const).map((k) => [k, a.params[k]]);
     default:
       return [];
   }

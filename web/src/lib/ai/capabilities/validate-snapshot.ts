@@ -1,6 +1,7 @@
 import { isPlainObject } from './actions';
 import { AiActionError } from './limits';
 import { asF64, asU64, isSnapshot3d } from './snapshot-json';
+import { supportTypesFor } from './registry';
 
 type Entry = [id: number, data: Record<string, unknown>];
 
@@ -61,6 +62,9 @@ export function validateSnapshot(snapshot: unknown): void {
   if (materials.length === 0) throw new AiActionError('materials must not be empty');
   if (sections.length === 0) throw new AiActionError('sections must not be empty');
 
+  if (snapshot.analysisMode !== '2d' && snapshot.analysisMode !== '3d') {
+    throw new AiActionError(`analysisMode must be '2d' or '3d', not ${JSON.stringify(snapshot.analysisMode)}`);
+  }
   const space = isSnapshot3d(snapshot);
   const nodeIds = collectIds(nodes, 'node');
   const elemIds = collectIds(elements, 'element');
@@ -83,6 +87,9 @@ export function validateSnapshot(snapshot: unknown): void {
     const nid = asU64(data.nodeId);
     if (nid === undefined) throw new AiActionError(`support ${id} has no valid nodeId`);
     if (!nodeIds.has(nid)) throw new AiActionError(`support ${id} references non-existent nodeId=${nid}`);
+    if (typeof data.type !== 'string' || !supportTypesFor(space).includes(data.type)) {
+      throw new AiActionError(`support ${id}: unknown ${space ? '3D' : '2D'} support type ${JSON.stringify(data.type)}`);
+    }
   }
 
   for (const entry of nodes) {
@@ -100,7 +107,7 @@ export function validateSnapshot(snapshot: unknown): void {
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }
     for (const key of ['iy', 'j'] as const) {
-      if (data[key] === undefined) continue;
+      if (!space && data[key] === undefined) continue;
       const v = asF64(data[key]);
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }

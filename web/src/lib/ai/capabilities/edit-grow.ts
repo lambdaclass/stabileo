@@ -1,9 +1,10 @@
 import {
-  EPS, type Json, type NodeCoord, addElementToSnap, addNodeToSnap, addSupportToSnap, asU64, at,
+  EPS, type Json, type NodeCoord, addElementToSnap, asArray, addNodeToSnap, addSupportToSnap, asU64, at,
   cloneElementToSnap, columnLines, elements, ensureSection, entryData, findNodeAt, findNodeAt3d,
   firstMaterialId, firstSectionId, floorLevels, getNodeCoords, isSnapshot3d, malformed, nodes,
 } from './snapshot-json';
 import { AiActionError } from './limits';
+import { isPlainObject } from './actions';
 
 const near = (a: number, b: number): boolean => Math.abs(a - b) < EPS;
 
@@ -50,6 +51,19 @@ function elementBetween(snap: Json, a: number | undefined, b: number | undefined
 
 type Props = { matId: number; secId: number };
 
+function addSupportLike(snap: Json, nodeId: number, from: number | undefined, fallback: string): void {
+  for (const entry of asArray(snap.supports) ?? []) {
+    const data = at(entry, 1);
+    if (from !== undefined && isPlainObject(data) && asU64(data.nodeId) === from && typeof data.type === 'string') {
+      const id = addSupportToSnap(snap, nodeId, data.type);
+      const added = entryData((asArray(snap.supports) ?? []).at(-1));
+      Object.assign(added, { ...data, id, nodeId });
+      return;
+    }
+  }
+  addSupportToSnap(snap, nodeId, fallback);
+}
+
 function inherit(snap: Json, from: Json | undefined, override: number | undefined, what: string): Props {
   const matId = asU64(from?.materialId);
   const secId = override ?? asU64(from?.sectionId);
@@ -85,7 +99,7 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
     const nodeId = addNodeToSnap(snap, newX, y);
     if (prev !== undefined && column) addElementToSnap(snap, prev, nodeId, column.matId, column.secId);
     if (adj !== undefined && beam) addElementToSnap(snap, adj, nodeId, beam.matId, beam.secId);
-    if (i === 0) addSupportToSnap(snap, nodeId, 'fixed');
+    if (i === 0) addSupportLike(snap, nodeId, adj, 'fixed');
     prev = nodeId;
   });
 }
@@ -104,7 +118,7 @@ function addBay3d(snap: Json, width: number, side?: string, beamSection?: string
   const nodeMap = new Map<number, number>();
   for (const [oldId, c] of outerFace) {
     const newId = addNodeToSnap(snap, newX, c.y, c.z);
-    if (c.z !== undefined && near(c.z, baseZ)) addSupportToSnap(snap, newId, 'fixed3d');
+    if (c.z !== undefined && near(c.z, baseZ)) addSupportLike(snap, newId, oldId, 'fixed3d');
     nodeMap.set(oldId, newId);
   }
 
@@ -179,8 +193,11 @@ function addStory3d(snap: Json, height: number, beamSection?: string, columnSect
   const nodeMap = new Map<number, number>();
   for (const [oldId, c] of topNodes) nodeMap.set(oldId, addNodeToSnap(snap, c.x, c.y, newZ));
 
+  const belowZ = floors.length > 1 ? floors[floors.length - 2] : undefined;
+  const atBelow = (c: NodeCoord): boolean => belowZ !== undefined && c.z !== undefined && near(c.z, belowZ);
   const topFloor: Json[] = [];
   const vertical: Json[] = [];
+  const braces: Json[] = [];
   for (const entry of elements(snap)) {
     const data = entryData(entry);
     const [ni, nj] = nodeRefs(data);
@@ -190,6 +207,7 @@ function addStory3d(snap: Json, height: number, beamSection?: string, columnSect
     if (ci.z !== undefined && cj.z !== undefined) {
       const reachesTop = near(ci.z, topZ) || near(cj.z, topZ);
       if (reachesTop && near(ci.x, cj.x) && near(ci.y, cj.y)) vertical.push(data as Json);
+      else if ((atTop(ci) && atBelow(cj)) || (atBelow(ci) && atTop(cj))) braces.push(data);
     }
   }
 
@@ -206,5 +224,17 @@ function addStory3d(snap: Json, height: number, beamSection?: string, columnSect
     const [ni, nj] = nodeRefs(elem);
     const cloned: Json = beamOverride !== undefined ? { ...elem, sectionId: beamOverride } : elem;
     cloneElementToSnap(snap, cloned, mapped(nodeMap, ni), mapped(nodeMap, nj));
+  }
+
+  const raise = (id: number): number => {
+    if (nodeMap.has(id)) return mapped(nodeMap, id);
+    const c = coordsOf(snap, id);
+    const above = findNodeAt3d(snap, c.x, c.y, topZ);
+    if (above === undefined) throw new AiActionError(`Cannot repeat the bracing: no top-floor node above node ${id}`);
+    return above;
+  };
+  for (const elem of braces) {
+    const [ni, nj] = nodeRefs(elem);
+    cloneElementToSnap(snap, elem, raise(ni), raise(nj));
   }
 }

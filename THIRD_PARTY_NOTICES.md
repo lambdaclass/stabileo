@@ -21,17 +21,13 @@ and build dependencies. Licence and copyright texts come from each package.
 |---|---|---|
 | `phasefield-jr-py` | 2025 (adapted research code) | MIT |
 | `@anthropic-ai/sdk` | 1.3.0 | Apache-2.0 |
-| `@aws-sdk/credential-provider-node` | ? | UNKNOWN |
 | `@babel/runtime` | 7.29.10 | MIT |
 | `@opentelemetry/api` | 1.10.0 | Apache-2.0 |
-| `@smithy/hash-node` | ? | UNKNOWN |
-| `@smithy/signature-v4` | ? | UNKNOWN |
 | `@stablelib/base64` | 1.0.1 | MIT |
 | `commander` | 8.3.0 | MIT |
 | `dxf-parser` | 1.1.2 | MIT |
 | `fast-sha256` | 1.3.0 | Unlicense |
 | `fflate` | 0.8.3 | MIT |
-| `google-auth-library` | ? | UNKNOWN |
 | `json-schema-to-ts` | 3.1.1 | MIT |
 | `katex` | 0.16.47 | MIT |
 | `loglevel` | 1.9.2 | MIT |
@@ -44,11 +40,8 @@ and build dependencies. Licence and copyright texts come from each package.
 | `three` | 0.182.0 | MIT |
 | `three-mesh-bvh` | 0.9.9 | MIT |
 | `ts-algebra` | 2.0.0 | MIT |
-| `undici` | ? | UNKNOWN |
 | `web-ifc` | 0.0.75 | MPL-2.0 |
-| `ws` | ? | UNKNOWN |
 | `xlsx` | 0.20.3 | Apache-2.0 |
-| `zod` | ? | UNKNOWN |
 
 ---
 
@@ -264,15 +257,6 @@ and build dependencies. Licence and copyright texts come from each package.
 ```
 
 </details>
-
----
-
-## @aws-sdk/credential-provider-node ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/@aws-sdk/credential-provider-node`.** Declared `UNKNOWN`.
-> Resolve before the next release.
 
 ---
 
@@ -529,24 +513,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-## @smithy/hash-node ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/@smithy/hash-node`.** Declared `UNKNOWN`.
-> Resolve before the next release.
-
----
-
-## @smithy/signature-v4 ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/@smithy/signature-v4`.** Declared `UNKNOWN`.
-> Resolve before the next release.
-
----
-
 ## @stablelib/base64 1.0.1
 
 - **Licence:** MIT
@@ -726,15 +692,6 @@ SOFTWARE.
 ```
 
 </details>
-
----
-
-## google-auth-library ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/google-auth-library`.** Declared `UNKNOWN`.
-> Resolve before the next release.
 
 ---
 
@@ -1201,8 +1158,33 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - **Homepage:** https://github.com/standard-webhooks/standard-webhooks/tree/main/libraries/javascript
 - **Source:** https://github.com/standard-webhooks/standard-webhooks
 
-> **No licence file found in `node_modules/standardwebhooks`.** Declared `MIT`.
-> Resolve before the next release.
+<details><summary>upstream licence (scripts/licences/standardwebhooks.txt)</summary>
+
+```
+The MIT License
+
+Copyright (c) 2023 Svix (https://www.svix.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
+
+</details>
 
 ---
 
@@ -1311,15 +1293,6 @@ SOFTWARE.
 ```
 
 </details>
-
----
-
-## undici ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/undici`.** Declared `UNKNOWN`.
-> Resolve before the next release.
 
 ---
 
@@ -1711,15 +1684,6 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 
 ---
 
-## ws ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/ws`.** Declared `UNKNOWN`.
-> Resolve before the next release.
-
----
-
 ## xlsx 0.20.3
 
 - **Licence:** Apache-2.0
@@ -1933,15 +1897,6 @@ Exhibit B - "Incompatible With Secondary Licenses" Notice
 ```
 
 </details>
-
----
-
-## zod ?
-
-- **Licence:** UNKNOWN
-
-> **No licence file found in `node_modules/zod`.** Declared `UNKNOWN`.
-> Resolve before the next release.
 
 ---
 

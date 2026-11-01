@@ -11,8 +11,8 @@ export function generateBeam(p: ActionParams['create_beam']): Snapshot {
   const n1 = b.addNode2d(0, 0);
   const n2 = b.addNode2d(p.span, 0);
   const eid = b.addFrame(n1, n2);
-  b.addSupport(n1, resolveSupport(p.support_left, 'pinned'));
-  b.addSupport(n2, resolveSupport(p.support_right, 'rollerX'));
+  b.addSupport(n1, resolveSupport(p.support_left, 'pinned', false));
+  b.addSupport(n2, resolveSupport(p.support_right, 'rollerX', false));
   if (nonZero(p.q)) b.addDistributedLoad(eid, p.q);
   if (nonZero(p.p_tip)) b.addNodalLoad2d(n2, 0, p.p_tip);
   return b.toSnapshot();
@@ -49,7 +49,7 @@ export function generateContinuousBeam(p: ActionParams['create_continuous_beam']
 export function generatePortalFrame(p: ActionParams['create_portal_frame']): Snapshot {
   const bSec = resolveSection(p.beam_section);
   const cSec = resolveSection(p.column_section, defaultColumnSection);
-  const supType = resolveSupport(p.base_support, 'fixed');
+  const supType = resolveSupport(p.base_support, 'fixed', false);
   const b = Builder.new2d(bSec);
   if (cSec.name !== bSec.name) b.sections.push(sectionToJson(2, cSec));
   const colSecId = cSec.name !== bSec.name ? 2 : 1;
@@ -102,13 +102,13 @@ export function generateTruss(p: ActionParams['create_truss']): Snapshot {
   b.addSupport(bottom[0], 'pinned');
   b.addSupport(bottom[bottom.length - 1], 'rollerX');
   const load = p.top_load ?? -10;
-  for (const id of top) b.addNodalLoad2d(id, 0, load);
+  if (nonZero(load)) for (const id of top) b.addNodalLoad2d(id, 0, load);
   return b.toSnapshot();
 }
 
 export function generatePortalFrame3d(p: ActionParams['create_portal_frame_3d']): Snapshot {
   const b = Builder.new3d(resolveSection(p.beam_section), resolveSection(p.column_section, defaultColumnSection));
-  const supType = resolveSupport(p.base_support, 'fixed3d');
+  const supType = resolveSupport(p.base_support, 'fixed3d', true);
   const { width: w, depth: d, height: h } = p;
   const n1 = b.addNode3d(0, 0, 0);
   const n2 = b.addNode3d(w, 0, 0);
@@ -122,15 +122,9 @@ export function generatePortalFrame3d(p: ActionParams['create_portal_frame_3d'])
   b.addFrame(n2, n6, 1);
   b.addFrame(n3, n7, 1);
   b.addFrame(n4, n8, 1);
-  const beam1 = b.addFrame(n5, n6, 2);
-  const beam2 = b.addFrame(n7, n8, 2);
-  b.addFrame(n5, n8, 2);
-  b.addFrame(n6, n7, 2);
+  const beams = [b.addFrame(n5, n6, 2), b.addFrame(n7, n8, 2), b.addFrame(n5, n8, 2), b.addFrame(n6, n7, 2)];
   for (const n of [n1, n2, n3, n4]) b.addSupport(n, supType);
-  if (nonZero(p.q_beam)) {
-    b.addDistributedLoad(beam1, p.q_beam);
-    b.addDistributedLoad(beam2, p.q_beam);
-  }
+  if (nonZero(p.q_beam)) for (const beam of beams) b.addDistributedLoad(beam, p.q_beam);
   return b.toSnapshot();
 }
 
@@ -161,7 +155,7 @@ export function generateMultiStoryFrame(p: ActionParams['create_multi_story_fram
 
 export function generateMultiStoryFrame3d(p: ActionParams['create_multi_story_frame_3d']): Snapshot {
   const b = Builder.new3d(resolveSection(p.beam_section), resolveSection(p.column_section, defaultColumnSection));
-  const supType = resolveSupport(p.base_support, 'fixed3d');
+  const supType = resolveSupport(p.base_support, 'fixed3d', true);
   const nx = p.n_bays_x;
   const nz = p.n_bays_z;
   const floorsAbove = range(p.n_floors).map((i) => i + 1);

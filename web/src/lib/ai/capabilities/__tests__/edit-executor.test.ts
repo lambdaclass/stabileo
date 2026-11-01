@@ -105,6 +105,58 @@ describe('edit executor', () => {
     expect(sec(given, arr(given, 'elements')[3][1].sectionId as number)).toBe('HEB 400');
   });
 
+  it('a new bay keeps the base support of the frame it extends', () => {
+    const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
+    expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);
+    const r3 = applyEdit({ action: 'add_bay', params: { width: 5 } }, generateMultiStoryFrame3d({ n_bays_x: 1, n_bays_z: 1, n_floors: 1, bay_width: 5, floor_height: 3, base_support: 'pinned3d' }));
+    expect(new Set(arr(r3, 'supports').map((s) => s[1].type))).toEqual(new Set(['pinned3d']));
+  });
+
+  it('a new bay copies a spring base with its stiffness', () => {
+    const snap = makeFrame();
+    for (const sup of arr(snap, 'supports')) Object.assign(sup[1], { type: 'spring', kx: 1000, ky: 2000, kz: 30 });
+    const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, snap);
+    const added = arr(r, 'supports').at(-1)![1];
+    expect(added).toMatchObject({ type: 'spring', kx: 1000, ky: 2000, kz: 30, nodeId: arr(r, 'nodes').at(-2)![0] });
+    expect(added.id).toBe(3);
+  });
+
+  it('a new 3D story repeats the bracing of the story below', () => {
+    const r = applyEdit({ action: 'add_story', params: { height: 3 } }, makeMultiStory3d());
+    const z = (id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number; z: number };
+    const bracesBetween = (lo: number, hi: number) => arr(r, 'elements').filter(([, e]) => {
+      const [a, b] = [z(e.nodeI), z(e.nodeJ)];
+      return Math.min(a.z, b.z) === lo && Math.max(a.z, b.z) === hi && !(a.x === b.x && a.y === b.y);
+    }).length;
+    expect(bracesBetween(3, 6)).toBeGreaterThan(0);
+    expect(bracesBetween(6, 9)).toBe(bracesBetween(3, 6));
+  });
+
+  it('refuses a support type that does not exist in the model dimension', () => {
+    expect(() => applyEdit({ action: 'set_all_supports', params: { support_type: 'pinned3d' } }, makeFrame())).toThrow("Unknown 2D support type 'pinned3d'");
+    expect(() => applyEdit({ action: 'set_all_supports', params: { support_type: 'pinned' } }, makeMultiStory3d())).toThrow("Unknown 3D support type 'pinned'");
+  });
+
+  it('the column filter changes vertical members only, not braces', () => {
+    const snap = makeMultiStory3d();
+    const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400', element_filter: 'column' } }, snap);
+    const heb = arr(r, 'sections').find((s) => s[1].name === 'HEB 400')![0];
+    const xyz = (id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number };
+    for (const [, e] of arr(r, 'elements')) {
+      const [a, b] = [xyz(e.nodeI), xyz(e.nodeJ)];
+      expect(e.sectionId === heb, `element ${e.id}`).toBe(a.x === b.x && a.y === b.y);
+    }
+  });
+
+  it('a nodal load keeps the plan-depth force in 3D and reads fy as fz in 2D', () => {
+    const r3 = applyEdit({ action: 'add_nodal_load', params: { node_id: 1, fy: 4, mz: 2 } }, makeMultiStory3d());
+    expect(loadsOf(r3).at(-1)!.data).toMatchObject({ fx: 0, fy: 4, fz: 0, mx: 0, my: 0, mz: 2 });
+    const r2 = applyEdit({ action: 'add_nodal_load', params: { node_id: 1, fy: -5, mz: 2 } }, makeFrame());
+    expect(loadsOf(r2).at(-1)!.data).toMatchObject({ fx: 0, fz: -5, my: 2 });
+    expect(() => applyEdit({ action: 'add_nodal_load', params: { node_id: 1, fz: -5, fy: -5 } }, makeFrame())).toThrow('give fz or fy, not both');
+    expect(() => applyEdit({ action: 'add_nodal_load', params: { node_id: 1, mx: 1 } }, makeFrame())).toThrow('mx does not exist in a 2D model');
+  });
+
   it('asks for a section when a new 2D member has no neighbour to take it from', () => {
     const beam: Snap = {
       nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 6, y: 0 }]],
@@ -161,7 +213,7 @@ describe('edit executor', () => {
     const r = applyEdit({ action: 'add_story', params: { height: 3 } }, snap);
     expect(arr(r, 'nodes')).toHaveLength(arr(snap, 'nodes').length + 9);
     expect(arr(r, 'nodes').some((n) => Math.abs((n[1].z as number) - 9) < 1e-6)).toBe(true);
-    expect(arr(r, 'elements').length).toBe(arr(snap, 'elements').length + 9 + 12);
+    expect(arr(r, 'elements').length).toBe(arr(snap, 'elements').length + 9 + 12 + 16);
   });
 
   it('adds a bay to a 3D multi-story frame', () => {

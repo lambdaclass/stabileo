@@ -1,4 +1,4 @@
-import { isSpaceProtocol } from './registry';
+import { isSpaceProtocol, supportTypesFor } from './registry';
 import { AiActionError } from './limits';
 import { defaultMaterial, defaultSection, lookupSection, type SectionProps } from './sections';
 
@@ -15,8 +15,10 @@ export function resolveSection(name: string | undefined, fallback: () => Section
   return section;
 }
 
-export function resolveSupport(name: string | undefined, fallback: string): string {
-  return name ?? fallback;
+export function resolveSupport(name: string | undefined, fallback: string, space: boolean): string {
+  const type = name ?? fallback;
+  if (!supportTypesFor(space).includes(type)) throw new AiActionError(`Unknown ${space ? '3D' : '2D'} support type '${type}'`);
+  return type;
 }
 
 export class Builder {

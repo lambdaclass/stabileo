@@ -76,8 +76,7 @@ describe('actions', () => {
     expect(parseAction('create_truss', { span: 6, height: 1, n_panels: 4294967296 })).toBeNull();
     expect(parseAction('no_such_action', {})).toBeNull();
     expect(parseAction('create_beam', [6])).toBeNull();
-    expect(parseAction('add_nodal_load', { node_id: 1, fy: -5, mz: 2 })).toEqual({ action: 'add_nodal_load', params: { node_id: 1, fz: -5, my: 2 } });
-    expect(parseAction('add_nodal_load', { node_id: 1, fz: -5, fy: -5 })).toBeNull();
+    expect(parseAction('add_nodal_load', { node_id: 1, fy: -5, mz: 2 })).toEqual({ action: 'add_nodal_load', params: { node_id: 1, fy: -5, mz: 2 } });
     expect(parseAction('create_model', { analysisMode: '2d', nodes: [], elements: [], materials: [], sections: [], supports: [] })?.params).toMatchObject({ analysis_mode: '2d' });
     expect(parseActionResponse({ action: 'create_beam', params: { span: 6 } })).toBeNull();
   });
@@ -174,6 +173,18 @@ describe('generators', () => {
     const zs = [...new Set(arr(snap, 'nodes').map((n) => n[1].z as number))].sort((a, b) => a - b);
     expect(zs).toEqual([0, 3, 6, 9]);
     expect(arr(snap, 'elements')).toHaveLength(27 + 18 + 18 + 48);
+  });
+
+  it('3D portal frame loads all four beams; a truss with top_load 0 has no loads', () => {
+    const portal = generatePortalFrame3d({ width: 6, depth: 4, height: 3, q_beam: -10 });
+    expect((portal.loads as Array<{ type: string }>).filter((l) => l.type === 'distributed3d')).toHaveLength(4);
+    expect(generateTruss({ span: 12, height: 2, top_load: 0 }).loads).toEqual([]);
+    expect((generateTruss({ span: 12, height: 2 }).loads as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('refuses a support type that does not exist in the dimension', () => {
+    expect(() => generateBeam({ span: 6, support_left: 'pinned3d' })).toThrow("Unknown 2D support type 'pinned3d'");
+    expect(() => generatePortalFrame3d({ width: 6, depth: 4, height: 3, base_support: 'pinned' })).toThrow("Unknown 3D support type 'pinned'");
   });
 
   it('3D multi-story frame shares the floor lateral load among the nodes of the x=0 face', () => {
