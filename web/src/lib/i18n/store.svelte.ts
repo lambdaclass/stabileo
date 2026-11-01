@@ -28,7 +28,7 @@ let appDictionaries = false;
 
 const publicPending = new Map<string, Promise<void>>();
 
-/** Resolves once `loc`'s public entries are registered (or failed to load, leaving English); at once when they are bundled. */
+/** Resolves once `loc`'s public entries are registered, at once when they are bundled; rejects when they fail to load, and the next call tries again. */
 export function ensurePublicLocale(loc: string): Promise<void> {
   const load = publicLoaders[loc as keyof typeof publicLoaders];
   if (!load) return Promise.resolve();
@@ -41,7 +41,7 @@ export function ensurePublicLocale(loc: string): Promise<void> {
       },
       (err) => {
         publicPending.delete(loc);
-        console.warn(`i18n: the ${loc} public entries did not load; showing English until they do`, err);
+        throw err;
       },
     );
     publicPending.set(loc, pending);
@@ -64,7 +64,11 @@ export function registerDictionaries(full: Record<'es' | 'en' | 'pt', Translatio
 /** Resolves once `loc`'s whole dictionary is registered, or has failed to load and left English; for a bundled language, once its public entries are (`ensurePublicLocale`). */
 export function ensureLocale(loc: string): Promise<void> {
   const load = LAZY_LOCALES[loc];
-  if (!load || !isOfferedLocale(loc)) return ensurePublicLocale(loc);
+  if (!load || !isOfferedLocale(loc)) {
+    return ensurePublicLocale(loc).catch((err) => {
+      console.warn(`i18n: the ${loc} public entries did not load; showing English until they do`, err);
+    });
+  }
   let pending = pendingLoads.get(loc);
   if (!pending) {
     pending = load().then(

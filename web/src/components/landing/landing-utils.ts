@@ -36,7 +36,12 @@ let localeSwitch = 0;
 
 export async function switchPublicLocale(locale: PublicLocale) {
   const request = ++localeSwitch;
-  await ensurePublicLocale(locale);
+  try {
+    await ensurePublicLocale(locale);
+  } catch (err) {
+    console.warn(`i18n: the ${locale} public entries did not load; staying in the current language`, err);
+    return;
+  }
   if (request !== localeSwitch) return;
   setPublicLocale(locale);
   goPublic(parsePublicPath(window.location.pathname).path + window.location.search + window.location.hash);

@@ -57,7 +57,11 @@ async function bootstrap() {
   }
   // Register before mounting: a ready event must never outrun its subscriber.
   window.addEventListener('stabileo-app-ready', installTestHooks, { once: true });
-  await ensurePublicLocale(parsePublicPath(location.pathname).locale ?? i18n.locale);
+  const startLocale = parsePublicPath(location.pathname).locale ?? i18n.locale;
+  await ensurePublicLocale(startLocale).catch((err) => {
+    console.warn(`i18n: the ${startLocale} public entries did not load; showing English until they do`, err);
+    window.addEventListener('online', () => void ensurePublicLocale(startLocale).catch(() => {}), { once: true });
+  });
   return mount(Root, { target });
 }
 

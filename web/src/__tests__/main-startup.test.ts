@@ -42,6 +42,18 @@ it('waits for the lazy editor ready event on a public route and installs once', 
   window.dispatchEvent(new Event('stabileo-app-ready'));
   await vi.waitFor(() => expect(mocks.hooks).toHaveBeenCalledOnce());
 });
+it('mounts a public page in English when its language fails to load, and retries once back online', async () => {
+  mocks.route = 'research';
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
+  mocks.publicLocale.mockRejectedValueOnce(new Error('offline'));
+  await (await import('../main')).default;
+  expect(mocks.mount).toHaveBeenCalledWith('PublicRoot', { target: {} });
+  expect(mocks.publicLocale).toHaveBeenCalledOnce();
+  window.dispatchEvent(new Event('online'));
+  window.dispatchEvent(new Event('online'));
+  expect(mocks.publicLocale).toHaveBeenCalledTimes(2);
+  expect(mocks.publicLocale).toHaveBeenLastCalledWith('pt');
+});
 it('does not install hooks in a production build', async () => {
   vi.stubEnv('VITE_E2E', '');
   mocks.route = 'app';

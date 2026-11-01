@@ -29,16 +29,14 @@ describe('a public language in its own chunk', () => {
     expect(load).toHaveBeenCalledOnce();
   });
 
-  it('that fails leaves English, does not reject, and is tried again', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('that fails rejects, leaves English, and is tried again', async () => {
     const load = vi.fn()
       .mockRejectedValueOnce(new Error('offline'))
       .mockResolvedValueOnce({ default: { 'landing.probe': 'Español' } });
     const store = await storeWith(load);
     store.setLocale('es');
-    await expect(store.ensurePublicLocale('es')).resolves.toBeUndefined();
+    await expect(store.ensurePublicLocale('es')).rejects.toThrow('offline');
     expect(store.tPublic('landing.probe')).toBe('English');
-    expect(console.warn).toHaveBeenCalledOnce();
     await store.ensurePublicLocale('es');
     expect(store.tPublic('landing.probe')).toBe('Español');
     expect(load).toHaveBeenCalledTimes(2);
@@ -50,6 +48,14 @@ describe('a public language in its own chunk', () => {
     await store.ensureLocale('es');
     expect(load).toHaveBeenCalledOnce();
     expect(store.tAt('landing.probe', 'es')).toBe('Español');
+  });
+
+  it('that fails still lets the application start (ensureLocale) in English', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const store = await storeWith(vi.fn().mockRejectedValueOnce(new Error('offline')));
+    await expect(store.ensureLocale('es')).resolves.toBeUndefined();
+    expect(store.tAt('landing.probe', 'es')).toBe('English');
+    expect(console.warn).toHaveBeenCalledOnce();
   });
 
   it('resolves at once for a bundled or unknown language', async () => {
@@ -77,6 +83,22 @@ describe('a public language in its own chunk', () => {
       expect(store.publicI18n.locale).toBe('es');
       expect(store.tPublic('landing.probe')).toBe('Español');
       expect(moves).toEqual(['/tools']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('a language switch whose text fails to load keeps the language and the address', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const store = await storeWith(vi.fn().mockRejectedValueOnce(new Error('offline')));
+    const { switchPublicLocale } = await import('../../../components/landing/landing-utils');
+    const moves: string[] = [];
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { location: { pathname: '/en/tools/', search: '', hash: '' } }));
+    window.addEventListener('stabileo-navigate', (e: Event) => moves.push((e as CustomEvent<string>).detail));
+    try {
+      await expect(switchPublicLocale('es')).resolves.toBeUndefined();
+      expect(store.publicI18n.locale).toBe('en');
+      expect(moves).toEqual([]);
     } finally {
       vi.unstubAllGlobals();
     }
