@@ -600,3 +600,49 @@ fn plastic_3d_frame3d_2_is_a_lower_bound_of_its_certificate() {
     assert!(r.warnings.iter().any(|w| w.contains("no consistent set of active hinges") && w.contains("lower bound")), "{:?}", r.warnings);
     assert!(!r.warnings.iter().any(|w| w.contains("exceeds the yield surface")), "{:?}", r.warnings);
 }
+
+/// Nightly findings that were harness defects (docs/verification/CONTAINMENT.md): each model,
+/// replayed with its reported seed, holds the invariant it was reported to violate.
+#[test]
+fn nightly_harness_findings_hold() {
+    let cases: &[(u32, u64, &[(&str, &str)])] = &[
+        (971, 2026103104672, &[("P-Delta", "units")]),
+        (974, 20757, &[("linear", "relabel"), ("P-Delta", "relabel"), ("cable solver", "relabel"), ("Winkler (no foundation)", "relabel")]),
+        (992, 20758, &[("linear", "relabel"), ("linear (PCG)", "relabel"), ("linear (sparse path)", "relabel")]),
+        (1002, 20758, &[("linear", "relabel"), ("linear (PCG)", "relabel"), ("linear (sparse path)", "relabel"), ("cable solver", "relabel")]),
+        (1034, 20758, &[("harmonic", "superposition"), ("harmonic", "units"), ("harmonic", "rotation"), ("harmonic", "reversal")]),
+        (1014, 20758, &[("linear", "superposition")]),
+        (1022, 20758, &[("load combinations", "reversal")]),
+        (1037, 20758, &[("load combinations", "superposition")]),
+    ];
+    for &(issue, seed, cells) in cases {
+        let f = format!("{}/tests/metamorphic_corpus/nightly/issue-{issue}.json", env!("CARGO_MANIFEST_DIR"));
+        let text = std::fs::read_to_string(&f).unwrap();
+        let meta: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let dens: Option<std::collections::HashMap<String, f64>> = meta.get("_nightly_dens").map(|d| serde_json::from_value(d.clone()).unwrap());
+        let name = format!("issue-{issue}");
+        let t = crate::tally::Tally::default();
+        let wanted = |n: &str| cells.iter().any(|c| c.0 == n);
+        let invariants: Vec<&str> = cells.iter().map(|c| c.1).collect();
+        match crate::corpus::parse(&text).unwrap() {
+            crate::corpus::Model::D2(s) => {
+                let mut c = crate::case::Case2::new(name, s);
+                if let Some(d) = dens { c.dens = d; }
+                let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| wanted(a.name)).collect();
+                crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
+            }
+            crate::corpus::Model::D3(s) => {
+                let mut c = crate::case::Case3::new(name, s);
+                if let Some(d) = dens { c.dens = d; }
+                let anas: Vec<_> = crate::ana3::rows().into_iter().filter(|a| wanted(a.name)).collect();
+                crate::checks3::check_case(&crate::checks3::Ctx { tally: &t, rng_seed: seed }, &c, &anas, &invariants);
+            }
+        }
+        let cellmap = t.cells.lock().unwrap();
+        for &(a, i) in cells {
+            let cell = cellmap.get(&(a.to_string(), i.to_string())).unwrap_or_else(|| panic!("#{issue}: {a} × {i} not run"));
+            assert!(cell.fails.is_empty(), "#{issue}: {a} × {i}: {:?}", cell.fails);
+            assert!(cell.pass > 0, "#{issue}: {a} × {i} did not complete: {cell:?}");
+        }
+    }
+}

@@ -137,7 +137,25 @@ impl Resp {
     }
     /// Keep only items on the given nodes/elements (drop padding).
     pub fn retain_ids(&mut self, nodes: &std::collections::HashSet<usize>, elems: &std::collections::HashSet<usize>) {
-        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && i.elem.map_or(true, |e| elems.contains(&e)));
+        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && (matches!(i.kind, Kind::Stress) || i.elem.map_or(true, |e| elems.contains(&e))));
+    }
+
+    /// The engine reports quad, quad9, solid-shell and curved-shell stresses in one list keyed by
+    /// each family's own ids, which can coincide; tag each entry with its family.
+    pub fn tag_shell_families(mut self, s: &SolverInput3D) -> Resp {
+        use dedaliano_engine::ordered::values;
+        let families: Vec<(&str, usize)> = values(&s.quads).map(|q| ("vm_quad", q.id))
+            .chain(values(&s.quad9s).map(|q| ("vm_quad9", q.id)))
+            .chain(values(&s.solid_shells).map(|q| ("vm_solid_shell", q.id)))
+            .chain(values(&s.curved_shells).map(|q| ("vm_curved_shell", q.id)))
+            .collect();
+        let items: Vec<usize> = (0..self.0.len()).filter(|&k| self.0[k].tag == "vm_quad").collect();
+        if items.len() == families.len() && items.iter().zip(&families).all(|(&k, f)| self.0[k].elem == Some(f.1)) {
+            for (&k, f) in items.iter().zip(&families) {
+                self.0[k].tag = f.0.into();
+            }
+        }
+        self
     }
 
     pub fn iso2(&self, iso: &Iso2) -> Result<Resp, String> {
@@ -279,6 +297,9 @@ impl Resp {
             let table = match it.tag.as_str() {
                 "vm_plate" => Some(&rl.plate),
                 "vm_quad" => Some(&rl.quad),
+                "vm_quad9" => Some(&rl.quad9),
+                "vm_solid_shell" => Some(&rl.solid_shell),
+                "vm_curved_shell" => Some(&rl.curved_shell),
                 _ => None,
             };
             it.elem = it.elem.map(|e| match table {

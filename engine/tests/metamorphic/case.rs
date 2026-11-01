@@ -68,6 +68,17 @@ pub struct Case3 {
     pub path: Option<Vec<usize>>,
 }
 
+pub fn extent(points: impl Iterator<Item = [f64; 3]>) -> f64 {
+    let (mut lo, mut hi) = ([f64::INFINITY; 3], [f64::NEG_INFINITY; 3]);
+    for p in points {
+        for i in 0..3 {
+            lo[i] = lo[i].min(p[i]);
+            hi[i] = hi[i].max(p[i]);
+        }
+    }
+    (0..3).map(|i| hi[i] - lo[i]).filter(|x| x.is_finite()).fold(0.0, f64::max)
+}
+
 pub fn default_densities(mats: impl Iterator<Item = usize>) -> HashMap<String, f64> {
     mats.map(|id| (id.to_string(), 7850.0)).collect()
 }
