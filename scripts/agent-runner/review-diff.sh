@@ -22,15 +22,18 @@ AUTHOR=${AUTHOR_ENGINE:-claude}
 first=$(pick_engine review "$AUTHOR"); second=$(pick_engine review "$AUTHOR" "$first")
 [ "$first" != none ] || { log "review-diff #$pr: no review engine available"; exit 75; }
 log "review-diff #$pr $sha: author $AUTHOR, reviewers $first and ${second}"
-( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-codex.md"; sed -i "1i FIRST REVIEWER: $first" "$R/$pr-$sha-codex.md" ) &
+( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first" "$R/$pr-$sha-codex.md"; exit $rc ) & p1=$!
 if [ "$second" != none ]; then
-  ( "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-kimi.md"; sed -i "1i SECOND REVIEWER: $second" "$R/$pr-$sha-kimi.md" ) &
+  ( "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-kimi.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second" "$R/$pr-$sha-kimi.md"; exit $rc ) & p2=$!
 else
-  echo "SECOND REVIEWER: none available (only $first); review again when another engine is back" > "$R/$pr-$sha-kimi.md"
+  echo "SECOND REVIEWER: none available (only $first); review again when another engine is back" > "$R/$pr-$sha-kimi.md"; p2=
 fi
-wait
+wait "$p1"; rc1=$?; rc2=0; [ -n "$p2" ] && { wait "$p2"; rc2=$?; }
+[ "$rc1" = 0 ] && [ "$rc2" = 0 ] || { log "review-diff #$pr: reviewer exit codes $rc1/$rc2"; exit 1; }
 for f in "$R/$pr-$sha-codex.md" "$R/$pr-$sha-kimi.md"; do
-  [ "$(tail -n +2 "$f" 2>/dev/null | sed "s/^I'll read the request file and follow it exactly\.//" | grep -cv '^[[:space:]]*$')" -ge 1 ] || { case "$(head -1 "$f" 2>/dev/null)" in *"none available"*) ;; *) log "review-diff #$pr: empty review in $f"; exit 1;; esac; }
+  case "$(head -1 "$f" 2>/dev/null)" in *"none available"*) continue;; esac
+  tail -n +2 "$f" 2>/dev/null | grep -qiE 'blocker|should-fix|should fix|clean|nits?\b' || { log "review-diff #$pr: incomplete review in $f (no findings or verdict)"; exit 1; }
 done
+[ -n "$p2" ] || { log "review-diff #$pr: only one reviewer available"; exit 75; }
 log "review-diff #$pr $sha: codex $(wc -l < "$R/$pr-$sha-codex.md") lines, second $(wc -l < "$R/$pr-$sha-kimi.md") lines"
 echo "$R/$pr-$sha-codex.md $R/$pr-$sha-kimi.md"

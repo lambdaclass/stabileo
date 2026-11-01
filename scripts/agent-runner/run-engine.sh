@@ -8,8 +8,9 @@ case "$engine:$mode" in
   claude:write) cmd=(claude -p --permission-mode auto) ; input=stdin ;;
   codex:write)  cmd=(codex exec -s workspace-write --skip-git-repo-check -C "$dir" -) ; input=stdin ;;
   codex:review) cmd=(codex exec --skip-git-repo-check -C "$dir" -) ; input=stdin ;;
-  kimi:write)   cmd=(kimi --auto -p "$(head -c 125000 "$prompt")") ; input=none ;;
-  kimi:review)  cmd=(kimi -p "$(head -c 125000 "$prompt")") ; input=none ;;
+  kimi:write)   [ "$(wc -c < "$prompt")" -le 125000 ] || { echo "run-engine: prompt over kimi's 125000-byte argument limit" >&2; exit 2; }
+                cmd=(kimi --auto -p "$(cat "$prompt")") ; input=none ;;
+  kimi:review)  cmd=(kimi --plan -p "Read the file $prompt with your file tool: it is a complete request. Do exactly what it asks. Do not run shell commands or edit files; read only that file.") ; input=none ;;
   grok:write)   echo "run-engine: grok never writes code (review only)" >&2; exit 2 ;;
   grok:review)  cmd=(grok --permission-mode plan -p "Read the file $prompt with your file tool: it is a complete request. Do exactly what it asks. Do not run shell commands; read only that file.") ; input=none ;;
   *) echo "run-engine: no engine for $engine:$mode" >&2; exit 2 ;;
