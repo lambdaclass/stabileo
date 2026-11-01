@@ -71,6 +71,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Open in the editor",
   "scalarViewer.soon": " (soon)",
   "scalarViewer.editorNote": "Opening experiments in the editor comes with research mode",
+  "scalarViewer.keys": "Arrow keys pan, + and − zoom, 0 fits the model; in 3D, Shift with the left and right arrows orbits.",
   },
   es: {
   "tools.firstVersion": "Primera versión",
@@ -143,6 +144,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Abrir en el editor",
   "scalarViewer.soon": " (próximamente)",
   "scalarViewer.editorNote": "La apertura de experimentos en el editor llega con el modo investigación",
+  "scalarViewer.keys": "Las flechas desplazan la vista, + y − hacen zoom, 0 encuadra el modelo; en 3D, Mayús con las flechas izquierda y derecha gira la vista.",
   },
   pt: {
   "tools.firstVersion": "Primeira versão",
@@ -215,6 +217,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   "scalarViewer.openEditor": "Abrir no editor",
   "scalarViewer.soon": " (em breve)",
   "scalarViewer.editorNote": "A abertura de experimentos no editor chega com o modo pesquisa",
+  "scalarViewer.keys": "As setas deslocam a vista, + e − fazem zoom, 0 enquadra o modelo; em 3D, Shift com as setas esquerda e direita gira a vista.",
   },
   de: {
   "tools.firstVersion": "Erste Version",
@@ -287,6 +290,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Im Editor öffnen',
   'scalarViewer.soon': ' (bald)',
   'scalarViewer.editorNote': 'Das Öffnen von Experimenten im Editor kommt mit dem Forschungsmodus',
+  'scalarViewer.keys': 'Pfeiltasten verschieben die Ansicht, + und − zoomen, 0 zeigt das ganze Modell; in 3D dreht Umschalt mit Pfeil links und rechts die Ansicht.',
   },
   fr: {
   "tools.firstVersion": "Première version",
@@ -359,6 +363,7 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Ouvrir dans l’éditeur',
   'scalarViewer.soon': ' (bientôt)',
   'scalarViewer.editorNote': 'L’ouverture des expériences dans l’éditeur arrive avec le mode recherche',
+  'scalarViewer.keys': 'Les flèches déplacent la vue, + et − zooment, 0 recadre le modèle ; en 3D, Maj avec les flèches gauche et droite fait pivoter la vue.',
   },
   tr: {
   "tools.firstVersion": "İlk sürüm",
@@ -431,5 +436,6 @@ export const toolTranslations: Record<string, Record<string, string>> = {
   'scalarViewer.openEditor': 'Düzenleyicide aç',
   'scalarViewer.soon': ' (yakında)',
   'scalarViewer.editorNote': 'Deneyleri düzenleyicide açma, araştırma moduyla gelecek',
+  'scalarViewer.keys': 'Ok tuşları görünümü kaydırır, + ve − yakınlaştırır, 0 modeli sığdırır; 3B’de Shift ile sol ve sağ oklar görünümü döndürür.',
   },
 };

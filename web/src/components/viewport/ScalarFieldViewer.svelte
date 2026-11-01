@@ -29,6 +29,7 @@
   import type { ColourMap } from '../../lib/three/colour-maps';
   import Icon from '../ribbon/Icon.svelte';
   import ContourLegend from './ContourLegend.svelte';
+  import { formatContourLabel } from './contour-label';
 
   type Props = {
     /** Node coordinates [x0, y0, x1, y1, ...]. */
@@ -353,7 +354,7 @@
     <span id={keysId} class="sfv-keys">{t('scalarViewer.keys')}</span>
     <canvas bind:this={gizmo} class="axis-gizmo" width="80" height="80" aria-hidden="true"></canvas>
     {#if displayMode === 'field' && values && !geometryOnly}
-      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} />
+      <ContourLegend {title} {unit} min={range.min} max={range.max} {bands} footer={legendFooter} {colourMap} ariaLabel={`${title}${unit ? ` [${unit}]` : ''}: ${formatContourLabel(range.min, range.min, range.max, bands)} – ${formatContourLabel(range.max, range.min, range.max, bands)}`} />
     {/if}
     <span class="sfv-mark">{t('scalarViewer.viewer')}</span>
   </div>

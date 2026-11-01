@@ -12,7 +12,7 @@
     max,
     bands = 0,
     footer = '',
-    ariaLabel,
+    ariaLabel = title,
     colourMap = 'shell',
   }: { title: string; unit: string; min: number; max: number; bands?: number; footer?: string; ariaLabel?: string; colourMap?: ColourMap } = $props();
   const shellContourColor = (v: number, lo: number, hi: number) => colourFor(colourMap, v, lo, hi);
@@ -40,10 +40,9 @@
 
   const fmt = (value: number) => formatContourLabel(value, min, max, bands);
   const mid = $derived((min + max) / 2);
-  const label = $derived(ariaLabel ?? `${title}${unit ? ` [${unit}]` : ''}: ${fmt(min)} – ${fmt(max)}`);
 </script>
 
-<div class="shell-legend" role="img" aria-label={label}>
+<div class="shell-legend" role="img" aria-label={ariaLabel}>
   <div class="legend-title">{title}{#if unit} <span class="legend-unit-inline">[{unit}]</span>{/if}</div>
   <div class="legend-body">
     <div class="legend-bar" style="background:{gradient}"></div>
@@ -70,7 +69,7 @@
     border-radius: 6px;
     padding: 8px 10px;
     color: #e6e9f0;
-    font-size: 11px;
+    font-size: 12px;
     pointer-events: none;
     z-index: 20;
     user-select: none;
@@ -90,5 +89,5 @@
     font-variant-numeric: tabular-nums;
   }
   .legend-unit { margin-top: 5px; text-align: center; opacity: 0.7; }
-  .legend-unit-inline { font-weight: 400; opacity: 0.6; font-size: 10px; }
+  .legend-unit-inline { font-weight: 400; opacity: 0.6; font-size: 12px; }
 </style>
