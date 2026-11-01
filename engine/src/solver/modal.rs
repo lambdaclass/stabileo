@@ -184,6 +184,14 @@ pub fn solve_modal_2d(
         Some(k) => k.diagonal(),
         None => (0..ns).map(|i| k_check_dense[i*ns+i]).collect(),
     });
+    checks.stiffness = match &k_check_sparse {
+        Some(k) => super::self_checks::ProductBound::sparse(k, &checks.scales),
+        None => super::self_checks::ProductBound::dense(&k_check_dense, ns, &checks.scales),
+    };
+    checks.mass = match &m_csc_opt {
+        Some(m) => super::self_checks::ProductBound::sparse(m, &checks.scales),
+        None => super::self_checks::ProductBound::dense(&m_solve, ns, &checks.scales),
+    };
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -422,6 +430,8 @@ pub fn solve_modal_3d(
 
     let mut checks = super::self_checks::ModalChecks::default();
     checks.scales = super::self_checks::energy_scale(&k_solve.diagonal());
+    checks.stiffness = super::self_checks::ProductBound::sparse(k_solve, &checks.scales);
+    checks.mass = super::self_checks::ProductBound::sparse(m_solve, &checks.scales);
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;

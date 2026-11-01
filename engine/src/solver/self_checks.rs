@@ -27,9 +27,14 @@ pub(super) fn residual_from_difference(r: &[f64], f: &[f64]) -> Result<Structure
 
 /// Diagonal energy scaling: force / sqrt(stiffness) has units sqrt(energy),
 /// including moment/rotation, bimoment/warping and MPC generalized equations.
-/// It is invariant to a change of units for any generalized coordinate.
+/// It is invariant to a change of units for any generalized coordinate with
+/// diagonal stiffness. A coordinate without one (an indefinite coupling) takes
+/// the smallest positive scale, so its equation still counts at full weight.
 pub(super) fn energy_scale(diagonal: &[f64]) -> Vec<f64> {
-    diagonal.iter().map(|d| d.abs().sqrt()).collect()
+    let scales: Vec<f64> = diagonal.iter().map(|d| d.abs().sqrt()).collect();
+    let fallback = scales.iter().copied().filter(|s| *s > 0.0 && s.is_finite()).fold(f64::INFINITY, f64::min);
+    let fallback = if fallback.is_finite() { fallback } else { 1.0 };
+    scales.into_iter().map(|s| if s == 0.0 { fallback } else { s }).collect()
 }
 
 pub(super) fn residual_energy(r: &[f64], f: &[f64], diagonal: &[f64]) -> Result<StructuredDiagnostic, String> {
@@ -102,11 +107,55 @@ pub(super) fn static_3d(r: &mut AnalysisResults3D, constraint_resultant: &[f64])
     Ok(())
 }
 
+/// Infinity norm of |D⁻¹ A D⁻¹| with D the energy scales, and the most nonzeros in a row:
+/// the two inputs of the rounding bound on evaluating `A x` (Higham, Thm 3.5).
+#[derive(Default, Clone, Copy)]
+pub(super) struct ProductBound {
+    pub norm: f64,
+    pub row_nonzeros: usize,
+}
+
+impl ProductBound {
+    pub fn sparse(a: &crate::linalg::CscMatrix, scales: &[f64]) -> Self {
+        let mut sums = vec![0.0; a.n];
+        let mut counts = vec![0usize; a.n];
+        for j in 0..a.n { for p in a.col_ptr[j]..a.col_ptr[j+1] {
+            let i = a.row_idx[p];
+            let v = scaled_entry(a.values[p], scales, i, j);
+            sums[i] += v; counts[i] += 1;
+            if i != j { sums[j] += v; counts[j] += 1; }
+        }}
+        Self { norm: sums.into_iter().fold(0.0, f64::max), row_nonzeros: counts.into_iter().max().unwrap_or(0) }
+    }
+
+    pub fn dense(a: &[f64], n: usize, scales: &[f64]) -> Self {
+        let mut bound = Self::default();
+        for i in 0..n {
+            let row = &a[i*n..(i+1)*n];
+            bound.norm = bound.norm.max(row.iter().enumerate().map(|(j, v)| scaled_entry(*v, scales, i, j)).sum());
+            bound.row_nonzeros = bound.row_nonzeros.max(row.iter().filter(|v| **v != 0.0).count());
+        }
+        bound
+    }
+
+    fn gamma(self) -> f64 {
+        let nu = (self.row_nonzeros + 1) as f64 * f64::EPSILON;
+        if nu < 1.0 { nu / (1.0 - nu) } else { f64::INFINITY }
+    }
+}
+
+fn scaled_entry(v: f64, scales: &[f64], i: usize, j: usize) -> f64 {
+    let (si, sj) = (scales.get(i).copied().unwrap_or(1.0), scales.get(j).copied().unwrap_or(1.0));
+    if v == 0.0 { 0.0 } else { v.abs() / (si * sj) }
+}
+
 #[derive(Default)]
 pub(super) struct ModalChecks {
     normalized: Vec<Vec<f64>>,
     pub diagnostics: Vec<StructuredDiagnostic>,
     pub scales: Vec<f64>,
+    pub stiffness: ProductBound,
+    pub mass: ProductBound,
 }
 
 impl ModalChecks {
@@ -130,7 +179,10 @@ impl ModalChecks {
         let k: Vec<_> = k_phi.iter().map(|v| v/scale).collect();
         let lm: Vec<_> = lm.iter().map(|v| v/scale).collect();
         let residual: Vec<_> = k.iter().zip(&lm).map(|(k,m)| k-m).collect();
-        let relative = norm(&residual) / (norm(&k) + norm(&lm)).max(f64::MIN_POSITIVE);
+        let phi_scaled = norm(&phi.iter().enumerate().map(|(i, p)| p * self.scales.get(i).copied().unwrap_or(1.0)).collect::<Vec<_>>());
+        let rounding = (self.stiffness.gamma() * self.stiffness.norm + lambda.abs() * self.mass.gamma() * self.mass.norm) * phi_scaled / scale;
+        if !rounding.is_finite() { return Err("REFUSE: self-check modal_residual: non-finite rounding bound".into()); }
+        let relative = (norm(&residual) - rounding).max(0.0) / (norm(&k) + norm(&lm)).max(f64::MIN_POSITIVE);
         self.diagnostics.push(diagnostic(&format!("modal_residual:{}", self.normalized.len()+1), relative, WARN, REFUSE)?);
         let phi: Vec<_> = phi.iter().map(|p| p/mass.sqrt()).collect();
         let m_phi: Vec<_> = m_phi.iter().map(|p| p/mass.sqrt()).collect();
@@ -153,6 +205,10 @@ impl ModalChecks {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    impl ModalChecks {
+        fn diagonals_severity(&self) -> Vec<Severity> { self.diagnostics.iter().map(|d| d.severity).collect() }
+    }
 
     #[test]
     fn self_checks_zero_and_tiny_rhs() {
@@ -190,6 +246,44 @@ mod tests {
         assert!(c.check(&[1.0,0.1], 2.0, &[2.0,0.3], &[1.0,0.1]).unwrap_err().contains("modal_residual"));
         assert!(c.check(&[1.0,0.0], 2.0, &[2.0,0.0], &[1.0,0.0]).unwrap_err().contains("modal_orthogonality"));
         c.check(&[0.0,2.0], 3.0, &[0.0,6.0], &[0.0,2.0]).unwrap();
+    }
+
+    #[test]
+    fn self_checks_rigid_mode_at_rounding_level_passes_and_corruption_refuses() {
+        let k = crate::linalg::CscMatrix::from_triplets(2, &[0, 1, 1], &[0, 0, 1], &[1.0, -1.0, 1.0]);
+        let m = crate::linalg::CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1e-4, 1e-4]);
+        let checks = |k_phi: [f64; 2]| {
+            let mut c = ModalChecks { scales: energy_scale(&k.diagonal()), ..Default::default() };
+            c.stiffness = ProductBound::sparse(&k, &c.scales);
+            c.mass = ProductBound::sparse(&m, &c.scales);
+            let phi = [5e3, 5e3];
+            c.check(&phi, 1e-12, &k_phi, &m.sym_mat_vec(&phi)).map(|_| c.diagonals_severity())
+        };
+        assert_eq!(checks([3e-13, -3e-13]).unwrap(), vec![Severity::Info, Severity::Info]);
+        let mut unbounded = ModalChecks { scales: energy_scale(&k.diagonal()), ..Default::default() };
+        assert!(unbounded.check(&[5e3, 5e3], 1e-12, &[3e-13, -3e-13], &m.sym_mat_vec(&[5e3, 5e3])).is_err());
+        assert!(checks([1e-6, -1e-6]).unwrap_err().contains("modal_residual"));
+    }
+
+    #[test]
+    fn self_checks_bounded_rounding_keeps_ordinary_mode_sensitivity() {
+        let k = crate::linalg::CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[2.0, 3.0]);
+        let m = crate::linalg::CscMatrix::from_triplets(2, &[0, 1], &[0, 1], &[1.0, 1.0]);
+        let mut c = ModalChecks { scales: energy_scale(&k.diagonal()), ..Default::default() };
+        c.stiffness = ProductBound::sparse(&k, &c.scales);
+        c.mass = ProductBound::sparse(&m, &c.scales);
+        c.check(&[1.0, 0.0], 2.0, &[2.0*(1.0+1e-5), 0.0], &[1.0, 0.0]).unwrap();
+        assert_eq!(c.diagnostics[0].severity, Severity::Warning);
+        assert!(c.check(&[0.0, 1.0], 3.0, &[0.0, 3.0*1.01], &[0.0, 1.0]).unwrap_err().contains("modal_residual"));
+    }
+
+    #[test]
+    fn self_checks_zero_diagonal_coordinate_is_measured_not_refused() {
+        let diagonal = [4.0, 0.0, 9.0];
+        residual_energy(&[0.0, 0.0, 0.0], &[1.0, 10.0, 3.0], &diagonal).unwrap();
+        assert_eq!(residual_energy(&[0.0, 1e-4, 0.0], &[1.0, 10.0, 3.0], &diagonal).unwrap().severity, Severity::Warning);
+        assert!(residual_energy(&[0.0, 1.0, 0.0], &[1.0, 10.0, 3.0], &diagonal).unwrap_err().contains("static_residual"));
+        assert_eq!(energy_scale(&[0.0, 0.0]), vec![1.0, 1.0]);
     }
 
     #[test]

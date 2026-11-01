@@ -81,6 +81,19 @@ prevents a change between force and moment units from hiding rotational errors.
   not replacements for that convergence tolerance. The four-order margin
   accommodates inverse transformation and cancellation in conditioned systems;
   forward eigenvalue accuracy still requires the existing certificate.
+  Before the ratio is taken, the residual norm is reduced by the floating-point
+  error bound of its own evaluation, `gamma_(m+1) (|| |D^-1 K D^-1| ||inf + |lambda| || |D^-1 M D^-1| ||inf) ||D phi||2`
+  with `m` the most nonzeros in a row (Higham, Accuracy and Stability, Thm 3.5).
+  A residual inside that bound is indistinguishable from zero. Without it a
+  zero-energy mode (the in-plane rigid rotation of the 8x8 plate in
+  `sparse_modal_parity`, `lambda = 4.3e-9`, residual `1.75e-12` against
+  `||D phi|| = 5.5e3`, a backward error of about `3e-16`) divides rounding by
+  rounding and was refused at `0.62`. For a mode with resolvable stiffness the
+  bound is rounding-sized next to `||D^-1 K phi||`, so sensitivity is unchanged.
+* A coordinate with no diagonal stiffness (an indefinite coupling, as in the
+  shifted-stiffness gadget) has no energy scale; it takes the smallest positive
+  scale of the system, so its equation is measured at the largest weight
+  instead of refused as non-finite.
 * Mass orthogonality: normalize copies by `sqrt(phi^T M phi)` because published
   modes have maximum component 1, then check each entry of `Phi^T M Phi - I`.
   Warning `1e-6`, refusal `1e-3`; zero/non-finite modal mass refuses. No
@@ -139,6 +152,9 @@ finite solution.
   prescribed-displacement right-hand side. The deliberately
   indefinite shifted-stiffness fixture correctly emits a balance warning
   (~`3.225e-6`); the test asserts it rather than weakening the `1e-6` threshold.
+  Its static residual after refinement sits at the solver's own `1e-6` stop and
+  lands on either side of the warning threshold by platform (`2.9e-6` on CI), so
+  a regularized solve may warn on either check, never refuse.
 * Web: 62 focused banner, registry/version and fixture-provenance tests passed;
   the static/modal-only snapshot test runs 30 Basic/PRO corpus cases, excluding
   design, P-delta, spectral and buckling work. The pre-existing mechanism case

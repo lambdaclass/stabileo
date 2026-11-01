@@ -921,7 +921,9 @@ fn fill_ratio_regression() {
 /// Gate 5d: Sparse modal eigenvalues match dense Lanczos eigenvalues.
 #[test]
 fn sparse_modal_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let num_modes = 5;
 
     // Both paths need densities
@@ -2396,6 +2398,24 @@ fn assert_modal_mass_parity(input: &SolverInput3D, densities: &HashMap<String, f
 
 /// Gate: fully-sparse modal solve (sparse M + sparse eigensolve + sym_mat_vec
 /// post-processing) matches dense-computed frequencies and modal masses on an
+/// The 8×8 plate with one pinned corner keeps an in-plane rigid rotation. Its
+/// modal solve must either be refused by the self-check or pass every residual.
+#[test]
+fn sparse_modal_on_a_mechanism_is_refused_or_verified() {
+    let input = make_ss_plate(8, 8);
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    match modal::solve_modal_3d(&input, &densities, 5) {
+        Err(e) => assert!(e.starts_with("REFUSE: self-check modal_residual:"), "{e}"),
+        Ok(r) => {
+            let residuals: Vec<_> = r.structured_diagnostics.iter()
+                .filter(|d| d.phase.as_deref().unwrap_or("").starts_with("self_check:modal_residual")).collect();
+            assert_eq!(residuals.len(), r.modes.len());
+            for d in residuals { assert!(d.value.unwrap() < 1e-6, "{}", d.message); }
+        }
+    }
+}
+
 /// 8×8 MITC4 plate.
 #[test]
 fn sparse_modal_mass_parity() {
