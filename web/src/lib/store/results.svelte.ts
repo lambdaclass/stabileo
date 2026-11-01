@@ -183,6 +183,8 @@ function createResultsStore() {
   let stressShowMembers = $state<boolean>(true);
   let stressShowShells = $state<boolean>(true);
   let showDiagramValues = $state<boolean>(true);
+  /** The displacements written on the deformed shape: asked for, not shown by default. */
+  let showDeformedValues = $state<boolean>(false);
   // 2D diagram side convention. OFF (default): positive N/V/M drawn on the
   // "structural" side (sagging/tension — down for horizontal, right for vertical).
   // ON: positive values drawn toward the member's local positive axis (local +z).
@@ -505,6 +507,8 @@ function createResultsStore() {
     set shellContourComponent(v: import('../engine/shell-stress').ShellContourComponent) { shellContourComponent = v; },
     get showDiagramValues() { return showDiagramValues; },
     set showDiagramValues(v: boolean) { showDiagramValues = v; },
+    get showDeformedValues() { return showDeformedValues; },
+    set showDeformedValues(v: boolean) { showDeformedValues = v; },
     get drawPositiveTowardLocalAxes() { return drawPositiveTowardLocalAxes; },
     set drawPositiveTowardLocalAxes(v: boolean) { drawPositiveTowardLocalAxes = v; },
     get animSpeed() { return animSpeed; },

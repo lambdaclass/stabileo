@@ -588,10 +588,7 @@ const ja: Translations = {
 
   // ─── Extra tooltips (ToolbarProject, ToolbarConfig) ───
   'project.exportExcelTooltip': '全シート（モデル+結果）のExcelレポートをエクスポート',
-  'project.exportPdfTooltip': '印刷可能なPDFレポートを生成',
   'project.exportDxfTooltip': '図付きAutoCAD DXFにエクスポート',
-  'project.exportSvgTooltip': 'SVGベクター画像をエクスポート',
-  'project.exportPngTooltip': 'PNGスクリーンショットをエクスポート',
   'project.exportCsvTooltip': '結果テーブルをCSVでエクスポート',
   'project.openDedTooltip': 'プロジェクトファイル（.ded / .json）を開く',
   'project.openDxfTooltip': 'AutoCAD DXFファイルからジオメトリをインポート',
@@ -2765,7 +2762,6 @@ const ja: Translations = {
   'pro.noSlabs': 'モデルに応力結果を持つスラブ（クワッド）がありません。',
   'pro.driftTitle': '層間変位 — CIRSOC 103 §5.2.8',
   'pro.driftLimit': '許容限界',
-  'pro.solveFirst': '先に構造を解いてください',
   'pro.noVerifiableElems': '検定可能な部材が見つかりません。材料のf\'c ≤ 80 MPa（コンクリート）またはfy > 80 MPa（鋼材）と断面特性が定義されていることを確認してください。',
   'pro.verifyPrompt': '「部材を検定」を押してCIRSOC 201 / 301検定を実行',
   'pro.wasmNotice': 'WASMの再コンパイルが必要 — ネイティブエンジンでコンパイルすると{code}検定が有効になります。',
@@ -2924,7 +2920,6 @@ const ja: Translations = {
   'report.printBtn': '印刷 / PDF',
   'report.docTitle': '{name} — 計算書レポート',
   'report.coverSubtitle': '構造計算書',
-  'report.coverCode': 'CIRSOC 201に基づく検定',
   'report.coverFooter': 'Stabileo — 構造解析',
   'report.modelData': '1. モデルデータ',
   'report.view3d': '3Dビュー',

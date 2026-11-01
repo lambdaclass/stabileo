@@ -50,7 +50,7 @@ function elementCount(page: Page): Promise<number> {
 test.beforeEach(async ({ page }) => {
   await page.goto(PRO_URL);
   await expect
-    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+    .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
     .toBe(true);
 });
 
@@ -111,7 +111,7 @@ test.describe('the three generators', () => {
     for (const kind of ['truss', 'column', 'shed'] as const) {
       await page.goto(PRO_URL);
       await expect
-        .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 })
+        .poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 })
         .toBe(true);
       await openGenerators(page);
       await pickKind(page, kind);

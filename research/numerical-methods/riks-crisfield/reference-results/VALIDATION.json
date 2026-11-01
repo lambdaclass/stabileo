@@ -1,0 +1,102 @@
+{
+  "allPassed": false,
+  "caseFile": "arc_length_snap_through.json",
+  "caseSummaries": [
+    {
+      "caseId": "shallow-toggle",
+      "limitDisplacementRelativeError": 0.9415067903832465,
+      "limitLoadRelativeError": 0.4921084021075685,
+      "limitPointReached": false,
+      "maxEquilibriumPathError": 0.38423148816825986,
+      "maxEquilibriumPathErrorStep": 100,
+      "measuredLimitDisplacement": 0.0024736193991736002,
+      "measuredLimitLoad": 48.749999866981085,
+      "referenceLimitDisplacement": 0.04228900098628047,
+      "referenceLimitLoad": 95.98504891452458,
+      "steps": 100
+    },
+    {
+      "caseId": "von-mises-truss",
+      "limitDisplacementRelativeError": 0.039186128623547985,
+      "limitLoadRelativeError": 0.0014511216767316333,
+      "limitPointReached": true,
+      "maxEquilibriumPathError": 0.00002287450119172802,
+      "maxEquilibriumPathErrorStep": 700,
+      "measuredLimitDisplacement": 0.88073575276165,
+      "measuredLimitLoad": 15649.999940493539,
+      "referenceLimitDisplacement": 0.9166559507513323,
+      "referenceLimitLoad": 15672.742997591187,
+      "steps": 700
+    }
+  ],
+  "checks": [
+    {
+      "caseId": "shallow-toggle",
+      "measured": 48.749999866981085,
+      "metric": "relative difference",
+      "name": "upper limit load",
+      "observed": 0.4921084021075685,
+      "passed": false,
+      "reference": 95.98504891452458,
+      "step": 100,
+      "tolerance": 0.05
+    },
+    {
+      "caseId": "shallow-toggle",
+      "metric": "max absolute load residual / reference upper limit load",
+      "name": "equilibrium path at every recorded step",
+      "observed": 0.38423148816825986,
+      "passed": false,
+      "step": 100,
+      "tolerance": 0.05
+    },
+    {
+      "caseId": "shallow-toggle",
+      "metric": "exact path-prefix equality",
+      "name": "all displacement frames come from independent maxSteps=k reruns",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "caseId": "von-mises-truss",
+      "measured": 15649.999940493539,
+      "metric": "relative difference",
+      "name": "upper limit load",
+      "observed": 0.0014511216767316333,
+      "passed": true,
+      "reference": 15672.742997591187,
+      "step": 626,
+      "tolerance": 0.05
+    },
+    {
+      "caseId": "von-mises-truss",
+      "metric": "max absolute load residual / reference upper limit load",
+      "name": "equilibrium path at every recorded step",
+      "observed": 0.00002287450119172802,
+      "passed": true,
+      "step": 700,
+      "tolerance": 0.05
+    },
+    {
+      "caseId": "von-mises-truss",
+      "metric": "exact path-prefix equality",
+      "name": "all displacement frames come from independent maxSteps=k reruns",
+      "observed": 0.0,
+      "passed": true,
+      "tolerance": 0.0
+    },
+    {
+      "caseId": "von-mises-truss",
+      "measured": 0.88073575276165,
+      "metric": "relative difference",
+      "name": "apex displacement at the measured upper limit load",
+      "observed": 0.039186128623547985,
+      "passed": true,
+      "reference": 0.9166559507513323,
+      "step": 626,
+      "tolerance": 0.05
+    }
+  ],
+  "schemaVersion": 1
+}

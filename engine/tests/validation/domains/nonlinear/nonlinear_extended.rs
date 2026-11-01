@@ -297,10 +297,19 @@ fn validation_nonlin_ext_3_shallow_arch_buckling() {
 
 #[test]
 fn validation_nonlin_ext_4_two_bar_truss_instability() {
-    let half_span: f64 = 3.0;
-    let rise: f64 = 2.0;
-    let a: f64 = 1e-3;
-    let iz: f64 = 1e-8; // very small, truss-like
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json"
+    ))
+    .unwrap();
+    let case = data["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["id"] == "von-mises-truss")
+        .unwrap();
+    let half_span = case["geometry"]["halfSpan"].as_f64().unwrap();
+    let rise = case["geometry"]["rise"].as_f64().unwrap();
+    let a = case["input"]["solver"]["sections"]["1"]["a"].as_f64().unwrap();
 
     let l_bar: f64 = (half_span * half_span + rise * rise).sqrt();
 
@@ -318,26 +327,12 @@ fn validation_nonlin_ext_4_two_bar_truss_instability() {
         }
     }
 
-    let nodes = vec![
-        (1, 0.0, 0.0),
-        (2, half_span, rise),
-        (3, 2.0 * half_span, 0.0),
-    ];
-    let elems = vec![
-        (1, "frame", 1, 2, 1, 1, false, false),
-        (2, "frame", 2, 3, 1, 1, false, false),
-    ];
-    let sups = vec![(1, 1, "pinned"), (2, 3, "pinned")];
-
     // Test at 30% of critical load
     let p_test = 0.30 * p_cr;
-    let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
+    let mut input: SolverInput = serde_json::from_value(case["input"]["solver"].clone()).unwrap();
+    input.loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: 2, fx: 0.0, fz: -p_test, my: 0.0,
     })];
-    let input = make_input(
-        nodes.clone(), vec![(1, E, 0.3)], vec![(1, a, iz)],
-        elems.clone(), sups.clone(), loads,
-    );
 
     let result = corotational::solve_corotational_2d(&input, 50, 1e-6, 15, false).unwrap();
     assert!(result.converged, "Two-bar truss at 30% P_cr should converge");

@@ -32,7 +32,7 @@ describe("what's-new notice", () => {
   });
 
   it('links notes that exist in the repository, in each offered language', () => {
-    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['fr', '']] as const) {
+    for (const [locale, file] of [['en', ''], ['es', '.es'], ['pt', '.pt'], ['de', '.de'], ['fr', '.fr'], ['tr', '.tr'], ['it', '']] as const) {
       const url = releaseNotesUrl(locale);
       expect(url).toBe(`https://github.com/lambdaclass/stabileo/blob/main/docs/releases/v${RESULTS_CHANGED_IN}${file}.md`);
       expect(existsSync(resolve(repo, `docs/releases/v${RESULTS_CHANGED_IN}${file}.md`))).toBe(true);

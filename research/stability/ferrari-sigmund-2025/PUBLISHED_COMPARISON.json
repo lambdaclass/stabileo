@@ -1,0 +1,23 @@
+{
+  "scope": "Only lambda_1 is compared. alpha and beta are not reproduced.",
+  "checks": [
+    {
+      "name": "Production LBA versus published numerical lambda",
+      "category": "paper",
+      "source": "https://doi.org/10.1002/nme.70082; Section 2.1.2, printed page 5",
+      "metric": "absolute load factor error",
+      "observed": 5.567683429363868e-05,
+      "tolerance": 0.0001,
+      "passed": true
+    },
+    {
+      "name": "Production LBA versus reported closed-form lambda",
+      "category": "paper",
+      "source": "https://doi.org/10.1002/nme.70082; Section 2.1.2, printed page 4",
+      "metric": "relative load factor error",
+      "observed": 0.0005364711472699385,
+      "tolerance": 0.001,
+      "passed": true
+    }
+  ]
+}

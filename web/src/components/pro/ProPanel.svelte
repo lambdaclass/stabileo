@@ -58,6 +58,7 @@
   import AiDrawer from '../AiDrawer.svelte';
   import type { ReportConfig, ReportData } from '../../lib/engine/pro-report';
   import { exportReportAs, type ReportFigureChoices } from '../../lib/pro/report-export';
+  import { tellIfEmpty } from '../../lib/export/empty-model';
   import { runGlobalSolve } from '../../lib/engine/live-calc';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
   import ProReportDialog from './ProReportDialog.svelte';
@@ -109,7 +110,7 @@
   export function report() { handleOpenReportDialog(); }
   export function isSolving() { return solving; }
   export function canSolve() { return hasModel && !solving; }
-  export function canReport() { return modelStore.nodes.size > 0; }
+  export function canReport() { return !solving; }
   /**
    * The model's error count, for the ribbon's stage badge.
    *
@@ -163,13 +164,11 @@
   }
 
   async function handleOpenReportDialog() {
-    // Auto-solve if no results yet
-    if (!resultsStore.results3D) {
-      if (modelStore.nodes.size === 0) { uiStore.toast(t('pro.solveFirst'), 'error'); return; }
+    // Auto-solve if no results yet; an empty model's report still opens, and comes out empty.
+    if (!resultsStore.results3D && modelStore.nodes.size > 0) {
       await runGlobalSolve();
+      if (!resultsStore.results3D) return;
     }
-    if (!resultsStore.results3D) return;
-
 
     showReportDialog = true;
   }
@@ -178,6 +177,7 @@
      layout shell, and the 600-line ceiling on it is what said so. */
   function exportReport(config: ReportConfig, figureOptions: ReportFigureChoices, format?: ReportFormat) {
     showReportDialog = false;
+    tellIfEmpty();
     void exportReportAs({
       config,
       advancedResults: advancedResultsRef,

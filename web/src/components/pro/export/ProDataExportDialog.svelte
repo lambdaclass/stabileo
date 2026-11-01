@@ -19,6 +19,7 @@
   import { downloadProjectCsv, downloadProjectWorkbook } from '../../../lib/store/project-workbook';
   import type { StationSpec } from '../../../lib/engine/station-forces';
   import { ensureProResults, hasShells } from '../../../lib/pro/export-results';
+  import { modelIsEmpty, tellIfEmpty } from '../../../lib/export/empty-model';
   import CheckGroup from './CheckGroup.svelte';
   import OutdatedNotice from '../design/OutdatedNotice.svelte';
 
@@ -113,7 +114,7 @@
       let results = wantsResults;
       if (results && !(await ensureProResults())) {
         results = false;
-        uiStore.toast(t('proExport.dataNoResults'), 'info');
+        if (!modelIsEmpty()) uiStore.toast(t('proExport.dataNoResults'), 'info');
       }
       // Design's sheets only where design is on in PRO's settings (`uiStore.designInPro`).
       const sheets = new Set([...modelShown, ...(results ? resultsShown : [])].filter(on).filter((n) => uiStore.designInPro || !DESIGN_SHEETS.includes(n)));
@@ -126,6 +127,7 @@
       };
       if (format === 'xlsx') await downloadProjectWorkbook(stations, opts);
       else await downloadProjectCsv(stations, opts);
+      tellIfEmpty();
       open = false;
     } finally {
       busy = false;
@@ -133,7 +135,14 @@
   }
 </script>
 
-<ExportDialog bind:open width={640} title={format === 'xlsx' ? t('proExport.dataTitleXlsx') : t('proExport.dataTitleCsv')} testid="pro-data-export-dialog">
+<ExportDialog bind:open width={640} title={t('proExport.resultsTitle')} testid="pro-data-export-dialog">
+  <ExportSection title={t('proExport.format')} summary={formatSummary} open testid="pro-data-export-format">
+    <div class="xs-seg">
+      <button type="button" class:on={format === 'xlsx'} onclick={() => (format = 'xlsx')} data-testid="pro-data-format-xlsx">Excel</button>
+      <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
+    </div>
+    <p class="xs-note">{format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')}</p>
+  </ExportSection>
   <ExportSection title={t('viewExport.sectionContent')} summary={contentSummary} open testid="pro-data-export-content">
     <div class="dx-bar">
       <p class="xs-note">{t('proExport.dataAlways')}</p>
@@ -186,13 +195,6 @@
     </ExportSection>
   {/if}
 
-  <ExportSection title={t('proExport.format')} summary={formatSummary}>
-    <div class="xs-seg">
-      <button type="button" class:on={format === 'xlsx'} onclick={() => (format = 'xlsx')} data-testid="pro-data-format-xlsx">Excel</button>
-      <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
-    </div>
-    <p class="xs-note">{format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')}</p>
-  </ExportSection>
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>

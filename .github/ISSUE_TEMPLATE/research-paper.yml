@@ -1,0 +1,26 @@
+name: Suggest a paper for Stabileo Research
+description: A computational-mechanics paper you would like to see reproduced and runnable on stabileo.com/research
+labels: [research-paper]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We reproduce papers that are easy to implement on Stabileo's engine, have open reference code
+        or clear published numbers, and make a striking interactive demo (see research/DESIGN.md §6).
+  - type: input
+    id: doi
+    attributes:
+      label: DOI
+      placeholder: 10.xxxx/...
+    validations:
+      required: true
+  - type: input
+    id: code
+    attributes:
+      label: Reference code (URL and licence, if any)
+  - type: textarea
+    id: why
+    attributes:
+      label: What would a visitor run and see?
+    validations:
+      required: true

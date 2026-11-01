@@ -320,6 +320,25 @@ Key test patterns:
   floor design, detailing), not only by the 30 s timer.
 - IFC import (3D only, via web-ifc WASM — dynamic import)
 
+## Changelog
+
+`src/lib/changelog/index.ts` holds what reached stabileo.com, newest first: one entry per month from
+the first commit (February 2026) to April, marked `period: 'month'`, then one per weekly report.
+`/<locale>/changelog`, linked from the landing nav beside Blog and from the footer, draws them on a
+timeline by month with a filter by area (`src/components/blog/ChangelogView.svelte`).
+`src/lib/blog/pages/changelog.ts` only gives that page its address, date and metadata (es, en and pt;
+de, fr and tr in `src/lib/blog/translations/<code>/page-changelog.ts`). Items are
+grouped by area on screen, so their order within an area is the order they are read in.
+
+Every Friday, with the weekly report, add one entry dated that Friday:
+- only what was merged to `main` that week, in the six languages (es, en, pt, de, fr, tr; the type
+  requires all six, and so does the alt of a screenshot), one item per area in `areas`, translated
+  with the glossary the dictionaries use;
+- optionally one screenshot under `public/screenshots/` at 800 and 1600 px, AVIF and WebP
+  (see `scripts/take-screenshots.ts` for the conversion);
+- set `updated` in `pages/changelog.ts` to the new date. `changelog.test.ts` fails otherwise,
+  and also on a date that is not a Friday, a language with a different item count, or a missing image.
+
 ## Feedback System
 
 Los usuarios pueden enviar feedback desde stabileo.com usando el widget flotante (botón rojo abajo a la derecha).

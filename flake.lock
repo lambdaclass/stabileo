@@ -34,10 +34,27 @@
         "type": "github"
       }
     },
+    "nixpkgs-playwright": {
+      "locked": {
+        "lastModified": 1779164086,
+        "narHash": "sha256-GF3PdwSN547SCN/ff6ljJ9VJ1b3+gzPAkR4cBCcXrzM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "33f539df43ae63a09cb69baec738fb43f073e5b4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "33f539df43ae63a09cb69baec738fb43f073e5b4",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs",
+        "nixpkgs-playwright": "nixpkgs-playwright",
         "rust-overlay": "rust-overlay"
       }
     },
