@@ -155,3 +155,76 @@ test.describe('@smoke research springs review regressions', () => {
     await expect.poll(() => page.context().pages().length).toBe(pagesBefore);
   });
 });
+
+for (const viewport of [{width:360,height:780},{width:390,height:844},{width:844,height:390},{width:810,height:1080}]) {
+  test(`@smoke spring layout ${viewport.width}x${viewport.height}`, async ({page}) => {
+    await page.setViewportSize(viewport);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/en/research/metamaterials/grossman-2026/');
+    await expect(page.locator('.sp-viewer canvas').first()).toBeVisible();
+    const viewer = await page.locator('.sp-viewer').boundingBox();
+    expect(viewer!.y).toBeLessThan(viewport.height);
+    for (const tab of ['Network','Parameters']) {
+      await page.getByRole('tab',{name:tab,exact:true}).click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      const badTargets = await page.locator('.rs-shell button:visible, .sp-app input:visible, .sp-app select:visible, .sp-app [role="tab"]:visible').evaluateAll(elements => elements.filter(el => {
+        const box = el.getBoundingClientRect(); return box.width < 44 || box.height < 44;
+      }).map(el => el.outerHTML));
+      expect(badTargets).toEqual([]);
+      const smallText = await page.locator('.sp-app :visible').evaluateAll(elements => elements.filter(el =>
+        [...el.childNodes].some(n => n.nodeType === Node.TEXT_NODE && n.textContent?.trim()) && Number.parseFloat(getComputedStyle(el).fontSize) < 12
+      ).map(el => el.outerHTML));
+      expect(smallText).toEqual([]);
+    }
+    await page.locator('#checks').scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+test('@smoke spring replay performs no worker solves; keyboard camera and restart work', async ({page}) => {
+  await page.addInitScript(() => {
+    const Original = window.Worker;
+    Object.assign(window, { __springWorkers: 0 });
+    window.Worker = class extends Original {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        if (String(url).includes('solver.worker')) (window as unknown as {__springWorkers:number}).__springWorkers++;
+      }
+    };
+  });
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.goto('/en/research/metamaterials/grossman-2026/');
+  await expect(page.getByText('Precomputed replay (same solver)', {exact:true})).toBeVisible();
+  await page.waitForTimeout(700);
+  expect(await page.evaluate(() => (window as unknown as {__springWorkers:number}).__springWorkers)).toBe(0);
+  const camera = page.locator('.sfv-canvas');
+  await camera.focus();
+  const before = await page.locator('.sfv-status').innerText();
+  await camera.press('+');
+  await expect(page.locator('.sfv-status')).not.toHaveText(before);
+  await page.getByRole('button',{name:'Recompute live',exact:true}).click();
+  await page.getByRole('button',{name:'Stop',exact:true}).click();
+  await page.getByRole('button',{name:'Restart',exact:true}).click();
+  await expect(page.locator('.sp-readout')).toContainText('0.');
+  await expect(page.getByRole('button',{name:'Recompute live',exact:true})).toBeVisible();
+});
+
+test('@smoke spring worker leaves UI responsive during prestress and Stop', async ({page}) => {
+  await page.goto('/en/research/metamaterials/grossman-2026/?eta=0.3');
+  await expect(page.locator('.sp-viewer canvas').first()).toBeVisible();
+  await page.getByRole('tab',{name:'Parameters',exact:true}).click();
+  await page.evaluate(() => {
+    const w = window as unknown as {__heartbeat:number};
+    w.__heartbeat = 0;
+    setInterval(() => w.__heartbeat++, 10);
+  });
+  await page.getByRole('slider',{name:'Prestress: rest lengths shortened by'}).press('End');
+  await page.getByRole('tab',{name:'Network',exact:true}).click();
+  await page.getByRole('button',{name:'Stop',exact:true}).click();
+  const before = await page.evaluate(() => (window as unknown as {__heartbeat:number}).__heartbeat);
+  await page.waitForTimeout(200);
+  expect(await page.evaluate(() => (window as unknown as {__heartbeat:number}).__heartbeat)).toBeGreaterThan(before + 5);
+  await page.getByRole('button',{name:'Restart',exact:true}).click();
+  await expect(page.getByRole('button',{name:'Recompute live',exact:true})).toBeVisible();
+  await expect(page.getByRole('alert')).toHaveCount(0);
+});

@@ -8,13 +8,17 @@
    * the article call `apply`, which drives the app.
    */
   import { rs } from '../i18n';
-  const s = $derived(rs());
+  const s = $derived(articleStrings(rs(), publicI18n.locale));
+  import { articleStrings } from './article';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { initializePage } from './page-load';
   import { EditorLoad, openEditorWindow } from './editor-load.svelte';
   import { forceScale, forceLegend } from './force-display';
   import { uniaxial } from './moduli';
-  import { evidence } from './evidence';
+  import { checkLabel, checkMetric } from './check-labels';
+  import { evidence, stripComparison } from './evidence';
+  import replayFrames from '../../../../../research/metamaterials/grossman-2026/reference-results/replay.json';
+  import type { solveAll } from './solve-all';
   import { Simulation } from './simulation.svelte';
   import results from '../../../../../research/metamaterials/grossman-2026/results/stabileo_results.json';
   import fig5Csv from '../../../../../research/metamaterials/grossman-2026/reference-results/fig5_simulation_digitized.csv?raw';
@@ -77,6 +81,7 @@
   const stripTheta = $derived(family === 'ordered' ? theta : family === 'honeycomb' ? Math.PI / 2 : 0);
   const cells = $derived(family === 'honeycomb' ? 6 : family === 'foam' ? 26 : 8);
 
+  let userEdited = $state(false);
   let glue = $state.raw<Awaited<ReturnType<typeof loadSprings>> | null>(null);
   let loadError = $state<string | null>(null);
   const simulation = new Simulation();
@@ -93,7 +98,7 @@
 
   function solve() {
     if (!glue) return;
-    simulation.run(glue, {
+    simulation.runLive({
       network: $state.snapshot(network) as NetworkSpec,
       label: { family, eta, keep, seed, strain },
       theta: stripTheta, cells, phi, psi,
@@ -113,12 +118,13 @@
     void strain;
     void stripTheta;
     void cells;
-    if (glue) solve();
+    if (glue && !autoplaying && userEdited) solve();
   });
 
   $effect(() => {
     if (!autoplaying) return;
     eta = SWEEP[playback.shown];
+    simulation.replay(replayFrames[playback.shown] as unknown as ReturnType<typeof solveAll>);
   });
 
   let pane: HTMLElement;
@@ -128,12 +134,14 @@
     const q = new URLSearchParams(window.location.search);
     const qEta = Number(q.get('eta'));
     const deepLinked = q.has('eta') && Number.isFinite(qEta) && qEta >= 0 && qEta <= 0.5;
-    if (deepLinked) eta = qEta;
+    if (deepLinked) { eta = qEta; userEdited = true; }
+    else simulation.replay(replayFrames[15] as unknown as ReturnType<typeof solveAll>);
     thumbMode = q.has('thumb');
     const cancelLoad = initializePage(loadSprings(), (g) => {
       glue = g;
       playback.setCount(SWEEP.length);
       if (window.location.hash === '#edit') {
+        userEdited = true;
         showTab('edit');
         return;
       }
@@ -152,7 +160,7 @@
       io.disconnect();
     };
   });
-  onDestroy(() => playback.dispose());
+  onDestroy(() => { playback.dispose(); simulation.stop(); });
 
   function touch() {
     playback.pause();
@@ -176,6 +184,7 @@
   /** Links in the article set the app's state. */
   function apply(p: Partial<{ family: Family; eta: number; phi: number; psi: number; theta: number; ell: number; keep: number; prestress: number; diagonals: boolean; law: 'hookean' | 'equal_weight'; strain: number }>) {
     touch();
+    userEdited = true;
     tab = 'experiment';
     tabId = 'experiment';
     if (p.family !== undefined) family = p.family;
@@ -271,7 +280,7 @@
     ];
   });
 
-  const fmtSci = (v: number) => (v === 0 ? '0' : Math.abs(v) >= 0.01 && Math.abs(v) < 1000 ? v.toPrecision(3) : v.toExponential(1));
+  const fmtSci = (v: number) => new Intl.NumberFormat(locale, { maximumSignificantDigits: 3, notation: v !== 0 && (Math.abs(v) < 0.01 || Math.abs(v) >= 1000) ? 'scientific' : 'standard' }).format(v);
 
   // ---- the Stabileo editor, embedded (loaded only when its tab is opened) -------------------
   let tab = $state<'experiment' | 'params' | 'edit'>('experiment');
@@ -321,12 +330,14 @@
   }
 </script>
 <ExperimentShell
+  introInArticle
+  compactHeader
   paperId="grossman-2026"
   name={s.springsTitle}
   lead={s.springsLead}
   verification={{
     reference: { kind: 'none', why: s.springsReferenceUnavailable },
-    published: { kind: 'checks', passed: paperChecks.passed, total: paperChecks.total, href: '#checks' },
+    published: { kind: 'checks', passed: paperChecks.passed + stripComparison.filter(r => r.passed).length, total: paperChecks.total + stripComparison.length, href: '#checks' },
   }}
   {actions}
   sourcePath="research/metamaterials/grossman-2026"
@@ -336,7 +347,7 @@
       <h2>{s.springsPaperShows}</h2>
       <p> {s.springsOverview} <em>{s.springsNonaffine}</em> {s.springsOverviewRelaxation} <strong>{s.springsAuxetic}</strong> {s.springsOverviewAuxetic} </p>
       <p class="sp-try"> {s.springsTry} <ExperimentLink params={{ family: 'foam', eta: 0 }}>{s.springsPerfect}</ExperimentLink> ·
-        <ExperimentLink params={{ family: 'foam', eta: 0.3 }}>η = 0.3</ExperimentLink> ·
+        <ExperimentLink params={{ family: 'foam', eta: 0.3 }}>η = {nf(0.3, 1)}</ExperimentLink> ·
         <ExperimentLink params={{ family: 'foam', eta: 0.5 }}>{s.springsTryAuxetic}</ExperimentLink>
       </p>
 
@@ -354,12 +365,17 @@
       <h2>{s.springsComparison}</h2>
       <h3>{s.springsFoamHeading}</h3>
       <p> {s.springsFoamComparison} </p>
-      <PlotXY series={foamSeries} xLabel={s.springsDisorderAxis} yLabel={s.springsPoissonAxis} xDomain={[0, 0.5]} current={family === 'foam' && cell ? { x: eta, y: cell.isotropic.poisson, label: s.springsThisPeriodic } : null} ariaLabel={s.springsFoamPlot} />
+      <PlotXY series={foamSeries} xLabel={s.springsDisorderAxis} yLabel={s.springsPoissonAxis} xDomain={[0, 0.5]} current={family === 'foam' && cell ? { x: eta, y: cellAlong?.[1] ?? NaN, label: s.springsThisPeriodic } : null} ariaLabel={s.springsFoamPlot} />
       <p class="sp-note"> {s.springsStripBias} </p>
+      <table class="sp-checks">
+        <caption>{s.springsStripSeries} · {s.springsFigureSeries}</caption>
+        <thead><tr><th>η</th><th>{s.springsObserved}</th><th>{s.springsFigureSeries} ± {nf(0.003)}</th><th>{s.springsResult}</th></tr></thead>
+        <tbody>{#each stripComparison as row (row.eta)}<tr><td>{nf(row.eta, 2)}</td><td>{nf(row.mean, 4)}</td><td>{nf(row.lo - row.digitisation, 4)} … {nf(row.hi + row.digitisation, 4)}</td><td>{row.passed ? s.pass : s.fail}</td></tr>{/each}</tbody>
+      </table>
 
       <h3>{s.springsHoneyHeading}</h3>
       <p> {s.springsHoneyComparison} <ExperimentLink params={{ family: 'honeycomb', ell: 0.25 }}>{s.springsTryHoney}</ExperimentLink> ·
-        <ExperimentLink params={{ family: 'honeycomb', ell: 0.9 }}>ℓ = 0.9</ExperimentLink>
+        <ExperimentLink params={{ family: 'honeycomb', ell: 0.9 }}>ℓ = {nf(0.9, 1)}</ExperimentLink>
       </p>
       <PlotXY series={honeySeries} xLabel="ℓ" yLabel={s.springsPoissonAxis} xDomain={[0, 1]} current={family === 'honeycomb' && cellAlong ? { x: ell, y: cellAlong[1], label: s.springsThisNetwork } : null} ariaLabel={s.springsHoneyPlot} />
 
@@ -389,7 +405,7 @@
         <thead><tr><th scope="col">{s.springsCheck}</th><th scope="col">{s.springsObserved}</th><th scope="col">{s.springsTolerance}</th><th scope="col">{s.springsResult}</th></tr></thead>
         <tbody>
           {#each group.checks as c (c.name)}
-            <tr><td>{c.name}<br /><span class="m">{c.metric}</span></td><td>{fmtSci(c.observed)}</td><td>{fmtSci(c.tolerance)}</td><td>{c.passed ? s.pass : s.fail}</td></tr>
+            <tr><td>{checkLabel(c, locale)}<br /><span class="m">{checkMetric(c.metric, locale)}</span></td><td>{fmtSci(c.observed)}</td><td>{fmtSci(c.tolerance)}</td><td>{c.passed ? s.pass : s.fail}</td></tr>
           {/each}
         </tbody>
       </table>
@@ -436,12 +452,15 @@
             </div>
           </div>
         <div role="tabpanel" id="rs-panel-experiment" aria-labelledby="rs-tab-experiment" hidden={tab !== 'experiment'}>
+        <button type="button" onclick={() => { touch(); solve(); }}>{simulation.busy ? s.springsLoadingSolver : s.benchmark.recompute}</button>
+        <button type="button" onclick={() => { touch(); solve(); }}>{s.benchmark.restart}</button>
+        <button type="button" onclick={() => { touch(); simulation.stop(); }}>{s.stop}</button>
         <p class="sp-source" aria-live="polite">
           {#if loadError}
             <span class="warnt">{s.springsBundleMissing}{loadError}{s.springsBuildBundle}</span>
           {:else if !glue} {s.springsLoadingSolver} {:else if autoplaying} {s.springsLiveSweep} <button class="sp-pause" type="button" onclick={touch}>{s.springsPauseSweep}</button>
           {:else}
-            {s.liveSource} · {nf(solveMs, 0)} ms
+            {simulation.source === 'replay' ? s.replaySource : s.liveSource} · {nf(solveMs, 0)} ms
           {/if}
         </p>
         <div class="sp-viewer" data-nodes={strip?.nodes.length ?? 0}>
@@ -470,11 +489,11 @@
               />
             
           {:else}
-            <div class="sp-placeholder">{s.springsPlaceholder}</div>
+            <div class="sp-placeholder">{s.springsLoadingSolver}</div>
           {/if}
         </div>
-        {#if solveError}<p class="warnt">{s.springsSolverRefused} {solveError}</p>{/if}
-        <dl class="sp-readout">
+        {#if solveError}<p class="warnt" role="alert">{s.springsSolverRefused} {solveError}</p>{/if}
+        <dl class="sp-readout" aria-live={autoplaying ? "off" : "polite"}>
           <div><dt>{s.springsStripReadout}</dt><dd>{strip?.poisson === null ? s.springsIndeterminate : nf(strip?.poisson)}</dd></div>
           <div><dt>{s.springsPeriodicReadout}</dt><dd>{nf(cellAlong?.[1])}</dd></div>
           <div><dt>{s.springsAffineReadout}</dt><dd>{nf(cell?.isotropic.bulk)} · {nf(cell?.isotropic.shear)} <span class="m">({nf(cell?.isotropic_affine.bulk)} · {nf(cell?.isotropic_affine.shear)})</span></dd></div>
@@ -482,7 +501,7 @@
         </dl>
         </div>
         <div role="tabpanel" id="rs-panel-params" aria-labelledby="rs-tab-params" hidden={tab !== 'params'}>
-        <form class="sp-controls" oninput={touch} onsubmit={(e) => e.preventDefault()}>
+        <form class="sp-controls" oninput={() => { touch(); userEdited = true; }} onsubmit={(e) => e.preventDefault()}>
           <label>{s.springsNetwork} <select bind:value={family} aria-label={s.springsNetwork}>
               <option value="foam">{s.springsFoamOption}</option>
               <option value="ordered">{s.springsOrderedOption}</option>
@@ -516,6 +535,17 @@
 </ExperimentShell>
 
 <style>
+  .sp-app { min-width: 0; }
+  .sp-app button, .sp-app input, .sp-app select { min-height: 44px; min-width: 44px; }
+  .sp-tabbar { flex-wrap: wrap; }
+  .sp-checks { table-layout: fixed; overflow-wrap: anywhere; }
+  .sp-checks td:nth-child(2), .sp-checks td:nth-child(3) { white-space: normal; }
+  @media (max-width: 440px) {
+    .sp-controls label { grid-template-columns: minmax(0, 1fr) minmax(44px, 1fr) 3rem; }
+    .sp-readout { grid-template-columns: minmax(0, 1fr); }
+    .eq { white-space: normal; }
+  }
+
   .eq {
     white-space: nowrap;
   }
@@ -561,7 +591,7 @@
   .sp-checks td:nth-child(2),
   .sp-checks td:nth-child(3) {
     font-family: var(--lp-mono);
-    white-space: nowrap;
+    white-space: normal;
   }
   .sp-source {
     font: 12px var(--lp-mono);
@@ -615,12 +645,12 @@
     border: 1px solid var(--hair);
     border-radius: 3px;
     padding: 0.25rem 0.4rem;
-    font: 13px var(--lp-mono);
+    font: 16px var(--lp-mono);
     min-width: 0;
   }
   .sp-controls input[type='range'] {
     accent-color: var(--lp-accent, #e5482a);
-    height: 24px;
+    height: 44px;
     min-width: 0;
   }
   .sp-controls input.seed {
@@ -636,7 +666,7 @@
     padding: 0.15rem 0.5rem;
     font: 12px var(--lp-sans, sans-serif);
     cursor: pointer;
-    min-height: 24px;
+    min-height: 44px;
   }
   .sp-tabbar {
     display: flex;
@@ -687,6 +717,6 @@
     display: grid;
     place-items: center;
     color: var(--fg-2);
-    font: 13px var(--lp-mono);
+    font: 16px var(--lp-mono);
   }
 </style>
