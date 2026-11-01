@@ -3,7 +3,7 @@ import { request } from './client';
 export interface Consents {
   terms: { version: string; accepted_at: string } | null;
   terms_current: boolean;
-  usage_analytics: boolean;
+  usage_analytics: boolean | null;
   model_research: boolean;
 }
 

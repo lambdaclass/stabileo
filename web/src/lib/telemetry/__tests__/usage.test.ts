@@ -174,6 +174,30 @@ describe('the usage consent', () => {
     expect(usageConsent.sharing).toBe(false);
   });
 
+  it("adopts the account's recorded refusal over a browser that shares, and its grant only when undecided", async () => {
+    let { usageConsent, trackUsage, flushUsage, setUsageContext, pendingUsage } = await load();
+    usageConsent.set('granted');
+    usageConsent.adoptAccount(false);
+    expect(usageConsent.choice).toBe('denied');
+    setUsageContext(ON);
+    trackUsage('solve');
+    expect(pendingUsage()).toHaveLength(0);
+    await flushUsage();
+    expect(sent).toEqual([]);
+
+    usageConsent.adoptAccount(true);
+    expect(usageConsent.choice).toBe('denied');
+    usageConsent.adoptAccount(null);
+    expect(usageConsent.choice).toBe('denied');
+
+    storage.clear();
+    ({ usageConsent } = await load());
+    usageConsent.adoptAccount(null);
+    expect(usageConsent.choice).toBe('undecided');
+    usageConsent.adoptAccount(true);
+    expect(usageConsent.choice).toBe('granted');
+  });
+
   it('reads a corrupt record as undecided', async () => {
     storage.set('stabileo-usage-consent', '{not json');
     const { usageConsent } = await load();

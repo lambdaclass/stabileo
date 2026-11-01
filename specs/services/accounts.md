@@ -62,7 +62,7 @@ Bodies:
 { "access_token": "...", "refresh_token": "...", "expires_in": 900, "account": <account> }
 ```
 
-`<account>` in a session, `/me` and `/consents` also carries `consents`: `{ "terms": {"version", "accepted_at"} | null, "terms_current": bool, "usage_analytics": bool, "model_research": bool }`. The app asks an account whose `terms_current` is false to accept again before anything else.
+`<account>` in a session, `/me` and `/consents` also carries `consents`: `{ "terms": {"version", "accepted_at"} | null, "terms_current": bool, "usage_analytics": bool | null, "model_research": bool }` (`usage_analytics` is null until the account decides; the app adopts a recorded refusal over the browser's default). The app asks an account whose `terms_current` is false to accept again before anything else.
 
 `<account>`:
 

@@ -33,6 +33,12 @@ export const usageConsent = {
     for (const l of listeners) l(next);
   },
 
+  /** The signed-in account's recorded choice: a refusal always wins, a grant only fills an undecided browser. */
+  adoptAccount(recorded: boolean | null | undefined): void {
+    if (recorded === false && choice !== 'denied') this.set('denied');
+    else if (recorded === true && choice === 'undecided') this.set('granted');
+  },
+
   onChange(listener: (c: UsageChoice) => void): () => void {
     listeners.add(listener);
     return () => listeners.delete(listener);

@@ -65,7 +65,7 @@ defmodule StabileoAuth.Consents do
     end
   end
 
-  @doc "The current consents of one account."
+  @doc "The current consents of one account. `usage_analytics` is nil until the account decides."
   def current(%Account{id: id}), do: Map.get(current_for([id]), id, empty())
 
   @doc "The current consents of many accounts at once, keyed by account id."
@@ -85,7 +85,7 @@ defmodule StabileoAuth.Consents do
     end)
   end
 
-  defp empty, do: %{terms: nil, usage_analytics: false, model_research: false}
+  defp empty, do: %{terms: nil, usage_analytics: nil, model_research: false}
 
   defp put_kind(state, %Consent{kind: "terms"} = c),
     do: %{state | terms: %{version: c.version, accepted_at: c.inserted_at}}

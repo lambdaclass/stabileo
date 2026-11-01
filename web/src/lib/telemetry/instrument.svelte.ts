@@ -4,6 +4,7 @@ import { i18n } from '../i18n';
 import { authStore } from '../store/auth.svelte';
 import { setUsageContext, trackUsage, installUsageLifecycle } from './usage';
 import { solveSignal } from './solve-signal.svelte';
+import { usageConsent } from './consent.svelte';
 
 export function appModeLabel(): string {
   const m = uiStore.appMode;
@@ -43,6 +44,10 @@ export function installUsageTracking(): () => void {
       const kind = resultsStore.diagramType;
       if (firstDiagram) { firstDiagram = false; return; }
       if (kind && kind !== 'none') untrack(() => trackUsage('diagram.show', { kind, dim3: uiStore.is3DWorkspace }));
+    });
+    $effect(() => {
+      const recorded = authStore.account?.consents?.usage_analytics;
+      untrack(() => usageConsent.adoptAccount(recorded));
     });
     $effect(() => {
       const mode = appModeLabel();
