@@ -90,8 +90,9 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.landing [data-section]').last()).toHaveAttribute('data-section', 'blog');
 
     const links = page.locator('.landing nav.nav .nav-links a.nav-link');
-    await expect(links.nth(0)).toHaveAttribute('data-nav', 'blog');
-    const changelog = links.nth(1);
+    await expect(links.nth(0)).toHaveAttribute('data-nav', 'tools');
+    await expect(links.nth(1)).toHaveAttribute('data-nav', 'blog');
+    const changelog = links.nth(2);
     await expect(changelog).toHaveAttribute('data-nav', 'changelog');
     await expect(changelog).toHaveText('Changelog');
     await expect(changelog).toHaveAttribute('href', '/es/changelog/');
