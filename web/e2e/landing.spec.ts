@@ -653,11 +653,11 @@ test.describe('@landing landing page', () => {
       await expect(page.locator('.app-container')).toBeVisible();
       // The persisted choice still labels the editor's own translated content.
       await expect(page.locator('.app-language')).toHaveAttribute('lang', 'es');
+      await expect(page.locator('html'), 'the document is in the editor language').toHaveAttribute('lang', 'es');
 
       const h = await readHead(page);
       expect(h.headTitles).toBe(1);
       expect(h.title, 'restored to the static English title').toBe(EN_TITLE);
-      expect(h.lang).toBe('en');
       expect(one(h, 'og:locale')).toBe('en_US');
       /*
        * The description is the hero's own lead, not the fallback string

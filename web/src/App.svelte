@@ -617,6 +617,7 @@
       publicPage = page;
     } catch (error) {
       console.error('Public navigation failed', error);
+      if (token === publicRevision && token > 1) location.reload();
       return;
     }
     showExperiment = next.kind === 'research' || next.kind === 'tools';
@@ -789,6 +790,7 @@
 
   const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
   provideEditorActivity(() => editorActive);
+  $effect(() => { if (editorActive) document.documentElement.lang = t('file.htmlLang'); });
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {

@@ -148,4 +148,60 @@ test('@smoke moving through history onto another language shows that language wi
   });
   expect(samples.length).toBeGreaterThan(20);
   for (const s of samples) if (s.href?.startsWith('/de/')) expect(s.text).toBe('Werkzeuge');
+||||||| b09851435
+
+for (const rootSize of [16, 20, 24]) {
+  test(`@smoke the public page starts exactly under the header with a ${rootSize}px root font size`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/en/');
+    await page.addStyleTag({ content: `html { font-size: ${rootSize}px !important; }` });
+    const header = page.locator('#app .site-header');
+    await expect(header).toBeVisible();
+    const edges = await page.evaluate(() => ({
+      header: document.querySelector('#app .site-header')!.getBoundingClientRect().bottom,
+      inner: document.querySelector('#app .site-header .nav-inner')!.getBoundingClientRect().bottom,
+      landing: document.querySelector('#app .landing')!.getBoundingClientRect().top,
+    }));
+    expect(edges.header).toBeCloseTo(rootSize * 3.625, 0);
+    expect(edges.landing).toBeCloseTo(edges.header, 1);
+    expect(edges.inner).toBeLessThanOrEqual(edges.header);
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`@smoke a header section link from another page opens the landing at that section at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/en/tools/');
+    await expect(page.locator('#app .landing h1')).toBeVisible();
+    const header = page.locator('#app .site-header');
+    if (width === 390) await header.locator('.nav-toggle').click();
+    await header.locator('[data-nav="pricing"]').click();
+    await expect(page).toHaveURL(/\/en\/#pricing$/);
+    const section = page.locator('#app .landing #pricing');
+    await expect(section).toBeVisible();
+    await expect.poll(() => section.evaluate((el) => Math.round(el.getBoundingClientRect().top - document.querySelector('#app .landing')!.getBoundingClientRect().top))).toBeLessThan(80);
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  });
+}
+
+test('@smoke a public page whose code fails to load is opened by a full load, never left under the old page', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'connection', { configurable: true, value: { saveData: true } });
+  });
+  await page.goto('/en/');
+  await expect(page.locator('#app .landing h1')).toBeVisible();
+  let aborted = 0;
+  await page.route(/\/assets\/(?:load-page|ToolsPage)-[^/]*\.js$/, async (route) => {
+    if (aborted++ === 0) return route.abort();
+    await route.continue();
+  });
+  const reloaded = page.waitForEvent('load');
+  await page.locator('#app .site-header [data-nav="tools"]').click();
+  await reloaded;
+  await expect(page).toHaveURL(/\/en\/tools\/$/);
+  await expect(page.locator('#app .site-header')).toHaveAttribute('data-current', 'tools');
+  await expect(page.locator('#app .tools-wrap')).toBeVisible();
+  await expect(page.locator('#app [data-section="pricing"]')).toHaveCount(0);
+  expect(aborted).toBeGreaterThan(0);
 });

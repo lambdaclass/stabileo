@@ -120,6 +120,9 @@ describe('public scroll reset after the route DOM commits', () => {
     expect(root.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' });
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 0, left: 0, behavior: 'instant' });
     expect(target.scrollIntoView).toHaveBeenCalledTimes(hash === '#a%20b' ? 1 : 0);
+    const windowCalls = vi.mocked(window.scrollTo).mock.invocationCallOrder;
+    const lastWindow = windowCalls[windowCalls.length - 1];
+    for (const order of vi.mocked(target.scrollIntoView).mock.invocationCallOrder) expect(order).toBeLessThan(lastWindow);
   });
 });
 

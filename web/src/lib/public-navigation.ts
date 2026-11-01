@@ -74,6 +74,7 @@ export function resetPublicScroll(hash = '') {
     const target = document.getElementById(id);
     if (target && root?.contains(target)) target.scrollIntoView({ block: 'start', behavior: 'instant' });
   }
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
 }
 
 /** Prevent native history restoration from overriding the inner-container reset. */
