@@ -352,6 +352,7 @@ test.nightly-scripts:
 
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
 lint.backend:
