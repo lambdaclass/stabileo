@@ -122,16 +122,16 @@ const WARPED_MITC9: &str = "Results withheld: the twist of these MITC9 shells is
 pub const WARPED_MITC4_TWIST: (f64, f64) = (0.009, 0.016);
 pub const WARPED_MITC9_TWIST: (f64, f64) = (0.0035, 0.0065);
 
-/// A collapsed element has no twist to measure; the pre-solve collapse gate refuses it by name.
+/// A collapsed element or an invalid thickness is not measured: input validation refuses it by name.
 fn measured(id: usize, kappa: f64, thickness: f64) -> Option<(usize, f64)> {
-    kappa.is_finite().then_some((id, kappa * thickness))
+    (kappa.is_finite() && thickness.is_finite() && thickness > 0.0).then_some((id, kappa * thickness))
 }
 
 fn warped(id: &str, kind: ElementKind, (warn_at, refuse_at): (f64, f64), twists: impl Iterator<Item = (usize, f64)>, warning: &str) -> Option<StructuredDiagnostic> {
-    let mut affected: Vec<(usize, f64)> = twists.filter(|(_, kt)| kt.is_nan() || *kt > warn_at).collect();
+    let mut affected: Vec<(usize, f64)> = twists.filter(|(_, kt)| *kt > warn_at).collect();
     if affected.is_empty() { return None }
     affected.sort_by_key(|(id, _)| *id);
-    let withheld = affected.iter().any(|(_, kt)| kt.is_nan() || *kt > refuse_at);
+    let withheld = affected.iter().any(|(_, kt)| *kt > refuse_at);
     let mut d = diagnostic(id).with_elements(affected.into_iter().map(|(id, _)| id).collect());
     d.element_kind = Some(kind);
     if !withheld {

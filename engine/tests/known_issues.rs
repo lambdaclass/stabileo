@@ -1162,10 +1162,11 @@ fn warped_mitc_thresholds_are_the_measured_bands() {
     for (k, (u, v)) in [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0), (0.5, 0.0), (1.0, 0.5), (0.5, 1.0), (0.0, 0.5), (0.5, 0.5)].into_iter().enumerate() {
         nine[k] = [u, v, c * u * v];
     }
-    for (quad9, (warn, refuse)) in [(false, WARPED_MITC4_TWIST), (true, WARPED_MITC9_TWIST)] {
+    assert_eq!((WARPED_MITC4_TWIST, WARPED_MITC9_TWIST), ((0.009, 0.016), (0.0035, 0.0065)), "the bands measured in CONTAINMENT.md (#1057)");
+    for (quad9, (warn, refuse)) in [(false, (0.009, 0.016)), (true, (0.0035, 0.0065))] {
         let kappa = if quad9 { quad9_twist_curvature(&nine) } else { quad_twist_curvature(&corners) };
         assert!((kappa / c - 1.0).abs() < 0.1, "{quad9}: {kappa}");
-        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error)), (f64::NAN, Some(Severity::Error))] {
+        for (kt, expected) in [(0.999 * warn, None), (1.001 * warn, Some(Severity::Warning)), (0.999 * refuse, Some(Severity::Warning)), (1.001 * refuse, Some(Severity::Error)), (f64::NAN, None)] {
             let mut input = beam3d();
             input.nodes.clear(); input.elements.clear(); input.supports.clear(); input.loads.clear();
             let points: &[[f64; 3]] = if quad9 { &nine } else { &corners };
@@ -1270,5 +1271,51 @@ fn warped_mitc_refusal_reaches_every_3d_entry_point() {
         assert!(missed.is_empty(), "{id} not withheld by: {missed:?}");
         let kinematics = dedaliano_engine::solver::kinematic::analyze_kinematics_3d(&input);
         assert!(kinematics.invalid_input.is_none(), "{:?}", kinematics.invalid_input);
+    }
+}
+
+/// Ratio to Euler–Bernoulli of the twisted strip (#1057), the reference that MacNeal–Harder's
+/// 0.005424 / 0.001754 match at 90°.
+fn twisted_beam_theory(degrees: f64, t: f64, load_a: bool) -> f64 {
+    let (l, w, e) = (12.0f64, 1.1f64, 29.0e6);
+    let (weak, strong) = (w * t.powi(3) / 12.0, t * w.powi(3) / 12.0);
+    let n = 4000;
+    let sum: f64 = (0..n).map(|k| {
+        let u = (k as f64 + 0.5) / n as f64;
+        let (c2, s2) = ((u * degrees.to_radians()).cos().powi(2), (u * degrees.to_radians()).sin().powi(2));
+        (1.0 - u).powi(2) * if load_a { c2 / weak + s2 / strong } else { s2 / weak + c2 / strong } / n as f64
+    }).sum();
+    l.powi(3) * sum / e
+}
+
+#[test]
+fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
+    let kappa = std::f64::consts::FRAC_PI_2 / 12.0;
+    for (quad9, nx, ny, warn, refuse) in [(false, 24, 8, 0.009, 0.016), (true, 24, 8, 0.0035, 0.0065)] {
+        let excess = |kt: f64| -> (f64, Vec<StructuredDiagnostic>) {
+            let t = kt / kappa;
+            let mut worst = 0.0f64;
+            let mut diagnostics = vec![];
+            for (load_a, load) in [(true, [0.0, 0.0, 1.0]), (false, [0.0, 1.0, 0.0])] {
+                let ratio = |degrees: f64| {
+                    let (input, tip) = twisted_strip(quad9, nx, ny, degrees, t, load);
+                    let r = dedaliano_engine::solver::linear::solve_3d(&input).unwrap_or_else(|e| panic!("{quad9} κt {kt}: {e}"));
+                    let d = r.displacements.iter().find(|d| d.node_id == tip).unwrap();
+                    (if load_a { d.uz } else { d.uy } / twisted_beam_theory(degrees, t, load_a), r.structured_diagnostics)
+                };
+                let (twisted, ds) = ratio(90.0);
+                let (flat, _) = ratio(0.0);
+                eprintln!("{quad9} κt {kt} load {}: {twisted:.4} (untwisted {flat:.4})", if load_a { "A" } else { "B" });
+                worst = worst.max(twisted / flat - 1.0);
+                diagnostics = ds;
+            }
+            (worst, diagnostics)
+        };
+        let (below_warn, ds) = excess(0.98 * warn);
+        assert!(warped_findings(&ds).is_empty(), "{quad9}");
+        assert!(below_warn < 0.02, "{quad9}: {below_warn} unflagged");
+        let (below_refuse, ds) = excess(0.98 * refuse);
+        assert_eq!(warped_findings(&ds).iter().map(|d| d.severity).collect::<Vec<_>>(), vec![Severity::Warning], "{quad9}");
+        assert!(below_refuse > below_warn && below_refuse < 0.06, "{quad9}: {below_refuse} only warned");
     }
 }
