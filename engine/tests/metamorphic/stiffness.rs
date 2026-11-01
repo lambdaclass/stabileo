@@ -112,6 +112,10 @@ fn stiffness_witness(name: &str, r: &Resp) {
         assert!(nonzero("u", false), "linear: no nonzero displacement");
         assert!(nonzero("R", false), "linear: no nonzero reaction");
         assert!(
+            nonzero("r", false) || nonzero("ry", false),
+            "linear: no nonzero rotation"
+        );
+        assert!(
             ["N", "V", "M"].iter().any(|tag| nonzero(tag, true)),
             "linear: no nonzero member force"
         );
@@ -182,7 +186,7 @@ fn wanted(only: Option<&str>) -> Vec<&'static str> {
     wanted
 }
 
-fn check2(c: &Case2, only: Option<&str>) -> u64 {
+fn check2(c: &Case2, only: Option<&str>, excited: bool) -> u64 {
     let analyses: Vec<_> = ana2::rows()
         .into_iter()
         .filter(|a| selected(a.name, only))
@@ -205,6 +209,9 @@ fn check2(c: &Case2, only: Option<&str>) -> u64 {
         );
         covered(&t, a.name, &inv);
         compared += inv.len() as u64;
+        if excited && a.name.starts_with("time history") {
+            generated::excited_history_witness(&(a.run)(c).unwrap(), &ResponseShape::of_2d(c));
+        }
         if STIFFNESS.contains(&a.name) {
             compared += stiffness(
                 a.name,
@@ -226,7 +233,7 @@ fn check2(c: &Case2, only: Option<&str>) -> u64 {
     compared
 }
 
-fn check3(c: &Case3, only: Option<&str>) -> u64 {
+fn check3(c: &Case3, only: Option<&str>, excited: bool) -> u64 {
     let analyses: Vec<_> = ana3::rows()
         .into_iter()
         .filter(|a| selected(a.name, only))
@@ -249,6 +256,9 @@ fn check3(c: &Case3, only: Option<&str>) -> u64 {
         );
         covered(&t, a.name, &inv);
         compared += inv.len() as u64;
+        if excited && a.name.starts_with("time history") {
+            generated::excited_history_witness(&(a.run)(c).unwrap(), &ResponseShape::of_3d(c));
+        }
         if STIFFNESS.contains(&a.name) {
             compared += stiffness(
                 a.name,
@@ -309,6 +319,7 @@ fn sweep(count: u64, only: Option<&str>) {
                 serde_json::from_value(generated::model(seed, false)).unwrap(),
             ),
             only,
+            true,
         );
         compared += check3(
             &Case3::new(
@@ -316,13 +327,14 @@ fn sweep(count: u64, only: Option<&str>) {
                 serde_json::from_value(generated::model(seed, true)).unwrap(),
             ),
             only,
+            true,
         );
     }
     let s = serde_json::from_str(include_str!(
         "../fixtures/ex-frame-cirsoc-dl-case2-input.json"
     ))
     .unwrap();
-    compared += check2(&Case2::new("corpus/cirsoc-portal", s), only);
+    compared += check2(&Case2::new("corpus/cirsoc-portal", s), only, false);
     let expected = expected_comparisons(count, only);
     if only.is_none() {
         assert_eq!(
