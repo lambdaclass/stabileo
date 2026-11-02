@@ -10705,6 +10705,7 @@ const es: Record<string, string> = {
   'design.floor.state.scopeVsAll': "«Dimensionar…» diseña las familias tildadas, con el pórtico entre ellas. «Diseñar y detallar pisos» trabaja sólo sobre cáscaras y cimientos, deja el pórtico intacto y además produce su despiece.",
   'design.memo.flexure': 'Flexión',
   'design.memo.shear': 'Corte',
+  'design.memo.shearSecondary': 'Corte, eje secundario',
   'design.memo.column': 'Flexocompresión',
   'design.memo.torsion': 'Torsión',
   'design.memo.torsionNegligible': 'Torsión (despreciable)',

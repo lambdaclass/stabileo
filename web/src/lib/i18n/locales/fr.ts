@@ -10550,6 +10550,7 @@ const fr: Translations = {
   'design.floor.state.scopeVsAll': '« Dimensionner… » dimensionne les familles cochées, dont le portique. « Dimensionner et ferrailler les planchers » ne traite que les coques et les semelles, laisse le portique intact et produit aussi leurs listes de barres.',
   'design.memo.flexure': 'Flexion',
   'design.memo.shear': 'Effort tranchant',
+  'design.memo.shearSecondary': 'Effort tranchant, axe secondaire',
   'design.memo.column': 'Flexion composée',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (négligeable)',

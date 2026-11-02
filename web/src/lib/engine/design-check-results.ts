@@ -97,7 +97,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
 
     if (v.shearSecondary) {
       checks.push({
-        name: 'Shear (secondary axis)',
+        name: 'Shear, secondary axis',
         demand: Math.abs(v.shearSecondary.Vu),
         capacity: v.shearSecondary.phiVn,
         ratio: v.shearSecondary.ratio,

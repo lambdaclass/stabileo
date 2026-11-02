@@ -1158,6 +1158,9 @@ export function getCodeDetail(v: ElementVerification | undefined | null): CodeDe
   if (v.shear?.steps?.length) {
     memos.push({ title: 'Shear', titleKey: 'design.memo.shear', steps: v.shear.steps });
   }
+  if (v.shearSecondary?.steps?.length) {
+    memos.push({ title: 'Shear, secondary axis', titleKey: 'design.memo.shearSecondary', steps: v.shearSecondary.steps });
+  }
   if (v.column?.steps?.length) {
     memos.push({ title: 'Flexo-compression', titleKey: 'design.memo.column', steps: v.column.steps });
   }

@@ -3623,6 +3623,7 @@ const id: Translations = {
 
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
+  'design.memo.shearSecondary': 'Shear, secondary axis',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

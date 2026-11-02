@@ -10558,6 +10558,7 @@ const tr: Translations = {
   'design.floor.state.scopeVsAll': '“Boyutlandır…” işaretli aileleri, aralarında çerçeveyi de boyutlandırır. “Katları boyutlandır ve detaylandır” yalnızca kabuklar ve temeller üzerinde çalışır, çerçeveye dokunmaz ve ayrıca bunların donatı listelerini üretir.',
   'design.memo.flexure': 'Eğilme',
   'design.memo.shear': 'Kesme',
+  'design.memo.shearSecondary': 'Kesme, ikincil eksen',
   'design.memo.column': 'Bileşik eğilme ve eksenel kuvvet',
   'design.memo.torsion': 'Burulma',
   'design.memo.torsionNegligible': 'Burulma (ihmal edilebilir)',

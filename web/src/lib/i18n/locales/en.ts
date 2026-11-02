@@ -10716,6 +10716,7 @@ const en: Record<string, string> = {
   'design.floor.state.scopeVsAll': "«Size…» designs the ticked families, the frame among them. «Design and detail floors» works on shells and footings only, leaves the frame untouched and also produces their bar lists.",
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
+  'design.memo.shearSecondary': 'Shear, secondary axis',
   'design.memo.column': 'Combined axial and bending',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',
