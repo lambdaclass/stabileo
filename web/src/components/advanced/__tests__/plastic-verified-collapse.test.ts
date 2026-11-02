@@ -94,7 +94,7 @@ describe('the collapse plateau follows the mechanism along the chosen axis', () 
     expect(await plateau({ kind: 'node', node: 1, dof: 'ux' })).toBe(0);
     expect(await plateau({ kind: 'node', node: 1, dof: 'ry' })).toBe(0);
     expect(formedLast).toBeGreaterThanOrEqual(0);
-    expect(r.steps.at(-1)!.rotations[formedLast] ?? 0).toBe(0);
+    expect(r.steps.at(-1)!.rotations[formedLast]).toBe(0);
     const k = r.hinges.map((h, i) => ({ h, i })).filter(({ h }) => h.kind === 'bending' && h.unloadedAt === undefined).findIndex(({ i }) => i === formedLast);
     expect(await plateau({ kind: 'hinge', hinge: formedLast })).toBe(Math.sign(view.hinges[k].theta));
     expect(Math.sign(view.hinges[k].theta)).toBe(-1);

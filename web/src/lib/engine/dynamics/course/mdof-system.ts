@@ -99,6 +99,7 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   for (const [mid, segs] of sub.segments) for (const s of segs) memberOf.set(s, mid);
 
   const Mt = zeros(nT);
+  const own = new Array<number>(nT).fill(0);
   const members: MemberMass[] = [];
   const consistent = opts.massModel !== 'lumped';
   for (const ed of det.elements) {
@@ -112,7 +113,7 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
     else if (!consistent || released) mg = congruence(ed.T, lumpedFrameMass(rhoA, ed.length));
     else mg = congruence(ed.T, consistentFrameMass(rhoA, ed.length));
     members.push({ elementId: ed.elementId, memberId: memberOf.get(ed.elementId) ?? ed.elementId, type: ed.type, rhoA, L: ed.length, kind: released && consistent ? 'released' : consistent ? 'consistent' : 'lumped' });
-    ed.dofIndices.forEach((gi, a) => ed.dofIndices.forEach((gj, b) => { Mt[gi][gj] += mg[a][b]; }));
+    ed.dofIndices.forEach((gi, a) => ed.dofIndices.forEach((gj, b) => { Mt[gi][gj] += mg[a][b]; own[gi] = Math.max(own[gi], Math.abs(mg[a][b])); }));
   }
   const pts: MdofSystem['points'] = [];
   const frameAngle = new Map(det.nodeFrames.map((f) => [f.nodeId, f.angle]));
@@ -125,7 +126,7 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
     const a = frameAngle.get(p.nodeId) ?? 0, c = Math.cos(a), s = Math.sin(a);
     const m = [[c * c * p.m + s * s * mz, c * s * (mz - p.m)], [c * s * (mz - p.m), s * s * p.m + c * c * mz]];
     const at = [ix, iz];
-    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) { const gi = at[r], gj = at[q]; if (gi !== undefined && gj !== undefined) Mt[gi][gj] += m[r][q]; }
+    for (let r = 0; r < 2; r++) for (let q = 0; q < 2; q++) { const gi = at[r], gj = at[q]; if (gi !== undefined && gj !== undefined) { Mt[gi][gj] += m[r][q]; own[gi] = Math.max(own[gi], p.m); } }
   }
 
   const fullK = det.Kff.map((r) => [...r]);
@@ -133,7 +134,7 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   const fullF = [...det.FfMod];
   const scaleM = Math.max(...fullM.map((r, i) => Math.abs(r[i])), 0);
   if (!(scaleM > 0)) throw new SystemError('noMass');
-  const hasMass = (i: number) => fullM[i].some((v) => Math.abs(v) > 1e-12 * scaleM);
+  const hasMass = (i: number) => fullM[i].some((v) => Math.abs(v) > 1e-12 * own[i]);
   const translational = (i: number) => fullDofs[i].dir !== 'ry';
   const masters = fullDofs.map((_, i) => i).filter((i) => hasMass(i) && (opts.massModel !== 'guyan' || translational(i)));
   if (!masters.length) throw new SystemError('noMass');

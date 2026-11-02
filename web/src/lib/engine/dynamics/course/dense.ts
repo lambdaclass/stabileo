@@ -80,10 +80,13 @@ export function cholesky(a: Mat): Mat {
 /** Eigenvalues and eigenvectors (columns) of a symmetric matrix, by cyclic Jacobi rotations. */
 export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
   const n = a0.length;
-  const a = a0.map((r) => [...r]);
+  const big = a0.reduce((acc, r) => r.reduce((m, x) => Math.max(m, Math.abs(x)), acc), 0);
+  const f = big > 0 && Number.isFinite(big) ? 2 ** Math.max(-1000, Math.min(1000, -Math.round(Math.log2(big)))) : 1;
+  const a = a0.map((r) => r.map((x) => x * f));
+  const scaled = a.map((r) => [...r]);
   const v = identity(n);
   for (let sweep = 0; sweep < 100; sweep++) {
-    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p] * a[q][q])) + 1e-300;
+    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p])) * Math.sqrt(Math.abs(a[q][q]));
     let done = true;
     for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
     if (done) break;
@@ -91,7 +94,8 @@ export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
       for (let q = p + 1; q < n; q++) {
         if (small(p, q)) continue;
         const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
-        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+        const at = Math.abs(theta);
+        const t = Math.sign(theta || 1) / (at > 1e150 ? 2 * at : at + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1), s = t * c;
         for (let k = 0; k < n; k++) {
           const akp = a[k][p], akq = a[k][q];
@@ -111,7 +115,18 @@ export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
       }
     }
   }
-  return { values: a.map((r, i) => r[i]), vectors: v };
+  const norm = Math.sqrt(scaled.reduce((acc, r) => r.reduce((m, x) => m + x * x, acc), 0));
+  for (let j = 0; j < n; j++) {
+    const lam = a[j][j];
+    let res = 0;
+    for (let i = 0; i < n; i++) {
+      let s = -lam * v[i][j];
+      for (let k = 0; k < n; k++) s += scaled[i][k] * v[k][j];
+      res += s * s;
+    }
+    if (!(Math.sqrt(res) <= 1e-10 * norm)) throw new Error('eigen did not converge');
+  }
+  return { values: a.map((r, i) => r[i] / f), vectors: v };
 }
 
 /**

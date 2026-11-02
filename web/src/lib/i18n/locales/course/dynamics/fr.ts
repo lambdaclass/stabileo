@@ -82,6 +82,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.fromRest': 'Le moteur part du repos : u(t) est donc comparé à la réponse pour u_0 = v_0 = 0.',
   'course.dynamics.sdof.engine.unavailable': 'Le moteur de calcul n\'est pas encore chargé ; la vérification apparaît dès qu\'il est prêt.',
   'course.dynamics.sdof.engine.diff': 'Les petits écarts sur u(t) viennent du pas de temps de l\'intégration numérique.',
+  'course.dynamics.sdof.engine.historyTooLong': 'L\'intégration temporelle du moteur demanderait plus de {max} pas pour ce rapport entre Ω et ω ; elle n\'a donc pas été lancée, et seuls ω et l\'amplitude sont comparés.',
   'course.dynamics.sdof.err.mk': 'm et k doivent être des nombres finis supérieurs à zéro.',
   'course.dynamics.sdof.err.noModel': 'Il n\'y a pas de modèle d\'où prendre m et k : chargez un modèle ou choisissez de les saisir.',
   'course.dynamics.sdof.err.tooBig': 'Le modèle a plus de degrés de liberté que ce cours n\'en résout pas à pas. Essayez un modèle plus petit ou saisissez m et k.',

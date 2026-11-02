@@ -307,6 +307,19 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     })),
   });
 
+  const endLoadsOfYielded = (mb: Member, l: SolverLoad, off: number, len: number): SolverLoad[] => {
+    if (l.type === 'axialDistributed') {
+      return axialSpanToNodal2D(original, { ...l.data, elementId: mb.id, a: off + (l.data.a ?? 0), b: off + (l.data.b ?? len) });
+    }
+    if (l.type === 'pointOnElement') {
+      return pointToEnds2D(original, mb.id, off + l.data.a, l.data.px ?? 0, mb.truss ? l.data.p : 0);
+    }
+    if (l.type === 'distributed' && mb.truss) {
+      return transverseSpanToEnds2D(original, mb.id, l.data.qI, l.data.qJ, off + (l.data.a ?? 0), off + (l.data.b ?? len));
+    }
+    return [];
+  };
+
   let lambda = 0;
   let isMechanism = false;
   let unloaded = false;
@@ -323,8 +336,12 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
   const closeUnloading = (): boolean => {
     const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
     if (!open.length) return false;
-    const removed = new Set(members.filter((mb) => mb.yielded).map((mb) => mb.id));
-    const km = buildKinematics(original, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), removed, 'rigid');
+    const yielded = new Map(members.filter((mb) => mb.yielded).map((mb) => [mb.id, mb]));
+    const loads = original.loads.flatMap((l) => {
+      const mb = 'elementId' in l.data ? yielded.get((l.data as { elementId: number }).elementId) : undefined;
+      return mb ? endLoadsOfYielded(mb, l, 0, mb.L) : [l];
+    });
+    const km = buildKinematics({ ...original, loads }, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), new Set(yielded.keys()), 'rigid');
     const space = nullspace(km.rows, km.n);
     if (!space.length) return false;
     const dotRow = (row: number[], d: number[]) => row.reduce((acc, w, i) => acc + w * d[i], 0);
@@ -379,7 +396,8 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
   };
 
-  for (let event = 0; event < maxEvents; event++) {
+  let event = 0;
+  for (; event < maxEvents; event++) {
     /*
      * A mechanism is what the kinematic check says it is. An exception from that check or from
      * the solve after it said "solvable" is an error, and it used to be recorded as collapse:
@@ -513,17 +531,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
         const alongIt = work.loads.flatMap((l) => {
           if (!onIt(l)) return [];
           const piece = ev.m.pieces.find((pc) => pc.id === (l.data as { elementId: number }).elementId)!;
-          const off = piece.t0 * ev.m.L, len = (piece.t1 - piece.t0) * ev.m.L;
-          if (l.type === 'axialDistributed') {
-            return axialSpanToNodal2D(original, { ...l.data, elementId: ev.m.id, a: off + (l.data.a ?? 0), b: off + (l.data.b ?? len) });
-          }
-          if (l.type === 'pointOnElement') {
-            return pointToEnds2D(original, ev.m.id, off + l.data.a, l.data.px ?? 0, ev.m.truss ? l.data.p : 0);
-          }
-          if (l.type === 'distributed' && ev.m.truss) {
-            return transverseSpanToEnds2D(original, ev.m.id, l.data.qI, l.data.qJ, off + (l.data.a ?? 0), off + (l.data.b ?? len));
-          }
-          return [];
+          return endLoadsOfYielded(ev.m, l, piece.t0 * ev.m.L, (piece.t1 - piece.t0) * ev.m.L);
         });
         for (const id of pieceIds) work.elements.delete(id);
         for (const n of ev.m.splitNodes) work.nodes.delete(n);
@@ -623,6 +631,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
   if (!isMechanism) {
     isMechanism = !analyzeKinematics(work).isSolvable;
   }
+  if (event === maxEvents && !isMechanism) unresolved = true;
   return {
     collapseFactor: lambda,
     steps,

@@ -308,3 +308,35 @@ describe('the largest |M| / Mp of a distribution', () => {
     expect(peakRatio(lm.sm, M, 1).ratio * MP).toBeCloseTo(exact, 12);
   });
 });
+
+describe('equilibrium of fixed moments is judged at the scale of the problem', () => {
+  for (const s of [1, 1e-10, 1e10]) {
+    it(`loads and moments scaled by ${s}: zero moments under a load are refused, the equilibrium ones accepted`, () => {
+      const lm = limitModel(fixedBeam(6, 10 * s), () => MP * s);
+      const zero = new Map(lm.sm.sections.map((_, i) => [i, 0]));
+      expect(distribution(lm, zero, 1)).toBeNull();
+      const ref = distribution(limitModel(fixedBeam(6, 10), uniformMp), new Map(), 1)!;
+      const exact = new Map(ref.M.map((m, i) => [i, m * s]));
+      const d = distribution(lm, exact, 1);
+      expect(d).not.toBeNull();
+      expect(d!.ratio).toBeCloseTo(ref.ratio, 9);
+    });
+  }
+});
+
+describe('where the distributed-load hinge ended', () => {
+  it('a fixed beam under a uniform load: the hinge starts at midspan and stays, and that is what is reported', () => {
+    const m = model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']], [q(1, -10)]);
+    const s = solveLimit(m, uniformMp)!;
+    expect(s.positions.get(1)).toBeCloseTo(0.5, 9);
+    expect(s.history[s.history.length - 1].positions.get(1)).toBeCloseTo(0.5, 9);
+    expect(s.best.lambda).toBeCloseTo(16 * MP / (10 * 36), 6);
+  });
+});
+
+describe('a feasibility program (zero cost) has exactly zero multipliers', () => {
+  it('is certified optimal, not inaccurate, with ≤, ≥ and = rows of mixed scale', () => {
+    const r = solveLp({ c: [0, 0], rows: [{ a: [1e-8, 1], op: '<=', b: 3 }, { a: [1, 1e9], op: '>=', b: 1 }, { a: [1, -1], op: '=', b: 0.5 }], free: [true, true] });
+    expect(r.status).toBe('optimal');
+  });
+});

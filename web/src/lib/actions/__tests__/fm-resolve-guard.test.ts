@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { modelStore, uiStore, fmStepsStore } from '../../store';
 import * as solve from '../../engine/force-method/solve';
 import * as scope from '../../engine/step-by-step-scope';
-import { resolveFlexibility, switchFlexibilityAxial } from '../fm-fundamental';
+import { resolveFlexibility, switchFlexibilityAxial, chooseAutoFundamental, choiceError } from '../fm-fundamental';
+import { fmChoice } from '../../store/fm-choice.svelte';
 
 function portal() {
   modelStore.clear();
@@ -55,5 +56,31 @@ describe('the axial switch of the flexibility wizard', () => {
     expect(switchFlexibilityAxial(box, true)).toBe(true);
     expect(box.checked).toBe(false);
     expect(fmStepsStore.result?.axial).toBe(false);
+  });
+});
+
+describe('going back to the automatic primary structure', () => {
+  it('a refused solve leaves the toggle on manual, with the primary that is on screen', () => {
+    portal();
+    fmChoice.setMode('manual');
+    vi.spyOn(solve, 'solveForceMethod').mockImplementation(() => { throw new Error('refused'); });
+    expect(chooseAutoFundamental('manual')).toBe(false);
+    expect(fmChoice.mode).toBe('manual');
+    expect(fmChoice.error).not.toBeNull();
+  });
+
+  it('a solved one switches the toggle to auto', () => {
+    portal();
+    fmChoice.setMode('manual');
+    expect(chooseAutoFundamental('manual')).toBe(true);
+    expect(fmChoice.mode).toBe('auto');
+    expect(fmChoice.applied).toBeNull();
+  });
+});
+
+describe('why a chosen primary structure was not solved', () => {
+  it('a failure of the method itself is reported as a solver error, never as "no redundants"', () => {
+    expect(choiceError(new Error('index out of range')).key).toBe('toast.detailedSolverError');
+    expect(choiceError(new solve.ForceMethodError('noRedundants')).key).toBe('course.statics.err.noRedundants');
   });
 });

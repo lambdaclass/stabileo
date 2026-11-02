@@ -82,6 +82,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.fromRest': 'Der Rechenkern startet aus der Ruhe, daher wird u(t) mit der Antwort für u_0 = v_0 = 0 verglichen.',
   'course.dynamics.sdof.engine.unavailable': 'Der Rechenkern ist noch nicht geladen; die Kontrolle erscheint, sobald er bereit ist.',
   'course.dynamics.sdof.engine.diff': 'Die kleinen Abweichungen in u(t) stammen vom Zeitschritt der numerischen Integration.',
+  'course.dynamics.sdof.engine.historyTooLong': 'Die Zeitintegration des Rechenkerns bräuchte für dieses Verhältnis von Ω zu ω mehr als {max} Schritte und wurde daher nicht ausgeführt; verglichen werden ω und die Amplitude.',
   'course.dynamics.sdof.err.mk': 'm und k müssen endliche Zahlen größer als null sein.',
   'course.dynamics.sdof.err.noModel': 'Es gibt kein Modell, aus dem m und k genommen werden können: Modell laden oder m und k von Hand eingeben.',
   'course.dynamics.sdof.err.tooBig': 'Das Modell hat mehr Freiheitsgrade, als dieser Kurs Schritt für Schritt löst. Versuchen Sie ein kleineres Modell oder geben Sie m und k ein.',

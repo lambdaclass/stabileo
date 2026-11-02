@@ -17,10 +17,11 @@
 
   let conv = $state<BucklingConvergenceRow[] | null>(null);
   let busy = $state(false);
+  let convError = $state<string | null>(null);
   const phiValue = $derived(conv?.find((r) => r.label === 'phi')?.lambda1 ?? null);
 
   let run = 0;
-  $effect(() => { void result; run++; conv = null; busy = false; });
+  $effect(() => { void result; run++; conv = null; convError = null; busy = false; });
 
   function runConvergence() {
     if (!info) return;
@@ -30,7 +31,7 @@
     const mine = ++run;
     setTimeout(() => {
       if (mine !== run) return;
-      try { conv = bucklingConvergence(input, info.settings); } finally { busy = false; }
+      try { conv = bucklingConvergence(input, info.settings); convError = null; } catch (e) { convError = String((e as Error)?.message ?? e); } finally { busy = false; }
     }, 0);
   }
   const num = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
@@ -89,6 +90,7 @@
       </table>
     {:else}
       <button class="small-btn" disabled={busy} onclick={runConvergence} data-testid="buckling-convergence-run">{busy ? t('course.second-order.pd.running') : t('course.second-order.pd.runConvergence')}</button>
+      {#if convError}<p class="bk-note" data-testid="buckling-convergence-error">{convError}</p>{/if}
     {/if}
   </details>
   <button class="small-btn bk-steps" onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} data-testid="buckling-open-steps">{t('course.second-order.pd.openSteps')}</button>

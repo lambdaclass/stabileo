@@ -41,13 +41,14 @@ export function solveLimit(input: SolverInput, mpOf: (member: number) => number)
     const moments = mechanismMoments(lm, best);
     if (!moments) return null;
     const elementary = elementaryMechanisms(lm);
-    out = { lm, elementary, best, moments, combination: combinationOf(elementary, best.d), positions, history };
-    history.push({ positions, lambda: best.lambda });
-    const next = new Map(positions);
+    const used = new Map(positions);
+    for (const s of lm.sm.sections) if (s.kind === 'span') used.set(s.member, s.t);
+    out = { lm, elementary, best, moments, combination: combinationOf(elementary, best.d), positions: used, history };
+    history.push({ positions: used, lambda: best.lambda });
+    const next = new Map(used);
     let moved = false;
     lm.sm.sections.forEach((s, k) => {
       if (s.kind !== 'span') return;
-      next.set(s.member, s.t);
       const t = peakInside(lm, s.member, moments.M, best.lambda);
       if (t === null) return;
       const at = Math.abs(momentAt(lm.sm, s.member, t, moments.M, best.lambda)) / s.mp;

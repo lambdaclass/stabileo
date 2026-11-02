@@ -15,6 +15,7 @@ vi.mock('../plastic/lp', async (orig) => {
 });
 
 import { plasticCollapse2D } from '../plastic-collapse';
+import { verifiedCollapse } from '../../../components/advanced/plastic/user-compare';
 import type { SolverInput } from '../types';
 
 const propped = () => ({
@@ -39,5 +40,16 @@ describe('a mechanism the consistency check cannot accept', () => {
     const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity });
     lp.forceInfeasible = false;
     expect(r.unresolved).toBe(true);
+    expect(verifiedCollapse(r)).toBe(false);
+  });
+});
+
+describe('an analysis that runs out of events', () => {
+  it('is unresolved, not a structure that does not collapse', () => {
+    const cut = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 1 });
+    expect(cut.unresolved).toBe(true);
+    const whole = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
+    expect(whole.unresolved).toBeUndefined();
+    expect(whole.isMechanism).toBe(true);
   });
 });

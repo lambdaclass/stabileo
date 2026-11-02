@@ -1,11 +1,12 @@
 /**
  * The envelope drawn from influence lines: the largest and smallest value at each section, as a
- * band along each member. M is drawn on the side of the fibre it tensions (positive below a beam),
- * like the moment diagrams; V and N with positive values toward the member's left normal, like
- * the line itself.
+ * band along each member, on the same side whichever way the member was drawn. M is drawn on the
+ * side of the fibre it tensions (positive below a beam), like the moment diagrams; V and N with
+ * positive values toward the member's drawn local z, like the line itself.
  */
 import type { AlongEnvelope } from '../engine/influence/envelope-along';
 import { numText } from '../engine/steps/format';
+import { transverseSign } from '../engine/transverse-sign-2d';
 
 interface Ctx {
   ctx: CanvasRenderingContext2D;
@@ -33,7 +34,8 @@ export function drawIlEnvelope(env: AlongEnvelope, dc: Ctx): void {
     if (L < 1e-9) continue;
     const s0 = dc.worldToScreen(ni.x, ni.y), s1 = dc.worldToScreen(nj.x, nj.y);
     const sl = Math.hypot(s1.x - s0.x, s1.y - s0.y) || 1;
-    const nx = -(s1.y - s0.y) / sl, ny = (s1.x - s0.x) / sl;
+    const zs = transverseSign(dx, dy);
+    const nx = -zs * (s1.y - s0.y) / sl, ny = zs * (s1.x - s0.x) / sl;
     const curve = (vals: number[]) => m.t.map((t, k) => {
       const b = { x: s0.x + t * (s1.x - s0.x), y: s0.y + t * (s1.y - s0.y) };
       const off = side * vals[k] * scale;

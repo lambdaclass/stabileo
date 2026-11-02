@@ -13,7 +13,7 @@ import { plotOf, type Plot } from '../plot';
 import { dynamicsSettings, type SdofSettings } from '../../dynamics/course/settings';
 import { sdofProps, freeConstants, freeResponse, harmonic, forcedResponse, dynamicAmplification, resonancePeak, sample, timeWindow, type SdofProps, type Harmonic } from '../../dynamics/course/sdof';
 import { sdofFromModel, defaultSdofNode, type SdofFromModel } from '../../dynamics/course/sdof-model';
-import { engineCheck, type EngineCheck } from '../../dynamics/course/sdof-engine';
+import { engineCheck, MAX_HISTORY_STEPS, type EngineCheck } from '../../dynamics/course/sdof-engine';
 import { K, p, note, dt, nodeNames } from './common';
 
 export interface ResolvedSdof { m: number; k: number; fromModel: SdofFromModel | null; s: SdofSettings }
@@ -73,7 +73,7 @@ export function solveSdof(m: number, k: number, s: SdofSettings): SdofSolution {
 function shownValues(P: SdofProps, h: Harmonic | null, Omega: number, s: SdofSettings): number[] {
   const c = freeConstants(P, s.u0, s.v0);
   const out = [s.u0 * MM, s.v0 * MM, Omega, P.omega, P.f, P.T, P.cCr, P.c, s.xi * P.omega, c.A, c.B, c.rho * MM];
-  if (P.regime === 'underdamped') out.push(P.omegaD, P.TD, P.logDec, Math.exp(P.logDec), (1 - Math.exp(-P.logDec)) * 100);
+  if (P.regime === 'underdamped') out.push(P.omegaD, P.TD, P.logDec, (1 - Math.exp(-P.logDec)) * 100);
   if (P.regime === 'overdamped') out.push(P.omega * Math.sqrt(s.xi ** 2 - 1));
   if (h) {
     out.push(h.F0, h.Omega, h.beta, h.ust * MM);
@@ -88,6 +88,11 @@ export function finiteSdof(sol: SdofSolution): boolean {
   const curves = [sol.free, sol.total, sol.steady, sol.transient].every((c) => !c || c.every(([t, u]) => Number.isFinite(t) && Number.isFinite(u * MM)));
   return pos && Number.isFinite(P.omegaD) && sol.shown.every(Number.isFinite) && curves;
 }
+
+const peakRatioTex = (delta: number): string => {
+  const r = Math.exp(delta);
+  return Number.isFinite(r) ? num(r) : `10^{${num(delta * Math.LOG10E, 6)}}`;
+};
 
 /** D(β) for the reader's ξ, with three reference ratios and the case marked. */
 export function dafPlotOf(xi: number, beta: number): Plot {
@@ -182,7 +187,7 @@ export function buildSdof(ctx: MethodContext): StepDoc {
   if (P.regime === 'underdamped') {
     damp.push(
       { kind: 'calc', label: dt('sdof.damp.wdLabel'), formula: '\\omega_D = \\omega\\sqrt{1-\\xi^2}', subst: `\\omega_D = ${num(P.omega)}\\sqrt{1-${num(s.xi)}^2}`, result: `\\omega_D = ${num(P.omegaD)}\\ \\text{rad/s}, \\quad T_D = ${num(P.TD)}\\ \\text{s}` },
-      { kind: 'calc', label: dt('sdof.damp.decLabel'), formula: '\\delta = \\ln\\frac{u_n}{u_{n+1}} = \\frac{2\\pi\\xi}{\\sqrt{1-\\xi^2}}', subst: `\\delta = \\frac{2\\pi \\cdot ${num(s.xi)}}{\\sqrt{1-${num(s.xi)}^2}}`, result: `\\delta = ${num(P.logDec)}`, check: `\\frac{u_n}{u_{n+1}} = e^{\\delta} = ${num(Math.exp(P.logDec))}` },
+      { kind: 'calc', label: dt('sdof.damp.decLabel'), formula: '\\delta = \\ln\\frac{u_n}{u_{n+1}} = \\frac{2\\pi\\xi}{\\sqrt{1-\\xi^2}}', subst: `\\delta = \\frac{2\\pi \\cdot ${num(s.xi)}}{\\sqrt{1-${num(s.xi)}^2}}`, result: `\\delta = ${num(P.logDec)}`, check: `\\frac{u_n}{u_{n+1}} = e^{\\delta} = ${peakRatioTex(P.logDec)}` },
       p('sdof.damp.decWhy', { pct: numText((1 - Math.exp(-P.logDec)) * 100, 3) }, true),
     );
   } else if (P.regime === 'undamped') {
@@ -278,6 +283,7 @@ function engineBlocks(P: SdofProps, sol: SdofSolution, eng: EngineCheck, s: Sdof
     p('sdof.engine.lead'),
     p('sdof.engine.how', undefined, true),
     ...(sol.h && (s.u0 !== 0 || s.v0 !== 0) ? [note('info', 'sdof.engine.fromRest')] : []),
+    ...(eng.historyTooLong ? [note('info', 'sdof.engine.historyTooLong', { max: MAX_HISTORY_STEPS })] : []),
     { kind: 'compare', rows, caption: compareNoteFor(rows).key.endsWith('Exact') ? tx('steps.common.compareExact') : dt('sdof.engine.diff') },
   ];
 }

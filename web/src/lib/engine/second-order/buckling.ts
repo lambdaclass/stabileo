@@ -13,11 +13,11 @@
 import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import type { SolverInput } from '../types';
-import { buildSystem, type SecondOrderOptions, type SoSystem } from './system';
+import { buildSystem, memberDofs, memberLocals, type SecondOrderOptions, type SoSystem } from './system';
 import { clampedCount, reducedStiffness, rigidAxialScale, solveState } from './pdelta';
-import { generalizedEigen, logDet, matVec, negativeEigenvalues, norm2, type Mat } from './dense';
+import { congruent, generalizedEigen, logDet, matMul, matVec, negativeEigenvalues, norm2, transpose, zeros, type Mat } from './dense';
 import { solveDense } from '../steps/sway-modes';
-import type { GeomMethod } from './member-matrices';
+import { rotation, type GeomMethod } from './member-matrices';
 
 export interface TeachingMode {
   lambda: number;
@@ -57,20 +57,37 @@ export function firstOrderAxial(sys: SoSystem): { ok: true; N0: Map<number, numb
   if (!lin) return { ok: false, reason: tx('course.second-order.refuse.singular') };
   const rigidScale = rigidAxialScale(sys, lin, 'none');
   if (sys.rigid && !rigidScale) return { ok: false, reason: tx('course.second-order.refuse.singular') };
-  const uncertainty = (m: SoSystem['members'][number]) => rigidScale ? Math.max(1e-12, rigidScale.get(m.id) ?? 0) : elasticUncertainty(sys, m, lin);
-  if (!sys.members.some((m) => { const n = lin.N.get(m.id) ?? 0; return n < -1e-9 && n < -1e-9 * uncertainty(m); })) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
+  const uncertainty = (m: SoSystem['members'][number]) => rigidScale ? rigidScale.get(m.id) ?? 0 : elasticUncertainty(sys, m, lin);
+  if (!sys.members.some((m) => (lin.N.get(m.id) ?? 0) < -1e-9 * uncertainty(m))) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
   return { ok: true, N0: lin.N };
 }
 
 function elasticUncertainty(sys: SoSystem, m: SoSystem['members'][number], lin: { D: number[] }): number {
   const at = (node: number) => Math.hypot(lin.D[sys.dof(node, 0)], lin.D[sys.dof(node, 1)]);
-  return Math.max(1e-12, (m.EA / m.L) * (at(m.i) + at(m.j)));
+  return (m.EA / m.L) * (at(m.i) + at(m.j));
+}
+
+function geometricStiffness(sys: SoSystem, N0: Map<number, number>, method: 'consistent' | 'string'): Mat {
+  const at = new Map(sys.free.map((d, k) => [d, k]));
+  const G = zeros(sys.free.length, sys.free.length);
+  const local = memberLocals(sys, N0, method);
+  for (const m of sys.members) {
+    const R = rotation(m.c, m.s);
+    const kg = matMul(transpose(R), matMul(local.get(m.id)!.kg, R));
+    const ids = memberDofs(sys, m);
+    for (let a = 0; a < 6; a++) {
+      const r = at.get(ids[a]);
+      if (r === undefined) continue;
+      for (let b = 0; b < 6; b++) { const c = at.get(ids[b]); if (c !== undefined) G[r][c] += kg[a][b]; }
+    }
+  }
+  return sys.rigid ? congruent(G, sys.rigid.T) : G;
 }
 
 /** The eigenproblem with a geometric matrix linear in N. */
 export function linearBuckling(sys: SoSystem, method: 'consistent' | 'string', nModes: number, N0: Map<number, number>): TeachingMode[] {
   const K = reducedStiffness(sys, new Map(), 'none');
-  const KG = sub(reducedStiffness(sys, N0, method), K);
+  const KG = geometricStiffness(sys, N0, method);
   const pairs = generalizedEigen(K, KG.map((r) => r.map((v) => -v)));
   if (!pairs) return [];
   return pairs.slice(0, nModes).map((p) => ({ lambda: p.lambda, D: expand(sys, p.vector) }));

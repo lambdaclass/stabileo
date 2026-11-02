@@ -9,6 +9,7 @@ const words: Translations = {
   'course.second-order.refuse.rigidLocked': 'Mit dehnstarren Stäben bleibt keine freie Verschiebung übrig. Verwenden Sie Stäbe mit Dehnsteifigkeit.',
   'course.second-order.refuse.noFree': 'Das Tragwerk hat keine freien Knotenverschiebungen, und dieses P-Δ braucht sie. Stäbe mit festgehaltenen Enden werden innen trotzdem vergrößert und können allein knicken: Teilen Sie die Stäbe (n > 1) oder nutzen Sie die Knickanalyse mit den φ-Funktionen, die diese inneren Formen zählt.',
   'course.second-order.refuse.tooBig': 'Das Tragwerk hat {n} Unbekannte, dieses Verfahren arbeitet bis {max}. Verwenden Sie die konsistente geometrische Matrix, die der Rechenkern löst.',
+  'course.second-order.refuse.trussCouple': 'Ein Moment auf einem Fachwerkstab kann nicht übertragen werden: Ein Stab nimmt nur Kräfte in seinen Knoten auf. Setzen Sie das Moment auf einen Knoten oder machen Sie den Stab zu einem Rahmenstab.',
   'course.second-order.refuse.singular': 'Das Tragwerk ist kinematisch: Es hat keine Lösung nach Theorie I. Ordnung.',
   'course.second-order.refuse.noCompression': 'Kein Stab ist gedrückt: Es gibt keine Knicklast. P-Δ lässt sich trotzdem rechnen: Zug versteift das Tragwerk und kann, wenn NL²/EI groß ist, die Ergebnisse deutlich ändern.',
   'course.second-order.refuse.noPositive': 'Es wurde kein positiver Verzweigungslastfaktor gefunden.',
@@ -43,6 +44,7 @@ const words: Translations = {
 
   'course.second-order.pd.b2Line': 'B₂ = 1/(1 − 1/λ₁) mit λ₁ = {lambda}: die Vergrößerung der ersten Knickform.',
   'course.second-order.pd.ampLine': 'Die Verschiebungen wachsen ×{amp} am Knoten {node}, der sich am meisten bewegt.',
+  'course.second-order.pd.ampReversed': ' Dort zeigt die Verschiebung nach Theorie II. Ordnung entgegengesetzt zu der nach I. Ordnung.',
   'course.second-order.pd.noCompression': 'Kein Stab ist gedrückt: B₂ = 1.',
   'course.second-order.pd.iterations': 'Iterationen ({n})',
   'course.second-order.pd.iterationsNote': 'Jede Iteration baut K(N) mit den Normalkräften der vorigen auf und löst K(N)·D = F. Sie endet, wenn ‖ΔD‖/‖D‖ < 10⁻⁴.',

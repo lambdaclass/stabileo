@@ -9,6 +9,7 @@ const words: Translations = {
   'course.second-order.refuse.rigidLocked': 'Avec des barres axialement rigides, il ne reste aucun déplacement libre. Utilisez des barres avec rigidité axiale.',
   'course.second-order.refuse.noFree': 'La structure n\'a pas de déplacements de nœud libres, et ce P-Δ en a besoin. Les barres aux extrémités toutes tenues sont tout de même amplifiées à l\'intérieur et peuvent flamber seules : divisez les barres (n > 1) ou utilisez le flambement avec les fonctions φ, qui compte ces modes internes.',
   'course.second-order.refuse.tooBig': 'La structure a {n} inconnues et cette méthode travaille jusqu\'à {max}. Utilisez la matrice géométrique cohérente, que résout le moteur.',
+  'course.second-order.refuse.trussCouple': 'Un couple appliqué sur une barre de treillis ne peut pas être repris : une barre ne reçoit des forces qu\'à ses nœuds. Placez le couple sur un nœud ou faites de la barre une barre de portique.',
   'course.second-order.refuse.singular': 'La structure est un mécanisme : elle n\'a pas de solution au premier ordre.',
   'course.second-order.refuse.noCompression': 'Aucune barre n\'est comprimée : il n\'y a pas de charge critique de flambement. Le P-Δ reste calculable : la traction rigidifie la structure et, quand NL²/EI est grand, peut modifier nettement les résultats.',
   'course.second-order.refuse.noPositive': 'Aucun facteur de charge critique positif n\'a été trouvé.',
@@ -43,6 +44,7 @@ const words: Translations = {
 
   'course.second-order.pd.b2Line': 'B₂ = 1/(1 − 1/λ₁) avec λ₁ = {lambda} : l\'amplification du premier mode de flambement.',
   'course.second-order.pd.ampLine': 'Les déplacements augmentent de ×{amp} au nœud {node}, celui qui bouge le plus.',
+  'course.second-order.pd.ampReversed': ' Là, le déplacement du second ordre est de sens opposé à celui du premier ordre.',
   'course.second-order.pd.noCompression': 'Aucune barre n\'est comprimée : B₂ = 1.',
   'course.second-order.pd.iterations': 'Itérations ({n})',
   'course.second-order.pd.iterationsNote': 'Chaque itération construit K(N) avec les efforts normaux de la précédente et résout K(N)·D = F. Elle s\'arrête quand ‖ΔD‖/‖D‖ < 10⁻⁴.',

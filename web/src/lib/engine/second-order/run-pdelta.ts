@@ -40,8 +40,8 @@ export interface PDeltaInfo {
   settings: SoSettings;
   lambda1: number | null;
   b2: number;
-  /** |u_II|/|u_I| at the node that moves most in first order, and that node. */
-  amplification: { ratio: number; nodeId: number } | null;
+  /** |u_II|/|u_I| at the node that moves most in first order, that node, and whether u_II points against u_I there. */
+  amplification: Amplification | null;
   history: IterationRow[] | null;
   /** The iteration history was replayed by the teaching solver and lands on the engine's answer. */
   historyMatchesEngine: boolean;
@@ -53,8 +53,10 @@ export type SoPDeltaResult = PDeltaResult & { secondOrder: PDeltaInfo; notice?: 
 
 const translation = (d: { ux: number; uz: number }) => Math.hypot(d.ux, d.uz);
 
+export interface Amplification { ratio: number; nodeId: number; reversed: boolean }
+
 /** Second- over first-order translation at the node that moves most in first order. */
-export function displacementAmplification(linear: AnalysisResults, second: AnalysisResults): { ratio: number; nodeId: number } | null {
+export function displacementAmplification(linear: AnalysisResults, second: AnalysisResults): Amplification | null {
   let best: { nodeId: number; u: number } | null = null;
   for (const d of linear.displacements) if (!best || translation(d) > best.u) best = { nodeId: d.nodeId, u: translation(d) };
   if (!best || best.u < 1e-12) return null;
@@ -62,7 +64,7 @@ export function displacementAmplification(linear: AnalysisResults, second: Analy
   const d2 = second.displacements.find((d) => d.nodeId === best!.nodeId);
   if (!d2) return null;
   const dot = d1.ux * d2.ux + d1.uz * d2.uz;
-  return { nodeId: best.nodeId, ratio: dot > 0 ? translation(d2) / best.u : Infinity };
+  return { nodeId: best.nodeId, ratio: translation(d2) / best.u, reversed: dot < 0 };
 }
 
 const maxMoment = (r: AnalysisResults) => Math.max(0, ...r.elementForces.map((f) => peakAlong('moment', f)));
@@ -113,6 +115,19 @@ function rows(run: TeachingPDelta): IterationRow[] {
   }));
 }
 
+/** Every node of the engine's answer has the same ux, uz and ry here, each to 1e-6 of its largest component. */
+export function sameDisplacements(mine: AnalysisResults, engine: AnalysisResults): boolean {
+  const e = engine.displacements;
+  if (mine.displacements.length !== e.length) return false;
+  const byId = new Map(mine.displacements.map((d) => [d.nodeId, d]));
+  const tScale = Math.max(1e-12, ...e.map((d) => Math.max(Math.abs(d.ux), Math.abs(d.uz))));
+  const rScale = Math.max(1e-12, ...e.map((d) => Math.abs(d.ry)));
+  return e.every((d) => {
+    const a = byId.get(d.nodeId);
+    return !!a && Math.abs(a.ux - d.ux) <= 1e-6 * tScale && Math.abs(a.uz - d.uz) <= 1e-6 * tScale && Math.abs(a.ry - d.ry) <= 1e-6 * rScale;
+  });
+}
+
 /** The B₂ the result carries: the first mode's when λ₁ is known, else what the solve says. */
 function reportedB2(lambda1: number | null, b2: number, stable: boolean, fallback: number): number {
   if (lambda1 !== null) return b2;
@@ -143,9 +158,7 @@ export function runPDelta2D(input: SolverInput, s: SoSettings): { ok: true; resu
       const run = iteratePDelta(sys.sys, 'consistent');
       history = rows(run);
       const mine = collapseResults(r, input, toAnalysisResults(run.sys, r.input, run.final, 'consistent', run.finalSolvedWith));
-      const a = mine.displacements, e = res.results.displacements;
-      const scale = Math.max(1e-12, ...e.map((d) => Math.abs(d.ux) + Math.abs(d.uz)));
-      matches = run.iterations === res.iterations && a.every((d, k) => Math.abs(d.ux - e[k].ux) + Math.abs(d.uz - e[k].uz) <= 1e-6 * scale);
+      matches = run.iterations === res.iterations && sameDisplacements(mine, res.results);
     }
     const stable = res.isStable && !(lambda1 !== null && lambda1 <= 1);
     return {
@@ -174,7 +187,7 @@ export function runPDelta2D(input: SolverInput, s: SoSettings): { ok: true; resu
     ok: true,
     result: {
       results, linearResults: linear, iterations: run.iterations, converged: run.converged, isStable: stable,
-      b2Factor: reportedB2(lambda1, b2, stable, Infinity), amplification: [],
+      b2Factor: reportedB2(lambda1, b2, stable, NaN), amplification: [],
       secondOrder: { settings: s, lambda1, b2, amplification: displacementAmplification(linear, results), history: rows(run), historyMatchesEngine: false, compare },
     },
   };

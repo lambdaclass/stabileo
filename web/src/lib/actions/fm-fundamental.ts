@@ -11,7 +11,7 @@ import { blocked, refused } from './wizard-guard';
 const xName = (i: number) => `X${String(i).split('').map((d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]).join('')}`;
 
 export function choiceError(e: unknown): FmChoiceError {
-  if (!(e instanceof ForceMethodError)) return { key: 'course.statics.err.noRedundants', params: {}, nodes: [] };
+  if (!(e instanceof ForceMethodError)) return { key: 'toast.detailedSolverError', params: {}, nodes: [] };
   const d = e.detail;
   const nodes = d.nodes ?? [];
   const params: Record<string, string | number> = {
@@ -45,4 +45,11 @@ export function switchFlexibilityAxial(box: { checked: boolean }, applied: boole
   if (resolveFlexibility({ axial: box.checked })) return true;
   box.checked = applied;
   return false;
+}
+
+/** Back to the method's own primary structure; the toggle stays on manual when that solve is refused. */
+export function chooseAutoFundamental(onScreen: 'auto' | 'manual'): boolean {
+  if (onScreen === 'manual' && !resolveFlexibility({ releases: null })) return false;
+  fmChoice.setMode('auto');
+  return true;
 }

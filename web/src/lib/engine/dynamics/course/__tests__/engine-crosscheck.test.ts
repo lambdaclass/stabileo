@@ -12,7 +12,8 @@ import { convergenceTable, exactBeam, frequenciesOf } from '../convergence';
 import { subdivideForAnalysis } from '../../../../model/edit/analysis-subdivision';
 import { buildSolverInput2D } from '../../../solver-service';
 import { sdofProps, harmonic, forcedResponse } from '../sdof';
-import { sdofSyntheticInput } from '../sdof-engine';
+import { sdofSyntheticInput, engineCheck, MAX_HISTORY_STEPS } from '../sdof-engine';
+import { timeWindow } from '../sdof';
 
 const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
 beforeAll(async () => {
@@ -325,6 +326,39 @@ describe('the shear building takes its loads at the floors only', () => {
   });
 });
 
+describe('the shear building ignores gravity on its beams and negative point masses', () => {
+  const frame = (loads: (beam: number) => void) => build(() => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b); modelStore.addElement(d, c);
+    const beam = modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+    loads(beam);
+  });
+  it('a vertical load on a beam leaves the model as without it; an angled, axial or couple load is still refused', () => {
+    frame(() => {});
+    const bare = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false);
+    expect(typeof bare).toBe('object');
+    frame((beam) => { modelStore.addDistributedLoad(beam, -10, -10); modelStore.addPointLoadOnElement(beam, 2, -5); });
+    const loaded = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false);
+    expect(loaded).toEqual(bare);
+    for (const add of [
+      (beam: number) => modelStore.addDistributedLoad(beam, -10, -10, 30),
+      (beam: number) => modelStore.addDistributedLoad(beam, -10, -10, 0, true),
+      (beam: number) => modelStore.addPointLoadOnElement(beam, 2, -5, { px: 3 }),
+      (beam: number) => modelStore.addPointLoadOnElement(beam, 2, 0, { my: 3 }),
+    ]) {
+      frame(add);
+      expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('memberLoad');
+    }
+  });
+  it('a negative point mass is not subtracted from the floor', () => {
+    frame(() => {});
+    const one = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false);
+    const neg = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: -2 }], false);
+    expect(neg).toEqual(one);
+  });
+});
+
 describe('truss mass at a support in a turned frame', () => {
   for (const angle of [0, 35]) {
     it(`a triangle truss on a roller at ${angle}°: consistent-mass frequencies equal the engine's`, () => {
@@ -414,4 +448,32 @@ describe('the shear building is the frame alone', () => {
       expect(shearBuilding({ ...plain, ...extra } as never, [{ nodeId: 2, m: 5 }], false)).toBe('otherParts');
     });
   }
+});
+
+describe('the engine time history has a step budget', () => {
+  for (const ratio of [1e-4, 1e4]) {
+    it(`Ω/ω = ${ratio}: refused before any step is built, with the reason`, () => {
+      const p = sdofProps(1, 1, 0.05);
+      const h = harmonic(p, 1, ratio * p.omega);
+      const t0 = Date.now();
+      const r = engineCheck(p, h, timeWindow(p, h.Omega), 8);
+      expect(Date.now() - t0).toBeLessThan(2000);
+      expect(r.history).toBeNull();
+      expect(r.historyTooLong).toBe(true);
+      expect(r.omega).toBeCloseTo(1, 9);
+    });
+  }
+
+  it('Ω/ω = 2: run, within the budget, matching the closed form', () => {
+    const p = sdofProps(1, 1, 0.05);
+    const h = harmonic(p, 1, 2 * p.omega);
+    const tEnd = timeWindow(p, h.Omega);
+    const r = engineCheck(p, h, tEnd, 8);
+    expect(r.historyTooLong).toBe(false);
+    expect(r.history).not.toBeNull();
+    const fr = forcedResponse(p, h, 0, 0);
+    const amp = Math.abs(h.X);
+    for (const [t, u] of r.history!.slice(1)) expect(Math.abs(u - fr.total(t))).toBeLessThan(0.02 * amp);
+    expect(MAX_HISTORY_STEPS).toBeGreaterThan(0);
+  });
 });

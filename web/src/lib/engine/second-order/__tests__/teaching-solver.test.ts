@@ -510,3 +510,41 @@ describe('the compression guard with rigid members reads each member\'s own roun
     if (!first.ok) expect(first.reason.key).toBe('course.second-order.refuse.noCompression');
   });
 });
+
+describe('a tiny compression still buckles: λ·P does not depend on the load scale', () => {
+  for (const method of ['consistent', 'phi'] as const) {
+    for (const axialRigid of [false, true]) {
+      it(`${method}${axialRigid ? ', axially rigid' : ''}: P = 1e-10 kN and P = 100 kN give the same λ·P`, () => {
+        const at = (P: number) => {
+          const b = teachingBuckling(refineInput(column('pinned', 'rollerZ', 5, P), 4).input, { method, axialRigid }, 1);
+          if (!b.ok) throw new Error(b.reason.key);
+          return b.run.modes[0].lambda * P;
+        };
+        const ref = at(100);
+        expect(ref / (Math.PI ** 2 * EI / 25)).toBeCloseTo(1, method === 'phi' ? 6 : 2);
+        expect(at(1e-10) / ref).toBeCloseTo(1, 6);
+      });
+    }
+  }
+});
+
+describe('a couple on a bar cannot be carried', () => {
+  const bar = (my: number): SolverInput => ({
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 4, z: 0 }], [3, { id: 3, x: 2, z: 3 }]]),
+    materials: new Map([[1, { id: 1, e: 200_000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+    elements: new Map([
+      [1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [2, { id: 2, type: 'truss', nodeI: 3, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [3, { id: 3, type: 'truss', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    ]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' }], [2, { id: 2, nodeId: 2, type: 'rollerX' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -10, my: 0 } }, { type: 'pointOnElement', data: { elementId: 1, a: 1, p: 0, my } }],
+  } as unknown as SolverInput);
+  it('a point couple on a truss bar is refused, not dropped; without it the model builds', () => {
+    const r = buildSystem(bar(5), { method: 'consistent', axialRigid: false });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason.key).toBe('course.second-order.refuse.trussCouple');
+    expect(buildSystem(bar(0), { method: 'consistent', axialRigid: false }).ok).toBe(true);
+  });
+});

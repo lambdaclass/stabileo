@@ -55,3 +55,25 @@ describe('plastic collapse under loads along members', () => {
     });
   }
 });
+
+describe('the unloading check counts the loads a yielded bar left on its nodes', () => {
+  it('a cantilever propped by an inclined bar that carries a transverse load: the bar yields, the base hinges, λc by statics', () => {
+    const P = 10, NP = 5, MP = 20;
+    const m = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: 4 }], [3, { id: 3, x: 4, z: 0 }]]),
+      materials: new Map([[1, { id: 1, e: 200_000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+      elements: new Map([
+        [1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+        [2, { id: 2, type: 'truss', nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      ]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'pinned' }]]),
+      loads: [{ type: 'pointOnElement', data: { elementId: 2, a: 2 * Math.SQRT2, p: P } }],
+    } as unknown as SolverInput;
+    const r = plasticCollapse2D(m, { mp: () => MP, np: (id: number) => (id === 2 ? NP : Infinity) });
+    expect(r.unresolved).toBeFalsy();
+    expect(r.hinges.map((h) => h.kind).sort()).toEqual(['axial', 'bending']);
+    const fx = (lambda: number) => lambda * (P / 2) * Math.SQRT1_2;
+    expect(fx(r.collapseFactor)).toBeCloseTo(NP * Math.SQRT1_2 + MP / 4, 6);
+  });
+});

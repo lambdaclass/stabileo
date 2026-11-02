@@ -10,7 +10,7 @@ import type { PointMass } from '../mass-source';
 import { massDensities } from '../requests';
 import { solverProperties } from '../../../section/state';
 import { effectiveBendingInertia } from '../../solver-service';
-import { circularFrequencies, modelSystem, type SystemOptions } from './mdof-system';
+import { SystemError, circularFrequencies, modelSystem, type SystemOptions } from './mdof-system';
 import { generalizedEigen } from './dense';
 import type { MassModel } from './mass-model';
 
@@ -95,7 +95,8 @@ export const MASS_MODELS: MassModel[] = ['lumped', 'consistent', 'guyan'];
 
 export function frequenciesOf(model: ModelData, points: readonly PointMass[], opts: SystemOptions, count: number): { f: number[]; dofs: number } {
   const s = modelSystem(model, points, opts);
-  const { lambda } = generalizedEigen(s.K, s.M);
+  let lambda: number[];
+  try { ({ lambda } = generalizedEigen(s.K, s.M)); } catch { throw new SystemError('singular'); }
   return { f: circularFrequencies(lambda).slice(0, count).map((w) => w / (2 * Math.PI)), dofs: s.dofs.length };
 }
 

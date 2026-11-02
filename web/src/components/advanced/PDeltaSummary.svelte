@@ -51,6 +51,7 @@
     {tp(`${K}.b2Line`, { lambda: num(info.lambda1) })}
     {#if full?.amplification && shown}
       {tp(`${K}.ampLine`, { amp: num(full.amplification.ratio), node: full.amplification.nodeId })}
+      {#if full.amplification.reversed}<span data-testid="pdelta-amp-reversed">{t(`${K}.ampReversed`)}</span>{/if}
     {/if}
   </p>
 {:else if info && info.lambda1 === Infinity}

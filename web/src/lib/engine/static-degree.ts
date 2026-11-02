@@ -140,7 +140,7 @@ export function ghReport(input: SolverInput, slidingConditions = 0, opts: { spli
     };
   }
   let split: GhSplit | null = null;
-  if (opts.split && slidingConditions === 0) {
+  if (opts.split && slidingConditions === 0 && !input.constraints?.length && !input.connectors?.size) {
     const mob = freeMobility(input);
     const bodies = bodiesOf(input);
     if (mob !== null && mob >= 3 * bodies) {

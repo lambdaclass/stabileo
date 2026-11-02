@@ -60,6 +60,7 @@ export function unsupported(input: SolverInput): Txt | null {
   if (input.constraints?.length) return tx('course.second-order.refuse.constraints');
   if (input.connectors?.size) return tx('course.second-order.refuse.constraints');
   if (input.loads.some((l) => l.type === 'thermal')) return tx('course.second-order.refuse.thermal');
+  if (input.loads.some((l) => l.type === 'pointOnElement' && (l.data.my ?? 0) !== 0 && input.elements.get(l.data.elementId)?.type === 'truss')) return tx('course.second-order.refuse.trussCouple');
   for (const s of input.supports.values()) {
     if (s.type === 'inclinedRoller' || (s.type === 'spring' && s.angle)) return tx('course.second-order.refuse.inclined');
   }

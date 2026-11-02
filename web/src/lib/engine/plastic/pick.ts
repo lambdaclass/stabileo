@@ -26,16 +26,17 @@ export function pickHinge(
   if (!best) return null;
   const { member, L } = best;
   let t = best.t;
-  const endZone = Math.max(1.5 * tol, 0.12 * L) / L;
-  if (t <= endZone) return { member, t: 0 };
-  if (t >= 1 - endZone) return { member, t: 1 };
   const targets = [
     0.5,
     ...input.loads.filter((l) => l.type === 'pointOnElement' && l.data.elementId === member).map((l) => (l.data as { a: number }).a / L),
     ...snaps.filter((s) => s.member === member).map((s) => s.t),
   ].filter((v) => v > 0 && v < 1);
   const near = targets.map((v) => ({ v, d: Math.abs(v - t) * L })).sort((x, y) => x.d - y.d)[0];
-  if (near && near.d <= 1.5 * tol) return { member, t: near.v };
+  const toEnd = Math.min(t, 1 - t) * L;
+  if (near && near.d <= 1.5 * tol && near.d < toEnd) return { member, t: near.v };
+  const endZone = Math.max(1.5 * tol, 0.12 * L) / L;
+  if (t <= endZone) return { member, t: 0 };
+  if (t >= 1 - endZone) return { member, t: 1 };
   t = Math.round(t * L * 100) / 100 / L;
   return { member, t };
 }

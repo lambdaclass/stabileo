@@ -7,6 +7,8 @@ import type { Extras } from './vw-extras';
 
 const tex = (s: string): Cell => ({ tex: s });
 const COMP = ['x', 'z', '\\theta'];
+const springComp = (comp: number, angle: number): string =>
+  comp === 2 || angle === 0 ? COMP[comp] : `${comp === 0 ? "x'" : "z'"}\\ (\\alpha = ${num((angle * 180) / Math.PI)}^\\circ)`;
 
 export function extrasBlocks(pm: PlaneModel, ex: Extras, unit: string): Block[] {
   const name = (id: number) => pm.nodes.get(id)?.name ?? String(id);
@@ -16,7 +18,7 @@ export function extrasBlocks(pm: PlaneModel, ex: Extras, unit: string): Block[] 
     out.push({
       kind: 'table',
       head: [tx('steps.common.node'), tx('course.statics.vw.col.comp'), tex('R'), tex('r'), tex('k'), tex(`\\frac{r\\,R}{k}\\ [${unit}]`)],
-      rows: ex.springs.map((s) => [name(s.node), tex(COMP[s.comp]), s.R, s.r, s.k, s.value]),
+      rows: ex.springs.map((s) => [name(s.node), tex(springComp(s.comp, s.angle)), s.R, s.r, s.k, s.value]),
       caption: tx('course.statics.vw.springsCaption'),
     });
   }

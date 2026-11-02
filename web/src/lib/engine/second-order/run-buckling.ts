@@ -25,15 +25,18 @@ export type SoBucklingResult = BucklingResult & { secondOrder: BucklingInfo; dis
 /** Effective length factors per member of the model, from the factor and each piece's N. */
 export function memberBucklingData(original: SolverInput, r: Refined, pieceN: Map<number, number>, lambda1: number): ElementBucklingData[] {
   const out: ElementBucklingData[] = [];
+  if (!(lambda1 > 0 && Number.isFinite(lambda1))) return out;
+  const scale = Math.max(0, ...[...pieceN.values()].map(Math.abs));
   for (const [id, list] of r.pieces) {
     const e = original.elements.get(id)!;
     const n = Math.min(...list.map((p) => pieceN.get(p.id) ?? 0));
-    if (!(n < -1e-6)) continue;
+    if (!(n < -1e-9 * scale)) continue;
     const mat = original.materials.get(e.materialId), sec = original.sections.get(e.sectionId);
     const EI = (mat?.e ?? 0) * 1000 * (sec?.iz ?? 0);
     const L = list[list.length - 1].x1;
     const pcr = lambda1 * Math.abs(n);
-    const k = pcr > 1e-9 && EI > 0 ? (Math.PI * Math.sqrt(EI / pcr)) / L : 1;
+    const k = (Math.PI * Math.sqrt(EI / pcr)) / L;
+    if (!(EI > 0 && pcr > 0 && Number.isFinite(k) && k > 0)) continue;
     const r2 = sec && sec.a > 0 ? Math.sqrt(sec.iz / sec.a) : 0;
     out.push({ elementId: id, axialForce: n, criticalForce: pcr, kEffective: k, effectiveLength: k * L, length: L, slenderness: r2 > 0 ? (k * L) / r2 : 0 });
   }
@@ -46,7 +49,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
   if (usesEngine(s)) {
     const raw = solveBuckling(r.input, s.modes) as SoBucklingResult;
     const pieceN = new Map(raw.elementData.map((d) => [d.elementId, d.axialForce]));
-    const lambda1 = raw.modes[0]?.loadFactor ?? 0;
+    const lambda1 = raw.modes[0]?.loadFactor ?? NaN;
     return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1), secondOrder: { settings: s, geometry, engineFactors: null } } };
   }
   const got = teachingBuckling(r.input, teachingOptions(s), s.modes);
@@ -66,7 +69,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
     result: {
       modes,
       nDof: run.sys.free.length,
-      elementData: memberBucklingData(input, r, run.N0, modes[0].loadFactor),
+      elementData: memberBucklingData(input, r, run.N0, modes[0]?.loadFactor ?? NaN),
       secondOrder: { settings: s, geometry, engineFactors },
     },
   };

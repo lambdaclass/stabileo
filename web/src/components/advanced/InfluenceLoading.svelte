@@ -24,9 +24,10 @@
   const kind = $derived<Quantity>(q === 'M' || q === 'My' ? 'moment' : q === 'uz' || q === 'ux' ? 'displacement' : q === 'ry' ? 'rotation' : 'force');
   const dir = $derived(UNIT_LOAD_DIR[il.direction ?? 'vertical']);
   const loads = $derived(influenceTool.loads);
-  const reading = $derived.by(() => {
-    try { return readLine(unit, il, loads, influenceTool.placement, loadedIds, dir); } catch { return null; }
+  const attempt = $derived.by(() => {
+    try { return { reading: readLine(unit, il, loads, influenceTool.placement, loadedIds, dir), error: null }; } catch (e) { return { reading: null, error: String((e as Error)?.message ?? e) }; }
   });
+  const reading = $derived(attempt.reading);
   const extremes = $derived(reading ? ([['max', reading.max, reading.direct.max], ['min', reading.min, reading.direct.min]] as const) : []);
   const fmt = (v: number) => `${fmtQ(v, kind)} ${unitQ(kind)}`;
   const agrees = (a: number, b: number) => Math.abs(a - b) <= 1e-3 * Math.max(Math.abs(a), Math.abs(b)) + 1e-9;
@@ -78,6 +79,8 @@
           <div class="ill-check" class:ok={agrees(ex.value, direct)}>{tp('course.influence.load.direct', { v: fmt(direct) })}</div>
         </div>
       {/each}
+    {:else if attempt.error}
+      <p class="ill-note ill-bad" data-testid="il-load-error">{attempt.error}</p>
     {/if}
 
     {#if canEnvelope}
@@ -108,6 +111,7 @@
   .ill-place button:hover, .ill-btn:hover:not(:disabled) { background: var(--st-surface-3); color: var(--st-text); }
   .ill-btn { align-self: flex-start; padding: 0.3rem 0.55rem; }
   .ill-btn:disabled { opacity: 0.5; cursor: progress; }
+  .ill-bad { color: var(--st-danger); }
   .ill-note { margin: 0; color: var(--st-text-3); font-size: 0.64rem; line-height: 1.4; }
   .ill-res { border-top: 1px solid var(--st-hair); padding-top: 0.3rem; display: flex; flex-direction: column; gap: 0.1rem; }
   .ill-line { display: flex; justify-content: space-between; gap: 0.4rem; }

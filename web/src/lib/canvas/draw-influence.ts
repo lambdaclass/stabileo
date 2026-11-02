@@ -7,6 +7,7 @@ import { numText } from '../engine/steps/format';
 import { influenceTool } from '../store/influence-tool.svelte';
 import { drawIlEnvelope } from './draw-il-envelope';
 import { plainSymbol } from '../engine/influence/quantities';
+import { transverseSign } from '../engine/transverse-sign-2d';
 
 interface DrawContext {
   ctx: CanvasRenderingContext2D;
@@ -108,9 +109,9 @@ export function drawInfluenceLine(
     const L = Math.sqrt(dx * dx + dy * dy);
     if (L < 1e-6) continue;
 
-    // Perpendicular direction (always draw "up" relative to element)
-    const perpX = -dy / L;
-    const perpY = dx / L;
+    const zs = transverseSign(dx, dy);
+    const perpX = zs * -dy / L;
+    const perpY = zs * dx / L;
 
     // Compute global t for each point (for animation filtering)
     const cumStart = elemCumStart.get(elemId) ?? 0;

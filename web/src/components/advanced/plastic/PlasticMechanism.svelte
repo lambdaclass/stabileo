@@ -55,8 +55,8 @@
       <p>{t('course.plastic.mech.vwLead')}</p>
       <div class="mt-eq" data-testid="plastic-mechanism-vw">
         Σ Mp|θ| = {mom(work.Wi)}·θ<br />
-        Σ P·δ = {fmtQ(work.We, 'moment')}·θ<br />
-        λ = {mom(work.Wi)} / {fmtQ(work.We, 'moment')} = {work.lambda.toFixed(3)}
+        Σ P·δ = {mom(work.We)}·θ<br />
+        λ = {mom(work.Wi)} / {mom(work.We)} = {work.lambda.toFixed(3)}
       </div>
       {#if Number.isFinite(work.lambda) && Number.isFinite(r.collapseFactor) && Math.abs(work.lambda - r.collapseFactor) <= 1e-3 * Math.abs(r.collapseFactor)}
         <p>{tp('course.plastic.mech.vwAgree', { lambda: r.collapseFactor.toFixed(3) })}</p>

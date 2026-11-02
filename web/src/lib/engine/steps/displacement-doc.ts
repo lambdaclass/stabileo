@@ -233,7 +233,7 @@ export function state0Step(sol: DispSolution): Step {
   }
   b.push(endTable(sol, sol.s0.act, tx(`${P}s0.tableCaption`), '0'));
   b.push({ kind: 'p', text: tx(`${P}s0.restraints`) });
-  b.push({ kind: 'eq', tex: 'R^{0}_i = \\sum M^{0}\\,\\theta_i - \\sum \\psi_i\\left(M^{0}_{ij} + M^{0}_{ji}\\right) + \\sum N^{0} e_i - W_i', note: tx(`${P}s0.restraintsNote`) });
+  b.push({ kind: 'eq', tex: `R^{0}_i = \\sum M^{0}\\,\\theta_i - \\sum \\psi_i\\left(M^{0}_{ij} + M^{0}_{ji}\\right) + \\sum N^{0} e_i${ks.springs.length ? ' + \\sum k\\,u\\,\\phi' : ''} - W_i`, note: tx(`${P}s0.restraintsNote`) });
   b.push({ kind: 'p', text: tx(`${P}s0.loadsOnJoints`), detail: true });
   const base = (q: number, dir: 'x' | 'z' | 'r') => (dir === 'r' ? ks.thHeld.get(q) ?? 0 : (ks.up.get(q) ?? { x: 0, z: 0 })[dir]);
   ks.unknowns.forEach((_, i) => {

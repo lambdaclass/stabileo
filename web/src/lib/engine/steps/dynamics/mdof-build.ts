@@ -93,7 +93,7 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   const C = modalDampingMatrix(sol, M, ms.xi);
   const force = ex.kind === 'harmonic' ? (tt: number) => F.map((f) => f * Math.sin(Omega * tt)) : () => F.map(() => 0);
   const direct = directIntegration(K, M, C, force, ex.kind === 'free' ? ust : F.map(() => 0), F.map(() => 0), times, tEnd / N / sub);
-  if (!(Number.isFinite(Omega) && [...modal, ...direct].every((u) => u.every(Number.isFinite)))) return { refusal: 'mdof.err.notFinite' };
+  if (!((ex.kind === 'free' || Number.isFinite(Omega)) && [...modal, ...direct].every((u) => u.every(Number.isFinite)))) return { refusal: 'mdof.err.notFinite' };
   return { kind: ms.source, sys, shear, K, M, F, dofs, sol, ex, xi: ms.xi, Omega, ust, resp, at, times, modal, direct, settings };
 }
 

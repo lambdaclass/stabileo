@@ -320,12 +320,11 @@ export function introBlocks(S: CutsCtx): Block[] {
 export function classificationStep(S: CutsCtx): { step: Step; sd: ReturnType<typeof computeStaticDegree>; gh: number } {
   const { pm, input, nameOf } = S;
   const sd = computeStaticDegree(input);
-  const nMembers = pm.members.size, nNodes = input.nodes.size;
-  let r = 0;
-  for (const s of pm.supports.values()) r += (s.ux ? 1 : 0) + (s.uz ? 1 : 0) + (s.ry ? 1 : 0);
-  const c = [...sd.nodeConditions.values()].reduce((a, b) => a + b, 0);
-  const gh = sd.degree;
   const rep = ghReport(input);
+  const { r, c } = rep.count;
+  const nMembers = rep.kind === 'truss' ? rep.count.mTruss : rep.kind === 'frame' ? rep.count.mFrame : rep.count.mFrame + rep.count.mTruss;
+  const nNodes = rep.kind === 'truss' ? rep.count.nTrussNodes : rep.kind === 'frame' ? rep.count.nFrameNodes : rep.count.nFrameNodes + rep.count.nTrussNodes;
+  const gh = rep.gh;
     const blocks: Block[] = [
       { kind: 'p', text: tx('steps.cuts.class.count', { m: nMembers, n: nNodes, r, c }) },
       { kind: 'calc', formula: rep.formula.tex, subst: rep.subst.tex, result: `\\boxed{GH = ${gh}}` },

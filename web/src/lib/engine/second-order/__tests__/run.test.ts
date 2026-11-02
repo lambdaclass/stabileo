@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasm from '../../wasm-solver';
 import { modelStore, historyStore } from '../../../store';
 import { runPDelta2D, pdeltaConvergence, displacementAmplification } from '../run-pdelta';
-import { runBuckling2D, bucklingConvergence } from '../run-buckling';
+import { runBuckling2D, bucklingConvergence, memberBucklingData } from '../run-buckling';
 import { refineInput } from '../refine';
 import { DEFAULT_SETTINGS, firstModeB2, type SoSettings } from '../settings';
 import { generate } from '../../__tests__/helpers/random-models-2d';
@@ -164,12 +164,12 @@ describe('Basic buckling', () => {
 });
 
 describe('the largest displacement amplification', () => {
-  it('is read at the node that moves most in first order, and is ∞ when the second-order one reverses', () => {
+  it('is read at the node that moves most in first order, and keeps its size with the reversal flagged when the second-order one points the other way', () => {
     const lin = { displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 1, uz: 0, ry: 0 }], reactions: [], elementForces: [] };
     const two = { ...lin, displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 1.5, uz: 0, ry: 0 }] };
     const rev = { ...lin, displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: -1.5, uz: 0, ry: 0 }] };
-    expect(displacementAmplification(lin, two)).toEqual({ nodeId: 2, ratio: 1.5 });
-    expect(displacementAmplification(lin, rev)!.ratio).toBe(Infinity);
+    expect(displacementAmplification(lin, two)).toEqual({ nodeId: 2, ratio: 1.5, reversed: false });
+    expect(displacementAmplification(lin, rev)).toEqual({ nodeId: 2, ratio: 1.5, reversed: true });
   });
 });
 
@@ -183,5 +183,33 @@ describe('internal buckling modes through the wrapper', () => {
       expect(m.displacements.every((d) => Object.entries(d).every(([k, v]) => k === 'nodeId' || v === 0))).toBe(true);
     }
     expect(got.result.modes[0].loadFactor).toBeCloseTo((4 * Math.PI ** 2 * EI) / 25 / 100, 4);
+  });
+});
+
+describe('effective length factors are never made up', () => {
+  const pieces = (input: Parameters<typeof refineInput>[0]) => refineInput(input, 1);
+  it('no first mode, or a non-positive one: no member gets a k', () => {
+    const c = column('pinned', 'rollerZ', 5, 100);
+    const r = pieces(c);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
+    for (const l of [NaN, 0, -2, Infinity]) expect(memberBucklingData(c, r, N, l)).toEqual([]);
+    const ok = memberBucklingData(c, r, N, Math.PI ** 2 * EI / 25 / 100);
+    expect(ok).toHaveLength(1);
+    expect(ok[0].kEffective).toBeCloseTo(1, 9);
+  });
+  it('a compressed member with EI = 0 is left out, not given k = 1', () => {
+    const c = column('pinned', 'rollerZ', 5, 100);
+    const flat = { ...c, sections: new Map([...c.sections].map(([id, s]) => [id, { ...s, iz: 0 }])) };
+    const r = pieces(flat);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
+    expect(memberBucklingData(flat, r, N, 3)).toEqual([]);
+  });
+  it('a tiny compression keeps its k: the floor is relative to the largest force', () => {
+    const c = column('pinned', 'rollerZ', 5, 1e-10);
+    const r = pieces(c);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -1e-10]));
+    const d = memberBucklingData(c, r, N, Math.PI ** 2 * EI / 25 / 1e-10);
+    expect(d).toHaveLength(1);
+    expect(d[0].kEffective).toBeCloseTo(1, 9);
   });
 });

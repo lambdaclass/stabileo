@@ -84,7 +84,7 @@
         {#if v.combined}<p>{t('course.plastic.user.combined')}</p>{/if}
         <div class="um-eq" data-testid="plastic-user-lambda">
           Σ Mp|θ| = λ·Σ P·δ<br />
-          {mom(v.mech.Wi)}·θ = λ·{fmtQ(v.mech.W, 'moment')}·θ<br />
+          {mom(v.mech.Wi)}·θ = λ·{mom(v.mech.W)}·θ<br />
           λ = {v.mech.lambda.toFixed(3)}
         </div>
         {#if v.admissible}

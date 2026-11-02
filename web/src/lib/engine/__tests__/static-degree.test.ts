@@ -95,6 +95,21 @@ describe('GH by the classic formula', () => {
     expect(hangingBar.split).toEqual({ external: 0, internal: 0, mechanisms: 1, bodies: 1 });
   });
 
+  it('a beam released at both ends has no internal mechanism; released between two rigid columns it has two hinges', () => {
+    const beam = ghReport(model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2, 'frame', true, true]], [[1, 'pinned'], [2, 'rollerX']]), 0, { split: true });
+    expect(beam.gh).toBe(0);
+    expect(beam.split).toEqual({ external: 0, internal: 0, mechanisms: 0, bodies: 1 });
+    const portal = ghReport(model([[1, 0, 0], [2, 0, 4], [3, 6, 4], [4, 6, 0]], [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', true, true], [3, 3, 4, 'frame']], [[1, 'fixed'], [4, 'fixed']]), 0, { split: true });
+    expect(portal.gh).toBe(1);
+    expect(portal.split).toEqual({ external: 1, internal: 0, mechanisms: 2, bodies: 1 });
+  });
+
+  it('gives no external/internal split when a constraint ties the model: the classic count does not see it', () => {
+    const base = CASES[1].input;
+    expect(ghReport(base, 0, { split: true }).split).not.toBeNull();
+    expect(ghReport({ ...base, constraints: [{ type: 'equalDOF', masterNode: 1, slaveNode: 3, dofs: [0] }] } as never, 0, { split: true }).split).toBeNull();
+  });
+
   it('classifies, and counts the hinge conditions per node', () => {
     const arch = ghReport(CASES[5].input);
     expect(arch.classification).toBe('isostatic');

@@ -117,11 +117,23 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
   }
   if (floors.some((f) => new Set(f.nodes.map(root)).size > 1)) return 'floorSplit';
   for (const p of points) {
+    if (!(p.m > 0)) continue;
     const n = model.nodes.get(p.nodeId);
     const l = n ? levelOf(n.y) : -1;
     if (l > 0) floors[l - 1].mPoint += p.m;
   }
+  const onBeam = (elementId: number) => {
+    const e = model.elements.get(elementId);
+    const a = e && model.nodes.get(e.nodeI), b = e && model.nodes.get(e.nodeJ);
+    return !!a && !!b && Math.abs(a.y - b.y) <= TOL;
+  };
+  const vertical = (ld: (typeof model.loads)[number]): boolean => {
+    if (ld.type === 'distributed') return onBeam(ld.data.elementId) && !ld.data.isGlobal && !ld.data.angle;
+    if (ld.type === 'pointOnElement') return onBeam(ld.data.elementId) && !ld.data.isGlobal && !ld.data.angle && !ld.data.px && !(ld.data.my ?? ld.data.mz);
+    return false;
+  };
   for (const ld of model.loads) {
+    if (vertical(ld)) continue;
     if (ld.type !== 'nodal') return 'memberLoad';
     const d = ld.data as { nodeId: number; fx?: number };
     const n = model.nodes.get(d.nodeId);

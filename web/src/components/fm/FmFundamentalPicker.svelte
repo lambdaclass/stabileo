@@ -9,7 +9,7 @@
   import type { ForceMethodResult } from '../../lib/engine/force-method/solve';
   import type { ReleaseGroup, ReleaseOption } from '../../lib/engine/force-method/releases';
   import { fmChoice } from '../../lib/store/fm-choice.svelte';
-  import { resolveFlexibility } from '../../lib/actions/fm-fundamental';
+  import { resolveFlexibility, chooseAutoFundamental } from '../../lib/actions/fm-fundamental';
   import FmSketch from './FmSketch.svelte';
   import { releaseLabel, xName } from './fm-text';
 
@@ -24,9 +24,8 @@
   let justSolved = $state(false);
 
   function setAuto() {
-    fmChoice.setMode('auto');
     justSolved = false;
-    if (r.choice === 'manual') resolveFlexibility({ releases: null });
+    chooseAutoFundamental(r.choice);
   }
   function solve() {
     justSolved = resolveFlexibility({ releases: [...fmChoice.draft] });

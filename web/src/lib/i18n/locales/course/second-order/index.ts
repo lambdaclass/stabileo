@@ -10,6 +10,7 @@ export const es: Translations = {
   'course.second-order.refuse.rigidLocked': 'Con barras axialmente rígidas no queda ningún desplazamiento libre. Usá barras con rigidez axil.',
   'course.second-order.refuse.noFree': 'La estructura no tiene desplazamientos de nudo libres, y este P-Δ los necesita. Las barras con todos sus extremos fijos igual se amplifican por dentro y pueden pandear solas: dividí las barras (n > 1) o usá el pandeo con funciones φ, que cuenta esos modos internos.',
   'course.second-order.refuse.tooBig': 'La estructura tiene {n} incógnitas y este método trabaja hasta {max}. Usá la matriz geométrica consistente, que resuelve el motor.',
+  'course.second-order.refuse.trussCouple': 'Un par aplicado sobre una biela no se puede transmitir: una biela solo toma fuerzas en sus nudos. Pasá el par a un nudo o convertí la barra en pórtico.',
   'course.second-order.refuse.singular': 'La estructura es un mecanismo: no tiene solución de primer orden.',
   'course.second-order.refuse.noCompression': 'Ninguna barra está comprimida: no hay carga crítica de pandeo. El P-Δ igual se puede calcular: la tracción rigidiza la estructura y, cuando NL²/EI es grande, puede cambiar mucho los resultados.',
   'course.second-order.refuse.noPositive': 'No se encontró ningún factor de carga crítica positivo.',
@@ -44,6 +45,7 @@ export const es: Translations = {
 
   'course.second-order.pd.b2Line': 'B₂ = 1/(1 − 1/λ₁) con λ₁ = {lambda}: la amplificación del primer modo de pandeo.',
   'course.second-order.pd.ampLine': 'Los desplazamientos crecen ×{amp} en el nudo {node}, el que más se mueve.',
+  'course.second-order.pd.ampReversed': ' Ahí el desplazamiento de segundo orden apunta al revés que el de primer orden.',
   'course.second-order.pd.noCompression': 'Ninguna barra está comprimida: B₂ = 1.',
   'course.second-order.pd.iterations': 'Iteraciones ({n})',
   'course.second-order.pd.iterationsNote': 'En cada iteración se arma K(N) con los esfuerzos normales de la anterior y se resuelve K(N)·D = F. Se corta cuando ‖ΔD‖/‖D‖ < 10⁻⁴.',
@@ -212,6 +214,7 @@ export const en: Translations = {
   'course.second-order.refuse.rigidLocked': 'With axially rigid members, no free displacement is left. Use members with axial stiffness.',
   'course.second-order.refuse.noFree': 'The structure has no free joint displacements, and this P-Δ needs them. Members with every end held are still amplified inside and can buckle alone: split the members (n > 1) or use buckling with the φ functions, which counts those internal modes.',
   'course.second-order.refuse.tooBig': 'The structure has {n} unknowns and this method works up to {max}. Use the consistent geometric matrix, which the engine solves.',
+  'course.second-order.refuse.trussCouple': 'A couple applied on a truss bar cannot be carried: a bar only takes forces at its joints. Move the couple to a joint or make the member a frame member.',
   'course.second-order.refuse.singular': 'The structure is a mechanism: it has no first-order solution.',
   'course.second-order.refuse.noCompression': 'No member is in compression: there is no buckling load. P-Δ can still be run: tension stiffens the structure and, when NL²/EI is large, can change the results significantly.',
   'course.second-order.refuse.noPositive': 'No positive critical load factor was found.',
@@ -246,6 +249,7 @@ export const en: Translations = {
 
   'course.second-order.pd.b2Line': 'B₂ = 1/(1 − 1/λ₁) with λ₁ = {lambda}: the amplification of the first buckling mode.',
   'course.second-order.pd.ampLine': 'Displacements grow ×{amp} at node {node}, the one that moves most.',
+  'course.second-order.pd.ampReversed': ' There the second-order displacement points the opposite way to the first-order one.',
   'course.second-order.pd.noCompression': 'No member is in compression: B₂ = 1.',
   'course.second-order.pd.iterations': 'Iterations ({n})',
   'course.second-order.pd.iterationsNote': 'Each iteration builds K(N) with the axial forces of the previous one and solves K(N)·D = F. It stops when ‖ΔD‖/‖D‖ < 10⁻⁴.',
@@ -414,6 +418,7 @@ export const pt: Translations = {
   'course.second-order.refuse.rigidLocked': 'Com barras axialmente rígidas não sobra nenhum deslocamento livre. Use barras com rigidez axial.',
   'course.second-order.refuse.noFree': 'A estrutura não tem deslocamentos de nó livres, e este P-Δ precisa deles. Barras com todas as extremidades fixas ainda são amplificadas por dentro e podem flambar sozinhas: divida as barras (n > 1) ou use a flambagem com funções φ, que conta esses modos internos.',
   'course.second-order.refuse.tooBig': 'A estrutura tem {n} incógnitas e este método trabalha até {max}. Use a matriz geométrica consistente, que o motor resolve.',
+  'course.second-order.refuse.trussCouple': 'Um binário aplicado sobre uma barra de treliça não pode ser transmitido: a barra só recebe forças nos nós. Passe o binário para um nó ou transforme a barra em pórtico.',
   'course.second-order.refuse.singular': 'A estrutura é um mecanismo: não tem solução de primeira ordem.',
   'course.second-order.refuse.noCompression': 'Nenhuma barra está comprimida: não há carga crítica de flambagem. O P-Δ ainda pode ser calculado: a tração enrijece a estrutura e, quando NL²/EI é grande, pode mudar muito os resultados.',
   'course.second-order.refuse.noPositive': 'Não foi encontrado nenhum fator de carga crítica positivo.',
@@ -448,6 +453,7 @@ export const pt: Translations = {
 
   'course.second-order.pd.b2Line': 'B₂ = 1/(1 − 1/λ₁) com λ₁ = {lambda}: a amplificação do primeiro modo de flambagem.',
   'course.second-order.pd.ampLine': 'Os deslocamentos crescem ×{amp} no nó {node}, o que mais se move.',
+  'course.second-order.pd.ampReversed': ' Ali o deslocamento de segunda ordem aponta no sentido oposto ao de primeira ordem.',
   'course.second-order.pd.noCompression': 'Nenhuma barra está comprimida: B₂ = 1.',
   'course.second-order.pd.iterations': 'Iterações ({n})',
   'course.second-order.pd.iterationsNote': 'Em cada iteração se monta K(N) com os esforços normais da anterior e se resolve K(N)·D = F. Para quando ‖ΔD‖/‖D‖ < 10⁻⁴.',

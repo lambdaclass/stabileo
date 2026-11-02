@@ -13,7 +13,10 @@ import { num } from '../../format';
 import katex from 'katex';
 import { shearMatrixTex } from '../mdof-system-blocks';
 import { freeVibrationTex } from '../mdof-doc';
-import { firstModeTex } from '../mass-doc';
+import { firstModeTex, buildMass } from '../mass-doc';
+import { engineFrequencies, consistentCheck } from '../common';
+import * as convergence from '../../../dynamics/course/convergence';
+import { SystemError } from '../../../dynamics/course/mdof-system';
 
 const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
 beforeAll(async () => {
@@ -125,7 +128,7 @@ describe('the single degree of freedom document', () => {
   it('refuses finite m and k whose ω or response overflows', async () => {
     await load('cantilever');
     const base = { source: 'manual' as const, m: 2, k: 800, xi: 0.05, F0: 10, u0: 0.01, v0: 0.05, Omega: null };
-    for (const bad of [{ m: 1e-300, k: 1e300 }, { m: 1e300, k: 1e-300, v0: 1e300 }, { m: 1e308, k: 1e308, F0: 0 }, { m: 1, k: 1, F0: 0, u0: 1e306, v0: 0 }, { xi: 0.99999999, F0: 0 }]) {
+    for (const bad of [{ m: 1e-300, k: 1e300 }, { m: 1e300, k: 1e-300, v0: 1e300 }, { m: 1e308, k: 1e308, F0: 0 }, { m: 1, k: 1, F0: 0, u0: 1e306, v0: 0 }]) {
       setDynamicsSettings({ sdof: { ...base, ...bad } });
       const v = methodById('sdof')!.applies(methodContext('sdof')!);
       expect(v.ok, JSON.stringify(bad)).toBe(false);
@@ -135,6 +138,24 @@ describe('the single degree of freedom document', () => {
     const ok = methodById('sdof')!.applies(methodContext('sdof')!);
     expect(ok.ok).toBe(true);
     expect(finiteSdof(solveSdof(2, 800, { ...base, dir: 'ux', nodeId: null } as never))).toBe(true);
+  });
+});
+
+describe('near critical damping', () => {
+  it('ξ = 0.99999999 is accepted: e^δ is written as a power of ten and the response approaches the critical one', async () => {
+    await load('cantilever');
+    const base = { source: 'manual' as const, m: 2, k: 800, xi: 0.99999999, F0: 0, u0: 0.01, v0: 0.05, Omega: null };
+    setDynamicsSettings({ sdof: base });
+    expect(methodById('sdof')!.applies(methodContext('sdof')!).ok).toBe(true);
+    const near = solveSdof(2, 800, { ...base, dir: 'ux', nodeId: null } as never);
+    expect(finiteSdof(near)).toBe(true);
+    const crit = solveSdof(2, 800, { ...base, xi: 1, dir: 'ux', nodeId: null } as never);
+    near.free.forEach(([t, u], i) => {
+      expect(t).toBe(crit.free[i][0]);
+      expect(Math.abs(u - crit.free[i][1])).toBeLessThan(1e-6 * 0.01);
+    });
+    const doc = JSON.stringify(build('sdof'));
+    expect(doc).toContain('e^{\\\\delta} = 10^{');
   });
 });
 
@@ -164,6 +185,12 @@ describe('the modal decomposition document', () => {
       const peak = Math.max(...hi.modal.map((u) => Math.abs(u[hi.at])));
       const gap = Math.max(...hi.modal.map((u, i) => Math.abs(u[hi.at] - hi.direct[i][hi.at])));
       expect(gap).toBeLessThan(1e-2 * peak);
+    }
+    for (const ratio of [NaN, Infinity, 0]) {
+      setDynamicsSettings({ mdof: { source: 'shear', excitation: 'free', ratio, xi: 0.05 } });
+      const free = resolveMdof(methodContext('mdofModal')!);
+      if ('refusal' in free) throw new Error(`free vibration refused for ratio ${ratio}: ${free.refusal}`);
+      expect(free.modal.every((u) => u.every(Number.isFinite))).toBe(true);
     }
     setDynamicsSettings({ mdof: { excitation: 'free', ratio: 0.8, xi: 0.05 } });
   });
@@ -256,6 +283,34 @@ describe('the modal decomposition document', () => {
 });
 
 describe('the distributed mass document', () => {
+  it('an engine frequency missing at one n leaves that cell empty instead of shifting the column', async () => {
+    await load('cantilever');
+    setDynamicsSettings({ mass: { nPerMember: 4, massModel: 'consistent' } });
+    const ctx = methodContext('massDiscretization')!;
+    const doc = buildMass(ctx, (n) => (n === 2 ? null : [1000 + n]));
+    const conv = doc.steps[5].blocks.find((b) => b.kind === 'table');
+    if (conv?.kind !== 'table') throw new Error('no convergence table');
+    expect(conv.rows.every((r) => r.length === conv.head.length)).toBe(true);
+    expect(conv.rows.find((r) => r[0] === 2)![8]).toBe('—');
+    expect(conv.rows.find((r) => r[0] === 4)![8]).toBe(1004);
+  });
+
+  it('a rigid-body engine frequency of 0 Hz leaves the difference blank', () => {
+    const t = engineFrequencies([{ label: 'f_1', method: 0.001, matrix: 0, unit: 'Hz' }, { label: 'f_2', method: 2.02, matrix: 2, unit: 'Hz' }], false, { key: 'x' } as Txt);
+    if (t.kind !== 'table') throw new Error('no table');
+    expect(t.rows[0][3]).toBe('—');
+    expect(t.rows[1][3]).toBeCloseTo(1, 12);
+  });
+
+  it('the consistent-mass cross-check is left out when that extra model cannot be built', async () => {
+    await load('cantilever');
+    const ctx = methodContext('massDiscretization')!;
+    const spy = vi.spyOn(convergence, 'frequenciesOf').mockImplementation(() => { throw new SystemError('singular'); });
+    try {
+      expect(consistentCheck(ctx.model!, [], 2, true, [1, 2])).toEqual([]);
+    } finally { spy.mockRestore(); }
+  });
+
   it('cantilever: six steps, the exact beam and the engine in the convergence table', async () => {
     await load('cantilever');
     setDynamicsSettings({ mass: { nPerMember: 4, massModel: 'consistent' } });

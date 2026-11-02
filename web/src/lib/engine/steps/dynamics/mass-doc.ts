@@ -129,7 +129,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
     const cond = g.condensation;
     const full = g.fullDofs.map((d) => dofTextN(d, names));
     const kept = g.dofs.map((d) => dofTextN(d, names));
-    const fG = generalizedEigen(g.K, g.M).lambda.slice(0, MODES).map((l) => Math.sqrt(l) / (2 * Math.PI));
+    const fG = generalizedEigen(g.K, g.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
     steps.push({
       title: dt('mass.s4'),
       blocks: [
@@ -167,13 +167,14 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   const table = sweep.table;
   const ref = exact?.modes[0]?.f ?? table[table.length - 1]?.f.consistent[0];
   const err = (f: number) => (ref ? `${numText(((f - ref) / ref) * 100, 3)} %` : '—');
-  const convRows = table.map((r) => [r.n, r.dofs.lumped, r.f.lumped[0], err(r.f.lumped[0]), r.f.consistent[0], err(r.f.consistent[0]), r.f.guyan[0], err(r.f.guyan[0]), ...(r.engine ? [r.engine[0]] : [])]);
+  const engineColumn = table.some((r) => r.engine);
+  const convRows = table.map((r) => [r.n, r.dofs.lumped, r.f.lumped[0], err(r.f.lumped[0]), r.f.consistent[0], err(r.f.consistent[0]), r.f.guyan[0], err(r.f.guyan[0]), ...(engineColumn ? [r.engine?.[0] ?? '—'] : [])]);
   const series = MASS_MODELS.map((mm, i) => ({ points: table.map((r) => [r.n, r.f[mm][0]] as [number, number]), color: (['load', 'accent', 'reaction'] as const)[i], label: dt(`mass.col.${mm}`) }));
   steps.push({
     title: dt('mass.s6'),
     blocks: [
       p('mass.conv.lead'),
-      { kind: 'table', head: ['n', dt('mass.col.dofs'), dt('mass.col.lumped'), '%', dt('mass.col.consistent'), '%', dt('mass.col.guyan'), '%', ...(table.some((r) => r.engine) ? [dt('mass.col.engine')] : [])], rows: convRows,
+      { kind: 'table', head: ['n', dt('mass.col.dofs'), dt('mass.col.lumped'), '%', dt('mass.col.consistent'), '%', dt('mass.col.guyan'), '%', ...(engineColumn ? [dt('mass.col.engine')] : [])], rows: convRows,
         caption: dt(exact ? 'mass.conv.captionExact' : 'mass.conv.captionRef') },
       { kind: 'plot', plot: plotOf('n', 'f₁ (Hz)', [...series, ...(exact && ref ? [{ points: [[ns[0], ref], [ns[ns.length - 1], ref]] as Array<[number, number]>, color: 'muted' as const, dashed: true, label: dt('mass.col.exact') }] : [])]), caption: dt('mass.conv.plotCaption') },
       ...(ref && exact ? [p('mass.conv.exactLine', { f: numText(ref, 4) })] : []),

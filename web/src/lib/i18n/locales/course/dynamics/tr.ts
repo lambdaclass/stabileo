@@ -82,6 +82,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.fromRest': 'Motor sükûnetten başlar, bu yüzden u(t), u_0 = v_0 = 0 için olan yanıtla karşılaştırılır.',
   'course.dynamics.sdof.engine.unavailable': 'Hesap motoru henüz yüklenmedi; doğrulama hazır olduğunda görünür.',
   'course.dynamics.sdof.engine.diff': 'u(t) deki küçük farklar sayısal integrasyonun zaman adımından gelir.',
+  'course.dynamics.sdof.engine.historyTooLong': 'Motorun zaman integrasyonu bu Ω/ω oranı için {max} adımdan fazlasını gerektirirdi, bu yüzden çalıştırılmadı; ω ve genlik karşılaştırılır.',
   'course.dynamics.sdof.err.mk': 'm ve k sıfırdan büyük sonlu sayılar olmalıdır.',
   'course.dynamics.sdof.err.noModel': 'm ve k\'nin alınacağı bir model yok: bir model yükleyin ya da elle girmeyi seçin.',
   'course.dynamics.sdof.err.tooBig': 'Modelin serbestlik derecesi bu dersin adım adım çözebileceğinden fazla. Daha küçük bir model deneyin ya da m ve k\'yi elle girin.',

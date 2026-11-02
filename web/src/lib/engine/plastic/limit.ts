@@ -237,7 +237,7 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
   const nf = freeIdx.length;
   const aug = E.map((row, k) => [...freeIdx.map((i) => row[i]), rhs[k]]);
   const { R, pivots } = rref(aug, nf);
-  const scale = Math.max(1, ...rhs.map(Math.abs));
+  const scale = Math.max(0, ...lm.basis.map((d, k) => Math.abs(lambda * dot(lm.km.work, d)) + [...fixed].reduce((s, [i, v]) => s + Math.abs(E[k][i] * v), 0)));
   for (let r = pivots.length; r < R.length; r++) if (Math.abs(R[r][nf]) > 1e-6 * scale) return null;
   const part = new Array(nf).fill(0);
   pivots.forEach((p, r) => { part[p] = R[r][nf]; });

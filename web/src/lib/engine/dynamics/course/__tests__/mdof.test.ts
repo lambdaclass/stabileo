@@ -138,3 +138,38 @@ describe('symmetric eigenvalues', () => {
   }
 });
 
+
+describe('symmetric eigenvalues near overflow', () => {
+  for (const s of [1e200, 1e300, 1e-200]) {
+    it(`[[${s}, ${s}/2], [${s}/2, ${s}]] gives ${s}/2 and 1.5·${s}`, () => {
+      const A = [[s, s / 2], [s / 2, s]];
+      const { values, vectors } = symmetricEigen(A);
+      const v = [...values].sort((a, b) => a - b);
+      expect(v[0] / (s / 2)).toBeCloseTo(1, 12);
+      expect(v[1] / (1.5 * s)).toBeCloseTo(1, 12);
+      values.forEach((lam, j) => {
+        const x = vectors.map((r) => r[j]);
+        const r = A.map((row, i) => (row[0] / s) * x[0] + (row[1] / s) * x[1] - (lam / s) * x[i]);
+        expect(Math.hypot(...r)).toBeLessThanOrEqual(1e-14);
+      });
+    });
+  }
+
+  it('diag(1e300, [[2, 1], [1, 2]]) still resolves the small block', () => {
+    const { values } = symmetricEigen([[1e300, 0, 0], [0, 2, 1], [0, 1, 2]]);
+    const v = [...values].sort((a, b) => a - b);
+    expect(v[0]).toBeCloseTo(1, 12);
+    expect(v[1]).toBeCloseTo(3, 12);
+  });
+
+  it('a matrix with a non-finite entry is refused, not returned', () => {
+    expect(() => symmetricEigen([[1, NaN], [NaN, 1]])).toThrow();
+  });
+});
+
+describe('an unfinished eigen solve is an error, not frequencies', () => {
+  it('symmetricEigen refuses a result whose pairs do not satisfy A·v = λ·v', () => {
+    const A = [[1, Infinity], [Infinity, 1]];
+    expect(() => symmetricEigen(A)).toThrow();
+  });
+});

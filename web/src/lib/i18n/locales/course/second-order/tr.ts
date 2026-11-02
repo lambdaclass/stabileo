@@ -9,6 +9,7 @@ const words: Translations = {
   'course.second-order.refuse.rigidLocked': 'Eksenel olarak rijit çubuklarla serbest yerdeğiştirme kalmıyor. Eksenel rijitliği olan çubuklar kullanın.',
   'course.second-order.refuse.noFree': 'Yapının serbest düğüm yerdeğiştirmesi yok ve bu P-Δ bunlara ihtiyaç duyar. Bütün uçları tutulu çubuklar yine de içeride büyür ve tek başına burkulabilir: çubukları bölün (n > 1) ya da bu iç modları sayan φ fonksiyonlu burkulmayı kullanın.',
   'course.second-order.refuse.tooBig': 'Yapının {n} bilinmeyeni var ve bu yöntem {max} bilinmeyene kadar çalışır. Hesap motorunun çözdüğü tutarlı geometrik matrisi kullanın.',
+  'course.second-order.refuse.trussCouple': 'Kafes çubuğuna etkiyen bir moment taşınamaz: çubuk yalnızca düğümlerinde kuvvet alır. Momenti bir düğüme taşıyın ya da çubuğu çerçeve elemanı yapın.',
   'course.second-order.refuse.singular': 'Yapı bir mekanizma: birinci mertebe çözümü yok.',
   'course.second-order.refuse.noCompression': 'Hiçbir çubuk basınç altında değil: burkulma yükü yok. P-Δ yine de hesaplanabilir: çekme yapıyı rijitleştirir ve NL²/EI büyük olduğunda sonuçları önemli ölçüde değiştirebilir.',
   'course.second-order.refuse.noPositive': 'Pozitif bir kritik yük katsayısı bulunamadı.',
@@ -43,6 +44,7 @@ const words: Translations = {
 
   'course.second-order.pd.b2Line': 'λ₁ = {lambda} ile B₂ = 1/(1 − 1/λ₁): birinci burkulma modunun büyütmesi.',
   'course.second-order.pd.ampLine': 'Yerdeğiştirmeler en çok hareket eden {node} düğümünde ×{amp} büyür.',
+  'course.second-order.pd.ampReversed': ' Orada ikinci mertebe yerdeğiştirme birinci mertebedekinin tersi yönündedir.',
   'course.second-order.pd.noCompression': 'Hiçbir çubuk basınç altında değil: B₂ = 1.',
   'course.second-order.pd.iterations': 'Yinelemeler ({n})',
   'course.second-order.pd.iterationsNote': 'Her yinelemede K(N) bir öncekinin normal kuvvetleriyle kurulur ve K(N)·D = F çözülür. ‖ΔD‖/‖D‖ < 10⁻⁴ olunca durur.',

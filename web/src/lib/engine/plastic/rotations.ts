@@ -20,6 +20,7 @@ export function memberEndRotations(input: SolverInput, res: { displacements: Ana
   if (!e || e.type === 'truss') return null;
   const a = input.nodes.get(e.nodeI)!, b = input.nodes.get(e.nodeJ)!;
   const L = Math.hypot(b.x - a.x, b.z - a.z);
+  if (!(L > 0 && Number.isFinite(L))) return null;
   const c = (b.x - a.x) / L, s = (b.z - a.z) / L;
   const EI = (input.materials.get(e.materialId)?.e ?? 0) * 1000 * (input.sections.get(e.sectionId)?.iz ?? 0);
   if (!(EI > 0)) return null;

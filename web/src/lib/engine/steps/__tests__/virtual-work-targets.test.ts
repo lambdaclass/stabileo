@@ -110,6 +110,11 @@ describe('virtual work: what to compute', () => {
 
 describe('virtual work: springs, settlements, temperature', () => {
   const extras = (doc: StepDoc) => doc.steps.find((s) => s.title.key === 'course.statics.vw.extrasTitle');
+  const springComps = (doc: StepDoc): string[] => {
+    const table = extras(doc)!.blocks.find((b) => b.kind === 'table' && b.caption?.key === 'course.statics.vw.springsCaption');
+    if (!table || table.kind !== 'table') throw new Error('no springs table');
+    return table.rows.map((r) => (r[1] as { tex: string }).tex);
+  };
 
   it('a beam on a spring: Σ r·R/k joins the bar integrals', async () => {
     await modelStore.loadExample('spring-support');
@@ -145,9 +150,22 @@ describe('virtual work: springs, settlements, temperature', () => {
         const doc = build('virtualWork', { quantity: 'disp', node: String(c), dir });
         expect(extras(doc)).toBeDefined();
         agrees(doc, 'mm');
+        const comps = springComps(doc);
+        expect(comps).toHaveLength(2);
+        expect(comps[0]).toMatch(new RegExp(`^x'.*\\\\alpha = ${angle}\\^`));
+        expect(comps[1]).toMatch(new RegExp(`^z'.*\\\\alpha = ${angle}\\^`));
       }
     });
   }
+
+  it('a spring in global axes keeps the plain x, z, θ labels', () => {
+    const P = 10, L = 4;
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(L, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'spring', { kx: 1e6, ky: 3000, kz: 800 });
+    modelStore.addNodalLoad(b, 0, -P, 0);
+    expect(springComps(build('virtualWork', { quantity: 'disp', node: String(b), dir: 'z' }))).toEqual(['x', 'z', '\\theta']);
+  });
 
   it('a settled support: − Σ r·c', async () => {
     await modelStore.loadExample('settlement');

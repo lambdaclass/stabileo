@@ -387,7 +387,11 @@ describe('the document', () => {
     modelStore.addElement(a, b); modelStore.addElement(b, c);
     modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'pinned'); modelStore.addSupport(b, 'spring', { ky: 2000, kz: 500 });
     modelStore.addNodalLoad(b, 0, -10, 3);
-    docs.push(build(ctxOf(modelStore.buildSolverInput(false)!)));
+    const sprung = build(ctxOf(modelStore.buildSolverInput(false)!));
+    docs.push(sprung);
+    const general = (doc: StepDoc) => texs(doc).find((t) => t.startsWith('R^{0}_i = '))!;
+    expect(general(sprung)).toContain('\\sum k\\,u\\,\\phi');
+    expect(general(docs[0])).not.toContain('k\\,u');
     const missing: string[] = [];
     for (const doc of docs) {
       for (const t of texs(doc)) expect(() => katex.renderToString(t, { throwOnError: true }), t).not.toThrow();
