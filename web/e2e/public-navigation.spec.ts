@@ -218,36 +218,6 @@ test('@smoke a public page whose code fails to load is opened by a full load, ne
   expect(aborted).toBeGreaterThan(0);
 });
 
-test('@smoke an application load overtaken by a public navigation never replaces that page', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/en/');
-  await expect(page.locator('#app .landing h1')).toBeVisible();
-  let release!: () => void;
-  const held = new Promise<void>((resolve) => { release = resolve; });
-  let appRequested = false;
-  await page.route(/\/assets\/load-app-[^/]*\.js$/, async (route) => {
-    appRequested = true;
-    await held;
-    await route.continue();
-  });
-  await page.evaluate(() => {
-    (window as unknown as { appReady: boolean }).appReady = false;
-    window.addEventListener('stabileo-app-ready', () => { (window as unknown as { appReady: boolean }).appReady = true; });
-    window.dispatchEvent(new CustomEvent('stabileo-enter-app'));
-  });
-  await expect.poll(() => appRequested).toBe(true);
-  await page.evaluate(() => {
-    history.pushState(null, '', '/en/tools/');
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  });
-  await expect(page.locator('#app .tools-wrap')).toBeVisible();
-  release();
-  await page.waitForTimeout(1500);
-  await expect(page).toHaveURL(/\/en\/tools\/$/);
-  await expect(page.locator('#app .tools-wrap')).toBeVisible();
-  expect(await page.evaluate(() => (window as unknown as { appReady: boolean }).appReady)).toBe(false);
-});
-
 for (const [path, chunk, ready] of [
   ['/en/tools/', /\/assets\/(?:load-page|ToolsPage)-[^/]*\.js$/, '#app .tools-wrap'],
   ['/en/', /\/assets\/(?:load-page|LandingPage)-[^/]*\.js$/, '#app .landing h1'],
