@@ -14,26 +14,43 @@ SECRET_ENV = ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPR
 
 def hidden_credentials(home, environ=os.environ):
     config = Path(environ.get('XDG_CONFIG_HOME') or home / '.config')
-    candidates = {home / '.config/gh', config / 'gh', home / '.ssh', home / '.git-credentials', home / '.netrc'}
+    candidates = {home / '.config/gh', config / 'gh', home / '.ssh', home / '.gnupg', home / '.git-credentials', home / '.netrc'}
     for name in ('GH_CONFIG_DIR', 'NETRC'):
         if environ.get(name):
             candidates.add(Path(environ[name]))
     return sorted(path for path in candidates if path.exists())
 
 
-def sandbox_command(paths, command, platform=sys.platform, hide=()):
+HOST_SOCKETS = ('/tmp', '/var/tmp', '/run/user', '/run/docker.sock', '/run/containerd', '/run/podman')
+
+
+def host_sockets(environ=os.environ):
+    candidates = {Path(path) for path in HOST_SOCKETS}
+    if environ.get('SSH_AUTH_SOCK'):
+        candidates.add(Path(environ['SSH_AUTH_SOCK']))
+    return sorted({path.resolve() for path in candidates if path.exists()})
+
+
+def sandbox_command(paths, command, platform=sys.platform, hide=(), sockets=(), cwd=None):
     # These are writable exceptions, never repository or artifact paths.
     paths = sorted({str(Path(path).resolve()) for path in paths})
     if platform == 'darwin':
         rules = ' '.join(f'(subpath {json.dumps(path)})' for path in paths)
         hidden = ' '.join(f'({"subpath" if Path(path).is_dir() else "literal"} {json.dumps(str(path))})' for path in hide)
+        unix = ' '.join(f'(remote unix-socket (path-literal {json.dumps(str(path))}))' for path in sockets if Path(path).is_socket())
         return ['sandbox-exec', '-p',
                 f'(version 1)(allow default)(deny file-write*)'
-                f'(allow file-write* {rules})' + (f'(deny file-read* {hidden})' if hidden else ''), *command]
+                f'(allow file-write* {rules})' + (f'(deny file-read* {hidden})' if hidden else '')
+                + (f'(deny network-outbound {unix})' if unix else ''), *command]
+    masked = [str(path) for path in sockets]
+    keep = Path(cwd).resolve() if cwd else None
+    visible_cwd = [str(keep)] if keep and any(keep.is_relative_to(path) for path in masked) else []
     return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev',
+            *[arg for path in masked for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],
+            *[arg for path in visible_cwd for arg in ('--ro-bind', path, path)],
             *[arg for path in paths for arg in ('--bind', path, path)],
             *[arg for path in map(str, hide) for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],
-            '--unshare-pid', '--proc', '/proc', '--', *command]
+            '--unshare-pid', '--unshare-ipc', '--proc', '/proc', '--', *command]
 
 
 def main(command):
@@ -61,7 +78,8 @@ def main(command):
                    XDG_STATE_HOME=str(scratch / 'state'),
                    TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
         # stdout/stderr stay on the descriptors opened by the parent runner.
-        return subprocess.call(sandbox_command([scratch], command, hide=hidden_credentials(original_home, os.environ)), env=env)
+        return subprocess.call(sandbox_command([scratch], command, hide=hidden_credentials(original_home, os.environ),
+                                               sockets=host_sockets(os.environ), cwd=os.getcwd()), env=env)
 
 
 if __name__ == '__main__':

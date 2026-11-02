@@ -2,6 +2,7 @@ import importlib.util
 import os
 from pathlib import Path
 import signal
+import socket
 import shutil
 import sys
 import subprocess
@@ -95,6 +96,53 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
         self.assertIn('GH_TOKEN', readonly.SECRET_ENV)
         self.assertIn('GITHUB_TOKEN', readonly.SECRET_ENV)
 
+    def test_host_sockets_are_masked_before_the_scratch_is_bound(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            agent = root / 'agent.sock'
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(agent))
+                sockets = readonly.host_sockets({'SSH_AUTH_SOCK': str(agent)})
+                self.assertIn(agent, sockets)
+                self.assertIn(Path('/tmp').resolve(), sockets)
+                linux = readonly.sandbox_command([root / 'scratch'], ['reviewer'], 'linux', sockets=sockets, cwd=root)
+                joined = ' '.join(linux)
+                self.assertIn(f'--ro-bind /dev/null {agent}', joined)
+                self.assertLess(linux.index('--tmpfs'), linux.index('--bind'))
+                self.assertIn('--unshare-ipc', linux)
+                if root.is_relative_to(Path('/tmp').resolve()):
+                    self.assertIn(f'--ro-bind {root} {root}', joined)
+                mac = readonly.sandbox_command([root / 'scratch'], ['reviewer'], 'darwin', sockets=sockets)
+                self.assertIn(f'(deny network-outbound (remote unix-socket (path-literal "{agent}")))', mac[2])
+
+    def test_reviewer_cannot_reach_host_unix_sockets(self):
+        if sys.platform == 'darwin' or not shutil.which('bwrap'):
+            self.skipTest('bwrap is unavailable')
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root = Path(tmp).resolve()
+            scratch = root / 'scratch'
+            scratch.mkdir()
+            agent = root / 'agent.sock'
+            script = """
+import socket, sys
+s = socket.socket(socket.AF_UNIX)
+try:
+    s.connect(sys.argv[1])
+except OSError:
+    print('unreachable')
+else:
+    print('connected')
+"""
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(agent))
+                server.listen(1)
+                result = subprocess.run(readonly.sandbox_command(
+                    [scratch], [sys.executable, '-c', script, str(agent)],
+                    sockets=readonly.host_sockets({'SSH_AUTH_SOCK': str(agent)}), cwd=root),
+                    cwd=root, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, 'unreachable\n')
+
     def test_private_config_and_scratch_are_cleaned_up(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = Path(tmp)
@@ -106,7 +154,8 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
             def run(command, env):
                 scratch = Path(env['TMPDIR'])
                 scratch_paths.append(scratch)
-                self.assertEqual(command, readonly.sandbox_command([scratch], ['reviewer']))
+                self.assertEqual(command, readonly.sandbox_command(
+                    [scratch], ['reviewer'], sockets=readonly.host_sockets(os.environ), cwd=os.getcwd()))
                 home = Path(env['HOME'])
                 for directory in ('.kimi', '.grok', '.config'):
                     config = home / directory / 'settings'
