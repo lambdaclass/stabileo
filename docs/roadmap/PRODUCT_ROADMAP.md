@@ -37,10 +37,10 @@ The order of all work, set by the user. Nothing in a lower group takes capacity 
      5. **Proof checks skip the merge queue:** `verify.yml` (Lean, symbolic, Kani) has no
         `merge_group` trigger, so a change can land without them. PR [#1235](https://github.com/lambdaclass/stabileo/pull/1235); then the user makes
         Lean, symbolic and Kani required checks in both rulesets.
-     6. **EC2 flexure assumes the tension steel yields** [#534](https://github.com/lambdaclass/stabileo/issues/534) (from the bug triage): M_Rd up to
-        17% high, certified OK, reachable from PRO other codes. PR [#1236](https://github.com/lambdaclass/stabileo/pull/1236) solves the neutral
-        axis by strain compatibility; advisory SA-2026-028, results version 8. Outside PRs #535
-        and #617 are leads only.
+   - **P0 from the bug triage:** [#534](https://github.com/lambdaclass/stabileo/issues/534) **EC2 flexure assumes the tension steel yields:** M_Rd up to
+     17% high, certified OK, reachable from PRO other codes. PR [#1236](https://github.com/lambdaclass/stabileo/pull/1236) solves the neutral axis
+     by strain compatibility; advisory SA-2026-028, results version 8. Outside PRs #535 and #617
+     are leads only.
    - **Results versions follow the landing order:** #817 v6, #1233 v7, #1236 v8, #1225 v9 and v10
      (#827, #865), #1237 v11. A PR renumbers if anything lands ahead of it.
    - **Leftovers of #532, outside #1233's scope** (issue to file): the Excel import and the IFC
@@ -301,7 +301,7 @@ them.
 | 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
 | 14 | **MITC4 shells under in-plane bending on distorted meshes** are about 10× too stiff (MacNeal–Harder: −92% trapezoidal, −90% parallelogram; regular meshes within 2%). First register it and warn users when such elements are distorted, then fix the membrane (enhanced/incompatible modes or a drilling membrane) with result-change registration. Found by the research benchmark page (#797) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
 | 15 | **MITC4 and MITC9 shells too flexible on warped (twisted) geometry,** silently (MITC4 1.32×, MITC9 up to 2.4× on the 90° twisted beam). First contain it (a known-issue warning or refusal for warped elements beyond a measured threshold, with tests), then fix the warped-element formulation with result-change registration. Found by the benchmark test fixes (PR #1056) | [#1057](https://github.com/lambdaclass/stabileo/issues/1057) | Trust and verification |
-| 16 | **P0, confirmed by the verified review of 2026-11-02: 3D design-demand axis mapping.** The report says certified design checks and 3D demand extraction (`certify/design.rs`, `postprocess/design_demands.rs`) read the lateral `shearY`/`momentZ` instead of strong-axis `shearZ`/`momentY`, which would pass gravity web shear and RC flexure unconservatively. Verify the axis convention against the 3D coordinate convention and a hand-checked beam; if confirmed, contain, then fix in our own PR with result-change registration. PR #533 is from an outside contributor whose code we don't merge: a lead only | [#532](https://github.com/lambdaclass/stabileo/issues/532) | Trust and verification |
+| 16 | **P0, confirmed by the verified review of 2026-11-02: 3D design-demand axis mapping.** Certified design checks and 3D demand extraction (`certify/design.rs`, `postprocess/design_demands.rs`) read the lateral `shearY`/`momentZ` instead of strong-axis `shearZ`/`momentY`, and the live CIRSOC 201 column design checked Mz over the depth (up to 36% short of steel). Confirmed with hand-checked cases and fixed in our own PR [#1233](https://github.com/lambdaclass/stabileo/pull/1233) with result-change registration (results version 7, advisory SA-2026-029); see "Priority now". PR #533 is from an outside contributor whose code we don't merge: a lead only | [#532](https://github.com/lambdaclass/stabileo/issues/532) | Trust and verification |
 
 **Status of the safety work (2026-11-01):**
 
@@ -687,7 +687,7 @@ workstream (W2-ci).
 | 8 | **Runner labels and watchdog token:** `stabileo-pr` on sgha1-5; drop the borrowed `stabileo` label from sgha9-14 once #1221 lands; a fine-grained PAT for the watchdog | The pools only isolate jobs if the labels match them; the watchdog cannot restart a runner without a token | (dotfiles `servers/`, after #1221) | **waits on the user** |
 | 9 | **Wall-clock budgets on the timing pool** (`stabileo-timing`), for main and nightly only | Timing checks on shared runners flake under load and block the queue | [#1241](https://github.com/lambdaclass/stabileo/pull/1241) | after #1221 |
 | 10 | **Proof checks required:** Lean, symbolic and Kani as required checks in both rulesets (branch protection and merge queue) | #1235 runs them in the merge queue; until they are required, a red one does not block | [#1235](https://github.com/lambdaclass/stabileo/pull/1235) | **waits on the user**, after #1235 lands |
-| 11 | **Mutants rotation:** every shard every 16 days, with a staleness check | The weekly staleness check fails until 16 nights of markers exist; expected, not a regression | [#1240](https://github.com/lambdaclass/stabileo/pull/1240) | open |
+| 11 | **Mutants rotation:** 32 shards a night so every shard runs every 16 days (the 128-day gap above), with a staleness check | The weekly staleness check fails until 16 nights of markers exist; expected, not a regression | [#1240](https://github.com/lambdaclass/stabileo/pull/1240) | open |
 | 12 | **Perf ratchet margin:** keep the strict 64-byte margin or widen it | Strict means nearly every PR that changes shipped web code also runs `make perf.budget.accept`, and two such PRs conflict on `web/perf-budget.json` | [#768](https://github.com/lambdaclass/stabileo/pull/768) | **waits on the user** |
 | 13 | **Agent hygiene:** a unique scratchpad log name per agent | Two agents overwrote each other's engine logs on 2026-11-02 | (agent instructions; issue to file) | open |
 | 14 | **Cancel superseded merge-group runs** automatically | A rebuilt queue left the old run for the same PR holding a runner | [#1242](https://github.com/lambdaclass/stabileo/pull/1242) | Codex clean; after #1079 |
