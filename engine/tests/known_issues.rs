@@ -991,8 +991,17 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
             }
         }
         let solver = macneal_strip(distorted, 1);
-        let modes = solve_modal_3d(&solver, &densities, 4).unwrap();
-        assert_eq!(ids(&modes.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), distorted, "modal: {:?}", ids(&modes.structured_diagnostics));
+        let bending = solve_modal_3d(&solver, &densities, 1).unwrap();
+        assert!(bending.modes[0].displacements.iter().all(|d| d.ux.abs() + d.uy.abs() < 1e-9 * d.uz.abs().max(1e-300) || d.uz == 0.0), "the first mode bends out of plane");
+        assert_eq!(ids(&bending.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), distorted, "modal: {:?}", ids(&bending.structured_diagnostics));
+        let all = solve_modal_3d(&solver, &densities, 4);
+        let modes = if distorted {
+            common::assert_containment(all.map(|m| m.structured_diagnostics), "SH-MITC4-DISTORTION");
+            solve_modal_3d(&macneal_strip(false, 1), &densities, 4).unwrap()
+        } else {
+            all.unwrap()
+        };
+        assert!(modes.modes.iter().any(|m| m.displacements.iter().any(|d| d.uy.abs() > 0.1)), "an in-plane mode is among the four");
         let spectral: SpectralInput3D = serde_json::from_value(serde_json::json!({
             "solver": solver, "densities": densities, "modes": modes.modes,
             "spectrum": {"name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}]},

@@ -42,7 +42,7 @@ const LINEAR_STATIC_FIELD: [&str; 8] = [
 
 /// Whether an SH-MITC4-DISTORTION refusal may stand: the model has distorted quads and, where the
 /// guarded field is the linear static one and the harness can solve it independently, that field
-/// at twice its size still exceeds the membrane-bending bound.
+/// exceeds the membrane-bending bound.
 pub(crate) fn distortion_refusal_admissible(analysis: &str, s: &SolverInput3D) -> bool {
     use dedaliano_engine::known_issues::{model_3d, MembraneBendingGuard};
     if !model_3d(s).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
@@ -67,7 +67,7 @@ pub(crate) fn distortion_refusal_admissible(analysis: &str, s: &SolverInput3D) -
         let mut d = [0.0; 6];
         for (i, v) in d.iter_mut().enumerate() {
             if let Some(&g) = dof.map.get(&(node, i)) {
-                if g < nf { *v = 2.0 * u[g]; }
+                if g < nf { *v = u[g]; }
             }
         }
         Some(d)

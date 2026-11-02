@@ -491,6 +491,13 @@ pub fn solve_modal_3d(
     }
 
     if modes.is_empty() { return Err("No valid modes found".into()); }
+    let guard = crate::known_issues::MembraneBendingGuard::for_analysis(input, crate::known_issues::Analysis::Modal);
+    if !guard.is_empty() {
+        for mode in &modes {
+            let by_node: HashMap<usize, &Displacement3D> = mode.displacements.iter().map(|d| (d.node_id, d)).collect();
+            guard.check_field(&[], |id| by_node.get(&id).map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]))?;
+        }
+    }
 
     let rayleigh = if modes.len() >= 2 {
         let w1 = modes[0].omega;
