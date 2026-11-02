@@ -86,8 +86,11 @@ describe('translation gate', () => {
     const es = { ...ES, blocks: [...ES.blocks.slice(0, 3), `Una introducción traducida. ${EN.blocks[3]} ${EN.blocks[2]}`] };
     const failures = gate(site({ '/en/': EN, '/es/': es }));
     expect(failures.map((f) => f.offending)).toEqual([[es.blocks[3]]]);
-    const translated = { ...ES, blocks: [...ES.blocks.slice(0, 3), `${ES.blocks[3]} ${EN.blocks[3]}`] };
-    expect(gate(site({ '/en/': EN, '/es/': translated }))).toEqual([]);
+    const mixed = { ...ES, blocks: ES.blocks.map((b, i) => `${b} ${b} ${EN.blocks[i]}`) };
+    const mixedFailures = gate(site({ '/en/': EN, '/es/': mixed }));
+    expect(mixedFailures).toHaveLength(1);
+    expect(mixedFailures[0].rule).toMatch(/^0\/4 text blocks \(0\.0%, [1-9]\d\.\d% of characters\)/);
+    expect(mixedFailures[0].offending).toEqual(mixed.blocks);
   });
 
   it('fails an English title on a Spanish page, naming the string', () => {

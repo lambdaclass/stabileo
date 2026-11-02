@@ -116,16 +116,16 @@ export function compareWithEnglish(page: string, locale: string, html: string, e
   const englishSet = new Set(englishSegments);
   const englishSentences = new Set(englishSegments.flatMap(sentences));
   const chars = (xs: string[]) => xs.reduce((n, s) => n + s.length, 0);
-  const mostlyEnglish = (s: string) => 2 * chars(sentences(s).filter((x) => englishSentences.has(x))) > s.length;
-  const same = ownSegments.filter((s) => englishSet.has(s) || mostlyEnglish(s));
+  const englishChars = (s: string) => (englishSet.has(s) ? s.length : chars(sentences(s).filter((x) => englishSentences.has(x))));
+  const same = ownSegments.filter((s) => 2 * englishChars(s) > s.length);
   const countShare = same.length / ownSegments.length;
-  const charShare = chars(same) / chars(ownSegments);
+  const charShare = ownSegments.reduce((n, s) => n + englishChars(s), 0) / chars(ownSegments);
   if (countShare > MAX_ENGLISH_SHARE || charShare > MAX_ENGLISH_SHARE) {
     failures.push({
       page,
       locale,
       rule: `${same.length}/${ownSegments.length} text blocks (${(100 * countShare).toFixed(1)}%, ${(100 * charShare).toFixed(1)}% of characters) are the English page's text; at most ${100 * MAX_ENGLISH_SHARE}% may be`,
-      offending: same,
+      offending: ownSegments.filter((s) => englishChars(s) > 0),
     });
   }
   return failures;

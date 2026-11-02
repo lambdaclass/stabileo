@@ -279,7 +279,7 @@
           {#if live}<button class="btn btn-ghost btn-sm" type="button" onclick={backToReplay}>{strings.benchmark.backToReplay}</button>{/if}
           <button class="btn btn-ghost btn-sm" type="button" onclick={reset}>{strings.benchmark.reset}</button>
         </div>
-        <p class="rs-status" aria-live="polite">{copy[runner.status]}{#if runner.status === 'error' && runner.error} <span class="fail">{runner.error}</span>{/if}</p>
+        <p class="rs-status" aria-live="polite">{copy[runner.status]}{#if runner.status === 'error' && runner.error} <span class="fail" lang="en">{runner.error}</span>{/if}</p>
       </div>
 
       {#if frames.length}
