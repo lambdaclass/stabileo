@@ -73,6 +73,14 @@ function project2D(): boolean {
 
 const fmtF = (v: number, q: 'force' | 'moment' | 'distributedLoad') => fixedQuantity(v, q, 1, uiStore.unitSystem);
 
+/** The loads of the cases asked for, or of the cases shown on screen: every case at once is no picture of anything. */
+function modelFigureLoads(cases: readonly number[] | undefined): typeof modelStore.loads {
+  const want = cases ?? uiStore.visibleLoadCases3D;
+  if (!want) return modelStore.loads;
+  const set = new Set(want);
+  return modelStore.loads.filter((l) => set.has(l.data.caseId ?? 1));
+}
+
 const COLORS: Record<string, { fill: string; stroke: string }> = {
   momentZ: { fill: 'rgba(229, 72, 42, 0.22)', stroke: '#e5482a' },
   momentY: { fill: 'rgba(150, 92, 200, 0.22)', stroke: '#965cc8' },
@@ -185,7 +193,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
         sections: modelStore.sections, project2D: flat(), leftHand, basis: uiStore.despieceBasis,
         resultant: uiStore.despieceCombineVectors, showReactions: content === 'reactions' || content === 'despiece',
         // The loads of the result drawn, which the figure may have chosen, not of the one on screen.
-        loads: content === 'model' ? modelStore.loads : displayedLoads3D(r3d), loadText: (v, q) => fmtF(v, q), negligible: 0.02,
+        loads: content === 'model' ? modelFigureLoads(opts.loadCases) : displayedLoads3D(r3d), loadText: (v, q) => fmtF(v, q), negligible: 0.02,
       });
       // An envelope's or a magnitude's free body is no state of equilibrium: pieces and a note.
       const fbNote = content === 'despiece' ? despieceNote3D(r3d) : null;

@@ -60,6 +60,15 @@ export function resultSet(key: ResultSetKey): { results: AnalysisResults3D | nul
   return { results: resultsStore.results3D, name: resultSetName() };
 }
 
+/** The set on screen as a key a re-run can select again: the screen itself only for the factor-1 sum. */
+export function screenSetKey(): ResultSetKey {
+  const v = resultsStore.activeView;
+  if (v === 'envelope' && resultsStore.envelope3D) return 'envelope';
+  if (v === 'combo' && resultsStore.activeComboId !== null) return `combo:${resultsStore.activeComboId}`;
+  if (v === 'single' && resultsStore.activeCaseId !== null && resultsStore.perCase3D.has(resultsStore.activeCaseId)) return `case:${resultsStore.activeCaseId}`;
+  return 'screen';
+}
+
 /** What a report is of unless the user picks otherwise: the envelope when there are combinations, the one case when there is one. */
 export function defaultReportSetKey(): ResultSetKey {
   if (resultsStore.envelope3D && resultsStore.perCombo3D.size > 0) return 'envelope';

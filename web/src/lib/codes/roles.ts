@@ -757,7 +757,7 @@ export function migrateRegulations(raw: unknown): RegulationsMigration {
         }),
         configComplete: b.configComplete === true || !bound.requiresConfig,
         state: isState(b.state) ? b.state : 'applied',
-        appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : 0,
+        appliedAtRevision: typeof b.appliedAtRevision === 'number' ? b.appliedAtRevision : b.appliedAtRevision === null ? null : 0,
       };
     }
     // Each code's settings come along: every restore (open, undo, autosave) goes through here,

@@ -65,6 +65,8 @@ export interface FigureOptions {
   /** 3D: the results to draw, in place of the ones on screen, and their name for the heading. */
   results?: AnalysisResults3D | null;
   resultsName?: string;
+  /** 3D: the load cases whose loads the model figure draws; the ones shown on screen when absent. */
+  loadCases?: readonly number[];
 }
 
 export const DEFAULT_FIGURE_OPTIONS: FigureOptions = {

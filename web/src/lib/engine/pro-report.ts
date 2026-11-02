@@ -4,6 +4,7 @@
 // Uses window.print() for PDF output (browser native)
 
 import { provenanceBlockHtml, type ResultProvenance as ProvenanceRecord, type ProvenanceLabels } from '../provenance/result-provenance';
+import { reportConfigScript } from './report/printed-values';
 import { memberSectionLabel } from '../section/variable';
 import { plainNumber } from '../utils/units';
 import katex from 'katex';
@@ -82,8 +83,9 @@ export type ResultMode = 'table' | 'figure' | 'both';
 export interface ReportResultFigures {
   /** The model with its numbering: the report's first figure, in place of a screen capture. */
   model?: ReportFigure;
-  /** The model with its loads, under the loads' table. */
-  loads?: ReportFigure;
+  /** The model with the loads of each case, under the loads' table, and how many cases were left without one. */
+  loads?: ReportFigure[];
+  loadsOmitted?: number;
   reactions?: ReportFigure[];
   displacements?: ReportFigure[];
   forces?: ReportFigure[];
@@ -436,7 +438,8 @@ export function generateReportHtml(data: ReportData): string {
       html.push(`<tr><td>${i + 1}</td><td>${escHtml(ld.type)}</td><td>${escHtml(ld.target)}</td><td>${escHtml(ld.values)}</td></tr>`);
     }
     html.push(`</tbody></table>`);
-    if (rf.loads) html.push(figureHtml(rf.loads));
+    for (const f of rf.loads ?? []) html.push(figureHtml(f));
+    if (rf.loadsOmitted) html.push(`<p class="note">${escHtml(interp(tr('report.loadFiguresOmitted'), { n: rf.loadsOmitted }))}</p>`);
   }
 
   // Quads (losas y tabiques)
@@ -560,7 +563,7 @@ export function generateReportHtml(data: ReportData): string {
   // Reactions
   html.push(`<h2>${subNo(2)} ${escHtml(tr('report.reactions'))}</h2>`);
   if (showTable('reactions')) {
-  html.push(`<table><thead><tr><th>Nodo</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
+  html.push(`<table data-printed="reactions"><thead><tr><th>Nodo</th><th>${km('F_x')} (kN)</th><th>${km('F_y')} (kN)</th><th>${km('F_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
   for (const r of results.reactions) {
     html.push(`<tr><td>${r.nodeId}</td><td class="num">${fmtNum(r.fx)}</td><td class="num">${fmtNum(r.fy)}</td><td class="num">${fmtNum(r.fz)}</td><td class="num">${fmtNum(r.mx)}</td><td class="num">${fmtNum(r.my)}</td><td class="num">${fmtNum(r.mz)}</td></tr>`);
   }
@@ -571,7 +574,7 @@ export function generateReportHtml(data: ReportData): string {
   // Element forces
   html.push(`<h2>${subNo(2)} ${escHtml(tr('report.forces'))}</h2>`);
   if (showTable('forces')) {
-    html.push(`<table><thead><tr><th>Elem</th><th>${escHtml(tr('report.ext'))}</th><th>${km('N')} (kN)</th><th>${km('V_y')} (kN)</th><th>${km('V_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
+    html.push(`<table data-printed="forces"><thead><tr><th>Elem</th><th>${escHtml(tr('report.ext'))}</th><th>${km('N')} (kN)</th><th>${km('V_y')} (kN)</th><th>${km('V_z')} (kN)</th><th>${km('M_x')} (kN·m)</th><th>${km('M_y')} (kN·m)</th><th>${km('M_z')} (kN·m)</th></tr></thead><tbody>`);
     for (const ef of results.elementForces) {
       html.push(`<tr><td rowspan="2">${ef.elementId}</td><td>i</td><td class="num">${fmtNum(ef.nStart)}</td><td class="num">${fmtNum(ef.vyStart)}</td><td class="num">${fmtNum(ef.vzStart)}</td><td class="num">${fmtNum(ef.mxStart)}</td><td class="num">${fmtNum(ef.myStart)}</td><td class="num">${fmtNum(ef.mzStart)}</td></tr>`);
       html.push(`<tr><td>j</td><td class="num">${fmtNum(ef.nEnd)}</td><td class="num">${fmtNum(ef.vyEnd)}</td><td class="num">${fmtNum(ef.vzEnd)}</td><td class="num">${fmtNum(ef.mxEnd)}</td><td class="num">${fmtNum(ef.myEnd)}</td><td class="num">${fmtNum(ef.mzEnd)}</td></tr>`);
@@ -583,7 +586,7 @@ export function generateReportHtml(data: ReportData): string {
   // Displacements
   html.push(`<h2>${subNo(2)} ${escHtml(tr('report.displacements'))}</h2>`);
   if (showTable('displacements')) {
-    html.push(`<table><thead><tr><th>Nodo</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
+    html.push(`<table data-printed="displacements"><thead><tr><th>Nodo</th><th>${km('u_x')} (m)</th><th>${km('u_y')} (m)</th><th>${km('u_z')} (m)</th><th>${km('\\theta_x')} (rad)</th><th>${km('\\theta_y')} (rad)</th><th>${km('\\theta_z')} (rad)</th></tr></thead><tbody>`);
     for (const d of results.displacements) {
       html.push(`<tr><td>${d.nodeId}</td><td class="num">${fmtNum(d.ux, 6)}</td><td class="num">${fmtNum(d.uy, 6)}</td><td class="num">${fmtNum(d.uz, 6)}</td><td class="num">${fmtNum(d.rx, 6)}</td><td class="num">${fmtNum(d.ry, 6)}</td><td class="num">${fmtNum(d.rz, 6)}</td></tr>`);
     }
@@ -623,7 +626,7 @@ export function generateReportHtml(data: ReportData): string {
 
       const shown = showTable('shells') ? rows : [];
 
-      if (shown.length) html.push(`<table><thead><tr><th>Elem</th>`
+      if (shown.length) html.push(`<table data-printed="shells"><thead><tr><th>Elem</th>`
         + `<th>${km('\\sigma_{xx}')}</th><th>${km('\\sigma_{yy}')}</th><th>${km('\\tau_{xy}')}</th>`
         + `<th>${km('\\sigma_{1}')}</th><th>${km('\\sigma_{2}')}</th>`
         + `<th>${km('m_x')}</th><th>${km('m_y')}</th><th>${km('m_{xy}')}</th>`
@@ -740,7 +743,7 @@ export function generateReportHtml(data: ReportData): string {
           .replace('{cd}', String(b.cd)).replace('{group}', b.group)
           .replace('{limit}', (b.limit * 100).toFixed(2)).replace('{cases}', b.cases.join(', '))
       : tr('report.driftLimit'))}</p>`);
-    html.push(`<table><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
+    html.push(`<table data-printed="drift"><thead><tr><th>${escHtml(tr('report.level'))} (m)</th><th>h (m)</th><th>Δx (mm)</th><th>Δy (mm)</th><th>Δx/h</th><th>Δy/h</th><th>${escHtml(tr('report.status'))}</th></tr></thead><tbody>`);
     for (const d of data.storyDrifts) {
       const statusStr = d.status === 'ok' ? '✓ OK' : d.status === 'fail' ? `✗ ${tr('report.fail')}` : `⚠ ${tr('report.attention')}`;
       const cls = d.status === 'fail' ? ' style="color:#e94560;font-weight:bold"' : d.status === 'warn' ? ' style="color:#f0a500"' : '';
@@ -781,6 +784,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   if (data.resultProvenance) html.push(provenanceBlockHtml(data.resultProvenance.record, data.resultProvenance.labels));
+  html.push(reportConfigScript(data.config));
   html.push(`</body></html>`);
   return html.join('\n');
 }

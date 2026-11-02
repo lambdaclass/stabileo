@@ -209,6 +209,41 @@ const overlaps = (a: Obstacle, b: Obstacle): boolean =>
  * Exact for an axis-aligned member — a beam or a column, which is most of what
  * a frame is made of. For anything diagonal use `segmentToBoxes`.
  */
+/**
+ * Obstacles kept by the screen cells they cover, so a box asks only its neighbours. `near` returns
+ * them in the order they were added: a sum over them (the free body's covered area) is then the
+ * same, to the bit, as the sum over every obstacle, where the others only added zero.
+ */
+export class ObstacleGrid {
+  private readonly all: Obstacle[] = [];
+  private readonly cells = new Map<string, number[]>();
+  private readonly loose: number[] = [];
+  constructor(initial: Iterable<Obstacle> = [], private readonly size = 64) { for (const o of initial) this.push(o); }
+  push(o: Obstacle): void {
+    const i = this.all.push(o) - 1;
+    const r = this.range(o);
+    if (!r) { this.loose.push(i); return; }
+    for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) {
+      const k = `${cx},${cy}`;
+      const list = this.cells.get(k);
+      if (list) list.push(i); else this.cells.set(k, [i]);
+    }
+  }
+  near(b: Obstacle): Obstacle[] {
+    const r = this.range(b);
+    if (!r) return [...this.all];
+    const hit = new Set<number>(this.loose);
+    for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) for (const i of this.cells.get(`${cx},${cy}`) ?? []) hit.add(i);
+    return [...hit].sort((a, b) => a - b).map((i) => this.all[i]!);
+  }
+  private range(o: Obstacle): { x0: number; x1: number; y0: number; y1: number } | null {
+    const x0 = Math.floor(o.x / this.size), x1 = Math.floor((o.x + o.width) / this.size);
+    const y0 = Math.floor(o.y / this.size), y1 = Math.floor((o.y + o.height) / this.size);
+    if (![x0, x1, y0, y1].every(Number.isFinite) || (x1 - x0 + 1) * (y1 - y0 + 1) > 4096) return null;
+    return { x0, x1, y0, y1 };
+  }
+}
+
 export function segmentToBox(s: SegmentObstacle, pad = 3): Obstacle {
   const p = s.pad ?? pad;
   const x = Math.min(s.x1, s.x2) - p;
@@ -268,7 +303,7 @@ export function placeLabels(
   maxSteps = 10,
 ): PlacedLabel[] {
   const out: PlacedLabel[] = new Array(labels.length);
-  const taken: Obstacle[] = [...obstacles];
+  const taken = new ObstacleGrid(obstacles);
 
   /*
    * Grouped labels are placed as one block, ungrouped ones on their own.
@@ -291,7 +326,7 @@ export function placeLabels(
     let free = false;
     for (const cand of candidateOffsets(ux, uy, sweep, step, maxSteps)) {
       const moved = { ...bounds, x: bounds.x + cand[0], y: bounds.y + cand[1] };
-      if (!taken.some((o) => overlaps(moved, o))) { shift = cand; free = true; break; }
+      if (!taken.near(moved).some((o) => overlaps(moved, o))) { shift = cand; free = true; break; }
     }
     /*
      * Nothing free: keep the preferred spot rather than the last thing tried.

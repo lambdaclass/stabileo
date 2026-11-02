@@ -12,12 +12,20 @@ import { runGlobalSolve } from '../engine/live-calc';
 import { currentResultProvenance, provenanceForScope, ensureEngineHashes } from '../store/result-provenance';
 import { compareProvenance, type ResultProvenance, type ReproduceVerdict } from '../provenance/result-provenance';
 import { errorText } from '../utils/error-text';
+import { t } from '../i18n';
+import { buildProReportData } from '../engine/pro-report-inputs';
+import { generateReportHtml } from '../engine/pro-report';
+import { comparePrinted, embeddedReportConfig, printedTables, type PrintedComparison } from '../engine/report/printed-values';
 
 export type ReproduceOutcome =
-  | { ok: true; verdict: ReproduceVerdict; fresh: ResultProvenance }
+  | { ok: true; verdict: ReproduceVerdict; fresh: ResultProvenance; printed?: PrintedComparison | null }
   | { ok: false; error: string };
 
-export async function reproduceFrom(claimed: ResultProvenance): Promise<ReproduceOutcome> {
+/**
+ * `report`: the report's own HTML, when that is what was loaded. Its printed result tables are then
+ * printed again from the fresh solve, with the report's own choices, and compared cell by cell.
+ */
+export async function reproduceFrom(claimed: ResultProvenance, report?: string): Promise<ReproduceOutcome> {
   resultsStore.clear();
   try {
     await runGlobalSolve({ directBase: claimed.baseSolveMethod === 'direct' });
@@ -28,7 +36,19 @@ export async function reproduceFrom(claimed: ResultProvenance): Promise<Reproduc
   // after the solve: wait for it to settle. One still pending is compared as missing (incomplete).
   if ((claimed.certificates ?? []).length > 0) await settledCertificate();
   await ensureEngineHashes();
-  return compareWithResultsOnHand(claimed);
+  const outcome = compareWithResultsOnHand(claimed);
+  if (outcome.ok && report) outcome.printed = comparePrintedReport(report);
+  return outcome;
+}
+
+/** The report's printed tables against the same tables printed from the results on hand; null when it marks none. */
+export function comparePrintedReport(report: string): PrintedComparison | null {
+  const config = embeddedReportConfig(report);
+  const claimedTables = printedTables(report);
+  if (!config || claimedTables.length === 0) return null;
+  const data = buildProReportData({ config, t });
+  if (!data) return null;
+  return comparePrinted(claimedTables, printedTables(generateReportHtml(data)));
 }
 
 /**

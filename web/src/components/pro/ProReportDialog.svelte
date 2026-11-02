@@ -23,7 +23,7 @@
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
   import type { ReportFormat } from '../../lib/export/report-formats';
-  import { defaultReportSetKey, resultSetChoices } from '../../lib/pro/export-results';
+  import { defaultReportSetKey, resultSetChoices, screenSetKey } from '../../lib/pro/export-results';
 
   interface Props {
     open: boolean;
@@ -192,7 +192,7 @@
         storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
-      resultSetKey,
+      resultSetKey: resultSetKey === 'screen' ? screenSetKey() : resultSetKey,
     }, $state.snapshot(figs), format);
   }
 </script>

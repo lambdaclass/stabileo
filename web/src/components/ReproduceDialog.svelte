@@ -58,7 +58,7 @@
     const claimed = parseProvenance(text);
     if (!claimed) { error = t('provenance.reproduce.invalid'); return; }
     busy = true;
-    try { outcome = await reproduceFrom(claimed); } finally { busy = false; }
+    try { outcome = await reproduceFrom(claimed, /<html|<table/i.test(text) ? text : undefined); } finally { busy = false; }
   }
 
   const field = (v: string) => t(`provenance.reproduce.field.${v}`);
@@ -81,14 +81,33 @@
       {#if outcome}
         {#if outcome.ok}
           {@const v = outcome.verdict}
-          <div class="rp-verdict" class:ok={v.reproduced} data-testid="reproduce-verdict" data-reproduced={v.reproduced} data-status={v.status}>
-            <strong>{v.status === 'reproduced' ? t('provenance.reproduce.match') : v.status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
+          {@const printedOk = !outcome.printed || (outcome.printed.differences.length === 0 && outcome.printed.structural.length === 0)}
+          <div class="rp-verdict" class:ok={v.reproduced && printedOk} data-testid="reproduce-verdict" data-reproduced={v.reproduced && printedOk} data-status={printedOk ? v.status : 'printed-differs'}>
+            <strong>{!printedOk ? t('provenance.reproduce.printedTampered') : v.status === 'reproduced' ? t('provenance.reproduce.match') : v.status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
             <ul data-testid="reproduce-hashes">
               {#each v.hashes as h (h.field)}
                 <li data-field={h.field} data-verdict={h.verdict}>{FIELD_LABEL[h.field] ?? h.field}: {field(h.verdict)}</li>
               {/each}
             </ul>
             {#if v.model === 'differs'}<p>{t('provenance.reproduce.modelDiffers')}</p>{/if}
+            {#if outcome.printed}
+              {@const pv = outcome.printed}
+              <p data-testid="reproduce-printed" data-differences={pv.differences.length} data-compared={pv.compared}>
+                {pv.differences.length === 0 && pv.structural.length === 0
+                  ? tp('provenance.reproduce.printedMatch', { n: pv.compared })
+                  : tp('provenance.reproduce.printedDiffers', { m: pv.differences.length, n: pv.compared })}
+              </p>
+              {#if pv.differences.length > 0}
+                <ul class="rp-diffs" data-testid="reproduce-printed-diffs">
+                  {#each pv.differences.slice(0, 20) as d, i (i)}
+                    <li>{tp('provenance.reproduce.printedLine', { table: t(`provenance.reproduce.table.${d.table.replace(/^envelope-.*/, 'envelope')}`), row: d.row, column: d.column, printed: d.printed, recomputed: d.recomputed })}</li>
+                  {/each}
+                </ul>
+              {/if}
+              {#if pv.structural.length > 0}<p>{tp('provenance.reproduce.printedStructure', { tables: pv.structural.join(', ') })}</p>{/if}
+            {:else if outcome.printed === null}
+              <p class="rp-muted">{t('provenance.reproduce.printedNone')}</p>
+            {/if}
             {#if !v.sameBuild}<p>{tp('provenance.reproduce.buildDiffers', { fields: v.buildDifferences.join(', ') })}</p>{/if}
           </div>
         {:else}
@@ -115,6 +134,8 @@
   .rp-verdict { margin: 10px 0; padding: 8px 10px; font-size: 0.72rem; border: 1px solid var(--st-danger, #c0392b); border-radius: var(--st-radius); color: var(--st-text); }
   .rp-verdict.ok { border-color: var(--st-ok, #2e8b57); }
   .rp-verdict ul { margin: 6px 0 0; padding-left: 18px; }
+  .rp-diffs { max-height: 160px; overflow-y: auto; }
+  .rp-muted { color: var(--st-text-3); }
   .rp-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; }
   .rp-btn { padding: 6px 12px; font-size: 0.75rem; border-radius: var(--st-radius); border: 1px solid var(--st-hair-strong); background: var(--st-surface-2, var(--st-surface)); color: var(--st-text); cursor: pointer; }
   .rp-btn:disabled { opacity: 0.5; cursor: not-allowed; }
