@@ -17,6 +17,14 @@ function createContourOptions() {
   /** 0: a smooth ramp. Otherwise this many bands of one colour each. */
   let bands = $state(0);
   let onDeformed = $state(false);
+  /** Within what the nodes average: the whole model, each physical plate, or each group. */
+  let within = $state<'all' | 'physical' | 'group'>('all');
+  /** The face the stresses are read on. */
+  let face = $state<import('../engine/shell-stress').ShellFace>('mid');
+  /** The principal directions drawn on each element, for σ1, σ2, Mmax and Mmin. */
+  let directions = $state(false);
+  /** The largest and smallest values written on the shells. */
+  let values = $state(false);
 
   return {
     get at() { return at; }, set at(v: ContourAt) { at = v; },
@@ -25,8 +33,12 @@ function createContourOptions() {
     get max() { return max; }, set max(v: number) { max = v; },
     get bands() { return bands; }, set bands(v: number) { bands = Math.max(0, Math.floor(v)); },
     get onDeformed() { return onDeformed; }, set onDeformed(v: boolean) { onDeformed = v; },
+    get within() { return within; }, set within(v: 'all' | 'physical' | 'group') { within = v; },
+    get face() { return face; }, set face(v: import('../engine/shell-stress').ShellFace) { face = v; },
+    get directions() { return directions; }, set directions(v: boolean) { directions = v; },
+    get values() { return values; }, set values(v: boolean) { values = v; },
     /** Reads every option, for effects that repaint when any changes. */
-    get signature() { return `${at}|${auto}|${min}|${max}|${bands}|${onDeformed}`; },
+    get signature() { return `${at}|${auto}|${min}|${max}|${bands}|${onDeformed}|${within}|${face}|${directions}|${values}`; },
   };
 }
 

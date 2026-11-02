@@ -13,7 +13,7 @@ import { t } from '../i18n';
 import { viewportCanvas } from '../utils/viewport-canvas';
 import { colourRampCss } from '../three/colour-ramp';
 import { shellContourColor } from '../three/stress-heatmap';
-import { shellContourField } from '../engine/shell-contour-field';
+import { currentShellContourField } from '../store/shell-contour';
 import { shellComponentLabelKey, shellComponentMeta } from '../engine/shell-stress';
 import { contourOptions } from '../store/contour-options.svelte';
 import { bandValue } from '../engine/contour-scale';
@@ -70,12 +70,8 @@ export function figureLegend(): FigureLegend | null {
   const k = resultsStore.colorMapKind;
   const shells = k === 'shellVonMises' || k === 'shellBending' || (k === 'stress' && resultsStore.stressShowShells);
   if (shells && r && ((r.plateStresses?.length ?? 0) + (r.quadStresses?.length ?? 0)) > 0) {
-    const f = shellContourField(
-      { plates: r.plateStresses ?? [], quads: r.quadStresses ?? [] },
-      (key) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes),
-      resultsStore.shellContourComponent, contourOptions,
-    );
-    const { min, max } = f.range;
+    const f = currentShellContourField(r);
+    const { min, max } = f?.range ?? { min: 0, max: 0 };
     const meta = shellComponentMeta(resultsStore.shellContourComponent);
     const bands = contourOptions.bands;
     return {

@@ -34,6 +34,8 @@ import { displayedLoads3D, despieceNote3D, despieceDrawsActions, despieceNoteTex
 import { drawFreeBody, type P3 } from '../canvas/free-body';
 import { createLabelCollector } from '../canvas/label-layout';
 import { drawHiddenLabelsNote } from './hidden-labels-note';
+import { shellStressInputs } from '../store/shell-contour';
+import { contourOptions } from '../store/contour-options.svelte';
 import { addMemberTags } from '../canvas/member-tags';
 import { freeBodyActions3D } from '../viewport3d/free-body-3d';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
@@ -450,8 +452,9 @@ function drawShellMap(
   labels: ReturnType<typeof createLabelCollector>,
 ): void {
   const value = new Map<string, number>();
-  for (const s of r3d?.plateStresses ?? []) value.set(`p${s.elementId}`, shellComponentValue(s, component));
-  for (const s of r3d?.quadStresses ?? []) value.set(`q${s.elementId}`, shellComponentValue(s, component));
+  const inputs = r3d ? shellStressInputs(r3d, component) : { plates: [], quads: [] };
+  for (const s of inputs.plates) { const v = shellComponentValue(s, component, contourOptions.face); if (Number.isFinite(v)) value.set(`p${s.elementId}`, v); }
+  for (const s of inputs.quads) { const v = shellComponentValue(s, component, contourOptions.face); if (Number.isFinite(v)) value.set(`q${s.elementId}`, v); }
   let min = Infinity, max = -Infinity;
   for (const v of value.values()) { if (v < min) min = v; if (v > max) max = v; }
   if (!Number.isFinite(min)) { drawShells(); return; }

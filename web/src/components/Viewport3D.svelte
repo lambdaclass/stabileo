@@ -27,6 +27,8 @@
   import { linkedGeometry } from '../lib/store/linked-geometry';
   import { federation } from '../lib/store/federation.svelte';
   import SplitView3D from './viewport/SplitView3D.svelte';
+  import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
+  import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
   import { toneObject } from '../lib/viewport3d/category-tone';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
@@ -3765,6 +3767,8 @@
       } else if (newHover.type === 'plate' || newHover.type === 'quad') {
         const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
         if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
+        const reading = sh && shellContourActive() ? shellReading(newHover.type === 'plate' ? 'p' : 'q', newHover.id) : null;
+        if (reading) tooltipText += ` · ${reading}`;
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -3926,6 +3930,23 @@
 
   /** Mirror of scene-sync's contour check (so hover/selection don't clobber an
    *  active shell contour). */
+  /** The contour's value on one shell, as the hover reads it: the element's own, and the painted corners' span. */
+  function shellReading(prefix: 'p' | 'q', id: number): string | null {
+    const r3d = resultsStore.results3D;
+    if (!r3d) return null;
+    const c = resultsStore.shellContourComponent;
+    const inputs = shellStressInputs(r3d, c);
+    const st = (prefix === 'p' ? inputs.plates : inputs.quads).find((x) => x.elementId === id);
+    if (!st) return null;
+    const v = shellComponentValue(st, c, contourOptions.face);
+    if (!Number.isFinite(v)) return null;
+    const meta = shellComponentMeta(c);
+    const fmt = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) >= 1 ? x.toFixed(2) : x.toPrecision(3));
+    const corners = currentShellContourField(r3d, c)?.corners.get(`${prefix}${id}`);
+    const span = corners && corners.length ? ` (${fmt(Math.min(...corners))} … ${fmt(Math.max(...corners))})` : '';
+    return `${t(shellComponentLabelKey(c))} = ${fmt(v)} ${meta.unit}${span}`;
+  }
+
   function shellContourActive(): boolean {
     if (resultsStore.diagramType !== 'colorMap') return false;
     const k = resultsStore.colorMapKind;

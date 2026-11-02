@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { currentShellContourField, shellNodesOf } from '../../lib/store/shell-contour';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   /**
    * How the shell contour is drawn (`store/contour-options.svelte.ts`) and the same field read
@@ -10,9 +11,8 @@
   import { contourOptions } from '../../lib/store/contour-options.svelte';
   import { placementStore } from '../../lib/store/placement.svelte';
   import { editPreview } from '../../lib/store/edit-preview.svelte';
-    import { shellContourField } from '../../lib/engine/shell-contour-field';
   import { sampleAlongLine, type V3 } from '../../lib/engine/shell-line';
-  import { shellComponentMeta, shellComponentLabelKey } from '../../lib/engine/shell-stress';
+  import { shellComponentMeta, shellComponentLabelKey, FACE_GROUPS } from '../../lib/engine/shell-stress';
   import { toCsv } from '../../lib/engine/result-tables';
   import XYChart from '../charts/XYChart.svelte';
   import { onDestroy } from 'svelte';
@@ -38,8 +38,10 @@
   const samples = $derived.by(() => {
     const r = resultsStore.results3D;
     if (!r || !a || !b) return null;
-    const nodesOf = (key: string) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes);
-    const field = shellContourField({ plates: r.plateStresses ?? [], quads: r.quadStresses ?? [] }, nodesOf, resultsStore.shellContourComponent, contourOptions);
+    const nodesOf = shellNodesOf;
+    void contourOptions.signature;
+    const field = currentShellContourField(r);
+    if (!field) return null;
     const shells = [...field.corners].flatMap(([key, values]) => {
       const ids = nodesOf(key);
       const corners = ids?.map((id) => { const n = modelStore.nodes.get(id); return n ? [n.x, n.y, n.z ?? 0] as V3 : null; });
@@ -64,6 +66,32 @@
   <div class="sco-row">
     <label><input type="radio" bind:group={contourOptions.at} value="nodes" data-testid="contour-at-nodes" /> {t('contour.atNodes')}</label>
     <label><input type="radio" bind:group={contourOptions.at} value="centre" data-testid="contour-at-centre" /> {t('contour.atCentre')}</label>
+    {#if contourOptions.at === 'nodes'}
+      <label>{t('contour.within')}
+        <select bind:value={contourOptions.within} data-testid="contour-within">
+          <option value="all">{t('contour.within.all')}</option>
+          <option value="physical">{t('contour.within.physical')}</option>
+          <option value="group">{t('contour.within.group')}</option>
+        </select>
+      </label>
+    {/if}
+  </div>
+  {#if FACE_GROUPS.includes(meta.group)}
+    <div class="sco-row">
+      <label>{t('contour.face')}
+        <select bind:value={contourOptions.face} data-testid="contour-face">
+          <option value="mid">{t('contour.face.mid')}</option>
+          <option value="top">{t('contour.face.top')}</option>
+          <option value="bottom">{t('contour.face.bottom')}</option>
+        </select>
+      </label>
+    </div>
+  {/if}
+  <div class="sco-row">
+    {#if ['sigma1', 'sigma2', 'mmax', 'mmin'].includes(meta.key)}
+      <label><input type="checkbox" bind:checked={contourOptions.directions} data-testid="contour-directions" /> {t('contour.directions')}</label>
+    {/if}
+    <label><input type="checkbox" bind:checked={contourOptions.values} data-testid="contour-values" /> {t('contour.values')}</label>
   </div>
   <div class="sco-row">
     <label><input type="checkbox" bind:checked={contourOptions.auto} data-testid="contour-auto" /> {t('contour.autoRange')}</label>
