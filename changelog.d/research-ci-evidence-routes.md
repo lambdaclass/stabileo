@@ -1,6 +1,7 @@
 ### Fixed
+#### Riks–Crisfield evidence matches the CI platform (2026-10-30)
 
-#### Research evidence and route budgets
-
-- Keep public Tools and Research page selection behind one lazy application boundary so their routing does not exceed the app route byte budget.
-- Refresh the exact Riks/Crisfield evidence on the Linux CI platform and document its rounding-only difference from macOS ARM, preserving all validation failures and tolerances.
+The exact Riks–Crisfield evidence is refreshed on Linux, with the rounding-only difference from
+macOS ARM documented (#857). The reference tolerances and reported validation failures are kept;
+a platform difference is not treated as a solver correction. Re-check comparisons against the
+recorded platform when regenerating the evidence.
