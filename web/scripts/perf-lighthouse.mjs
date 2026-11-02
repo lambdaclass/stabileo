@@ -184,7 +184,9 @@ function main(argv) {
       writeFileSync(opt.baseline, JSON.stringify(next, null, 2) + '\n');
       console.log(`raised ${opt.baseline}`);
     } else console.log('baseline unchanged: nothing improved');
-    return 0;
+    const regressions = compare(next, opt.preset, results).failures;
+    for (const f of regressions) console.error(f);
+    return regressions.length ? 1 : 0;
   }
   if (opt.check && failures.length) {
     for (const f of failures) console.error(f);

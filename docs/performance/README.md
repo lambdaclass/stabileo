@@ -73,7 +73,7 @@ gate.
 |---|---|
 | `make perf.lighthouse.deps` | install the pinned Lighthouse |
 | `BASE=https://stabileo.com PRESET=mobile make perf.lighthouse` | measure and check |
-| `ARGS=--write ... make perf.lighthouse` | raise the baseline where a median is higher (after a `RAISE`); never lowers it |
+| `ARGS=--write ... make perf.lighthouse` | raise the baseline where a median is higher (after a `RAISE`); never lowers it, and still fails on a regression |
 | `ARGS=--no-check ... make perf.lighthouse` | measure only (another site, a local preview) |
 
 Scores from another machine are not comparable with the baseline: raise it from the workflow's

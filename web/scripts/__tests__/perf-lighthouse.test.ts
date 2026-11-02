@@ -77,7 +77,7 @@ describe('perf-lighthouse', () => {
     expect(parseArgs(['--base', 'http://h/']).base).toBe('http://h');
   });
 
-  it('the CLI exits non-zero on a regression and when Lighthouse fails', () => {
+  it('the CLI exits non-zero on a regression, an unrecorded improvement and a failed Lighthouse, --write included', () => {
     const dir = mkdtempSync(join(tmpdir(), 'perf-lh-'));
     const fake = join(dir, 'lighthouse');
     writeFileSync(fake, `#!/usr/bin/env node
@@ -104,5 +104,15 @@ fs.writeFileSync(out, process.env.FAKE_LHR);
     expect(JSON.parse(readFileSync(file, 'utf8')).scores.mobile['/en/'].performance).toBe(94);
     expect(run(94).status).toBe(0);
     expect(run(90).status).toBe(1);
+
+    const mixed = lhr(80);
+    mixed.categories.accessibility.score = 0.99;
+    const both = spawnSync(process.execPath, [script, '--base', 'http://127.0.0.1:4173', '--runs', '1', '--baseline', file, '--out', dir, '--write'], {
+      encoding: 'utf8',
+      env: { ...process.env, LIGHTHOUSE_BIN: fake, FAKE_LHR: JSON.stringify(mixed), GITHUB_STEP_SUMMARY: '' },
+    });
+    expect(both.status).toBe(1);
+    expect(both.stderr).toMatch(/performance: FAIL/);
+    expect(JSON.parse(readFileSync(file, 'utf8')).scores.mobile['/en/']).toEqual({ performance: 94, accessibility: 99, 'best-practices': 96, seo: 100 });
   });
 });
