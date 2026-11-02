@@ -60,8 +60,15 @@ describe('NEGATIVE: the floor is round-off, not an engineering tolerance', () =>
   it('a shear of 1e-6 kN beside 5000 kN, two parts in ten billion, is a change', () => {
     expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 1e-6 }).differs).toBe(true);
   });
-  it('round-off of 1e-10 of the vector is not', () => {
-    expect(VECTOR_ATOL).toBe(1e-10);
-    expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 4e-7 }).differs).toBe(false);
+  it('a shear of 4e-7 kN beside 5000 kN is a change', () => {
+    expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 4e-7 }).differs).toBe(true);
+  });
+  it('round-off zeros, both within 1e-12 of the vector, are the same zero', () => {
+    expect(VECTOR_ATOL).toBe(1e-12);
+    expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 4e-9 }).differs).toBe(false);
+    expect(compareLegacy({ ...member, 'base.elementForces[e1].vStart': 4e-9 }, { ...member, 'base.elementForces[e1].vStart': -4e-9 }).differs).toBe(false);
+  });
+  it('NEGATIVE: a value that leaves zero is a change, however small its vector makes it look', () => {
+    expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 6e-9 }).differs).toBe(true);
   });
 });

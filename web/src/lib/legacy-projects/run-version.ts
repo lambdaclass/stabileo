@@ -12,6 +12,9 @@ import {
   againstExample, judge, openAndSolve, openSession, readCorpusText, readManifest, readResults, unexplainedMessage, type Verdict,
 } from './legacy';
 
+/** The releases whose `sessionPayload` threw ($state.snapshot from a plain module; fixed before v0.4.0). */
+const SESSION_WRITER_BROKEN = ['v0.2.0', 'v0.3.0'];
+
 export function runLegacyVersion(tag: string): void {
   const m = readManifest(tag);
   const lines: string[] = [];
@@ -72,7 +75,8 @@ export function runLegacyVersion(tag: string): void {
       }, 120_000);
     } else {
       it(`session: none, ${tag} could not write one`, () => {
-        expect(s.unavailable, 'the manifest says why').toMatch(/\S/);
+        expect(SESSION_WRITER_BROKEN, `${tag} is not a release whose session writer is known to fail`).toContain(tag);
+        expect(s.unavailable, 'the manifest says why').toMatch(/\$state is not defined/);
       });
     }
   });

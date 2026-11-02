@@ -1,17 +1,17 @@
 /**
  * The comparison of an old project file's results (#718): the snapshot gate's rule
- * (`compare.mjs`), except that a component may also differ by VECTOR_ATOL of the vector it
- * belongs to: a floating-point round-off bound (1e-10, a hundred times κ·ε on these models'
- * components), far below the gate's own 1e-7 of a quantity's peak. Round-off in a component statics makes zero (a horizontal reaction under
- * vertical loads, a truss member's shear) moves between releases, and against its own peak
- * 5e-14 → 7e-14 kN reads as a 25 % change. Never used by the snapshot gate, whose builds are
- * bit-for-bit reproducible. Families never mix units and never span two records.
+ * (`compare.mjs`), except for a component that statics makes zero: when both values are within
+ * VECTOR_ATOL (1e-12, a few thousand ε) of the vector it belongs to, they are the same zero.
+ * v0.2.0's truss and Warren truss reactions need it (rx 5.7e-14 → 7.1e-14 and −9.2e-14 → −4.3e-14
+ * kN beside 35 kN), which against their own peak read as 25 % and 54 % changes. Never used by the
+ * snapshot gate, whose builds are bit-for-bit reproducible. Families never mix units and never
+ * span two records.
  */
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { compareValues, RTOL } from '../../../scripts/results-snapshot/compare.mjs';
+import { compareValues } from '../../../scripts/results-snapshot/compare.mjs';
 import type { Values } from './capture-results';
 
-export const VECTOR_ATOL = 1e-10;
+export const VECTOR_ATOL = 1e-12;
 
 export const UNIT_FAMILIES: Record<string, Record<string, string[]>> = {
   displacements: { translation: ['ux', 'uy', 'uz'], rotation: ['rx', 'ry', 'rz'] },
@@ -43,7 +43,7 @@ export interface Diff {
   differs: boolean;
 }
 
-/** `compareValues`, with a change dropped when it is round-off of its vector's size. */
+/** `compareValues`, with a change dropped when both values are round-off zeros of their vector. */
 export function compareLegacy(reference: Values, current: Values): Diff {
   const diff = compareValues(reference, current) as Diff;
   const peak = new Map<string, number>();
@@ -56,7 +56,8 @@ export function compareLegacy(reference: Values, current: Values): Diff {
   const changed = diff.changed.filter(({ path, before, after }) => {
     const f = familyOf(path);
     if (!f || typeof before !== 'number' || typeof after !== 'number') return true;
-    return Math.abs(before - after) > RTOL * Math.max(Math.abs(before), Math.abs(after)) + VECTOR_ATOL * (peak.get(f) ?? 0);
+    const zero = VECTOR_ATOL * (peak.get(f) ?? 0);
+    return !(Math.abs(before) <= zero && Math.abs(after) <= zero);
   });
   return { ...diff, changed, differs: changed.length > 0 || diff.removed.length > 0 || diff.added.length > 0 };
 }

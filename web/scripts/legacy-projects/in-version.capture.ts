@@ -99,7 +99,8 @@ it('session', async () => {
   try {
     writeFileSync(join(plan.out, 'session.ded'), file.sessionPayload().content);
   } catch (e) {
-    writeFileSync(join(plan.out, 'session.unavailable.txt'), String((e as Error)?.message ?? e));
+    if (!(e instanceof ReferenceError) || !/\$state is not defined/.test(e.message)) throw e;
+    writeFileSync(join(plan.out, 'session.unavailable.txt'), e.message);
   }
 }, 300_000);
 
