@@ -69,6 +69,8 @@ test.describe('blog', () => {
     await expect(page.getByRole('heading', { level: 2, name: 'Octubre de 2026' })).toBeVisible();
     const total = CHANGELOG.reduce((n, e) => n + e.areas.length, 0);
     await expect(page.getByTestId('changelog-stats')).toContainText(`${total} cambios · desde febrero de 2026`);
+    const chipCounts = await page.locator('.cl-filter .cl-chip-n').allInnerTexts();
+    expect(chipCounts.reduce((n, c) => n + Number(c), 0), 'the area counts add up to the total').toBe(total);
     const first = weeks.last();
     await expect(first).toHaveAttribute('data-date', '2026-02-01');
     await expect(first.locator('time')).toHaveText(/feb\s*mes/);
@@ -83,7 +85,9 @@ test.describe('blog', () => {
     await page.getByRole('button', { name: /^Educativo/ }).click();
     await expect(weeks).toHaveCount(edu.length);
     await expect(weeks.first().getByRole('heading', { level: 4 })).toHaveText(['Educativo']);
-    await expect(page.getByTestId('changelog-stats')).toContainText(`${edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0)} cambios`);
+    const eduChanges = edu.reduce((n, e) => n + e.areas.filter((a) => a === 'edu').length, 0);
+    await expect(page.getByRole('button', { name: /^Educativo/ }).locator('.cl-chip-n')).toHaveText(String(eduChanges));
+    await expect(page.getByTestId('changelog-stats')).toContainText(`${eduChanges} cambios`);
     await page.getByRole('button', { name: 'Todo' }).click();
     await expect(weeks).toHaveCount(CHANGELOG.length);
   });
