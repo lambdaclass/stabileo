@@ -256,6 +256,10 @@ typecheck.web:
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
+## Wall-clock budgets at project scale, alone on the machine. Needs make wasm and web.deps.
+test.web.timing:
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project timing"
+
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
 	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx vitest run --project build"
