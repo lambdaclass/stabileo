@@ -22,3 +22,9 @@ it('rejects absent nodes, extra steps and nonfinite load factors', () => {
   const p = structuredClone(full); p.steps[0].loadFactor = NaN;
   expect(() => validatePrefix(full,p,2,[1])).toThrow();
 });
+it.each([['finalLoadFactor', .3], ['totalIterations', 5], ['converged', false]] as const)('rejects a %s summary that disagrees with the steps, in the prefix or the full run', (key, value) => {
+  const p = structuredClone(full);
+  Object.assign(p, { [key]: value });
+  expect(() => validatePrefix(full, p, 2, [1])).toThrow('Invalid prefix result');
+  expect(() => validatePrefix(p, structuredClone(full), 2, [1])).toThrow('Invalid full result');
+});

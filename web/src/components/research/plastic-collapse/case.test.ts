@@ -96,6 +96,8 @@ describe('the recorded replay', () => {
     expect(checks(wrongHinge).find(c => c.id === 'hinges')!.passed).toBe(false);
     const unyielded = { ...replay, steps: replay.steps.map(s => ({ ...s, hingesFormed: s.hingesFormed?.map(h => ({ ...h, momentY: 0 })) })) };
     expect(checks(unyielded).find(c => c.id === 'hinges')!.passed).toBe(false);
+    const flipped = { ...replay, steps: replay.steps.map((s, i) => (i === 1 ? { ...s, hingesFormed: s.hingesFormed?.map(h => ({ ...h, momentY: -h.momentY })) } : s)) };
+    expect(checks(flipped).find(c => c.id === 'hinges')!.passed).toBe(false);
     const overYield = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 2 ? { ...f, myStart: f.myStart - 200 } : f)) } } : s)) };
     expect(checks(overYield).find(c => c.id === 'yield')!.passed).toBe(false);
     expect(checks({ ...replay, warnings: ['x'] }).find(c => c.id === 'mechanism')!.passed).toBe(false);

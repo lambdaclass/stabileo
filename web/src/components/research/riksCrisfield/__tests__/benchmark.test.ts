@@ -1,7 +1,7 @@
 import native from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/native-results.json';
 import validation from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/VALIDATION.json';
 import { nativeReplay } from '../replay';
-import { measuredLimitFrame, compareFrameRun } from '../benchmark';
+import { measuredLimitFrame, compareFrameRun, passesLimit, type ComparisonCheck } from '../benchmark';
 import { describe, expect, it } from 'vitest';
 import caseData from '../../../../../../research/numerical-methods/riks-crisfield/reference-results/arc_length_snap_through.json';
 import { axialRigidity, compareRun, comparisonHeadline, DEFAULT_PARAMETERS, inputFor, limitPoint, referencePath, type BenchmarkRun, type CaseFile } from '../benchmark';
@@ -126,4 +126,12 @@ it('checks every displayed metric and replay number against native evidence', ()
       expect(checks[1].error).toBeCloseTo(summary.limitDisplacementRelativeError!, 12);
     }
   }
+});
+
+it('headlines a passed upper limit only when the reversal is reached and every check is within tolerance', () => {
+  const check = (passed: boolean, reached = true): ComparisonCheck => ({ id: 'limit-load', label: '', reference: 1, observed: 1, error: 0, tolerance: 1e-3, passed, reached });
+  expect(passesLimit([check(true), check(true)])).toBe(true);
+  expect(passesLimit([check(false), check(true)])).toBe(false);
+  expect(passesLimit([check(true, false), check(true, false)])).toBe(false);
+  expect(passesLimit([])).toBe(false);
 });

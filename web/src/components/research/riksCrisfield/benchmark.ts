@@ -73,6 +73,8 @@ export type ComparisonCheck = {
   reached: boolean;
 };
 
+export const passesLimit = (checks: ComparisonCheck[]) => checks.length > 0 && checks[0].reached && checks.every((check) => check.passed);
+
 export const DEFAULT_PARAMETERS = (c: BenchmarkCase): RunParameters => ({
   riseSpan: c.geometry.rise / (2 * c.geometry.halfSpan),
   direction: 'downward',

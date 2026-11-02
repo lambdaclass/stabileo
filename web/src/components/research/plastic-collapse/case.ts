@@ -86,15 +86,19 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const { mp, vertical: v, span: l, tolerance, yieldTolerance, equilibriumTolerance } = portal;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
-  const hinges = events(result).flatMap(e => e.hinges);
-  const hingeNodes = hinges.map(x => x.node).sort((a, b) => a - b);
+  const formed = result.steps.flatMap(s => s.hingesFormed ?? []);
+  const hingeNodes = events(result).flatMap(e => e.hinges.map(x => x.node)).sort((a, b) => a - b);
+  const hingesMatch = formed.length === portal.events.length && formed.every((h, i) => {
+    const want = portal.events[i];
+    return h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance;
+  });
   const ends = [...moments.values()].flatMap(m => [m.myStart, m.myEnd]);
   const corner = Math.abs(moments.get(1)?.myEnd ?? NaN);
   const r = residual(result);
   return [
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
-    { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hinges.every(h => Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance) },
+    { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch },
     { id: 'yield', passed: ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) },
     { id: 'equilibrium', passed: reactions.size === 2 && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
     { id: 'corner', passed: Math.abs(corner - cornerMoment(lambda)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance },

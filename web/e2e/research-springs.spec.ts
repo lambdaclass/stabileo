@@ -106,6 +106,8 @@ test.describe('@smoke research springs review regressions', () => {
     await page.getByRole('button', { name: 'Pause sweep' }).scrollIntoViewIfNeeded();
     await page.clock.runFor(6000);
     await expect(page.getByRole('button', { name: 'Pause sweep' })).toHaveCount(0);
+    await expect(page.locator('.sp-source[aria-live="polite"]')).toContainText('Replay of a run precomputed with this solver');
+    await expect(page.locator('.sp-source[aria-live="polite"]')).not.toContainText('Live computation');
     await expect(page.locator('.sp-source[aria-live="polite"]')).not.toContainText('Precomputed replay (same solver)');
     await expect(page.locator('input[aria-label="Disorder eta"]')).toHaveValue('0.5');
   });

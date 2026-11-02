@@ -14,7 +14,7 @@
   import { num, qty } from '../shell/format';
   import { rs } from '../i18n';
   import PathChart, { type LimitMarker, type PathSeries } from './PathChart.svelte';
-  import { compareFrameRun, frameReferenceLoadAt, compareRun, interpolatedLimit, DEFAULT_PARAMETERS, inputFor, limitPoint, referencePath, type BenchmarkRun, type CaseFile, type RunParameters } from './benchmark';
+  import { compareFrameRun, frameReferenceLoadAt, compareRun, interpolatedLimit, passesLimit, DEFAULT_PARAMETERS, inputFor, limitPoint, referencePath, type BenchmarkRun, type CaseFile, type RunParameters } from './benchmark';
   import { nativeReplay } from './replay';
   import { ArcRunner } from './runner.svelte';
   import { editorSnapshot } from './editor';
@@ -45,7 +45,7 @@
   const isFrame = $derived(currentCase.id === 'shallow-toggle');
   const checks = $derived(isFrame ? compareFrameRun(currentCase, shown) : compareRun(currentCase, shown));
   const checkCount = $derived({ passed: checks.filter((check) => check.passed).length, total: checks.length });
-  const headline = $derived(`${isFrame ? copy.frameHeadline : checks[0].reached ? copy.limitHeadline : copy.checkHeadline}: ${checkCount.passed}/${checkCount.total} ${copy.passed}`);
+  const headline = $derived(`${isFrame ? copy.frameHeadline : passesLimit(checks) ? copy.limitHeadline : copy.checkHeadline}: ${checkCount.passed}/${checkCount.total} ${copy.passed}`);
   const referenceLimit = $derived(limitPoint(currentCase.geometry.halfSpan, 2 * currentCase.geometry.halfSpan * shown.parameters.riseSpan, Object.values(currentCase.input.solver.materials)[0].e * 1000 * Object.values(currentCase.input.solver.sections)[0].a, currentCase.apex.referenceLoad));
 
   $effect(() => {

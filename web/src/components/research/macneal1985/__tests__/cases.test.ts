@@ -69,6 +69,8 @@ describe('engine benchmark evidence', () => {
     const distorted = byId('mitc4-trapezoidal-in');
     const fail = (k: Case): Result => ({ ...compare(k, tip(k, k.reference * 0.5)) });
     expect(verdict(distorted, fail(distorted))).toBe('documented');
+    expect(verdict(distorted, compare(distorted, tip(distorted, -distorted.reference * 0.5)))).toBe('mismatch');
+    expect(verdict(distorted, compare(distorted, tip(distorted, distorted.reference * 1.5)))).toBe('mismatch');
     expect(verdict(byId('mitc4-regular-in'), fail(byId('mitc4-regular-in')))).toBe('mismatch');
     expect(verdict(byId('frame-shear-1-uz'), fail(byId('frame-shear-1-uz')))).toBe('mismatch');
     expect(verdict(distorted, { id: distorted.id, value: null, error: null, pass: false, failure: 'Error: refused' })).toBe('error');

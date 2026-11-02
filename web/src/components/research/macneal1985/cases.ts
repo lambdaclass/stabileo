@@ -37,7 +37,8 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
 export function verdict(c: Case, r: Result): Verdict {
   if (r.failure) return 'error';
   if (r.pass) return r.marginal ? 'marginal' : 'pass';
-  return !c.expectedPass && 'knownIssue' in c && c.knownIssue ? 'documented' : 'mismatch';
+  const locked = r.value !== null && Math.sign(r.value) === Math.sign(c.reference) && Math.abs(r.value) < Math.abs(c.reference);
+  return !c.expectedPass && 'knownIssue' in c && c.knownIssue && locked ? 'documented' : 'mismatch';
 }
 
 export function counts(rows: Result[]) {

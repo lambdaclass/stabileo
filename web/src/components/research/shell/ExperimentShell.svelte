@@ -10,7 +10,8 @@
   import type { Snippet } from 'svelte';
   import catalog from '../../../../../research/papers.json';
   import PublicLink from '../../landing/PublicLink.svelte';
-  import { fieldName, rs, researchTextLocale } from '../i18n';
+  import { fieldName, rs } from '../i18n';
+  import { paperTextLocale } from '../text-locale';
   import { provideExperiment, type ExperimentActions, type Check } from './context';
   import VerificationSummary from './VerificationSummary.svelte';
   import { BUILD_COMMIT } from '../../../lib/build-info';
@@ -64,18 +65,18 @@
         published={verification?.published ?? { kind: 'none', why: s.notComparedWhy }}
         {referenceLabel}
       />
-      <p class="rs-lead" lang={locale ?? researchTextLocale()}>{lead}</p>
+      <p class="rs-lead" lang={locale ?? paperTextLocale(paperId)}>{lead}</p>
 {/snippet}
 
 <section class="sec sec--ink rs-shell">
   <div class="wrap rs-shell-wrap">
     <header class="rs-shell-head" class:rs-compact={compactHeader}>
       <p class="rs-crumb"><PublicLink to="/research">{s.research}</PublicLink> / {fieldName(paper.area)}</p>
-      <h1 lang={locale ?? researchTextLocale()}>{name}</h1>
+      <h1 lang={locale ?? paperTextLocale(paperId)}>{name}</h1>
       {#if !introInArticle}{@render introduction()}{/if}
     </header>
     <div class="rs-shell-grid" class:rs-wide={wide}>
-      <article class="rs-shell-article rs-prose" lang={locale ?? researchTextLocale()}>
+      <article class="rs-shell-article rs-prose" lang={locale ?? paperTextLocale(paperId)}>
         {#if introInArticle}{@render introduction()}{/if}
         {@render article()}
         <h2 id="cite">{s.citeThis}</h2>

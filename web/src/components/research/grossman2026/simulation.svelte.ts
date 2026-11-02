@@ -15,10 +15,6 @@ export class Simulation {
     this.worker = null;
     this.busy = false;
   }
-  cancel() {
-    if (this.busy) this.result = null;
-    this.stop();
-  }
   replay(result: ReturnType<typeof solveAll>) {
     this.stop();
     this.result = result;
@@ -27,6 +23,7 @@ export class Simulation {
   }
   runLive(input: Inputs) {
     this.stop();
+    this.result = null;
     this.busy = true;
     this.error = null;
     const start = performance.now();

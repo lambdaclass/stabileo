@@ -7,9 +7,16 @@ export type RawResult = {
   results: { displacements: { nodeId: number; ux: number; uz: number; ry: number }[] };
 };
 
+function summaryMatchesSteps(r: RawResult): boolean {
+  return Number.isFinite(r.finalLoadFactor) && Number.isFinite(r.totalIterations) && r.steps.length > 0 &&
+    r.finalLoadFactor === r.steps[r.steps.length - 1].loadFactor &&
+    r.totalIterations === r.steps.reduce((sum, s) => sum + s.iterations, 0) &&
+    r.converged === r.steps.every(s => s.converged);
+}
+
 export function validatePrefix(full: RawResult, prefix: RawResult, k: number, nodeIds: number[]) {
-  if (![full.finalLoadFactor, full.totalIterations].every(Number.isFinite)) throw new Error('Invalid full result');
-  if (prefix.steps.length !== k || !Number.isFinite(prefix.finalLoadFactor) || !Number.isFinite(prefix.totalIterations)) throw new Error('Invalid prefix result');
+  if (!summaryMatchesSteps(full)) throw new Error('Invalid full result');
+  if (prefix.steps.length !== k || !summaryMatchesSteps(prefix) || !prefix.converged) throw new Error('Invalid prefix result');
   for (let i = 0; i < k; i++) {
     const a = prefix.steps[i], b = full.steps[i];
     if (!b || !Number.isFinite(a.loadFactor) || !Number.isFinite(a.iterations) || !a.converged ||

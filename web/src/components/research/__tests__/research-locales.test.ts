@@ -22,6 +22,10 @@ import { translations as shellArticle } from '../shell1985/article';
 
 const ALL = ['en', 'es', 'pt', 'de', 'fr', 'tr'];
 const defined = (...dictionaries: object[]) => ALL.filter((l) => dictionaries.every((d) => l in d));
+const either = (base: object, extra: object) => {
+  if (ALL.some((l) => l in base && l in extra)) throw new Error('a page dictionary and its extra languages overlap');
+  return { ...base, ...extra };
+};
 
 /** Every dictionary a page renders its own copy from: the page is written only in the languages all of them define. */
 const DICTIONARIES: Record<string, object[]> = {
@@ -32,7 +36,7 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/benchmarks/dadeppo-arch-1975': [dadeppo],
   '/research/optimisation/fairclough-2026': [fairclough],
   '/research/stability/ferrari-sigmund-2025': [STRINGS],
-  '/research/metamaterials/grossman-2026': [{ ...STRINGS, ...springTranslations }],
+  '/research/metamaterials/grossman-2026': [either(STRINGS, springTranslations)],
   '/research/benchmarks/lee-frame-1968': [lee],
   '/research/benchmarks/macneal-harder-1985': [macneal],
   '/research/benchmarks/mattiasson-elastica': [mattiasson],
@@ -41,7 +45,7 @@ const DICTIONARIES: Record<string, object[]> = {
   '/research/form-finding/pastrana-2026': [STRINGS],
   '/research/benchmarks/plastic-collapse': [plastic],
   '/research/benchmarks/riks-crisfield': [riks],
-  '/research/fracture/shauer-2025': [{ ...STRINGS, ...shauerLocales }],
+  '/research/fracture/shauer-2025': [either(STRINGS, shauerLocales)],
   '/research/benchmarks/shell-obstacle-course': [shell, shellArticle],
 };
 

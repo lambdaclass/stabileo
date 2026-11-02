@@ -457,7 +457,7 @@
         <div class="sp-run">
           <button class="sp-pause" type="button" onclick={() => { touch(); solve(); }}>{simulation.busy ? s.springsLoadingSolver : s.benchmark.recompute}</button>
           <button class="sp-pause" type="button" onclick={() => { touch(); solve(); }}>{s.benchmark.restart}</button>
-          <button class="sp-pause" type="button" onclick={() => { touch(); simulation.cancel(); }}>{s.stop}</button>
+          <button class="sp-pause" type="button" onclick={() => { touch(); simulation.stop(); }}>{s.stop}</button>
         </div>
         <p class="sp-source" aria-live="polite">
           {#if loadError}
