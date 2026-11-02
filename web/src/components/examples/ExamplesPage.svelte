@@ -14,7 +14,7 @@
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { EXAMPLES, findExample } from './catalog';
-  import { readValues, writeValues, mergeQuery, type Outcome, type Values } from './define';
+  import { readValues, writeValues, mergeQuery, referenceGap, type Outcome, type Values } from './define';
   import { editorHref } from './editor';
   import { te } from './strings';
   import '../landing/landing.css';
@@ -109,11 +109,13 @@
               <p class="viewer-heading">{te(`pane.${active}`)}</p>
             {/if}
             {#if view}
+              <div class="viewer-body" class:stale={busy} aria-busy={busy} data-testid="viewer-body">
               <ScalarFieldViewer xy={view.xy} cells={view.cells} cellSize={view.cellSize} values={view.values} perCell={view.perCell} lineWidth={view.lineWidth ?? 3}
                 colourMap={view.geometryOnly ? 'diverging' : 'sequential'} geometryOnly={view.geometryOnly} range={view.range} title={te(`pane.${view.field}`)} unit={view.unit}
                 view={view.bounds} height="clamp(15rem, 34vh, 26rem)" editorButton={false} />
+              </div>
             {/if}
-            <p class="note">{te(outcome.notes.includes('chord') ? 'note.chord' : 'note.magnified')}</p>
+            <p class="note">{busy ? te('stale') : te(outcome.notes.includes('chord') ? 'note.chord' : 'note.magnified')}</p>
           {:else}
             <div class="placeholder"><ExampleThumb {id} /></div>
           {/if}
@@ -156,7 +158,8 @@
                     <span>{te(`r.${r.key}`)}</span>
                     <strong>{number(r.value)} <small>{r.unit}</small></strong>
                     {#if r.reference}
-                      <span data-testid={`reference-${r.key}`} data-value={r.reference.value}>{te('reference')} {r.reference.source} = {number(r.reference.value)} {r.unit} · {te('difference')} <Sci value={Math.abs(r.value / r.reference.value - 1) * 100} unit="%" /></span>
+                      {@const gap = referenceGap(r.value, r.reference.value)}
+                      <span data-testid={`reference-${r.key}`} data-value={r.reference.value}>{te('reference')} {r.reference.source} = {number(r.reference.value)} {r.unit} · {te('difference')} {#if gap.relative}<Sci value={gap.value} unit="%" />{:else}<Sci value={gap.value} unit={r.unit} />{/if}</span>
                     {/if}
                   </div>
                 {/each}
@@ -233,6 +236,7 @@
   .ex-viewer { border: 1px solid var(--card-hair); border-radius: 6px; background: var(--card); overflow: hidden; }
   .viewer-heading { padding: .75rem 1rem; font: .875rem var(--lp-mono); color: var(--fg); border-bottom: 1px solid var(--hair); margin: 0; }
   .placeholder { display: grid; place-items: center; min-height: clamp(15rem, 34vh, 26rem); background: var(--lp-ink-2); }
+  .stale { opacity: .3; pointer-events: none; transition: opacity .15s; }
   .note { padding: .75rem 1rem; color: var(--fg-2); font-size: .8125rem; line-height: 1.5; margin: 0; }
   .readouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; padding: 1.25rem 0; border-block: 1px solid var(--hair); }
   .readout { display: grid; gap: .25rem; font-size: .875rem; color: var(--fg-2); align-content: start; }

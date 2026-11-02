@@ -103,3 +103,8 @@ export function linearCertificate(certificate: Engine.LinearCertificate, endToEn
 export function peak(points: [number, number][]): [number, number] {
   return points.reduce((a, b) => Math.abs(b[1]) > Math.abs(a[1]) ? b : a, [0, 0]);
 }
+
+export function referenceGap(value: number, reference: number): { value: number; relative: boolean } {
+  if (reference === 0) return { value: Math.abs(value), relative: false };
+  return { value: Math.abs(value / reference - 1) * 100, relative: true };
+}

@@ -43,6 +43,14 @@ test('@smoke examples gallery: a slider re-solves, and the share link and editor
   expect(nodes.map(([, n]) => n.x).sort((a, b) => a - b)).toEqual([0, 4, 8]);
 });
 
+test('@smoke examples compare a zero closed form by absolute difference', async ({ page }) => {
+  await page.goto('/en/examples/beam-frame/?load=0&point=50&position=0&e2e=1');
+  await expect(page.getByTestId('reference-maxMoment')).toHaveAttribute('data-value', '0');
+  await expect(page.getByTestId('reference-maxMoment')).toContainText('kN·m');
+  await expect(page.getByTestId('reference-maxMoment')).not.toContainText(/NaN|Infinity|∞/);
+  await expect(page.getByTestId('viewer-body')).toHaveAttribute('aria-busy', 'false');
+});
+
 test('@smoke examples report the engine refusing a model with no load', async ({ page }) => {
   await page.goto('/en/examples/beam-frame/?load=0&e2e=1');
   await expect(page.getByTestId('refusal')).toBeVisible();

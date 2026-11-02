@@ -3,7 +3,7 @@ import * as engine from '../../../lib/engine/wasm-solver';
 import { codeToModel } from '../../../lib/model/code/format';
 import { EXAMPLES } from '../catalog';
 import { EXAMPLE_IDS } from '../ids';
-import { defaults, readValues, writeValues, mergeQuery, clampValue, type Outcome, type Values } from '../define';
+import { defaults, readValues, writeValues, mergeQuery, clampValue, referenceGap, type Outcome, type Values } from '../define';
 import { exampleStrings } from '../strings';
 import { proCode } from '../editor';
 import { beamFrame, EI } from '../beam-frame';
@@ -21,6 +21,11 @@ const readout = (out: Extract<Outcome, { status: 'ok' }>, key: string) => out.re
 describe('catalog and contract', () => {
   it('lists the ids the routes and the prerender use', () => {
     expect(EXAMPLES.map(e => e.id)).toEqual([...EXAMPLE_IDS]);
+  });
+  it('compares against a zero reference by absolute difference', () => {
+    expect(referenceGap(81, 80)).toEqual({ value: expect.closeTo(1.25, 12), relative: true });
+    expect(referenceGap(-3e-15, 0)).toEqual({ value: 3e-15, relative: false });
+    expect(referenceGap(0, 0)).toEqual({ value: 0, relative: false });
   });
   it('reads, clamps and writes the share query', () => {
     const params = beamFrame.params;
