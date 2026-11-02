@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The structural grid and the levels: typed as bays and storey heights, or read off the model;
    * edited axis by axis; and the level to work on. What is built on it is placed in Building.
@@ -95,7 +96,7 @@
 <div class="pk gr" data-testid="grid-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('grid.axesTitle')}</h4>
-    <p class="pk-hint">{t('grid.axesHint')}</p>
+    <Hint text={t('grid.axesHint')} />
     {#each [{ axis: 'x' as const, d: bx, list: xs }, { axis: 'y' as const, d: by, list: ys }] as row (row.axis)}
       <div class="gr-dir" data-testid="grid-dir-{row.axis}">
         <div class="gr-dir-head">{t(`grid.dir.${row.axis}`)}</div>
@@ -141,7 +142,7 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('grid.levelsTitle')}</h4>
-    <p class="pk-hint">{t('grid.levelsHint')}</p>
+    <Hint text={t('grid.levelsHint')} />
     <div class="pk-row gr-wrap">
       <label class="gr-field gr-grow">{t('grid.heights')}
         <span class="gr-unit"><input bind:value={heights} placeholder="3; 3; 3" data-testid="grid-heights" /> {lenUnit}</span>
@@ -175,7 +176,7 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('grid.fromModelTitle')}</h4>
-    <p class="pk-hint">{t('grid.fromModelHint')}</p>
+    <Hint text={t('grid.fromModelHint')} />
     <button class="pk-btn" disabled={modelStore.nodes.size === 0} onclick={readFromModel} data-testid="grid-from-model">{t('grid.fromModel')}</button>
     {#if grid.axes.length > 0 || grid.levels.length > 0}
       <button class="pk-btn gr-del" onclick={() => setGrid({ axes: [], levels: [] })} data-testid="grid-clear">{t('grid.clear')}</button>
@@ -187,7 +188,7 @@
 
   {#if xs.length > 0 && ys.length > 0 && levels.length > 0}
     <section class="pk-card">
-      <p class="pk-hint">{t('building.fromGrid')}</p>
+      <Hint text={t('building.fromGrid')} />
       <button class="pk-btn" onclick={() => { buildingUi.tool = 'columns'; if (!embedded) uiStore.proActiveTab = 'building'; }} data-testid="grid-open-building">{t(embedded ? 'building.next.columns' : 'building.open')}</button>
     </section>
   {/if}

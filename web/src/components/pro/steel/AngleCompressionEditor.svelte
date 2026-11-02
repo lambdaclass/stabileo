@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Angles in compression: what CIRSOC 301 §E.5 and §E.6 need and the section cannot know.
    *
@@ -67,7 +68,7 @@
 {#if angles.length > 0}
   <div class="pk-card ang" data-testid="angle-editor">
     <h4 class="pk-heading">{t('steel.angle.title')}</h4>
-    <p class="pk-hint">{t('steel.angle.hint')}</p>
+    <Hint text={t('steel.angle.hint')} />
     {#if singles.length > 0}
       <label class="pk-row">
         <span>{tp('steel.angle.singles', { n: singles.length })}</span>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The view: named cameras, a second window on one of them, what the labels say, and the
    * magnifier.
@@ -119,7 +120,7 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('view.visibility')}</h4>
-    <p class="pk-hint">{t('view.visibilityHint')}</p>
+    <Hint text={t('view.visibilityHint')} />
     <div class="pk-row">
       <button class="pk-btn" disabled={selectionCount === 0} onclick={() => viewVisibility.isolate(selection())} data-testid="view-isolate">{t('view.isolate')}</button>
       <button class="pk-btn" disabled={selectionCount === 0} onclick={() => viewVisibility.hide(selection())} data-testid="view-hide">{t('view.hide')}</button>
@@ -165,7 +166,7 @@
         </label>
       {/each}
     </div>
-    <p class="pk-hint">{t('view.unitsHint')}</p>
+    <Hint text={t('view.unitsHint')} />
   </section>
 
   <section class="pk-card">
@@ -246,8 +247,8 @@
       <kbd>F</kbd>
       <button class="pk-btn" class:on={viewState.zoomWindowArmed} onclick={() => (viewState.zoomWindowArmed = !viewState.zoomWindowArmed)} data-testid="view-zoom-window">{t('view.zoomWindow')}</button>
     </div>
-    {#if viewState.zoomWindowArmed}<p class="pk-hint" data-testid="view-zoom-window-hint">{t('view.zoomWindowHint')}</p>{/if}
-    <p class="pk-hint">{t('view.magnifierHint')}</p>
+    {#if viewState.zoomWindowArmed}<Hint testid="view-zoom-window-hint" text={t('view.zoomWindowHint')} />{/if}
+    <Hint text={t('view.magnifierHint')} />
   </section>
 </div>
 
