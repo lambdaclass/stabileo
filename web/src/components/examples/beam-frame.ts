@@ -155,8 +155,7 @@ export const beamFrame = defineExample<Model>({
           const ni = model.nodes.get(el.nodeI)!, nj = model.nodes.get(el.nodeJ)!;
           const len = Math.hypot(nj.x - ni.x, nj.z - ni.z);
           const nx = -(nj.z - ni.z) / len, nz = (nj.x - ni.x) / len;
-          const pts = d.points.map(p => [ni.x + p.t * (nj.x - ni.x) + nx * p.value * scale, ni.z + p.t * (nj.z - ni.z) + nz * p.value * scale] as [number, number]);
-          s.polyline([[ni.x, ni.z], ...pts, [nj.x, nj.z]]);
+          s.polyline(d.points.map(p => [ni.x + p.t * (nj.x - ni.x) + nx * p.value * scale, ni.z + p.t * (nj.z - ni.z) + nz * p.value * scale]));
         }
       }
       views[key] = s.view(key, key === 'moment' ? 'kN·m' : key === 'shear' ? 'kN' : 'mm', boundsOf(s.xy, 0.08));

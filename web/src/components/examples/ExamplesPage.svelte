@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '../tools/register-i18n';
   import { onDestroy, untrack } from 'svelte';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
