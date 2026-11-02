@@ -121,6 +121,9 @@ describe('shared-link importer', () => {
       danglingFooting: p => { p.footings = [[1, { id: 1, nodeId: 9 }]]; },
       stringFootingNode: p => { p.footings = [[1, { id: 1, nodeId: '1' }]]; },
       nullFootingNode: p => { p.footings = [[1, { id: 1, nodeId: null }]]; },
+      loadCaseBeyondDefaults: p => { p.loads[0].data.caseId = 99; },
+      combinationBeyondDefaults: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 99, factor: 1.4 }] }]; },
+      loadCaseWithNoCases: p => { p.loadCases = []; p.loads[0].data.caseId = 1; },
       combinationWithoutCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.combinations = [{ id: 1, name: 'ULS', factors: [{ factor: 1.4 }] }]; },
       stringCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: '1.4' }] }]; },
     };
@@ -147,6 +150,17 @@ describe('shared-link importer', () => {
     expect(snapshot?.constraints?.map(c => (c as { type: string }).type)).toEqual(['rigidLink', 'diaphragm', 'linearMPC']);
     expect(snapshot?.connectors).toEqual([[1, { id: 1, nodeI: 1, nodeJ: 3, kAxial: 1000 }]]);
     expect(snapshot?.combinations?.[0].factors).toEqual([{ caseId: 1, factor: 1.4 }]);
+  });
+
+  it('resolves case ids against the cases restore creates when the link has none', () => {
+    const payload = legacy();
+    modelStore.restore(prepareSharedSnapshot(payload)!);
+    const restored = modelStore.loadCases.map(c => c.id);
+    for (const caseId of [...restored, Math.max(...restored) + 1]) {
+      const p = legacy();
+      p.loads[0].data.caseId = caseId;
+      expect(prepareSharedSnapshot(p) !== null, `case ${caseId}`).toBe(restored.includes(caseId));
+    }
   });
 
   it('accepts loads on shells that exist', () => {

@@ -82,6 +82,8 @@ function constraintResolves(c: RecordValue, has: (n: unknown) => boolean): boole
   }
 }
 
+const RESTORED_DEFAULT_CASES = new Set<unknown>([1, 2, 3, 4]);
+
 function referencesResolve(value: RecordValue): boolean {
   const keys = (family: unknown) => new Set((family as Entry[]).map(([key]) => key));
   const nodes = keys(value.nodes), elements = keys(value.elements);
@@ -91,9 +93,9 @@ function referencesResolve(value: RecordValue): boolean {
     && shell.nodes.length === count && new Set(shell.nodes).size === count
     && shell.nodes.every(n => nodes.has(n as number));
   const has = (n: unknown) => nodes.has(n as number);
-  const cases = Array.isArray(value.loadCases) && value.loadCases.length > 0
-    ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : null;
-  const inCase = (caseId: unknown) => cases === null || caseId === undefined || cases.has(caseId);
+  const cases = Array.isArray(value.loadCases)
+    ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : RESTORED_DEFAULT_CASES;
+  const inCase = (caseId: unknown) => caseId === undefined || cases.has(caseId);
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
