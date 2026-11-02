@@ -262,7 +262,8 @@
 }
 
 .landing .fit { padding-bottom: 0; }
-.landing .fit-links { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; margin-top: 1.5rem; }
+.landing .fit-links { display: flex; flex-wrap: wrap; gap: 0 2rem; margin-top: 1rem; }
+.landing .fit-links a { min-height: 44px; display: inline-flex; align-items: center; }
 
 .landing .lead {
   color: var(--fg-2);
