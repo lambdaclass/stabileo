@@ -234,6 +234,8 @@ const pt: Translations = {
   'landing.navPricing': 'Preços',
   'landing.navBlog': 'Blog',
   'landing.navPaper': 'Artigo',
+  'landing.loadFailed': "Não foi possível carregar esta página. Verifique sua conexão e tente novamente.",
+  'landing.reload': "Tentar novamente",
   'landing.navResearch': 'Pesquisa',
   'landing.navChangelog': 'Changelog',
   'landing.ebHero': 'LIVRE E ABERTO · CÁLCULO ESTRUTURAL',

@@ -34,6 +34,7 @@
 
   let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
+  let failed = $state(false);
   $effect(() => { if (current.kind !== 'landing') return idlePrefetchPublicPages(); });
   $effect(() => { if (!app) return manualPublicScrollRestoration(); });
 
@@ -59,6 +60,7 @@
       }
       const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
       if (token !== revision) return;
+      failed = false;
       if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
       adoptLocaleFromPath();
       current = next;
@@ -66,7 +68,12 @@
       if (token === revision) resetPublicScroll(hash);
     } catch (error) {
       console.error('Public navigation failed', error);
-      if (token === revision && token > 1) location.reload();
+      if (token !== revision) return;
+      if (token > 1) { location.reload(); return; }
+      current = next;
+      failed = true;
+      document.getElementById('prerender')?.remove();
+      window.addEventListener('online', () => void sync(), { once: true });
     }
   }
   $effect(() => { void sync(); });
@@ -114,8 +121,10 @@
   <App />
 {:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'paper' || current.kind === 'blog'}
   {@const Page = pages[current.kind]}
-  {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} />{/if}
+  {#if Page}<Page path={current.path} />{:else}<PublicPending kind={current.kind} {failed} />{/if}
 {:else if current.kind === 'landing' && pages.landing}
   {@const Landing = pages.landing}
   <Landing path={current.path} />
+{:else if failed}
+  <PublicPending kind={current.kind} failed />
 {/if}

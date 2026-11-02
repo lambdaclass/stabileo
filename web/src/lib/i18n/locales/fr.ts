@@ -237,6 +237,8 @@ const fr: Translations = {
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Nouveautés',
   'landing.navPaper': 'Article',
+  'landing.loadFailed': "Cette page n’a pas pu être chargée. Vérifiez votre connexion et réessayez.",
+  'landing.reload': "Réessayer",
   'landing.navResearch': 'Recherche',
   'landing.ebHero': 'LIBRE ET OUVERT · CALCUL DE STRUCTURES',
   'landing.heroH': 'Le calcul de structures, dans un onglet du navigateur.',

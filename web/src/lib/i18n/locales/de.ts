@@ -237,6 +237,8 @@ const de: Translations = {
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Änderungen',
   'landing.navPaper': 'Fachartikel',
+  'landing.loadFailed': "Diese Seite konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+  'landing.reload': "Erneut versuchen",
   'landing.navResearch': 'Forschung',
   'landing.ebHero': 'KOSTENLOS UND OFFEN · TRAGWERKSBERECHNUNG',
   'landing.heroH': 'Tragwerksberechnung in einem Browser-Tab.',

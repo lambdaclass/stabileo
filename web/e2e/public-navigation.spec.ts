@@ -247,3 +247,36 @@ test('@smoke an application load overtaken by a public navigation never replaces
   await expect(page.locator('#app .tools-wrap')).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { appReady: boolean }).appReady)).toBe(false);
 });
+
+for (const [path, chunk, ready] of [
+  ['/en/tools/', /\/assets\/(?:load-page|ToolsPage)-[^/]*\.js$/, '#app .tools-wrap'],
+  ['/en/', /\/assets\/(?:load-page|LandingPage)-[^/]*\.js$/, '#app .landing h1'],
+] as const) {
+  test(`@smoke a first visit to ${path} whose page code fails to load says so, and its retry works`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    let blocked = true;
+    await page.route(chunk, (route) => (blocked ? route.abort() : route.continue()));
+    await page.goto(path);
+    await expect(page.locator('#app [data-public-load-failed]')).toHaveText('This page could not be loaded. Check your connection and try again.');
+    await expect(page.locator('#prerender')).toHaveCount(0);
+    await expect(page.locator('#app [aria-busy="true"]')).toHaveCount(0);
+    blocked = false;
+    const reloaded = page.waitForEvent('load');
+    await page.locator('#app button', { hasText: 'Try again' }).click();
+    await reloaded;
+    await expect(page.locator(ready)).toBeVisible();
+    await expect(page.locator('#app [data-public-load-failed]')).toHaveCount(0);
+  });
+}
+
+test('@smoke a first visit whose page code failed loads it by itself once the browser is back online', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  let blocked = true;
+  await page.route(/\/assets\/(?:load-page|ToolsPage)-[^/]*\.js$/, (route) => (blocked ? route.abort() : route.continue()));
+  await page.goto('/en/tools/');
+  await expect(page.locator('#app [data-public-load-failed]')).toBeVisible();
+  blocked = false;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.locator('#app .tools-wrap')).toBeVisible();
+  await expect(page.locator('#app [data-public-load-failed]')).toHaveCount(0);
+});

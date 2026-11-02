@@ -245,6 +245,8 @@ const tr: Translations = {
   'landing.navBlog': 'Blog',
   'landing.navChangelog': 'Değişiklikler',
   'landing.navPaper': 'Makale',
+  'landing.loadFailed': "Bu sayfa yüklenemedi. Bağlantınızı kontrol edip yeniden deneyin.",
+  'landing.reload': "Yeniden dene",
   'landing.navResearch': 'Araştırma',
   'landing.ebHero': 'ÜCRETSİZ VE AÇIK · YAPI ANALİZİ',
   'landing.heroH': 'Yapı analizi, bir tarayıcı sekmesinde.',
