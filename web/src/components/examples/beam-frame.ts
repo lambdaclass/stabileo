@@ -84,7 +84,7 @@ export const beamFrame = defineExample<Model>({
   ],
   build,
   benchmark: { path: '/tools/simply-supported-beam', title: 'tools' },
-  editor: (model) => ({ mode: '2d', model }),
+  editor: (model) => ({ app: 'basic', model }),
   analyses(model, v, engine) {
     if (model.loads.length === 0) return { status: 'refused', reason: 'noLoad' };
     const { results, certificate } = solveCertified(model, engine);

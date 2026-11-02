@@ -78,7 +78,7 @@ export const earthquake = defineExample<Model>({
   ],
   build,
   benchmark: { path: '/research/benchmarks/newmark-1959', title: 'newmark' },
-  editor: (model) => ({ mode: 'pro', model }),
+  editor: (model) => ({ app: 'pro', model }),
   analyses(model, v, engine) {
     const config = request(model, v);
     const result = engine.solveTimeHistory3D(config) as History;

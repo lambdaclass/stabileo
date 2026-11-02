@@ -15,7 +15,7 @@
   import { EXAMPLES, findExample } from './catalog';
   import { defaults, readValues, writeValues, type Outcome, type Values } from './define';
   import { editorHref } from './editor';
-  import { te as t } from './strings';
+  import { te } from './strings';
   import '../landing/landing.css';
   import '../blog/blog.css';
   import '../research/research.css';
@@ -32,9 +32,9 @@
 
   $effect(() => {
     const route = example ? `/examples/${example.id}` : '/examples';
-    const title = example ? t(`${example.id}.title`) : t('index.title');
+    const title = example ? te(`${example.id}.title`) : te('index.title');
     applyPageMeta({
-      title: `${title} — Stabileo`, description: example ? t(`${example.id}.subtitle`) : t('index.meta'), locale: publicI18n.locale, path: route,
+      title: `${title} — Stabileo`, description: example ? te(`${example.id}.subtitle`) : te('index.meta'), locale: publicI18n.locale, path: route,
       graph: [{ '@type': example ? 'WebApplication' : 'CollectionPage', name: title, url: publicUrl(route, publicI18n.locale), publisher: { '@type': 'Organization', name: 'Ergodic Group' }, ...(example ? { applicationCategory: 'EducationalApplication', operatingSystem: 'Any', isAccessibleForFree: true } : {}) }],
     });
     return () => restorePageMeta();
@@ -79,13 +79,13 @@
   const shareLink = $derived(example ? `${publicUrl(`/examples/${example.id}`, publicI18n.locale)}${writeValues(example.params, values)}` : '');
   const editorLink = $derived.by(() => {
     if (!example || Object.keys(values).length === 0) return '';
-    try { return editorHref(example.editor(example.build(values), t(`${example.id}.title`)), t(`${example.id}.title`)); } catch { return ''; }
+    try { return editorHref(example.editor(example.build(values), te(`${example.id}.title`)), te(`${example.id}.title`)); } catch { return ''; }
   });
   async function copy() {
     try { await navigator.clipboard.writeText(shareLink); copied = true; setTimeout(() => (copied = false), 2000); } catch { copied = false; }
   }
   const number = (n: number, digits = 5) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: digits }).format(n);
-  const reason = (r: string) => r.startsWith('noLoad') || r.startsWith('nonFinite') ? t(`refuse.${r}`) : r;
+  const reason = (r: string) => r.startsWith('noLoad') || r.startsWith('nonFinite') ? te(`refuse.${r}`) : r;
   const view = $derived(outcome?.status === 'ok' ? outcome.views[active] : undefined);
 </script>
 
@@ -97,35 +97,35 @@
       {@const id = example.id}
       <div class="ex-layout">
         <header class="ex-intro">
-          <p class="crumb"><PublicLink to="/examples">{t('back')}</PublicLink></p>
-          <h1>{t(`${id}.title`)}</h1>
-          <p class="lead">{t(`${id}.subtitle`)}</p>
+          <p class="crumb"><PublicLink to="/examples">{te('back')}</PublicLink></p>
+          <h1>{te(`${id}.title`)}</h1>
+          <p class="lead">{te(`${id}.subtitle`)}</p>
         </header>
-        <aside class="ex-viewer" aria-label={t(`${id}.title`)}>
+        <aside class="ex-viewer" aria-label={te(`${id}.title`)}>
           {#if outcome?.status === 'ok'}
             {#if Object.keys(outcome.views).length > 1}
-              <PaneTabs tabs={Object.keys(outcome.views).map(v => ({ id: v, label: t(`view.${v}`) }))} bind:active label={t(`${id}.title`)} />
+              <PaneTabs tabs={Object.keys(outcome.views).map(v => ({ id: v, label: te(`pane.${v}`) }))} bind:active label={te(`${id}.title`)} />
             {:else}
-              <p class="viewer-heading">{t(`view.${active}`)}</p>
+              <p class="viewer-heading">{te(`pane.${active}`)}</p>
             {/if}
             {#if view}
               <ScalarFieldViewer xy={view.xy} cells={view.cells} cellSize={view.cellSize} values={view.values} perCell={view.perCell} lineWidth={view.lineWidth ?? 3}
-                colourMap={view.geometryOnly ? 'diverging' : 'sequential'} geometryOnly={view.geometryOnly} range={view.range} title={t(`view.${view.field}`)} unit={view.unit}
+                colourMap={view.geometryOnly ? 'diverging' : 'sequential'} geometryOnly={view.geometryOnly} range={view.range} title={te(`pane.${view.field}`)} unit={view.unit}
                 view={view.bounds} height="clamp(15rem, 34vh, 26rem)" editorButton={false} />
             {/if}
-            <p class="note">{t(outcome.notes.includes('chord') ? 'note.chord' : 'note.magnified')}</p>
+            <p class="note">{te(outcome.notes.includes('chord') ? 'note.chord' : 'note.magnified')}</p>
           {:else}
             <div class="placeholder"><ExampleThumb {id} /></div>
           {/if}
         </aside>
         <section class="ex-inputs">
-          <h2>{t('parameters')}</h2>
+          <h2>{te('parameters')}</h2>
           <form onsubmit={(event) => event.preventDefault()}>
             {#each example.params as p (p.key)}
-              <ParamRow id={`p-${p.key}`} name={t(`${id}.p.${p.key}`)} unit={p.options ? '' : p.unit}>
+              <ParamRow id={`p-${p.key}`} name={te(`${id}.p.${p.key}`)} unit={p.options ? '' : p.unit}>
                 {#if p.options}
                   <select id={`p-${p.key}`} data-testid={`param-${p.key}`} value={values[p.key]} onchange={(e) => (values = { ...values, [p.key]: Number(e.currentTarget.value) })}>
-                    {#each p.options as option, k}<option value={k}>{t(`${id}.o.${option}`)}</option>{/each}
+                    {#each p.options as option, k}<option value={k}>{te(`${id}.o.${option}`)}</option>{/each}
                   </select>
                 {:else}
                   <span class="slider">
@@ -137,62 +137,62 @@
             {/each}
           </form>
           <div class="actions">
-            {#if editorLink}<a class="btn btn-primary" data-testid="open-editor" href={editorLink}>{t('editor')} ↗</a>{/if}
-            <button class="btn" type="button" data-testid="copy-share" onclick={copy}>{copied ? t('copied') : t('share')}</button>
+            {#if editorLink}<a class="btn btn-primary" data-testid="open-editor" href={editorLink}>{te('editor')} ↗</a>{/if}
+            <button class="btn" type="button" data-testid="copy-share" onclick={copy}>{copied ? te('copied') : te('share')}</button>
           </div>
           <p class="share"><a data-testid="share-link" href={shareLink}>{shareLink}</a></p>
         </section>
         <article class="ex-results rs-prose">
-          <h2>{t('results')}</h2>
+          <h2>{te('results')}</h2>
           <div aria-live="polite">
-            {#if busy}<p role="status" data-testid="solving">{t('solving')}</p>{/if}
+            {#if busy}<p role="status" data-testid="solving">{te('solving')}</p>{/if}
             {#if outcome?.status === 'refused'}
-              <p class="warning" role="alert" data-testid="refusal">{t('refused')} {reason(outcome.reason)}</p>
+              <p class="warning" role="alert" data-testid="refusal">{te('refused')} {reason(outcome.reason)}</p>
             {:else if outcome?.status === 'ok' && !busy}
               <div class="readouts">
                 {#each outcome.readouts as r (r.key)}
                   <div class="readout" data-testid={`readout-${r.key}`} data-value={r.value}>
-                    <span>{t(`r.${r.key}`)}</span>
+                    <span>{te(`r.${r.key}`)}</span>
                     <strong>{number(r.value)} <small>{r.unit}</small></strong>
                     {#if r.reference}
-                      <span data-testid={`reference-${r.key}`} data-value={r.reference.value}>{t('reference')} {r.reference.source} = {number(r.reference.value)} {r.unit} · {t('difference')} <Sci value={Math.abs(r.value / r.reference.value - 1) * 100} unit="%" /></span>
+                      <span data-testid={`reference-${r.key}`} data-value={r.reference.value}>{te('reference')} {r.reference.source} = {number(r.reference.value)} {r.unit} · {te('difference')} <Sci value={Math.abs(r.value / r.reference.value - 1) * 100} unit="%" /></span>
                     {/if}
                   </div>
                 {/each}
               </div>
               {@const c = outcome.certificate}
               <p class="certificate" data-testid="certificate" data-status={c.status}>
-                {#if c.status === 'certified'}{t('cert.certified')} ({t(`cert.${c.kind}`)}){#if c.bound !== null} · {t('cert.bound')} <Sci value={c.bound} unit="" />{/if}
-                {:else}{t(`cert.${c.status}`)} {t(`cert.${c.kind}`)}{#if c.reason}: {c.reason}{/if}{/if}
+                {#if c.status === 'certified'}{te('cert.certified')} ({te(`cert.${c.kind}`)}){#if c.bound !== null} · {te('cert.bound')} <Sci value={c.bound} unit="" />{/if}
+                {:else}{te(`cert.${c.status}`)} {te(`cert.${c.kind}`)}{#if c.reason}: {c.reason}{/if}{/if}
               </p>
               {#each outcome.charts as chart (chart.key)}
                 <div class="chart">
-                  <h3>{t(`c.${chart.key}`)} ({chart.yUnit})</h3>
-                  <LineChart ariaLabel={t(`c.${chart.key}`)} series={[{ name: t(`c.${chart.key}`), color: 'var(--lp-accent)', points: chart.points }]} xLabel={chart.xUnit === 's' ? 't (s)' : 'x (m)'} yLabel={chart.yUnit} height={200} marker={chart.marker ?? null} />
+                  <h3>{te(`c.${chart.key}`)} ({chart.yUnit})</h3>
+                  <LineChart ariaLabel={te(`c.${chart.key}`)} series={[{ name: te(`c.${chart.key}`), color: 'var(--lp-accent)', points: chart.points }]} xLabel={chart.xUnit === 's' ? 't (s)' : 'x (m)'} yLabel={chart.yUnit} height={200} marker={chart.marker ?? null} />
                 </div>
               {/each}
             {/if}
           </div>
-          <p>{t(`${id}.about`)}</p>
-          <p>{t('benchmark')}: <PublicLink to={example.benchmark.path}>{t(`${id}.benchmark`)}</PublicLink></p>
-          <p class="fine">{t('notDesign')} {t('publisher')}</p>
+          <p>{te(`${id}.about`)}</p>
+          <p>{te('benchmark')}: <PublicLink to={example.benchmark.path}>{te(`${id}.benchmark`)}</PublicLink></p>
+          <p class="fine">{te('notDesign')} {te('publisher')}</p>
         </article>
       </div>
     {:else}
-      <header><h1>{t('index.title')}</h1><p class="lead">{t('index.lead')}</p><p class="fine">{t('publisher')}</p></header>
+      <header><h1>{te('index.title')}</h1><p class="lead">{te('index.lead')}</p><p class="fine">{te('publisher')}</p></header>
       <ul class="ex-cards">
         {#each EXAMPLES as e (e.id)}
           <li class="ex-card" data-testid={`card-${e.id}`}>
-            <PublicLink to={`/examples/${e.id}`} class="preview" aria-label={t(`${e.id}.title`)}><ExampleThumb id={e.id} /></PublicLink>
+            <PublicLink to={`/examples/${e.id}`} class="preview" aria-label={te(`${e.id}.title`)}><ExampleThumb id={e.id} /></PublicLink>
             <div class="card-body">
-              <h2><PublicLink to={`/examples/${e.id}`}>{t(`${e.id}.title`)}</PublicLink></h2>
-              <p>{t(`${e.id}.subtitle`)}</p>
-              <PublicLink to={`/examples/${e.id}`} class="btn btn-primary btn-sm">{t('open')} ↗</PublicLink>
+              <h2><PublicLink to={`/examples/${e.id}`}>{te(`${e.id}.title`)}</PublicLink></h2>
+              <p>{te(`${e.id}.subtitle`)}</p>
+              <PublicLink to={`/examples/${e.id}`} class="btn btn-primary btn-sm">{te('open')} ↗</PublicLink>
             </div>
           </li>
         {/each}
       </ul>
-      <p class="fine">{t('notDesign')}</p>
+      <p class="fine">{te('notDesign')}</p>
     {/if}
     </div>
   </main>

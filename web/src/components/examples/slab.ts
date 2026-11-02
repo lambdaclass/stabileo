@@ -59,7 +59,7 @@ export const slab = defineExample<Model>({
   ],
   build,
   benchmark: { path: '/research/benchmarks/navier-plate', title: 'navier' },
-  editor: (model) => ({ mode: 'pro', model }),
+  editor: (model) => ({ app: 'pro', model }),
   analyses(model, v, engine) {
     let certificate: Certificate;
     let displacements: { nodeId: number; uz: number }[];

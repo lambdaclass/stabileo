@@ -42,7 +42,7 @@ describe('catalog and contract', () => {
       const out = run(e);
       for (const r of out.readouts) expect(keys).toContain(`r.${r.key}`);
       for (const c of out.charts) expect(keys).toContain(`c.${c.key}`);
-      for (const v of Object.keys(out.views)) expect(keys).toContain(`view.${v}`);
+      for (const v of Object.keys(out.views)) expect(keys).toContain(`pane.${v}`);
     }
   });
 });

@@ -45,7 +45,7 @@ export type Outcome =
   | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[] }
   | { status: 'refused'; reason: string };
 
-export type EditorModel = { mode: '2d'; model: import('../../lib/engine/types').SolverInput } | { mode: 'pro'; model: import('../../lib/engine/types-3d').SolverInput3D };
+export type EditorModel = { app: 'basic'; model: import('../../lib/engine/types').SolverInput } | { app: 'pro'; model: import('../../lib/engine/types-3d').SolverInput3D };
 
 export type Example<M> = {
   id: string;

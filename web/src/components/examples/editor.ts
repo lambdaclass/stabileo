@@ -34,7 +34,7 @@ export function proCode(model: SolverInput3D & { masses?: unknown }, name: strin
 }
 
 export function editorHref(target: EditorModel, name: string): string {
-  if (target.mode === '2d') return editorUrl(target.model, name);
+  if (target.app === 'basic') return editorUrl(target.model, name);
   const query = typeof location !== 'undefined' && new URLSearchParams(location.search).get('e2e') === '1' ? '?e2e=1' : '';
   return `/app/pro${query}${CODE_HASH}${encodeCode(proCode(target.model, name))}`;
 }
