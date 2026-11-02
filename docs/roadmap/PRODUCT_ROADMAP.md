@@ -669,6 +669,19 @@ all of it.
   fallback for the app only, and a `Caddy Routing` CI job tests it.
 - **Speed:** PR [#880](https://github.com/lambdaclass/stabileo/pull/880) (section "Speed: measured 2026-10-30").
 
+### Live-site fixes (2026-11-02)
+
+Bugs a visitor sees on stabileo.com today. Each has a test that fails before the fix; all are Codex
+clean and wait on CI (the Ubuntu 26.04 Playwright break, #1079) or on #988. They ship together through
+the web/SEO integration branch.
+
+| Bug | PR | State |
+|---|---|---|
+| **Soft 404:** unknown URLs return the landing page with HTTP 200, so search engines index junk | [#1059](https://github.com/lambdaclass/stabileo/pull/1059) | prerendered 404 per locale with status 404; conflicts with #988 resolved on the integration branch |
+| **Pages without a language prefix** (`/research`, `/tools`, `/changelog`) serve the landing's HTML and canonical until the client redirects | [#1224](https://github.com/lambdaclass/stabileo/pull/1224) | 301 to the English page, query kept; stacked on #988 |
+| **Landing blank below the hero until scrolled** (sections stayed transparent until an IntersectionObserver fired) | [#1223](https://github.com/lambdaclass/stabileo/pull/1223) | every section visible without scrolling or JavaScript |
+| **Changelog counts:** the header says 98 changes, the area filters add up to 56 (they counted weekly entries, not items) | [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | filters count items and add up to the total |
+
 ### Growth: shared models, tools and research (2026-10-29)
 
 Several tracks exist to grow Stabileo faster, and they share infrastructure: **Stabileo Research**
