@@ -29,7 +29,9 @@ describe('legal links', () => {
   it('carry the reader language, and fall back to English for one the site does not publish', () => {
     expect(legalHref(TERMS_PATH, 'es')).toBe('/es/terms/');
     expect(legalHref(TERMS_PATH, 'pt')).toBe('/pt/terms/');
-    expect(legalHref(TERMS_PATH, 'de')).toBe('/en/terms/');
+    expect(legalHref(TERMS_PATH, 'de')).toBe('/de/terms/');
+    expect(legalHref(TERMS_PATH, 'tr')).toBe('/tr/terms/');
+    expect(legalHref(TERMS_PATH, 'ja')).toBe('/en/terms/');
   });
 });
 
