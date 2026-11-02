@@ -78,6 +78,21 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
       const [tb, fb] = f1 > f2 ? [x1, f1] : [x2, f2];
       if (fb > sg * m.value) extra.push(at(a, b, tb, sg * fb));
     }
+    for (let k = 0; k + 1 < pts.length; k++) {
+      const a = pts[k], b = pts[k + 1];
+      if (!a.side === !b.side || b.t - a.t < 1e-12) continue;
+      for (const sg of [1, -1]) {
+        let lo = a.t, hi = b.t;
+        let x1 = hi - GOLDEN * (hi - lo), x2 = lo + GOLDEN * (hi - lo);
+        let f1 = sg * ordinateAt(id, x1), f2 = sg * ordinateAt(id, x2);
+        for (let it = 0; it < 40 && hi - lo > 1e-7; it++) {
+          if (f1 > f2) { hi = x2; x2 = x1; f2 = f1; x1 = hi - GOLDEN * (hi - lo); f1 = sg * ordinateAt(id, x1); }
+          else { lo = x1; x1 = x2; f1 = f2; x2 = lo + GOLDEN * (hi - lo); f2 = sg * ordinateAt(id, x2); }
+        }
+        const [tb, fb] = f1 > f2 ? [x1, f1] : [x2, f2];
+        if (fb > Math.max(sg * a.value, sg * b.value) * (1 + 1e-9) + 1e-15) extra.push(at(a, b, tb, sg * fb));
+      }
+    }
     out.push(...[...pts, ...extra].sort((p, q) => p.t - q.t));
   }
   return out;

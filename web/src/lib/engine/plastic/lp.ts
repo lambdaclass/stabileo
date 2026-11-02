@@ -30,11 +30,9 @@ export function solveLp(p: LpProblem): LpResult {
     if (free[j]) cols.push({ v: j, s: -1 });
   }
   const nx = cols.length;
-  const rows = p.rows.map((r) => {
-    const w = Math.max(...r.a.map(Math.abs), 0) || 1;
-    const a = r.a.map((v) => v / w), b = r.b / w;
-    return b < 0 ? { a: a.map((v) => -v), op: (r.op === '<=' ? '>=' : r.op === '>=' ? '<=' : '=') as LpOp, b: -b } : { a, op: r.op, b };
-  });
+  const rows = p.rows.map((r) => (r.b < 0
+    ? { a: r.a.map((v) => -v), op: (r.op === '<=' ? '>=' : r.op === '>=' ? '<=' : '=') as LpOp, b: -r.b }
+    : r));
   const nSlack = rows.filter((r) => r.op !== '=').length;
   const nArt = rows.filter((r) => r.op !== '<=').length;
   const width = nx + nSlack + nArt + 1;

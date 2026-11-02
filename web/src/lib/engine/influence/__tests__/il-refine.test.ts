@@ -24,4 +24,11 @@ describe('refining a line up to a jump at its target', () => {
     expect(peak?.t).toBeCloseTo(0.43, 5);
     expect(peak!.value).toBeCloseTo(0, 9);
   });
+
+  it('finds a peak between the last sample and the jump, with the branch still rising at the sample', () => {
+    const left = (t: number) => -((t - 0.48) ** 2);
+    const peak = line(left).find((p) => p.t > 0.4 && p.t < 0.5 && !p.side);
+    expect(peak?.t).toBeCloseTo(0.48, 5);
+    expect(peak!.value).toBeCloseTo(0, 9);
+  });
 });

@@ -164,7 +164,9 @@ export function shapeSketch(sys: SoSystem, D: number[], color: 'deformed' | 'acc
   sk.members = sk.members.map((m) => ({ ...m, style: 'faint' as const }));
   const xs = [...sys.pm.nodes.values()].map((n) => n.x), zs = [...sys.pm.nodes.values()].map((n) => n.z);
   const ext = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1);
-  const big = Math.max(1e-12, ...sys.pm.nodeOrder.flatMap((id) => [Math.abs(D[sys.dof(id, 0)]), Math.abs(D[sys.dof(id, 1)])]));
+  const big = Math.max(1e-12,
+    ...sys.pm.nodeOrder.flatMap((id) => [Math.abs(D[sys.dof(id, 0)]), Math.abs(D[sys.dof(id, 1)])]),
+    ...sys.members.filter((m) => !m.truss).flatMap((m) => [Math.abs(D[sys.dof(m.i, 2)]) * m.L / 4, Math.abs(D[sys.dof(m.j, 2)]) * m.L / 4]));
   const scale = (0.12 * ext) / big;
   sk.deformed = sys.members.map((m) => {
     const a = sys.pm.nodes.get(m.i)!, b = sys.pm.nodes.get(m.j)!;

@@ -171,7 +171,11 @@
     return { o, kind: o.kind === 'biela' ? 'biela' as const : 'hinge' as const, x: q.x, y: q.y, ax: q.x, ay: q.y };
   }).filter((s): s is NonNullable<typeof s> => s !== null));
   const isPicked = (k: string) => pick?.picked.includes(k) ?? false;
-  const order = (k: string) => (pick?.picked.indexOf(k) ?? -1) + 1;
+  const countOf = (k: string) => pick?.options.find((o) => o.key === k)?.count ?? 1;
+  const order = (k: string) => {
+    const at = pick?.picked.indexOf(k) ?? -1;
+    return at < 0 ? 0 : pick!.picked.slice(0, at).reduce((s, q) => s + countOf(q), 0) + 1;
+  };
   function onSpotKey(e: KeyboardEvent, k: string) {
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick?.onPick(k); }
   }

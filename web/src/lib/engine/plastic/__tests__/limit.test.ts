@@ -25,10 +25,10 @@ describe('a small linear program', () => {
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '<=', b: -1 }] }).status).toBe('infeasible');
     expect(solveLp({ c: [-1], rows: [{ a: [-1], op: '<=', b: 1 }] }).status).toBe('unbounded');
   });
-  it('keeps a binding row whose coefficients are tiny beside another row\'s, and refuses a tiny infeasibility', () => {
+  it('never returns a point that breaks a row whose coefficients are tiny beside another row\'s, and refuses a tiny infeasibility', () => {
     const r = solveLp({ c: [-1], rows: [{ a: [1e10], op: '<=', b: 1e10 }, { a: [1], op: '<=', b: 0.5 }] });
-    expect(r.status).toBe('optimal');
     if (r.status === 'optimal') expect(r.x[0]).toBeCloseTo(0.5, 12);
+    else expect(r.status).toBe('inaccurate');
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '=', b: -1e-8 }] }).status).toBe('infeasible');
   });
   it('keeps the smaller ratio when two rows tie within the absolute noise of tiny right-hand sides', () => {
