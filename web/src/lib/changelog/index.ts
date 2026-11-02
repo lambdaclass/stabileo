@@ -30,6 +30,54 @@ export type ChangelogEntry = {
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-06',
+    areas: ['site', 'site'],
+    i18n: {
+      es: {
+        title: 'Herramientas que avisan cuando el resultado sale de lo que verifican',
+        items: [
+          'Las Herramientas avisan cuando el desplazamiento supera luz/50, cuando el motor y la fórmula clásica difieren en más del 1% o cuando una barra es demasiado robusta para la frecuencia de flexión, y rechazan una rigidez casi nula; la línea de influencia ya no da un corte un 200% errado justo después de un apoyo.',
+          'Las páginas de Stabileo Research dicen con qué se comparan (por ejemplo, el top88.m original en GNU Octave) en lugar de dejar la comparación pendiente.',
+        ],
+      },
+      en: {
+        title: 'Tools that warn when a result is outside what they check',
+        items: [
+          'Tools warn when the displacement exceeds span/50, when the engine and the classical formula differ by more than 1%, or when a member is too stocky for its bending frequency, and refuse a near-zero stiffness; the influence line no longer gives a shear 200% off just past a support.',
+          'Stabileo Research pages say what they are compared with (for example, the original top88.m in GNU Octave) instead of leaving the comparison pending.',
+        ],
+      },
+      pt: {
+        title: 'Ferramentas que avisam quando o resultado sai do que elas verificam',
+        items: [
+          'As Ferramentas avisam quando o deslocamento passa de vão/50, quando o motor e a fórmula clássica diferem em mais de 1% ou quando uma barra é robusta demais para a frequência de flexão, e recusam uma rigidez quase nula; a linha de influência não dá mais um cortante 200% errado logo após um apoio.',
+          'As páginas do Stabileo Research dizem com o que são comparadas (por exemplo, o top88.m original no GNU Octave) em vez de deixar a comparação pendente.',
+        ],
+      },
+      de: {
+        title: 'Werkzeuge warnen, wenn ein Ergebnis außerhalb dessen liegt, was sie prüfen',
+        items: [
+          'Die Werkzeuge warnen, wenn die Verschiebung Spannweite/50 übersteigt, wenn Rechenkern und klassische Formel um mehr als 1% abweichen oder wenn ein Stab für seine Biegeeigenfrequenz zu gedrungen ist, und lehnen eine nahezu verschwindende Steifigkeit ab; die Einflusslinie liefert direkt hinter einem Auflager keine um 200% falsche Querkraft mehr.',
+          'Die Seiten von Stabileo Research nennen, womit sie verglichen werden (zum Beispiel das unveränderte top88.m in GNU Octave), statt den Vergleich offen zu lassen.',
+        ],
+      },
+      fr: {
+        title: 'Des Outils qui avertissent quand un résultat sort de ce qu\'ils vérifient',
+        items: [
+          'Les Outils avertissent quand le déplacement dépasse portée/50, quand le moteur et la formule classique diffèrent de plus de 1 % ou quand une barre est trop trapue pour sa fréquence de flexion, et refusent une rigidité quasi nulle ; la ligne d\'influence ne donne plus un effort tranchant faux de 200 % juste après un appui.',
+          'Les pages de Stabileo Research indiquent à quoi elles sont comparées (par exemple le top88.m original dans GNU Octave) au lieu de laisser la comparaison en attente.',
+        ],
+      },
+      tr: {
+        title: 'Sonuç kontrol ettikleri aralığın dışına çıktığında uyaran Araçlar',
+        items: [
+          'Araçlar, yer değiştirme açıklık/50 değerini aştığında, motor ile klasik formül %1\'den fazla farklı olduğunda veya bir çubuk eğilme frekansı için fazla kısa ve kalın olduğunda uyarıyor ve sıfıra yakın rijitliği reddediyor; tesir çizgisi artık bir mesnedin hemen ardında %200 hatalı kesme kuvveti vermiyor.',
+          'Stabileo Research sayfaları karşılaştırmayı beklemede bırakmak yerine neyle karşılaştırıldıklarını söylüyor (örneğin GNU Octave\'daki özgün top88.m).',
+        ],
+      },
+    },
+  },
+  {
     date: '2026-10-30',
     areas: ['engine', 'engine', 'pro', 'pro', 'basic', 'app', 'site', 'site', 'site'],
     i18n: {
