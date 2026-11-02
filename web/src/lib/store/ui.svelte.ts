@@ -449,6 +449,8 @@ function createUIStore() {
 
   // Embed mode (hides header, sidebars, footer when loaded via #embed= URL)
   let embedMode = $state<boolean>(false);
+  /** The public viewer (`?view`): the model read, nothing of it edited or saved until it is duplicated. */
+  let viewerMode = $state<boolean>(false);
 
   // Floating tools bar (persisted in localStorage)
   const savedFloatingTools = hasLocalStorage() ? localStorage.getItem('stabileo-floating-tools') : null;
@@ -1172,6 +1174,8 @@ function createUIStore() {
 
     get embedMode() { return embedMode; },
     set embedMode(v: boolean) { embedMode = v; },
+    get viewerMode() { return viewerMode; },
+    set viewerMode(v: boolean) { viewerMode = v; },
 
     get showFloatingTools() { return showFloatingTools; },
     set showFloatingTools(v: boolean) {

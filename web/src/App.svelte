@@ -38,6 +38,8 @@
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
+  import ProVideosOffer from './components/pro/ProVideosOffer.svelte';
+  import ProViewer from './components/pro/ProViewer.svelte';
   import ProSaveStatus from './components/pro/ProSaveStatus.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
   import {
@@ -968,6 +970,9 @@
     // Check for URL hash (shared model link or embed). The link is untrusted
     // input and restore() is not atomic: whatever a link still manages to break
     // must not take the app down before it starts, nor leave a half-loaded model.
+    // The public viewer reads the link's model in a tab of its own, saved only once duplicated.
+    const viewing = new URLSearchParams(location.search).has('view') && pathToMode(location.pathname) === 'pro';
+    if (viewing) { uiStore.viewerMode = true; tabManager.createTab(); }
     let hashMode: ReturnType<typeof loadFromURLHash> = null;
     try {
       hashMode = loadFromURLHash();
@@ -1085,7 +1090,7 @@
     // finishes, because losing one of those to a 30 s window is losing the run.
     autosaveInterval = setInterval(() => {
       void requestAutosave('timer');
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
     }, 30_000);
 
     // Mobile responsive: track window width
@@ -1149,7 +1154,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
@@ -1450,7 +1455,8 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
+{#if uiStore.viewerMode}<ProViewer />{/if}
+<div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1615,7 +1621,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
-      {#if uiStore.appMode === 'pro'}<ProSaveStatus />{/if}
+      {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--
@@ -3487,6 +3493,10 @@
 
   .embed-mode .app-body {
     height: 100vh;
+  }
+  .viewer-mode .app-body {
+    height: calc(100vh - 52px);
+    margin-top: 52px;
   }
 
   :global(.edu-tooltip) {

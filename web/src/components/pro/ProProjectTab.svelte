@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ProVideos from './ProVideos.svelte';
   import ProProjectInfo from './ProProjectInfo.svelte';
   import ProExampleGallery from './ProExampleGallery.svelte';
   import type { ProExample, ProExampleGroup } from '../../lib/data/pro-examples';
@@ -151,6 +152,15 @@
   });
   const linkTooLong = $derived(!!proLink && proLink.length > MAX_URL_SAFE);
 
+  /** The same model in the public viewer: read, not edited, and opened as a copy to edit. */
+  async function copyViewerLink() {
+    if (!hasModel) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
+    const link = codeShareUrl(modelStore.snapshot(), `${location.origin}/app/pro?view`);
+    if (link.length > MAX_URL_SAFE) { uiStore.toast(tp('project.linkTooLong', { n: link.length }), 'info'); return; }
+    await navigator.clipboard.writeText(link.url);
+    uiStore.toast(t('viewer.linkCopied'), 'success');
+  }
+
   async function copyShareLink() {
     if (!proLink) { uiStore.toast(t('project.emptyModel'), 'error'); return; }
     if (linkTooLong) { uiStore.toast(tp('project.linkTooLong', { n: proLink.length }), 'info'); return; }
@@ -276,6 +286,8 @@
     </div>
   {/if}
 
+  <ProVideos />
+
   <!--
     DXF and IFC are not here any more.
     ─────────────────────────────────
@@ -337,6 +349,9 @@
           disabled={!hasModel || linkTooLong}
           data-testid="pp-share"
         >{t('project.shareLink')}</button>
+      </HelpTip>
+      <HelpTip text={t('viewer.linkTip')}>
+        <button class="pp-btn" onclick={copyViewerLink} disabled={!hasModel || linkTooLong} data-testid="pp-share-viewer">{t('viewer.copyLink')}</button>
       </HelpTip>
       <button class="pp-btn" onclick={() => { uiStore.proActiveTab = 'code'; uiStore.proPanelVisible = true; }} data-testid="pp-share-code">{t('project.shareCode')}</button>
     </div>
