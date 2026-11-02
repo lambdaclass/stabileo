@@ -3,7 +3,7 @@ import { APP_VERSION } from '../build-info';
 import { gzipBase64, gunzipBase64 } from '../utils/gzip-base64';
 import { trackUsage } from '../telemetry/usage';
 import { modelStore, uiStore, tabManager } from '.';
-import { serializeProject, loadProject } from './file';
+import { serializeProject, loadProjectText } from './file';
 import { authStore } from './auth.svelte';
 import { cloudLinks } from './cloud-link.svelte';
 
@@ -147,8 +147,7 @@ export const cloudProjects = {
     const project = await projectsApi.get(id);
     const text = await gunzipBase64(project.content);
     if (!stillFor(who) || tabKey() !== tab || cloudLinks.generation(tab) !== generation) return;
-    await loadProject(new File([text], `${project.name}.ded`, { type: 'application/json' }));
-    if (tabKey() !== tab) return;
+    loadProjectText(text);
     modelStore.model.name = project.name;
     cloudLinks.set(tab, project.id, project.revision, project.name);
     trackUsage('project.cloud_open', { mode: project.app_mode });

@@ -40,7 +40,7 @@
 }
 .ins-card-value { font-family: var(--st-display); font-size: 1.5rem; font-weight: 600; color: var(--st-text); font-variant-numeric: tabular-nums; }
 .ins-card-label { font-size: 0.72rem; color: var(--st-text-2); }
-.ins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.ins-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 12px; }
 .ins-panel { padding: 12px 14px; background: var(--st-surface); border: 1px solid var(--st-hair); border-radius: var(--st-radius-lg); }
 .ins-panel h2 { margin: 0 0 10px; font-size: 0.82rem; font-weight: 600; color: var(--st-text); }
 .ins-bars { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }

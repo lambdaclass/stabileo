@@ -611,7 +611,10 @@ export function saveProject(): void {
 }
 
 export async function loadProject(file: File): Promise<void> {
-  const text = await file.text();
+  loadProjectText(await file.text());
+}
+
+export function loadProjectText(text: string): void {
   if (!deserializeProject(text)) {
     throw new Error(t('file.invalidFormat'));
   }

@@ -161,13 +161,19 @@ export const authStore = {
     return next;
   },
 
-  /** Consent writes go one at a time, so the server keeps the last choice and each answer is the newest account. */
+  /** Consent writes go one at a time, so the server keeps the last choice; one queued under another account is dropped. */
   recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
+    const who = account?.id ?? null;
+    const same = () => (account?.id ?? null) === who;
     consentWrites += 1;
-    const write = consentQueue.then(() => authenticated(() => authApi.recordConsent(kind, granted)));
+    const write = consentQueue.then(() => {
+      if (!same()) throw new Error('signed-in account changed');
+      return authenticated(() => authApi.recordConsent(kind, granted));
+    });
     consentQueue = write.catch(() => {});
     return write
       .then((next) => {
+        if (!same()) throw new Error('signed-in account changed');
         account = next;
         return next;
       })

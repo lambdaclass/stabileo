@@ -574,6 +574,31 @@ describe('consents and server switches', () => {
     expect(authStore.consentSaving).toBe(false);
   });
 
+  it('drops a consent change queued or answered for an account that has since signed out', async () => {
+    const { authStore } = await load();
+    on('POST /login', () => json(200, session(1, { ...ADA, consents: CONSENTS })));
+    on('DELETE /logout', () => json(200, { message: 'Logged out' }));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    let release!: () => void;
+    const held = new Promise<void>((done) => (release = done));
+    on('POST /consents', async () => {
+      await held;
+      return json(201, { data: { ...ADA, consents: { ...CONSENTS, model_research: true } } });
+    });
+
+    const answered = authStore.recordConsent('model_research', true).catch((e) => e);
+    const queued = authStore.recordConsent('model_research', false).catch((e) => e);
+    await new Promise((done) => setTimeout(done, 0));
+    await authStore.logout();
+    release();
+
+    expect(await answered).toBeInstanceOf(Error);
+    expect(await queued).toBeInstanceOf(Error);
+    expect(seen.filter((s) => s.route === 'POST /consents')).toHaveLength(1);
+    expect(authStore.account).toBeNull();
+    expect(authStore.consentSaving).toBe(false);
+  });
+
   it('sends the terms acceptance and the optional usage choice with a sign-up', async () => {
     const { authStore } = await load();
     on('POST /register', () => json(201, session(1, { ...ADA, consents: CONSENTS })));
