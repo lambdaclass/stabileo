@@ -205,7 +205,7 @@ const fr: Translations = {
   'landing.pricingP': 'Stabileo est open source et se construit avec sa communauté : le code est public, il peut être audité et chacun peut participer. Nous voulons que les outils de calcul courants restent d\'accès libre et qu\'avec le temps, les outils de dimensionnement spécialisés et Stabileo IA aident à financer le projet. Pour les universités, le programme est gratuit dans tous les cas.',
   'landing.pricingCommunity': 'Le dépôt est ouvert. Les contributions, les signalements de bugs et les discussions de conception sont les bienvenus.',
   'landing.figTitle': 'Une charge unitaire parcourant un treillis Pratt à tablier supérieur de six panneaux',
-  'landing.figDesc': 'Treillis Pratt à six panneaux, appui fixe à gauche, rouleau à droite. Une charge unitaire parcourt le tablier ; couleur selon l’effort normal : rouge traction, bleu compression, gris quasi nul.',
+  'landing.figDesc': 'Treillis Pratt à six panneaux, appui fixe à gauche, rouleau à droite. Une charge unitaire descendante parcourt le tablier ; couleur selon l’effort normal : rouge traction, bleu compression, gris quasi nul.',
   'landing.figTension': 'TRACTION  +',
   'landing.figCompression': 'COMPRESSION  −',
   'landing.figZero': 'QUASI NUL  ≈0',

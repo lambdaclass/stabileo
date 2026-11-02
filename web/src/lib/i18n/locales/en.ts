@@ -205,7 +205,7 @@ const en: Record<string, string> = {
   'landing.pricingP': 'Stabileo is open source and built with its community: the code is in the open, it can be audited, and anyone can take part. We want the standard analysis tools to stay free to use, and, over time, the specialised design tools and Stabileo AI to help fund the project. For universities, the program is free in every case.',
   'landing.pricingCommunity': 'The repository is open. Contributions, bug reports and design discussions are welcome.',
   'landing.figTitle': 'A unit load moving across a six-panel Pratt deck truss',
-  'landing.figDesc': 'Six-panel Pratt truss, pinned left, roller right. A unit load crosses the deck; members show axial force: red tension, blue compression, grey near zero.',
+  'landing.figDesc': 'Six-panel Pratt truss, pinned left, roller right. A downward unit load crosses the deck; members show axial force: red tension, blue compression, grey near zero.',
   'landing.figTension': 'TENSION  +',
   'landing.figCompression': 'COMPRESSION  −',
   'landing.figZero': 'NEAR ZERO  ≈0',

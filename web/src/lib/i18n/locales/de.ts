@@ -204,7 +204,7 @@ const de: Translations = {
   'landing.pricingH': 'Wie wir ein offenes Projekt tragen wollen',
   'landing.pricingP': 'Stabileo ist Open Source und wird mit seiner Community entwickelt: Der Code ist offen, er kann geprüft werden, und alle können sich beteiligen. Die üblichen Berechnungswerkzeuge sollen kostenlos nutzbar bleiben, und mit der Zeit sollen die spezialisierten Bemessungswerkzeuge und Stabileo AI zur Finanzierung des Projekts beitragen. Für Universitäten ist das Programm in jedem Fall kostenlos.',
   'landing.pricingCommunity': 'Das Repository ist offen. Beiträge, Fehlermeldungen und Diskussionen zum Design sind willkommen.',
-  'landing.figTitle': 'Eine Einheitslast wandert über ein Pratt-Fachwerk mit sechs Feldern und obenliegender Fahrbahn',
+  'landing.figTitle': 'Eine abwärts gerichtete Einheitslast wandert über ein Pratt-Fachwerk mit sechs Feldern und obenliegender Fahrbahn',
   'landing.figDesc': 'Pratt-Fachwerk mit sechs Feldern, links Festlager, rechts Rollenlager. Eine Einheitslast wandert über die Fahrbahn; Farbe nach Normalkraft: rot Zug, blau Druck, grau fast null.',
   'landing.figTension': 'ZUG  +',
   'landing.figCompression': 'DRUCK  −',

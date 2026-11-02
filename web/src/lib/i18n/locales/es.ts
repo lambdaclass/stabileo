@@ -205,7 +205,7 @@ const es: Record<string, string> = {
   'landing.pricingP': 'Stabileo es open source y se construye con la comunidad: el código está a la vista, se puede auditar y cualquiera puede participar. Queremos que las herramientas de cálculo tradicionales sean de acceso libre, y que con el tiempo las de diseño específico y Stabileo IA ayuden a financiar el proyecto. Para las universidades, el programa es gratuito en todos los casos.',
   'landing.pricingCommunity': 'El repositorio está abierto. Los aportes, los reportes y las discusiones de diseño son bienvenidos.',
   'landing.figTitle': 'Una carga unitaria recorriendo un reticulado Pratt de seis paneles',
-  'landing.figDesc': 'Reticulado Pratt de seis paños, apoyo fijo a la izquierda y móvil a la derecha. Una carga unitaria recorre el tablero; color según el axil: rojo tracción, azul compresión, gris casi cero.',
+  'landing.figDesc': 'Reticulado Pratt de seis paños, apoyo fijo a la izquierda y móvil a la derecha. Una carga unitaria descendente recorre el tablero; color según el axil: rojo tracción, azul compresión, gris casi cero.',
   'landing.figTension': 'TRACCIÓN  +',
   'landing.figCompression': 'COMPRESIÓN  −',
   'landing.figZero': 'CASI NULO  ≈0',

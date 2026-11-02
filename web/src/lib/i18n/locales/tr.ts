@@ -213,7 +213,7 @@ const tr: Translations = {
   'landing.pricingP': 'Stabileo açık kaynaklıdır ve topluluğuyla birlikte geliştirilir: kod herkese açıktır, denetlenebilir ve herkes katkıda bulunabilir. Standart analiz araçlarının ücretsiz kalmasını, zamanla da uzmanlaşmış tasarım araçlarının ve Stabileo AI\'ın projenin finansmanına katkı sağlamasını istiyoruz. Üniversiteler için program her durumda ücretsizdir.',
   'landing.pricingCommunity': 'Depo herkese açıktır. Katkılar, hata bildirimleri ve tasarım tartışmaları memnuniyetle karşılanır.',
   'landing.figTitle': 'Altı panelli, üstten yüklü bir Pratt kafes kirişi üzerinde hareket eden birim yük',
-  'landing.figDesc': 'Altı panelli Pratt kafes, solda sabit, sağda kayıcı mesnet. Birim yük tabliyede ilerler; renk eksenel kuvvete göre: çekme kırmızı, basınç mavi, sıfıra yakın gri.',
+  'landing.figDesc': 'Altı panelli Pratt kafes, solda sabit, sağda kayıcı mesnet. Aşağı yönlü birim yük tabliyede ilerler; renk eksenel kuvvete göre: çekme kırmızı, basınç mavi, sıfıra yakın gri.',
   'landing.figTension': 'ÇEKME  +',
   'landing.figCompression': 'BASINÇ  −',
   'landing.figZero': 'SIFIRA YAKIN  ≈0',

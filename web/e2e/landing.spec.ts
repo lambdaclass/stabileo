@@ -155,11 +155,11 @@ test.describe('@landing landing page', () => {
     const fit = page.locator('section[data-section="fit"]');
     await expect(fit.locator('.card h3')).toHaveText(['Commercial desktop packages', 'Open-source solvers', 'Teaching software']);
     await expect(fit.locator('.card').nth(1)).toContainText('OpenSees, Code_Aster, CalculiX');
-    await expect(fit.locator('a[href$="/sap2000-alternative"]')).toBeVisible();
+    await expect(fit.locator('a[href*="/sap2000-alternative"]')).toBeVisible();
     await expect(page.locator('section[data-section="basic"] .tick-list li')).toHaveCount(5);
     await expect(page.locator('section[data-section="pro-design"]')).toContainText('#532');
 
-    await fit.locator('a[href$="/reliability"]').click();
+    await fit.locator('a[href*="/reliability"]').click();
     await expect(page).toHaveURL(/\/en\/reliability\/?$/);
   });
 
@@ -524,7 +524,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/Free, open-source structural analysis/i);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*experimental CIRSOC, AISC, ACI and Eurocode checks/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -602,8 +602,8 @@ test.describe('@landing landing page', () => {
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
       // The description is the hero lead, which now carries the positioning:
       // a free, open platform with three modes, rather than live re-solving.
-      expect(one(h, 'description')).toMatch(/Programa de cálculo estructural gratis/);
-      expect(one(h, 'description')).toMatch(/Programa de cálculo estructural gratis/);
+      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*verificación CIRSOC, AISC, ACI y Eurocódigo experimental/);
+      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*verificación CIRSOC, AISC, ACI y Eurocódigo experimental/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -674,7 +674,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/Free, open-source structural analysis/i);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*experimental CIRSOC, AISC, ACI and Eurocode checks/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {
