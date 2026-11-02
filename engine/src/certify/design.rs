@@ -1368,7 +1368,7 @@ mod tests {
             let f = random_forces(&mut g, i);
             let r = steel_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
             let p = f64_ratios(&m, &f);
-            for k in 0..6 {
+            for k in 0..CHECK_NAMES.len() {
                 let tol = 1e-12 * p[k].abs().max(1e-300);
                 assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "member {i} check {k}: {} ∉ {:?}", p[k], r[k]);
                 assert!(r[k].hi - r[k].lo <= 1e-12 * p[k].abs().max(1e-12), "member {i} check {k}: wide {:?}", r[k]);
@@ -1399,7 +1399,7 @@ mod tests {
                     v_weak: None, v_strong: Some(f.v_strong.unwrap() + b.v_strong * g.range(-1.0, 1.0)),
                 };
                 let p = f64_ratios(&m, &s);
-                for k in 0..6 {
+                for k in 0..CHECK_NAMES.len() {
                     let tol = 1e-12 * p[k].abs();
                     assert!(r[k].lo - tol <= p[k] && p[k] <= r[k].hi + tol, "{i}/{k}: {} ∉ {:?}", p[k], r[k]);
                 }
