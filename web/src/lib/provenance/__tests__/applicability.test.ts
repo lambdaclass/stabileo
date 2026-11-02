@@ -116,6 +116,19 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells projects with concrete members about the EN 1992-1-1 flexure fix, whatever their bound code', () => {
+    const change = 'ec2-flexure-strain-compatibility';
+    for (const concrete of [undefined, 'cirsoc201', 'aci-aisc', 'eurocode2']) {
+      const beam = model({
+        elements: [member(1, 2, 'frame')],
+        ...(concrete ? { regulations: { roles: { concrete: { adapterId: concrete } } } } : {}),
+      });
+      expect(ids(beam, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 12, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    }
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

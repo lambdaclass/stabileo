@@ -1,8 +1,30 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 5,
+  "currentResultsVersion": 12,
   "changes": [
+    {
+      "id": "ec2-flexure-strain-compatibility",
+      "resultsVersion": 12,
+      "date": "2026-11-02",
+      "prs": [1236],
+      "area": "design",
+      "when": { "any": ["concreteMembers"] },
+      "title": {
+        "en": "EN 1992-1-1 flexure in other codes by strain compatibility",
+        "es": "Flexión EN 1992-1-1 en otras normas por compatibilidad de deformaciones",
+        "pt": "Flexão EN 1992-1-1 em outras normas por compatibilidade de deformações"
+      },
+      "explanation": {
+        "en": "The EN 1992-1-1 check in PRO other codes assumed the tension steel yields and took the compression-steel strain from the singly reinforced neutral axis, so MRd came out up to about 20 % high on heavily reinforced beams and on beams with top bars, and could pass, certified, a beam that fails (SA-2026-028). The neutral axis is now solved by strain compatibility. Re-run the EN 1992-1-1 check under other codes on concrete beams.",
+        "es": "La verificación EN 1992-1-1 de otras normas en PRO suponía que el acero traccionado fluye y tomaba la deformación del acero comprimido del eje neutro sin armadura de compresión, así que MRd salía hasta un 20 % alto en vigas muy armadas y en vigas con armadura superior, y podía aprobar, certificada, una viga que no verifica (SA-2026-028). El eje neutro ahora se resuelve por compatibilidad de deformaciones. Vuelva a ejecutar la verificación EN 1992-1-1 de otras normas en las vigas de hormigón.",
+        "pt": "A verificação EN 1992-1-1 de outras normas no PRO supunha que o aço tracionado escoa e tomava a deformação do aço comprimido da linha neutra sem armadura de compressão, então MRd saía até 20 % alto em vigas muito armadas e em vigas com armadura superior, e podia aprovar, certificada, uma viga que não verifica (SA-2026-028). A linha neutra agora é resolvida por compatibilidade de deformações. Execute novamente a verificação EN 1992-1-1 de outras normas nas vigas de concreto."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-028-ec2-flexure-strain-compatibility.md",
+        "heading": "SA-2026-028: EN 1992-1-1 flexure assumed the tension steel yields and did not iterate the compression steel"
+      }
+    },
     {
       "id": "solid-shell-local-stress-axes",
       "resultsVersion": 5,
