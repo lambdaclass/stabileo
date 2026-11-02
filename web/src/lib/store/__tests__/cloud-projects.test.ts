@@ -174,4 +174,23 @@ describe('cloud projects', () => {
     expect(seen.at(-1)).toMatchObject({ method: 'POST', path: '/api/v1/projects' });
     who.mockRestore();
   });
+  it('a save answered after the tab got another document does not link that document', async () => {
+    replies.set('POST /api/v1/projects', () => {
+      modelStore.clear();
+      return json(201, { data: meta('p8') });
+    });
+    await cloudProjects.saveCurrent({ asNew: true });
+    expect(cloudProjects.linkedId).toBeNull();
+  });
+
+  it("a list answered after another account signed in is dropped", async () => {
+    const who = vi.spyOn(authStore, 'account', 'get').mockReturnValue({ id: 'c3' } as never);
+    replies.set('GET /api/v1/projects', () => {
+      who.mockReturnValue({ id: 'd4' } as never);
+      return json(200, { data: [meta('p10')], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } });
+    });
+    await cloudProjects.refresh();
+    expect(cloudProjects.items).toEqual([]);
+    who.mockRestore();
+  });
 });

@@ -31,6 +31,13 @@ function mine(): boolean {
   return (authStore.account?.id ?? null) === owner;
 }
 
+/** An answer to a request made for `who` is applied only while `who` is still the one signed in. */
+function stillFor(who: string | null): boolean {
+  return owner === who && mine();
+}
+
+let listRequest = 0;
+
 function tabKey(): string {
   return tabManager.activeTabId ?? 'default';
 }
@@ -64,9 +71,12 @@ export const cloudProjects = {
 
   async refresh(search?: string): Promise<void> {
     sameOwner();
+    const who = owner;
+    const request = ++listRequest;
     loading = true;
     try {
       const list = await projectsApi.list({ search });
+      if (!stillFor(who) || request !== listRequest) return;
       items = list.data;
       total = list.meta.total;
       if (!search) accountTotal = list.meta.total;
@@ -81,11 +91,14 @@ export const cloudProjects = {
     saving = true;
     try {
       sameOwner();
+      const who = owner;
       const tab = tabKey();
+      const generation = cloudLinks.generation(tab);
       const id = opts.asNew ? null : cloudLinks.get(tab);
       const body = await payload();
       const saved = id ? await projectsApi.update(id, body) : await projectsApi.create(body);
-      cloudLinks.set(tab, saved.id);
+      if (!stillFor(who)) return saved;
+      cloudLinks.setIf(tab, generation, saved.id);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       if (!id) {
@@ -103,10 +116,13 @@ export const cloudProjects = {
     saving = true;
     try {
       sameOwner();
+      const who = owner;
       const tab = tabKey();
+      const generation = cloudLinks.generation(tab);
       const body = await payload();
       const saved = await projectsApi.update(id, body);
-      cloudLinks.set(tab, saved.id);
+      if (!stillFor(who)) return saved;
+      cloudLinks.setIf(tab, generation, saved.id);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
@@ -116,20 +132,29 @@ export const cloudProjects = {
   },
 
   async open(id: string): Promise<void> {
+    sameOwner();
+    const who = owner;
     const project = await projectsApi.get(id);
     const text = await gunzipBase64(project.content);
+    if (!stillFor(who)) return;
     await loadProject(new File([text], `${project.name}.ded`, { type: 'application/json' }));
     cloudLinks.set(tabKey(), project.id);
     trackUsage('project.cloud_open', { mode: project.app_mode });
   },
 
   async rename(id: string, name: string): Promise<void> {
+    sameOwner();
+    const who = owner;
     const updated = await projectsApi.update(id, { name });
+    if (!stillFor(who)) return;
     items = items.map((p) => (p.id === id ? updated : p));
   },
 
   async remove(id: string): Promise<void> {
+    sameOwner();
+    const who = owner;
     await projectsApi.remove(id);
+    if (!stillFor(who)) return;
     items = items.filter((p) => p.id !== id);
     total = Math.max(0, total - 1);
     accountTotal = Math.max(0, accountTotal - 1);
