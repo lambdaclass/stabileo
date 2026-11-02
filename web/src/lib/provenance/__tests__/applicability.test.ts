@@ -128,6 +128,11 @@ describe('which registered changes concern a model', () => {
       expect(ids(beam, { resultsVersion: 8, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
     }
     expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
   });
 
   it('tells prior buckling runs about certificate refusals in both dimensions and on shells', () => {

@@ -80,7 +80,7 @@ fn certify(m: &Ec2MemberData, m_ed: f64) -> dedaliano_engine::certify::design::C
         members: vec![m.clone()],
         demands: vec![BoundedEc2Demand {
             forces: Ec2DesignForces { element_id: m.element_id, m_ed: Some(m_ed), v_ed: None, n_ed: None },
-            bound: DemandBound { n: 0.0, my: 0.0, mz: 0.0, vy: 0.0 },
+            bound: DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_strong: 0.0, v_weak: 0.0 },
         }],
     });
     res[0].clone()
