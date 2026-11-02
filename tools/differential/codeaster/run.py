@@ -304,12 +304,22 @@ def finish(r, tol, dump_dir, model):
 
 
 def unloaded_mechanism(model, b):
-    """A disagreement a singular model can explain: a finite displacement at a node no load
-    reaches. Reactions, member forces and loaded nodes must still agree."""
+    """A disagreement a singular model can explain. Only displacements may differ (`finish` already
+    requires every reaction and member force to agree, so the difference strains no member and loads
+    no support: it is a mechanism motion), and only at a free, unsprung, unprescribed DOF of a node
+    no load reaches, since a mechanism moving a loaded DOF would make the load do work."""
     kind, nid, comp = b[0], str(b[1]), b[2]
-    if kind != "disp" or comp == "missing" or not math.isfinite(b[5]):
+    names = ["ux", "uy", "uz", "rx", "ry", "rz"]
+    if kind != "disp" or comp not in names or not math.isfinite(b[5]):
         return False
-    for ld in model.get("loads", {}).values() if isinstance(model.get("loads"), dict) else model.get("loads", []):
+    k = names.index(comp)
+    for sup in (model.get("supports") or {}).values():
+        if str(sup.get("nodeId")) == nid and (sup.get("isInclined") or sup.get(to_aster.FLAGS[k])
+                                              or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0
+                                              or sup.get(to_aster.PRESC[k]) is not None):
+            return False
+    loads = model.get("loads", [])
+    for ld in loads.values() if isinstance(loads, dict) else loads:
         x = ld.get("data", {})
         if ld.get("type") == "nodal" and str(x.get("nodeId")) == nid:
             return False

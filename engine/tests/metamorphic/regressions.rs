@@ -663,6 +663,7 @@ fn nightly_harness_findings_hold() {
 fn buckling_without_compression_refuses_in_every_orientation() {
     let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-959.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
     let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(s.loads.iter().all(|l| matches!(l, SolverLoad::Distributed(_))), "only member-local transverse loads turn with the nodes");
     for deg in [0.0f64, 37.0, 90.0, 180.0] {
         let (c, sn) = (deg.to_radians().cos(), deg.to_radians().sin());
         let mut r = s.clone();

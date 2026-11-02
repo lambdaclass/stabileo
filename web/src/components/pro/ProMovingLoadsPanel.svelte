@@ -149,7 +149,9 @@
         step: input.step, path2: input.path2, signal: controller.signal, onProgress: (done, total) => (progress = { done, total }),
       });
       if (result.positions === 0) { error = t('train.noPositionSolved'); result = null; }
-      if (result) notes = [...notes, ...knownIssueResultDisposition(result).messages];
+      const disposition = result ? knownIssueResultDisposition(result) : null;
+      if (disposition?.refused) { error = disposition.messages.join('\n'); result = null; }
+      else if (disposition) notes = [...notes, ...disposition.messages];
       if (result) resultProvenance = provenance(result);
     } catch (e) {
       error = e instanceof DOMException && e.name === 'AbortError' ? t('train.analysisCancelled') : errorText(e, t('pro.unknownError'));
