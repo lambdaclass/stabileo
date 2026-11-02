@@ -87,6 +87,11 @@ export function segments(html: string, locale = 'en'): string[] {
     .filter((s) => (s.match(/\p{L}{2,}/gu) ?? []).length >= MIN_WORDS);
 }
 
+/** A block's sentences of at least four words, so a translated lead cannot hide English after it. */
+function sentences(block: string): string[] {
+  return block.split(/(?<=[.!?])\s+/).filter((s) => (s.match(/\p{L}{2,}/gu) ?? []).length >= MIN_WORDS);
+}
+
 function allowedSegment(s: string): boolean {
   return ALLOWED_SEGMENTS.has(s) || ALLOWED_SEGMENT_PATTERNS.some((re) => re.test(s));
 }
@@ -107,9 +112,12 @@ export function compareWithEnglish(page: string, locale: string, html: string, e
     failures.push({ page, locale, rule: 'no visible text to check', offending: [] });
     return failures;
   }
-  const englishSet = new Set(segments(english));
-  const same = ownSegments.filter((s) => englishSet.has(s));
+  const englishSegments = segments(english);
+  const englishSet = new Set(englishSegments);
+  const englishSentences = new Set(englishSegments.flatMap(sentences));
   const chars = (xs: string[]) => xs.reduce((n, s) => n + s.length, 0);
+  const mostlyEnglish = (s: string) => 2 * chars(sentences(s).filter((x) => englishSentences.has(x))) > s.length;
+  const same = ownSegments.filter((s) => englishSet.has(s) || mostlyEnglish(s));
   const countShare = same.length / ownSegments.length;
   const charShare = chars(same) / chars(ownSegments);
   if (countShare > MAX_ENGLISH_SHARE || charShare > MAX_ENGLISH_SHARE) {

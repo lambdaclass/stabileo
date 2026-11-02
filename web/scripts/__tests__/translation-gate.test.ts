@@ -82,6 +82,14 @@ describe('translation gate', () => {
     expect(failures[0].rule).toMatch(/^1\/21 text blocks \(4\.8%, \d+\.\d% of characters\)/);
   });
 
+  it('fails a block whose translated lead is followed by the English text', () => {
+    const es = { ...ES, blocks: [...ES.blocks.slice(0, 3), `Una introducción traducida. ${EN.blocks[3]} ${EN.blocks[2]}`] };
+    const failures = gate(site({ '/en/': EN, '/es/': es }));
+    expect(failures.map((f) => f.offending)).toEqual([[es.blocks[3]]]);
+    const translated = { ...ES, blocks: [...ES.blocks.slice(0, 3), `${ES.blocks[3]} ${EN.blocks[3]}`] };
+    expect(gate(site({ '/en/': EN, '/es/': translated }))).toEqual([]);
+  });
+
   it('fails an English title on a Spanish page, naming the string', () => {
     const failures = gate(site({ '/en/': EN, '/es/': { ...ES, title: EN.title } }));
     expect(failures).toEqual([

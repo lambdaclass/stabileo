@@ -194,7 +194,7 @@
     <h2>{copy.method}</h2><p>{copy.methodText}</p>
     <p>{copy.papersBefore}<a href="https://doi.org/10.1016/0020-7683(79)90081-7" rel="noreferrer" target="_blank">{copy.riksTitle}</a>{copy.papersBetween}<a href="https://doi.org/10.1016/0045-7949(81)90108-5" rel="noreferrer" target="_blank">{copy.crisfieldTitle}</a>{copy.papersAfter}</p>
     <h2>{copy.models}</h2><p>{copy.modelsText}</p>
-    <p>{copy.formula}</p>
+    <p translate="no">{copy.formula}</p>
     <h2 id="checks">{copy.comparison}</h2><p>{headline}</p>
     <div class="rs-table-scroll" role="region" aria-label={copy.benchmarkChecks}>
       <table class="rs-checks">
