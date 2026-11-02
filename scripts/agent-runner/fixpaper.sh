@@ -16,6 +16,7 @@ log "fixpaper $id: start ($start) with $engine"
 if [ "${DRY_RUN:-0}" != 1 ]; then
   "$(dirname "$0")/prep-wt.sh" "$name" "$br" "$start" || { log "fixpaper $id: prep failed"; exit 1; }
   cd "$dir" && git merge -q --no-edit origin/main >/dev/null 2>&1 || { log "fixpaper $id: merge conflict with main, left for me"; exit 2; }
+  "$(dirname "$0")/prep-existing.sh" "$dir" || { log "fixpaper $id: WASM rebuild after the merge failed"; exit 1; }
 fi
 p=$LOGS/rfix-$id.prompt; "$(dirname "$0")/render-prompt.sh" "$id" > "$p"
 "$(dirname "$0")/run-engine.sh" "$engine" write "${dir}" "$p" "$LOGS/rfix-$id.out"

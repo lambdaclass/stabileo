@@ -14,7 +14,7 @@ branch=$(echo "$head" | cut -d' ' -f1); want=$(echo "$head" | cut -d' ' -f2); ti
 for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/heads/$branch:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
 sha=${want:0:10}; range="$(git -C "$REPO" rev-parse origin/main)...$want"
-files=$(git -C "$REPO" diff --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**' ':!**/__fixtures__/**')
+files=$(git -C "$REPO" diff --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**')
 filelist=$(git -C "$REPO" diff --stat=200 "$range" -- . ':!**/package-lock.json' ':!research/papers.json' | tail -400)
 chunk=1; cur=0; : > "$R/$pr-$sha-c$chunk.files"
 for f in $files; do
@@ -34,7 +34,7 @@ for c in $(seq 1 "$chunk"); do
   [ "$rc1" = 0 ] && [ "$rc2" = 0 ] || { log "review-chunked #$pr chunk $c: reviewer exit codes $rc1/$rc2"; exit 1; }
   for f in "$R/$pr-$sha-c$c-codex.md" "$R/$pr-$sha-c$c-second.md"; do
     case "$(head -1 "$f")" in *"none available"*) continue;; esac
-    grep -qiE '^[*_ ]*VERDICT:[*_ ]*(clean|should-fix|blocker)' "$f" || { log "review-chunked #$pr chunk $c: incomplete review in $f"; exit 1; }
+    grep -v '^[[:space:]]*$' "$f" | tail -1 | grep -qixE '[*_ ]*VERDICT:[*_ ]*(clean|should-fix|blocker)[*_ .]*' || { log "review-chunked #$pr chunk $c: incomplete review in $f"; exit 1; }
   done
 done
 [ "$second" != none ] || { log "review-chunked #$pr: only one reviewer available"; exit 75; }

@@ -14,12 +14,13 @@ sha=$(git rev-parse --short=10 HEAD); p=$R/$name-$sha-prompt.md
   for f in $(git ls-files -- "$@"); do echo; echo "===== $f"; echo '```'; cat "$f"; echo '```'; done; } > "$p"
 size=$(wc -c < "$p"); echo "review-files $name: $size bytes"
 [ "$size" -lt 950000 ] || { echo "too large for one prompt" >&2; exit 1; }
-( "$(dirname "$0")/run-engine.sh" "$first" review "$WT/base" "$p" "$R/$name-$sha-codex.md" ) & p1=$!
-if [ "$second" != none ]; then ( "$(dirname "$0")/run-engine.sh" "$second" review "$WT/base" "$p" "$R/$name-$sha-grok.md" ) & p2=$!; else p2=; fi
+full=$(git rev-parse HEAD)
+( "$(dirname "$0")/run-engine.sh" "$first" review "$WT/base" "$p" "$R/$name-$sha-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first at $full" "$R/$name-$sha-codex.md"; exit $rc ) & p1=$!
+if [ "$second" != none ]; then ( "$(dirname "$0")/run-engine.sh" "$second" review "$WT/base" "$p" "$R/$name-$sha-grok.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second at $full" "$R/$name-$sha-grok.md"; exit $rc ) & p2=$!; else p2=; fi
 wait "$p1"; rc1=$?; rc2=0; [ -n "$p2" ] && { wait "$p2"; rc2=$?; }
 [ "$rc1" = 0 ] && [ "$rc2" = 0 ] || { log "review-files $name: reviewer exit codes $rc1/$rc2"; exit 1; }
 for f in "$R/$name-$sha-codex.md" ${p2:+"$R/$name-$sha-grok.md"}; do
-  grep -qiE '^[*_ ]*VERDICT:[*_ ]*(clean|should-fix|blocker)' "$f" || { log "review-files $name: incomplete review in $f"; exit 1; }
+  grep -v '^[[:space:]]*$' "$f" | tail -1 | grep -qixE '[*_ ]*VERDICT:[*_ ]*(clean|should-fix|blocker)[*_ .]*' || { log "review-files $name: incomplete review in $f"; exit 1; }
 done
 [ -n "$p2" ] || { log "review-files $name: only one reviewer available"; exit 75; }
 log "review-files $name $sha: codex $(wc -l < "$R/$name-$sha-codex.md") lines, grok $(wc -l < "$R/$name-$sha-grok.md") lines"

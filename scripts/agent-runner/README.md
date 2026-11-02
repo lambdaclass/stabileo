@@ -15,7 +15,7 @@ The scripts that run Stabileo's fix and review agents on the shared agent host. 
 - The second reviewer is always a different model from the first and from the author (`AUTHOR_ENGINE`).
 - Codex cannot write on this host (its bwrap sandbox is blocked by AppArmor; unsandboxed runs are not used).
 - Kimi and Grok are probed with a one-line prompt, cached 30 minutes.
-- Reviewers are read-only: Codex runs with `-s read-only`, Kimi inside `scripts/review/readonly.py` (bwrap; a host that blocks it fails the Kimi review instead of running it unsandboxed), Grok in `--permission-mode plan`. Every review must end with a `VERDICT:` line or the job fails.
+- Reviewers are read-only: Codex runs with `-s read-only`, Kimi inside `scripts/review/readonly.py` (bwrap; a host that blocks it fails the Kimi review instead of running it unsandboxed), Grok in `--permission-mode plan`. Every review must end with a `VERDICT: clean|should-fix|blocker` line or the job fails.
 - Fallback engines only take `research`, `tools`, `review` and `docs` work. Engine, safety and app
   changes wait for Claude and still need two reviews before main.
 - `python3 engines.py status` shows every engine's state; `STABILEO_FORCE_ENGINE=<e>` and `DRY_RUN=1`
