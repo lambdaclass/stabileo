@@ -1740,7 +1740,7 @@
         || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen))}
   >
 
-    {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && !uiStore.isMobile && !uiStore.viewerMode}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
@@ -1754,7 +1754,7 @@
         />
     {/if}
     <!-- What the next click in the model does while drawing, under the bar that started it. -->
-    {#if uiStore.appMode === 'pro'}<ProDrawBar />{/if}
+    {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -1772,7 +1772,7 @@
       Same slot rules as Basic's: `flex: 1 1 0`, so the row is exactly as wide
       as the screen at every width and never scrolls.
     -->
-    {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && uiStore.isMobile && !uiStore.viewerMode}
       <!--
         A positioned wrapper, so the camera menu resolves against THIS bar.
         ──────────────────────────────────────────────────────────────────
@@ -2132,7 +2132,7 @@
           >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
-        {#if !uiStore.proPanelVisible}
+        {#if !uiStore.proPanelVisible && !uiStore.viewerMode}
           <!-- A closed panel has to be reopenable from where it closed. -->
           <!--
             A bare chevron on the canvas edge is not a clue. It says what it
