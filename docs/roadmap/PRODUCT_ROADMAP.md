@@ -244,6 +244,42 @@ Further, to make the tests themselves trustworthy:
 14. **Test refusals as refusals:** when containment withholds a result, the page must say so and its
     checks must assert that refusal, not fail because a number is absent.
 
+## In flight and waiting on decisions (2026-11-02)
+
+Open work that is built but not on main, from the workstreams ledger. **Decision** marks an item that
+waits on the user, not on code or CI; the ledger's "Needs the user" list has the exact question.
+
+**Safety** (two reviews before main; each changed result registered with its own results version):
+
+| Item | Issue / PR | State |
+|---|---|---|
+| Contain every open wrong-result issue (warn or refuse, no number changes) | [#447](https://github.com/lambdaclass/stabileo/issues/447) / PR [#807](https://github.com/lambdaclass/stabileo/pull/807) | still taking review fixes |
+| Warped MITC4/MITC9 shells contained with a known-issue warning | [#1057](https://github.com/lambdaclass/stabileo/issues/1057) / PR [#1074](https://github.com/lambdaclass/stabileo/pull/1074) | green and Codex clean; stacked on #807, lands after it. **Decision:** MITC9 thin-shell locking on coarse twisted meshes (too stiff, converges with refinement) is not covered by any warning; probably its own issue |
+| Buckling certificate bounds, modal repeated modes, self-checks, old project files, snapshot-gate fixes | PRs [#817](https://github.com/lambdaclass/stabileo/pull/817), [#827](https://github.com/lambdaclass/stabileo/pull/827), [#865](https://github.com/lambdaclass/stabileo/pull/865), [#770](https://github.com/lambdaclass/stabileo/pull/770), [#786](https://github.com/lambdaclass/stabileo/pull/786); integration PR [#1225](https://github.com/lambdaclass/stabileo/pull/1225) | #817 in the merge queue; the rest ride #1225 after it |
+| **Results-version renumbering:** #817 keeps results version 6, #827 becomes 7, #865 becomes 8 (registry, release test, applicability, fixture stamps and hashes, results-change doc) | #817, #827, #865 | prepared on #1225; applied when #817 lands |
+| **Units in the type system,** slice 1 (Rust unit types at the engine boundary; branded TypeScript types at the UI → engine boundary) | [#359](https://github.com/lambdaclass/stabileo/issues/359) / PR [#864](https://github.com/lambdaclass/stabileo/pull/864) | green, Codex clean; queued |
+| **Every result checks itself,** slice 1 (statics, modal, buckling residuals; a failed check warns or refuses) | PR [#865](https://github.com/lambdaclass/stabileo/pull/865) | in #1225 |
+
+**Research, Tools and the site:**
+
+| Item | PR | State |
+|---|---|---|
+| Research round 2 (fixes from the three-reviewer pass on 17 papers) | integration PR [#1068](https://github.com/lambdaclass/stabileo/pull/1068) | Codex rounds on its head; ships first, reviews continue live |
+| Research frozen versions (`/@<sha>/`, Cite this, version banner, CI replay) | [#777](https://github.com/lambdaclass/stabileo/pull/777) | **Decision:** host approval (snapshot origin, Caddy routes, 2 GB reserve) and DNS for `snapshots.stabileo.com` and `snapshots.staging.stabileo.com` |
+| Basic course, units 1 to 7 | [#1070](https://github.com/lambdaclass/stabileo/pull/1070) | review rounds; integrates outside work through our own PR |
+| Pricing copy (core free; paid modules free for universities; AI and compute paid) | [#850](https://github.com/lambdaclass/stabileo/pull/850) | Codex clean. **Decision:** owner OK on the claims; reconcile with #1066's landing meta, whichever lands second |
+| Landing: more about Stabileo AI | [#1061](https://github.com/lambdaclass/stabileo/pull/1061) | **Decision:** owner OK on the text |
+
+**Platform:**
+
+| Item | PR | State |
+|---|---|---|
+| Accounts: terms, anonymous usage data, cloud projects, admin site | [#1071](https://github.com/lambdaclass/stabileo/pull/1071) | Codex clean after 12 rounds. **Decision:** owner OK on what goes live with it: terms, privacy and usage-data pages in six languages, the results disclaimer, the company line (check it against the Ergodic Group credit), and usage sharing on by default (opt-out in Settings) |
+| AI assistant with your own Anthropic or OpenAI key (interim, until the backend AI routes exist) | [#1064](https://github.com/lambdaclass/stabileo/pull/1064), follow-up [#1080](https://github.com/lambdaclass/stabileo/issues/1080) (localize validation and action errors) | draft; #1080 after it |
+| Desktop app, phases 1–3 | [#785](https://github.com/lambdaclass/stabileo/pull/785) | **Decision:** its branch has no phase 1–3 work (an older copy of #663's branch); close it or keep it as tracking |
+| Review scripts in the repo | [#842](https://github.com/lambdaclass/stabileo/pull/842) | **Decision:** the Kimi/Grok reviewer sandbox keeps the host network (Kimi needs its API); full isolation needs an outbound proxy limited to the model APIs |
+| Performance ratchet (route size gate) | [#768](https://github.com/lambdaclass/stabileo/pull/768) | **Decision:** the 64-byte margin makes nearly every web PR update `web/perf-budget.json`; keep strict or widen |
+
 ## Multipliers
 
 > **Backlog conventions.** The five backlog sections below (Multipliers, Trust and verification, Engineering coverage, Solver and proof depth, Release safety) are the single backlog. Every item links to its GitHub issue; the tracker is [#396](https://github.com/lambdaclass/stabileo/issues/396). Each section ends with **exit criteria** (when the section is done) and the **metrics** that track them. The metrics are computed by `scripts/verification-metrics.py` and published on the verification [dashboard](../verification/DASHBOARD.md) (current values and per-release history); a metric that cannot be measured yet says "not yet measured" there, never an estimate. Per-item verification levels are in [MATURITY.md](../verification/MATURITY.md). Entry point for all roadmap documents: [README.md](README.md).
