@@ -17,8 +17,10 @@
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline.
-# ONLY pull_request job selection is narrowed. Trusted events select all jobs;
-# research route isolation still selects research changes within its job.
+# ONLY pull_request job selection is narrowed by path. The merge queue skips the heavy jobs that
+# combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
+# E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
+# everything, and post-merge.yml opens a revert PR when a main push fails.
 # CI OK accepts intentional skips but rejects failures/cancellations, including detection.
 name: CI
 
@@ -31,6 +33,9 @@ on:
   # The merge queue: each PR is tested on top of the ones merging before it, so two PRs that
   # are green on their own cannot break main together.
   merge_group:
+  schedule:
+    - cron: '30 3 * * *'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
@@ -74,6 +79,8 @@ jobs:
       engine: ${{ steps.select.outputs.engine }}
       web: ${{ steps.select.outputs.web }}
       research: ${{ steps.select.outputs.research }}
+      research_route_only: ${{ steps.select.outputs.research_route_only }}
+      slow_e2e: ${{ steps.select.outputs.slow_e2e }}
       docker: ${{ steps.select.outputs.docker }}
       backend: ${{ steps.select.outputs.backend }}
       ai_backend: ${{ steps.select.outputs.ai_backend }}
@@ -160,6 +167,7 @@ jobs:
               - '.github/workflows/nightly.yml'
               - '.github/workflows/supply-chain.yml'
               - '.github/workflows/merge-queue-supersede.yml'
+              - '.github/workflows/post-merge.yml'
               - 'scripts/tests/**'
               - 'scripts/ci/**'
               - 'Makefile'
@@ -543,7 +551,7 @@ jobs:
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.backend == 'true' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1196,13 +1204,8 @@ jobs:
           else
             make e2e.web.smoke SHARD=${{ matrix.shard }}/10
           fi
-      # Heavier suite (408-member model): in the merge queue, so it runs on exactly what lands on
-      # main, before it lands; on a PR only with the `run-e2e` label. On one shard it took 1.5 to
-      # 2.3 hours. `--shard=N/5` split it by test count and left the Basic advanced sweep, 54 of
-      # its 120 minutes, in shard 1 (49 min there, 6 in the lightest); it is balanced by duration
-      # now, like the smoke suite, from its own table.
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
-        if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        if: needs.changes.outputs.slow_e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN=
@@ -1213,7 +1216,7 @@ jobs:
       # prove stable. Never pass --update-snapshots by default: it would overwrite
       # the baselines and leave the gate inert. UPDATE_SNAPSHOTS=1 refreshes them once.
       - name: E2E visual baselines (non-blocking comparison)
-        if: matrix.shard == 1 && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
+        if: matrix.shard == 1 && (needs.changes.outputs.slow_e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
         continue-on-error: true
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
@@ -1338,7 +1341,7 @@ jobs:
     if: needs.changes.outputs.research == 'true'
     uses: ./.github/workflows/research.yml
     with:
-      route_only: ${{ needs.changes.outputs.scope == 'tools' }}
+      route_only: ${{ needs.changes.outputs.research_route_only == 'true' }}
 
   # The one required check. Path filters skip jobs, and a skipped required check counts as
   # passing, so branch protection requires this job instead of each job by name: it fails

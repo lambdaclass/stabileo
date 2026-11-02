@@ -1,4 +1,9 @@
-"""Conservative PR path -> jobs/spec globs. No paths or unknown/mixed areas mean full."""
+"""Conservative PR path -> jobs/spec globs. No paths or unknown/mixed areas mean full.
+
+The merge queue runs the full set minus the heavy jobs that combining PRs rarely breaks
+(slow E2E, visual baselines, Docker smoke, Determinism, quarantined E2E, research validation
+beyond route budgets); pushes to main and the scheduled run add them back.
+"""
 import json
 import os
 import re
@@ -10,6 +15,9 @@ SPECS = {
     'tools': ['tools*.spec.ts'],
     'engine': ['certificate-end-to-end.spec.ts', 'basic-pdelta.spec.ts', 'engine-i18n.spec.ts'],
 }
+
+
+POST_MERGE_EVENTS = ('push', 'schedule', 'workflow_dispatch')
 
 
 def area(path):
@@ -38,11 +46,14 @@ def select(event, paths, root=None, force_full=False):
         if not any(units.rglob('*.test.ts')) or not all(list((root / 'web/e2e').glob(g)) for g in SPECS[scope]):
             scope = 'full'
     full = scope == 'full'
-    outputs = {key: full for key in ('backend', 'ci_scripts', 'flaky')}
-    outputs.update(docker=scope != 'docs', web_build=scope != 'docs', ai_backend=full or scope == 'engine',
+    queue = event == 'merge_group'
+    outputs = {key: full for key in ('backend', 'ci_scripts')}
+    outputs.update(docker=scope != 'docs' and not queue, web_build=scope != 'docs', ai_backend=full or scope == 'engine',
                    engine=full or scope == 'engine', web=scope != 'docs',
                    research=full or scope in ('research', 'tools', 'engine'),
-                   determinism=full or scope == 'engine', results=full or scope == 'engine')
+                   research_route_only=queue or scope == 'tools',
+                   determinism=(full or scope == 'engine') and not queue, results=full or scope == 'engine',
+                   flaky=full and not queue, slow_e2e=event in POST_MERGE_EVENTS)
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
                    e2e_specs=json.dumps(SPECS.get(scope, [])),

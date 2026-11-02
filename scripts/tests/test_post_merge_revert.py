@@ -1,0 +1,158 @@
+import base64
+import importlib.util
+import os
+import pathlib
+import stat
+import subprocess
+import tempfile
+import unittest
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location('revert', ROOT / '.github/scripts/post-merge-revert.py')
+revert = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(revert)
+GIT = ['git', '-c', 'user.name=t', '-c', 'user.email=t@localhost', '-c', 'commit.gpgsign=false']
+
+
+def git(repo, *args):
+    return subprocess.run([*GIT, *args], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+
+
+def write(repo, path, text):
+    p = pathlib.Path(repo, path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text)
+
+
+def merge_pr(repo, number, edit):
+    git(repo, 'checkout', '-q', '-b', f'pr{number}', 'main')
+    edit()
+    git(repo, 'add', '-A')
+    git(repo, 'commit', '-q', '-m', f'change {number}')
+    git(repo, 'checkout', '-q', 'main')
+    git(repo, 'merge', '-q', '--no-ff', '-m', f'Merge pull request #{number} from org/pr{number}', f'pr{number}')
+    return git(repo, 'rev-parse', 'HEAD')
+
+
+class Repo(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.repo = self.tmp.name
+        git(self.repo, 'init', '-q', '-b', 'main')
+        write(self.repo, 'keep.txt', 'a\n')
+        write(self.repo, 'gone.txt', 'old\n')
+        git(self.repo, 'add', '-A')
+        git(self.repo, 'commit', '-q', '-m', 'base')
+        self.good = git(self.repo, 'rev-parse', 'HEAD')
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+
+class SuspectRange(Repo):
+    def test_every_merge_since_the_last_green_push_is_suspect(self):
+        first = merge_pr(self.repo, 1, lambda: write(self.repo, 'one.txt', '1\n'))
+        second = merge_pr(self.repo, 2, lambda: write(self.repo, 'two.txt', '2\n'))
+        self.assertEqual(revert.suspect_merges(self.repo, self.good, second), [second, first])
+        self.assertEqual(revert.pr_numbers(self.repo, [second, first]), ['2', '1'])
+
+    def test_without_a_green_ancestor_only_the_failing_merge_is_suspect(self):
+        merge_pr(self.repo, 1, lambda: write(self.repo, 'one.txt', '1\n'))
+        second = merge_pr(self.repo, 2, lambda: write(self.repo, 'two.txt', '2\n'))
+        self.assertEqual(revert.suspect_merges(self.repo, None, second), [second])
+        self.assertEqual(revert.suspect_merges(self.repo, '0' * 40, second), [second])
+
+
+class RevertChanges(Repo):
+    def test_the_revert_restores_the_tree_before_the_merges_on_top_of_main(self):
+        def edit():
+            write(self.repo, 'keep.txt', 'b\n')
+            write(self.repo, 'new.txt', 'n\n')
+            os.remove(os.path.join(self.repo, 'gone.txt'))
+        bad = merge_pr(self.repo, 1, edit)
+        later = merge_pr(self.repo, 2, lambda: write(self.repo, 'later.txt', 'l\n'))
+        changes = revert.revert_changes(self.repo, later, [bad])
+        additions = {a['path']: base64.b64decode(a['contents']).decode() for a in changes['additions']}
+        self.assertEqual(additions, {'keep.txt': 'a\n', 'gone.txt': 'old\n'})
+        self.assertEqual(changes['deletions'], [{'path': 'new.txt'}])
+        self.assertEqual(git(self.repo, 'worktree', 'list').count('\n'), 0)
+
+    def test_a_conflicting_revert_gives_none(self):
+        bad = merge_pr(self.repo, 1, lambda: write(self.repo, 'keep.txt', 'b\n'))
+        later = merge_pr(self.repo, 2, lambda: write(self.repo, 'keep.txt', 'c\n'))
+        self.assertIsNone(revert.revert_changes(self.repo, later, [bad]))
+
+
+class Decisions(unittest.TestCase):
+    runs = [{'conclusion': 'success', 'created_at': '2026-11-02T10:00:00Z', 'head_sha': 'g1'},
+            {'conclusion': 'failure', 'created_at': '2026-11-02T11:00:00Z', 'head_sha': 'b1'},
+            {'conclusion': 'success', 'created_at': '2026-11-02T09:00:00Z', 'head_sha': 'g0'}]
+
+    def test_last_green_before_and_green_after(self):
+        self.assertEqual(revert.last_green_before(self.runs, '2026-11-02T11:00:00Z'), 'g1')
+        self.assertIsNone(revert.last_green_before(self.runs, '2026-11-02T08:00:00Z'))
+        self.assertFalse(revert.green_after(self.runs, '2026-11-02T11:00:00Z'))
+        self.assertTrue(revert.green_after(self.runs, '2026-11-02T09:30:00Z'))
+
+    def test_enqueue_only_when_approved_and_every_required_check_passed(self):
+        self.assertTrue(revert.ready({'review': 'APPROVED', 'checks': ['pass', 'skipping']}))
+        self.assertFalse(revert.ready({'review': 'REVIEW_REQUIRED', 'checks': ['pass']}))
+        self.assertFalse(revert.ready({'review': 'APPROVED', 'checks': []}))
+        self.assertFalse(revert.ready({'review': 'APPROVED', 'checks': ['pass', 'pending']}))
+        self.assertTrue(revert.failed({'review': '', 'checks': ['pass', 'fail']}))
+        self.assertTrue(revert.failed({'review': '', 'checks': ['cancel']}))
+        self.assertFalse(revert.failed({'review': '', 'checks': ['pending']}))
+
+    def test_the_script_never_approves_its_own_revert(self):
+        source = (ROOT / '.github/scripts/post-merge-revert.py').read_text()
+        self.assertNotIn('event=APPROVE', source)
+        self.assertIn('jump: true', source)
+        self.assertIn('createCommitOnBranch', source)
+
+
+class Workflow(unittest.TestCase):
+    def test_reacts_only_to_failed_main_pushes_of_ci(self):
+        text = (ROOT / '.github/workflows/post-merge.yml').read_text()
+        self.assertIn('workflows: [CI]', text)
+        self.assertIn('branches: [main]', text)
+        self.assertIn("github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'failure'", text)
+        self.assertIn('cancel-in-progress: false', text)
+        self.assertIn('timeout-minutes:', text)
+        self.assertIn('secrets.REVERT_BOT_TOKEN', text)
+        self.assertIn('secrets.NTFY_TOPIC', text)
+        self.assertNotIn('pull-requests: write', text)
+
+
+class Ntfy(unittest.TestCase):
+    def send(self, env, *args):
+        with tempfile.TemporaryDirectory() as tmp:
+            curl = pathlib.Path(tmp, 'curl')
+            curl.write_text('#!/bin/sh\nfor a; do printf "%s\\n" "$a"; done > "$OUT/args"\n'
+                            'while [ $# -gt 0 ]; do [ "$1" = -K ] && cat "$2" > "$OUT/cfg"; shift; done\ncat > "$OUT/body"\n')
+            curl.chmod(curl.stat().st_mode | stat.S_IEXEC)
+            full = {'PATH': f'{tmp}:/usr/bin:/bin', 'OUT': tmp, **env}
+            result = subprocess.run([str(ROOT / '.github/scripts/ntfy-send.sh'), *args], env=full, capture_output=True, text=True)
+            files = {p.name: p.read_text() for p in pathlib.Path(tmp).iterdir() if p.name in ('args', 'cfg', 'body')}
+        return result, files
+
+    def test_sends_to_the_topic_without_putting_it_on_the_command_line(self):
+        topic = 'a' * 30
+        result, files = self.send({'NTFY_TOPIC': topic, 'NTFY_TOKEN': 'tok'}, 'urgent', 'title', 'body text')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(f'url = "https://ntfy.sh/{topic}"', files['cfg'])
+        self.assertIn('Authorization: Bearer tok', files['cfg'])
+        self.assertNotIn(topic, files['args'])
+        self.assertIn('Priority: urgent', files['args'])
+        self.assertEqual(files['body'], 'body text')
+
+    def test_without_a_topic_it_only_prints_and_with_a_bad_one_it_fails(self):
+        result, files = self.send({}, 'high', 't', 'b')
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(files, {})
+        result, files = self.send({'NTFY_TOPIC': 'short'}, 'high', 't', 'b')
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(files, {})
+
+
+if __name__ == '__main__':
+    unittest.main()

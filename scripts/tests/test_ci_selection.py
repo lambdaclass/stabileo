@@ -21,7 +21,7 @@ class Selection(unittest.TestCase):
         for paths, scope, enabled in [
             (['docs/a.md', 'README.md', 'changelog.d/a.md'], 'docs', set()),
             (['research/a.rs', 'web/src/components/research/a.svelte', 'web/e2e/research-new.spec.ts', 'changelog.d/a.md'], 'research', {'docker', 'web', 'web_build', 'research'}),
-            (['web/src/components/tools/a.svelte'], 'tools', {'docker', 'web', 'web_build', 'research'}),
+            (['web/src/components/tools/a.svelte'], 'tools', {'docker', 'web', 'web_build', 'research', 'research_route_only'}),
             (['engine/src/lib.rs', 'README.md'], 'engine', {'docker', 'web', 'web_build', 'engine', 'ai_backend', 'research', 'determinism', 'results'}),
         ]:
             with self.subTest(scope=scope):
@@ -87,7 +87,7 @@ class Selection(unittest.TestCase):
             self.assertEqual(result[key], 'true', key)
 
     def test_trusted_events_and_label_are_always_full(self):
-        for event in ['merge_group', 'push', 'workflow_dispatch', None]:
+        for event in ['push', 'schedule', 'workflow_dispatch', None]:
             for paths in [[], ['docs/a'], ['research/a'], ['engine/a']]:
                 self.assert_full(selection.select(event, paths))
         self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
@@ -173,7 +173,7 @@ class Selection(unittest.TestCase):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}', text)
         self.assertIn('CHANGED_FILES: ${{ steps.filter.outputs.all_files }}', text)
-        self.assertIn("if: github.event_name != 'pull_request' || contains", text)
+        self.assertIn("if: needs.changes.outputs.slow_e2e == 'true' || contains", text)
         for key in selection.select('push', []):
             self.assertIn('${{ steps.select.outputs.' + key + ' }}', text)
         self.assertNotIn('\n  rust:', text)
