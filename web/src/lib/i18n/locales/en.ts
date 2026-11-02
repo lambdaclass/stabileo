@@ -4198,7 +4198,7 @@ const en: Record<string, string> = {
   'videos.hint': "How a building is put together in PRO, and the full walkthrough of one, from the grid to the report. They open on YouTube.",
   'videos.building.title': "Model a building in Stabileo PRO",
   'videos.building.desc': "Grid and levels, a background plan, columns, a core, beams, slabs and a stair, and a quick analysis.",
-  'videos.walkthrough.title': "Full walkthrough: a 3-storey building from grid to report",
+  'videos.walkthrough.title': "Full walkthrough: a 3-story building from grid to report",
   'videos.walkthrough.desc': "The same building, each step explained: model, code loads, combinations, analysis, results and report.",
   'videos.minutes': "{n} min",
   'videos.watch': "Watch on YouTube",

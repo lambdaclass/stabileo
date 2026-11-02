@@ -542,6 +542,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'view.decimalsAuto',
   'view.qty.moment',
   'view.rename',
+  'viewer.mode.3d',
   'viewport3d.momentY',
   'viewport3d.momentZ',
   'viewport3d.torsion',
