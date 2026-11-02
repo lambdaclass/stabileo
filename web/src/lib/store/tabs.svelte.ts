@@ -111,6 +111,8 @@ function generateTabId(): string {
   return `tab-${Date.now()}-${++tabIdCounter}`;
 }
 
+let restoringTab = false;
+
 function createTabManager() {
   let tabs = $state<TabState[]>([]);
   let activeTabId = $state<string | null>(null);
@@ -230,7 +232,12 @@ function createTabManager() {
 
       // Restore model
       modelStore.restore(state.modelSnapshot);
-      modelStore.announceNewProject();
+      restoringTab = true;
+      try {
+        modelStore.announceNewProject();
+      } finally {
+        restoringTab = false;
+      }
       // Each tab is its own project, so its emission list and hand-edit set travel with it.
       // Not done by `restore()`, which is also the undo path — see project-provenance.ts.
       hydrateProjectProvenance(state.modelSnapshot);
@@ -353,6 +360,8 @@ function createTabManager() {
   return {
     get tabs() { return tabs; },
     get activeTabId() { return activeTabId; },
+    /** True while a tab switch hands its own document back to the stores, which is not a new document. */
+    get restoringTab() { return restoringTab; },
     get activeTab() { return tabs.find(t => t.id === activeTabId) ?? null; },
     get tabCount() { return tabs.length; },
     get isTabSwitching() { return _tabSwitching; },

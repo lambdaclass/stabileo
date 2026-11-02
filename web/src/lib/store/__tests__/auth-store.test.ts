@@ -1,3 +1,4 @@
+import { LEGAL_VERSION } from '../../legal/version';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Account, Session } from '../../api/auth';
 
@@ -112,14 +113,14 @@ describe('the auth store', () => {
     }));
     on('POST /register', () => json(201, session(2)));
 
-    const err = await authStore.register({ email: 'ada@example.com', password: 'longenough', name: 'Ada', locale: 'en' }).catch((e) => e);
+    const err = await authStore.register({ email: 'ada@example.com', password: 'longenough', name: 'Ada', locale: 'en', accept_terms: true }).catch((e) => e);
     expect(err.details).toEqual({ email: ['has already been taken'] });
     expect(authStore.status).toBe('anonymous');
 
-    await authStore.register({ email: 'ada2@example.com', password: 'longenough', name: 'Ada', locale: 'en' });
+    await authStore.register({ email: 'ada2@example.com', password: 'longenough', name: 'Ada', locale: 'en', accept_terms: true });
     expect(seen.map((s) => s.body)).toEqual([
-      { email: 'ada@example.com', password: 'longenough', name: 'Ada', locale: 'en' },
-      { email: 'ada2@example.com', password: 'longenough', name: 'Ada', locale: 'en' },
+      { email: 'ada@example.com', password: 'longenough', name: 'Ada', locale: 'en', accept_terms: true },
+      { email: 'ada2@example.com', password: 'longenough', name: 'Ada', locale: 'en', accept_terms: true },
     ]);
     expect(authStore.status).toBe('authenticated');
     expect(storage.get('stabileo-refresh-token')).toBe('refresh-2');
@@ -142,6 +143,24 @@ describe('the auth store', () => {
     expect(authStore.status).toBe('authenticated');
     expect(authStore.account).toEqual(ADA);
     expect(storage.get('stabileo-refresh-token')).toBe('refresh-1');
+  });
+
+  it('is not settled while a stored session could not be checked, and is once it is restored or there is none', async () => {
+    storage.set('stabileo-refresh-token', 'refresh-0');
+    const { authStore } = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true }));
+    on('POST /refresh', () => json(503, { error: 'unavailable', message: 'down' }));
+    await authStore.init();
+    expect(authStore.initialized).toBe(false);
+    on('POST /login', () => json(200, session(2)));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    expect(authStore.initialized).toBe(true);
+
+    storage.clear();
+    const again = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true }));
+    await again.authStore.init();
+    expect(again.authStore.initialized).toBe(true);
   });
 
   it('init without a stored token only reads /config', async () => {
@@ -470,7 +489,7 @@ describe('the runtime sign-in flag', () => {
     on('POST /register', off);
 
     const login = await authStore.login({ email: 'ada@example.com', password: 'pw-pw-pw-pw' }).catch((e) => e);
-    const register = await authStore.register({ email: 'ada@example.com', password: 'pw-pw-pw-pw', name: 'Ada' }).catch((e) => e);
+    const register = await authStore.register({ email: 'ada@example.com', password: 'pw-pw-pw-pw', name: 'Ada', accept_terms: true }).catch((e) => e);
 
     expect([login.status, login.code]).toEqual([403, 'user_login_disabled']);
     expect([register.status, register.code]).toEqual([403, 'user_login_disabled']);
@@ -485,5 +504,124 @@ describe('initialsOf', () => {
     expect(initialsOf({ name: 'Ada King Lovelace', email: 'a@x.io' })).toBe('AL');
     expect(initialsOf({ name: 'ada', email: 'a@x.io' })).toBe('AD');
     expect(initialsOf({ name: '  ', email: 'zoe@x.io' })).toBe('ZO');
+  });
+});
+
+describe('consents and server switches', () => {
+  const CONSENTS = { terms: { version: '2026-10-27', accepted_at: '2026-10-27T12:00:00Z' }, terms_current: true, usage_analytics: false, model_research: false };
+
+  it('reads the server switches and the terms version from /config', async () => {
+    const { authStore } = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true, terms_version: '2026-10-27', usage_telemetry_enabled: true, cloud_projects_enabled: false }));
+    await authStore.init();
+    expect(authStore.termsVersion).toBe('2026-10-27');
+    expect(authStore.usageTelemetryEnabled).toBe(true);
+    expect(authStore.cloudProjectsEnabled).toBe(false);
+  });
+
+  it('switches read off when /config is unreachable', async () => {
+    const { authStore } = await load();
+    on('GET /config', () => json(503, {}));
+    await authStore.init();
+    expect(authStore.usageTelemetryEnabled).toBe(false);
+    expect(authStore.cloudProjectsEnabled).toBe(false);
+    expect(authStore.saveRequiresAccount).toBe(false);
+    expect(authStore.termsVersion).toBeNull();
+  });
+
+  it('asks for an account to save only while sign-in is open', async () => {
+    const { authStore } = await load();
+    on('GET /config', () => json(200, { user_login_enabled: false, save_requires_account: true }));
+    await authStore.init();
+    expect(authStore.saveRequiresAccount).toBe(false);
+
+    const again = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true, save_requires_account: true }));
+    await again.authStore.init();
+    expect(again.authStore.saveRequiresAccount).toBe(true);
+  });
+
+  it('asks for the terms only when the signed-in account accepted older ones', async () => {
+    const { authStore } = await load();
+    expect(authStore.needsTerms).toBe(false);
+    on('POST /login', () => json(200, session(1, { ...ADA, consents: { ...CONSENTS, terms_current: false } })));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    expect(authStore.needsTerms).toBe(true);
+  });
+
+  it('records a consent with the session and adopts the account it answers', async () => {
+    const { authStore } = await load();
+    on('POST /login', () => json(200, session(1, { ...ADA, consents: { ...CONSENTS, terms_current: false } })));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    on('POST /consents', () => json(201, { data: { ...ADA, consents: CONSENTS } }));
+
+    await authStore.recordConsent('terms', true);
+
+    expect(seen.at(-1)).toEqual({ route: 'POST /consents', body: { kind: 'terms', granted: true, version: LEGAL_VERSION }, auth: 'Bearer access-1' });
+    expect(authStore.needsTerms).toBe(false);
+    expect(authStore.account?.consents?.terms_current).toBe(true);
+  });
+
+  it('sends consent changes one at a time, so the last choice is the one stored and shown', async () => {
+    const { authStore } = await load();
+    on('POST /login', () => json(200, session(1, { ...ADA, consents: CONSENTS })));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    let release!: () => void;
+    const held = new Promise<void>((done) => (release = done));
+    on(
+      'POST /consents',
+      async () => {
+        await held;
+        return json(201, { data: { ...ADA, consents: { ...CONSENTS, model_research: true } } });
+      },
+      () => json(201, { data: { ...ADA, consents: { ...CONSENTS, model_research: false } } }),
+    );
+
+    const first = authStore.recordConsent('model_research', true);
+    const second = authStore.recordConsent('model_research', false);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(authStore.consentSaving).toBe(true);
+    expect(seen.filter((s) => s.route === 'POST /consents')).toHaveLength(1);
+
+    release();
+    await Promise.all([first, second]);
+    expect(seen.filter((s) => s.route === 'POST /consents').map((s) => s.body)).toEqual([
+      { kind: 'model_research', granted: true },
+      { kind: 'model_research', granted: false },
+    ]);
+    expect(authStore.account?.consents?.model_research).toBe(false);
+    expect(authStore.consentSaving).toBe(false);
+  });
+
+  it('drops a consent change queued or answered for an account that has since signed out', async () => {
+    const { authStore } = await load();
+    on('POST /login', () => json(200, session(1, { ...ADA, consents: CONSENTS })));
+    on('DELETE /logout', () => json(200, { message: 'Logged out' }));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    let release!: () => void;
+    const held = new Promise<void>((done) => (release = done));
+    on('POST /consents', async () => {
+      await held;
+      return json(201, { data: { ...ADA, consents: { ...CONSENTS, model_research: true } } });
+    });
+
+    const answered = authStore.recordConsent('model_research', true).catch((e) => e);
+    const queued = authStore.recordConsent('model_research', false).catch((e) => e);
+    await new Promise((done) => setTimeout(done, 0));
+    await authStore.logout();
+    release();
+
+    expect((await answered).code).toBe('account_changed');
+    expect((await queued).code).toBe('account_changed');
+    expect(seen.filter((s) => s.route === 'POST /consents')).toHaveLength(1);
+    expect(authStore.account).toBeNull();
+    expect(authStore.consentSaving).toBe(false);
+  });
+
+  it('sends the terms acceptance and the optional usage choice with a sign-up', async () => {
+    const { authStore } = await load();
+    on('POST /register', () => json(201, session(1, { ...ADA, consents: CONSENTS })));
+    await authStore.register({ email: 'ada@example.com', password: 'longenough', name: 'Ada', accept_terms: true, usage_analytics: true });
+    expect(seen.at(-1)!.body).toEqual({ email: 'ada@example.com', password: 'longenough', name: 'Ada', accept_terms: true, usage_analytics: true });
   });
 });

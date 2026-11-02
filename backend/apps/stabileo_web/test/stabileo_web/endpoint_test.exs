@@ -9,7 +9,13 @@ defmodule StabileoWeb.EndpointTest do
       |> put_req_header("content-type", "application/json")
       |> post(
         "/api/v1/auth/register",
-        Jason.encode!(%{email: "endpoint@example.com", password: "long-enough", name: "E"})
+        Jason.encode!(%{
+          email: "endpoint@example.com",
+          password: "long-enough",
+          name: "E",
+          accept_terms: true,
+          terms_version: StabileoAuth.Consents.terms_version()
+        })
       )
       |> json_response(201)
 

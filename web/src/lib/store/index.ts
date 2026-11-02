@@ -9,6 +9,7 @@ import { historyStore } from './history.svelte';
 import { dsmStepsStore } from './dsmSteps.svelte';
 import { fmStepsStore } from './fmSteps.svelte';
 import { tabManager } from './tabs.svelte';
+import { cloudLinks } from './cloud-link.svelte';
 import { tourStore } from './tour.svelte';
 import { verificationStore } from './verification.svelte';
 import { storedRefusal } from './design-refusals';
@@ -51,6 +52,7 @@ modelStore._setOnReplaced(() => connectionPrompt.clear());
  * Not on every restore: undo, a what-if slider and an applied edit keep them.
  */
 modelStore._setOnNewProject(() => {
+  if (!tabManager.restoringTab) cloudLinks.forget(tabManager.activeTabId ?? 'default');
   viewVisibility.showAll();
   uiStore.selfWeightCaseId = null;
   // The last floor and footing runs were the previous project's; its own are in its file.

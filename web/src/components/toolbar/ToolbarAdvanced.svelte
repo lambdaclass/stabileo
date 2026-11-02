@@ -1,6 +1,7 @@
 <script lang="ts" module>
   import DespieceOptions from '../DespieceOptions.svelte';
   import { untrack } from 'svelte';
+  import { trackUsage } from '../../lib/telemetry/usage';
   import { uiStore, modelStore, resultsStore, dsmStepsStore, fmStepsStore } from '../../lib/store';
 
   const threeD = (): boolean => uiStore.is3DWorkspace;
@@ -264,6 +265,10 @@
 
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
+  $effect(() => {
+    const key = active?.key;
+    if (key) untrack(() => trackUsage('advanced.open', { analysis: key }));
+  });
 
   /**
    * Close one function, as "← Back" and the list's own toggle-off both do: its

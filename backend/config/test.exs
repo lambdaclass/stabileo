@@ -41,3 +41,5 @@ config :cors_plug, origin: ["http://localhost:4000"]
 
 # These keys in config.exs or runtime.exs would hand production a 1-round password hash.
 config :argon2_elixir, t_cost: 1, m_cost: 8
+
+config :stabileo_insights, prune_usage: false

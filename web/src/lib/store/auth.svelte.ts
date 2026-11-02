@@ -1,5 +1,5 @@
 import { ApiError, setAuthHooks, type RefreshOutcome } from '../api/client';
-import { authApi, type Account, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
+import { authApi, type Account, type AuthConfig, type ConsentKind, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
 import { accounts } from '../features';
 
 export type AuthStatus = 'anonymous' | 'loading' | 'authenticated';
@@ -26,10 +26,15 @@ function writeRefreshToken(token: string | null): void {
 let account = $state<Account | null>(null);
 let status = $state<AuthStatus>('anonymous');
 let userLoginEnabled = $state(false);
+let serverConfig = $state<AuthConfig | null>(null);
 let accessToken: string | null = null;
 // The refresh token this tab last stored. Other tabs share the stored key and may replace it.
 let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
+let consentWrites = $state(0);
+let initialized = $state(false);
+let sessionUnresolved = $state(false);
+let consentQueue: Promise<unknown> = Promise.resolve();
 
 function applySession(session: Session): Account {
   accessToken = session.access_token;
@@ -37,6 +42,7 @@ function applySession(session: Session): Account {
   writeRefreshToken(session.refresh_token);
   account = session.account;
   status = 'authenticated';
+  sessionUnresolved = false;
   return session.account;
 }
 
@@ -47,6 +53,7 @@ function clearSession(token: string | null = readRefreshToken()): void {
   if (readRefreshToken() === token) writeRefreshToken(null);
   account = null;
   status = 'anonymous';
+  sessionUnresolved = false;
 }
 
 async function renew(token: string, retried = false): Promise<RefreshOutcome> {
@@ -78,8 +85,10 @@ setAuthHooks({ accessToken: () => accessToken, refresh: refreshSession });
 
 async function loadConfig(): Promise<void> {
   try {
-    userLoginEnabled = (await authApi.config()).user_login_enabled === true;
+    serverConfig = await authApi.config();
+    userLoginEnabled = serverConfig.user_login_enabled === true;
   } catch {
+    serverConfig = null;
     userLoginEnabled = false;
   }
 }
@@ -107,15 +116,29 @@ export const authStore = {
   get account() { return account; },
   get status() { return status; },
   get isAuthenticated() { return status === 'authenticated'; },
-  get userLoginEnabled() { return userLoginEnabled; },
+  get userLoginEnabled() { return accounts() && userLoginEnabled; },
   get showAccountEntry() { return accounts() && (userLoginEnabled || account !== null); },
+  get cloudProjectsEnabled() { return serverConfig?.cloud_projects_enabled === true; },
+  get saveRequiresAccount() { return accounts() && userLoginEnabled && serverConfig?.save_requires_account === true; },
+  get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
+  get termsVersion() { return serverConfig?.terms_version ?? null; },
+  get consentSaving() { return consentWrites > 0; },
+  /** The server switches are known and a stored session either restored, with its recorded choices, or refused. */
+  get initialized() { return initialized && !sessionUnresolved; },
+  get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
+  /** Without the accounts feature there is no backend to ask, so every server switch stays off. */
   async init(): Promise<void> {
     if (!accounts()) return;
     const restore = status === 'anonymous' && readRefreshToken() !== null;
     if (restore) status = 'loading';
-    const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
-    if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+    try {
+      const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
+      if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+      sessionUnresolved = restore && outcome === 'unavailable' && account === null;
+    } finally {
+      initialized = true;
+    }
   },
 
   register(input: RegisterInput): Promise<Account> {
@@ -148,6 +171,27 @@ export const authStore = {
     const next = await authenticated(() => authApi.updateMe(patch));
     account = next;
     return next;
+  },
+
+  /** Consent writes go one at a time, so the server keeps the last choice; one queued under another account is dropped. */
+  recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
+    const who = account?.id ?? null;
+    const same = () => (account?.id ?? null) === who;
+    consentWrites += 1;
+    const write = consentQueue.then(() => {
+      if (!same()) throw new ApiError(409, 'account_changed', 'signed-in account changed');
+      return authenticated(() => authApi.recordConsent(kind, granted));
+    });
+    consentQueue = write.catch(() => {});
+    return write
+      .then((next) => {
+        if (!same()) throw new ApiError(409, 'account_changed', 'signed-in account changed');
+        account = next;
+        return next;
+      })
+      .finally(() => {
+        consentWrites -= 1;
+      });
   },
 
   changePassword(currentPassword: string, password: string): Promise<void> {

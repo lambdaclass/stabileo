@@ -3,6 +3,7 @@
  * the PDF is printed by the browser from the report's HTML (a blocked window falls back to the
  * HTML as a file, a real deliverable and not a silent failure); the other four are downloaded.
  */
+import { trackUsage } from '../telemetry/usage';
 import { loadXlsxModule } from './excel';
 import { reportFile, type DocxOptions, type ReportFormat, type ReportProvenance } from './report-formats';
 import { rasterizeForPrint } from './rasterize';
@@ -34,6 +35,7 @@ export function docxLayout(title: string, date = new Date().toISOString().slice(
 }
 
 export async function downloadReport(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions }): Promise<string | null> {
+  trackUsage('export', { format: `report-${format}` });
   if (format === 'pdf') { printHtml(r.html, r.stem); return `${r.stem}.pdf`; }
   const f = await reportFile(format, { ...r, docx: r.docx ?? docxLayout(r.title), loadXlsx: loadXlsxModule });
   if (!f) return null;

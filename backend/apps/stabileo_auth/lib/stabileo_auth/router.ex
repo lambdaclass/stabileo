@@ -31,5 +31,6 @@ defmodule StabileoAuth.Router do
     get("/me", ProfileController, :show)
     put("/me", ProfileController, :update)
     put("/password", PasswordController, :update)
+    post("/consents", ConsentController, :create)
   end
 end

@@ -17,6 +17,18 @@ describe('product error text', () => {
     setLocale('en');
   });
 
+  it('translates rate limits, changed terms and refused queued work in every offered language', () => {
+    for (const code of ['rate_limited', 'terms_changed', 'account_changed', 'document_changed', 'project_deleted']) {
+      const e = new ApiError(code === 'rate_limited' ? 429 : 409, code, 'server words');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+        setLocale(locale);
+        expect(errorText(e)).toBe(tAt(`account.err.${code}`, locale));
+        expect(errorText(e)).not.toBe('server words');
+      }
+    }
+    setLocale('en');
+  });
+
   it('maps the server validation messages to translated field text', () => {
     expect(fieldText('must be a two-letter ISO code')).toBe('Use a two-letter ISO code, e.g. AR.');
     expect(fieldText('must have @ sign and no spaces')).toBe('Enter a valid email address, with an @ and no spaces.');
