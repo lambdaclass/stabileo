@@ -1683,6 +1683,11 @@ mod tests {
         m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::Rhs { h: 0.200, b: 0.100, t: 0.006 });
         let (r, _) = ec3_shear_only(&m, vpl(m.a * 0.200 / 0.300, m.fy));
         assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
+        m.a = 5.6e-3;
+        m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::Rhs { h: 0.200, b: 0.100, t: 0.010 });
+        let (r, _) = ec3_shear_only(&m, vpl(2.0 * (0.200 - 2.0 * 0.010) * 0.010, m.fy));
+        assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
+        m.a = 3.6e-3;
         m.geometry = Some(crate::postprocess::ec3_check::Ec3Geometry::Chs { d: 0.1683, t: 0.0071 });
         let (r, _) = ec3_shear_only(&m, vpl(2.0 * m.a / std::f64::consts::PI, m.fy));
         assert!((r.shear_ratio - 1.0).abs() < 1e-12, "{}", r.shear_ratio);
