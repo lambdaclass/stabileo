@@ -88,11 +88,12 @@ export function membersBentOffAxis(
       if (!s) return false;
       const props = solverProperties(s);
       const { iy, iz } = spaceBendingInertias(s, props);
-      const space = iy * cy * cy + iz * cz * cz;
-      const coupling = (iy - iz) * cy * cz;
+      const held = iy * cy * cy + iz * cz * cz;
+      const across = iy * cz * cz + iz * cy * cy;
+      const free = across > 0 ? (iy * iz) / across : held;
       const flat = effectiveBendingInertia(s, props);
-      const scale = Math.max(Math.abs(space), Math.abs(flat), Math.abs(iy), Math.abs(iz));
-      return Math.abs(space - flat) > 1e-6 * scale || Math.abs(coupling) > 1e-6 * scale;
+      const differs = (value: number) => Math.abs(value - flat) > 1e-6 * Math.abs(flat);
+      return differs(held) || differs(free);
     });
     if (off) out.push(id);
   }

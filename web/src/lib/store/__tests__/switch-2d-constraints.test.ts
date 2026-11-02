@@ -155,4 +155,15 @@ describe('a cut bends each member about the axis the space model bends it about 
     expect(membersBentOffAxis('xz', [column], modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual([column]);
     expect(sliceAt('xz', 0)).toEqual({ ok: false, error: 'slice.sectionAxis' });
   });
+
+  it('a nearly aligned, strongly anisotropic section is judged by its stiffness, not by the size of its coupling', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+    const column = modelStore.addElement(a, b, 'frame');
+    const turned = (rotation: number) => modelStore.addSection({ name: 'blade', a: 0.01, iy: 1e-12, iz: 1, j: 1e-6, b: 1, h: 0.01, rotation } as never);
+    const guard = () => membersBentOffAxis('xz', [column], modelStore.elements, modelStore.nodes, modelStore.sections);
+    modelStore.elements.get(column)!.sectionId = turned(0);
+    expect(guard()).toEqual([]);
+    modelStore.elements.get(column)!.sectionId = turned(Math.asin(5e-7) * 180 / Math.PI);
+    expect(guard()).toEqual([column]);
+  });
 });
