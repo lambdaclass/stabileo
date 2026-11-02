@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../lib/store/account-gate.svelte';
   /**
    * The build timelapse's controls: play, scrub, order and length up front; the look, the
    * format, the camera and the texts folded under a summary; and a video of the picture. The
@@ -115,7 +116,8 @@
         const file = fileName(type.ext);
         const url = URL.createObjectURL(new Blob(chunks, { type: type.mime }));
         const a = document.createElement('a');
-        a.href = url; a.download = file; a.click();
+        a.href = url; a.download = file;
+        accountGate.guard('export', () => a.click());
         setTimeout(() => URL.revokeObjectURL(url), 10_000);
         uiStore.toast(tp('timelapse.saved', { file }), 'success');
       },

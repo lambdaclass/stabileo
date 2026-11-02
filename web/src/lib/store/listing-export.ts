@@ -20,12 +20,14 @@ import { provenancePdfPage } from '../sheets/sheet-set';
 import { uiStore } from './ui.svelte';
 import { t } from '../i18n';
 import type { ResultProvenance } from '../provenance/result-provenance';
+import { accountGate } from './account-gate.svelte';
 
 export type ListingFormat = 'pdf' | 'html' | 'docx' | 'xlsx' | 'csv';
 
 function save(name: string, type: string, data: BlobPart) {
   const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = name;
+  accountGate.guard('export', () => a.click());
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 

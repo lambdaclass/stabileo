@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { resultsStore } from '../../lib/store';
   import type { EduExercise, DiagramShape } from './exercises';
   import { t } from '../../lib/i18n';
@@ -311,8 +312,10 @@
     a.href = URL.createObjectURL(blob);
     const who = sub.student ? sub.student.replace(/[^\w\-]+/g, '-').toLowerCase() : 'entrega';
     a.download = `${who}-${sub.exerciseId}.stabileo-entrega.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    accountGate.guard('export', () => {
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
     handinNote = t('edu.handin.downloaded');
   }
 

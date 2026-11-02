@@ -66,8 +66,10 @@
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${(modelStore.model.name || 'model').replace(/[^\w.-]+/g, '_')}.stabileo.txt`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    accountGate.guard('export', () => {
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
   }
 
   async function openFile(e: Event) {
@@ -86,7 +88,7 @@
     <button onclick={() => accountGate.guard('code', copy)}>{t('code.copy')}</button>
     <button onclick={() => accountGate.guard('code', download)}>{t('code.download')}</button>
     <button onclick={() => fileInput?.click()}>{t('code.open')}</button>
-    <input type="file" accept=".txt,.stabileo" bind:this={fileInput} onchange={openFile} hidden />
+    <input type="file" accept=".txt,.stabileo" bind:this={fileInput} onchange={accountGate.files('import', openFile)} hidden />
   </div>
   <p class="cp-status">
     {tp('code.size', { lines: lineCount, chars: text.length })}

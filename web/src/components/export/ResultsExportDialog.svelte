@@ -31,7 +31,7 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
-    <button type="button" class="primary" onclick={() => (format === 'xlsx' ? accountGate.guard('export', run) : run())} disabled={busy} data-testid="results-export-download">{t('viewExport.download')}</button>
+    <button type="button" class="primary" onclick={() => accountGate.guard('export', run)} disabled={busy} data-testid="results-export-download">{t('viewExport.download')}</button>
   {/snippet}
 </ExportDialog>
 

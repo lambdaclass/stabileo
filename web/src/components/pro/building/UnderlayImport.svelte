@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   /**
    * Preparing a DXF as templates (`store/underlays.ts`): its unit and layers, and the regions of
    * the drawing that may be separate plans (`model/underlay-regions.ts`), each with the level it
@@ -108,7 +109,7 @@
 
 <label class="pk-btn ul-file">
   {t('underlay.load')}
-  <input type="file" accept=".dxf,.dwg" onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void read(f); e.currentTarget.value = ''; }} data-testid="underlay-file" />
+  <input type="file" accept=".dxf,.dwg" onchange={accountGate.files('import', (e) => { const input = e.currentTarget as HTMLInputElement; const f = input.files?.[0]; if (f) void read(f); input.value = ''; })} data-testid="underlay-file" />
 </label>
 {#if error}<p class="pk-hint ul-warn" role="alert">{error}</p>{/if}
 

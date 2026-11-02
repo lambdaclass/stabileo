@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, CURRENT_STAMP } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import { gunzipSync } from 'node:zlib';
 import { RESULTS_CHANGED_IN, WHATS_NEW_STORAGE_KEY } from '../src/lib/release/whats-new';
@@ -49,7 +49,7 @@ const savedProject = (id: string, name: string) => ({
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; knownToGoogle?: boolean } = {},
+  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; knownToGoogle?: boolean; path?: string } = {},
 ): Promise<Backend> {
   const backend: Backend = { googleOpened: 0, register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
@@ -120,10 +120,23 @@ async function boot(
     return json(r, 201, { data: { id: 'f1' } });
   });
 
-  await page.goto('/app/basic?e2e=1');
+  await page.goto(opts.path ?? '/app/basic?e2e=1');
   await page.waitForFunction(() => !!window.__stabileo && window.__stabileo.solverReady(), null, { timeout: 60_000 });
   return backend;
 }
+
+const BEAM = {
+  version: '2.0', name: 'Beam', analysisMode: '2d',
+  snapshot: {
+    solvedWith: CURRENT_STAMP,
+    name: 'Beam',
+    nodes: [[1, { id: 1, x: 0, y: 0 }], [2, { id: 2, x: 4, y: 0 }]],
+    elements: [[1, { id: 1, nodeI: 1, nodeJ: 2, type: 'frame', materialId: 1, sectionId: 1, releaseI: {}, releaseJ: {} }]],
+    materials: [[1, { id: 1, name: 'Steel', e: 200000, nu: 0.3, rho: 0 }]],
+    sections: [[1, { id: 1, name: 'Beam', a: 0.01, iy: 1e-4, iz: 1e-4, j: 1e-4 }]],
+    supports: [], loads: [], nextId: { node: 3, element: 2, material: 2, section: 2, support: 1, load: 1 },
+  },
+};
 
 /** Google's window opens, comes back with a code for someone new, and the dialog asks for the terms. */
 async function continueWithGoogle(page: Page) {
@@ -270,29 +283,83 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.register).toHaveLength(1);
   });
 
-  test('with saving behind an account, closing the request saves nothing and results stay free', async ({ page }) => {
+  test('with files behind an account, closing the request saves, opens, imports and exports nothing', async ({ page }) => {
     await boot(page, { saveRequiresAccount: true });
     await page.getByTestId('usage-notice-ok').click();
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(3);
     await page.getByTestId('hdr-project').click();
+    const cancel = () => page.getByTestId('auth-dialog').getByRole('button', { name: 'Cancelar' }).click();
 
     await page.getByTestId('save-open').click();
     await expect(page.getByTestId('auth-reason')).toBeVisible();
-    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await cancel();
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     await expect(page.getByTestId('save-confirm')).toHaveCount(0);
 
-    await page.getByTestId('export-results').click();
-    await page.getByTestId('results-format-xlsx').click();
-    await page.getByTestId('results-export-download').click();
-    await expect(page.getByTestId('auth-reason')).toBeVisible();
-    await page.getByTestId('auth-dialog').getByRole('button', { name: 'Cancelar' }).click();
+    for (const id of ['export-results', 'export-report', 'export-drawings', 'xls-template']) {
+      await page.getByTestId(id).click();
+      await expect(page.getByTestId('auth-reason')).toBeVisible();
+      await cancel();
+      await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    }
+    await expect(page.getByTestId('results-export-download')).toHaveCount(0);
 
+    await page.getByTestId('project-open-file').setInputFiles({ name: 'beam.ded', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(BEAM)) });
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await cancel();
+    await page.getByTestId('xls-input').setInputFiles({ name: 'model.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('not a workbook') });
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await cancel();
+    expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(3);
+  });
+
+  test('opening a file asks for an account and opens it after sign-up', async ({ page }) => {
+    const backend = await boot(page, { saveRequiresAccount: true });
+    await page.getByTestId('usage-notice-ok').click();
+    await page.getByTestId('hdr-project').click();
+
+    await page.getByTestId('project-open-file').setInputFiles({ name: 'beam.ded', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(BEAM)) });
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await continueWithGoogle(page);
+    await page.getByTestId('auth-accept-terms').check();
+    await page.getByTestId('auth-submit').click();
+
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(2);
+    expect(backend.register).toHaveLength(1);
+  });
+
+  test('a signed-in user exports the results CSV without being asked', async ({ page }) => {
+    await boot(page, { signedIn: true, saveRequiresAccount: true });
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+    await page.getByTestId('hdr-project').click();
+    await page.getByTestId('export-results').click();
     await page.getByTestId('results-format-csv').click();
     const download = page.waitForEvent('download');
     await page.getByTestId('results-export-download').click();
     expect((await download).suggestedFilename()).toMatch(/\.csv$/);
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+  });
+
+  test('in PRO, opening, importing and exporting ask for an account too', async ({ page }) => {
+    await boot(page, { saveRequiresAccount: true, path: '/app/pro?e2e=1' });
+    await page.getByTestId('usage-notice-ok').click();
+    await page.getByTestId('pr-project').click();
+    const cancel = () => page.getByTestId('auth-dialog').getByRole('button', { name: 'Cancelar' }).click();
+
+    for (const id of ['pp-export-results', 'pp-export-report', 'pp-export-drawings', 'pp-export-ifc', 'pp-xls-template']) {
+      await page.getByTestId(id).click();
+      await expect(page.getByTestId('auth-reason')).toBeVisible();
+      await cancel();
+      await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    }
+
+    await page.getByTestId('pp-open-file').setInputFiles({ name: 'beam.ded', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(BEAM)) });
+    await expect(page.getByTestId('auth-reason')).toBeVisible();
+    await cancel();
+    expect(await page.evaluate(() => window.__stabileo.nodeCount())).toBe(0);
   });
 
   test('someone Google already knows is signed in without a terms step', async ({ page }) => {

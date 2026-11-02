@@ -309,8 +309,10 @@
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `${draft.id}.stabileo-ej.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    accountGate.guard('export', () => {
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
   }
 
   function share() {
@@ -387,7 +389,7 @@
         <button class="btn-ghost" onclick={() => modelFileInput?.click()}>{t('edu.author.chooseModelFile')}</button>
         <FieldHelp what={t('edu.author.helpModelFileWhat')} example={t('edu.author.helpModelFileEx')} />
       </div>
-      <input bind:this={modelFileInput} type="file" accept=".ded,.json" style="display:none" onchange={useFile} />
+      <input bind:this={modelFileInput} type="file" accept=".ded,.json" style="display:none" onchange={accountGate.files('import', useFile)} />
     {:else}
       <p class="hint">{t('edu.author.linkHint')}</p>
       <div class="row">
@@ -762,7 +764,7 @@
       <button class="btn-ghost" onclick={() => exerciseFileInput?.click()}>{t('edu.author.chooseExerciseFile')}</button>
       <FieldHelp what={t('edu.author.helpExerciseFileWhat')} example={t('edu.author.helpExerciseFileEx')} />
     </div>
-    <input bind:this={exerciseFileInput} type="file" accept=".json" style="display:none" onchange={openFile} />
+    <input bind:this={exerciseFileInput} type="file" accept=".json" style="display:none" onchange={accountGate.files('import', openFile)} />
     {#if importError}<p class="warn">⚠ {importError}</p>{/if}
   </section>
 </div>

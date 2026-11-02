@@ -27,10 +27,15 @@ import { uiStore } from './ui.svelte';
 import { retouchedIn, withExportLog } from './export-log';
 import { coverForMember, sheetMembers } from './detailing-sheet-inputs';
 import type { DocumentModel } from '../engine/detailing/document-model';
+import { accountGate } from './account-gate.svelte';
 
 /** Hand a blob to the browser under a name. The browser then loses sight of it — see
  * `EXPORT_CANNOT_ASSERT`. */
 export function downloadBlob(name: string, type: string, content: string): void {
+  accountGate.guard('export', () => triggerDownload(name, type, content));
+}
+
+function triggerDownload(name: string, type: string, content: string): void {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const a = document.createElement('a');
   a.href = url;

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { downloadReport } from '../../lib/export/report-download';
   import type { DocBlock } from '../../lib/export/docx';
   import { captureProvenanceToken, provenanceForExport } from '../../lib/store/result-provenance';
@@ -98,8 +99,10 @@
     const a = document.createElement('a');
     a.href = url;
     a.download = name;
-    a.click();
-    URL.revokeObjectURL(url);
+    accountGate.guard('export', () => {
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   async function generate() {

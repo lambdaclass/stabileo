@@ -16,6 +16,7 @@ import { modelFigureSvg } from './report/model-figure';
 import { formatValue, toDisplay, unitLabel, type Quantity, type UnitSystem } from '../utils/units';
 import { extraDecimals, smallDisplacement } from '../utils/unit-format';
 import type { KinematicReport } from './kinematic-report';
+import { accountGate } from '../store/account-gate.svelte';
 import {
   EXTRA_CSS, figureCounter, forceTable2D, forceTable3D, kinematicsSectionHtml, solveErrorHtml,
   type CalcReportContent, type ReportFigure,
@@ -677,7 +678,7 @@ export function openCalcReport(data: CalcReportData, win?: Window | null): 'tab'
   a.href = url;
   a.download = `${(data.config.projectName || 'stabileo').replace(/[\\/:*?"<>|]+/g, '_').trim() || 'stabileo'}.html`;
   document.body.appendChild(a);
-  a.click();
+  accountGate.guard('export', () => a.click());
   a.remove();
   return 'download';
 }

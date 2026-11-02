@@ -4,6 +4,7 @@
   IFC, a point cloud's slice to trace over, the geometry check and the architecture memoria.
 -->
 <script lang="ts">
+  import { accountGate } from '../../../../lib/store/account-gate.svelte';
   import { t, tp, i18n } from '../../../../lib/i18n';
   import { modelStore } from '../../../../lib/store';
   import {
@@ -93,7 +94,7 @@
       <label>{t('arch.col.construction')} <select bind:value={w.construction} data-testid="wall-construction"><option value="">—</option>{#each a.constructions as c (c.id)}<option value={c.id}>{c.name}</option>{/each}</select></label>
       <button onclick={addWall} data-testid="wall-add">{t('sfl.add')}</button>
     </div>
-    <div class="sf-form"><label>{t('arch.ui.ifcWallsFile')} <input type="file" accept=".ifc" onchange={ifcWalls} /></label></div>
+    <div class="sf-form"><label>{t('arch.ui.ifcWallsFile')} <input type="file" accept=".ifc" onchange={accountGate.files('import', ifcWalls)} /></label></div>
   </details>
 
   <details class="sf-sec" data-testid="arch-rooms">
@@ -129,7 +130,7 @@
       <label>{t('arch.col.level')} <select bind:value={cloud.level}><option value="">—</option>{#each lvs as l (l.id)}<option value={l.id}>{l.name}</option>{/each}</select></label>
       <label>{t('arch.ui.cut')} <input inputmode="decimal" bind:value={cloud.cut} /></label>
       <label>{t('fed.ui.name')} <input bind:value={cloud.name} /></label>
-      <input type="file" accept=".xyz,.pts,.txt,.csv,.asc" onchange={cloudFile} />
+      <input type="file" accept=".xyz,.pts,.txt,.csv,.asc" onchange={accountGate.files('import', cloudFile)} />
     </div>
   </details>
 

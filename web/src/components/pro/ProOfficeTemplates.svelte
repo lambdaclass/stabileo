@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   /**
    * The office's project templates (`store/office-templates.ts`): save the open project's
    * materials, sections, cases, combinations, rules, regulations and deflection limits as a
@@ -52,7 +53,7 @@
     <input bind:value={name} placeholder={t('templates.name')} data-testid="ot-name" />
     <button class="pp-btn" disabled={!name.trim()} onclick={save} data-testid="ot-save">{t('templates.save')}</button>
     <button class="pp-btn" onclick={() => fileInput?.click()} data-testid="ot-import">{t('templates.import')}</button>
-    <input type="file" accept=".json,application/json" hidden bind:this={fileInput} onchange={onFile} />
+    <input type="file" accept=".json,application/json" hidden bind:this={fileInput} onchange={accountGate.files('import', onFile)} />
   </div>
   {#each list as tpl (tpl.name)}
     <div class="ot-row" data-testid="ot-template">

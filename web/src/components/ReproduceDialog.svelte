@@ -77,7 +77,7 @@
       <h3 class="rp-title" id="rp-title">{t('provenance.reproduce.title')}</h3>
       <p class="rp-intro">{t('provenance.reproduce.intro')}</p>
       <textarea class="rp-text" bind:value={text} rows="6" spellcheck="false" data-testid="reproduce-input"></textarea>
-      <input bind:this={fileInput} type="file" accept=".html,.htm,.json,.txt" style="display:none" onchange={loadFile} />
+      <input bind:this={fileInput} type="file" accept=".html,.htm,.json,.txt" style="display:none" onchange={accountGate.files('open', loadFile)} />
       {#if error}<p class="rp-error" data-testid="reproduce-error">{error}</p>{/if}
       {#if outcome}
         {#if outcome.ok}

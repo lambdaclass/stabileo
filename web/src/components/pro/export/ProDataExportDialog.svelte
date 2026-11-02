@@ -199,7 +199,7 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('calcReport.cancel')}</button>
-    <button type="button" class="primary" onclick={() => (modelCount > 0 ? accountGate.guard('export', run) : run())} disabled={busy || modelCount + resultCount === 0} data-testid="pro-data-export-download">{t('viewExport.download')}</button>
+    <button type="button" class="primary" onclick={() => accountGate.guard('export', run)} disabled={busy || modelCount + resultCount === 0} data-testid="pro-data-export-download">{t('viewExport.download')}</button>
   {/snippet}
 </ExportDialog>
 

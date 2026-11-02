@@ -35,7 +35,7 @@ describe('audit sentences', () => {
     expect(auditSentence(entry('account.disable', { email: 'ada@example.com' }))).toBe('Deshabilitó la cuenta ada@example.com');
     expect(auditSentence(entry('allowlist.add', { email: 'bo@lambdaclass.com' }))).toBe('Dio acceso al admin a bo@lambdaclass.com');
     expect(auditSentence(entry('settings.update', { save_requires_account: true, cloud_projects_limit: 3 })))
-      .toBe('Prendió «Guardar y exportar con cuenta» · Cambió «Proyectos por cuenta» a 3');
+      .toBe('Prendió «Archivos con cuenta» · Cambió «Proyectos por cuenta» a 3');
     expect(auditSentence(entry('feedback.status', { status: 'done', excerpt: 'Exportar a IFC' })))
       .toBe('Marcó como «Resuelto» el comentario «Exportar a IFC»');
   });

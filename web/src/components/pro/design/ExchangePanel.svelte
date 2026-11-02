@@ -22,7 +22,8 @@
 
   function save(name: string, type: string, text: string) {
     const url = URL.createObjectURL(new Blob([text], { type }));
-    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    const a = document.createElement('a'); a.href = url; a.download = name;
+    accountGate.guard('export', () => a.click());
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from './lib/store/account-gate.svelte';
   import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
@@ -1116,13 +1117,15 @@
     window.addEventListener('stabileo-import-dxf', handleDxfImportEvent);
     const handleDxfDropEvent = (e: Event) => {
       const ce = e as CustomEvent<File>;
-      if (dxfGoesToCadWizard()) {
-        cadWizardFile = ce.detail;
-        showCadWizard = true;
-      } else {
-        dxfImportFile = ce.detail;
-        showDxfImport = true;
-      }
+      accountGate.guard('import', () => {
+        if (dxfGoesToCadWizard()) {
+          cadWizardFile = ce.detail;
+          showCadWizard = true;
+        } else {
+          dxfImportFile = ce.detail;
+          showDxfImport = true;
+        }
+      });
     };
     window.addEventListener('stabileo-dxf-drop', handleDxfDropEvent);
     const handleIfcImportEvent = () => { ifcFileInput?.click(); };
@@ -2371,14 +2374,14 @@
   type="file"
   accept=".dxf"
   style="display:none"
-  onchange={(e) => {
+  onchange={accountGate.files('import', (e) => {
     const f = (e.currentTarget as HTMLInputElement).files?.[0];
     if (f) {
       if (dxfGoesToCadWizard()) { cadWizardFile = f; showCadWizard = true; }
       else { dxfImportFile = f; showDxfImport = true; }
     }
     (e.currentTarget as HTMLInputElement).value = '';
-  }}
+  })}
 />
 <CadImportWizard
   open={showCadWizard}
@@ -2395,11 +2398,11 @@
   type="file"
   accept=".ifc"
   style="display:none"
-  onchange={(e) => {
+  onchange={accountGate.files('import', (e) => {
     const f = (e.currentTarget as HTMLInputElement).files?.[0];
     if (f) { ifcImportFile = f; showIfcImport = true; }
     (e.currentTarget as HTMLInputElement).value = '';
-  }}
+  })}
 />
 
 {#if showImportDialog}
@@ -2420,7 +2423,7 @@
         rows="10"
       ></textarea>
       <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-        <button class="btn btn-primary" onclick={handleImportCoordinates}>{t('app.import')}</button>
+        <button class="btn btn-primary" onclick={() => accountGate.guard('import', handleImportCoordinates)}>{t('app.import')}</button>
         <button class="btn btn-secondary" onclick={() => showImportDialog = false}>{t('app.cancel')}</button>
       </div>
     </div>

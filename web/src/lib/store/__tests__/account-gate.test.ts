@@ -108,4 +108,65 @@ describe('account gate', () => {
     expect(run).toHaveBeenCalledOnce();
     expect(accountGate.open).toBe(false);
   });
+
+  describe('allow', () => {
+    it('resolves true at once while no account is required', async () => {
+      await expect(accountGate.allow('open')).resolves.toBe(true);
+      expect(accountGate.open).toBe(false);
+    });
+
+    it('waits for sign-in, then resolves true', async () => {
+      auth.saveRequiresAccount = true;
+      const answer = accountGate.allow('import');
+      expect(accountGate.open).toBe(true);
+      expect(accountGate.action).toBe('import');
+
+      auth.isAuthenticated = true;
+      accountGate.open = false;
+      await expect(answer).resolves.toBe(true);
+      expect(tracked.map((e) => e.name)).toEqual(['gate.shown', 'gate.passed']);
+    });
+
+    it('resolves false when the request is closed without signing in', async () => {
+      auth.saveRequiresAccount = true;
+      const answer = accountGate.allow('export');
+      accountGate.open = false;
+      await expect(answer).resolves.toBe(false);
+    });
+  });
+
+  describe('files', () => {
+    const input = () => ({ value: 'C:\\fakepath\\beam.ded', files: ['beam.ded'] }) as unknown as HTMLInputElement;
+
+    it('hands the change straight to the handler while no account is required', () => {
+      const handler = vi.fn();
+      const e = { currentTarget: input() } as unknown as Event;
+      accountGate.files('open', handler)(e);
+      expect(handler).toHaveBeenCalledWith(e);
+    });
+
+    it('reads the chosen file only after sign-in, from the same input', () => {
+      auth.saveRequiresAccount = true;
+      const el = input();
+      const handler = vi.fn((e: Event) => (e.currentTarget as HTMLInputElement).files);
+      accountGate.files('open', handler)({ currentTarget: el } as unknown as Event);
+      expect(handler).not.toHaveBeenCalled();
+      expect(accountGate.action).toBe('open');
+
+      auth.isAuthenticated = true;
+      accountGate.open = false;
+      expect(handler).toHaveBeenCalledOnce();
+      expect(handler.mock.results[0].value).toEqual(['beam.ded']);
+    });
+
+    it('closing the request reads nothing and clears the input, so the same file can be chosen again', () => {
+      auth.saveRequiresAccount = true;
+      const el = input();
+      const handler = vi.fn();
+      accountGate.files('import', handler)({ currentTarget: el } as unknown as Event);
+      accountGate.open = false;
+      expect(handler).not.toHaveBeenCalled();
+      expect(el.value).toBe('');
+    });
+  });
 });

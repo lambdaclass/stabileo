@@ -354,7 +354,7 @@
           <button class="file-btn xls-main" onclick={() => xlsInput?.click()} title={t('xls.ui.importTooltip')} data-testid="xls-import">
             {t('xls.ui.import')}
           </button>
-          <button class="file-btn xls-aside" onclick={handleDownloadTemplate} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
+          <button class="file-btn xls-aside" onclick={() => accountGate.guard('import', handleDownloadTemplate)} title={t('xls.ui.templateTooltip')} data-testid="xls-template">
             {t('xls.ui.template')}
           </button>
         </div>
@@ -366,13 +366,13 @@
 
       <div class="file-sub-group">
         <div class="file-grid file-io file-io-stack">
-          <button class="file-btn" onclick={() => (resultsOpen = true)} title={t('project.exportResultsHelp')} data-testid="export-results">
+          <button class="file-btn" onclick={() => accountGate.guard('export', () => (resultsOpen = true))} title={t('project.exportResultsHelp')} data-testid="export-results">
             {t('export.resultsBtn')}
           </button>
-          <button class="file-btn" onclick={() => (showCalcReport = true)} title={t('project.exportReportHelp')} data-testid="export-report">
+          <button class="file-btn" onclick={() => accountGate.guard('export', () => (showCalcReport = true))} title={t('project.exportReportHelp')} data-testid="export-report">
             {t('export.reportBtn')}
           </button>
-          <button class="file-btn" onclick={() => (viewExportOpen = true)} title={t('project.exportViewHelp')} data-testid="export-drawings">
+          <button class="file-btn" onclick={() => accountGate.guard('export', () => (viewExportOpen = true))} title={t('project.exportViewHelp')} data-testid="export-drawings">
             {t('export.drawingsBtn')}
           </button>
         </div>
@@ -401,7 +401,7 @@
   type="file"
   accept=".ded,.json"
   style="display:none"
-  onchange={handleLoadFile}
+  onchange={accountGate.files('open', handleLoadFile)}
 />
 
 <input
@@ -410,7 +410,7 @@
   type="file"
   accept=".xlsx,.xls"
   style="display:none"
-  onchange={handleImportExcel}
+  onchange={accountGate.files('import', handleImportExcel)}
 />
 
 <CalcReportDialog bind:open={showCalcReport} />

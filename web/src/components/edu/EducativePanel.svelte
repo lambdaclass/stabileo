@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { viewportCanvas } from '../../lib/utils/viewport-canvas';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { returnBorrowedModel } from './exercise-session';
@@ -369,7 +370,7 @@
             type="file"
             accept=".json"
             style="display:none"
-            onchange={openSubmissionFile}
+            onchange={accountGate.files('import', openSubmissionFile)}
           />
 
           <div class="submit-row">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   /**
    * One template (`store/underlays.ts`): seen or not, its level, lock and strength, and, open,
    * what it is (file, unit, region, the point it was laid by), its placement, its alignment by two
@@ -102,7 +103,7 @@
     <div class="pk-row">
       <label class="pk-btn ul-file" class:disabled={u.locked}>
         {t('underlay.replace')}
-        <input type="file" accept=".dxf" disabled={u.locked} onchange={(e) => { const f = e.currentTarget.files?.[0]; if (f) void replace(f); e.currentTarget.value = ''; }} />
+        <input type="file" accept=".dxf" disabled={u.locked} onchange={accountGate.files('import', (e) => { const input = e.currentTarget as HTMLInputElement; const f = input.files?.[0]; if (f) void replace(f); input.value = ''; })} />
       </label>
       <button class="pk-btn" disabled={!u.shapes?.length} onclick={() => (convertOpen = true)} data-testid="underlay-convert-{u.name}">{t('underlay.convert')}…</button>
     </div>

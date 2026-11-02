@@ -405,7 +405,7 @@
           >{t('xls.ui.import')}</button>
         </HelpTip>
         <HelpTip text={t('xls.ui.templateTooltip')}>
-          <button class="pp-btn pp-xls-aside" onclick={handleDownloadTemplate} data-testid="pp-xls-template"
+          <button class="pp-btn pp-xls-aside" onclick={() => accountGate.guard('import', handleDownloadTemplate)} data-testid="pp-xls-template"
           >{t('xls.ui.template')}</button>
         </HelpTip>
       </div>
@@ -433,18 +433,18 @@
     <div class="pp-group">
       <div class="pp-grid pp-io pp-io-stack">
         <HelpTip text={t('proExport.resultsTip')}>
-          <button class="pp-btn" data-testid="pp-export-results" onclick={() => (dataOpen = true)}>{t('proExport.resultsBtn')}</button>
+          <button class="pp-btn" data-testid="pp-export-results" onclick={() => accountGate.guard('export', () => (dataOpen = true))}>{t('proExport.resultsBtn')}</button>
         </HelpTip>
         <HelpTip text={t('proExport.reportTip')}>
           <button class="pp-btn" data-testid="pp-export-report"
-                  onclick={() => window.dispatchEvent(new Event('stabileo-open-report'))}
+                  onclick={() => accountGate.guard('export', () => window.dispatchEvent(new Event('stabileo-open-report')))}
           >{t('proExport.reportBtn')}</button>
         </HelpTip>
         <HelpTip text={t('proExport.drawingsTip')}>
-          <button class="pp-btn" data-testid="pp-export-drawings" onclick={openDrawings}>{t('proExport.drawingsBtn')}</button>
+          <button class="pp-btn" data-testid="pp-export-drawings" onclick={() => accountGate.guard('export', openDrawings)}>{t('proExport.drawingsBtn')}</button>
         </HelpTip>
         <HelpTip text={t('proExport.ifcTip')}>
-          <button class="pp-btn" data-testid="pp-export-ifc" onclick={exportIfc}>{t('proExport.ifcBtn')}</button>
+          <button class="pp-btn" data-testid="pp-export-ifc" onclick={() => accountGate.guard('export', exportIfc)}>{t('proExport.ifcBtn')}</button>
         </HelpTip>
       </div>
       <button class="pp-link" title={t('provenance.reproduce.intro')} onclick={() => window.dispatchEvent(new Event('stabileo-reproduce'))}
@@ -558,7 +558,7 @@
   type="file"
   accept=".xlsx,.xls"
   style="display:none"
-  onchange={handleImportExcel}
+  onchange={accountGate.files('import', handleImportExcel)}
 />
 
 <input
@@ -567,7 +567,7 @@
   type="file"
   accept=".ded,.json"
   style="display:none"
-  onchange={handleLoad}
+  onchange={accountGate.files('open', handleLoad)}
 />
 
 <CloudProjectsDialog bind:open={cloudOpen} />
