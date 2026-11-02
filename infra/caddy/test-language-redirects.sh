@@ -26,6 +26,10 @@ page en/research/benchmarks/riks-crisfield/index.html 'EN-RIKS'
 page en/research/benchmarks/navier-plate/index.html 'EN-NAVIER'
 page es/research/benchmarks/navier-plate/index.html 'ES-NAVIER'
 page en/blog/a-post/index.html 'EN-POST'
+page en/changelog/index.html 'EN-CHANGELOG'
+page es/changelog/index.html 'ES-CHANGELOG'
+page en/tools/index.html 'EN-TOOLS'
+page pt/tools/index.html 'PT-TOOLS'
 page de/blog/translated/index.html 'DE-TRANSLATED'
 page en/blog/translated/index.html 'EN-TRANSLATED'
 page assets/index-abc123.js 'console.log(1)'
@@ -51,8 +55,8 @@ done
 
 failures=0
 expect() {
-	local path=$1 status=$2 needle=${3:-}
-	curl -s -D "$work/headers" -o "$work/body" --resolve "app.test:$app_port:127.0.0.1" "http://app.test:$app_port$path"
+	local path=$1 status=$2 needle=${3:-} lang=${4:-}
+	curl -s -D "$work/headers" -o "$work/body" ${lang:+-H "Accept-Language: $lang"} --resolve "app.test:$app_port:127.0.0.1" "http://app.test:$app_port$path"
 	local got
 	got=$(head -n 1 "$work/headers" | awk '{print $2}')
 	if [ "$got" != "$status" ]; then
@@ -61,7 +65,7 @@ expect() {
 	if [ -n "$needle" ] && ! grep -qiF -- "$needle" "$work/headers" "$work/body"; then
 		echo "FAIL $path: response lacks '$needle'"; failures=$((failures + 1)); return
 	fi
-	echo "ok   $path -> $status${needle:+ ($needle)}"
+	echo "ok   $path${lang:+ [$lang]} -> $status${needle:+ ($needle)}"
 }
 
 expect /de/paper/ 301 'Location: /en/paper/'
@@ -79,6 +83,24 @@ expect /de/ 200 'DE-LANDING'
 expect /es/research/benchmarks/navier-plate 301 'Location: /es/research/benchmarks/navier-plate/'
 expect /en/research/benchmarks/riks-crisfield/ 200 'EN-RIKS'
 expect /assets/index-abc123.js 200
+
+expect /research 302 'Location: /en/research/'
+expect /research/ 302 'Location: /en/research/'
+expect /tools 302 'Location: /en/tools/'
+expect /changelog 302 'Location: /en/changelog/'
+expect /changelog 302 'Vary: Accept-Language'
+expect /research 302 'Location: /es/research/' 'es-AR,es;q=0.9,en;q=0.8'
+expect /changelog 302 'Location: /es/changelog/' 'it-IT,it;q=0.9,es;q=0.8'
+expect /tools 302 'Location: /pt/tools/' 'pt-BR'
+expect /tools 302 'Location: /en/tools/' 'es-AR,es'
+expect /changelog 302 'Location: /en/changelog/' 'ja,zh;q=0.8'
+expect /changelog 302 'Location: /en/changelog/' 'estonian'
+expect '/research?utm_source=x' 302 'Location: /es/research/?utm_source=x' 'es'
+expect /research/benchmarks/navier-plate 302 'Location: /es/research/benchmarks/navier-plate/' 'es'
+expect /research/benchmarks/riks-crisfield/ 302 'Location: /en/research/benchmarks/riks-crisfield/' 'es'
+expect /blog/a-post 302 'Location: /en/blog/a-post/' 'de'
+expect / 200 'ROOT-SHELL'
+expect /app/basic 200 'ROOT-SHELL'
 
 status=$(curl -s -o /dev/null -w '%{http_code}' --resolve "app.test:$app_port:127.0.0.1" "http://app.test:$app_port/de/no-such-page/")
 if [ "$status" = 301 ]; then
