@@ -106,8 +106,8 @@ a /app/basic 200 "$root_marker"
 a /app/pro/ 200 "$root_marker"
 a /app 200 "$root_marker"
 a /demo 200 "$root_marker"
-a "$post" 200 "$root_marker"
-a "${post%/}" 200 "$root_marker"
+a "$post" 301 "Location: /en$post"
+a "${post%/}" 301 "Location: /en$post"
 a "/$asset" 200 "immutable"
 a /robots.txt 200
 a /en/research/nonexistent-paper/ 404 'content="noindex"'

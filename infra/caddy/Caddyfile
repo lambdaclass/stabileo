@@ -82,14 +82,6 @@ import /etc/caddy/sites.d/*.caddy
 		file_server
 	}
 
-	# Links from before the language prefixes (/blog/x) are still drawn by the client router.
-	@unprefixed file /en{path}/index.html
-	handle @unprefixed {
-		header Cache-Control "no-cache"
-		rewrite * /index.html
-		file_server
-	}
-
 	handle {
 		header Cache-Control "no-cache"
 		try_files {path} {path}/index.html
