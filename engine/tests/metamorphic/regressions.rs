@@ -658,6 +658,27 @@ fn restrained_thermal_compression_buckles_under_a_common_translation() {
     assert!(beyond.contains("Buckling not determinable"), "{beyond}");
 }
 
+#[test]
+fn a_buckling_refusal_names_the_same_member_when_compressions_tie() {
+    let twin = || -> SolverInput {
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "dx": 2.0e10, "dz": 2.0e10});
+        let nodes: serde_json::Map<_, _> = (0..2).flat_map(|c| (1..=3).map(move |i| ((3 * c + i).to_string(), json!({"id": 3 * c + i, "x": (i - 1) as f64, "z": 8.0 * c as f64}))) ).collect();
+        let elements: serde_json::Map<_, _> = (0..2).flat_map(|c| (1..=2).map(move |i| { let id = 2 * c + i; (id.to_string(), json!({"id": id, "type": "frame", "nodeI": 3 * c + i, "nodeJ": 3 * c + i + 1, "materialId": 1, "sectionId": 1})) })).collect();
+        serde_json::from_value(json!({
+            "nodes": nodes, "elements": elements,
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-5}},
+            "supports": {"1": support(1), "3": support(3), "4": support(4), "6": support(6)},
+            "loads": (1..=4).map(|i| json!({"type": "thermal", "data": {"elementId": i, "dtUniform": 50.0, "dtGradient": 0.0, "alpha": 1.2e-5}})).collect::<Vec<_>>(),
+        })).unwrap()
+    };
+    let first = dedaliano_engine::solver::buckling::solve_buckling_2d(&twin(), 1).map(|b| b.modes[0].load_factor).unwrap_err();
+    assert!(first.contains("Buckling not determinable"), "{first}");
+    for _ in 0..40 {
+        assert_eq!(dedaliano_engine::solver::buckling::solve_buckling_2d(&twin(), 1).map(|b| b.modes[0].load_factor).unwrap_err(), first);
+    }
+}
+
 /// #982: a third mode with λ ≈ 1e10 came from the round-off axial force of the
 /// uncompressed cantilever, in some orientations only. Wherever such a mode is
 /// returned it is named as unresolved, and the two physical modes never are.

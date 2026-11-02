@@ -96,7 +96,7 @@ pub fn buckling_system_2d(input: &SolverInput) -> Result<BucklingSystem2D, Strin
     }
     let axial_noise = axial_force_round_off_2d(input, &linear);
     if !mean_n.iter().any(|(id, &n)| n < -axial_noise.get(id).copied().unwrap_or(0.0).max(1e-6)) {
-        let (id, n) = mean_n.iter().min_by(|a, b| a.1.total_cmp(b.1)).map(|(id, n)| (*id, *n)).unwrap_or((0, 0.0));
+        let (id, n) = mean_n.iter().min_by(|a, b| a.1.total_cmp(b.1).then(a.0.cmp(b.0))).map(|(id, n)| (*id, *n)).unwrap_or((0, 0.0));
         return Err(format!(
             "Buckling not determinable: every axial compression is within round-off of the member elongations (largest {:.3e} kN in element {id}, resolvable beyond {:.3e} kN)",
             -n, axial_noise.get(&id).copied().unwrap_or(0.0)
