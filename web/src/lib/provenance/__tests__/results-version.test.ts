@@ -48,6 +48,7 @@ const RELEASED: Record<number, string[]> = {
     'strip-footings-under-walls-whole-strip',
   ],
   5: ['solid-shell-local-stress-axes'],
+  12: ['cirsoc301-q-nonpositive-refused'],
 };
 
 describe('results versions', () => {

@@ -55,6 +55,12 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-030",
+          "CIRSOC 301 basınç: alanı levhalarından küçük olan bir kesit Qa ≤ 0 ve tam plastik eksenel yükün üzerinde bir dayanım veriyor ve geçiyordu",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

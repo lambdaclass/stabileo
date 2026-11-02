@@ -1,0 +1,35 @@
+import { readFileSync } from 'node:fs';
+import { test, expect, loadModel, designAll, solveModel, sizeAll } from './fixtures';
+
+const BUILDING = JSON.parse(readFileSync('src/lib/templates/fixtures/3d-building.json', 'utf8'));
+
+test.describe('@smoke the 3d-building example in PRO design (#766)', () => {
+  test('CIRSOC 201 designs all 105 members as shipped', async ({ pro: page }) => {
+    test.setTimeout(300_000);
+    await loadModel(page, '3d-building');
+    const counts = await designAll(page);
+    expect(counts.total).toBe(105);
+    expect(counts.verified + counts.sectionInadequate + counts.searchExhausted).toBeGreaterThan(0);
+  });
+
+  test('a concrete with no f′c is named in the design run, not called steel', async ({ pro: page }) => {
+    test.setTimeout(300_000);
+    const model = {
+      ...BUILDING,
+      materials: BUILDING.materials.map((m: { name: string; fy?: number }) => {
+        if (m.name !== 'H-30') return m;
+        const { fy: _fy, ...rest } = m;
+        return rest;
+      }),
+    };
+    await page.evaluate((j) => window.__stabileoActions.loadModelData(j), model);
+    await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBe(105);
+    await solveModel(page);
+    await sizeAll(page);
+    const error = page.getByTestId('desk-error');
+    await expect(error).toBeVisible({ timeout: 120_000 });
+    await expect(error).toContainText('H-30');
+    await expect(error).toContainText('f′c');
+    await expect(error).not.toContainText('steel');
+  });
+});

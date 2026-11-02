@@ -49,6 +49,13 @@ version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #4
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
 
+## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
+
+Results version 12 (provisional: the merge captain renumbers it to main's next free version at
+landing) registers `cirsoc301-q-nonpositive-refused`: a CIRSOC 301 compression member whose §E.7
+reduction gave Qa ≤ 0, or whose Fcr exceeded Fy, is held instead of passed above its squash load
+(SA-2026-030). Only such members change; consistent sections give the same numbers.
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,

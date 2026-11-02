@@ -1,8 +1,42 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 5,
+  "currentResultsVersion": 12,
   "changes": [
+    {
+      "id": "cirsoc301-q-nonpositive-refused",
+      "resultsVersion": 12,
+      "date": "2026-11-02",
+      "prs": [
+        1246
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
+      "title": {
+        "en": "CIRSOC 301: a section with Qa ≤ 0 is held, not passed above its squash load",
+        "es": "CIRSOC 301: una sección con Qa ≤ 0 queda retenida, no aprobada por encima de su carga de aplastamiento",
+        "pt": "CIRSOC 301: uma seção com Qa ≤ 0 fica retida, não aprovada acima da sua carga de esmagamento",
+        "de": "CIRSOC 301: ein Querschnitt mit Qa ≤ 0 wird zurückgehalten, nicht über seiner vollplastischen Normalkraft als erfüllt gemeldet",
+        "fr": "CIRSOC 301 : une section avec Qa ≤ 0 est retenue, et non acceptée au-delà de son effort normal plastique",
+        "tr": "CIRSOC 301: Qa ≤ 0 olan bir kesit, tam plastik eksenel yükünün üzerinde geçirilmek yerine bekletilir"
+      },
+      "explanation": {
+        "en": "When a member's area was smaller than the plates its compression elements describe (a box or tube typed with an area that does not match its widths and thicknesses), §E.7 gave Qa ≤ 0, the slenderness came out NaN and the elastic branch returned a capacity above the squash load A·Fy: 1 098 908 kN on a 976 kN section, and the member passed. The compression check now refuses Q ≤ 0 and any Fcr above Fy, and the member is held with the reason (SA-2026-030). Correct sections are unchanged. It concerns models with CIRSOC 301 steel members in compression.",
+        "es": "Cuando el área de una barra era menor que las chapas que describen sus elementos comprimidos (un cajón o tubo cargado con un área que no concuerda con sus anchos y espesores), el §E.7 daba Qa ≤ 0, la esbeltez salía NaN y la rama elástica devolvía una resistencia mayor que la carga de aplastamiento A·Fy: 1 098 908 kN en una sección de 976 kN, y la barra verificaba. Ahora la verificación a compresión rechaza Q ≤ 0 y cualquier Fcr mayor que Fy, y la barra queda retenida con el motivo (SA-2026-030). Las secciones correctas no cambian. Afecta a modelos con barras de acero CIRSOC 301 comprimidas.",
+        "pt": "Quando a área de uma barra era menor que as chapas que descrevem seus elementos comprimidos (um caixão ou tubo com uma área que não concorda com suas larguras e espessuras), o §E.7 dava Qa ≤ 0, a esbeltez saía NaN e o ramo elástico devolvia uma resistência maior que a carga de esmagamento A·Fy: 1 098 908 kN numa seção de 976 kN, e a barra verificava. Agora a verificação à compressão recusa Q ≤ 0 e qualquer Fcr maior que Fy, e a barra fica retida com o motivo (SA-2026-030). As seções corretas não mudam. Afeta modelos com barras de aço CIRSOC 301 comprimidas.",
+        "de": "War die Fläche eines Stabes kleiner als die Bleche, die seine Druckelemente beschreiben (ein Kasten oder Rohr mit einer Fläche, die nicht zu seinen Breiten und Dicken passt), ergab §E.7 Qa ≤ 0, die Schlankheit wurde NaN und der elastische Zweig lieferte eine Tragfähigkeit über der vollplastischen Normalkraft A·Fy: 1 098 908 kN bei einem Querschnitt von 976 kN, und der Stab galt als nachgewiesen. Der Drucknachweis weist jetzt Q ≤ 0 und jedes Fcr über Fy zurück, und der Stab wird mit dem Grund zurückgehalten (SA-2026-030). Korrekte Querschnitte ändern sich nicht. Betroffen sind Modelle mit gedrückten Stahlstäben nach CIRSOC 301.",
+        "fr": "Lorsque l'aire d'une barre était inférieure aux tôles que décrivent ses parois comprimées (un caisson ou un tube saisi avec une aire qui ne concorde pas avec ses largeurs et épaisseurs), le §E.7 donnait Qa ≤ 0, l'élancement devenait NaN et la branche élastique renvoyait une résistance supérieure à l'effort normal plastique A·Fy : 1 098 908 kN pour une section de 976 kN, et la barre était vérifiée. La vérification en compression refuse désormais Q ≤ 0 et tout Fcr supérieur à Fy, et la barre est retenue avec le motif (SA-2026-030). Les sections correctes ne changent pas. Cela concerne les modèles avec des barres en acier CIRSOC 301 comprimées.",
+        "tr": "Bir çubuğun alanı, basınç elemanlarının tanımladığı levhalardan küçük olduğunda (genişlik ve kalınlıklarıyla uyuşmayan bir alanla girilmiş bir kutu veya boru), §E.7 Qa ≤ 0 veriyor, narinlik NaN çıkıyor ve elastik dal tam plastik eksenel yük A·Fy'nin üzerinde bir dayanım döndürüyordu: 976 kN'luk bir kesitte 1 098 908 kN ve çubuk geçiyordu. Basınç kontrolü artık Q ≤ 0'ı ve Fy'nin üzerindeki her Fcr'yi reddediyor ve çubuk gerekçesiyle bekletiliyor (SA-2026-030). Doğru kesitler değişmez. Basınç altındaki CIRSOC 301 çelik çubuklu modelleri etkiler."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-030-cirsoc301-q-nonpositive.md",
+        "heading": "SA-2026-030: CIRSOC 301 passed a compression member with Qa ≤ 0 above its squash load"
+      }
+    },
     {
       "id": "solid-shell-local-stress-axes",
       "resultsVersion": 5,

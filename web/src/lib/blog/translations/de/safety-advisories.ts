@@ -55,6 +55,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-030",
+          "CIRSOC 301 Druck: ein Querschnitt mit einer Fläche kleiner als seine Bleche ergab Qa ≤ 0 und eine Tragfähigkeit über der vollplastischen Normalkraft und galt als nachgewiesen",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",
