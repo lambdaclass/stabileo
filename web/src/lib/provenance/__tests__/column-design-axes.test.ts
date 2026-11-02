@@ -18,6 +18,7 @@ const changes = (model: FeatureSnapshot, version: number) =>
 it('tells CIRSOC 201 concrete projects solved before the fix, and no others', () => {
   const concrete = frame({ name: 'H-25', fy: 25 });
   expect(changes(concrete, 5)).toContain(ID);
-  expect(changes(concrete, 6)).not.toContain(ID);
+  expect(changes(concrete, 6)).toContain(ID);
+  expect(changes(concrete, 7)).not.toContain(ID);
   expect(changes(frame({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 }), 5)).not.toContain(ID);
 });
