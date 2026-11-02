@@ -20,31 +20,21 @@ export function sdofFromModel(model: ModelData, points: readonly PointMass[], no
   if (!input) return 'noNode';
   const det = solveDetailed(input);
   const nF = det.dofNumbering.nFree;
-  const frame = det.nodeFrames.find((f) => f.nodeId === nodeId);
-  let k: number;
-  let tangent: [number, number] | null = null;
-  if (!frame) {
-    const at = det.dofNumbering.dofs.find((d) => d.nodeId === nodeId && d.localDof === (dir === 'ux' ? 0 : 1));
-    if (!at || !at.isFree) return 'restrained';
-    try {
-      k = condense(det.Kff, zeros(nF), new Array(nF).fill(0), [at.globalIndex]).K[0][0];
-    } catch { return 'mechanism'; }
-  } else {
-    const free = det.dofNumbering.dofs.filter((d) => d.nodeId === nodeId && d.isFree && d.localDof < 2);
-    const r = inclinedStiffness(det.Kff, nF, free, frame.angle, dir);
-    if (typeof r === 'string') return r;
-    k = r;
-    if (free.length === 1) {
-      const c = Math.cos(frame.angle), sn = Math.sin(frame.angle);
-      tangent = free[0].localDof === 0 ? [c, sn] : [-sn, c];
-    }
-  }
+  const angle = det.nodeFrames.find((f) => f.nodeId === nodeId)?.angle ?? 0;
+  const free = det.dofNumbering.dofs.filter((d) => d.nodeId === nodeId && d.isFree && d.localDof < 2);
+  const g: [number, number] = dir === 'ux' ? [1, 0] : [0, 1];
+  const f = nodeDeflection(det.Kff, nF, free, angle, g);
+  if (f === 'mechanism') return 'mechanism';
+  const delta = g[0] * f[0] + g[1] * f[1];
+  if (!(delta > 0) || free.length === 0) return 'restrained';
+  const k = 1 / delta;
   if (!(k > 1e-9)) return 'mechanism';
   const at = points.filter((q) => q.nodeId === nodeId && q.m > 0);
-  const mOf = (d: 'ux' | 'uz') => at.reduce((sum, q) => sum + (d === 'uz' && q.horizontalOnly ? 0 : q.m), 0);
-  const m = tangent ? effectiveMass(mOf('ux'), mOf('uz'), tangent, dir) : mOf(dir);
+  const mx = at.reduce((sum, q) => sum + q.m, 0);
+  const mz = at.reduce((sum, q) => sum + (q.horizontalOnly ? 0 : q.m), 0);
+  const m = (mx * f[0] * f[0] + mz * f[1] * f[1]) / (delta * delta);
   if (!(m > 0)) return 'noMass';
-  return { nodeId, dir, k, delta: 1 / k, m, nFree: nF };
+  return { nodeId, dir, k, delta, m, nFree: nF };
 }
 
 /** The node a model's single degree of freedom system starts from: the first with a point mass. */
@@ -53,33 +43,26 @@ export function defaultSdofNode(model: ModelData, points: readonly PointMass[]):
 }
 
 /**
- * k along a global direction at a node whose DOFs are in a rotated frame (u_local = R·u_global):
- * the flexibility of its free local DOFs, turned global, read along that direction.
+ * The node's global translation under a unit force g at it: the flexibility of its free DOFs
+ * (in the node's frame, u_local = R·u_global), turned global. The mass that, with k = 1/(g·f),
+ * gives the frequency of that deflected shape is (mx·fx² + mz·fz²)/(g·f)².
  */
-function inclinedStiffness(Kff: number[][], nF: number, free: Array<{ localDof: number; globalIndex: number }>, angle: number, dir: 'ux' | 'uz'): number | 'restrained' | 'mechanism' {
+function nodeDeflection(Kff: number[][], nF: number, free: Array<{ localDof: number; globalIndex: number }>, angle: number, g: [number, number]): [number, number] | 'mechanism' {
+  if (!free.length) return [0, 0];
   const c = Math.cos(angle), s = Math.sin(angle);
-  const gLocal = dir === 'ux' ? [c, -s] : [s, c];
-  const along = free.map((d) => gLocal[d.localDof]);
-  if (along.every((v) => Math.abs(v) < 1e-12)) return 'restrained';
+  const gLocal = [c * g[0] + s * g[1], -s * g[0] + c * g[1]];
   let Kc: number[][];
   try { Kc = condense(Kff, zeros(nF), new Array(nF).fill(0), free.map((d) => d.globalIndex)).K; } catch { return 'mechanism'; }
-  let delta: number;
-  if (Kc.length === 1) delta = (along[0] * along[0]) / Kc[0][0];
-  else {
+  const uLocal = [0, 0];
+  if (Kc.length === 1) {
+    if (!(Kc[0][0] > 0)) return 'mechanism';
+    uLocal[free[0].localDof] = gLocal[free[0].localDof] / Kc[0][0];
+  } else {
     const det = Kc[0][0] * Kc[1][1] - Kc[0][1] * Kc[1][0];
     if (!(Math.abs(det) > 1e-12 * Math.max(Math.abs(Kc[0][0]), Math.abs(Kc[1][1])) ** 2)) return 'mechanism';
-    const F = [[Kc[1][1] / det, -Kc[0][1] / det], [-Kc[1][0] / det, Kc[0][0] / det]];
-    delta = along[0] * (F[0][0] * along[0] + F[0][1] * along[1]) + along[1] * (F[1][0] * along[0] + F[1][1] * along[1]);
+    const p = free.map((d) => gLocal[d.localDof]);
+    const u0 = (Kc[1][1] * p[0] - Kc[0][1] * p[1]) / det, u1 = (-Kc[1][0] * p[0] + Kc[0][0] * p[1]) / det;
+    uLocal[free[0].localDof] = u0; uLocal[free[1].localDof] = u1;
   }
-  return delta > 0 ? 1 / delta : 'mechanism';
+  return [c * uLocal[0] - s * uLocal[1], s * uLocal[0] + c * uLocal[1]];
 }
-
-/**
- * The node slides along one line t: the motion read along `dir` is u = t_dir·q, so the mass that,
- * with k along `dir`, gives the node's frequency is the kinetic energy's (mx·tx² + mz·tz²)/t_dir².
- */
-function effectiveMass(mx: number, mz: number, t: [number, number], dir: 'ux' | 'uz'): number {
-  const along = dir === 'ux' ? t[0] : t[1];
-  return (mx * t[0] * t[0] + mz * t[1] * t[1]) / (along * along);
-}
-

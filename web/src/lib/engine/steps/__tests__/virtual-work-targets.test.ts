@@ -131,6 +131,24 @@ describe('virtual work: springs, settlements, temperature', () => {
     expect(agrees(build('virtualWork', { quantity: 'rot', node: String(b) }), 'rad')).toBeCloseTo(-P * (L ** 2 / (2 * EI) + L / kz), 12);
   });
 
+  for (const angle of [30, -50]) {
+    it(`a spring turned ${angle}°: its work is taken in its own axes and agrees with the matrix solve`, () => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(4, 3);
+      modelStore.addElement(a, b); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'pinned');
+      const sp = modelStore.addSupport(c, 'spring', { kx: 2000, ky: 500, kz: 0 });
+      modelStore.updateSupport(sp, { angle });
+      modelStore.addNodalLoad(b, 6, -10, 0);
+      const input = modelStore.buildSolverInput(false)!;
+      expect(Math.abs(Math.abs([...input.supports.values()].find((s) => s.type === 'spring')!.angle ?? 0) - Math.abs(angle * Math.PI) / 180)).toBeLessThan(1e-12);
+      for (const dir of ['x', 'z']) {
+        const doc = build('virtualWork', { quantity: 'disp', node: String(c), dir });
+        expect(extras(doc)).toBeDefined();
+        agrees(doc, 'mm');
+      }
+    });
+  }
+
   it('a settled support: − Σ r·c', async () => {
     await modelStore.loadExample('settlement');
     for (const id of planeModel(modelStore.buildSolverInput(false)!).nodeOrder) {

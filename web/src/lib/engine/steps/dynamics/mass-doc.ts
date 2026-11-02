@@ -114,26 +114,38 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
     ],
   });
 
-  const g = system(ctx, n, 'guyan');
-  const cond = g.condensation;
-  const full = g.fullDofs.map((d) => dofTextN(d, names));
-  const kept = g.dofs.map((d) => dofTextN(d, names));
-  const fG = generalizedEigen(g.K, g.M).lambda.slice(0, MODES).map((l) => Math.sqrt(l) / (2 * Math.PI));
-  steps.push({
-    title: dt('mass.s4'),
-    blocks: [
-      p('mass.guyan.lead', { m: kept.length, s: cond?.slaves.length ?? 0 }),
-      { kind: 'eq', tex: '\\mathbf K^* = \\mathbf K_{mm} - \\mathbf K_{ms}\\,\\mathbf K_{ss}^{-1}\\,\\mathbf K_{sm}, \\quad \\mathbf T = \\begin{bmatrix} \\mathbf I \\\\ -\\mathbf K_{ss}^{-1}\\mathbf K_{sm} \\end{bmatrix}, \\quad \\mathbf M^* = \\mathbf T^T\\mathbf M\\,\\mathbf T' },
-      p('mass.guyan.why', undefined, true),
-      ...(cond ? [
-        matrixBlock('\\mathbf T', cond.T, [...cond.masters, ...cond.slaves].map((i) => full[i]), dt('mdof.k.tCaption'), kept),
-        matrixBlock('\\mathbf K^*', g.K, kept, dt('mdof.k.kCaption')),
-        matrixBlock('\\mathbf M^*', g.M, kept, dt('mdof.m.mCaption')),
-      ] : [note('info', 'mass.guyan.none')]),
-      { kind: 'table', head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }], rows: fG.map((f, i) => [i + 1, f]), caption: dt('mass.guyan.freqCaption') },
-      p('mass.guyan.exactness', undefined, true),
-    ],
-  });
+  let g: MdofSystem | SystemError;
+  try { g = system(ctx, n, 'guyan'); } catch (e) { if (!(e instanceof SystemError)) throw e; g = e; }
+  if (g instanceof SystemError) {
+    steps.push({
+      title: dt('mass.s4'),
+      blocks: [
+        { kind: 'eq', tex: '\\mathbf K^* = \\mathbf K_{mm} - \\mathbf K_{ms}\\,\\mathbf K_{ss}^{-1}\\,\\mathbf K_{sm}, \\quad \\mathbf M^* = \\mathbf T^T\\mathbf M\\,\\mathbf T' },
+        note('warn', 'mass.guyan.refused', { n }),
+        note('info', `mdof.err.${g.code}`, g.params),
+      ],
+    });
+  } else {
+    const cond = g.condensation;
+    const full = g.fullDofs.map((d) => dofTextN(d, names));
+    const kept = g.dofs.map((d) => dofTextN(d, names));
+    const fG = generalizedEigen(g.K, g.M).lambda.slice(0, MODES).map((l) => Math.sqrt(l) / (2 * Math.PI));
+    steps.push({
+      title: dt('mass.s4'),
+      blocks: [
+        p('mass.guyan.lead', { m: kept.length, s: cond?.slaves.length ?? 0 }),
+        { kind: 'eq', tex: '\\mathbf K^* = \\mathbf K_{mm} - \\mathbf K_{ms}\\,\\mathbf K_{ss}^{-1}\\,\\mathbf K_{sm}, \\quad \\mathbf T = \\begin{bmatrix} \\mathbf I \\\\ -\\mathbf K_{ss}^{-1}\\mathbf K_{sm} \\end{bmatrix}, \\quad \\mathbf M^* = \\mathbf T^T\\mathbf M\\,\\mathbf T' },
+        p('mass.guyan.why', undefined, true),
+        ...(cond ? [
+          matrixBlock('\\mathbf T', cond.T, [...cond.masters, ...cond.slaves].map((i) => full[i]), dt('mdof.k.tCaption'), kept),
+          matrixBlock('\\mathbf K^*', g.K, kept, dt('mdof.k.kCaption')),
+          matrixBlock('\\mathbf M^*', g.M, kept, dt('mdof.m.mCaption')),
+        ] : [note('info', 'mass.guyan.none')]),
+        { kind: 'table', head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }], rows: fG.map((f, i) => [i + 1, f]), caption: dt('mass.guyan.freqCaption') },
+        p('mass.guyan.exactness', undefined, true),
+      ],
+    });
+  }
 
   const chosen = generalizedEigen(sys.K, sys.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
   const eng = engineAt?.(n) ?? null;

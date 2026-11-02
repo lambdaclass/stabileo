@@ -13,7 +13,7 @@ const words: Translations = {
   'course.kinematics.req.imposedRigid': 'Mit dehnstarren Stäben würden die Stützensenkungen oder die Wärmedehnung verlangen, dass ein Stab seine Länge ändert. Schalten Sie Dehnsteifigkeit berücksichtigen ein, um es zu lösen.',
   'course.kinematics.req.mechanism': 'Unter diesen Annahmen ist das Tragwerk ein Mechanismus: Es gibt eine Knotenverschiebung, der kein Stab, Pendelstab und keine Feder widersteht. Versuchen Sie Dehnsteifigkeit berücksichtigen oder prüfen Sie die Lager.',
   'course.kinematics.req.inclined': 'Das Lager am Knoten {n} ist schräg; dieses Verfahren arbeitet mit Lagern in x- und z-Richtung.',
-  'course.kinematics.req.noUnknowns': 'Es gibt keine kinematischen Unbekannten: Kein Knoten kann sich verdrehen oder verschieben. Schalten Sie Verdrehungen gelenkiger Stabenden als Unbekannte ein, um es trotzdem zu lösen.',
+  'course.kinematics.req.noUnknowns': 'Es gibt keine kinematischen Unbekannten: Kein Knoten kann sich verdrehen oder verschieben. Dann ist Zustand 0 (die Volleinspannkräfte) bereits die Lösung, wie bei einem beidseitig eingespannten Träger, und dieses Verfahren hat keine Gleichungen aufzustellen. Gibt es gelenkige Stabenden, schalten Sie Verdrehungen gelenkiger Stabenden als Unbekannte ein, um sie Schritt für Schritt gelöst zu sehen.',
   'course.kinematics.req.tooMany': 'Es hat {n} kinematische Unbekannte, und die Rechnung wird bis {max} gezeigt. Versuchen Sie es mit dehnstarren Stäben, die die Verschiebungen verringern.',
 
   'course.kinematics.gic.title': 'Kinematische Unbekannte (Grad der kinematischen Unbestimmtheit)',

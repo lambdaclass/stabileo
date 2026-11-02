@@ -13,7 +13,7 @@ export const es: Translations = {
   'course.kinematics.req.imposedRigid': 'Con barras axialmente rígidas, los asentamientos o la dilatación térmica pedirían que alguna barra cambie de largo. Encendé Incluir rigidez axil para resolverlo.',
   'course.kinematics.req.mechanism': 'Con estas hipótesis la estructura es un mecanismo: hay un desplazamiento de los nudos que ninguna barra, biela ni resorte resiste. Probá con Incluir rigidez axil o revisá los apoyos.',
   'course.kinematics.req.inclined': 'El apoyo del nudo {n} está inclinado; este método trabaja con apoyos en las direcciones x y z.',
-  'course.kinematics.req.noUnknowns': 'No hay incógnitas cinemáticas: ningún nudo puede girar ni trasladarse. Encendé Giros de extremos articulados como incógnitas para resolverla igual.',
+  'course.kinematics.req.noUnknowns': 'No hay incógnitas cinemáticas: ningún nudo puede girar ni trasladarse. Entonces el estado 0 (los esfuerzos de empotramiento) ya es la solución, como en una viga empotrada en sus dos extremos, y este método no tiene ecuaciones que plantear. Si hay extremos articulados, encendé Giros de extremos articulados como incógnitas para verlos resueltos paso a paso.',
   'course.kinematics.req.tooMany': 'Tiene {n} incógnitas cinemáticas y el desarrollo se muestra hasta {max}. Probá con las barras axialmente rígidas, que reducen las traslaciones.',
 
   'course.kinematics.gic.title': 'Incógnitas cinemáticas (GIC)',
@@ -155,7 +155,7 @@ export const en: Translations = {
   'course.kinematics.req.imposedRigid': 'With axially rigid members, the settlements or the thermal expansion would require some member to change length. Turn on Include axial stiffness to solve it.',
   'course.kinematics.req.mechanism': 'Under these assumptions the structure is a mechanism: some joint displacement is resisted by no member, two-force member or spring. Try Include axial stiffness or check the supports.',
   'course.kinematics.req.inclined': 'The support at joint {n} is inclined; this method works with supports along x and z.',
-  'course.kinematics.req.noUnknowns': 'There are no kinematic unknowns: no joint can rotate or translate. Turn on Rotations of hinged ends as unknowns to solve it anyway.',
+  'course.kinematics.req.noUnknowns': 'There are no kinematic unknowns: no joint can rotate or translate. State 0 (the fixed-end forces) is then already the solution, as in a beam fixed at both ends, and this method has no equations to set up. If there are hinged ends, turn on Rotations of hinged ends as unknowns to see them solved step by step.',
   'course.kinematics.req.tooMany': 'It has {n} kinematic unknowns and the working is shown for up to {max}. Try axially rigid members, which reduce the translations.',
 
   'course.kinematics.gic.title': 'Kinematic unknowns (degree of kinematic indeterminacy)',
@@ -297,7 +297,7 @@ export const pt: Translations = {
   'course.kinematics.req.imposedRigid': 'Com barras axialmente rígidas, os recalques ou a dilatação térmica exigiriam que alguma barra mudasse de comprimento. Ligue Incluir rigidez axial para resolver.',
   'course.kinematics.req.mechanism': 'Com essas hipóteses a estrutura é um mecanismo: há um deslocamento dos nós que nenhuma barra, biela ou mola resiste. Tente Incluir rigidez axial ou revise os apoios.',
   'course.kinematics.req.inclined': 'O apoio do nó {n} é inclinado; este método trabalha com apoios nas direções x e z.',
-  'course.kinematics.req.noUnknowns': 'Não há incógnitas cinemáticas: nenhum nó pode girar nem transladar. Ligue Rotações de extremos articulados como incógnitas para resolver mesmo assim.',
+  'course.kinematics.req.noUnknowns': 'Não há incógnitas cinemáticas: nenhum nó pode girar nem transladar. Então o estado 0 (os esforços de engastamento) já é a solução, como numa viga engastada nas duas extremidades, e este método não tem equações a montar. Se houver extremos articulados, ligue Rotações de extremos articulados como incógnitas para vê-los resolvidos passo a passo.',
   'course.kinematics.req.tooMany': 'Tem {n} incógnitas cinemáticas e o desenvolvimento é mostrado até {max}. Tente com barras axialmente rígidas, que reduzem as translações.',
 
   'course.kinematics.gic.title': 'Incógnitas cinemáticas (grau de indeterminação cinemática)',

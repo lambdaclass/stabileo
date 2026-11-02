@@ -12,6 +12,7 @@ import { solve, maxAbs, type Mat } from '../../dynamics/course/dense';
 
 export const MAX_MODAL_DOFS = 40;
 export const MIN_HARMONIC_RATIO = 0.01;
+export const MAX_HARMONIC_RATIO = 100;
 
 export interface MdofCase {
   kind: 'model' | 'shear';
@@ -42,7 +43,7 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   const points = model.massSource?.points ?? [];
   const ms = settings.mdof;
   if (!(Number.isFinite(ms.xi) && ms.xi >= 0)) return { refusal: 'mdof.err.xi' };
-  if (ms.excitation !== 'free' && !(Number.isFinite(ms.ratio) && ms.ratio >= MIN_HARMONIC_RATIO)) return { refusal: 'mdof.err.ratio', params: { min: MIN_HARMONIC_RATIO } };
+  if (ms.excitation !== 'free' && !(ms.ratio >= MIN_HARMONIC_RATIO && ms.ratio <= MAX_HARMONIC_RATIO)) return { refusal: 'mdof.err.ratio', params: { min: MIN_HARMONIC_RATIO, max: MAX_HARMONIC_RATIO } };
   let sys: MdofSystem | null = null, shear: ShearBuilding | null = null;
   let K: Mat, M: Mat, F: number[], dofs: DofRef[];
   if (ms.source === 'shear') {
@@ -78,9 +79,10 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   const N = 160;
   const times = Array.from({ length: N + 1 }, (_, i) => (i * tEnd) / N);
   const modal = times.map((tt) => resp.u(tt));
-  const sub = Math.max(1, Math.ceil(tEnd / N / (T1 / 400)));
+  const sub = Math.max(1, Math.ceil(tEnd / N / Math.min(T1 / 400, ex.kind === 'harmonic' ? (2 * Math.PI) / Omega / 40 : Infinity)));
   const C = modalDampingMatrix(sol, M, ms.xi);
   const force = ex.kind === 'harmonic' ? (tt: number) => F.map((f) => f * Math.sin(Omega * tt)) : () => F.map(() => 0);
   const direct = directIntegration(K, M, C, force, ex.kind === 'free' ? ust : F.map(() => 0), F.map(() => 0), times, tEnd / N / sub);
+  if (!(Number.isFinite(Omega) && [...modal, ...direct].every((u) => u.every(Number.isFinite)))) return { refusal: 'mdof.err.notFinite' };
   return { kind: ms.source, sys, shear, K, M, F, dofs, sol, ex, xi: ms.xi, Omega, ust, resp, at, times, modal, direct, settings };
 }

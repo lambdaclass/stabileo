@@ -10,6 +10,7 @@
   import { thetaLabel } from '../../../lib/canvas/draw-plastic-course';
   import { fmtQ, fmtCoord, unitQ } from '../../../lib/store/display-units.svelte';
   import PlasticSection from './PlasticSection.svelte';
+  import { verifiedCollapse } from './user-compare';
 
   let { r }: { r: PlasticCollapseResult } = $props();
   let open = $state(false);
@@ -28,7 +29,7 @@
   const mom = (v: number) => `${fmtQ(v, 'moment')} ${unitQ('moment')}`;
 </script>
 
-{#if r.isMechanism && view}
+{#if verifiedCollapse(r) && view}
   <PlasticSection testid="plastic-mechanism" bind:open title={t('course.plastic.mech.title')}
     summary={tp(view.dof === 1 ? 'course.plastic.mech.summaryOne' : 'course.plastic.mech.summaryMany', { n: view.hinges.length, k: view.dof })}
     help={t('course.plastic.mech.help')}>

@@ -168,6 +168,27 @@ describe('ground excitation with a support in a turned frame', () => {
   }
 });
 
+describe('the SDOF from an inclined cantilever', () => {
+  for (const dir of ['ux', 'uz'] as const) {
+    it(`a tip mass read along ${dir}: the mass follows the tip's whole deflection, so ω is the MDOF's first to the axial-stiffness error`, () => {
+      build(() => {
+        const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 4);
+        modelStore.addElement(a, b);
+        modelStore.addSupport(a, 'fixed');
+      });
+      const pts = [{ nodeId: 2, m: 5 }];
+      const s = modelSystem(modelStore.model, pts, { nPerMember: 1, massModel: 'lumped', barMass: false });
+      const sol = modalSolve(s.K, s.M, s.dofs, s.ground);
+      expect(sol.modes.length).toBeGreaterThan(0);
+      const sd = sdofFromModel(modelStore.model, pts, 2, dir);
+      if (typeof sd === 'string') throw new Error(sd);
+      const ratio = Math.sqrt(sd.k / sd.m) / sol.modes[0].omega;
+      expect(ratio).toBeGreaterThanOrEqual(1 - 1e-12);
+      expect(ratio).toBeLessThan(1 + 1e-3);
+    });
+  }
+});
+
 describe('the shear building needs each floor joined', () => {
   for (const beam of [true, false]) {
     it(`two columns ${beam ? 'joined by a floor beam: one floor' : 'with nothing between their tops: refused'}`, () => {

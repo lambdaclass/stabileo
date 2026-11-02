@@ -13,7 +13,7 @@ const words: Translations = {
   'course.kinematics.req.imposedRigid': 'Eksenel rijit çubuklarla mesnet çökmeleri veya ısıl uzama bir çubuğun boyunun değişmesini gerektirirdi. Çözmek için Eksenel rijitliği dahil et seçeneğini açın.',
   'course.kinematics.req.mechanism': 'Bu varsayımlarla yapı bir mekanizmadır: düğümlerin öyle bir yer değiştirmesi var ki ona hiçbir çubuk, pandül çubuk veya yay karşı koymuyor. Eksenel rijitliği dahil et seçeneğini deneyin veya mesnetleri kontrol edin.',
   'course.kinematics.req.inclined': '{n} düğümündeki mesnet eğik; bu yöntem x ve z doğrultusundaki mesnetlerle çalışır.',
-  'course.kinematics.req.noUnknowns': 'Kinematik bilinmeyen yok: hiçbir düğüm dönemiyor ve ötelenemiyor. Yine de çözmek için Mafsallı uçların dönmeleri bilinmeyen olsun seçeneğini açın.',
+  'course.kinematics.req.noUnknowns': 'Kinematik bilinmeyen yok: hiçbir düğüm dönemiyor ve ötelenemiyor. O zaman 0 durumu (ankastrelik kuvvetleri) zaten çözümdür, iki ucu ankastre bir kirişte olduğu gibi, ve bu yöntemin kuracağı denklem yoktur. Mafsallı uçlar varsa, onları adım adım çözülmüş görmek için Mafsallı uçların dönmeleri bilinmeyen olsun seçeneğini açın.',
   'course.kinematics.req.tooMany': '{n} kinematik bilinmeyeni var ve çözüm adımları en çok {max} bilinmeyene kadar gösteriliyor. Ötelemeleri azaltan eksenel rijit çubuklarla deneyin.',
 
   'course.kinematics.gic.title': 'Kinematik bilinmeyenler (kinematik belirsizlik derecesi)',

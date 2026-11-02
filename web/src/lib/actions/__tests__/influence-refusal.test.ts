@@ -56,3 +56,28 @@ describe('a refused influence line leaves no line under the new choice', () => {
     expect(resultsStore.influenceLine).toBeNull();
   });
 });
+
+describe('a zero line in the chosen direction', () => {
+  const zero = (direction: 'vertical' | 'horizontal'): InfluenceLineResult => ({
+    ...line(), direction, points: line().points.map((p) => ({ ...p, value: 0 })),
+  } as unknown as InfluenceLineResult);
+
+  it('moving the section keeps the chosen direction and its zero line, though the other direction is not zero', () => {
+    resultsStore.setInfluenceLine(line());
+    uiStore.ilDirection = 'vertical';
+    const solve = vi.spyOn(modelStore, 'computeInfluenceLine').mockImplementation((_q, _n, _e, _at, _k, dir) => (dir === 'vertical' ? zero('vertical') : line()));
+    moveInfluenceSection(1, 0.3);
+    expect(solve).toHaveBeenCalledTimes(1);
+    expect(uiStore.ilDirection).toBe('vertical');
+    expect(resultsStore.influenceLine?.points.every((p) => p.value === 0)).toBe(true);
+  });
+
+  it('changing the quantity keeps the chosen direction too', () => {
+    resultsStore.setInfluenceLine(line());
+    uiStore.ilDirection = 'horizontal';
+    vi.spyOn(modelStore, 'computeInfluenceLine').mockImplementation((_q, _n, _e, _at, _k, dir) => (dir === 'horizontal' ? zero('horizontal') : line()));
+    setInfluenceQuantity('V');
+    expect(uiStore.ilDirection).toBe('horizontal');
+    expect(resultsStore.influenceLine?.points.every((p) => p.value === 0)).toBe(true);
+  });
+});

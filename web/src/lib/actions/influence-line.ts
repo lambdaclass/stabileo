@@ -18,8 +18,9 @@ import type { SolverInput } from '../engine/types';
 const flat = (r: InfluenceLineResult) => r.points.every((p) => Math.abs(p.value) < 1e-12);
 
 /**
- * Compute and show a line. Zero wherever the unit load stands (a load down a column puts no
- * shear or moment in it) tries the other direction before saying there is no line.
+ * Compute and show a line. On a fresh pick, zero wherever the unit load stands (a load down a column
+ * puts no shear or moment in it) tries the other direction before saying there is no line; a `quiet`
+ * rerun (section moved, quantity changed) keeps the chosen direction and its zero line.
  */
 export function runInfluence(q: InfluenceQuantity, node: number | undefined, elem: number | undefined, at: number, quiet = false): boolean {
   const run = (dir: InfluenceDirection) => modelStore.computeInfluenceLine(q, node, elem, at, 20, dir);
@@ -31,6 +32,11 @@ export function runInfluence(q: InfluenceQuantity, node: number | undefined, ele
     return false;
   }
   uiStore.ilQuantity = q;
+  if (flat(result) && quiet) {
+    resultsStore.setInfluenceLine(result);
+    uiStore.toast(t('viewport.ilZeroThisWay').replace('{q}', q), 'info');
+    return true;
+  }
   if (flat(result) && familyOf(q) !== 'displacement') {
     const other: InfluenceDirection = uiStore.ilDirection === 'vertical' ? 'horizontal' : 'vertical';
     const alt = run(other);

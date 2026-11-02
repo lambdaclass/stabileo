@@ -4,7 +4,7 @@ import { isSolverReady } from '../../../wasm-solver';
 import { methodContext } from '../../../../store/explained-steps.svelte';
 import { methodById } from '../../methods';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
-import { resolveMdof, MIN_HARMONIC_RATIO } from '../mdof-build';
+import { resolveMdof, MIN_HARMONIC_RATIO, MAX_HARMONIC_RATIO } from '../mdof-build';
 import { solveSdof, resolveSdof } from '../sdof-doc';
 import { stepsEs, stepsEn, stepsPt } from '../../../../i18n/locales/steps';
 import type { Block, StepDoc, Txt } from '../../doc';
@@ -128,7 +128,7 @@ function resetAndGet() { return { source: 'model' as const, nodeId: null, dir: '
 describe('the modal decomposition document', () => {
   it('harmonic excitation needs a finite frequency ratio of at least the minimum, and ξ a finite number ≥ 0', async () => {
     await load('dynamics-shear-building');
-    for (const ratio of [0, -1, NaN, Infinity, MIN_HARMONIC_RATIO / 2]) {
+    for (const ratio of [0, -1, NaN, Infinity, MIN_HARMONIC_RATIO / 2, MAX_HARMONIC_RATIO * 1.01, Number.MAX_VALUE]) {
       setDynamicsSettings({ mdof: { source: 'shear', excitation: 'harmonic', ratio, xi: 0.05 } });
       const c = resolveMdof(methodContext('mdofModal')!);
       expect('refusal' in c && c.refusal).toBe('mdof.err.ratio');
@@ -142,6 +142,14 @@ describe('the modal decomposition document', () => {
     const ok = resolveMdof(methodContext('mdofModal')!);
     if ('refusal' in ok) throw new Error(ok.refusal);
     expect(ok.times.every(Number.isFinite)).toBe(true);
+    for (const ratio of [10, MAX_HARMONIC_RATIO]) {
+      setDynamicsSettings({ mdof: { source: 'shear', excitation: 'harmonic', ratio, xi: 0.05 } });
+      const hi = resolveMdof(methodContext('mdofModal')!);
+      if ('refusal' in hi) throw new Error(hi.refusal);
+      const peak = Math.max(...hi.modal.map((u) => Math.abs(u[hi.at])));
+      const gap = Math.max(...hi.modal.map((u, i) => Math.abs(u[hi.at] - hi.direct[i][hi.at])));
+      expect(gap).toBeLessThan(1e-2 * peak);
+    }
     setDynamicsSettings({ mdof: { excitation: 'free', ratio: 0.8, xi: 0.05 } });
   });
 
@@ -235,6 +243,23 @@ describe('the distributed mass document', () => {
     expect(notes[skip]!.params).toEqual({ n: 1 });
     expect(notes[skip + 1]!.key).toMatch(/^course\.dynamics\.mdof\.err\./);
     expect(notes.some((x) => x?.key === 'course.dynamics.mass.conv.cut')).toBe(false);
+    expectTranslated(doc);
+  });
+
+  it('a beam pinned at both ends, consistent mass, n = 1: only rotations vibrate, so Guyan says why it has no system and the rest is built', async () => {
+    await load('cantilever');
+    for (const id of [...modelStore.nodes.keys()]) {
+      for (const [sid, sp] of [...modelStore.supports.entries()]) if (sp.nodeId === id) modelStore.removeSupport(sid);
+      modelStore.addSupport(id, 'pinned');
+    }
+    expect(modelStore.elements.size).toBe(1);
+    setDynamicsSettings({ mass: { nPerMember: 1, massModel: 'consistent' } });
+    const doc = build('massDiscretization');
+    const s4 = doc.steps[3].blocks;
+    const notes = s4.filter((b) => b.kind === 'note').map((b) => (b.kind === 'note' && isTxt(b.text) ? b.text.key : null));
+    expect(notes).toContain('course.dynamics.mass.guyan.refused');
+    expect(notes.some((k) => k?.startsWith('course.dynamics.mdof.err.'))).toBe(true);
+    expect(doc.steps.length).toBe(6);
     expectTranslated(doc);
   });
 

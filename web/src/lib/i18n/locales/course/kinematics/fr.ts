@@ -13,7 +13,7 @@ const words: Translations = {
   'course.kinematics.req.imposedRigid': 'Avec des barres axialement rigides, les tassements ou la dilatation thermique exigeraient qu’une barre change de longueur. Activez Inclure la rigidité axiale pour le résoudre.',
   'course.kinematics.req.mechanism': 'Avec ces hypothèses la structure est un mécanisme : un déplacement des nœuds n’est retenu par aucune barre, bielle ni ressort. Essayez Inclure la rigidité axiale ou vérifiez les appuis.',
   'course.kinematics.req.inclined': 'L’appui du nœud {n} est incliné ; cette méthode travaille avec des appuis selon x et z.',
-  'course.kinematics.req.noUnknowns': 'Il n’y a pas d’inconnue cinématique : aucun nœud ne peut tourner ni se déplacer. Activez Rotations des extrémités articulées comme inconnues pour la résoudre quand même.',
+  'course.kinematics.req.noUnknowns': 'Il n’y a pas d’inconnue cinématique : aucun nœud ne peut tourner ni se déplacer. L’état 0 (les efforts d’encastrement) est alors déjà la solution, comme pour une poutre encastrée aux deux extrémités, et cette méthode n’a pas d’équation à poser. S’il y a des extrémités articulées, activez Rotations des extrémités articulées comme inconnues pour les voir résolues pas à pas.',
   'course.kinematics.req.tooMany': 'Elle a {n} inconnues cinématiques et le développement est affiché jusqu’à {max}. Essayez avec des barres axialement rigides, qui réduisent les translations.',
 
   'course.kinematics.gic.title': 'Inconnues cinématiques (degré d’indétermination cinématique)',
