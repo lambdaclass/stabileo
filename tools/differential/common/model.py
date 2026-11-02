@@ -214,7 +214,7 @@ def _solve4(a, b):
 
 
 def moment_point_loads(model):
-    """Every distributed member load as point loads at four stations of the
+    """Every interior member load as point loads at four stations of the
     member with the same moments of order 0..3 about its start.
 
     A member's end displacements depend on a load only through its work
@@ -227,22 +227,29 @@ def moment_point_loads(model):
     load on [a, b], and CalculiX's solver loses digits on very short U1
     pieces (12EI/L^3): a 1.9 mm piece next to a point load on a 5.37 m
     member gave 1.2e-6 (building_ccx-25) against stabileo, PyNite and
-    Frame3DD agreeing to 1e-13, and short partial loads gave up to 4e-7
-    (frame2d_ccx-5002, frame3d_ccx-5165).
+    Frame3DD agreeing to 1e-13, short partial loads gave up to 4e-7
+    (frame2d_ccx-5002, frame3d_ccx-5165), and two point loads 8.7 mm apart
+    on a 3.56 m member gave 1.13e-6 (rich3d_ccx-748362, issue #564).
     """
     m = copy.deepcopy(model)
     mem = members(m)
     points = {}
+    loads, member_loads = [], {}
     for ld in m["loads"]:
-        if ld["type"] == "pointOnElement":
-            points.setdefault(ld["data"]["elementId"], []).append(ld["data"]["a"] / mem[ld["data"]["elementId"]]["L"])
-    loads, dist = [], {}
-    for ld in m["loads"]:
-        if ld["type"] == "distributed":
-            dist.setdefault(ld["data"]["elementId"], []).append(ld["data"])
+        t, x = ld["type"], ld["data"]
+        if t == "distributed":
+            member_loads.setdefault(x["elementId"], []).append((t, x))
+        elif t == "pointOnElement":
+            eid = x["elementId"]
+            L = mem[eid]["L"]
+            if 0 < x["a"] < L and mem[eid]["e"]["type"] == "frame":
+                member_loads.setdefault(eid, []).append((t, x))
+            else:
+                points.setdefault(eid, []).append(x["a"] / L if L > 0 else 0.0)
+                loads.append(ld)
         else:
             loads.append(ld)
-    for eid, xs in sorted(dist.items()):
+    for eid, xs in sorted(member_loads.items()):
         L = mem[eid]["L"]
         pts = points.get(eid, [])
 
@@ -254,7 +261,23 @@ def moment_point_loads(model):
         st = [(f + dlt) * L for f in _STATIONS]
         A = [[x ** k for x in st] for k in range(4)]
         acc = [[0.0, 0.0, 0.0] for _ in st]
-        for x in xs:
+        for t, x in xs:
+            if t == "pointOnElement":
+                xp = x["a"]
+                for c, comp in (("x", 0), ("y", 1), ("z", 2)):
+                    p = get(x, f"p{c}")
+                    if p != 0:
+                        mom = [p * xp ** k for k in range(4)]
+                        for s_, v in zip(range(4), _solve4(A, mom)):
+                            acc[s_][comp] += v
+                # _mglobal (0, -my2d, 0) from lift_2d: work against theta_y = -dw/dx.
+                mg = x.get("_mglobal")
+                if mg and mg[1] != 0:
+                    my3d = float(mg[1])
+                    mom_z = [k * (-my3d) * xp ** (k - 1) if k > 0 else 0.0 for k in range(4)]
+                    for s_, v in zip(range(4), _solve4(A, mom_z)):
+                        acc[s_][2] += v
+                continue
             a = x.get("a") or 0.0
             b = x.get("b") if x.get("b") is not None else L
             for c, comp in (("X", 0), ("Y", 1), ("Z", 2)):
