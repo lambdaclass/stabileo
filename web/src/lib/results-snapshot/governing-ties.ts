@@ -1,23 +1,22 @@
-/** The member-end magnitude each governing component is the maximum of (`governing-case.ts`). */
-const GOVERNING_METRIC: Record<string, (f: Record<string, number>) => number> = {
-  momentZ: (f) => Math.max(Math.abs(f.mzStart), Math.abs(f.mzEnd)),
-  shearY: (f) => Math.max(Math.abs(f.vyStart), Math.abs(f.vyEnd)),
-  momentY: (f) => Math.max(Math.abs(f.myStart), Math.abs(f.myEnd)),
-  shearZ: (f) => Math.max(Math.abs(f.vzStart), Math.abs(f.vzEnd)),
-  torsion: (f) => Math.max(Math.abs(f.mxStart), Math.abs(f.mxEnd)),
-  axial: (f) => Math.max(Math.abs(f.nStart), Math.abs(f.nEnd)),
-  moment: (f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd)),
-  shear: (f) => Math.max(Math.abs(f.vStart), Math.abs(f.vEnd)),
-};
+import { governingMagnitude2D, governingMagnitude3D, type Component2D, type Component3D } from '../engine/governing-case';
+import type { ElementForces } from '../engine/types';
+import type { ElementForces3D } from '../engine/types-3d';
+
+const COMPONENTS_3D = new Set<string>(['momentZ', 'shearY', 'axial', 'momentY', 'shearZ', 'torsion']);
+const COMPONENTS_2D = new Set<string>(['moment', 'shear', 'axial']);
+
+function magnitude(f: Record<string, unknown>, component: string): number | undefined {
+  if ('mzStart' in f) return COMPONENTS_3D.has(component) ? governingMagnitude3D(f as unknown as ElementForces3D, component as Component3D) : undefined;
+  return COMPONENTS_2D.has(component) ? governingMagnitude2D(f as unknown as ElementForces, component as Component2D) : undefined;
+}
 
 /** Every combination whose value for this member and component equals the governing one, sorted. */
 export function governingTies(perCombo: Map<number, { elementForces: unknown[] }>, elementId: number, component: string, value: number): number[] {
-  const metric = GOVERNING_METRIC[component];
-  if (!metric) return [];
   const out: number[] = [];
   for (const [comboId, r] of perCombo) {
-    const f = (r.elementForces as Array<Record<string, number>>).find((x) => x.elementId === elementId);
-    if (f && Math.abs(metric(f) - value) <= 1e-9 * Math.max(Math.abs(value), 1e-12)) out.push(comboId);
+    const f = (r.elementForces as Array<Record<string, unknown>>).find((x) => x.elementId === elementId);
+    const m = f && magnitude(f, component);
+    if (m !== undefined && Math.abs(m - value) <= 1e-9 * Math.max(Math.abs(value), 1e-12)) out.push(comboId);
   }
   return out.sort((a, b) => a - b);
 }

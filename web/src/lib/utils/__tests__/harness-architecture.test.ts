@@ -138,11 +138,11 @@ describe('Vitest harness architecture', () => {
     expect(results).not.toBeNull();
     expect(results![1]).toMatch(/include: RESULTS_SNAPSHOT_TESTS/);
     expect(RESULTS_SNAPSHOT_TESTS).toEqual(['src/lib/results-snapshot/__tests__/**']);
-    // Exactly one entry point per corpus group, beside the coverage and negative tests: a group
+    // Exactly one entry point per corpus group, beside the coverage, governing-envelope and negative tests: a group
     // whose file went missing would leave its cases unrun (`results-snapshot/coverage.ts`).
     const groups = [...new Set(CORPUS.map((c) => c.group))].sort();
     expect(files.filter(inResultsPass).map((f) => f.split('/').pop()).sort()).toEqual([
-      'coverage.test.ts', 'negative.test.ts', ...groups.map((g) => `snapshot-${g}.test.ts`),
+      'coverage.test.ts', 'governing-envelope.test.ts', 'negative.test.ts', ...groups.map((g) => `snapshot-${g}.test.ts`),
     ].sort());
   });
 
