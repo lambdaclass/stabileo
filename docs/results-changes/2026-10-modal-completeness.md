@@ -115,18 +115,30 @@ found the projection changing a lock decision only on this plate (the gate and
 the harmonic test) and on that refused fuzz model; every other eigensolve locks
 the same vectors in the same order, so its results are bit-identical.
 
-Projecting the acceptance residual against the locked vectors removes, along
-each locked vector v_i, the coefficient c_i = (M v_i)ᵀ(Opv − μv). Op = K⁻¹M is
-self-adjoint in the M inner product and v is M-orthogonal to v_i, so
-c_i = r_iᵀ M v, where r_i = Op v_i − μ_i v_i is the locked pair's own residual:
-|c_i| ≤ ‖r_i‖_M whatever error v carries. The projection therefore cannot hide
-an error in the candidate pair; it only discards what the locked pairs'
-inexactness explains. `projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
+The acceptance test is a residual of the operator deflated against the locked
+vectors, not of the original operator. Projecting removes, along each locked
+vector v_i, the coefficient c_i = (M v_i)ᵀ(Opv − μv). Op = K⁻¹M is self-adjoint
+in the M inner product and v is M-orthogonal to v_i, so c_i = r_iᵀ M v, where
+r_i = Op v_i − μ_i v_i is the locked pair's own residual: |c_i| ≤ ‖r_i‖_M.
+The removed part depends only on the locked pairs' inexactness, not on the
+candidate's error. It is not small, though: the original-operator residual is
+bounded only by ‖projected residual‖ + (Σ‖r_i‖²_M)^½, and when a locked μ_i is
+much larger than μ that bound can exceed the 10⁻⁸·μ acceptance tolerance, so
+the projected test alone does not certify 10⁻⁸ accuracy against the original
+operator. Two separate checks cover each accepted pair: the backward error on
+the original pencil (max|μKv − Mv| ≤ 10⁻¹⁰·(|μ|‖K‖∞ + ‖M‖∞)·‖v‖∞), which makes
+(1/μ, v) an exact eigenpair of a pencil within that relative perturbation of
+K and M but, on a strongly scaled pencil, does not bound the forward error of
+a small eigenvalue; and the Sturm count at the boundary, which proves no
+eigenvalue below it was skipped but not the accuracy of each one.
+`projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
 locks a near-mechanism mode (μ = 10⁶) and two frame modes, each carrying 10⁻⁹
-of the candidate mode, on a pencil scaled by 10⁻³…10³, so the removed part exceeds the acceptance tolerance,
-and checks that bound, that the accepted pair's Rayleigh quotient is within
-10⁻⁸ of the exact eigenvalue, and that eigenvalue errors of ±10⁻⁷ and an
-eigenvector carrying 10⁻⁵ of another mode are still rejected.
+of the candidate mode, on a pencil scaled by 10⁻³…10³, so the removed part
+exceeds the acceptance tolerance. It checks the per-vector bound, that the
+accepted pair's Rayleigh quotient on the original operator is within 10⁻⁸ of
+the exact eigenvalue (the error is second order in the locked vectors' error),
+and that eigenvalue errors of ±10⁻⁷ and an eigenvector carrying 10⁻⁵ of another
+mode are still rejected.
 
 A negative mass pivot in the dense semidefinite path still refuses the model,
 even at rounding level: a mass that is semidefinite but loses a pivot to
