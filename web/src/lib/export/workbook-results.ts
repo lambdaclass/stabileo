@@ -18,6 +18,9 @@ import type { StaticsRows } from '../store/statics-rows';
 import type { StationDeflection } from '../store/service-deflection';
 import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, type ShellModel, type FaceResult } from '../engine/shell-results';
 import { safeText, type WorkbookSheet } from './workbook-cells';
+import { getShellEnvelopeKernel, SHELL_ENVELOPE_KEYS } from '../engine/shell-combination-kernel';
+import { EngineUnavailableError } from '../engine/engine-unavailable';
+import type { ShellEnvelopeKey } from '../engine/types-3d';
 
 /** A result source; standalone solves and envelope views use id 0, not a load-case id. */
 /**
@@ -228,7 +231,30 @@ function envelopeSheet(input: ResultSheetsInput): WorkbookSheet {
       });
     }
   }
+  if (input.shells && hasShells(input)) rows.push(...shellEnvelopeRows(governing(input.sources)));
   return { name: 'Envelope', rows };
+}
+
+const SHELL_ENVELOPE_UNIT = (key: ShellEnvelopeKey) =>
+  key === 'qx' || key === 'qy' ? 'kN/m' : key.startsWith('m') || key.startsWith('woodArmer') ? 'kN·m/m' : 'kN/m²';
+
+/** Each shell component's extremes over the sources, by the engine's envelope kernel, each with its source. */
+function shellEnvelopeRows(sources: readonly WorkbookSource[]): WorkbookSheet['rows'] {
+  const kernel = getShellEnvelopeKernel();
+  if (!kernel) throw new EngineUnavailableError('the shell envelope');
+  const env = kernel(sources.map((s) => ({ id: s.id, plateStresses: s.results.plateStresses ?? [], quadStresses: s.results.quadStresses ?? [] })));
+  const out: WorkbookSheet['rows'] = [];
+  for (const [kind, list] of [['plate', env.plates], ['quad', env.quads]] as const) {
+    for (const row of [...list].sort((a, b) => a.elementId - b.elementId)) {
+      for (const key of SHELL_ENVELOPE_KEYS) {
+        const e = row.extremes[key];
+        if (!e) continue;
+        const mx = sources[e.maxSource]!, mn = sources[e.minSource]!;
+        out.push(['shells', `${kind} ${row.elementId}`, '', '', key, SHELL_ENVELOPE_UNIT(key), e.max, mx.id, safeText(mx.name), e.min, mn.id, safeText(mn.name)]);
+      }
+    }
+  }
+  return out;
 }
 
 function staticsSheet(statics: StaticsRows | null): WorkbookSheet | null {

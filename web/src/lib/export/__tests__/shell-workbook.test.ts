@@ -104,3 +104,19 @@ it('exports the displayed result and its identity through case, combination and 
   resultsStore.clear();
   expect(activeWorkbookSource()).toBeNull();
 });
+
+it('the Envelope sheet lists each shell component\'s extremes with the combination of each', () => {
+  const sheets = resultSheets({
+    sources: [
+      { kind: 'combination', id: 1, name: '1.2D', results: result(2, 100) },
+      { kind: 'combination', id: 2, name: '1.4D', results: result(-5, 40) },
+    ],
+    stations: 5, statics: null, shells: model,
+  });
+  const rows = records(sheets.find((s) => s.name === 'Envelope')!).filter((r) => r.table === 'shells');
+  const mx = rows.find((r) => r.component === 'mx')!;
+  expect(mx).toMatchObject({ entity: 'quad 1', unit: 'kN·m/m', max: 2, maxSourceId: 1, maxSourceName: '1.2D', min: -5, minSourceId: 2, minSourceName: '1.4D' });
+  const sxx = rows.find((r) => r.component === 'sigmaXx')!;
+  expect(sxx).toMatchObject({ unit: 'kN/m²', max: 100, maxSourceId: 1, min: 40, minSourceId: 2 });
+  expect(rows.find((r) => r.component === 'qx')).toBeUndefined();
+});

@@ -44,7 +44,7 @@ import { findBehaviour, R_ELASTIC } from '../codes/cirsoc103/behaviour';
 import { setLocale } from '../i18n';
 import { errorText } from '../utils/error-text';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { flatten, FORMAT } from '../../../scripts/results-snapshot/compare.mjs';
+import { flatten, FORMAT, DEFAULT_SKIP } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
 
 export interface Snapshot {
@@ -116,6 +116,11 @@ function captureResults(out: Values): void {
     analysis('base', resultsStore.singleResults3D ?? resultsStore.results3D, out);
     for (const [id, r] of resultsStore.perCase3D) analysis(`case[${id}]`, r, out);
     for (const [id, r] of resultsStore.perCombo3D) analysis(`combo[${id}]`, r, out);
+    const env = resultsStore.envelope3D?.maxAbsResults3D;
+    if (env?.plateStresses?.length || env?.quadStresses?.length) {
+      // Which set an extreme comes from is a tie on a symmetric model, as `maxId` is.
+      flatten({ plateStresses: env.plateStresses ?? [], quadStresses: env.quadStresses ?? [] }, 'envelope', out, new Set([...DEFAULT_SKIP, 'maxSource', 'minSource']));
+    }
     if (resultsStore.unstableCombinations3D.length) out['unstableCombinations'] = resultsStore.unstableCombinations3D.join(',');
   } else {
     analysis('base', resultsStore.singleResults ?? resultsStore.results, out);
