@@ -72,9 +72,9 @@ gate.
 | Command | What it does |
 |---|---|
 | `make perf.lighthouse.deps` | install the pinned Lighthouse |
-| `make perf.lighthouse BASE=https://stabileo.com PRESET=mobile` | measure and check |
-| `make perf.lighthouse ... ARGS=--write` | raise the baseline where a median is higher (after a `RAISE`); never lowers it |
-| `make perf.lighthouse ... ARGS=--no-check` | measure only (another site, a local preview) |
+| `BASE=https://stabileo.com PRESET=mobile make perf.lighthouse` | measure and check |
+| `ARGS=--write ... make perf.lighthouse` | raise the baseline where a median is higher (after a `RAISE`); never lowers it |
+| `ARGS=--no-check ... make perf.lighthouse` | measure only (another site, a local preview) |
 
 Scores from another machine are not comparable with the baseline: raise it from the workflow's
 numbers (its artifact has every report), not from a laptop.

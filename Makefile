@@ -276,9 +276,9 @@ perf.budget.accept:
 perf.lighthouse.deps:
 	$(NIX_RUN) bash -c "cd web/lighthouse && npm ci --no-audit --no-fund"
 
-## Lighthouse median of RUNS against web/perf-lighthouse.json: BASE=url PRESET=mobile|desktop ARGS=--write
+## Lighthouse median of RUNS against web/perf-lighthouse.json; BASE, RUNS, PRESET and ARGS come from the environment
 perf.lighthouse:
-	$(NIX_RUN) bash -c "cd web && node scripts/perf-lighthouse.mjs --base $(or $(BASE),https://stabileo.com) --runs $(or $(RUNS),5) --preset $(or $(PRESET),mobile) $(ARGS)"
+	$(NIX_RUN) bash -c 'cd web && node scripts/perf-lighthouse.mjs --base "$${BASE:-https://stabileo.com}" --runs "$${RUNS:-5}" --preset "$${PRESET:-mobile}" $$ARGS'
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
