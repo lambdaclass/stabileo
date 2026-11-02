@@ -5,10 +5,30 @@
 The order of all work, set by the user. Nothing in a lower group takes capacity from a higher one.
 
 1. **Wrong-result bugs,** P0 then P1. A wrong number that looks right is the worst thing Stabileo can ship.
-   - [#532](https://github.com/lambdaclass/stabileo/issues/532) **3D design-demand axis mapping** (P0 candidate): certified checks and 3D demand
-     extraction may read the lateral `shearY`/`momentZ` instead of strong-axis `shearZ`/`momentY`.
-     An agent is verifying the axis convention now and will fix it in our own PR (branch
-     `safety/fix-532-3d-design-axes`); outside PR #533 is a lead only, never merged.
+   - **P0 from the verified review of 2026-11-02** (an outside review of main checked claim by claim
+     against the code; these can give a wrong result now, with no warning):
+     1. **Containment for open safety defects that have none,** under [#447](https://github.com/lambdaclass/stabileo/issues/447) (owner: the
+        containment agent, PR [#807](https://github.com/lambdaclass/stabileo/pull/807)). Only #428 is in `known_issues.rs`. Uncontained:
+        [#426](https://github.com/lambdaclass/stabileo/issues/426) 3D co-rotational adds rotation vectors (reachable from PRO); [#458](https://github.com/lambdaclass/stabileo/issues/458) the
+        assembled certificate certifies singular models; [#798](https://github.com/lambdaclass/stabileo/issues/798) MITC4 distorted meshes (the
+        distortion gate in `pre_solve_gates.rs` likely misses the MacNeal–Harder 45° shapes: run
+        them); [#466](https://github.com/lambdaclass/stabileo/issues/466) 2D constraints assume the X–Z plane, so Y–Z models are silently wrong;
+        [#1057](https://github.com/lambdaclass/stabileo/issues/1057) warped MITC4/MITC9 (PR [#1074](https://github.com/lambdaclass/stabileo/pull/1074)). `known_issues::Analysis` also needs variants
+        for co-rotational, contact, fiber and buckling, so those paths can carry a warning.
+     2. **3D design demands use the wrong axis,** [#532](https://github.com/lambdaclass/stabileo/issues/532), confirmed (owner: the #532 agent,
+        branch `safety/fix-532-3d-design-axes`). With local z up, gravity bends a horizontal beam
+        about y with web shear Vz, but `extract_rc_demands_3d` takes `mu: mz, vu: vy`,
+        `certify_steel_multi_case_3d` takes `shearY`, `pick_governing_3d` returns only vy, and a
+        test locks the wrong convention in. Not on the app's path today (the web maps axes itself)
+        but exported to WASM, and it certifies OK when it isn't. Fixed in our own PR with
+        result-change registration; outside PR #533 is a lead only, never merged.
+     3. **AISC G2 shear passes with ratio 0 when the web area is missing** (`steel_check.rs`,
+        `certify/design.rs`: `shear_capacity` returns 0). Route it through `CheckLedger` as not
+        evaluated (owner: the shear agent).
+     4. **EC3 §6.2.6 shear area falls back to 0.5·A** when Av is missing (`ec3_check.rs`), about
+        57% unconservative for HEB 300, and certified. Refuse instead (owner: the shear agent).
+     5. **Proof checks skip the merge queue:** `verify.yml` (Lean, symbolic, Kani) has no
+        `merge_group` trigger, so a change can land without them (owner: the CI agent).
    - [#755](https://github.com/lambdaclass/stabileo/issues/755) **SA-2026-023:** the RC column check read one sign of the moment, and an uneven bar
      layout is weaker the other way.
    - **Shell envelope missing a combination** (from the nightly triage; issue to be filed).
@@ -392,6 +412,15 @@ What remains after the October 2026 safety wave (certified solver, differential 
 
 Beyond software: an independent licensed structural engineer reviews worked examples, clause readings and sample reports; real anonymised projects from engineering firms (with their SAP2000/ETABS/RFEM models and results, and the architect's IFC/DWG where available) join the acceptance suite and the BIM-import corpus; the design-code manuals with worked examples (AISC Design Examples, INTI/CIRSOC example books, AWC NDS, TMS 402, AISI Cold-Formed Steel Design Manual) are obtained so checks are tested against published numbers rather than hand-worked ones.
 
+**From the verified review (2026-11-02), P1:**
+
+- **Mutation rotation that keeps its promise:** 512 shards at 4 a night is 128 days, against the 16
+  promised; raise the nightly share or cut the shards.
+- **The TypeScript model rewrite before the solve is outside verification** (offsets, semi-rigid
+  joints, variable members, 2D-in-3D): the differential, fuzz and metamorphic harnesses call Rust
+  directly and never exercise it. Move it to Rust (not covered by #731 or #392, which are after the
+  solve).
+
 **Exit criteria (Trust and verification).**
 - Every verification job (nightly fuzzing per target, Rust mutation testing, the seven differential harnesses, Lean, Kani, symbolic) runs on `main` at least weekly, publishes its numbers as a CI artifact read by the [dashboard](../verification/DASHBOARD.md), and a failure opens an issue; no Trust metric reads "not yet measured".
 - 0 untriaged differential mismatches: every mismatch in the latest run per harness is a fixed bug, a known open issue, or a documented modelling difference.
@@ -452,6 +481,16 @@ Closing the gap between "proven" and "right".
 8. **Numerical stress tests:** [#382](https://github.com/lambdaclass/stabileo/issues/382) extreme stiffness ratios, ~10⁶-DOF models, near-singular and unit-extreme models; measure where accuracy degrades and refuse beyond it.
 9. **Engine code hygiene:** [#383](https://github.com/lambdaclass/stabileo/issues/383) line and branch coverage per module (llvm-cov), Miri for any `unsafe`, strict clippy, overflow checks on index arithmetic, `cargo audit` in CI.
 10. **Documented, peer-reviewed element derivations** [#384](https://github.com/lambdaclass/stabileo/issues/384) (PR [#330](https://github.com/lambdaclass/stabileo/pull/330)) in `docs/SOLVER_REFERENCE.md`: each formulation's derivation and assumptions, reviewable by an independent engineer. The review's findings are issues [#406](https://github.com/lambdaclass/stabileo/issues/406)–[#433](https://github.com/lambdaclass/stabileo/issues/433) (label `derivations`); several are `safety`.
+
+**From the verified review (2026-11-02), P1:**
+
+- **Every nonlinear exit passes an equilibrium gate:** only `linear.rs` fills `equilibrium`; P-Δ
+  leaves it empty; [#432](https://github.com/lambdaclass/stabileo/issues/432) contact freezes a chattering gap and reports converged; [#433](https://github.com/lambdaclass/stabileo/issues/433)
+  fiber returns the last iterate; the `solve_cable_2d` export drops `converged`. Contact and fiber
+  are not called by the web app, so this is P0 for direct engine callers (partly [#381](https://github.com/lambdaclass/stabileo/issues/381), [#370](https://github.com/lambdaclass/stabileo/issues/370)).
+- **[#458](https://github.com/lambdaclass/stabileo/issues/458) proof gap:** `EndToEnd.lean` leaves element formulas and the removal of unstiffened
+  DOFs unformalised (partly [#375](https://github.com/lambdaclass/stabileo/issues/375), [#376](https://github.com/lambdaclass/stabileo/issues/376), [#500](https://github.com/lambdaclass/stabileo/issues/500)).
+- **Cb moves from TypeScript (`steel/moment-gradient.ts`) to Rust** ([#391](https://github.com/lambdaclass/stabileo/issues/391)).
 
 **Exit criteria (Solver and proof depth).**
 - Every Certified analysis is certified end to end for frames (model → K, f → result), then for shells (item 1); the trusted computing base is a reviewed document enforced in CI, with 0 `sorry` and no extra axioms in Lean (item 2).
@@ -521,6 +560,16 @@ smoke budget (PR [#869](https://github.com/lambdaclass/stabileo/pull/869)). Brow
 7. **Contain first, fix second.** [#447](https://github.com/lambdaclass/stabileo/issues/447) Per-feature runtime switches (warn or refuse) that the app, the engine API and the MCP server check at solve and check time, so a known dangerous result is contained within hours of confirmation, before the fix is written or released. Every `safety` issue gets a containment step (switch set, or a recorded reason none is needed) before its fix; a switch can only make results more cautious than the bundled default.
 8. **Postmortem per safety bug.** [#449](https://github.com/lambdaclass/stabileo/issues/449) Every `safety` defect that reached `main` gets a blameless postmortem in `docs/postmortems/`: timeline, root cause, why the tests, certificates, differential runs and reviews missed it, the new kind of test or check that now catches it, the variant analysis (Trust item 14), and its advisory, which is written from it.
 
+**From the verified review (2026-11-02), P1:**
+
+- **Contain the lower-severity open defects too** (item 7, [#447](https://github.com/lambdaclass/stabileo/issues/447)): [#741](https://github.com/lambdaclass/stabileo/issues/741)/[#818](https://github.com/lambdaclass/stabileo/issues/818)
+  buckling factor above its certified bound (about 0.05%); [#456](https://github.com/lambdaclass/stabileo/issues/456) 3D buckling averages end
+  forces (mostly false refusals); [#419](https://github.com/lambdaclass/stabileo/issues/419) 3D connector axes; [#408](https://github.com/lambdaclass/stabileo/issues/408) warping shared at a node
+  with the UI silent; [#417](https://github.com/lambdaclass/stabileo/issues/417) cable in compression caught only in TypeScript.
+- **Research crate lists drawn from `research/papers.yaml`:** `supply-chain.yml` skips
+  pastrana-2026 and ferrari-sigmund-2025 (pastrana's WASM ships), and `vite.config.ts` checks only
+  shauer.
+
 **Exit criteria (Release safety).**
 - Every release is tagged, has release notes in English, Spanish and Portuguese with a "results may change" section, and records a row on the [dashboard](../verification/DASHBOARD.md).
 - 100 % of `safety` issues fixed in a release have a published advisory (or a recorded reason none is needed) within the timelines of SAFETY_ADVISORIES.md, and the in-app notice reaches the projects that use the affected feature.
@@ -547,6 +596,18 @@ without a second implementation of anything that computes a result.
    WASM, native or server. [#731](https://github.com/lambdaclass/stabileo/issues/731)
 5. **Ownership map, then consolidation:** which implementation owns each code check and limit
    state; numerical rules move to Rust where they exist only in TypeScript or disagree. [#732](https://github.com/lambdaclass/stabileo/issues/732)
+
+**From the verified review (2026-11-02), P1:**
+
+- **Wire inputs refuse unknown fields, type by type** (audit plan K5): only `SolverElement3D` and
+  the mass structs deny them today. Not a blanket change: the web sends `name` on `SolverSection`.
+- **Solver worker hangs:** after init, a killed or out-of-memory worker leaves its jobs pending
+  forever (no timeout, no respawn), and a worker is reused after a WASM trap. A hang, not a wrong
+  result.
+- **Touch:** cover the mobile results panel (`.mrp-*`, 22 px steppers) and tablets in the
+  touch-density checks; compact stays the default (a documented decision).
+- **Sitemap and research metadata:** research pages missing from the de/fr/tr sitemap, research
+  JSON-LD and share cards: in PRs [#881](https://github.com/lambdaclass/stabileo/pull/881) and [#1066](https://github.com/lambdaclass/stabileo/pull/1066).
 
 **Exit criteria.** The desktop app ships signed on three OSes with auto-update and results
 identical to the web on the snapshot corpus (#716); every code check and limit state has one
@@ -1002,6 +1063,29 @@ then 4, 2 and 3; 6 and 7 as safety-critical engine work after the "Priority now"
      old names stay forever, and `.ded` keeps opening (the extension may remain as the project format).
    - **Phase 4, keep it done:** a CI check forbids new `dedaliano` outside the compatibility allowlist.
    Each phase is its own PR, reviewed twice, merged only when the guard tests from phase 0 are green.
+
+### Verified review: later and housekeeping (2026-11-02)
+
+From the same verified review. **Later (P2):**
+
+- Split `App.svelte` (4,326 lines) into mode shells; move the 136 `#[wasm_bindgen]` wrappers out of
+  `lib.rs`.
+- PCG factors K fully first (performance only, opt-in path).
+- String discriminants to serde enums; TypeScript types generated from Rust.
+- Sheet detents and double-tap, a touch loupe for snapping, tool permalinks and embeds.
+- Faster build tests (5 production builds, not 3; the 800 ms prerender wait).
+- AI backend: run `sanity::review_json` and a mechanism check when it builds a model.
+- An animated mechanism mode for "why did this fail" (mechanism nodes are already reported).
+- Serviceability certificates ([#367](https://github.com/lambdaclass/stabileo/issues/367)); Rust ports of direct analysis and Wood–Armer ([#392](https://github.com/lambdaclass/stabileo/issues/392)).
+- Already planned, unchanged: BundleCheck in the browser ([#499](https://github.com/lambdaclass/stabileo/issues/499)), parametric models
+  ([#347](https://github.com/lambdaclass/stabileo/issues/347), [#357](https://github.com/lambdaclass/stabileo/issues/357)), CLI and MCP ([#351](https://github.com/lambdaclass/stabileo/issues/351), [#731](https://github.com/lambdaclass/stabileo/issues/731)), steel and RC tools (Tools item 4).
+
+**Housekeeping:**
+
+- **Regenerate `docs/verification/MATURITY.md`:** it is stale and still lists closed issues (#427,
+  #416, #459) as open; the review trusted it.
+- **Retriage [#810](https://github.com/lambdaclass/stabileo/issues/810):** probably a test-model error (per the research page); close or retriage.
+- **Triage the 227 open `nightly-finding` issues,** many marked wrong-result candidates.
 
 ## Daily, Weekly, Monthly Priority Lens
 
