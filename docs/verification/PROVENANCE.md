@@ -92,8 +92,8 @@ analyses, P-Δ, modal, spectral and buckling with the Advanced tab's inputs. Rec
 reactions, member forces, shell stresses, per case and per combination; the combinations'
 envelope (each diagram's maximum and minimum at every station, the max-abs results) and the
 combination that governs each member's every component, recorded with every combination that ties
-with it (a lateral moment 1.2D + L + E and 0.9D + E give exactly, where the app names whichever
-it met first); equilibrium flags and the
+with it and the one the app named (1.2D + L + E and 0.9D + E give exactly the same lateral moment,
+and the app names whichever it met first); equilibrium flags and the
 warning/error diagnostic codes; design verdicts, holds, ratios, required steel, steel limit
 states, footing checks; and every refusal with its reason (in English).
 
