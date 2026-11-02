@@ -11,7 +11,7 @@ import { tx } from '../doc';
 import { num, numText } from '../format';
 import { plotOf } from '../plot';
 import { dynamicsSettings } from '../../dynamics/course/settings';
-import { modelSystem, SystemError, type MdofSystem } from '../../dynamics/course/mdof-system';
+import { modelSystem, SystemError, hasAllHingedNode, type MdofSystem } from '../../dynamics/course/mdof-system';
 import { lumpedFrameMass, consistentFrameMass, type MassModel } from '../../dynamics/course/mass-model';
 import { exactBeam, frequenciesOf, MASS_MODELS, type ConvergenceRow } from '../../dynamics/course/convergence';
 import { generalizedEigen } from '../../dynamics/course/dense';
@@ -133,13 +133,14 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
 
   const chosen = generalizedEigen(sys.K, sys.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
   const eng = engineAt?.(n) ?? null;
+  const hinged = hasAllHingedNode(ctx.model!);
   const head = [dt('mdof.mode'), dt(`mass.col.${st.massModel}`), ...(exact ? [dt('mass.col.exact')] : [])];
   steps.push({
     title: dt('mass.s5'),
     blocks: [
       p('mass.freq.lead', { n }),
       { kind: 'table', head, rows: chosen.map((f, i) => [i + 1, f, ...(exact ? [exact.modes[i]?.f ?? '—'] : [])]), caption: dt('mass.freq.caption') },
-      ...(eng ? [p(st.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), st.massModel === 'consistent', dt('mdof.eig.engineCaption'))] : []),
+      ...(eng ? [p(hinged ? 'mdof.eig.engineHinged' : st.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), st.massModel === 'consistent' && !hinged, dt('mdof.eig.engineCaption'))] : []),
       ...(exact ? [p(`mass.exact.${exact.beamCase}`, { L: numText(exact.L) })] : [p('mass.exact.none', undefined, true)]),
       ...(exact ? [{ kind: 'eq', tex: `\\omega_1 = ${num(exactCoef(exact))}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(exactCoef(exact))}\\sqrt{\\frac{${num(exact.EI)}}{${num(exact.rhoA)} \\cdot ${num(exact.L)}^4}}` } as Block] : []),
     ],
@@ -150,6 +151,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   const ref = exact?.modes[0]?.f ?? table[table.length - 1]?.f.consistent[0];
   const err = (f: number) => (ref ? `${numText(((f - ref) / ref) * 100, 3)} %` : '—');
   const convRows = table.map((r) => [r.n, r.dofs.lumped, r.f.lumped[0], err(r.f.lumped[0]), r.f.consistent[0], err(r.f.consistent[0]), r.f.guyan[0], err(r.f.guyan[0]), ...(r.engine ? [r.engine[0]] : [])]);
+  const engineCheck = hinged ? [] : table.filter((r) => r.engine?.length).map((r) => ({ label: `f_{1},\\ n = ${r.n}`, method: r.f.consistent[0], matrix: r.engine![0], unit: 'Hz' }));
   const series = MASS_MODELS.map((mm, i) => ({ points: table.map((r) => [r.n, r.f[mm][0]] as [number, number]), color: (['load', 'accent', 'reaction'] as const)[i], label: dt(`mass.col.${mm}`) }));
   steps.push({
     title: dt('mass.s6'),
@@ -160,6 +162,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
       { kind: 'plot', plot: plotOf('n', 'f₁ (Hz)', [...series, ...(exact && ref ? [{ points: [[ns[0], ref], [ns[ns.length - 1], ref]] as Array<[number, number]>, color: 'muted' as const, dashed: true, label: dt('mass.col.exact') }] : [])]), caption: dt('mass.conv.plotCaption') },
       ...(ref && exact ? [p('mass.conv.exactLine', { f: numText(ref, 4) })] : []),
       p('mass.conv.why', undefined, true),
+      ...(engineCheck.length ? [p('mass.conv.engineCheck'), { kind: 'compare', rows: engineCheck, caption: dt('mdof.eig.engineCaption') } as Block] : []),
       ...(table.length < ns.length ? [note('info', 'mass.conv.cut', { n: table[table.length - 1]?.n ?? 1 })] : []),
     ],
   });

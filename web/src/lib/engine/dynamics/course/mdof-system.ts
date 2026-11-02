@@ -149,3 +149,23 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   const totalMass = members.reduce((s, m) => s + m.rhoA * m.L, 0) + pts.reduce((s, p) => s + p.mx, 0);
   return { fullDofs, fullK, fullM, fullF, dofs, K, M, F, condensation, massModel: opts.massModel, nPerMember: Math.max(1, opts.nPerMember), members, points: pts, totalMass, inertia, chains, coords };
 }
+
+/**
+ * A node every frame member reaches with a hinge. The engine assembles such a node its own way, so
+ * its frequencies match these only as the members are cut finer.
+ */
+export function hasAllHingedNode(model: ModelData): boolean {
+  const input = buildSolverInput2D(model, false);
+  if (!input) return false;
+  const ends = new Map<number, { frames: number; hinged: number }>();
+  const at = (id: number) => { let e = ends.get(id); if (!e) ends.set(id, (e = { frames: 0, hinged: 0 })); return e; };
+  for (const e of input.elements.values()) {
+    if (e.type !== 'frame') continue;
+    const i = at(e.nodeI), j = at(e.nodeJ);
+    i.frames++; j.frames++;
+    if (e.hingeStart) i.hinged++;
+    if (e.hingeEnd) j.hinged++;
+  }
+  return [...ends.values()].some((e) => e.frames > 0 && e.hinged === e.frames);
+}
+

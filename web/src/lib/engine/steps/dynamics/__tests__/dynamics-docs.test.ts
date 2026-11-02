@@ -232,3 +232,35 @@ describe('the n degree of freedom direct integration and its excitation', () => 
     expect(newmarkDrift(10, easy.dt, 2)).toBeLessThanOrEqual(DIRECT_TOL);
   });
 });
+
+describe('the n degree of freedom document checks K and F against the matrix method', () => {
+  it('its example, with the default lumped mass, has a static deflection that matches the reference at the model nodes', async () => {
+    await load('dynamics-shear-building');
+    const doc = build('mdofModal');
+    const compares = doc.steps.flatMap((s) => s.blocks).filter((b): b is Extract<Block, { kind: 'compare' }> => b.kind === 'compare');
+    expect(compares.length).toBeGreaterThan(0);
+    for (const r of compares[0].rows) expect(Math.abs(r.method - r.matrix)).toBeLessThan(1e-9 * Math.max(1, Math.abs(r.matrix)));
+  });
+});
+
+describe('the mass discretization document checks its consistent mass against the engine', () => {
+  it('its example, with the default lumped mass, compares f₁ of the consistent mass with the engine for every n', async () => {
+    await load('cantilever');
+    const doc = build('massDiscretization');
+    const compares = doc.steps.flatMap((s) => s.blocks).filter((b): b is Extract<Block, { kind: 'compare' }> => b.kind === 'compare');
+    expect(compares.length).toBeGreaterThan(0);
+    const rows = compares[compares.length - 1].rows;
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    for (const r of rows) expect(Math.abs(r.method / r.matrix - 1)).toBeLessThan(1e-6);
+  });
+});
+
+describe('a node every member reaches with a hinge', () => {
+  it('the three-hinged arch: no claim that the frequencies equal the engine\'s, and the note says why', async () => {
+    await load('three-hinge-arch');
+    const doc = build('massDiscretization');
+    const blocks = doc.steps.flatMap((s) => s.blocks);
+    expect(blocks.some((b) => b.kind === 'compare')).toBe(false);
+    expect(JSON.stringify(doc)).toContain('mdof.eig.engineHinged');
+  });
+});

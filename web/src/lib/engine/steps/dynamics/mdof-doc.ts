@@ -15,6 +15,8 @@ import { sketchOf } from '../sketch';
 import { resolveMdof, type MdofCase, DIRECT_TOL } from './mdof-build';
 import { K as KEY, p, note, dt, nodeNames, dofTexN, dofTextN, matrixBlock, systemSketch, shapeSketch, shapeScale, expand, MAX_SHOWN, engineFrequencies } from './common';
 import { mdofSystemBlocks, shearBlocks } from './mdof-system-blocks';
+import { hasAllHingedNode } from '../../dynamics/course/mdof-system';
+import { buildSolverInput2D } from '../../solver-service';
 
 export type EngineModal = () => number[] | null;
 
@@ -75,6 +77,8 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
   ];
 
   steps.push(...(c.sys ? mdofSystemBlocks(c, names, labels) : shearBlocks(c, labels)));
+  const statics = c.sys ? staticCheck(ctx, c, texs) : null;
+  if (statics) steps[steps.length - 1].blocks.push(...statics);
 
   const eqs: Block[] = [
     p('mdof.eig.lead'),
@@ -92,11 +96,12 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
   }
   eqs.push({ kind: 'table', head: [dt('mdof.mode'), { tex: '\\omega\\ [\\text{rad/s}]' }, { tex: 'f\\ [\\text{Hz}]' }, { tex: 'T\\ [\\text{s}]' }], rows: c.sol.modes.slice(0, Math.max(shown, Math.min(nModes, 8))).map((m, i) => [i + 1, m.omega, m.f, m.T]), caption: dt('mdof.eig.tableCaption') });
   const eng = engineModal?.() ?? null;
+  const hinged = c.kind !== 'shear' && !!ctx.model && hasAllHingedNode(ctx.model);
   if (eng?.length) {
     const rows = c.sol.modes.slice(0, Math.min(6, eng.length)).map((m, i) => ({ label: `f_{${i + 1}}`, method: m.f, matrix: eng[i], unit: 'Hz' }));
     eqs.push(
-      p(c.kind === 'shear' ? 'mdof.eig.engineShear' : c.settings.mass.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'),
-      engineFrequencies(rows, c.kind !== 'shear' && c.settings.mass.massModel === 'consistent', dt('mdof.eig.engineCaption')),
+      p(c.kind === 'shear' ? 'mdof.eig.engineShear' : hinged ? 'mdof.eig.engineHinged' : c.settings.mass.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'),
+      engineFrequencies(rows, c.kind !== 'shear' && !hinged && c.settings.mass.massModel === 'consistent', dt('mdof.eig.engineCaption')),
     );
   }
   steps.push({ title: dt('mdof.s4'), blocks: eqs });
@@ -213,3 +218,25 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
     steps,
   };
 }
+
+/**
+ * K and F checked before the modes: the static deflection K⁻¹·F of the system against the matrix
+ * method on the whole model, at the model's own nodes. Skipped when the two load the model
+ * differently (the system leaves self-weight out).
+ */
+function staticCheck(ctx: MethodContext, c: MdofCase, texs: string[]): Block[] | null {
+  const ref = ctx.ref;
+  if (!ref || !ctx.model) return null;
+  const plain = buildSolverInput2D(ctx.model, false);
+  if (!plain || plain.loads.length !== ctx.input.loads.length) return null;
+  const rows = c.dofs.flatMap((d, i) => {
+    const r = ref.displacements.get(d.nodeId);
+    if (!r) return [];
+    const v = d.dir === 'ux' ? r.ux : d.dir === 'uz' ? r.uz : r.ry;
+    const k = d.dir === 'ry' ? 1 : 1000;
+    return [{ label: texs[i], method: c.ust[i] * k, matrix: v * k, unit: d.dir === 'ry' ? 'rad' : 'mm' }];
+  }).sort((a, b) => Math.abs(b.matrix) - Math.abs(a.matrix)).slice(0, 6);
+  if (!rows.length || !(Math.abs(rows[0].matrix) > 0)) return null;
+  return [p('mdof.static.lead'), { kind: 'compare', rows, caption: dt('mdof.static.caption') }];
+}
+

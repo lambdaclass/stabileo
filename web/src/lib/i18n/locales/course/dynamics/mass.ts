@@ -54,6 +54,7 @@ export const es: Translations = {
   'course.dynamics.mass.conv.plotCaption': 'Primera frecuencia según la cantidad de segmentos por barra.',
   'course.dynamics.mass.conv.exactLine': 'La línea de trazos es la frecuencia exacta, f_1 = {f} Hz.',
   'course.dynamics.mass.conv.why': 'La masa concentrada suele quedar por debajo de la exacta y la consistente por encima; las dos se acercan al aumentar n. La columna del motor coincide con la consistente porque el motor usa esa masa.',
+  'course.dynamics.mass.conv.engineCheck': "La masa consistente es la del análisis modal del motor: para cada n, su primera frecuencia tiene que ser la misma.",
   'course.dynamics.mass.conv.cut': 'Las divisiones más finas que n = {n} superan el tamaño que explica este paso a paso.',
   'course.dynamics.mass.err.noBars': 'Hace falta al menos una barra con masa (densidad del material mayor que cero).',
 };
@@ -112,6 +113,7 @@ export const en: Translations = {
   'course.dynamics.mass.conv.plotCaption': 'First frequency against the number of segments per member.',
   'course.dynamics.mass.conv.exactLine': 'The dashed line is the exact frequency, f_1 = {f} Hz.',
   'course.dynamics.mass.conv.why': 'Lumped mass tends to stay below the exact value and consistent mass above it; both get closer as n grows. The engine column matches the consistent one because the engine uses that mass.',
+  'course.dynamics.mass.conv.engineCheck': "The consistent mass is the one the engine's modal analysis uses: for every n its first frequency must be the same.",
   'course.dynamics.mass.conv.cut': 'Cuts finer than n = {n} exceed the size this step by step explains.',
   'course.dynamics.mass.err.noBars': 'At least one member with mass is needed (a material density above zero).',
 };
@@ -170,6 +172,7 @@ export const pt: Translations = {
   'course.dynamics.mass.conv.plotCaption': 'Primeira frequência em função do número de segmentos por barra.',
   'course.dynamics.mass.conv.exactLine': 'A linha tracejada é a frequência exata, f_1 = {f} Hz.',
   'course.dynamics.mass.conv.why': 'A massa concentrada costuma ficar abaixo da exata e a consistente acima; as duas se aproximam ao aumentar n. A coluna do motor coincide com a consistente porque o motor usa essa massa.',
+  'course.dynamics.mass.conv.engineCheck': "A massa consistente é a da análise modal do motor: para cada n, sua primeira frequência tem de ser a mesma.",
   'course.dynamics.mass.conv.cut': 'As divisões mais finas que n = {n} superam o tamanho que este passo a passo explica.',
   'course.dynamics.mass.err.noBars': 'É preciso ao menos uma barra com massa (densidade do material maior que zero).',
 };
