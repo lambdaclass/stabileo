@@ -884,7 +884,7 @@ bound by the scaling's rounding), `certify_steel_multi_case_2d/3d`
 |---|---|
 | AISC 360 (`steel_check`): tension D2 (yield + rupture), compression E3, flexure F2 (LTB) / F6, shear G2, interaction H1 | **certified** |
 | EC3 (`ec3_check`): tension 6.2.3, flexural buckling 6.3.1 (χ curves a–d), LTB 6.3.2, weak-axis flexure 6.2.5, shear 6.2.6, interaction 6.3.3 (6.61)/(6.62) with Annex B factors | **certified** |
-| EC2 (`ec2_check`): RC flexure 6.1 (rectangular block, singly / doubly reinforced, compression-steel yield branch), shear 6.2 (VRd,c with the NEd axial term over the whole NEd interval, VRd,s, VRd,max) | **certified** |
+| EC2 (`ec2_check`): RC flexure 6.1 (rectangular block, neutral axis by strain compatibility, certified with `increasing_root`), shear 6.2 (VRd,c with the NEd axial term over the whole NEd interval, VRd,s, VRd,max) | **certified** |
 | CIRSOC 201 (`cirsoc201_check`): RC flexure 10.2 (strain compatibility, singly / doubly reinforced, compression- and tension-steel yield branches, φ 9.3.2 with εty = 0.002 for fy ≤ 420 MPa else fy/Es), shear Cap. 11 (Vc with √f'c ≤ 25/3, Vs, Vs,max) | **certified** |
 | ACI 318-19 (`rc_check`): RC flexure 22.2 (strain compatibility, rectangular singly / doubly, T-beam flange / web), P-M interaction 22.4 at the axial load, axial capacity 22.4.2.1 / 22.4.3.1, φ Table 21.2.2, shear 22.5.5.1 (Av,min switch, λs, √f'c ≤ 8.3, Vs,max) | **certified** |
 | NDS timber (`timber_check`): bending 3.3 (CL with the Table 3.3.3 effective span), compression 3.6 (CP), tension 3.8, shear 3.4, interaction 3.9.1 / 3.9.2 (FcE1 amplification, saturated at 99) | **certified** |
