@@ -27,7 +27,7 @@ for (const viewport of [{ width: 360, height: 780 }, { width: 390, height: 844 }
     const popup = await popupPromise;
     await expect(popup).toHaveURL(/app\/basic\?e2e=1#data=2\./);
     type Hooks = { hasDrawnResults(): boolean; nodePos(id: number): { x: number; y: number; z: number } };
-    await expect.poll(() => popup.evaluate(() => (window as unknown as { __stabileo?: Hooks }).__stabileo?.hasDrawnResults()), { timeout: 60000 }).toBe(true);
+    await expect.poll(() => popup.evaluate(() => (window as unknown as { __stabileo?: Hooks }).__stabileo?.hasDrawnResults()), { timeout: 60000 }).toBe(true); // slow-ok: The editor initializes WASM and solves the imported cable model before drawing results.
     const center = await popup.evaluate(() => (window as unknown as { __stabileo: Hooks }).__stabileo.nodePos(1));
     expect(center.z).toBeCloseTo(-0.5, 12);
     await popup.close();

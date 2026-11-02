@@ -6,12 +6,12 @@ for (const width of [360, 390, 810]) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/en/research/benchmarks/newmark-1959/');
     await expect(page.getByRole('heading', { name: 'Newmark average acceleration' })).toBeVisible();
-    await expect(page.getByText('First version · 0 reviews', { exact: true })).toBeVisible();
+    await expect(page.getByText('First version · 1 review round', { exact: true })).toBeVisible();
     await expect(page.locator('.rs-viewer-host canvas').first()).toBeVisible();
     await expect(page.getByTestId('source')).toContainText('Precomputed replay');
     const replayError = Number(await page.getByTestId('comparison').getAttribute('data-error'));
     await page.getByRole('button', { name: 'Recompute live', exact: true }).click();
-    await expect(page.getByTestId('source')).toContainText('Live computation', { timeout: 60_000 });
+    await expect(page.getByTestId('source')).toContainText('Live computation', { timeout: 60_000 }); // slow-ok: The production WASM engine computes the Newmark time-history response.
     const fine = Number(await page.getByTestId('comparison').getAttribute('data-error'));
     expect(Math.abs(fine - replayError)).toBeLessThan(1e-10);
     expect(fine).toBeGreaterThan(0);

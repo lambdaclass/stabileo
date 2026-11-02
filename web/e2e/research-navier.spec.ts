@@ -9,7 +9,7 @@ for (const width of [360, 390, 810]) {
     await expect(page.getByTestId('navier-results').locator('tbody tr')).toHaveCount(6);
     await expect(page.getByTestId('navier-source')).toContainText('Precomputed replay');
     await page.getByRole('button', { name: 'Recompute live' }).click();
-    await expect(page.getByTestId('navier-source')).toContainText('Cached result', { timeout: 120000 });
+    await expect(page.getByTestId('navier-source')).toContainText('Cached result', { timeout: 120000 }); // slow-ok: The WASM worker solves all six plate meshes before publishing convergence results.
     const rows = page.getByTestId('navier-results').locator('tbody tr');
     await expect(rows).toHaveCount(6);
     const value = Number(await rows.last().locator('td').nth(2).textContent());

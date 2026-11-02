@@ -15,7 +15,7 @@ const added = (before: Array<{ id: number }>, after: Array<P & { id: number }>) 
 
 async function portal2D(page: Page) {
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount())).toBe(4);
 }

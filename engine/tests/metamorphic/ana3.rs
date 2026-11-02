@@ -278,7 +278,11 @@ pub fn rows() -> Vec<Ana3> {
                     tolerance: 1e-10,
                     n_increments: 4,
                 };
-                Ok(static_3d(&conv(material_nonlinear::solve_nonlinear_material_3d(&inp).map(|r| (r.converged, r.results)))?))
+                let r = conv(material_nonlinear::solve_nonlinear_material_3d(&inp).map(|r| (r.converged, r.results)))?;
+                if !r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::KnownIssue && d.phase.as_deref() == Some("NL-5") && d.value == Some(428.0)) {
+                    return Err("missing containment warning safety #428".into());
+                }
+                Ok(static_3d(&r))
             },
         },
         Ana3 {
@@ -352,7 +356,7 @@ pub fn rows() -> Vec<Ana3> {
                 let r = time_integration::solve_time_history_3d(&inp)?;
                 let mut o = Resp::default();
                 for h in &r.node_histories {
-                    for k in (10..h.ux.len()).step_by(10) {
+                    for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V3(Dim::LEN), vec![h.ux[k], h.uy[k], h.uz[k]]);
                         o.push(Some(h.node_id), None, &format!("r_t{k:03}"), Kind::V3(Dim::NONE), vec![h.rx[k], h.ry[k], h.rz[k]]);
                     }
@@ -378,7 +382,7 @@ pub fn rows() -> Vec<Ana3> {
                 let r = time_integration::solve_time_history_3d(&inp)?;
                 let mut o = Resp::default();
                 for h in &r.node_histories {
-                    for k in (10..h.ux.len()).step_by(10) {
+                    for k in (0..h.ux.len()).step_by(if crate::generated::strict() { 1 } else { 10 }) {
                         o.push(Some(h.node_id), None, &format!("u_t{k:03}"), Kind::V3(Dim::LEN), vec![h.ux[k], h.uy[k], h.uz[k]]);
                     }
                 }

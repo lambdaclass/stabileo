@@ -49,10 +49,10 @@ fn check(m: &[f64], n: usize, nf: usize, modes: &Modes, dirs: &[Vec<f64>], all_m
         for j in (i + 1)..k {
             let gap_j = (0..k).filter(|&l| l != j).map(|l| (modes.omega2[j] - modes.omega2[l]).abs() / modes.omega2[j].abs().max(1e-300)).fold(f64::INFINITY, f64::min);
             let gap = gap_i.min(gap_j);
-            if gap < 1e-6 {
+            if gap < 1e-6 && !crate::generated::strict() {
                 continue;
             }
-            let tol = 2.0 * TAU / gap + base;
+            let tol = if crate::generated::strict() { 100.0 * TAU } else { 2.0 * TAU / gap + base };
             let o = mv(&modes.phi[i], &modes.phi[j]).abs() / (mm[i] * mm[j]).sqrt();
             if !(o <= tol) {
                 return Verdict::Fail(format!("modes {i} and {j} not M-orthogonal: φᵢᵀMφⱼ/√(mᵢmⱼ) = {o:.3e} > {tol:.3e}"));
