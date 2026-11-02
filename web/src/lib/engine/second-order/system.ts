@@ -88,8 +88,9 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowN
   if (opts.axialRigid && [...prescribed.values()].some((v) => v !== 0)) return { ok: false, reason: tx('course.second-order.refuse.rigidSettlement') };
 
   const F = new Array(nTotal).fill(0);
-  for (const l of pm.nodalLoads) {
-    F[dof(l.node, 0)] += l.fx; F[dof(l.node, 1)] += l.fz; F[dof(l.node, 2)] += l.my;
+  for (const l of input.loads) {
+    if (l.type !== 'nodal') continue;
+    F[dof(l.data.nodeId, 0)] += l.data.fx; F[dof(l.data.nodeId, 1)] += l.data.fz; F[dof(l.data.nodeId, 2)] += l.data.my;
   }
   const memberLoads = new Map<number, number[]>();
   for (const m of members) {
@@ -120,8 +121,6 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowN
     const p = memberLoads.get(m.id) ?? new Array(6).fill(0);
     p[0] += fI; p[3] += fJ;
     memberLoads.set(m.id, p);
-    F[dof(m.i, 0)] -= fI * m.c; F[dof(m.i, 1)] -= fI * m.s;
-    F[dof(m.j, 0)] -= fJ * m.c; F[dof(m.j, 1)] -= fJ * m.s;
   }
 
   const sys: SoSystem = { pm, members, dof, nTotal, free: [], prescribed, springs, F, Fnodal: F.slice(), memberLoads, idle: [], axialRigid: opts.axialRigid };

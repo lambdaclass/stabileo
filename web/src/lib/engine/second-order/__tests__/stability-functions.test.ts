@@ -137,6 +137,12 @@ describe('symmetric eigenvalues', () => {
     expect(v[0]).toBeCloseTo(1, 12);
     expect(v[1]).toBeCloseTo(3, 12);
   });
+
+  it('with no global floor either: diag(1e32, [[2, 1], [1, 2]]) gives 1 and 3', () => {
+    const v = [...symmetricEigen([[1e32, 0, 0], [0, 2, 1], [0, 1, 2]]).values].sort((a, b) => a - b);
+    expect(v[0]).toBeCloseTo(1, 12);
+    expect(v[1]).toBeCloseTo(3, 12);
+  });
 });
 
 describe('the inertia count', () => {

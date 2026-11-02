@@ -121,5 +121,20 @@ describe('symmetric eigenvalues', () => {
     expect(v[1]).toBeCloseTo(3, 12);
     expect(v[2] / 1e16).toBeCloseTo(1, 12);
   });
+
+  for (const big of [1e32, 1e100]) {
+    it(`no global floor: diag(${big}, [[2, 1], [1, 2]]) still gives 1 and 3, every pair with a small residual`, () => {
+      const A = [[big, 0, 0], [0, 2, 1], [0, 1, 2]];
+      const { values, vectors } = symmetricEigen(A);
+      const v = [...values].sort((a, b) => a - b);
+      expect(v[0]).toBeCloseTo(1, 12);
+      expect(v[1]).toBeCloseTo(3, 12);
+      values.forEach((lam, j) => {
+        const x = vectors.map((r) => r[j]);
+        const r = A.map((row, i) => row.reduce((s, a, k) => s + a * x[k], 0) - lam * x[i]);
+        expect(Math.hypot(...r)).toBeLessThanOrEqual(1e-14 * Math.max(1, Math.abs(lam)));
+      });
+    });
+  }
 });
 

@@ -100,7 +100,7 @@ export function sectionsStep(ctx: MethodContext, pc: PlasticCase, lm: LimitModel
   const g = pc.gh;
   const ghBlocks: Block[] = [
     { kind: 'calc', label: tx('course.plastic.doc.gh'),
-      formula: 'GH = 3m + r - 3n - c',
+      formula: `GH = 3m${g.mTruss ? ' + m_b' : ''} + r - 3n${g.nTrussNodes ? ' - 2n_b' : ''} - c`,
       subst: `GH = 3 \\cdot ${g.mFrame}${g.mTruss ? ` + ${g.mTruss}` : ''} + ${g.r} - 3 \\cdot ${g.nFrameNodes}${g.nTrussNodes ? ` - 2 \\cdot ${g.nTrussNodes}` : ''} - ${g.c}`,
       result: `\\boxed{GH = ${g.degree}}` },
   ];

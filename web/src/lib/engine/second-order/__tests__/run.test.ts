@@ -115,6 +115,19 @@ describe('Basic P-Δ', () => {
 });
 
 describe('Basic buckling', () => {
+  it('modes carry ux, uz, ry from the engine and from the teaching solver alike, the fields the mode drawing reads', () => {
+    const input = column('fixed', null, 5, 100, 1);
+    for (const method of ['consistent', 'phi'] as const) {
+      const got = runBuckling2D(input, S({ method, n: 2 }));
+      if (!got.ok) throw new Error('refused');
+      for (const d of got.result.modes[0].displacements) {
+        expect(Object.keys(d).sort()).toEqual(['nodeId', 'ry', 'ux', 'uz']);
+        expect(Number.isFinite(d.ux) && Number.isFinite(d.uz) && Number.isFinite(d.ry)).toBe(true);
+      }
+      expect(Math.max(...got.result.modes[0].displacements.map((d) => Math.abs(d.ux)))).toBeGreaterThan(0);
+    }
+  });
+
   it('finds a member compressed over part of its length (the engine alone reads its mean N)', () => {
     const input = column('pinned', 'pinned', 6, 0);
     input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: 4, p: 0, px: -100 } }];

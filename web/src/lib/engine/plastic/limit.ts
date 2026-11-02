@@ -19,6 +19,7 @@ import { buildKinematics, dot, type KinModel } from './kinematics';
 import { buildSections, endCouplesToNodal, momentAt, momentForm, checkPoints, type SectionModel, type SectionOptions } from './sections';
 import { rref } from '../steps/sway-modes';
 import { solveLp } from './lp';
+import { cubicStationaryPoints } from '../cubic-stationary';
 
 export interface LimitModel {
   sm: SectionModel;
@@ -312,6 +313,10 @@ export function peakRatio(sm: SectionModel, M: number[], lambda: number): { rati
         take(member, (lo + hi) / 2, mp);
       }
     });
+    const edges = checkPoints(sm, member, 1);
+    for (let k = 0; k + 1 < edges.length; k++) {
+      for (const t of cubicStationaryPoints((x) => momentAt(sm, member, x, M, lambda), edges[k], edges[k + 1])) take(member, t, mp);
+    }
   }
   return { ratio, worst };
 }

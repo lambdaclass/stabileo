@@ -83,10 +83,7 @@ export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
   const a = a0.map((r) => [...r]);
   const v = identity(n);
   for (let sweep = 0; sweep < 100; sweep++) {
-    let norm = 0;
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) norm += a[i][j] ** 2;
-    const floor = 1e-30 * Math.sqrt(norm) + 1e-300;
-    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p] * a[q][q])) + floor;
+    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p] * a[q][q])) + 1e-300;
     let done = true;
     for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
     if (done) break;

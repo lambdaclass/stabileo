@@ -385,6 +385,18 @@ function dofLabel(nodeId: number, localDof: number, dofsPerNode: number): string
 
 // ─── Main detailed solver ───────────────────────────────────────
 
+export function freeDofCount(input: SolverInput): number {
+  const dofsPerNode = Array.from(input.elements.values()).some(e => e.type === 'frame') ? 3 : 2;
+  const supportByNode = new Map<number, SolverSupport>();
+  for (const sup of input.supports.values()) supportByNode.set(sup.nodeId, sup);
+  let n = 0;
+  for (const nodeId of input.nodes.keys()) {
+    const sup = supportByNode.get(nodeId);
+    for (let ld = 0; ld < dofsPerNode; ld++) if (!(sup && isDofRestrained(sup, ld))) n++;
+  }
+  return n;
+}
+
 export function solveDetailed(input: SolverInput, opts: { axialRigid?: boolean } = {}): DSMStepData {
   const out = solveDetailedFlexible(input);
   if (!opts.axialRigid) return out;

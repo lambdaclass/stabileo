@@ -116,7 +116,7 @@ export function buildSections(input: SolverInput, mpOf: (member: number) => numb
         : extraEnds.has(endKey(list[0].member, list[0].end)) ? 0 : (mpOf(list[1].member) < mpOf(list[0].member) - 1e-9 ? 1 : 0);
       const a = list[chosen], b = list[1 - chosen];
       const s = sections.length;
-      sections.push({ member: a.member, t: a.end === 'I' ? 0 : 1, kind: 'joint', node, mp: mpOf(a.member) });
+      sections.push({ member: a.member, t: a.end === 'I' ? 0 : 1, kind: 'joint', node, mp: Math.min(mpOf(a.member), mpOf(b.member)) });
       ends.set(endKey(a.member, a.end), { section: s, coef: 1 });
       ends.set(endKey(b.member, b.end), { section: s, coef: -sign(a.end) / sign(b.end) });
     } else {

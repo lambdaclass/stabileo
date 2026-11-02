@@ -6,7 +6,7 @@
  */
 import type { ModelData } from '../../solver-service';
 import { buildSolverInput2D } from '../../solver-service';
-import { solveDetailed } from '../../solver-detailed';
+import { solveDetailed, freeDofCount } from '../../solver-detailed';
 import { withSectionMass } from '../section-mass';
 import type { PointMass } from '../mass-source';
 import { subdivideForAnalysis } from '../../../model/edit/analysis-subdivision';
@@ -83,6 +83,8 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   const raw = buildSolverInput2D(sub.model, opts.includeSelfWeight ?? false);
   if (!raw) throw new SystemError('empty');
   const { input, densities } = withSectionMass(raw, sub.model);
+  const prospective = freeDofCount(input);
+  if (prospective > MAX_SYSTEM_DOFS) throw new SystemError('tooBig', { n: prospective, max: MAX_SYSTEM_DOFS });
   const det = solveDetailed(input);
   const nF = det.dofNumbering.nFree;
   if (nF > MAX_SYSTEM_DOFS) throw new SystemError('tooBig', { n: nF, max: MAX_SYSTEM_DOFS });

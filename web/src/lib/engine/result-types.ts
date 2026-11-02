@@ -168,7 +168,7 @@ export interface ModalResult3D {
 
 export interface BucklingMode {
   loadFactor: number;
-  displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>;
+  displacements: Array<{ nodeId: number; ux: number; uz: number; ry: number }>;
   /** A buckling inside a member with its ends held: the nodal displacements are zero and do not draw it. */
   internal?: true;
 }

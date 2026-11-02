@@ -7,6 +7,7 @@
 
 import type { AnalysisResults, ElementForces } from './types';
 import { computeDiagramValueAt } from './diagrams';
+import { cubicStationaryPoints } from './cubic-stationary';
 import type { AnalysisResults3D } from './types-3d';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -135,7 +136,7 @@ export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces)
   for (const d of [...(ef.distributedLoads ?? []), ...(ef.distributedLoadsX ?? [])]) cuts.push(d.a / Math.max(ef.length, 1e-12), d.b / Math.max(ef.length, 1e-12));
   const edges = [...new Set(cuts.map((t) => Math.min(1, Math.max(0, t))))].sort((a, b) => a - b);
   for (let k = 0; k + 1 < edges.length; k++) {
-    for (const t of stationaryPoints(g, edges[k], edges[k + 1])) best = Math.max(best, Math.abs(g(t)));
+    for (const t of cubicStationaryPoints(g, edges[k], edges[k + 1])) best = Math.max(best, Math.abs(g(t)));
   }
   for (let k = 1; k < ts.length - 1; k++) {
     if (!(v[k] >= v[k - 1] && v[k] >= v[k + 1])) continue;
@@ -147,33 +148,6 @@ export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces)
     best = Math.max(best, f((lo + hi) / 2));
   }
   return best;
-}
-
-function stationaryPoints(g: (t: number) => number, lo: number, hi: number): number[] {
-  const w = hi - lo;
-  if (!(w > 1e-9)) return [];
-  const s = [0, 1, 2, 3].map((k) => (1 - Math.cos(((2 * k + 1) * Math.PI) / 8)) / 2);
-  const y = s.map((x) => g(lo + w * x));
-  const c = [...y];
-  for (let j = 1; j < 4; j++) for (let i = 3; i >= j; i--) c[i] = (c[i] - c[i - 1]) / (s[i] - s[i - j]);
-  const a3 = c[3];
-  const a2 = c[2] - c[3] * (s[0] + s[1] + s[2]);
-  const a1 = c[1] - c[2] * (s[0] + s[1]) + c[3] * (s[0] * s[1] + s[0] * s[2] + s[1] * s[2]);
-  const A = 3 * a3, B = 2 * a2, C = a1;
-  const roots: number[] = [];
-  const scale = Math.max(Math.abs(A), Math.abs(B), Math.abs(C));
-  if (!(scale > 0)) return roots;
-  if (Math.abs(A) <= 1e-12 * scale) {
-    if (Math.abs(B) > 0) roots.push(-C / B);
-  } else {
-    const disc = B * B - 4 * A * C;
-    if (disc >= 0) {
-      const q = -0.5 * (B + Math.sign(B || 1) * Math.sqrt(disc));
-      roots.push(q / A);
-      if (q !== 0) roots.push(C / q);
-    }
-  }
-  return roots.filter((x) => x > 0 && x < 1).map((x) => lo + w * x);
 }
 
 /**

@@ -4,9 +4,9 @@
  * kinematic minimum, the static maximum and the incremental λc must agree.
  */
 import { describe, it, expect } from 'vitest';
-import { solveLimit } from '../solve-limit';
+import { solveLimit, peakInside } from '../solve-limit';
 import { evaluateUserMechanism } from '../mechanism';
-import { limitModel, minimumOver, mechanismMoments, distribution } from '../limit';
+import { limitModel, minimumOver, mechanismMoments, distribution, peakRatio } from '../limit';
 import { plasticCollapse2D } from '../../plastic-collapse';
 import { countStaticDegree2D } from '../../kinematic-2d';
 import { solveLp } from '../lp';
@@ -262,5 +262,49 @@ describe('a reference load far below 1e-12', () => {
     const big = solveLimit(beam(10), uniformMp)!, small = solveLimit(beam(1e-13), uniformMp)!;
     expect(big.best.lambda).toBeCloseTo((4 * MP) / (10 * L), 9);
     expect(Math.abs((small.best.lambda * 1e-13) / (big.best.lambda * 10) - 1)).toBeLessThan(1e-9);
+  });
+});
+
+describe('a joint of two members of different Mp', () => {
+  const mpOf = (m: number) => (m === 1 ? 100 : 50);
+  const beam = () => model([[1, 0, 0], [2, 4, 0], [3, 8, 0]], [[1, 1, 2], [2, 2, 3]], [[1, 'fixed'], [2, 'rollerX'], [3, 'fixed']], [pOn(1, 2, -10), pOn(2, 2, -10)]);
+  it('takes the weaker Mp for the shared moment, wherever the user puts the hinge', () => {
+    for (const extra of [[], [{ member: 1, t: 1 }], [{ member: 2, t: 0 }]]) {
+      const lm = limitModel(beam(), mpOf, { extra });
+      const joint = lm.sm.sections.filter((s) => s.kind === 'joint');
+      expect(joint).toHaveLength(1);
+      expect(joint[0].mp).toBe(50);
+      expect(minimumOver(lm, lm.basis)!.lambda).toBeCloseTo(minimumOver(limitModel(beam(), mpOf), limitModel(beam(), mpOf).basis)!.lambda, 9);
+    }
+  });
+});
+
+describe('where the moment peaks inside a member', () => {
+  it('finds a peak between the points a 400-point grid samples, over a nearly equal one on the grid', () => {
+    const L = 8, t1 = 0.30125, t3 = 0.31, t2 = 0.7;
+    const lm = limitModel(model([[1, 0, 0], [2, L, 0]], [[1, 1, 2]], [[1, 'pinned'], [2, 'rollerX']], [pOn(1, t1 * L, -10), pOn(1, t3 * L, -10), pOn(1, t2 * L, -10)]), uniformMp, { span: null });
+    const at = (t: number) => lm.sm.sections.findIndex((s) => s.member === 1 && Math.abs(s.t - t) < 1e-9);
+    const M = new Array(lm.sm.sections.length).fill(0);
+    expect([at(t1), at(t3), at(t2)].every((k) => k >= 0)).toBe(true);
+    M[at(t1)] = 100; M[at(t2)] = 99.99;
+    const t = peakInside(lm, 1, M, 0)!;
+    expect(t).toBeCloseTo(t1, 12);
+    expect(Math.abs(momentAt(lm.sm, 1, t, M, 0))).toBeCloseTo(100, 9);
+  });
+});
+
+describe('the largest |M| / Mp of a distribution', () => {
+  it('is read at the zero of the shear under a linearly varying load, to round-off', () => {
+    const L = 7;
+    const lm = limitModel(model([[1, 0, 0], [2, L, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']], [{ type: 'distributed', data: { elementId: 1, qI: -3, qJ: 11, a: 1.3, b: 6.1 } }]), uniformMp, { span: null });
+    const M = new Array(lm.sm.sections.length).fill(0);
+    M[0] = 4; M[M.length - 1] = -9;
+    const g = (t: number) => momentAt(lm.sm, 1, t, M, 1);
+    let bt = 0, bv = -1;
+    for (let i = 0; i <= 200000; i++) { const v = Math.abs(g(i / 200000)); if (v > bv) { bv = v; bt = i / 200000; } }
+    let lo = Math.max(0, bt - 1e-5), hi = Math.min(1, bt + 1e-5);
+    for (let i = 0; i < 200; i++) { const a = lo + (hi - lo) / 3, b = hi - (hi - lo) / 3; if (Math.abs(g(a)) > Math.abs(g(b))) hi = b; else lo = a; }
+    const exact = Math.abs(g((lo + hi) / 2));
+    expect(peakRatio(lm.sm, M, 1).ratio * MP).toBeCloseTo(exact, 12);
   });
 });

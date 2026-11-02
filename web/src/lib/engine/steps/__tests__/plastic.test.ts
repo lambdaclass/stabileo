@@ -52,6 +52,22 @@ describe('plastic methods in the catalog', () => {
     expect(all.some((b) => b.kind === 'note' && b.text.key === 'course.plastic.doc.admissible')).toBe(true);
   });
 
+  it('a frame braced by a truss bar writes GH with the bar term, as the substitution counts it', () => {
+    const input = structuredClone(ctx.input);
+    const first = [...input.elements.values()][0];
+    const id = Math.max(...input.elements.keys()) + 1;
+    const ends = [...input.nodes.keys()].sort((a, b) => a - b);
+    input.elements.set(id, { ...first, id, type: 'truss', nodeI: ends[0], nodeJ: ends[2], hingeStart: false, hingeEnd: false });
+    const braced: MethodContext = { input, pm: planeModel(input), ref: solveReference(input), selection: { members: [], nodes: [] }, options: {} };
+    const m = methodById('plasticKinematic')!;
+    expect(m.applies(braced).ok).toBe(true);
+    const gh = blocks(m.build!(braced)).find((b) => b.kind === 'calc' && b.label?.key === 'course.plastic.doc.gh');
+    if (!gh || gh.kind !== 'calc') throw new Error('no GH');
+    expect(gh.formula).toBe('GH = 3m + m_b + r - 3n - c');
+    if (!gh.subst) throw new Error('no GH substitution');
+    expect(gh.subst.match(/ \+ | - /g)!.length).toBe(gh.formula.match(/ \+ | - /g)!.length);
+  });
+
   it('static: the equations, a first lower bound below λc, trials that close on the same λc', () => {
     const doc = methodById('plasticStatic')!.build!(ctx);
     expect(doc.steps).toHaveLength(5);

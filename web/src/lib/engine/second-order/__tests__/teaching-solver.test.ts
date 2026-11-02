@@ -203,6 +203,28 @@ describe('an axial span load alone', () => {
     expect(f.nStart).toBeCloseTo(qa * L, 9);
     expect(f.nEnd).toBeCloseTo(0, 9);
   });
+
+  for (const method of ['consistent', 'string', 'phi'] as const) {
+    it(`a horizontal cantilever under an axial span load only (${method}): Fnodal holds no load, the span load is applied once, and the engine agrees`, () => {
+      const L = 4, qa = -5;
+      const input = column('fixed', null, L, 0, 0);
+      input.nodes.set(2, { id: 2, x: L, z: 0 });
+      input.loads = [{ type: 'axialDistributed', data: { elementId: 1, qI: qa, qJ: qa } }];
+      const b = buildSystem(input, { method, axialRigid: false });
+      if (!b.ok) throw new Error(b.reason.key);
+      expect(b.sys.Fnodal.every((v) => v === 0)).toBe(true);
+      expect(b.sys.F[b.sys.dof(2, 0)]).toBeCloseTo(qa * L / 2, 12);
+      const t = teachingPDelta(input, { method, axialRigid: false });
+      if (!t.ok) throw new Error(t.reason.key);
+      const eng = wasm.solvePDelta(input).results;
+      const tip = t.run.final.D[t.run.sys.dof(2, 0)];
+      expect(tip).toBeCloseTo(eng.displacements.find((d: { nodeId: number }) => d.nodeId === 2).ux, 12);
+      expect(tip).toBeCloseTo((qa * L * L) / (2 * 200000 * 1000 * 0.01), 12);
+      const f = toAnalysisResults(t.run.sys, input, t.run.final, method, t.run.finalSolvedWith).elementForces[0];
+      expect(f.nStart).toBeCloseTo(qa * L, 9);
+      expect(f.nEnd).toBeCloseTo(0, 9);
+    });
+  }
 });
 
 describe('forces recovered with the axial forces the last solve used', () => {

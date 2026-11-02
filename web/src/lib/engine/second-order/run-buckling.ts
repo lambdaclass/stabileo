@@ -52,7 +52,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
   const got = teachingBuckling(r.input, teachingOptions(s), s.modes);
   if (!got.ok) return got;
   const { run } = got;
-  const modes = run.modes.map((m) => ({
+  const modes: BucklingResult['modes'] = run.modes.map((m) => ({
     ...(m.internal ? { internal: true as const } : {}),
     loadFactor: m.lambda,
     displacements: run.sys.pm.nodeOrder.map((id) => ({ nodeId: id, ux: m.D[run.sys.dof(id, 0)], uz: m.D[run.sys.dof(id, 1)], ry: m.D[run.sys.dof(id, 2)] })),
@@ -64,7 +64,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
   return {
     ok: true,
     result: {
-      modes: modes as unknown as BucklingResult['modes'],
+      modes,
       nDof: run.sys.free.length,
       elementData: memberBucklingData(input, r, run.N0, modes[0].loadFactor),
       secondOrder: { settings: s, geometry, engineFactors },
