@@ -3930,6 +3930,7 @@ const en: Record<string, string> = {
   "knownIssue.PL-2D-INVARIANCE": "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis",
   "knownIssue.SH-MITC4-CONVERGENCE": "MITC4 shell benchmarks show excessive stiffness and error increasing with mesh refinement. Independently verify shell response before design.",
   "knownIssue.BU-ACCURACY": "3D buckling factors can be unconservatively high. Independently verify the critical factor before design.",
+  "knownIssue.BU-UNRESOLVED-MODE": "Buckling modes {modes} are not resolved: their load factors come from round-off in the axial forces of members with no resolvable compression, so they are not physical and must not be used. The other modes are resolved.",
   "knownIssue.BU-BOUND": "Results withheld: the computed buckling factor lies outside its certified bounds. Neither the displayed factor nor the certificate may be used for design",
   "knownIssue.SP-17": "Anisotropic connector transverse axes are not user-orientable and can change abruptly with direction. Independently verify the spring directions before using these results",
   "knownIssue.FR-5": "Warping members share one warping degree of freedom at a joint. Full warping transmission may over-restrain the real connection; verify its detailing and warping restraint independently",
