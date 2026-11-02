@@ -14,6 +14,8 @@ const LOAD_TARGET: Record<string, 'node' | 'element'> = {
   thermal: 'element', prestress3d: 'element',
 };
 
+const TRANSVERSE_MEMBER_LOADS = new Set(['distributed', 'distributed3d', 'pointOnElement', 'pointOnElement3d']);
+
 const MIN_LENGTH = 1e-6;
 
 const LOAD_SPACE: Record<string, boolean> = {
@@ -77,6 +79,7 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
   const space = isSnapshot3d(snapshot);
   const nodeIds = collectIds(nodes, 'node');
   const elemIds = collectIds(elements, 'element');
+  const trussIds = new Set(elements.map(parseEntry).filter(([, data]) => data.type === 'truss').map(([id]) => id));
   const matIds = collectIds(materials, 'material');
   const secIds = collectIds(sections, 'section');
   collectIds(supports, 'support');
@@ -173,6 +176,9 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     const ref = asU64(outer.data[key]);
     if (ref === undefined) throw new AiActionError(`${type} load has no valid ${key}`);
     if (!ids.has(ref)) throw new AiActionError(`load references non-existent ${key}=${ref}`);
+    if (!existingModel && TRANSVERSE_MEMBER_LOADS.has(type) && trussIds.has(ref)) {
+      throw new AiActionError(`${type} load on element ${ref}: a truss member carries axial force only; load its nodes instead or make it a frame`);
+    }
     for (const key of LOAD_REQUIRED[type] ?? []) {
       if (asF64(outer.data[key]) === undefined) throw new AiActionError(`${type} load has no finite ${key}`);
     }

@@ -42,6 +42,17 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('NEGATIVE: a new model may not put a distributed load on a truss member', () => {
+    const truss = (load: Record<string, unknown>) => ({
+      ...minimal(),
+      elements: [[1, { id: 1, type: 'truss', nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1 }]],
+      loads: [load],
+    });
+    expect(() => validateSnapshot(truss({ type: 'distributed', data: { id: 1, elementId: 1, qI: -5, qJ: -5 } })))
+      .toThrow('distributed load on element 1: a truss member carries axial force only');
+    expect(() => validateSnapshot(truss({ type: 'nodal', data: { id: 1, nodeId: 2, fx: 0, fz: -5, my: 0 } }))).not.toThrow();
+    expect(() => validateSnapshot({ ...minimal(), loads: [{ type: 'distributed', data: { id: 1, elementId: 1, qI: -5, qJ: -5 } }] })).not.toThrow();
+  });
   it('NEGATIVE: refuses a load wrapped as an [id, load] pair, which edits could not find again', () => {
     const snap = { ...minimal(), loads: [[1, { type: 'nodal', data: { id: 1, nodeId: 1, fx: 0, fz: -10, my: 0 } }]] };
     expect(() => validateSnapshot(snap)).toThrow('a load is an object {type, data}');
