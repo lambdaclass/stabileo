@@ -1,7 +1,7 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 5,
+  "currentResultsVersion": 6,
   "changes": [
     {
       "id": "solid-shell-local-stress-axes",
@@ -1099,6 +1099,25 @@
         "pt": "Com cargas H nunca se geravam 0,9 D + 1,6 H nem 1,2 D + 1,6 H, então onde o peso próprio resiste ao empuxo (tombamento ou deslizamento de um muro) o efeito saía baixo: 27 % num exemplo em que D dá −0,8 do que H dá (SA-2026-022). Afeta modelos com cargas H e combinações CIRSOC."
       },
       "changelog": { "file": "docs/advisories/SA-2026-022-earth-pressure-dead-load-resisting.md", "heading": "SA-2026-022: with earth pressure (H), the combination where the dead load resists it was missing" }
+    },
+    {
+      "id": "cirsoc201-column-design-axes",
+      "resultsVersion": 6,
+      "date": "2026-11-02",
+      "prs": [1233],
+      "area": "design",
+      "when": { "any": ["cirsoc201"] },
+      "title": {
+        "en": "RC columns are checked about the axis each moment bends them",
+        "es": "Las columnas de hormigón se verifican en el eje en que las flexiona cada momento",
+        "pt": "Os pilares de concreto são verificados no eixo em que cada momento os flexiona"
+      },
+      "explanation": {
+        "en": "The CIRSOC 201 column check took Mz as the column's moment and checked it over the section depth h, while Mz bends it over its width b. A rectangular column bent mainly about Mz was designed with too few bars: 36 % less steel in a 20×40 cm example (SA-2026-029). The larger moment now governs over its own depth, and the shear of the other axis is checked too. It concerns models with CIRSOC 201 columns or walls whose section is not square.",
+        "es": "La verificación de columnas CIRSOC 201 tomaba Mz como momento de la columna y lo verificaba sobre la altura h de la sección, cuando Mz la flexiona sobre su ancho b. Una columna rectangular flexionada sobre todo por Mz se dimensionaba con menos barras de las necesarias: un 36 % menos de acero en un ejemplo de 20×40 cm (SA-2026-029). Ahora gobierna el momento mayor sobre su propia altura, y también se verifica el corte del otro eje. Afecta a modelos con columnas o tabiques CIRSOC 201 de sección no cuadrada.",
+        "pt": "A verificação de pilares CIRSOC 201 tomava Mz como momento do pilar e o verificava sobre a altura h da seção, quando Mz o flexiona sobre sua largura b. Um pilar retangular flexionado sobretudo por Mz era dimensionado com menos barras do que o necessário: 36 % menos aço num exemplo de 20×40 cm (SA-2026-029). Agora governa o momento maior sobre sua própria altura, e o cortante do outro eixo também é verificado. Afeta modelos com pilares ou paredes CIRSOC 201 de seção não quadrada."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-029-3d-design-axes.md", "heading": "SA-2026-029: 3D design checks read the lateral moment or shear where the strong-axis one acts" }
     }
   ]
 }

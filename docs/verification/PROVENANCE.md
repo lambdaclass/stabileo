@@ -73,6 +73,13 @@ unit suite passes 15,706 tests (14 skipped), including regressions for colliding
 results versions and missing or renumbered released entries; the web typecheck and guarded Svelte
 checks pass against their existing baselines. The changelog check passes.
 
+## Column design axes (PR #1233, issue #532)
+
+Results version 6 registers `cirsoc201-column-design-axes` (SA-2026-029): the CIRSOC 201 column
+check bends each moment over its own depth. It is provisional until merge: #817, #827 and #865
+(integration #1225) and other open PRs hold the numbers after 5, and the merge captain gives this
+change its final number, moving the pinned version sets, the fixture stamp and its hashes with it.
+
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no
