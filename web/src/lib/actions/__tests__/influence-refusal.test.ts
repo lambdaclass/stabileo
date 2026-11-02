@@ -84,6 +84,23 @@ describe('a zero line in the chosen direction', () => {
   });
 });
 
+describe('a zero line on a fresh pick whose other direction is refused', () => {
+  it('keeps the zero line, says only the chosen direction is zero and shows the refusal', () => {
+    uiStore.ilDirection = 'vertical';
+    const zeroLine = { ...line(), points: line().points.map((p) => ({ ...p, value: 0 })) } as unknown as InfluenceLineResult;
+    const solve = vi.spyOn(modelStore, 'computeInfluenceLine').mockImplementation((_q, _n, _e, _at, _k, dir) => (dir === 'vertical' ? zeroLine : 'horizontal refused'));
+    const toast = vi.spyOn(uiStore, 'toast');
+    expect(runInfluence('M', undefined, 1, 0.5)).toBe(true);
+    expect(solve).toHaveBeenCalledTimes(2);
+    expect(uiStore.ilDirection).toBe('vertical');
+    expect(resultsStore.influenceLine).toBe(zeroLine);
+    const messages = toast.mock.calls.map((c) => [c[0], c[1]]);
+    expect(messages).toContainEqual(['horizontal refused', 'error']);
+    expect(messages.some(([m]) => /vertical u horizontal|vertical or horizontal/.test(m as string))).toBe(false);
+    expect(messages.some(([m, kind]) => kind === 'info' && (m as string).includes('M'))).toBe(true);
+  });
+});
+
 describe('the envelope follows the quantity', () => {
   it('a quantity the line on screen cannot carry clears the line and the old envelope', () => {
     resultsStore.setInfluenceLine(line());

@@ -28,11 +28,15 @@ function shape(ks: KinSet, d: MemberData): 'full' | 'i' | 'j' | 'none' {
 export function stiffnessStep(ks: KinSet, md: Map<number, MemberData>): Step {
   const b: Block[] = [{ kind: 'p', text: tx(`${P}stiff.intro`) }];
   const full: Cell[][] = [], three: Cell[][] = [], axial: Cell[][] = [];
+  const releasedEnds = new Set<EndSide>();
   for (const d of md.values()) {
     const { EI, EA, L } = d.m;
     const sh = shape(ks, d);
     if (sh === 'full') full.push([d.m.name, { tex: num((4 * EI) / L) }, { tex: num((2 * EI) / L) }, { tex: num((6 * EI) / L ** 2) }, { tex: num((12 * EI) / L ** 3) }]);
-    else if (sh !== 'none') three.push([d.m.name, tx(`${P}stiff.releasedAt`, { n: sh === 'j' ? d.nj : d.ni }), { tex: num((3 * EI) / L) }, { tex: num((3 * EI) / L ** 2) }, { tex: num((3 * EI) / L ** 3) }]);
+    else if (sh !== 'none') {
+      releasedEnds.add(sh);
+      three.push([d.m.name, tx(`${P}stiff.releasedAt`, { n: sh === 'j' ? d.nj : d.ni }), { tex: num((3 * EI) / L) }, { tex: num((3 * EI) / L ** 2) }, { tex: num((3 * EI) / L ** 3) }]);
+    }
     if (ks.extensible.has(d.m.id)) axial.push([d.m.name, { tex: num(EA) }, { tex: num(EA / L) }]);
   }
   if (full.length) {
@@ -40,7 +44,8 @@ export function stiffnessStep(ks: KinSet, md: Map<number, MemberData>): Step {
     b.push({ kind: 'table', head: [tx('steps.common.member'), { tex: '4EI/L' }, { tex: '2EI/L' }, { tex: '6EI/L^2' }, { tex: '12EI/L^3' }], rows: full, caption: tx(`${P}stiff.fullCaption`) });
   }
   if (three.length) {
-    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{3EI}{L}\\,\\theta_i - \\frac{3EI}{L^2}\\,\\Delta_{\\perp}, \\qquad M_{ji} = 0, \\qquad V = \\frac{3EI}{L^3}\\,\\Delta_{\\perp} - \\frac{3EI}{L^2}\\,\\theta_i', note: tx(`${P}stiff.threeNote`) });
+    if (releasedEnds.has('j')) b.push({ kind: 'eq', tex: threeTex('j'), note: tx(`${P}stiff.threeNote`) });
+    if (releasedEnds.has('i')) b.push({ kind: 'eq', tex: threeTex('i') });
     b.push({ kind: 'p', text: tx(`${P}stiff.threeWhy`), detail: true });
     b.push({ kind: 'table', head: [tx('steps.common.member'), tx(`${P}stiff.released`), { tex: '3EI/L' }, { tex: '3EI/L^2' }, { tex: '3EI/L^3' }], rows: three, caption: tx(`${P}stiff.threeCaption`) });
   }
@@ -54,6 +59,11 @@ export function stiffnessStep(ks: KinSet, md: Map<number, MemberData>): Step {
   }
   b.push({ kind: 'p', text: tx(`${P}stiff.why`), detail: true });
   return { title: tx(`${P}stiff.title`), blocks: b };
+}
+
+function threeTex(released: EndSide): string {
+  const n = released === 'j' ? 'i' : 'j', f = released;
+  return `M_{${n}${f}} = \\frac{3EI}{L}\\,\\theta_${n} - \\frac{3EI}{L^2}\\,\\Delta_{\\perp}, \\qquad M_{${f}${n}} = 0, \\qquad V = \\frac{3EI}{L^3}\\,\\Delta_{\\perp} - \\frac{3EI}{L^2}\\,\\theta_${n}`;
 }
 
 /** One member's end actions in a state, written from its coefficients: the slope-deflection equation with the terms that are not zero. */

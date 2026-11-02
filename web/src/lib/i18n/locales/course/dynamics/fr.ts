@@ -223,6 +223,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.otherParts': 'Le modèle en cisaillement est le seul portique de barres : plaques, quadrangles, liaisons ou connecteurs n\'entreraient pas dans la rigidité des niveaux.',
   'course.dynamics.mdof.err.xi': 'ξ doit être un nombre fini non négatif.',
   'course.dynamics.mdof.err.ratio': 'L\'excitation harmonique demande un Ω/ω₁ entre {min} et {max}.',
+  'course.dynamics.mdof.err.tooFine': 'Une période présente dans la réponse est {ratio} fois plus courte que la fondamentale ; la tracer fidèlement sur deux périodes fondamentales demande plus de points que ce pas à pas n\'en trace (jusqu\'à {max} fois). Réduisez le rapport d\'excitation ou utilisez moins de segments par barre.',
   'course.dynamics.mdof.err.notFinite': 'La réponse ne donne pas de nombres finis avec ces données.',
   'course.dynamics.mdof.err.shear.memberLoad': 'Le modèle de bâtiment en cisaillement ne prend que des charges nodales aux niveaux : remplacez les charges sur les barres par des forces aux nœuds de chaque niveau.',
   'course.dynamics.mdof.err.shear.variableSection': 'Une barre a une section variable : un seul EI ne donne pas la rigidité de son niveau.',

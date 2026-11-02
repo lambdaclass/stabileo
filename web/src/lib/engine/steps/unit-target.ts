@@ -95,7 +95,10 @@ export function pickTarget(ctx: MethodContext): Target {
   const unit = (): [number, number] => {
     if (dir === 'x') return [1, 0];
     if (dir === 'z') return [0, -1];
-    if (dir === 'angle') return [Math.cos((angle * Math.PI) / 180), Math.sin((angle * Math.PI) / 180)];
+    if (dir === 'angle') {
+      const rad = ((angle % 360) * Math.PI) / 180;
+      return [Math.cos(rad), Math.sin(rad)];
+    }
     const L = Math.hypot(b.x - a.x, b.z - a.z);
     return L > 0 ? [(b.x - a.x) / L, (b.z - a.z) / L] : [0, 0];
   };
@@ -115,6 +118,7 @@ export function pickTarget(ctx: MethodContext): Target {
 export function targetApplies(ctx: MethodContext): Applicability {
   const tg = pickTarget(ctx);
   if (tg.dir === 'angle' && !tg.rotation && !Number.isFinite(tg.angle)) return { ok: false, reason: tx('course.statics.vw.err.angle') };
+  if (!tg.loads.every((l) => [l.fx, l.fz, l.my].every(Number.isFinite))) return { ok: false, reason: tx('course.statics.vw.err.angle') };
   if (tg.quantity !== 'relDisp' || tg.dir !== 'line' || tg.node2 === null || tg.node2 === tg.node) return { ok: true };
   const a = ctx.pm.nodes.get(tg.node)!, b = ctx.pm.nodes.get(tg.node2)!;
   return Math.hypot(b.x - a.x, b.z - a.z) > 0 ? { ok: true } : { ok: false, reason: tx('course.statics.vw.err.coincident', { n: tg.name, m: tg.name2 }) };

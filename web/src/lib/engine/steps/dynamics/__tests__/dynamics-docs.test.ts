@@ -4,7 +4,7 @@ import { isSolverReady } from '../../../wasm-solver';
 import { methodContext } from '../../../../store/explained-steps.svelte';
 import { methodById } from '../../methods';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
-import { resolveMdof, MIN_HARMONIC_RATIO, MAX_HARMONIC_RATIO } from '../mdof-build';
+import { resolveMdof, MIN_HARMONIC_RATIO, MAX_HARMONIC_RATIO, MAX_SAMPLES } from '../mdof-build';
 import { solveSdof, resolveSdof, finiteSdof } from '../sdof-doc';
 import { stepsEs, stepsEn, stepsPt } from '../../../../i18n/locales/steps';
 import type { Block, StepDoc, Txt } from '../../doc';
@@ -125,7 +125,7 @@ describe('the single degree of freedom document', () => {
   it('refuses finite m and k whose ω or response overflows', async () => {
     await load('cantilever');
     const base = { source: 'manual' as const, m: 2, k: 800, xi: 0.05, F0: 10, u0: 0.01, v0: 0.05, Omega: null };
-    for (const bad of [{ m: 1e-300, k: 1e300 }, { m: 1e300, k: 1e-300, v0: 1e300 }]) {
+    for (const bad of [{ m: 1e-300, k: 1e300 }, { m: 1e300, k: 1e-300, v0: 1e300 }, { m: 1e308, k: 1e308, F0: 0 }, { m: 1, k: 1, F0: 0, u0: 1e306, v0: 0 }, { xi: 0.99999999, F0: 0 }]) {
       setDynamicsSettings({ sdof: { ...base, ...bad } });
       const v = methodById('sdof')!.applies(methodContext('sdof')!);
       expect(v.ok, JSON.stringify(bad)).toBe(false);
@@ -166,6 +166,35 @@ describe('the modal decomposition document', () => {
       expect(gap).toBeLessThan(1e-2 * peak);
     }
     setDynamicsSettings({ mdof: { excitation: 'free', ratio: 0.8, xi: 0.05 } });
+  });
+
+  it('a fast harmonic is drawn with enough points per period: no false frequency, the peak within 1 %', async () => {
+    await load('dynamics-shear-building');
+    for (const excitation of ['harmonic', 'free'] as const) {
+      for (const ratio of [10, 40, MAX_HARMONIC_RATIO]) {
+        setDynamicsSettings({ mdof: { source: 'shear', excitation, ratio, xi: 0.05 } });
+        const c = resolveMdof(methodContext('mdofModal')!);
+        if ('refusal' in c) throw new Error(c.refusal);
+        expect(c.times.length).toBeLessThanOrEqual(MAX_SAMPLES + 1);
+        expect(c.times[c.times.length - 1]).toBeGreaterThanOrEqual(2 * c.sol.modes[0].T);
+        const j = c.at;
+        const dense = 8;
+        let truePeak = 0, worstGap = 0;
+        for (let k = 0; k + 1 < c.times.length; k++) {
+          for (let s = 0; s <= dense; s++) {
+            const w = s / dense;
+            const tt = c.times[k] + w * (c.times[k + 1] - c.times[k]);
+            const exact = c.resp.u(tt)[j];
+            truePeak = Math.max(truePeak, Math.abs(exact));
+            worstGap = Math.max(worstGap, Math.abs(exact - ((1 - w) * c.modal[k][j] + w * c.modal[k + 1][j])));
+          }
+        }
+        const drawnPeak = Math.max(...c.modal.map((u) => Math.abs(u[j])));
+        expect(Math.abs(drawnPeak - truePeak)).toBeLessThan(1e-2 * truePeak);
+        expect(worstGap).toBeLessThan(2e-2 * truePeak);
+        if (excitation === 'free') break;
+      }
+    }
   });
 
   it('shear building of the two-storey example: K tridiagonal with Σ12EI/h³ and ten steps', async () => {

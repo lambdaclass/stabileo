@@ -223,6 +223,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.otherParts': 'Das Schubrahmenmodell ist nur der Stabrahmen: Platten, Vierecke, Kopplungen oder Verbinder gingen nicht in die Geschosssteifigkeit ein.',
   'course.dynamics.mdof.err.xi': 'ξ muss eine endliche, nicht negative Zahl sein.',
   'course.dynamics.mdof.err.ratio': 'Die harmonische Anregung braucht Ω/ω₁ zwischen {min} und {max}.',
+  'course.dynamics.mdof.err.tooFine': 'Eine Periode in der Antwort ist {ratio}-mal kürzer als die Grundperiode; sie über zwei Grundperioden getreu zu zeichnen braucht mehr Punkte, als dieses Schritt für Schritt darstellt (bis {max}-mal). Verringern Sie das Erregungsverhältnis oder verwenden Sie weniger Abschnitte je Stab.',
   'course.dynamics.mdof.err.notFinite': 'Die Antwort ergibt mit diesen Eingaben keine endlichen Zahlen.',
   'course.dynamics.mdof.err.shear.memberLoad': 'Das Schubrahmenmodell nimmt nur Knotenlasten an den Geschossen: Lasten auf Stäben als Kräfte an den Knoten jedes Geschosses angeben.',
   'course.dynamics.mdof.err.shear.variableSection': 'Ein Stab hat einen veränderlichen Querschnitt: Ein einziges EI ergibt nicht die Steifigkeit seines Geschosses.',

@@ -47,7 +47,10 @@ export function runInfluence(q: InfluenceQuantity, node: number | undefined, ele
       return true;
     }
     resultsStore.setInfluenceLine(result);
-    uiStore.toast(t('viewport.ilAllZero').replace('{q}', q), 'info');
+    if (typeof alt === 'string') {
+      uiStore.toast(t('viewport.ilZeroThisWay').replace('{q}', q), 'info');
+      uiStore.toast(alt, 'error');
+    } else uiStore.toast(t('viewport.ilAllZero').replace('{q}', q), 'info');
     return true;
   }
   resultsStore.setInfluenceLine(result);

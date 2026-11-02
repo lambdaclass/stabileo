@@ -223,6 +223,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.otherParts': 'Kayma binası yalnızca çubuk çerçevedir: plaklar, dörtgenler, bağlar veya bağlayıcılar kat rijitliğine girmez.',
   'course.dynamics.mdof.err.xi': 'ξ negatif olmayan sonlu bir sayı olmalı.',
   'course.dynamics.mdof.err.ratio': 'Harmonik uyarı, {min} ile {max} arasında bir Ω/ω₁ ister.',
+  'course.dynamics.mdof.err.tooFine': 'Yanıtta görünen bir periyot temel periyottan {ratio} kat kısadır; onu iki temel periyot boyunca doğru çizmek bu adım adım çözümün çizdiğinden fazla nokta gerektirir (en fazla {max} kat). Uyarı oranını düşürün ya da çubuk başına daha az parça kullanın.',
   'course.dynamics.mdof.err.notFinite': 'Yanıt bu girdilerle sonlu sayılar vermiyor.',
   'course.dynamics.mdof.err.shear.memberLoad': 'Kayma binası modeli yalnızca katlardaki düğüm yüklerini alır: çubuk yüklerini her katın düğümlerinde kuvvetlere çevirin.',
   'course.dynamics.mdof.err.shear.variableSection': 'Bir çubuğun kesiti değişken: tek bir EI, katının rijitliğini vermez.',

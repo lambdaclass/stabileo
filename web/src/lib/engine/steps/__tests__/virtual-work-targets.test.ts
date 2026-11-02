@@ -266,4 +266,22 @@ describe('a relative quantity between the nodes the reader chose', () => {
       expect(m.applies(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle: '45' })).ok).toBe(true);
     }
   });
+
+  it('a huge but finite angle is the same direction as the angle modulo 360°', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(4, 3);
+    modelStore.addElement(a, b); modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addNodalLoad(c, 5, -10, 0);
+    for (const angle of [1e308, -1e308, 7.2e17 + 30, Number.MAX_VALUE]) {
+      const deg = angle % 360;
+      const tg = pickTarget(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle: String(angle) }));
+      expect(tg.loads[0].fx).toBeCloseTo(Math.cos((deg * Math.PI) / 180), 14);
+      expect(tg.loads[0].fz).toBeCloseTo(Math.sin((deg * Math.PI) / 180), 14);
+      for (const id of ['virtualWork', 'castigliano']) {
+        const value = agrees(build(id, { quantity: 'disp', node: '3', dir: 'angle', angle: String(angle) }), 'mm');
+        const same = agrees(build(id, { quantity: 'disp', node: '3', dir: 'angle', angle: String(deg) }), 'mm');
+        expect(value).toBeCloseTo(same, 12);
+      }
+    }
+  });
 });

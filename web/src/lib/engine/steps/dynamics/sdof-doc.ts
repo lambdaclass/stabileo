@@ -53,6 +53,8 @@ export interface SdofSolution {
   total: Array<[number, number]> | null;
   steady: Array<[number, number]> | null;
   transient: Array<[number, number]> | null;
+  /** Every derived value and unit conversion the document writes. */
+  shown: number[];
 }
 
 export function solveSdof(m: number, k: number, s: SdofSettings): SdofSolution {
@@ -61,16 +63,30 @@ export function solveSdof(m: number, k: number, s: SdofSettings): SdofSolution {
   const h = s.F0 !== 0 && Omega > 0 ? harmonic(props, s.F0, Omega) : null;
   const tEnd = timeWindow(props, h ? Omega : 0);
   const free = sample(freeResponse(props, s.u0, s.v0), tEnd);
-  if (!h) return { props, h, Omega, tEnd, free, total: null, steady: null, transient: null };
+  const shown = shownValues(props, h, Omega, s);
+  if (!h) return { props, h, Omega, tEnd, free, total: null, steady: null, transient: null, shown };
   const r = forcedResponse(props, h, s.u0, s.v0);
-  return { props, h, Omega, tEnd, free, total: sample(r.total, tEnd), steady: sample(r.steady, tEnd), transient: sample(r.transient, tEnd) };
+  shown.push(r.u0t * MM, r.v0t * MM);
+  return { props, h, Omega, tEnd, free, total: sample(r.total, tEnd), steady: sample(r.steady, tEnd), transient: sample(r.transient, tEnd), shown };
+}
+
+function shownValues(P: SdofProps, h: Harmonic | null, Omega: number, s: SdofSettings): number[] {
+  const c = freeConstants(P, s.u0, s.v0);
+  const out = [s.u0 * MM, s.v0 * MM, Omega, P.omega, P.f, P.T, P.cCr, P.c, s.xi * P.omega, c.A, c.B, c.rho * MM];
+  if (P.regime === 'underdamped') out.push(P.omegaD, P.TD, P.logDec, Math.exp(P.logDec), (1 - Math.exp(-P.logDec)) * 100);
+  if (P.regime === 'overdamped') out.push(P.omega * Math.sqrt(s.xi ** 2 - 1));
+  if (h) {
+    out.push(h.F0, h.Omega, h.beta, h.ust * MM);
+    if (!h.resonant) out.push(h.D, h.X, h.X * MM, h.phi, (h.phi * 180) / Math.PI);
+  }
+  return out;
 }
 
 export function finiteSdof(sol: SdofSolution): boolean {
   const P = sol.props;
   const pos = [P.omega, P.f, P.T, sol.tEnd, sol.Omega].every((v) => Number.isFinite(v)) && P.omega > 0 && P.T > 0 && sol.tEnd > 0;
-  const curves = [sol.free, sol.total, sol.steady, sol.transient].every((c) => !c || c.every(([t, u]) => Number.isFinite(t) && Number.isFinite(u)));
-  return pos && Number.isFinite(P.omegaD) && curves;
+  const curves = [sol.free, sol.total, sol.steady, sol.transient].every((c) => !c || c.every(([t, u]) => Number.isFinite(t) && Number.isFinite(u * MM)));
+  return pos && Number.isFinite(P.omegaD) && sol.shown.every(Number.isFinite) && curves;
 }
 
 /** D(β) for the reader's ξ, with three reference ratios and the case marked. */

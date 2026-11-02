@@ -12,7 +12,7 @@ import { num, numText } from '../format';
 import { plotOf, type Plot, type PlotColor } from '../plot';
 import type { Sketch } from '../sketch';
 import { sketchOf } from '../sketch';
-import { resolveMdof, type MdofCase } from './mdof-build';
+import { resolveMdof, SHOWN_MODES, type MdofCase } from './mdof-build';
 import { K as KEY, p, note, dt, nodeNames, dofTexN, dofTextN, matrixBlock, systemSketch, shapeSketch, shapeScale, expand, MAX_SHOWN, engineFrequencies, consistentCheck } from './common';
 import { mdofSystemBlocks, shearBlocks } from './mdof-system-blocks';
 
@@ -23,7 +23,6 @@ export function mdofApplies(ctx: MethodContext): Applicability {
   return 'refusal' in r ? { ok: false, reason: tx(KEY + r.refusal, r.params) } : { ok: true };
 }
 
-const SHOWN_MODES = 4;
 const MM = 1000;
 const COLORS: PlotColor[] = ['load', 'reaction', 'moment', 'diagram', 'dof', 'deformed'];
 

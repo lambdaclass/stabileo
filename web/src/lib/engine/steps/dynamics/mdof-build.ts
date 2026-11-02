@@ -13,6 +13,12 @@ import { solve, maxAbs, type Mat } from '../../dynamics/course/dense';
 export const MAX_MODAL_DOFS = 40;
 export const MIN_HARMONIC_RATIO = 0.01;
 export const MAX_HARMONIC_RATIO = 100;
+export const SAMPLES_PER_PERIOD = 24;
+export const MAX_SAMPLES = 6000;
+const MIN_SAMPLES = 160;
+const MIN_WINDOW_PERIODS = 2;
+export const SHOWN_MODES = 4;
+const RELEVANT_SHARE = 1e-3;
 
 export interface MdofCase {
   kind: 'model' | 'shear';
@@ -75,14 +81,34 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   if (!moves.length) return { refusal: 'mdof.err.noMass' };
   const at = moves.reduce((b, i) => (Math.abs(ust[i]) > Math.abs(ust[b]) ? i : b), moves[0]);
   const T1 = sol.modes[0].T;
-  const tEnd = ex.kind === 'free' ? 4 * T1 : Math.max(6 * T1, (8 * Math.PI) / Omega);
-  const N = 160;
+  const Tmin = shortestPeriodShown(sol, resp, at, ex);
+  const tWanted = ex.kind === 'free' ? 4 * T1 : Math.max(6 * T1, (8 * Math.PI) / Omega);
+  const tFits = (MAX_SAMPLES / SAMPLES_PER_PERIOD) * Tmin;
+  if (tFits < MIN_WINDOW_PERIODS * T1) return { refusal: 'mdof.err.tooFine', params: { ratio: Math.round(T1 / Tmin), max: Math.floor(MAX_SAMPLES / SAMPLES_PER_PERIOD / MIN_WINDOW_PERIODS) } };
+  const tEnd = Math.min(tWanted, tFits);
+  const N = Math.max(MIN_SAMPLES, Math.ceil((SAMPLES_PER_PERIOD * tEnd) / Tmin));
   const times = Array.from({ length: N + 1 }, (_, i) => (i * tEnd) / N);
   const modal = times.map((tt) => resp.u(tt));
-  const sub = Math.max(1, Math.ceil(tEnd / N / Math.min(T1 / 400, ex.kind === 'harmonic' ? (2 * Math.PI) / Omega / 40 : Infinity)));
+  const sub = Math.max(1, Math.ceil(tEnd / N / Math.min(T1 / 400, Tmin / 40)));
   const C = modalDampingMatrix(sol, M, ms.xi);
   const force = ex.kind === 'harmonic' ? (tt: number) => F.map((f) => f * Math.sin(Omega * tt)) : () => F.map(() => 0);
   const direct = directIntegration(K, M, C, force, ex.kind === 'free' ? ust : F.map(() => 0), F.map(() => 0), times, tEnd / N / sub);
   if (!(Number.isFinite(Omega) && [...modal, ...direct].every((u) => u.every(Number.isFinite)))) return { refusal: 'mdof.err.notFinite' };
   return { kind: ms.source, sys, shear, K, M, F, dofs, sol, ex, xi: ms.xi, Omega, ust, resp, at, times, modal, direct, settings };
+}
+
+/**
+ * The shortest period the plots draw: the excitation, the modes plotted on their own, and every
+ * other mode whose share at the plotted degree of freedom reaches 10⁻³ of the largest.
+ */
+export function shortestPeriodShown(sol: ModalSolution, resp: ModalResponse, at: number, ex: Excitation): number {
+  const share = sol.modes.map((m, i) => {
+    const h = resp.harmonics[i];
+    const amp = h ? (h.resonant ? Infinity : Math.abs(h.X) * Math.max(1, h.beta)) : Math.hypot(resp.q0[i], resp.qd0[i] / m.omega);
+    return Math.abs(m.phi[at]) * amp;
+  });
+  const top = Math.max(...share);
+  const periods = sol.modes.filter((_, i) => i < SHOWN_MODES || share[i] >= RELEVANT_SHARE * top).map((m) => m.T);
+  if (ex.kind === 'harmonic') periods.push((2 * Math.PI) / ex.Omega);
+  return Math.min(...periods);
 }

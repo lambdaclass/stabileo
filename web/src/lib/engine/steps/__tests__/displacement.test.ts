@@ -183,6 +183,29 @@ describe('hand-checked cases', () => {
     againstEngine(input);
   });
 
+  it('the 3EI/L equation names the end each member is released at, and the results agree', () => {
+    for (const reversed of [false, true]) {
+      modelStore.clear();
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0), c = modelStore.addNode(12, 0);
+      const e1 = modelStore.addElement(a, b), e2 = reversed ? modelStore.addElement(c, b) : modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(b, 'rollerX'); modelStore.addSupport(c, 'pinned');
+      modelStore.addDistributedLoad(e1, -12, -12); modelStore.addDistributedLoad(e2, -12, -12);
+      const input = modelStore.buildSolverInput(false)!;
+      const sol = solution(input);
+      const [zero, kept] = reversed ? (['i', 'j'] as const) : (['j', 'i'] as const);
+      expect(M(sol, e2, zero)).toBeCloseTo(0, 9);
+      expect(Math.abs(M(sol, e2, kept))).toBeCloseTo(36 + 72 / 7, 9);
+      const doc = build(ctxOf(input));
+      const eqs = doc.steps.flatMap((st) => st.blocks).filter((x): x is Extract<Block, { kind: 'eq' }> => x.kind === 'eq' && x.tex.includes('\\frac{3EI}{L}'));
+      expect(eqs.length).toBe(1);
+      const near = kept, far = zero;
+      expect(eqs[0].tex).toContain(`M_{${near}${far}} = \\frac{3EI}{L}\\,\\theta_${near}`);
+      expect(eqs[0].tex).toContain(`M_{${far}${near}} = 0`);
+      expect(eqs[0].tex).not.toContain(`\\theta_${far}`);
+      expect(() => katex.renderToString(eqs[0].tex, { throwOnError: true })).not.toThrow();
+    }
+  });
+
   it('a member released at one end under span load and settlement: the written formula, as substituted, gives the result', () => {
     const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0), c = modelStore.addNode(12, 0);
     const e1 = modelStore.addElement(a, b), e2 = modelStore.addElement(b, c);
