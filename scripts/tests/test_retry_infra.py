@@ -80,6 +80,15 @@ sys.exit(0 if lines[min(n, len(lines)-1)] == 'success' else ''' + str(status) + 
         self.assertEqual((status, count), (7, 3))
         self.assertEqual(output.count('Connection reset by peer'), 3)
 
+    def test_each_attempt_logs_its_output_once(self):
+        script = WRAPPER.read_text()
+        attempt = script.split('for attempt in 1 2 3; do', 1)[1]
+        self.assertLess(attempt.index(': > "$log"'), attempt.index('>> "$log" 2>&1 &'))
+        self.assertNotRegex(script, r'[^>]> "\$log" 2>&1 &')
+        for _ in range(5):
+            output = self.run_attempts(['Connection reset by peer', 'HTTP error 418', 'success'])[2]
+            self.assertEqual([output.count(x) for x in ('Connection reset by peer', 'HTTP error 418', 'success')], [1, 1, 1])
+
     def test_success_stops_retries(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'success'])[:2], (0, 2))
 
