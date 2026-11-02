@@ -204,7 +204,8 @@ pub struct SteelCheckResult {
     pub flexure_y_ratio: f64,
     /// Flexural capacity check about Z-axis (Mr / phi*Mn_z)
     pub flexure_z_ratio: f64,
-    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied
+    /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied, and
+    /// then "Shear G2" is in `unevaluated` if the member carries shear.
     pub shear_ratio: f64,
     /// Combined interaction ratio (AISC H1-1)
     pub interaction_ratio: f64,
@@ -308,10 +309,9 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         ledger.flag("Axial demand");
     }
 
-    // AISC G2 shear
     let phi_vn: f64 = shear_capacity(member);
     let vy = forces.vy.unwrap_or(0.0).abs();
-    let shear_ratio = if phi_vn > 0.0 { vy / phi_vn } else { 0.0 };
+    let shear_ratio = ledger.ratio_if_loaded("Shear G2", vy, phi_vn);
 
     // AISC H1 interaction (using appropriate axial capacity)
     let axial_ratio = if n < 0.0 { compression_ratio } else { tension_ratio };
@@ -381,10 +381,8 @@ pub(crate) fn tension_capacity<T: Real>(m: &SteelMemberData) -> T {
     }
 }
 
-/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1.
-///
-/// Returns 0.0 when the web area is unknown — there is no shear check to
-/// report rather than a capacity to invent.
+/// AISC G2-1: Vn = 0.6·Fy·Aw·Cv1, or 0 when Aw is unknown, which leaves a
+/// loaded G2 check unevaluated.
 pub(crate) fn shear_capacity<T: Real>(m: &SteelMemberData) -> T {
     match m.aw {
         Some(aw) if aw > 0.0 => {

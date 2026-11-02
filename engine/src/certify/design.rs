@@ -172,8 +172,7 @@ pub fn steel_ratio_enclosures(
     let compression = loaded_ratio(CHECK_NAMES[1], (-n).max(zero), phi_pn_c)?;
     let flex_y = loaded_ratio(CHECK_NAMES[2], my, phi_mn_y)?;
     let flex_z = loaded_ratio(CHECK_NAMES[3], mz, phi_mn_z)?;
-    // Shear: `if phi_vn > 0 { vy / phi_vn } else { 0 }`.
-    let shear = branch(zero.lt(phi_vn), || vy.div(phi_vn), || zero);
+    let shear = loaded_ratio(CHECK_NAMES[4], vy, phi_vn)?;
     let axial = branch(n.lt(zero), || compression, || tension);
     let interaction = interaction_h1(axial, flex_y, flex_z);
     let out = [tension, compression, flex_y, flex_z, shear, interaction];
@@ -1305,6 +1304,10 @@ mod tests {
         for i in 0..3000 {
             let m = random_member(&mut g, i);
             let f = random_forces(&mut g, i);
+            if m.aw.is_none() {
+                assert!(steel_ratio_enclosures(&m, &f, &ZERO_BOUND).is_err(), "member {i}");
+                continue;
+            }
             let r = steel_ratio_enclosures(&m, &f, &ZERO_BOUND).unwrap();
             let p = f64_ratios(&m, &f);
             for k in 0..6 {
@@ -1328,6 +1331,10 @@ mod tests {
                 mz: f.mz.unwrap().abs() * g.range(0.0, 0.3),
                 vy: f.vy.unwrap().abs() * g.range(0.0, 0.3),
             };
+            if m.aw.is_none() {
+                assert!(steel_ratio_enclosures(&m, &f, &b).is_err(), "member {i}");
+                continue;
+            }
             let r = steel_ratio_enclosures(&m, &f, &b).unwrap();
             for _ in 0..50 {
                 let s = ElementDesignForces {
