@@ -218,7 +218,18 @@ write_files:
       		not file {path}/index.html
       		file {english_twin}/index.html
       	}
-      	redir @notInThisLanguage {english_twin}/ 301
+      	redir @notInThisLanguage {english_twin}/{?query} 301
+
+      	map {path} {unprefixed} {
+      		~^/(?:en|es|pt|de|fr|tr)(?:/|$) ""
+      		~^(/[^.]*[^./])/?$ "${1}"
+      		default ""
+      	}
+      	@unprefixed {
+      		not vars {unprefixed} ""
+      		file /en{unprefixed}/index.html
+      	}
+      	redir @unprefixed /en{unprefixed}/{?query} 301
 
       	@static path_regexp \.
       	handle @static {
@@ -231,14 +242,6 @@ write_files:
 
       	@spa path /app /app/* /demo /demo/
       	handle @spa {
-      		header Cache-Control "no-cache"
-      		rewrite * /index.html
-      		file_server
-      	}
-
-      	# Links from before the language prefixes (/blog/x) are still drawn by the client router.
-      	@unprefixed file /en{path}/index.html
-      	handle @unprefixed {
       		header Cache-Control "no-cache"
       		rewrite * /index.html
       		file_server
