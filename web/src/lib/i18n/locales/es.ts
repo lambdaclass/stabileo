@@ -12447,6 +12447,7 @@ const es: Record<string, string> = {
   'discretization.refuse.other': "el motor no pudo refinar o volver a resolver este modelo (detalles en la ayuda emergente)",
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certificado)',
   'certificate.bucklingNotCertified': 'λ_cr no certificado: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'el factor de carga calculado {computed} supera la cota superior certificada {upper}',
   'certificate.bucklingTooltip': 'Intervalo riguroso, demostrado en Lean: la estructura es estable con certeza para todo factor de carga hasta el valor inferior, e inestable con certeza en el superior.',
   'float.loadFrameGlobalTip': 'Los valores van según los ejes globales (Z es la vertical).',
   'float.loadFrameLocalTip': 'Los valores van según los ejes locales de la barra.',
