@@ -25,7 +25,7 @@ const body: StandingPage['i18n']['en'] = {
         "Konto: der Name, die E-Mail-Adresse und die Kennung, die Google uns bei der Anmeldung mit Ihrem Google-Konto übermittelt, sowie, wenn Sie sie angeben, Unternehmen, Position, Land und Sprache. Passwörter speichern wir nicht.",
         "Sitzungen: die IP-Adresse und der Browser jeder Anmeldung, zum Schutz Ihres Kontos.",
         "Einwilligungen: was Sie wann akzeptiert haben, mit der IP-Adresse und dem Browser, die Sie dabei verwendet haben.",
-        "Cloud-Projekte: diejenigen, die Sie aus Ihrem Konto heraus speichern.",
+        "Cloud-Projekte: diejenigen, die Sie aus Ihrem Konto heraus speichern. Sofern Sie es nicht in Ihrem Profil ausschalten, verwenden wir sie anonymisiert zur Verbesserung von Stabileo.",
         "Feedback: was Sie uns aus Ihrem Profil schreiben und, wenn Sie es anhängen, das geöffnete Modell.",
         "Anonyme Nutzung: standardmäßig aktiviert, wie die Nutzungsbedingungen erläutern, und Sie können sie in den Einstellungen oder in Ihrem Profil ausschalten. Welche Werkzeuge Sie verwenden, ohne Daten aus Ihren Modellen und ohne Verknüpfung mit Ihrem Konto."
       ]

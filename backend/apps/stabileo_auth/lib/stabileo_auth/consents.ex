@@ -36,8 +36,9 @@ defmodule StabileoAuth.Consents do
   end
 
   @doc """
-  Accepts the terms and records any optional consents given at sign-up, as
-  one step: a failure leaves none of them recorded.
+  Accepts the terms and records the optional consents, as one step: a failure
+  leaves none of them recorded. Both optional consents start granted; the
+  sign-up may send `false` for either, and the account turns them off later.
   """
   def record_sign_up(%Account{} = account, optional, metadata) do
     Repo.transaction(fn ->
@@ -51,10 +52,8 @@ defmodule StabileoAuth.Consents do
   end
 
   defp record_optional(account, optional, metadata) do
-    @optional
-    |> Enum.filter(&is_boolean(Map.get(optional, &1)))
-    |> Enum.reduce_while(:ok, fn kind, :ok ->
-      record_step(account, kind, optional[kind], metadata)
+    Enum.reduce_while(@optional, :ok, fn kind, :ok ->
+      record_step(account, kind, Map.get(optional, kind) != false, metadata)
     end)
   end
 

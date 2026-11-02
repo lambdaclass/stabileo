@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Oluşturduğunuz modeller ve projeler size aittir. Bunları buluta kaydederseniz, hesabınızdan açabilmeniz için saklarız ve istediğiniz zaman silebilirsiniz. Profilinizden izin vermediğiniz sürece bunları Stabileo'yu geliştirmek için kullanmayız ve bu izin şirkete özel modülleri hiçbir zaman kapsamaz."
+      "t": "Oluşturduğunuz modeller ve projeler size aittir. Bunları buluta kaydederseniz, hesabınızdan açabilmeniz için saklarız ve istediğiniz zaman silebilirsiniz. Hesabınızı oluşturarak bunları anonimleştirilmiş olarak Stabileo'yu geliştirmek için kullanmamızı kabul edersiniz. Bunu profilinizden kapatabilirsiniz ve bu, şirkete özel modülleri hiçbir zaman kapsamaz."
     },
     {
       "k": "h",

@@ -25,7 +25,7 @@ const body: StandingPage['i18n']['en'] = {
         "Hesap: Google hesabınızla giriş yaptığınızda Google'ın bize ilettiği ad, e-posta ve tanımlayıcı ile, girerseniz şirket, unvan, ülke ve dil. Parolaları saklamayız.",
         "Oturumlar: hesabınızı korumak için her girişin IP adresi ve tarayıcısı.",
         "Onaylar: neyi ve ne zaman kabul ettiğiniz, kullandığınız IP adresi ve tarayıcıyla birlikte.",
-        "Bulut projeleri: hesabınızdan kaydetmeyi seçtikleriniz.",
+        "Bulut projeleri: hesabınızdan kaydetmeyi seçtikleriniz. Profilinizden kapatmadığınız sürece bunları anonimleştirilmiş olarak Stabileo'yu geliştirmek için kullanırız.",
         "Geri bildirim: profilinizden bize yazdıklarınız ve eklerseniz açık model.",
         "Anonim kullanım: Koşullar'da açıklandığı üzere varsayılan olarak açıktır ve Ayarlar'dan veya profilinizden kapatabilirsiniz. Hangi araçları kullandığınız bilgisidir; modellerinizden hiçbir veri içermez ve hesabınıza bağlı değildir."
       ]

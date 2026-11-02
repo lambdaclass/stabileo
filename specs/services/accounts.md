@@ -52,7 +52,7 @@ Bodies:
 ```jsonc
 // POST /google/exchange
 { "code": "..." }
-// POST /google/register: accept_terms must be true; usage_analytics, model_research and locale are optional
+// POST /google/register: accept_terms must be true; usage_analytics and model_research start true unless sent false; locale is optional
 { "signup_token": "...", "accept_terms": true, "usage_analytics": true, "locale": "es" }
 // POST /register (only with password sign-in on): accept_terms must be true; usage_analytics and model_research are optional
 { "email": "ada@example.com", "password": "at-least-8-chars", "name": "Ada", "locale": "es", "accept_terms": true, "usage_analytics": true }

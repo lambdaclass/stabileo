@@ -61,7 +61,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Die Modelle und Projekte, die Sie erstellen, gehören Ihnen. Wenn Sie sie in der Cloud speichern, bewahren wir sie auf, damit Sie sie über Ihr Konto öffnen können, und Sie können sie jederzeit löschen. Wir verwenden sie nur dann zur Verbesserung von Stabileo, wenn Sie dies in Ihrem Profil erlauben, und diese Erlaubnis umfasst niemals unternehmenseigene Module."
+      "t": "Die Modelle und Projekte, die Sie erstellen, gehören Ihnen. Wenn Sie sie in der Cloud speichern, bewahren wir sie auf, damit Sie sie über Ihr Konto öffnen können, und Sie können sie jederzeit löschen. Mit der Erstellung Ihres Kontos stimmen Sie zu, dass wir sie anonymisiert zur Verbesserung von Stabileo verwenden. Sie können dies in Ihrem Profil ausschalten, und es umfasst niemals unternehmenseigene Module."
     },
     {
       "k": "h",
