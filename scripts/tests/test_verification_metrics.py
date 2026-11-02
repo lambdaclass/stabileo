@@ -31,6 +31,7 @@ class FakeGH:
         self._runs, self._arts, self._files = runs, artifacts, files or {}
         self.tmp = tempfile.mkdtemp()
         self.branch_args = []
+        self._stamps = {}
 
     def runs(self, workflow, max_runs, branch="main"):
         self.branch_args.append(branch)
@@ -50,7 +51,8 @@ class FakeGH:
         return [{"name": f"mutants ({i})", "conclusion": "success"} for i in range(n)]
 
     def artifacts(self, run_id):
-        return [{"name": n, "expired": False} for n in self._arts.get(run_id, [])]
+        return [{"name": n, "expired": False, "created_at": self._stamps.get((run_id, n))}
+                for n in self._arts.get(run_id, [])]
 
     def download(self, run_id, name):
         files = self._files.get((run_id, name))
@@ -547,12 +549,12 @@ class MutantsRotation(unittest.TestCase):
                                    nightly(1, 6, ["mutants-done-2-of-4", "mutants-done-3-of-4"])])
         self.assertEqual((rot["fresh"], rot["stale"], rot["oldest"], code), (4, [], "2026-11-06", 0))
 
-    def test_older_unfinished_foreign_or_expired_evidence_is_stale(self):
+    def test_old_foreign_or_expired_markers_are_stale_and_a_running_night_counts(self):
         rot, code = self.rotation([nightly(4, 19, ["mutants-done-0-of-4", "mutants-done-1-of-8",
                                                    "mutants-report-2"]),
                                    nightly(3, 18, ["mutants-done-2-of-4"], status="in_progress"),
                                    nightly(2, 3, ["mutants-done-3-of-4"])])
-        self.assertEqual((rot["fresh"], rot["stale"], code), (1, [1, 2, 3], 1))
+        self.assertEqual((rot["fresh"], rot["stale"], code), (2, [1, 3], 1))
         gh = FakeGH({"nightly.yml": [nightly(1, 19, [])[0]]}, {})
         gh.artifacts = lambda _: [{"name": "mutants-done-0-of-4", "expired": True}]
         real, vm.mutants_plan = vm.mutants_plan, lambda: (4, 2)
@@ -560,6 +562,19 @@ class MutantsRotation(unittest.TestCase):
             self.assertEqual(vm.mutants_rotation(gh, self.NOW)["stale"], [0, 1, 2, 3])
         finally:
             vm.mutants_plan = real
+
+    def test_freshness_is_the_marker_upload_time_not_the_run_start(self):
+        late, _ = nightly(2, 4, ["mutants-done-0-of-2"])
+        early, _ = nightly(1, 4, ["mutants-done-1-of-2"])
+        gh = FakeGH({"nightly.yml": [late, early]}, {2: ["mutants-done-0-of-2"], 1: ["mutants-done-1-of-2"]})
+        gh._stamps = {(2, "mutants-done-0-of-2"): "2026-11-04T13:00:00Z",
+                      (1, "mutants-done-1-of-2"): "2026-11-04T11:00:00Z"}
+        real, vm.mutants_plan = vm.mutants_plan, lambda: (2, 2)
+        try:
+            rot = vm.mutants_rotation(gh, self.NOW)
+        finally:
+            vm.mutants_plan = real
+        self.assertEqual((rot["stale"], rot["oldest"]), ([1], "2026-11-04"))
 
     def test_a_plan_slower_than_the_promise_fails_even_when_fresh(self):
         names = [f"mutants-done-{k}-of-40" for k in range(40)]

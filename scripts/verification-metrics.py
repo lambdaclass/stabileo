@@ -170,7 +170,7 @@ class GH:
 
     def artifacts(self, run_id: int):
         return self.json(["api", f"repos/{REPO}/actions/runs/{run_id}/artifacts", "--paginate",
-                          "--jq", "[.artifacts[] | {name, expired}]"]) if self.ok else []
+                          "--jq", "[.artifacts[] | {name, expired, created_at}]"]) if self.ok else []
 
     def jobs(self, run_id: int):
         return self.json(["run", "view", str(run_id), "-R", REPO, "--json", "jobs", "--jq",
@@ -478,7 +478,7 @@ def mutants_plan():
 
 def mutants_rotation(gh: GH, now: dt.datetime, promise_days: int = MUTANTS_PROMISE_DAYS):
     """Which mutants shards of the current MUTANTS_TOTAL ran to their verdict on main within the
-    promise. None when GitHub or the plan cannot be read."""
+    promise, by the upload time of each shard's marker. None when GitHub or the plan cannot be read."""
     total, slots = mutants_plan()
     if not gh.ok or not total or not slots:
         return None
@@ -488,10 +488,12 @@ def mutants_rotation(gh: GH, now: dt.datetime, promise_days: int = MUTANTS_PROMI
     except Exception as ex:
         warn(f"runs of nightly.yml: {ex}")
         return None
+    def when(stamp):
+        return dt.datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+
     last = {}
     for r in runs:
-        created = dt.datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00"))
-        if r.get("status") != "completed" or created < since:
+        if when(r["createdAt"]) < since - dt.timedelta(days=1):
             continue
         try:
             arts = gh.artifacts(r["databaseId"])
@@ -500,9 +502,10 @@ def mutants_rotation(gh: GH, now: dt.datetime, promise_days: int = MUTANTS_PROMI
             return None
         for a in arts:
             m = re.fullmatch(r"mutants-done-(\d+)-of-(\d+)", a["name"])
-            if m and not a["expired"] and int(m.group(2)) == total:
+            stamp = a.get("created_at") or r["createdAt"]
+            if m and not a["expired"] and int(m.group(2)) == total and when(stamp) >= since:
                 shard = int(m.group(1))
-                last[shard] = max(last.get(shard, ""), r["createdAt"][:10])
+                last[shard] = max(last.get(shard, ""), stamp[:10])
     stale = [k for k in range(total) if k not in last]
     return {"total": total, "slots": slots, "promise_days": promise_days,
             "nights_per_pass": -(-total // slots), "fresh": total - len(stale), "stale": stale,
