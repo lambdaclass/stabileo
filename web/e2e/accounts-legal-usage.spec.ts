@@ -281,6 +281,12 @@ test.describe('accounts, legal and anonymous usage', () => {
     await page.keyboard.press('Escape');
     await page.waitForTimeout(300);
     expect(downloads).toBe(0);
+    const browserKeepsCopy = await page.getByTestId('terms-update').locator('a').first().evaluate((a) => {
+      const e = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, bubbles: true, cancelable: true });
+      a.dispatchEvent(e);
+      return !e.defaultPrevented;
+    });
+    expect(browserKeepsCopy).toBe(true);
     await expect(page.getByTestId('terms-update')).toBeVisible();
     await expect(page.getByTestId('save-dialog')).toHaveCount(0);
     await page.getByTestId('terms-update-accept').click();

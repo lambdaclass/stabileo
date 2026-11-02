@@ -50,17 +50,78 @@ function mode(): 'basic' | 'pro' {
   return uiStore.appMode === 'pro' ? 'pro' : 'basic';
 }
 
-async function payload(linkedTab?: string) {
-  const text = serializeProject();
+function snapshot(linkedTab?: string) {
   const own = modelStore.model.name.trim() || 'Stabileo';
-  const meta = {
-    name: linkedTab ? cloudLinks.name(linkedTab, own) : own,
-    app_mode: mode(),
-    node_count: modelStore.nodes.size,
-    element_count: modelStore.elements.size,
-    app_version: APP_VERSION,
+  return {
+    text: serializeProject(),
+    meta: {
+      name: linkedTab ? cloudLinks.name(linkedTab, own) : own,
+      app_mode: mode(),
+      node_count: modelStore.nodes.size,
+      element_count: modelStore.elements.size,
+      app_version: APP_VERSION,
+    },
   };
-  return { ...meta, content: await gzipBase64(text) };
+}
+
+let saveQueue: Promise<unknown> = Promise.resolve();
+
+/** Saves run one after another, so each starts from the revision the one before it left. */
+function queued<T>(run: () => Promise<T>): Promise<T> {
+  const next = saveQueue.then(run);
+  saveQueue = next.catch(() => {});
+  return next;
+}
+
+async function saveNow(opts: { asNew?: boolean }): Promise<CloudProject> {
+  saving = true;
+  try {
+    sameOwner();
+    const who = owner;
+    const tab = tabKey();
+    const generation = cloudLinks.generation(tab);
+    const edit = modelStore.modelVersion;
+    const id = opts.asNew ? null : cloudLinks.get(tab);
+    const revision = cloudLinks.revision(tab);
+    const { text, meta } = snapshot(id ? tab : undefined);
+    const body = { ...meta, content: await gzipBase64(text) };
+    guard(who);
+    const saved = id ? await projectsApi.update(id, { ...body, revision }) : await projectsApi.create(body);
+    if (!stillFor(who)) return saved;
+    cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
+    trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
+    items = [saved, ...items.filter((p) => p.id !== saved.id)];
+    if (!id) {
+      total += 1;
+      accountTotal += 1;
+    }
+    return saved;
+  } finally {
+    saving = false;
+  }
+}
+
+async function replaceNow(id: string): Promise<CloudProject> {
+  saving = true;
+  try {
+    sameOwner();
+    const who = owner;
+    const tab = tabKey();
+    const generation = cloudLinks.generation(tab);
+    const edit = modelStore.modelVersion;
+    const listed = items.find((p) => p.id === id)?.revision;
+    const { text, meta } = snapshot();
+    const body = { ...meta, content: await gzipBase64(text) };
+    guard(who);
+    const saved = await projectsApi.update(id, { ...body, revision: listed });
+    if (!stillFor(who)) return saved;
+    cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
+    trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
+    items = [saved, ...items.filter((p) => p.id !== saved.id)];
+    return saved;
+  } finally {
+    saving = false;
+  }
 }
 
 export const cloudProjects = {
@@ -97,53 +158,13 @@ export const cloudProjects = {
   },
 
   /** Updates the project this tab came from, or creates one; `asNew` always creates. */
-  async saveCurrent(opts: { asNew?: boolean } = {}): Promise<CloudProject> {
-    saving = true;
-    try {
-      sameOwner();
-      const who = owner;
-      const tab = tabKey();
-      const generation = cloudLinks.generation(tab);
-      const edit = modelStore.modelVersion;
-      const id = opts.asNew ? null : cloudLinks.get(tab);
-      const body = await payload(id ? tab : undefined);
-      guard(who);
-      const saved = id ? await projectsApi.update(id, { ...body, revision: cloudLinks.revision(tab) }) : await projectsApi.create(body);
-      if (!stillFor(who)) return saved;
-      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
-      trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
-      items = [saved, ...items.filter((p) => p.id !== saved.id)];
-      if (!id) {
-        total += 1;
-        accountTotal += 1;
-      }
-      return saved;
-    } finally {
-      saving = false;
-    }
+  saveCurrent(opts: { asNew?: boolean } = {}): Promise<CloudProject> {
+    return queued(() => saveNow(opts));
   },
 
   /** Overwrites a saved project with the open model, name included, and links this tab to it. */
-  async replace(id: string): Promise<CloudProject> {
-    saving = true;
-    try {
-      sameOwner();
-      const who = owner;
-      const tab = tabKey();
-      const generation = cloudLinks.generation(tab);
-      const edit = modelStore.modelVersion;
-      const listed = items.find((p) => p.id === id)?.revision;
-      const body = await payload();
-      guard(who);
-      const saved = await projectsApi.update(id, { ...body, revision: listed });
-      if (!stillFor(who)) return saved;
-      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
-      trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
-      items = [saved, ...items.filter((p) => p.id !== saved.id)];
-      return saved;
-    } finally {
-      saving = false;
-    }
+  replace(id: string): Promise<CloudProject> {
+    return queued(() => replaceNow(id));
   },
 
   /** Loads the project into this tab's document; false when the tab, the document or an edit moved on while it downloaded. */

@@ -14213,7 +14213,7 @@ const fr: Translations = {
   "admin.metrics.newAccounts": "Nouveaux comptes",
   "admin.metrics.newAccountsHelp": "Créés au cours des {n} derniers jours.",
   "admin.metrics.active7dHelp": "Comptes ayant utilisé l’application en étant connectés au cours de la dernière semaine.",
-  "admin.metrics.consentUsageHelp": "Comptes qui ne l’ont pas désactivé dans leur profil.",
+  "admin.metrics.consentUsageHelp": "Comptes dont le dernier choix enregistré est de partager. Ceux qui n’en ont jamais enregistré partagent par défaut et ne sont pas comptés ici.",
   "admin.metrics.consentResearchHelp": "Comptes ayant autorisé l’utilisation de leurs projets enregistrés pour la recherche. Désactivé par défaut ; ils l’activent dans leur profil.",
   "admin.metrics.gate": "Demandes de compte",
   "admin.metrics.gateHelp": "Visites sans compte qui ont tenté d’enregistrer, d’exporter, de partager ou d’envoyer un commentaire, et combien se sont connectées ou ont créé un compte pour continuer. Fonctionne avec « Enregistrer et exporter nécessitent un compte » activé dans Paramètres.",

@@ -15,10 +15,9 @@
     if (!dialog) return;
     if (!dialog.open) dialog.showModal();
     const block = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || e.ctrlKey || e.metaKey || e.altKey || !dialog?.contains(e.target as Node)) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-      }
+      const outside = !dialog?.contains(e.target as Node);
+      if (e.key === 'Escape' || outside) e.preventDefault();
+      if (e.key === 'Escape' || outside || e.ctrlKey || e.metaKey || e.altKey) e.stopImmediatePropagation();
     };
     window.addEventListener('keydown', block, true);
     return () => window.removeEventListener('keydown', block, true);

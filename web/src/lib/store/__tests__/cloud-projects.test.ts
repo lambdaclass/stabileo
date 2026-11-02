@@ -289,6 +289,21 @@ describe('cloud projects', () => {
     expect(cloudProjects.linkedId).toBe('k1');
   });
 
+  it('a second save started before the first answers waits, and names the revision the first one left', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('q1', 'Frame', 1) }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    let revision = 1;
+    replies.set('PUT /api/v1/projects/q1', async (body) => {
+      await new Promise((done) => setTimeout(done, 20));
+      if (body!.revision !== revision) return json(409, { error: 'project_changed', message: 'changed' });
+      revision += 1;
+      return json(200, { data: meta('q1', 'Frame', revision) });
+    });
+    const [first, second] = await Promise.all([cloudProjects.saveCurrent(), cloudProjects.saveCurrent()]);
+    expect([first.revision, second.revision]).toEqual([2, 3]);
+    expect(seen.slice(-2).map((s) => s.body!.revision)).toEqual([1, 2]);
+  });
+
   it('two tabs holding the same project each keep the revision they last saw', async () => {
     if (!tabManager.activeTabId) tabManager.init();
     const first = tabManager.activeTabId!;

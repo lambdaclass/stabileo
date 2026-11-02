@@ -157,7 +157,7 @@ const en: Record<string, string> = {
   'admin.metrics.newAccounts': 'New accounts',
   'admin.metrics.newAccountsHelp': 'Created in the last {n} days.',
   'admin.metrics.active7dHelp': 'Accounts that used the app signed in during the last week.',
-  'admin.metrics.consentUsageHelp': 'Accounts that did not turn it off in their profile.',
+  'admin.metrics.consentUsageHelp': 'Accounts whose latest recorded choice is to share. Accounts that never recorded one share by default and are not counted here.',
   'admin.metrics.consentResearchHelp': 'Accounts that allowed their saved projects to be used for research. Off by default; they turn it on in their profile.',
   'admin.metrics.gate': 'Account requests',
   'admin.metrics.gateHelp': 'Visits without an account that tried to save, export, share or send a comment, and how many signed in or created an account to go on. Works with “Saving and exporting need an account” on in Settings.',

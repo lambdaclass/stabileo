@@ -14213,7 +14213,7 @@ const de: Translations = {
   "admin.metrics.newAccounts": "Neue Konten",
   "admin.metrics.newAccountsHelp": "In den letzten {n} Tagen erstellt.",
   "admin.metrics.active7dHelp": "Konten, die die App in der letzten Woche angemeldet genutzt haben.",
-  "admin.metrics.consentUsageHelp": "Konten, die es in ihrem Profil nicht deaktiviert haben.",
+  "admin.metrics.consentUsageHelp": "Konten, deren zuletzt gespeicherte Wahl das Teilen ist. Konten ohne gespeicherte Wahl teilen standardmäßig und werden hier nicht gezählt.",
   "admin.metrics.consentResearchHelp": "Konten, die die Verwendung ihrer gespeicherten Projekte für die Forschung erlaubt haben. Standardmäßig deaktiviert; die Nutzer aktivieren es in ihrem Profil.",
   "admin.metrics.gate": "Kontoanfragen",
   "admin.metrics.gateHelp": "Besuche ohne Konto, die speichern, exportieren, teilen oder einen Kommentar senden wollten, und wie viele sich angemeldet oder ein Konto erstellt haben, um fortzufahren. Funktioniert, wenn „Speichern und Exportieren erfordern ein Konto“ in den Einstellungen aktiviert ist.",

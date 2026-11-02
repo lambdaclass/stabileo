@@ -157,7 +157,7 @@ const pt: Translations = {
   'admin.metrics.newAccounts': 'Contas novas',
   'admin.metrics.newAccountsHelp': 'Criadas nos últimos {n} dias.',
   'admin.metrics.active7dHelp': 'Contas que usaram o app com a sessão iniciada na última semana.',
-  'admin.metrics.consentUsageHelp': 'Contas que não o desativaram no perfil.',
+  'admin.metrics.consentUsageHelp': 'Contas cuja última escolha registrada é compartilhar. As que nunca registraram uma compartilham por padrão e não são contadas aqui.',
   'admin.metrics.consentResearchHelp': 'Contas que autorizaram usar seus projetos salvos para pesquisa. Vem desativado e elas ativam no perfil.',
   'admin.metrics.gate': 'Pedidos de conta',
   'admin.metrics.gateHelp': 'Visitas sem conta que tentaram salvar, exportar, compartilhar ou enviar um comentário, e quantas entraram ou criaram uma conta para seguir. Funciona com “Salvar e exportar com conta” ativado em Configurações.',

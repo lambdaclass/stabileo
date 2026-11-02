@@ -14213,7 +14213,7 @@ const tr: Translations = {
   "admin.metrics.newAccounts": "Yeni hesaplar",
   "admin.metrics.newAccountsHelp": "Son {n} günde oluşturulanlar.",
   "admin.metrics.active7dHelp": "Son bir hafta içinde oturum açarak uygulamayı kullanan hesaplar.",
-  "admin.metrics.consentUsageHelp": "Bunu profilinde kapatmamış hesaplar.",
+  "admin.metrics.consentUsageHelp": "Kayıtlı son tercihi paylaşmak olan hesaplar. Hiç tercih kaydetmemiş hesaplar varsayılan olarak paylaşır ve burada sayılmaz.",
   "admin.metrics.consentResearchHelp": "Kaydedilmiş projelerinin araştırma için kullanılmasına izin veren hesaplar. Varsayılan olarak kapalıdır; profillerinden açarlar.",
   "admin.metrics.gate": "Hesap talepleri",
   "admin.metrics.gateHelp": "Hesapsız olarak kaydetmeyi, dışa aktarmayı, paylaşmayı veya yorum göndermeyi deneyen ziyaretler ve bunlardan kaçının devam etmek için oturum açtığı veya hesap oluşturduğu. Ayarlar'da “Kaydetme ve dışa aktarma hesap gerektirir” açıkken çalışır.",

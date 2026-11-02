@@ -157,7 +157,7 @@ const es: Record<string, string> = {
   'admin.metrics.newAccounts': 'Cuentas nuevas',
   'admin.metrics.newAccountsHelp': 'Creadas en los últimos {n} días.',
   'admin.metrics.active7dHelp': 'Cuentas que usaron la app con la sesión iniciada en la última semana.',
-  'admin.metrics.consentUsageHelp': 'Cuentas que no lo apagaron en su perfil.',
+  'admin.metrics.consentUsageHelp': 'Cuentas cuya última elección registrada es compartir. Las que nunca registraron una comparten por defecto y no se cuentan acá.',
   'admin.metrics.consentResearchHelp': 'Cuentas que autorizaron usar sus proyectos guardados para investigación. Viene apagado y lo prenden en su perfil.',
   'admin.metrics.gate': 'Pedidos de cuenta',
   'admin.metrics.gateHelp': 'Visitas sin cuenta que intentaron guardar, exportar, compartir o mandar un comentario, y cuántas entraron o crearon una cuenta para seguir. Funciona con «Guardar y exportar con cuenta» prendido en Configuración.',
