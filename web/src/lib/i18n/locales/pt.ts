@@ -13927,6 +13927,8 @@ const pt: Translations = {
   "selfCheck.warning": "Autoverificação {check}: {value} (aviso a partir de {threshold}). Revise o modelo antes de usar estes resultados.",
   "selfCheck.refused": "Resultados recusados: a autoverificação {check} vale {value}, acima do limite {threshold}.",
   "selfCheck.refusedInvalid": "Resultados recusados: a autoverificação {check} falhou ({reason}).",
+  "selfCheck.reason.nonFinite": "um valor não é finito",
+  "selfCheck.reason.nonPositiveMass": "a massa modal não é positiva",
   "resultChecks.title": "Verificação dos resultados",
   "resultChecks.certified": "certificado",
   "resultChecks.notCertified": "não certificado",

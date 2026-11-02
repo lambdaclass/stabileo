@@ -111,29 +111,42 @@ export function localizeEngineText(message: string): string {
     const value = exceeds ? Number(exceeds[1]) : NaN;
     const limit = exceeds ? Number(exceeds[2]) : NaN;
     if (Number.isFinite(value) && Number.isFinite(limit)) return fill('selfCheck.refused', { check: name, value: scientific(value), threshold: scientific(limit) });
-    return fill('selfCheck.refusedInvalid', { check: name, reason: rest });
+    return fill('selfCheck.refusedInvalid', { check: name, reason: selfCheckReason(rest) });
   });
 }
 
 const SELF_CHECKS = new Set(['static_residual', 'static_balance', 'modal_residual', 'modal_orthogonality', 'modal_mass']);
 const SELF_CHECK_REFUSAL = /REFUSE: self-check ([a-z_]+)(?::(\d+))?: ([^\n]*)/g;
 
-function fill(key: string, params: Record<string, string>): string {
-  return tAt(key, i18n.locale).replace(/\{(\w+)\}/g, (whole, name: string) => params[name] ?? whole);
+type Translate = (key: string) => string;
+const active: Translate = (key) => tAt(key, i18n.locale);
+
+function fill(key: string, params: Record<string, string>, translate: Translate = active): string {
+  return translate(key).replace(/\{(\w+)\}/g, (whole, name: string) => params[name] ?? whole);
+}
+
+const SELF_CHECK_REASONS: ReadonlyArray<[RegExp, string]> = [
+  [/^non-finite /, 'selfCheck.reason.nonFinite'],
+  [/^non-positive modal mass$/, 'selfCheck.reason.nonPositiveMass'],
+];
+
+function selfCheckReason(reason: string): string {
+  const known = SELF_CHECK_REASONS.find(([pattern]) => pattern.test(reason));
+  return known ? active(known[1]) : reason;
 }
 
 function scientific(value: number): string {
   return value.toExponential(2);
 }
 
-function selfCheckName(check: string, mode: string | undefined): string | null {
-  return SELF_CHECKS.has(check) ? fill(`selfCheck.check.${check}`, { mode: mode ?? '' }) : null;
+function selfCheckName(check: string, mode: string | undefined, translate: Translate = active): string | null {
+  return SELF_CHECKS.has(check) ? fill(`selfCheck.check.${check}`, { mode: mode ?? '' }, translate) : null;
 }
 
-/** A self-check diagnostic in the app's language; the engine's English text when it is not one. */
-export function selfCheckWarningText(d: StructuredDiagnostic): string {
+/** A self-check diagnostic in the app's language, or `translate`'s; the engine's English text when it is not one. */
+export function selfCheckWarningText(d: StructuredDiagnostic, translate: Translate = active): string {
   const [, check, mode] = d.phase?.split(':') ?? [];
-  const name = check ? selfCheckName(check, mode) : null;
+  const name = check ? selfCheckName(check, mode, translate) : null;
   if (!name || d.value === undefined || d.threshold === undefined) return d.message;
-  return fill('selfCheck.warning', { check: name, value: scientific(d.value), threshold: scientific(d.threshold) });
+  return fill('selfCheck.warning', { check: name, value: scientific(d.value), threshold: scientific(d.threshold) }, translate);
 }

@@ -14126,6 +14126,8 @@ const fr: Translations = {
   'selfCheck.warning': 'Autocontrôle {check} : {value} (avertissement à partir de {threshold}). Vérifiez le modèle avant d’utiliser ces résultats.',
   'selfCheck.refused': 'Résultats refusés : l’autocontrôle {check} vaut {value}, au-delà de la limite {threshold}.',
   'selfCheck.refusedInvalid': 'Résultats refusés : l’autocontrôle {check} a échoué ({reason}).',
+  'selfCheck.reason.nonFinite': 'une valeur n’est pas finie',
+  'selfCheck.reason.nonPositiveMass': 'la masse modale n’est pas positive',
   'resultChecks.title': 'Contrôle des résultats',
   'resultChecks.certified': 'certifié',
   'resultChecks.notCertified': 'non certifié',

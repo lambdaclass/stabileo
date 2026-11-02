@@ -14276,6 +14276,8 @@ const es: Record<string, string> = {
   "selfCheck.warning": "Autoverificación {check}: {value} (advertencia desde {threshold}). Revisá el modelo antes de usar estos resultados.",
   "selfCheck.refused": "Resultados rechazados: la autoverificación {check} vale {value}, por encima del límite {threshold}.",
   "selfCheck.refusedInvalid": "Resultados rechazados: falló la autoverificación {check} ({reason}).",
+  "selfCheck.reason.nonFinite": "un valor no es finito",
+  "selfCheck.reason.nonPositiveMass": "la masa modal no es positiva",
   "resultChecks.title": "Verificación de los resultados",
   "resultChecks.certified": "certificado",
   "resultChecks.notCertified": "sin certificar",

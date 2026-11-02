@@ -11,6 +11,7 @@ import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
 import type { AnalysisResults3D } from './types-3d';
 import { formatPDeltaFactor } from './pdelta-result';
+import { selfCheckWarningText } from '../i18n/engine-text';
 import type { ProjectQuantities } from './quantities';
 import { quantitiesSectionHtml } from './report/quantities-section';
 import {
@@ -693,7 +694,7 @@ export function generateReportHtml(data: ReportData): string {
     if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
       for (const d of adv.modal.structuredDiagnostics ?? []) {
-        if (d.severity !== 'info') html.push(`<p role="alert">${escHtml(d.message)}</p>`);
+        if (d.severity !== 'info') html.push(`<p role="alert">${escHtml(selfCheckWarningText(d, tr))}</p>`);
       }
       if (adv.modal.totalMass != null) {
         // The engine reports mass in tonnes (kN·s²/m). The label said kg.

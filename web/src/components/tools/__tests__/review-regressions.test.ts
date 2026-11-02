@@ -65,6 +65,7 @@ it('a 0.1 m beam is either verified or refused: the 24-mode search returns uncon
     }
     expect(r.modes).toHaveLength(3);
     expect(r.difference!).toBeLessThan(2e-5);
+    expect(keys(r)).toEqual(['tools.warnSlenderness']);
   }
 });
 

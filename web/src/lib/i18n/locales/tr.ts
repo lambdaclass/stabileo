@@ -14126,6 +14126,8 @@ const tr: Translations = {
   'selfCheck.warning': 'Öz kontrol {check}: {value} ({threshold} değerinden itibaren uyarı). Bu sonuçları kullanmadan önce modeli gözden geçirin.',
   'selfCheck.refused': 'Sonuçlar reddedildi: öz kontrol {check} {value}, {threshold} sınırının üzerinde.',
   'selfCheck.refusedInvalid': 'Sonuçlar reddedildi: öz kontrol {check} başarısız oldu ({reason}).',
+  'selfCheck.reason.nonFinite': 'bir değer sonlu değil',
+  'selfCheck.reason.nonPositiveMass': 'modal kütle pozitif değil',
   'resultChecks.title': 'Sonuç kontrolleri',
   'resultChecks.certified': 'sertifikalı',
   'resultChecks.notCertified': 'sertifikasız',

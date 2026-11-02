@@ -94,10 +94,17 @@ describe('self-check text in the reader\'s language', () => {
       setLocale('es');
       expect(selfCheckWarningText(diagnostic('warning'))).toBe('Autoverificación residuo de la ecuación del modo 1: 2.00e-6 (advertencia desde 1.00e-6). Revisá el modelo antes de usar estos resultados.');
       expect(localizeEngineText('REFUSE: self-check modal_residual:3: 6.200e-3 exceeds 1.000e-3')).toBe('Resultados rechazados: la autoverificación residuo de la ecuación del modo 3 vale 6.20e-3, por encima del límite 1.00e-3.');
-      expect(localizeEngineText('Caso D: REFUSE: self-check static_balance: non-finite force')).toBe('Caso D: Resultados rechazados: falló la autoverificación balance de reacciones (non-finite force).');
+      expect(localizeEngineText('Caso D: REFUSE: self-check static_balance: non-finite force')).toBe('Caso D: Resultados rechazados: falló la autoverificación balance de reacciones (un valor no es finito).');
     } finally {
       setLocale(previous);
     }
+  });
+
+  it('words a report\'s warnings with the report\'s translator', () => {
+    const spanish = (key: string) => ({ 'selfCheck.check.modal_residual': 'residuo del modo {mode}', 'selfCheck.warning': '{check} = {value} > {threshold}' } as Record<string, string>)[key] ?? key;
+    expect(selfCheckWarningText(diagnostic('warning'), spanish)).toBe('residuo del modo 1 = 2.00e-6 > 1.00e-6');
+    expect(localizeEngineText('REFUSE: self-check modal_mass: non-positive modal mass')).toBe('Results refused: self-check modal mass failed (the modal mass is not positive).');
+    expect(localizeEngineText('REFUSE: self-check modal_mass: a reason we never wrote')).toBe('Results refused: self-check modal mass failed (a reason we never wrote).');
   });
 
   it('leaves unknown checks and diagnostics without numbers in the engine\'s words', () => {

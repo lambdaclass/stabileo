@@ -14126,6 +14126,8 @@ const de: Translations = {
   "selfCheck.warning": "Selbstprüfung {check}: {value} (Warnung ab {threshold}). Prüfen Sie das Modell, bevor Sie diese Ergebnisse verwenden.",
   "selfCheck.refused": "Ergebnisse verworfen: Selbstprüfung {check} beträgt {value} und überschreitet die Grenze {threshold}.",
   "selfCheck.refusedInvalid": "Ergebnisse verworfen: Selbstprüfung {check} fehlgeschlagen ({reason}).",
+  "selfCheck.reason.nonFinite": "ein Wert ist nicht endlich",
+  "selfCheck.reason.nonPositiveMass": "die modale Masse ist nicht positiv",
   "resultChecks.title": "Ergebnisprüfung",
   "resultChecks.certified": "zertifiziert",
   "resultChecks.notCertified": "nicht zertifiziert",

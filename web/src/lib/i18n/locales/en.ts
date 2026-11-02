@@ -14287,6 +14287,8 @@ const en: Record<string, string> = {
   "selfCheck.warning": "Self-check {check}: {value} (warning from {threshold}). Review the model before using these results.",
   "selfCheck.refused": "Results refused: self-check {check} is {value}, over the limit {threshold}.",
   "selfCheck.refusedInvalid": "Results refused: self-check {check} failed ({reason}).",
+  "selfCheck.reason.nonFinite": "a value is not finite",
+  "selfCheck.reason.nonPositiveMass": "the modal mass is not positive",
   "resultChecks.title": "Result checks",
   "resultChecks.certified": "certified",
   "resultChecks.notCertified": "not certified",
