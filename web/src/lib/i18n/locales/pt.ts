@@ -1422,6 +1422,7 @@ const pt: Translations = {
   'design.error.noCombinations': 'Defina pelo menos uma combinação de carga antes de dimensionar.',
   'design.error.noConcreteMembers': '{code} é a norma de concreto armado e este modelo não tem nenhum elemento de concreto: suas {n} barras são de aço. O fluxo de dimensionamento de armaduras não se aplica a esta estrutura.',
   'design.error.concreteFyReadAsSteel': 'Nenhuma barra pôde ser tratada como concreto: o material «{material}», usado por {n} barras, tem fy = {fy} MPa. Em um concreto, fy leva o f′c (H-30 → 30); a armadura é tomada como ADN 420 à parte. Corrija o material e calcule novamente.',
+  'design.error.concreteStrengthMissing': 'Nenhuma barra pôde ser verificada: o material «{material}», usado por {n} barras, não tem f′c. Em um concreto, o campo fy leva f′c (H-30 → 30): preencha-o e calcule de novo.',
   'design.error.noConcreteMembersMixed': '{code} não encontrou nenhum elemento verificável: {steel} de aço e {other} sem seção ou material utilizável.',
   'design.error.noDemands': 'Não foi possível extrair solicitações de dimensionamento dos resultados atuais.',
   'design.error.noLinearCombination': 'Nenhuma combinação linear está ativa: as combinações SRSS e ABS são magnitudes sem sinal e não são usadas no dimensionamento. Ative uma combinação linear.',

@@ -7150,6 +7150,7 @@ const de: Translations = {
   'design.error.codeUnsupported': '{code} kann keine Bewehrung bemessen – sie kann nur eine vorgegebene Anordnung bewerten.',
   'design.error.noConcreteMembers': '{code} ist die Stahlbetonnorm, und dieses Modell hat kein Betonbauteil: Alle {n} Bauteile sind aus Stahl. Der Ablauf der Bewehrungsbemessung gilt für dieses Tragwerk nicht.',
   'design.error.concreteFyReadAsSteel': 'Kein Bauteil konnte als Beton behandelt werden: Das Material „{material}“, das von {n} Bauteilen verwendet wird, hat fy = {fy} MPa. Bei einem Betonmaterial enthält das Feld fy den Wert f′c (H-30 → 30); der Betonstahl wird separat als ADN 420 angenommen. Korrigieren Sie das Material und berechnen Sie erneut.',
+  'design.error.concreteStrengthMissing': 'Kein Bauteil konnte nachgewiesen werden: Das Material „{material}“, das von {n} Bauteilen verwendet wird, hat kein f′c. Bei Beton enthält das Feld fy den Wert f′c (H-30 → 30): tragen Sie ihn ein und rechnen Sie erneut.',
   'design.error.noRectangularSections': '{code} kann nur rechteckige Querschnitte b×h nachweisen, und {n} Betonbauteil(e) geben keinen an. Weisen Sie ihnen einen Rechteckquerschnitt zu, um sie zu bemessen.',
   'design.error.noConcreteMembersMixed': '{code} hat kein nachweisbares Bauteil gefunden: {steel} aus Stahl und {other} ohne verwendbaren Querschnitt oder verwendbares Material.',
   'design.error.nothingChecked': 'Für dieses Modell wurden von {code} keine Bauteile nachgewiesen.',

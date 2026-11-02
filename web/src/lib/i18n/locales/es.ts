@@ -7232,6 +7232,7 @@ const es: Record<string, string> = {
   'design.error.codeUnsupported': '{code} no puede diseñar armadura — solo puede calificar una disposición dada.',
   'design.error.noConcreteMembers': '{code} es la norma de hormigón armado y este modelo no tiene ningún elemento de hormigón: sus {n} barras son de acero. El flujo de diseño de armaduras no aplica a esta estructura.',
   'design.error.concreteFyReadAsSteel': 'Ninguna barra se pudo tratar como hormigón: el material «{material}», que usan {n} barras, tiene fy = {fy} MPa. En un hormigón, fy lleva f′c (H-30 → 30); la armadura se toma como ADN 420 por separado. Corregí el material y volvé a calcular.',
+  'design.error.concreteStrengthMissing': 'Ninguna barra se pudo verificar: el material «{material}», que usan {n} barras, no tiene f′c. En un hormigón, el campo fy lleva f′c (H-30 → 30): complételo y vuelva a calcular.',
   'design.error.noRectangularSections': '{code} sólo puede verificar secciones rectangulares b×h, y {n} elemento(s) de hormigón no declaran una. Asignales una sección rectangular para poder diseñarlos.',
   'design.error.noConcreteMembersMixed': '{code} no encontró ningún elemento verificable: {steel} de acero y {other} sin sección o material utilizable.',
   'design.error.nothingChecked': '{code} no verificó ninguna barra en este modelo.',
