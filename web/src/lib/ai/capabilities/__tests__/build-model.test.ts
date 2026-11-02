@@ -42,6 +42,13 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('takes collection entries only as [id, data] pairs, on the snapshot path too', () => {
+    const plain = { ...minimal(), nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: 6, y: 0 }] };
+    expect(() => validateSnapshot(plain)).toThrow('invalid entry format, expected [id, data]');
+    const text = JSON.stringify({ snapshot: plain, interpretation: 'beam' });
+    expect(() => outcomeFromText(text)).toThrow('invalid entry format, expected [id, data]');
+    expect(outcomeFromText(JSON.stringify({ snapshot: minimal(), interpretation: 'beam' }))).toMatchObject({ kind: 'snapshot' });
+  });
   it('measures a 2D member in its plane, so a stray z never hides a zero length', () => {
     const snap = { ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 5 }]] };
     expect(() => validateSnapshot(snap)).toThrow('element 1 has zero length');

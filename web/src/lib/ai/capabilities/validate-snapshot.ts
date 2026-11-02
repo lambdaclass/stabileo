@@ -35,9 +35,10 @@ function getArray(obj: Record<string, unknown>, key: string): unknown[] {
 }
 
 function parseEntry(entry: unknown): Entry {
-  const [rawId, data] = Array.isArray(entry) && entry.length >= 2 && isPlainObject(entry[1]) ? [entry[0], entry[1]]
-    : isPlainObject(entry) ? [entry.id, entry] : [undefined, undefined];
-  if (!data) throw new AiActionError(`invalid entry format: ${JSON.stringify(entry)}`);
+  if (!(Array.isArray(entry) && entry.length === 2 && isPlainObject(entry[1]))) {
+    throw new AiActionError(`invalid entry format, expected [id, data]: ${JSON.stringify(entry)}`);
+  }
+  const [rawId, data] = entry;
   const id = asU64(rawId);
   if (id === undefined) throw new AiActionError(`invalid id ${JSON.stringify(rawId)}`);
   if (data.id !== undefined && asU64(data.id) !== id) throw new AiActionError(`entry ${id} carries a different id ${JSON.stringify(data.id)}`);

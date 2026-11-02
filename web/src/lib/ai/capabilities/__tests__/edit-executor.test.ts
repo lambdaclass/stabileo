@@ -306,6 +306,17 @@ describe('edit executor', () => {
     expect(arr(r, 'sections').find(([id]) => used.has(id))![1]).toMatchObject({ name: 'HEB 400', iy: 10820e-8, j: 3.68e-6 });
   });
 
+  it('refuses a 3D story when no column reaches the top floor, rather than adding a loose roof', () => {
+    const slab: Snap = {
+      analysisMode: '3d',
+      nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 6, y: 0, z: 0 }]],
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1 }]],
+      sections: [[1, { id: 1, name: 'IPE 300', a: 53.8e-4, iz: 8356e-8, iy: 604e-8, j: 2.0e-7 }]], materials: [[1, { id: 1, e: 200000 }]],
+      supports: [[1, { id: 1, nodeId: 1, type: 'fixed3d' }]], loads: [],
+    };
+    expect(() => applyEdit({ action: 'add_story', params: { height: 3, column_section: 'HEB 300' } }, slab)).toThrow('no column reaches the top floor');
+  });
+
   it('takes side as left or right only, in any case', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
     expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);

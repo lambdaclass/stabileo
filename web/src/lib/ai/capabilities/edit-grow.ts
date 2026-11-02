@@ -253,6 +253,7 @@ function addStory3d(snap: Json, height: number, beamSection?: string, columnSect
     }
   }
 
+  if (vertical.length === 0) throw new AiActionError('Cannot add story: no column reaches the top floor, so the new story would not be connected to it');
   for (const elem of vertical) {
     const [ni, nj] = nodeRefs(elem);
     const topNode = nodeMap.has(ni) ? ni : nj;
