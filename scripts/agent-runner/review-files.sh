@@ -11,7 +11,7 @@ name=$1; instr=$2; shift 2; R=$ST/reviews; mkdir -p "$R"
 cd "$WT/base" || exit 1
 sha=$(git rev-parse --short=10 HEAD); p=$R/$name-$sha-prompt.md
 { cat "$instr"; echo; echo 'End with one line: "VERDICT: clean", "VERDICT: should-fix" or "VERDICT: blocker".'; echo; echo "Repository: lambdaclass/stabileo at $sha. The files under review follow, each fenced with its path."
-  for f in $(git ls-files -- "$@"); do echo; echo "===== $f"; echo '```'; cat "$f"; echo '```'; done; } > "$p"
+  for f in $(git ls-files -- "$@"); do echo; echo "===== $f"; echo '```'; git show "HEAD:$f"; echo '```'; done; } > "$p"
 size=$(wc -c < "$p"); echo "review-files $name: $size bytes"
 [ "$size" -lt 950000 ] || { echo "too large for one prompt" >&2; exit 1; }
 full=$(git rev-parse HEAD)

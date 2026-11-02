@@ -13,28 +13,30 @@ sha=$(git -C "$REPO" rev-parse --short=10 "refs/rv/pr-$pr" 2>/dev/null) || sha=
 [ -n "$sha" ] || { echo "review-diff: could not fetch PR #$pr" >&2; exit 1; }
 base=$(git -C "$REPO" rev-parse origin/main)
 title=$(gh pr view "$pr" -R lambdaclass/stabileo --json title -q .title)
-p=$R/$pr-$sha-prompt.md
+T=$(mktemp -d "$R/.run-$pr-$sha.XXXXXX")
+trap 'for f in "$T"/*; do [ -e "$f" ] && mv -f "$f" "$R/"; done; rmdir "$T" 2>/dev/null' EXIT
+p=$T/$pr-$sha-prompt.md
 { echo "Review Stabileo PR #$pr ($title) at $sha. Stabileo is safety-critical structural-engineering software."
   echo "Do NOT run commands or tools: the full diff against origin/main is below, except generated files (package-lock.json, research/papers.json, web/public/research-wasm/**, web/legacy-projects/**), whose sources are in the diff. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, i18n gaps, phone/tablet layout risks, research isolation breaks, production engine numeric changes, security. Then Nits (one line each). If clean, say so. Be concise. End with one line: \"VERDICT: clean\", \"VERDICT: should-fix\" or \"VERDICT: blocker\"."
   [ -n "$focus" ] && cat "$focus"
   echo; echo '```diff'; git -C "$REPO" diff "$base...$want" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**'; echo '```'; } > "$p"
-size=$(wc -c < "$p"); [ "$size" -gt 900000 ] && { echo "review-diff: #$pr prompt is $size bytes, switching to review-chunked.sh" >&2; exec "$(dirname "$0")/review-chunked.sh" "$pr"; }; [ "$size" -gt 3000 ] || { echo "review-diff: diff for #$pr is empty ($size bytes), not reviewing" >&2; exit 1; }; [ "$size" -gt 400000 ] && echo "warning: prompt is $size bytes" >&2
+size=$(wc -c < "$p"); [ "$size" -gt 900000 ] && { echo "review-diff: #$pr prompt is $size bytes, switching to review-chunked.sh" >&2; rm -rf "$T"; trap - EXIT; exec "$(dirname "$0")/review-chunked.sh" "$pr"; }; [ "$size" -gt 3000 ] || { echo "review-diff: diff for #$pr is empty ($size bytes), not reviewing" >&2; exit 1; }; [ "$size" -gt 400000 ] && echo "warning: prompt is $size bytes" >&2
 AUTHOR=${AUTHOR_ENGINE:-claude}
 first=$(pick_engine review "$AUTHOR"); second=$(pick_engine review "$AUTHOR" "$first")
 [ "$first" != none ] || { log "review-diff #$pr: no review engine available"; exit 75; }
 log "review-diff #$pr $sha: author $AUTHOR, reviewers $first and ${second}"
-( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first" "$R/$pr-$sha-codex.md"; exit $rc ) & p1=$!
+( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$T/$pr-$sha-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first" "$T/$pr-$sha-codex.md"; exit $rc ) & p1=$!
 if [ "$second" != none ]; then
-  ( "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-kimi.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second" "$R/$pr-$sha-kimi.md"; exit $rc ) & p2=$!
+  ( "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$T/$pr-$sha-kimi.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second" "$T/$pr-$sha-kimi.md"; exit $rc ) & p2=$!
 else
-  echo "SECOND REVIEWER: none available (only $first); review again when another engine is back" > "$R/$pr-$sha-kimi.md"; p2=
+  echo "SECOND REVIEWER: none available (only $first); review again when another engine is back" > "$T/$pr-$sha-kimi.md"; p2=
 fi
 wait "$p1"; rc1=$?; rc2=0; [ -n "$p2" ] && { wait "$p2"; rc2=$?; }
 [ "$rc1" = 0 ] && [ "$rc2" = 0 ] || { log "review-diff #$pr: reviewer exit codes $rc1/$rc2"; exit 1; }
-for f in "$R/$pr-$sha-codex.md" "$R/$pr-$sha-kimi.md"; do
+for f in "$T/$pr-$sha-codex.md" "$T/$pr-$sha-kimi.md"; do
   case "$(head -1 "$f" 2>/dev/null)" in *"none available"*) continue;; esac
   grep -v '^[[:space:]]*$' "$f" 2>/dev/null | tail -1 | grep -qixE '[*_ ]*VERDICT:[*_ ]*(clean|should-fix|blocker)[*_ .]*' || { log "review-diff #$pr: incomplete review in $f (no final VERDICT line)"; exit 1; }
 done
 [ -n "$p2" ] || { log "review-diff #$pr: only one reviewer available"; exit 75; }
-log "review-diff #$pr $sha: codex $(wc -l < "$R/$pr-$sha-codex.md") lines, second $(wc -l < "$R/$pr-$sha-kimi.md") lines"
+log "review-diff #$pr $sha: codex $(wc -l < "$T/$pr-$sha-codex.md") lines, second $(wc -l < "$T/$pr-$sha-kimi.md") lines"
 echo "$R/$pr-$sha-codex.md $R/$pr-$sha-kimi.md"
