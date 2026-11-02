@@ -26,6 +26,7 @@
   import { buildLinkedReference, swapLinked } from '../lib/three/linked-3d';
   import { linkedGeometry } from '../lib/store/linked-geometry';
   import { federation } from '../lib/store/federation.svelte';
+  import SplitView3D from './viewport/SplitView3D.svelte';
   import { toneObject } from '../lib/viewport3d/category-tone';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
@@ -978,6 +979,7 @@
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
       if (toneDirty) { toneDirty = false; applyCategoryTones(); }
       renderer.render(scene, camera);
+      splitView?.render();
       drawFreeBody3D();
       if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
       else renderInset();
@@ -4276,11 +4278,15 @@
   function addAxisLabels() {
     axisLabelSprites = _addAxisLabels(scene);
   }
+  /** The view split in two (PRO, not on a phone): this view on the left, the other half beside it. */
+  const splitOn = $derived(viewState.split && uiStore.analysisMode === 'pro' && !uiStore.isMobile);
+  let splitView: { render: () => void } | undefined = $state();
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="viewport3d-wrapper"
+  class:split-main={splitOn}
   bind:this={container}
   style="cursor: {cursorStyle};"
   onmousedown={handleMouseDown}
@@ -4454,6 +4460,11 @@
                   title={uiStore.planView3D ? t('viewport.planViewOff') : t('viewport.planViewOn')} data-testid="nav-plan-view">
             <span class="cam-glyph">▦</span><span>{t('viewport.planView')}</span>
           </button>
+          {#if uiStore.analysisMode === 'pro' && !uiStore.isMobile}
+            <button class="cam-item" class:on={viewState.split} onclick={() => { viewState.split = !viewState.split; }} data-testid="nav-split-view">
+              <span class="cam-glyph">◫</span><span>{t('viewport.split')}</span>
+            </button>
+          {/if}
           <button class="cam-item" onclick={toggleCameraMode}>
             <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
             <span>{uiStore.cameraMode3D === 'perspective'
@@ -4682,6 +4693,10 @@
   <ShellContourLegend />
   <QuickInfoCard />
 </div>
+{#if splitOn && scene}
+  <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />
+{/if}
+
 
 <style>
   .viewport3d-wrapper {
@@ -4690,6 +4705,7 @@
     position: relative;
     overflow: hidden;
   }
+  .viewport3d-wrapper.split-main { width: 50%; }
 
   /* Dev perf HUD — measurement only (Shift+P / ?perf). */
   .perf-hud {

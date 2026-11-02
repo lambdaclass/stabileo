@@ -33,6 +33,8 @@ let lasso = $state(false);
  * model's size and results say ('auto': members above 2000 shells until there are results).
  */
 let shellMesh = $state<'auto' | 'show' | 'hide'>('auto');
+/** The view split in two: the main view, and the plan of the working level or the model in 3D beside it. */
+let split = $state(false);
 
 export const viewState = {
   get memberLabel() { return memberLabel; },
@@ -53,6 +55,8 @@ export const viewState = {
   set labelsOnSelection(v: boolean) { labelsOnSelection = v; },
   get shellMesh() { return shellMesh; },
   set shellMesh(v: 'auto' | 'show' | 'hide') { shellMesh = v; },
+  get split() { return split; },
+  set split(v: boolean) { split = v; },
   get zoomWindowArmed() { return zoomWindowArmed; },
   set zoomWindowArmed(v: boolean) { zoomWindowArmed = v; },
 };
