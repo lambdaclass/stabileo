@@ -55,6 +55,12 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-028",
+          "Flexion EN 1992-1-1 (autres normes en PRO, certifiée) : supposait que l’acier tendu plastifie et n’itérait pas les armatures supérieures ; MRd jusqu’à 22 % trop élevé",
+          "Élevée",
+          "Corrigé après 0.4.0"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",
