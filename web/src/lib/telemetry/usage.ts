@@ -1,6 +1,6 @@
 import { API_URL } from '../api/client';
 import { APP_VERSION } from '../build-info';
-import { usageConsent } from './consent.svelte';
+import { usageConsent, USAGE_CONSENT_KEY } from './consent.svelte';
 
 export type PropValue = string | number | boolean;
 export type UsageProps = Record<string, PropValue>;
@@ -142,11 +142,17 @@ export function installUsageLifecycle(): () => void {
     if (document.visibilityState === 'hidden') void flushUsage({ keepalive: true });
   };
   document.addEventListener('visibilitychange', onHide);
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === USAGE_CONSENT_KEY) usageConsent.reload();
+  };
+  const win = typeof window === 'undefined' ? null : window;
+  win?.addEventListener('storage', onStorage);
   const off = usageConsent.onChange((c) => {
     if (c === 'denied') queue = [];
   });
   return () => {
     document.removeEventListener('visibilitychange', onHide);
+    win?.removeEventListener('storage', onStorage);
     off();
   };
 }

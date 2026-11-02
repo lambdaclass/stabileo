@@ -39,6 +39,14 @@ export const usageConsent = {
     else if (recorded === true && choice === 'undecided') this.set('granted');
   },
 
+  /** Picks up a choice another tab stored; a refusal there stops this tab too. */
+  reload(): void {
+    const next = read();
+    if (next === choice) return;
+    choice = next;
+    if (next !== 'undecided') for (const l of listeners) l(next);
+  },
+
   onChange(listener: (c: UsageChoice) => void): () => void {
     listeners.add(listener);
     return () => listeners.delete(listener);

@@ -219,6 +219,25 @@ describe('the usage consent', () => {
     expect(usageConsent.choice).toBe('granted');
   });
 
+  it('a refusal stored by another tab stops this one and drops what it queued', async () => {
+    const { usageConsent, trackUsage, pendingUsage, setUsageContext, installUsageLifecycle, USAGE_CONSENT_KEY } = await load();
+    const target = new EventTarget();
+    vi.stubGlobal('document', Object.assign(target, { visibilityState: 'visible' }));
+    vi.stubGlobal('window', target);
+    const stop = installUsageLifecycle();
+    setUsageContext(ON);
+    trackUsage('solve');
+    expect(pendingUsage()).toHaveLength(1);
+
+    storage.set(USAGE_CONSENT_KEY, JSON.stringify({ choice: 'denied', at: '2026-11-02T00:00:00Z' }));
+    target.dispatchEvent(Object.assign(new Event('storage'), { key: USAGE_CONSENT_KEY }));
+    expect(usageConsent.choice).toBe('denied');
+    expect(pendingUsage()).toHaveLength(0);
+    trackUsage('solve');
+    expect(pendingUsage()).toHaveLength(0);
+    stop();
+  });
+
   it('reads a corrupt record as undecided', async () => {
     storage.set('stabileo-usage-consent', '{not json');
     const { usageConsent } = await load();
