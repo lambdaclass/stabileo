@@ -235,8 +235,9 @@ pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
         let zero = T::exact(0.0);
         return Ec2Flexure { m_rd: zero, z: T::exact(m.d), x_na: zero };
     }
-    let valid = [m.fck, m.fyk, m.b, m.d, m.as_tension].iter().all(|v| v.is_finite() && *v > 0.0)
-        && m.es.unwrap_or(200e9) > 0.0;
+    let factors = [m.es.unwrap_or(200e9), m.gamma_c.unwrap_or(1.5), m.gamma_s.unwrap_or(1.15), m.alpha_cc.unwrap_or(1.0)];
+    let valid = [m.fck, m.fyk, m.b, m.h, m.d, m.as_tension].iter().chain(&factors).all(|v| v.is_finite() && *v > 0.0)
+        && m.d <= m.h;
     if !valid {
         let nan = T::exact(f64::NAN);
         return Ec2Flexure { m_rd: nan, z: nan, x_na: nan };

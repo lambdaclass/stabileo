@@ -250,3 +250,22 @@ fn certified_capacity_encloses_the_strain_compatibility_root() {
         assert!(c.utilization_upper - c.utilization_lower < 1e-9, "{c:?}");
     }
 }
+
+#[test]
+fn inputs_without_a_monotone_force_balance_are_not_evaluated() {
+    let base = section(25e6, 0.30, 0.50, 0.45, 1.5e-3, None);
+    let cases = [
+        Ec2MemberData { alpha_cc: Some(0.0), ..base.clone() },
+        Ec2MemberData { gamma_c: Some(-1.5), ..base.clone() },
+        Ec2MemberData { gamma_s: Some(f64::NAN), ..base.clone() },
+        Ec2MemberData { es: Some(f64::INFINITY), ..base.clone() },
+        Ec2MemberData { d: 0.55, ..base.clone() },
+        Ec2MemberData { as_tension: -1.5e-3, ..base.clone() },
+    ];
+    for m in cases {
+        let r = run(&m, 100e3);
+        assert!(!r.pass && r.unevaluated.iter().any(|c| c == "Flexure 6.1"), "{r:?}");
+        let c = certify(&m, 100e3);
+        assert!(!c.certified && !c.certified_ok, "{c:?}");
+    }
+}
