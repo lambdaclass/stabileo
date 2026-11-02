@@ -126,7 +126,7 @@ const words: Translations = {
   'course.plastic.trace.next': 'Avec la nouvelle rotule, la structure a une inconnue hyperstatique de moins, et le pas suivant la résout ainsi.',
 
   'course.plastic.curve.title': 'Diagramme λ–déplacement',
-  'course.plastic.curve.help': 'Chaque point est un pas du calcul. Entre deux pas, la structure est linéaire, d\'où des segments droits ; chaque nouvelle rotule diminue la rigidité et la pente. Une fois le mécanisme formé, le déplacement croît sans que λ augmente : c\'est le palier de ruine.',
+  'course.plastic.curve.help': 'Chaque point est un pas du calcul. Entre deux pas, la structure est linéaire, d\'où des segments droits. Face à un déplacement conjugué de la charge, chaque nouvelle rotule diminue la rigidité et la pente ; un déplacement de nœud ou une rotation de rotule pris isolément peut se comporter autrement, car la redistribution peut inverser son incrément ou le rendre plus raide. Une fois le mécanisme formé, le déplacement croît sans que λ augmente : c\'est le palier de ruine.',
   'course.plastic.curve.abscissa': 'Sur l\'axe horizontal',
   'course.plastic.curve.nodes': 'Nœuds',
   'course.plastic.curve.hinges': 'Rotation plastique des rotules',

@@ -126,7 +126,7 @@ const words: Translations = {
   'course.plastic.trace.next': 'Yeni mafsalla yapının bir hiperstatik bilinmeyeni azalır ve sonraki adım yapıyı bu şekilde çözer.',
 
   'course.plastic.curve.title': 'λ–yer değiştirme diyagramı',
-  'course.plastic.curve.help': 'Her nokta hesabın bir adımıdır. İki adım arasında yapı doğrusaldır, bu yüzden parçalar düzdür; her yeni mafsal rijitliği ve eğimi düşürür. Mekanizma oluşunca λ artmadan yer değiştirme büyür: bu göçme platosudur.',
+  'course.plastic.curve.help': 'Her nokta hesabın bir adımıdır. İki adım arasında yapı doğrusaldır, bu yüzden parçalar düzdür. Yükle eşlenik bir yer değiştirmeye karşı her yeni mafsal rijitliği ve eğimi düşürür; tek başına seçilen bir düğüm yer değiştirmesi ya da mafsal dönmesi farklı davranabilir, çünkü yeniden dağılım artışını tersine çevirebilir ya da dikleştirebilir. Mekanizma oluşunca λ artmadan yer değiştirme büyür: bu göçme platosudur.',
   'course.plastic.curve.abscissa': 'Yatay eksende',
   'course.plastic.curve.nodes': 'Düğümler',
   'course.plastic.curve.hinges': 'Mafsalların plastik dönmesi',

@@ -129,7 +129,7 @@ export const es: Translations = {
   'course.plastic.trace.next': 'Con la rótula nueva la estructura tiene una incógnita hiperestática menos, y el paso siguiente la resuelve así.',
 
   'course.plastic.curve.title': 'Diagrama λ–desplazamiento',
-  'course.plastic.curve.help': 'Cada punto es un paso del cálculo. Entre dos pasos la estructura es lineal, por eso los tramos son rectos; cada rótula nueva baja la rigidez y la pendiente. Al formarse el mecanismo, el desplazamiento crece sin que crezca λ: es la meseta de colapso.',
+  'course.plastic.curve.help': 'Cada punto es un paso del cálculo. Entre dos pasos la estructura es lineal, por eso los tramos son rectos. Contra un desplazamiento conjugado de la carga, cada rótula nueva baja la rigidez y la pendiente; un desplazamiento o un giro de rótula elegido por separado puede comportarse distinto, porque la redistribución puede invertir su incremento o volverlo más empinado. Al formarse el mecanismo, el desplazamiento crece sin que crezca λ: es la meseta de colapso.',
   'course.plastic.curve.abscissa': 'En el eje horizontal',
   'course.plastic.curve.nodes': 'Nudos',
   'course.plastic.curve.hinges': 'Giro plástico de las rótulas',
@@ -311,7 +311,7 @@ export const en: Translations = {
   'course.plastic.trace.next': 'With the new hinge the structure has one redundant less, and the next step solves it that way.',
 
   'course.plastic.curve.title': 'λ–displacement diagram',
-  'course.plastic.curve.help': 'Each point is a step of the analysis. Between two steps the structure is linear, so the segments are straight; each new hinge lowers the stiffness and the slope. Once the mechanism forms, the displacement grows while λ does not: that is the collapse plateau.',
+  'course.plastic.curve.help': 'Each point is a step of the analysis. Between two steps the structure is linear, so the segments are straight. Against a displacement conjugate to the load, each new hinge lowers the stiffness and the slope; a single nodal displacement or hinge rotation can behave differently, since redistribution can reverse its increment or make it steeper. Once the mechanism forms, the displacement grows while λ does not: that is the collapse plateau.',
   'course.plastic.curve.abscissa': 'On the horizontal axis',
   'course.plastic.curve.nodes': 'Nodes',
   'course.plastic.curve.hinges': 'Plastic rotation of the hinges',
@@ -493,7 +493,7 @@ export const pt: Translations = {
   'course.plastic.trace.next': 'Com a nova rótula a estrutura tem uma incógnita hiperestática a menos, e o próximo passo a resolve assim.',
 
   'course.plastic.curve.title': 'Diagrama λ–deslocamento',
-  'course.plastic.curve.help': 'Cada ponto é um passo do cálculo. Entre dois passos a estrutura é linear, por isso os trechos são retos; cada nova rótula reduz a rigidez e a inclinação. Quando o mecanismo se forma, o deslocamento cresce sem que λ cresça: é o patamar de colapso.',
+  'course.plastic.curve.help': 'Cada ponto é um passo do cálculo. Entre dois passos a estrutura é linear, por isso os trechos são retos. Contra um deslocamento conjugado da carga, cada nova rótula reduz a rigidez e a inclinação; um deslocamento ou uma rotação de rótula escolhido isoladamente pode se comportar de outro modo, porque a redistribuição pode inverter seu incremento ou torná-lo mais íngreme. Quando o mecanismo se forma, o deslocamento cresce sem que λ cresça: é o patamar de colapso.',
   'course.plastic.curve.abscissa': 'No eixo horizontal',
   'course.plastic.curve.nodes': 'Nós',
   'course.plastic.curve.hinges': 'Giro plástico das rótulas',

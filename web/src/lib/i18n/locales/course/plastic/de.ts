@@ -126,7 +126,7 @@ const words: Translations = {
   'course.plastic.trace.next': 'Mit dem neuen Gelenk hat das Tragwerk eine Unbekannte weniger, und der nächste Schritt rechnet so weiter.',
 
   'course.plastic.curve.title': 'λ-Verschiebungs-Diagramm',
-  'course.plastic.curve.help': 'Jeder Punkt ist ein Schritt der Berechnung. Zwischen zwei Schritten ist das Tragwerk linear, daher sind die Abschnitte gerade; jedes neue Gelenk senkt Steifigkeit und Neigung. Ist der Mechanismus gebildet, wächst die Verschiebung, ohne dass λ wächst: das Fließplateau.',
+  'course.plastic.curve.help': 'Jeder Punkt ist ein Schritt der Berechnung. Zwischen zwei Schritten ist das Tragwerk linear, daher sind die Abschnitte gerade. Gegen eine zur Last konjugierte Verschiebung senkt jedes neue Gelenk Steifigkeit und Neigung; eine einzelne Knotenverschiebung oder Gelenkverdrehung kann sich anders verhalten, weil die Umlagerung ihren Zuwachs umkehren oder steiler machen kann. Ist der Mechanismus gebildet, wächst die Verschiebung, ohne dass λ wächst: das Fließplateau.',
   'course.plastic.curve.abscissa': 'Auf der waagerechten Achse',
   'course.plastic.curve.nodes': 'Knoten',
   'course.plastic.curve.hinges': 'Plastische Verdrehung der Gelenke',
