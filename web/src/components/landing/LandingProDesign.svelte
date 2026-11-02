@@ -24,7 +24,10 @@
     </div>
     <p class="lead">{t('landing.proDesignP')}</p>
     <p class="lead">{t('landing.proDesign3d')}</p>
-    <PublicLink to="/cirsoc" class="link-arrow">{t('landing.proDesignCirsocLink')}</PublicLink>
+    <p class="link-row">
+      <PublicLink to="/cirsoc" class="link-arrow">{t('landing.proDesignCirsocLink')}</PublicLink>
+      <a class="link-arrow" href="https://github.com/lambdaclass/stabileo/issues/532">#532</a>
+    </p>
 
     <div class="card-row cols-1 cap-shots">
       <article class="card card-media card-wide">

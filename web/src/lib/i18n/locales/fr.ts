@@ -277,7 +277,7 @@ const fr: Translations = {
   'landing.proDesignH': 'Vérification réglementaire et dimensionnement des éléments.',
   'landing.proDesignP': 'Vérifier et dimensionner : béton armé selon CIRSOC 201, acier selon CIRSOC 301 (expérimental), charges et combinaisons selon CIRSOC 101–104. Les vérifications expérimentales selon AISC 360, EN 1993-1-1, AISI S100, ACI 318 et EN 1992-1-1 couvrent peu de sections.',
   'landing.proDesign3d': 'Problème critique ouvert #532 : les sollicitations de calcul en 3D peuvent être prises autour du mauvais axe. D’ici sa correction, vérifiez à la main les efforts déterminants.',
-  'landing.metaDescription': 'Gratuit dans le navigateur : portiques et treillis 2D et 3D, vérifications CIRSOC, AISC, ACI et Eurocode expérimentales, et un assistant IA en développement.',
+  'landing.metaDescription': 'Gratuit dans le navigateur : portiques et treillis 2D et 3D, calcul CIRSOC 201, contrôles expérimentaux AISC, ACI et Eurocode, assistant IA en développement.',
   'landing.metaTitle': 'Stabileo — Logiciel de calcul de structures gratuit, dans votre navigateur',
   'landing.proDesignCirsocLink': 'Ce qu\'il vérifie aujourd\'hui selon CIRSOC',
   'landing.ebAi': 'STABILEO IA',

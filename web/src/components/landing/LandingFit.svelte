@@ -17,7 +17,7 @@
         <article class="card"><h3>{t(h)}</h3><p>{t(p)}</p></article>
       {/each}
     </div>
-    <p class="fit-links">
+    <p class="link-row">
       <PublicLink to="/reliability" class="link-arrow">{t('landing.footReliability')}</PublicLink>
       <PublicLink to="/sap2000-alternative" class="link-arrow">{t('landing.footSap2000')}</PublicLink>
     </p>

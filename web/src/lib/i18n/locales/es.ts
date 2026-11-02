@@ -277,7 +277,7 @@ const es: Record<string, string> = {
   'landing.proDesignH': 'Verificación normativa y diseño de elementos.',
   'landing.proDesignP': 'Verificá y dimensioná elementos: hormigón según CIRSOC 201, acero según CIRSOC 301 (experimental), cargas y combinaciones según CIRSOC 101–104. Las verificaciones experimentales según AISC 360, EN 1993-1-1, AISI S100, ACI 318 y EN 1992-1-1 cubren pocas secciones.',
   'landing.proDesign3d': 'Error crítico abierto #532: las solicitaciones de diseño en 3D pueden tomarse respecto del eje equivocado. Hasta que se corrija, verificá a mano los esfuerzos que dimensionan.',
-  'landing.metaDescription': 'Gratis en el navegador: pórticos y reticulados 2D y 3D, verificación CIRSOC, AISC, ACI y Eurocódigo experimental, y un asistente de IA en desarrollo.',
+  'landing.metaDescription': 'Gratis en el navegador: pórticos y reticulados 2D y 3D, diseño CIRSOC 201, verificación experimental AISC, ACI y Eurocódigo, y un asistente de IA en desarrollo.',
   'landing.metaTitle': 'Stabileo — Software de cálculo estructural gratis, en el navegador',
   'landing.proDesignCirsocLink': 'Qué verifica hoy según CIRSOC',
   'landing.ebAi': 'STABILEO IA',

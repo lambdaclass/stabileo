@@ -158,6 +158,7 @@ test.describe('@landing landing page', () => {
     await expect(fit.locator('a[href*="/sap2000-alternative"]')).toBeVisible();
     await expect(page.locator('section[data-section="basic"] .tick-list li')).toHaveCount(5);
     await expect(page.locator('section[data-section="pro-design"]')).toContainText('#532');
+    await expect(page.locator('section[data-section="pro-design"] a[href="https://github.com/lambdaclass/stabileo/issues/532"]')).toBeVisible();
 
     await fit.locator('a[href*="/reliability"]').click();
     await expect(page).toHaveURL(/\/en\/reliability\/?$/);
@@ -524,7 +525,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free in your browser: .*experimental CIRSOC, AISC, ACI and Eurocode checks/);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks/);
       expect(one(h, 'theme-color')).toBe('#0c1620');
       expect(one(h, 'og:type')).toBe('website');
       // og:url names the page, and the page here is /en — the same address
@@ -600,10 +601,7 @@ test.describe('@landing landing page', () => {
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
       expect(h.canonicals).toEqual(['https://stabileo.com/es/']);
-      // The description is the hero lead, which now carries the positioning:
-      // a free, open platform with three modes, rather than live re-solving.
-      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*verificación CIRSOC, AISC, ACI y Eurocódigo experimental/);
-      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*verificación CIRSOC, AISC, ACI y Eurocódigo experimental/);
+      expect(one(h, 'description')).toMatch(/^Gratis en el navegador: .*diseño CIRSOC 201, verificación experimental AISC, ACI y Eurocódigo/);
       expect(one(h, 'twitter:description')).toBe(one(h, 'description'));
       // The canonical DOES vary by locale now: each language is its own
       // indexable page, which is the whole reason the prefixes exist.
@@ -674,7 +672,7 @@ test.describe('@landing landing page', () => {
        * file a crawler receives already holds the page's real metadata — there
        * is no longer a generic head to be refined later.
        */
-      expect(one(h, 'description')).toMatch(/^Free in your browser: .*experimental CIRSOC, AISC, ACI and Eurocode checks/);
+      expect(one(h, 'description')).toMatch(/^Free in your browser: .*CIRSOC 201 design, experimental AISC, ACI and Eurocode checks/);
     });
 
     test('the social card exists, resolves, and is a 1200x630 PNG', async ({ page }) => {

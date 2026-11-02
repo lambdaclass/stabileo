@@ -275,7 +275,7 @@ const pt: Translations = {
   'landing.proDesignH': 'Verificação normativa e projeto de elementos.',
   'landing.proDesignP': 'Verifique e dimensione elementos: concreto pela CIRSOC 201, aço pela CIRSOC 301 (experimental), cargas e combinações pelas CIRSOC 101–104. As verificações experimentais por AISC 360, EN 1993-1-1, AISI S100, ACI 318 e EN 1992-1-1 cobrem poucas seções.',
   'landing.proDesign3d': 'Erro crítico aberto #532: os esforços de dimensionamento em 3D podem ser tomados em relação ao eixo errado. Até a correção, confira à mão os esforços que dimensionam.',
-  'landing.metaDescription': 'Grátis no navegador: pórticos e treliças 2D e 3D, verificação CIRSOC, AISC, ACI e Eurocódigo experimental e um assistente de IA em desenvolvimento.',
+  'landing.metaDescription': 'Grátis no navegador: pórticos e treliças 2D e 3D, projeto CIRSOC 201, verificação experimental AISC, ACI e Eurocódigo e assistente de IA em desenvolvimento.',
   'landing.metaTitle': 'Stabileo — Software de cálculo estrutural grátis, no navegador',
   'landing.proDesignCirsocLink': 'O que verifica hoje segundo a CIRSOC',
   'landing.ebAi': 'STABILEO IA',
