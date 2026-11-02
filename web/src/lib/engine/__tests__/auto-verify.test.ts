@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults } from '../auto-verify';
+import { verifyElement } from '../codes/argentina/cirsoc201';
 
 function makeElementForces(overrides: Partial<any> = {}) {
   return {
@@ -32,7 +33,7 @@ function makeElementForces(overrides: Partial<any> = {}) {
 }
 
 describe('autoVerifyFromResults', () => {
-  it('preserves Mz as Mu and My as Muy for biaxial columns', () => {
+  it('biaxial column: the larger moment is primary over its own depth, the other is the biaxial partner', () => {
     const results = {
       elementForces: [
         makeElementForces({
@@ -88,10 +89,13 @@ describe('autoVerifyFromResults', () => {
 
     const verification = concrete[0]!;
     expect(verification.elementType).toBe('column');
-    expect(verification.Mu).toBe(4);
-    expect(verification.Vu).toBe(7);
-    expect(verification.biaxial?.Muz).toBe(4);
-    expect(verification.biaxial?.Muy).toBe(12);
+    expect(verification.flexureAxis).toBe('My');
+    expect(verification.Mu).toBe(12);
+    expect(verification.Vu).toBe(30);
+    expect([verification.b, verification.h]).toEqual([0.30, 0.50]);
+    expect(verification.biaxial?.Muz).toBe(12);
+    expect(verification.biaxial?.Muy).toBe(4);
+    expect(verification.shearSecondary?.Vu).toBe(7);
   });
 
   // Helper: a horizontal beam model with one section/material.
@@ -148,5 +152,55 @@ describe('autoVerifyFromResults', () => {
     expect(v.Mu).toBe(20);              // Mz demand
     expect(v.Vu).toBe(15);              // paired Vy
     expect(v.flexure.ratio).toBeGreaterThan(0);
+  });
+});
+
+describe('autoVerifyFromResults: column design axes (#532)', () => {
+  function columnModel(b: number, h: number) {
+    return {
+      elements: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, sectionId: 1, materialId: 1, type: 'frame' }]]),
+      nodes: new Map([[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 3 }]]),
+      sections: new Map([[1, { id: 1, name: 'RC', b, h, iy: b * h ** 3 / 12, iz: h * b ** 3 / 12 }]]),
+      materials: new Map([[1, { id: 1, name: 'H25', fy: 25, e: 25_000_000 }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }]]),
+    } as any;
+  }
+  const column = (f: Partial<any>) => ({ elementForces: [makeElementForces({ nStart: -800, nEnd: -800, ...f })] }) as any;
+  const reference = (b: number, h: number, Mu: number, Vu: number) => verifyElement({
+    elementId: 1, elementType: 'column', Mu, Vu, Nu: 800, axialLoads: [800], NuShear: 800,
+    b, h, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+  });
+
+  it('Mz bends a 30×60 column over its 30 cm width', () => {
+    const [v] = autoVerifyFromResults(column({ mzStart: 120, mzEnd: -120, vyStart: 80, vyEnd: 80 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('Mz');
+    expect([v!.b, v!.h]).toEqual([0.6, 0.3]);
+    expect(v!.Mu).toBe(120);
+    expect(v!.Vu).toBe(80);
+    const right = reference(0.6, 0.3, 120, 80);
+    const swapped = reference(0.3, 0.6, 120, 80);
+    expect(v!.column!.ratio).toBeCloseTo(right.column!.ratio, 9);
+    expect(right.column!.ratio).toBeGreaterThan(swapped.column!.ratio);
+  });
+
+  it('My bends a 30×60 column over its 60 cm depth, with Vz as its shear', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('My');
+    expect([v!.b, v!.h]).toEqual([0.3, 0.6]);
+    expect(v!.Mu).toBe(120);
+    expect(v!.Vu).toBe(80);
+    expect(v!.column!.ratio).toBeCloseTo(reference(0.3, 0.6, 120, 80).column!.ratio, 9);
+  });
+
+  it('slenderness end moments come from the primary axis', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: 60, mzStart: 5, mzEnd: -5 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('My');
+    expect(v!.slender?.Cm).toBeCloseTo(0.6 + 0.4 * 60 / 120, 9);
+  });
+
+  it('the secondary shear is checked over the rotated section', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 }), columnModel(0.3, 0.6), null).concrete;
+    expect(v!.shearSecondary?.Vu).toBe(150);
+    expect(v!.shearSecondary?.ratio).toBeCloseTo(reference(0.6, 0.3, 120, 150).shear.ratio, 9);
   });
 });
