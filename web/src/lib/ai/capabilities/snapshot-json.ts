@@ -142,11 +142,23 @@ export function arrayMut(snap: Json, key: string): unknown[] {
   return arr;
 }
 
+function runsLeftward(snap: Json, elementId: number): boolean {
+  const entry = elements(snap).find((e) => asU64(at(e, 0)) === elementId);
+  const ni = asU64(at(at(entry, 1), 'nodeI'));
+  const nj = asU64(at(at(entry, 1), 'nodeJ'));
+  const a = ni === undefined ? undefined : getNodeCoords(snap, ni);
+  const b = nj === undefined ? undefined : getNodeCoords(snap, nj);
+  if (!a || !b) throw malformed(`element ${elementId} has no end coordinates`);
+  return b.x < a.x;
+}
+
 export function addDistributedLoadToSnap(snap: Json, elementId: number, q: number): void {
   const id = nextId(snap, 'load');
-  const load = isSnapshot3d(snap)
+  const space = isSnapshot3d(snap);
+  const q2d = !space && runsLeftward(snap, elementId) ? -q : q;
+  const load = space
     ? { type: 'distributed3d', data: { id, elementId, qYI: 0, qYJ: 0, qZI: q, qZJ: q, frame: 'global' } }
-    : { type: 'distributed', data: { id, elementId, qI: q, qJ: q } };
+    : { type: 'distributed', data: { id, elementId, qI: q2d, qJ: q2d } };
   arrayMut(snap, 'loads').push(load);
 }
 

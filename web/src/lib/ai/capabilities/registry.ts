@@ -152,7 +152,7 @@ export function editToolCatalog(): GeneratorDef[] {
     ] },
     { action: 'add_distributed_load', description: 'Add distributed load on a specific element', params: [
       preq('element_id', 'u32', 'Target element ID'),
-      preq('q', 'f64', 'Load intensity (kN/m). 2D: perpendicular to the member in its local axes, so negative is downward on a horizontal member and sideways on a column. 3D: along global Z on any member, negative is downward'),
+      preq('q', 'f64', 'Load intensity (kN/m). 2D: perpendicular to the member, negative pushing down on any member that is not vertical (sideways on a column), whichever way the member was drawn. 3D: along global Z on any member, negative is downward'),
     ] },
     { action: 'add_nodal_load', description: 'Add point load at a specific node', params: [
       preq('node_id', 'u32', 'Target node ID'),

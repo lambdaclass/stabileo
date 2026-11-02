@@ -42,6 +42,14 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('refuses a listed profile name carrying properties that are not that profile\'s', () => {
+    expect(() => validateSnapshot(minimal())).not.toThrow();
+    const wrong = { ...minimal(), sections: [[1, { id: 1, name: 'IPE 300', a: 0.005381, iz: 0.0002 }]] };
+    expect(() => validateSnapshot(wrong)).toThrow('section 1: iz is not that of IPE 300');
+    expect(() => validateSnapshot(wrong, { existingModel: true })).not.toThrow();
+    const custom = { ...minimal(), sections: [[1, { id: 1, name: 'Custom (user values)', a: 0.005381, iz: 0.0002 }]] };
+    expect(() => validateSnapshot(custom)).not.toThrow();
+  });
   it('takes a member load frame only from the ones the solver knows, in either kind of snapshot', () => {
     const withFrame = (frame: unknown) => {
       const snap = generatePortalFrame3d({ width: 6, depth: 4, height: 4, q_beam: -10 }) as Record<string, unknown>;

@@ -254,6 +254,19 @@ describe('edit executor', () => {
     expect(loadsOf(r).at(-1)).toMatchObject({ type: 'distributed3d', data: { elementId: column, qYI: 0, qYJ: 0, qZI: -4, qZJ: -4, frame: 'global' } });
   });
 
+  it('a 2D downward load pushes down on a beam drawn right to left too', () => {
+    const snap = makeFrame();
+    const xOf = (id: unknown) => (arr(snap, 'nodes').find((n) => n[0] === id)![1] as { x: number }).x;
+    const beam = arr(snap, 'elements').find(([, e]) => xOf(e.nodeI) !== xOf(e.nodeJ))!;
+    if (xOf(beam[1].nodeI) < xOf(beam[1].nodeJ)) [beam[1].nodeI, beam[1].nodeJ] = [beam[1].nodeJ, beam[1].nodeI];
+    const all = applyEdit({ action: 'set_all_beam_loads', params: { q: -8 } }, snap);
+    expect(loadsOf(all).filter((l) => l.data.elementId === beam[0]).map((l) => [l.data.qI, l.data.qJ])).toEqual([[8, 8]]);
+    const one = applyEdit({ action: 'add_distributed_load', params: { element_id: beam[0], q: -8 } }, snap);
+    expect(loadsOf(one).at(-1)!.data).toMatchObject({ qI: 8, qJ: 8 });
+    const forward = applyEdit({ action: 'add_distributed_load', params: { element_id: beam[0], q: -8 } }, makeFrame());
+    expect(loadsOf(forward).at(-1)!.data).toMatchObject({ qI: -8, qJ: -8 });
+  });
+
   it('takes side as left or right only, in any case', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
     expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);

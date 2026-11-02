@@ -2,6 +2,7 @@ import { isPlainObject } from './actions';
 import { AiActionError } from './limits';
 import { asF64, asU64, isSnapshot3d } from './snapshot-json';
 import { supportTypesFor } from './registry';
+import { lookupSection } from './sections';
 
 type Entry = [id: number, data: Record<string, unknown>];
 
@@ -69,7 +70,7 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
   if (materials.length === 0) throw new AiActionError('materials must not be empty');
   if (sections.length === 0) throw new AiActionError('sections must not be empty');
 
-  if (!existingModel && snapshot.analysisMode !== '2d' && snapshot.analysisMode !== '3d') {
+  if (!existingModel && !(['2d', '3d'] as unknown[]).includes(snapshot.analysisMode)) {
     throw new AiActionError(`analysisMode must be '2d' or '3d', not ${JSON.stringify(snapshot.analysisMode)}`);
   }
   const space = isSnapshot3d(snapshot);
@@ -126,6 +127,13 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
       if ((!space || existingModel) && data[key] === undefined) continue;
       const v = asF64(data[key]);
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
+    }
+    const listed = !existingModel && typeof data.name === 'string' ? lookupSection(data.name) : undefined;
+    for (const key of ['a', 'iz', 'iy', 'j'] as const) {
+      const v = asF64(data[key]);
+      if (listed && v !== undefined && Math.abs(v - listed[key]) > 0.01 * listed[key]) {
+        throw new AiActionError(`section ${id}: ${key} is not that of ${listed.name}; use the listed values or name the section "Custom (user values)"`);
+      }
     }
   }
 
