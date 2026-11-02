@@ -99,13 +99,16 @@ describe('registry', () => {
   it('tool definitions: 3D with a model adds 3D generators and edit tools', () => {
     const names = toolDefinitions('3d', true).map((t) => t.name);
     expect(names).toContain('create_portal_frame_3d');
+    expect(names).not.toContain('create_beam');
+    expect(names).not.toContain('create_multi_story_frame');
+    expect(promptText('3d')).not.toContain('create_beam');
     expect(names).toContain('add_bay');
     expect(names).toContain('delete_load');
     expect(names[names.length - 1]).toBe('create_model');
   });
 
   it('every tool schema requires interpretation and maps parameter types', () => {
-    const tools = toolDefinitions('3d', true);
+    const tools = toolDefinitions('2d', true);
     for (const t of tools) {
       expect(t.input_schema.type).toBe('object');
       expect(t.input_schema.required).toContain('interpretation');

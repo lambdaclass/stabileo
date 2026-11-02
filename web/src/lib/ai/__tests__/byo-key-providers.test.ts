@@ -115,6 +115,27 @@ describe('several tool calls in one answer', () => {
   });
 });
 
+describe('a draft in the other dimension', () => {
+  it('NEGATIVE: a 2D model proposed for a 3D request is refused', async () => {
+    stubFetch(() => sseResponse(anthropicStream({
+      content: [{ type: 'tool_use', name: 'create_beam', input: { span: 6, interpretation: 'a' } }],
+      stopReason: 'tool_use',
+    })));
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a beam', 'en', '3d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toContain('proposed a 2D model for a 3D one');
+  });
+  it('NEGATIVE: a 3D model proposed for a 2D request is refused', async () => {
+    stubFetch(() => sseResponse(anthropicStream({
+      content: [{ type: 'tool_use', name: 'create_portal_frame_3d', input: { width: 6, depth: 4, height: 3, interpretation: 'a' } }],
+      stopReason: 'tool_use',
+    })));
+    const err = await buildModel({ provider: 'anthropic', apiKey: KEY }, 'Build a frame', 'en', '2d').catch((e) => e);
+    expect(err).toBeInstanceOf(AiActionError);
+    expect(err.message).toContain('proposed a 3D model for a 2D one');
+  });
+});
+
 describe('an edit of the model on the canvas', () => {
   const pro = (): Record<string, unknown> => ({
     analysisMode: 'pro',

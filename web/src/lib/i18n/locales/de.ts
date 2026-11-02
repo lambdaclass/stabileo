@@ -10621,6 +10621,8 @@ const de: Translations = {
   'ai.sum.custom': "Eigenes Modell ({nodes} Knoten, {elements} Elemente)",
   'ai.sum.customSections': "{names}: Querschnittswerte nicht aus dem Katalog, vor dem Anwenden prüfen",
   'ai.err.oneChange': "Der Assistent hat mehrere Änderungen auf einmal vorgeschlagen; bitten Sie um eine Änderung nach der anderen.",
+  'ai.err.planarInSpace': "Der Assistent hat für ein 3D-Modell ein 2D-Modell vorgeschlagen; fragen Sie erneut oder beschreiben Sie es in allen drei Dimensionen.",
+  'ai.err.spaceInPlane': "Der Assistent hat für ein 2D-Modell ein 3D-Modell vorgeschlagen; fragen Sie erneut nach einem ebenen Modell.",
   'ai.key.done': "Fertig",
   'ai.key.savedAs': "Schlüssel für {provider} gespeichert (endet auf {last})",
   'ai.key.privacy': "Der Schlüssel wird nur in diesem Browser gespeichert. Er wird nur an {host} gesendet, nie an Server von Stabileo, und die Nutzung wird Ihrem {provider}-Konto berechnet.",

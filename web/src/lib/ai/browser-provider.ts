@@ -25,6 +25,7 @@ import {
   sanitizeLocale,
   toolDefinitions,
   validateBuildRequest,
+  isSpaceProtocol,
   type AnalysisMode,
   type ToolOutcome,
 } from './capabilities';
@@ -207,6 +208,13 @@ export async function interpretResults(
   };
 }
 
+function inMode(outcome: ToolOutcome, mode: AnalysisMode): ToolOutcome {
+  if (outcome.kind === 'snapshot' && isSpaceProtocol(outcome.snapshot.analysisMode) !== isSpaceProtocol(mode)) {
+    throw new AiActionError(t(isSpaceProtocol(mode) ? 'ai.err.planarInSpace' : 'ai.err.spaceInPlane'));
+  }
+  return outcome;
+}
+
 function toBuildResponse(outcome: ToolOutcome, raw: string, meta: ReviewMeta): BuildModelResponse {
   if (outcome.kind === 'snapshot') {
     return { snapshot: outcome.snapshot, message: outcome.message, changeSummary: outcome.changeSummary, rawAiResponse: raw, meta };
@@ -252,8 +260,8 @@ export async function buildModel(
   if (call) {
     const raw = `tool_call: ${call.name}(${JSON.stringify(call.input)})`;
     const outcome = outcomeFromToolCall(call.name, call.input, current);
-    if (outcome) return toBuildResponse(outcome, raw, meta);
+    if (outcome) return toBuildResponse(inMode(outcome, mode), raw, meta);
   }
   const text = resp.text.trim();
-  return toBuildResponse(outcomeFromText(text, current), text, meta);
+  return toBuildResponse(inMode(outcomeFromText(text, current), mode), text, meta);
 }

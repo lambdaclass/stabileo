@@ -10777,6 +10777,8 @@ const es: Record<string, string> = {
   'ai.sum.custom': "Modelo propio ({nodes} nudos, {elements} elementos)",
   'ai.sum.customSections': "{names}: valores de sección que no son del catálogo, revíselos antes de aplicar",
   'ai.err.oneChange': "El asistente propuso varios cambios a la vez; pedí un cambio por vez.",
+  'ai.err.planarInSpace': "El asistente propuso un modelo 2D para uno 3D; volvé a pedirlo o describilo en las tres dimensiones.",
+  'ai.err.spaceInPlane': "El asistente propuso un modelo 3D para uno 2D; volvé a pedir un modelo en el plano.",
   'ai.key.done': "Listo",
   'ai.key.savedAs': "Clave de {provider} guardada (termina en {last})",
   'ai.key.privacy': "La clave se guarda solo en este navegador. Se envía solo a {host}, nunca a los servidores de Stabileo, y el uso se factura a tu cuenta de {provider}.",

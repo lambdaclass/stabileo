@@ -10621,6 +10621,8 @@ const fr: Translations = {
   'ai.sum.custom': "Modèle personnalisé ({nodes} nœuds, {elements} éléments)",
   'ai.sum.customSections': "{names} : valeurs de section hors catalogue, vérifiez-les avant d'appliquer",
   'ai.err.oneChange': "L’assistant a proposé plusieurs modifications à la fois ; demandez une modification à la fois.",
+  'ai.err.planarInSpace': "L’assistant a proposé un modèle 2D pour un modèle 3D ; redemandez, ou décrivez-le dans les trois dimensions.",
+  'ai.err.spaceInPlane': "L’assistant a proposé un modèle 3D pour un modèle 2D ; redemandez un modèle dans le plan.",
   'ai.key.done': "Terminé",
   'ai.key.savedAs': "Clé {provider} enregistrée (se termine par {last})",
   'ai.key.privacy': "La clé est conservée uniquement dans ce navigateur. Elle n'est envoyée qu'à {host}, jamais aux serveurs de Stabileo, et l'utilisation est facturée sur votre compte {provider}.",

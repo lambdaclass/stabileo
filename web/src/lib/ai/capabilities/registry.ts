@@ -174,6 +174,11 @@ export function editToolCatalog(): GeneratorDef[] {
 
 export const isSpaceProtocol = (mode: unknown): boolean => mode === '3d';
 export const supportTypesFor = (space: boolean): readonly string[] => SUPPORT_TYPES[space ? '3d' : '2d'];
+const PLANAR_GENERATORS = new Set(['create_beam', 'create_cantilever', 'create_continuous_beam', 'create_portal_frame', 'create_truss', 'create_multi_story_frame']);
+
+const offeredIn = (action: string, mode: string): boolean =>
+  (isSpaceProtocol(mode) ? !PLANAR_GENERATORS.has(action) : !action.endsWith('_3d'));
+
 const modeOf = (mode: string): AnalysisMode => (isSpaceProtocol(mode) ? '3d' : '2d');
 
 export function promptText(analysisMode: string): string {
@@ -193,7 +198,7 @@ export function promptText(analysisMode: string): string {
   out += '\n';
   out += 'Available generators (output as JSON action):\n';
   for (const gen of generatorCatalog()) {
-    if (!isSpaceProtocol(analysisMode) && gen.action.endsWith('_3d')) continue;
+    if (!offeredIn(gen.action, analysisMode)) continue;
     const params = gen.params.map((p) => {
       if (p.required) return `${p.name}: ${p.type} (required)`;
       if (p.default !== undefined) return `${p.name}: ${p.type} (default: ${JSON.stringify(p.default)})`;
@@ -271,7 +276,7 @@ export function toolDefinitions(analysisMode: string, hasModel: boolean): ToolDe
   const gens = hasModel ? [...generatorCatalog(), ...editToolCatalog()] : generatorCatalog();
   const tools: ToolDef[] = [];
   for (const gen of gens) {
-    if (!isSpaceProtocol(analysisMode) && gen.action.endsWith('_3d')) continue;
+    if (!offeredIn(gen.action, analysisMode)) continue;
     const properties: Record<string, unknown> = {};
     const required: string[] = [];
     for (const p of gen.params) {
