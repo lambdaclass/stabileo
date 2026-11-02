@@ -15,8 +15,14 @@ log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 limit=${RETRY_INFRA_TIMEOUT_SECONDS:-900}
 for attempt in 1 2 3; do
-  timeout --kill-after=30 "$limit" "$@" 2>&1 | tee "$log"
-  status=${PIPESTATUS[0]}
+  # A daemon the command starts (sccache) inherits its output; through a pipe, tee would wait for that daemon to exit.
+  timeout --kill-after=30 "$limit" "$@" > "$log" 2>&1 &
+  pid=$!
+  tail -n +1 -f --pid="$pid" "$log" &
+  follow=$!
+  wait "$pid"
+  status=$?
+  wait "$follow"
   if (( status == 0 )); then exit 0; fi
   if (( status == 124 || status == 137 )); then
     echo "Download stalled for ${limit}s" >&2

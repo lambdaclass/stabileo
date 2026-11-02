@@ -3,8 +3,9 @@
 
 CI retries known dependency-download infrastructure failures twice while keeping
 code and test failures immediate. A download that stalls is killed after 15
-minutes and retried as an infrastructure failure, and cargo fetches without HTTP/2
-multiplexing, which hung a crates.io download for an hour. Self-hosted runners use their local Nix store;
+minutes and retried as an infrastructure failure, cargo fetches without HTTP/2
+multiplexing, and the retry wrapper no longer waits for daemons a command starts
+(sccache held its output pipe, so Research WASM hung for an hour after the fetch). Self-hosted runners use their local Nix store;
 hosted cache outages are non-fatal. Research WASM reuses a source-keyed cache
 while validating and publishing the current viewer. Docker smoke tests both the
 default source build (including engine WASM, research WASM and frontend compilation)

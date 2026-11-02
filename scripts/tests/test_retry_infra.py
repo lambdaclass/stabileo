@@ -118,6 +118,14 @@ if n == 0:
             self.assertEqual((result.returncode, int(count.read_text())), (0, 2))
             self.assertIn('Download stalled for 2s', result.stderr)
 
+    def test_a_daemon_holding_the_output_does_not_block_the_step(self):
+        started = time.monotonic()
+        result = subprocess.run([str(WRAPPER), 'bash', '-c', 'setsid sleep 30 & echo fetched'],
+                                capture_output=True, text=True, timeout=60)
+        self.assertLess(time.monotonic() - started, 15)
+        self.assertEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, 'fetched\n')
+
     def test_every_attempt_stalling_fails_with_the_timeout_status(self):
         result = subprocess.run([str(WRAPPER), 'sleep', '60'],
                                 env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0', 'RETRY_INFRA_TIMEOUT_SECONDS': '1'},
