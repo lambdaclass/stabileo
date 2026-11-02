@@ -193,6 +193,7 @@
    * plus one of description, which is what you actually choose on; the tags
    * and the node counts follow underneath.
    */
+  let videosOpen = $state(false);
   let showExamples = $state(false);
 
   const hasModel = $derived(modelStore.nodes.size > 0);
@@ -212,6 +213,8 @@
     else if (r === 'data') dataOpen = true;
     else if (r === 'drawings') openDrawings();
     else if (r === 'examples') showExamples = true;
+    else if (r === 'videos') videosOpen = true;
+    else if (r === 'viewerLink') void copyViewerLink();
   });
   function pickDrawing(f: DrawingFormat) {
     drawingFormat = f;
@@ -286,7 +289,7 @@
     </div>
   {/if}
 
-  <ProVideos />
+  <ProVideos bind:open={videosOpen} />
 
   <!--
     DXF and IFC are not here any more.

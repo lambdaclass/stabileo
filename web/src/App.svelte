@@ -805,7 +805,8 @@
     importText = '';
   }
 
-  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
+  // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
   provideEditorActivity(() => editorActive);
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
@@ -1959,7 +1960,7 @@
           <Viewport3D />
         {/if}
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
-        {#if uiStore.appMode === 'pro'}<StoreyScopeBar /><ProLinkedLayer />{/if}
+        {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--

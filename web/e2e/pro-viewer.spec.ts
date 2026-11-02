@@ -14,6 +14,13 @@ test('@smoke an example in the viewer, seen in plan and split, then duplicated t
   await expect(page.getByTestId('pro-ribbon')).toBeHidden();
   await expect.poll(() => page.evaluate(() => window.__stabileo.nodeCount()), { timeout: 30_000 }).toBeGreaterThan(0);
 
+  // Only looked at: the keyboard edits nothing, and there is no scope to edit across storeys.
+  const before = await page.evaluate(() => window.__stabileo.elementIds().length);
+  await page.evaluate(() => window.__stabileoActions.selectElements([1]));
+  await page.keyboard.press('Delete');
+  expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(before);
+  await expect(page.getByTestId('storey-scope')).toHaveCount(0);
+
   await page.getByTestId('viewer-mode-split').click();
   await expect(page.getByTestId('split-view')).toBeVisible();
   await page.getByTestId('viewer-mode-3d').click();

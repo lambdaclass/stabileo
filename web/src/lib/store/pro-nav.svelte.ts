@@ -11,7 +11,7 @@ import { uiStore } from './ui.svelte';
 let regulationsOpen = $state(false);
 let projectInfoOpen = $state(false);
 /** Something the Project tab does as it opens: asked for from the command search. */
-export type ProjectRequest = 'save' | 'data' | 'drawings' | 'examples';
+export type ProjectRequest = 'save' | 'data' | 'drawings' | 'examples' | 'videos' | 'viewerLink';
 let request = $state<ProjectRequest | null>(null);
 
 export const proNav = {

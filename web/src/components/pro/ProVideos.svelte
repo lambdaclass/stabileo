@@ -4,7 +4,7 @@
   import { i18n, t, tp } from '../../lib/i18n';
   import { PRO_VIDEOS, videoUrl } from '../../lib/pro/videos';
 
-  let open = $state(false);
+  let { open = $bindable(false) }: { open?: boolean } = $props();
 </script>
 
 <button class="pp-btn pp-btn-wide pp-disclose" onclick={() => (open = !open)} aria-expanded={open} data-testid="pp-videos">

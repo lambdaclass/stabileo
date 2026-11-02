@@ -8,6 +8,7 @@ import { uiStore } from '../store';
 import { viewCategories } from '../store/view-categories.svelte';
 import { viewState, viewVisibility } from '../store/view-state.svelte';
 import { requestAutosave } from '../store/autosave-service';
+import { storeyScope } from '../store/storey-scope.svelte';
 
 export interface PaletteAction { cmd: ProCmd; pathKey: string }
 
@@ -20,6 +21,8 @@ export function paletteActions(): PaletteAction[] {
     a('save', 'project.save', project, () => proNav.ask('save')),
     a('save-now', 'save.clickToSave', project, () => { void requestAutosave('manual'); }),
     a('examples', 'pro.exampleBtn', project, () => proNav.ask('examples')),
+    a('videos', 'videos.button', project, () => proNav.ask('videos')),
+    a('viewer-link', 'viewer.copyLink', project, () => proNav.ask('viewerLink')),
     a('report', 'proExport.reportBtn', project, () => window.dispatchEvent(new Event('stabileo-open-report'))),
     a('results', 'proExport.resultsBtn', project, () => proNav.ask('data')),
     a('drawings', 'proExport.drawingsBtn', project, () => proNav.ask('drawings')),
@@ -28,6 +31,7 @@ export function paletteActions(): PaletteAction[] {
     ...(['top', 'front', 'right', 'iso'] as const).map((f) => a(`view-${f}`, `view.preset.${f}`, view, camera(f))),
     a('split', 'viewport.split', view, () => { viewState.split = !viewState.split; }),
     a('plan', 'viewport.planView', view, () => { uiStore.planView3D = !uiStore.planView3D; }),
+    ...(['this', 'similar', 'all'] as const).map((sc) => a(`scope-${sc}`, `storeys.scope.${sc}`, 'storeys.scope', () => { storeyScope.scope = sc; })),
     a('zoom-all', 'view.zoomAll', view, () => window.dispatchEvent(new CustomEvent('stabileo-zoom-to-fit'))),
     a('show-all', 'view.catReset', view, () => { viewCategories.reset(); viewVisibility.showAll(); }),
     a('settings', 'config.title', settings, () => { uiStore.proActiveTab = 'settings'; uiStore.proPanelVisible = true; }),
