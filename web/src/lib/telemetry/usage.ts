@@ -9,6 +9,8 @@ interface QueuedEvent {
   name: string;
   at: string;
   props: UsageProps;
+  mode: string | null;
+  locale: string | null;
 }
 
 export interface UsageContext {
@@ -74,7 +76,7 @@ export function setUsageContext(next: UsageContext): void {
 
 export function trackUsage(name: string, props: Record<string, unknown> = {}): void {
   if (!usageConsent.sharing || serverOff || automated() || !EVENT_NAME.test(name)) return;
-  queue.push({ name, at: new Date().toISOString(), props: cleanProps(props) });
+  queue.push({ name, at: new Date().toISOString(), props: cleanProps(props), mode: context.appMode(), locale: context.locale() });
   if (queue.length >= MAX_QUEUE) void flushUsage();
   else if (!timer) timer = setTimeout(() => void flushUsage(), FLUSH_MS);
 }
@@ -89,10 +91,20 @@ function payload(events: QueuedEvent[]) {
     install_id: usageConsent.granted ? installId() : `v-${sessionId}`,
     session_id: sessionId,
     app_version: APP_VERSION,
-    app_mode: context.appMode(),
-    locale: context.locale(),
-    events,
+    app_mode: events[0].mode,
+    locale: events[0].locale,
+    events: events.map(({ name, at, props }) => ({ name, at, props })),
   };
+}
+
+/** One batch per mode and language, so each event is counted under the context it happened in. */
+function byContext(events: QueuedEvent[]): QueuedEvent[][] {
+  const groups = new Map<string, QueuedEvent[]>();
+  for (const e of events) {
+    const key = `${e.mode}\u0000${e.locale}`;
+    groups.set(key, [...(groups.get(key) ?? []), e]);
+  }
+  return [...groups.values()];
 }
 
 export async function flushUsage(opts: { keepalive?: boolean } = {}): Promise<void> {
@@ -104,12 +116,16 @@ export async function flushUsage(opts: { keepalive?: boolean } = {}): Promise<vo
   const events = queue;
   queue = [];
   if (!usageConsent.sharing || !context.enabled()) return;
+  await Promise.all(byContext(events).map((batch) => send(batch, opts.keepalive === true)));
+}
+
+async function send(events: QueuedEvent[], keepalive: boolean): Promise<void> {
   try {
     const resp = await fetch(`${API_URL}${EVENTS_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(payload(events)),
-      keepalive: opts.keepalive === true,
+      keepalive,
     });
     if (resp.ok) {
       const body = (await resp.json().catch(() => null)) as { enabled?: boolean } | null;

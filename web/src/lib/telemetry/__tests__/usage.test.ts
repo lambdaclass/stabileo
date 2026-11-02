@@ -93,6 +93,27 @@ describe('anonymous usage', () => {
     expect(sent[1].body.install_id).toBe(body.install_id);
   });
 
+  it('counts each event under the mode and language it happened in, one batch per context', async () => {
+    const { trackUsage, flushUsage, setUsageContext } = await load();
+    let mode = 'basic';
+    let locale = 'es';
+    setUsageContext({ appMode: () => mode, locale: () => locale, enabled: () => true });
+    trackUsage('tool.select', { tool: 'member' });
+    mode = 'pro';
+    trackUsage('solve');
+    locale = 'en';
+    trackUsage('diagram.show');
+    await flushUsage();
+
+    const batches = sent.map((r) => [r.body.app_mode, r.body.locale, (r.body.events as { name: string }[]).map((e) => e.name)]);
+    expect(batches).toEqual([
+      ['basic', 'es', ['tool.select']],
+      ['pro', 'es', ['solve']],
+      ['pro', 'en', ['diagram.show']],
+    ]);
+    expect(Object.keys((sent[0].body.events as Record<string, unknown>[])[0]).sort()).toEqual(['at', 'name', 'props']);
+  });
+
   it('keeps only scalar props with safe keys, and cuts long strings', async () => {
     const { cleanProps } = await load();
     const props = cleanProps({
