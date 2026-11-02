@@ -59,7 +59,8 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
 
-    // Simply-supported edges: rz on all boundary, pin corner fully
+    // Simply-supported edges: rz on all boundary, pin corner fully, and Y at the
+    // opposite X corner so the plate has no in-plane rigid rotation
     let mut supports = HashMap::new();
     let mut sid = 1;
     let mut boundary = Vec::new();
@@ -78,7 +79,7 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,

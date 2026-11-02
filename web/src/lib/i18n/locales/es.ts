@@ -1,4 +1,8 @@
 const es: Record<string, string> = {
+  "advanced.finiteSpectrum": "Solo existen {n} modos finitos. Las direcciones sin masa no tienen frecuencia finita.",
+  "advanced.finiteSpectrumOne": "Solo existe 1 modo finito. Las direcciones sin masa no tienen frecuencia finita.",
+  "advanced.modalIncomplete": "Análisis modal rechazado: solo {n} de {m} modos calculados tienen frecuencia positiva (ω² > 1e-10). No se devolvió un conjunto incompleto de modos. Revisá el condicionamiento de rigidez y masa y los apoyos.",
+  "advanced.eigenFailure": "Análisis de autovalores rechazado: no se pudo establecer la convergencia ni la completitud de Sturm para {n} grados de libertad libres. No se devolvió un conjunto incompleto de resultados. Revisá apoyos y liberaciones en busca de mecanismos, el condicionamiento de rigidez y masa, o pedí menos modos.",
   "landing.navTools": "Herramientas",
 
   // Shared scalar-field viewer
@@ -12447,6 +12451,7 @@ const es: Record<string, string> = {
   'discretization.refuse.other': "el motor no pudo refinar o volver a resolver este modelo (detalles en la ayuda emergente)",
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certificado)',
   'certificate.bucklingNotCertified': 'λ_cr no certificado: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'el factor de carga calculado {computed} supera la cota superior certificada {upper}',
   'certificate.bucklingTooltip': 'Intervalo riguroso, demostrado en Lean: la estructura es estable con certeza para todo factor de carga hasta el valor inferior, e inestable con certeza en el superior.',
   'float.loadFrameGlobalTip': 'Los valores van según los ejes globales (Z es la vertical).',
   'float.loadFrameLocalTip': 'Los valores van según los ejes locales de la barra.',
@@ -14268,6 +14273,16 @@ const es: Record<string, string> = {
   "sel.copyTitle": "Copiar lo seleccionado (Ctrl+C)",
   "sel.pasteTitle": "Pegar lo copiado y elegir dónde (Ctrl+V)",
   "results.showDisplacements": "Mostrar desplazamientos",
+  "selfCheck.check.static_residual": "residuo de equilibrio",
+  "selfCheck.check.static_balance": "balance de reacciones",
+  "selfCheck.check.modal_residual": "residuo de la ecuación del modo {mode}",
+  "selfCheck.check.modal_orthogonality": "ortogonalidad de masa del modo {mode}",
+  "selfCheck.check.modal_mass": "masa modal",
+  "selfCheck.warning": "Autoverificación {check}: {value} (advertencia desde {threshold}). Revisá el modelo antes de usar estos resultados.",
+  "selfCheck.refused": "Resultados rechazados: la autoverificación {check} vale {value}, por encima del límite {threshold}.",
+  "selfCheck.refusedInvalid": "Resultados rechazados: falló la autoverificación {check} ({reason}).",
+  "selfCheck.reason.nonFinite": "un valor no es finito",
+  "selfCheck.reason.nonPositiveMass": "la masa modal no es positiva",
   "resultChecks.title": "Verificación de los resultados",
   "resultChecks.certified": "certificado",
   "resultChecks.notCertified": "sin certificar",

@@ -123,6 +123,14 @@ pub fn cases_3d(tier: Tier, seed: u64) -> Vec<Case3> {
     out
 }
 
+#[test]
+fn issue_759_seed_20754_orthogonality() {
+    let (s, densities) = fuzz_models::random_3d_model_rich(20754);
+    let cond = dedaliano_engine::metamorphic::conditioning::of_3d(&s).unwrap();
+    let verdict = crate::modal_checks::check_3d(&s, &densities, &cond);
+    assert!(matches!(verdict, crate::tally::Verdict::Pass(_)), "{verdict:?}");
+}
+
 fn nightly_cases(default: u64) -> u64 {
     std::env::var("METAMORPHIC_CASES").map(|v| v.parse().expect("METAMORPHIC_CASES must be an integer")).unwrap_or(default)
 }

@@ -12,11 +12,15 @@ use super::constraints::FreeConstraintSystem;
 #[serde(rename_all = "camelCase")]
 pub struct ModalResult {
     pub modes: Vec<ModeShape>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finite_spectrum_diagnostic: Option<String>,
     pub n_dof: usize,
     pub total_mass: f64,
     pub cumulative_mass_ratio_x: f64,
     pub cumulative_mass_ratio_y: f64,
     pub rayleigh: Option<RayleighDamping>,
+    #[serde(default)]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -105,6 +109,8 @@ pub fn solve_modal_2d(
     // Large models (constrained or not): triplet sparse assembly + sparse
     // shift-invert Lanczos; the constraint transform reduces K and M as
     // sparse triple products (CᵀKC over triplets), never densifying.
+    let mut k_check_sparse = None;
+    let mut k_check_dense = Vec::new();
     let mut m_csc_opt: Option<crate::linalg::CscMatrix> = None;
     // M·r on the full free space, taken before the mass is reduced.
     let (m_r_x, m_r_y);
@@ -118,12 +124,14 @@ pub fn solve_modal_2d(
             let k_solve = cs.reduce_matrix_sparse(&k_ff);
             let m_solve = cs.reduce_matrix_sparse(&m_csc);
             let result = lanczos_generalized_eigen_sparse(&k_solve, &m_solve, num_modes, 0.0)
-                .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+                .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
+            k_check_sparse = Some(k_solve);
             m_csc_opt = Some(m_solve);
             (result, cs.n_free_indep, Vec::new())
         } else {
             let result = lanczos_generalized_eigen_sparse(&k_ff, &m_csc, num_modes, 0.0)
-                .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+                .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_ff.n))?;
+            k_check_sparse = Some(k_ff);
             m_csc_opt = Some(m_csc);
             (result, nf, Vec::new())
         }
@@ -154,7 +162,8 @@ pub fn solve_modal_2d(
             (k_ff.clone(), m_ff.clone(), nf)
         };
         let result = lanczos_generalized_eigen(&k_solve, &m_solve, ns, num_modes, 0.0)
-            .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+            .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(ns))?;
+        k_check_dense = k_solve;
         (result, ns, m_solve)
     };
 
@@ -172,6 +181,19 @@ pub fn solve_modal_2d(
         None => (m_r_x, m_r_y),
     };
 
+    let mut checks = super::self_checks::ModalChecks::default();
+    checks.scales = super::self_checks::energy_scale(&match &k_check_sparse {
+        Some(k) => k.diagonal(),
+        None => (0..ns).map(|i| k_check_dense[i*ns+i]).collect(),
+    });
+    checks.stiffness = match &k_check_sparse {
+        Some(k) => super::self_checks::ProductBound::sparse(k, &checks.scales),
+        None => super::self_checks::ProductBound::dense(&k_check_dense, ns, &checks.scales),
+    };
+    checks.mass = match &m_csc_opt {
+        Some(m) => super::self_checks::ProductBound::sparse(m, &checks.scales),
+        None => super::self_checks::ProductBound::dense(&m_solve, ns, &checks.scales),
+    };
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -197,6 +219,11 @@ pub fn solve_modal_2d(
             Some(m_csc) => m_csc.sym_mat_vec(&phi_s),
             None => mat_vec_sub(&m_solve, &phi_s, ns),
         };
+        let k_phi = match &k_check_sparse {
+            Some(k) => k.sym_mat_vec(&phi_s),
+            None => mat_vec_sub(&k_check_dense, &phi_s, ns),
+        };
+        checks.check(&phi_s, eigenvalue, &k_phi, &m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         // Participation factors in solve space: φ_s · Cᵀ(M·r).
@@ -259,6 +286,12 @@ pub fn solve_modal_2d(
         return Err("No valid modes found".into());
     }
 
+    // The eigensolver excludes certified massless directions from this count;
+    // dropping a finite low-frequency mode must still refuse a partial result.
+    if modes.len() < num_modes.min(n_converged) {
+        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+    }
+
     // Rayleigh damping (5% critical from modes 1 and last)
     let rayleigh = if modes.len() >= 2 {
         let w1 = modes[0].omega;
@@ -275,12 +308,14 @@ pub fn solve_modal_2d(
     };
 
     Ok(ModalResult {
+        finite_spectrum_diagnostic: finite_spectrum_diagnostic(num_modes, modes.len()),
         modes,
         n_dof: nf,
         total_mass,
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,
         rayleigh,
+        structured_diagnostics: checks.diagnostics,
     })
 }
 
@@ -300,12 +335,16 @@ fn mat_vec_sub(m: &[f64], v: &[f64], n: usize) -> Vec<f64> {
 #[serde(rename_all = "camelCase")]
 pub struct ModalResult3D {
     pub modes: Vec<ModeShape3D>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub finite_spectrum_diagnostic: Option<String>,
     pub n_dof: usize,
     pub total_mass: f64,
     pub cumulative_mass_ratio_x: f64,
     pub cumulative_mass_ratio_y: f64,
     pub cumulative_mass_ratio_z: f64,
     pub rayleigh: Option<RayleighDamping>,
+    #[serde(default)]
+    pub structured_diagnostics: Vec<StructuredDiagnostic>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -382,7 +421,7 @@ pub fn solve_modal_3d(
         (&sasm.k_ff, &m_sparse_ff)
     };
     let result = lanczos_generalized_eigen_sparse(k_solve, m_solve, num_modes, 0.0)
-        .ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
 
     let num_modes = num_modes.min(ns);
 
@@ -400,6 +439,10 @@ pub fn solve_modal_3d(
     };
     let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
 
+    let mut checks = super::self_checks::ModalChecks::default();
+    checks.scales = super::self_checks::energy_scale(&k_solve.diagonal());
+    checks.stiffness = super::self_checks::ProductBound::sparse(k_solve, &checks.scales);
+    checks.mass = super::self_checks::ProductBound::sparse(m_solve, &checks.scales);
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -418,6 +461,7 @@ pub fn solve_modal_3d(
         let phi_s: Vec<f64> = (0..ns).map(|i| result.vectors[i * n_converged + idx]).collect();
 
         let m_phi = m_solve.sym_mat_vec(&phi_s);
+        checks.check(&phi_s, eigenvalue, &k_solve.sym_mat_vec(&phi_s), &m_phi)?;
         let phi_m_phi: f64 = phi_s.iter().zip(m_phi.iter()).map(|(a, b)| a * b).sum();
 
         let phi_m_rx: f64 = phi_s.iter().zip(l_x.iter()).map(|(p, l)| p * l).sum();
@@ -468,6 +512,13 @@ pub fn solve_modal_3d(
 
     if modes.is_empty() { return Err("No valid modes found".into()); }
 
+    // The eigensolver excludes certified massless directions from this count;
+    // dropping a finite low-frequency mode must still refuse a partial result.
+    if modes.len() < num_modes.min(n_converged) {
+        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+    }
+
+
     let rayleigh = if modes.len() >= 2 {
         let w1 = modes[0].omega;
         let w2 = modes.last().unwrap().omega;
@@ -480,10 +531,18 @@ pub fn solve_modal_3d(
     } else { None };
 
     Ok(ModalResult3D {
+        finite_spectrum_diagnostic: finite_spectrum_diagnostic(num_modes, modes.len()),
         modes, n_dof: nf, total_mass,
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,
         cumulative_mass_ratio_z: cum_mrz,
         rayleigh,
+        structured_diagnostics: checks.diagnostics,
     })
+}
+
+fn finite_spectrum_diagnostic(requested: usize, returned: usize) -> Option<String> {
+    if returned < requested {
+        Some(format!("Requested {requested} modes; returned all {returned} finite modes certified by the Sturm count. Massless directions have no finite frequency."))
+    } else { None }
 }

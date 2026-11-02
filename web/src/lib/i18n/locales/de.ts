@@ -1,6 +1,10 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
+  "advanced.finiteSpectrumOne": "Es existiert nur 1 endliche Eigenmode. Masselose Richtungen haben keine endliche Eigenfrequenz.",
+  "advanced.modalIncomplete": "Modalanalyse abgelehnt: nur {n} von {m} berechneten Moden haben eine positive Frequenz (ω² > 1e-10). Es wurde kein unvollständiger Satz von Moden zurückgegeben. Prüfen Sie die Konditionierung von Steifigkeit und Masse sowie die Lager.",
+  "advanced.eigenFailure": "Eigenwertanalyse abgelehnt: Konvergenz und Sturm-Vollständigkeit konnten für {n} freie Freiheitsgrade nicht nachgewiesen werden. Es wurde kein unvollständiger Ergebnissatz zurückgegeben. Prüfen Sie Lager und Gelenke auf Mechanismen, die Konditionierung von Steifigkeit und Masse, oder fordern Sie weniger Moden an.",
   "landing.navTools": "Werkzeuge",
 
   // ─── Shared scalar-field viewer ───
@@ -12295,6 +12299,7 @@ const de: Translations = {
   'discretization.refuse.other': 'der Rechenkern konnte dieses Modell nicht verfeinern oder neu berechnen (Details im Tooltip)',
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (zertifiziert)',
   'certificate.bucklingNotCertified': 'λ_cr nicht zertifiziert: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'der berechnete Lastfaktor {computed} überschreitet die zertifizierte obere Schranke {upper}',
   'certificate.bucklingTooltip': 'Strenge Einschließung, in Lean bewiesen: Das Tragwerk ist für jeden Lastfaktor bis zum unteren Wert nachweislich stabil und beim oberen Wert nachweislich instabil.',
   'float.loadFrameGlobalTip': 'Die Werte gelten in Richtung der globalen Achsen (Z ist die Vertikale).',
   'float.loadFrameLocalTip': 'Die Werte gelten in Richtung der lokalen Achsen des Stabs.',
@@ -14118,6 +14123,16 @@ const de: Translations = {
   "sel.copyTitle": "Auswahl kopieren (Strg+C)",
   "sel.pasteTitle": "Kopie einfügen und Ort wählen (Strg+V)",
   "results.showDisplacements": "Verschiebungen anzeigen",
+  "selfCheck.check.static_residual": "Gleichgewichtsresiduum",
+  "selfCheck.check.static_balance": "Auflagerkraftbilanz",
+  "selfCheck.check.modal_residual": "Residuum der Eigengleichung von Mode {mode}",
+  "selfCheck.check.modal_orthogonality": "Massenorthogonalität von Mode {mode}",
+  "selfCheck.check.modal_mass": "modale Masse",
+  "selfCheck.warning": "Selbstprüfung {check}: {value} (Warnung ab {threshold}). Prüfen Sie das Modell, bevor Sie diese Ergebnisse verwenden.",
+  "selfCheck.refused": "Ergebnisse verworfen: Selbstprüfung {check} beträgt {value} und überschreitet die Grenze {threshold}.",
+  "selfCheck.refusedInvalid": "Ergebnisse verworfen: Selbstprüfung {check} fehlgeschlagen ({reason}).",
+  "selfCheck.reason.nonFinite": "ein Wert ist nicht endlich",
+  "selfCheck.reason.nonPositiveMass": "die modale Masse ist nicht positiv",
   "resultChecks.title": "Ergebnisprüfung",
   "resultChecks.certified": "zertifiziert",
   "resultChecks.notCertified": "nicht zertifiziert",
