@@ -147,6 +147,10 @@ function compareProblems(rows: CompareRow[], tol: number, floor?: Map<string, nu
   return out;
 }
 
+/** Whether `mine` misses `ref` by more than `tol`; any non-finite value counts as a miss. */
+const differs = (mine: number, ref: number, tol: number) =>
+  !(Number.isFinite(mine) && Number.isFinite(ref) && Number.isFinite(tol)) || Math.abs(mine - ref) > tol;
+
 /**
  * The chord (P/L) answer checked against the engine's elastic solve with the same approximation:
  * P-Δ's final D must be what the engine gives under the loads plus −K_G(N)·D as nodal forces, N the
@@ -179,7 +183,7 @@ function chordProblems(input: SolverInput, buckling: boolean): string[] {
     const out: string[] = [];
     for (const d of eng.displacements) {
       const got = [d.ux, d.uz, d.ry], mine = [0, 1, 2].map((k) => Dof(d.nodeId, k));
-      for (let k = 0; k < 3; k++) if (Math.abs(got[k] - mine[k]) > 1e-8 * scale) out.push(`chord P-Δ node ${d.nodeId} dof ${k}: ${mine[k]} vs engine ${got[k]}`);
+      for (let k = 0; k < 3; k++) if (differs(mine[k], got[k], 1e-8 * scale)) out.push(`chord P-Δ node ${d.nodeId} dof ${k}: ${mine[k]} vs engine ${got[k]}`);
     }
     return out;
   }
@@ -215,7 +219,7 @@ function chordProblems(input: SolverInput, buckling: boolean): string[] {
   const pairs = generalizedEigen(Ks, G);
   const mine = b.run.modes[0].lambda;
   if (!pairs || !pairs.length) return [`chord buckling: no independent root, the method gives ${mine}`];
-  return Math.abs(pairs[0].lambda - mine) > 1e-6 * Math.abs(mine) ? [`chord buckling λ₁ ${mine} vs independent ${pairs[0].lambda}`] : [];
+  return differs(mine, pairs[0].lambda, 1e-6 * Math.abs(mine)) ? [`chord buckling λ₁ ${mine} vs independent ${pairs[0].lambda}`] : [];
 }
 
 /** A P-Δ run that every model of the sweep must finish: refused, broken down, unconverged or unstable is reported. */
@@ -259,7 +263,7 @@ function phiProblems(input: SolverInput, buckling: boolean): string[] {
     const out: string[] = [];
     for (const node of nodes) for (let k = 0; k < 3; k++) {
       const mine = final.D[sys.dof(node, k)], ref = c32(node, k);
-      if (Math.abs(mine - ref) > conv + 1e-9 * scale) out.push(`φ P-Δ node ${node} dof ${k}: ${mine} vs cut reference ${ref} (change between the cuts ${conv})`);
+      if (differs(mine, ref, conv + 1e-9 * scale)) out.push(`φ P-Δ node ${node} dof ${k}: ${mine} vs cut reference ${ref} (change between the cuts ${conv})`);
     }
     return out;
   }
@@ -276,7 +280,7 @@ function phiProblems(input: SolverInput, buckling: boolean): string[] {
   const pairL = CUTS.map(([a, z]) => [cut(a), cut(z)] as const).find(([x, y]) => x !== null && y !== null);
   if (!pairL) return ['φ buckling: the cut reference gave no mode at any pair of cuts'];
   const [l16, l32] = pairL as [number, number];
-  return Math.abs(mine - l32) > Math.abs(l16 - l32) + 1e-9 * Math.abs(mine) ? [`φ buckling λ₁ ${mine} vs cut reference ${l32} (change between the cuts ${Math.abs(l16 - l32)})`] : [];
+  return differs(mine, l32, Math.abs(l16 - l32) + 1e-9 * Math.abs(mine)) ? [`φ buckling λ₁ ${mine} vs cut reference ${l32} (change between the cuts ${Math.abs(l16 - l32)})`] : [];
 }
 
 /**
@@ -296,7 +300,7 @@ function rigidProblems(input: SolverInput, method: GeomMethod, buckling: boolean
     const out: string[] = [];
     for (const node of input.nodes.keys()) for (let k = 0; k < 3; k++) {
       const mine = r.run.final.D[r.run.sys.dof(node, k)], ref = st.D[stiff.sys.dof(node, k)];
-      if (Math.abs(mine - ref) > 1e-4 * scale) out.push(`rigid ${method} P-Δ node ${node} dof ${k}: ${mine} vs stiff ${ref}`);
+      if (differs(mine, ref, 1e-4 * scale)) out.push(`rigid ${method} P-Δ node ${node} dof ${k}: ${mine} vs stiff ${ref}`);
     }
     return out;
   }
@@ -307,7 +311,7 @@ function rigidProblems(input: SolverInput, method: GeomMethod, buckling: boolean
     ? phiBuckling(stiff.sys, 1, b.run.N0, [mine * 1.0001])[0]?.lambda
     : linearBuckling(stiff.sys, method === 'string' ? 'string' : 'consistent', 1, b.run.N0)[0]?.lambda;
   if (ref === undefined) return [`rigid ${method} buckling: the stiff reference gave no mode`];
-  return Math.abs(mine - ref) > 1e-4 * Math.abs(mine) ? [`rigid ${method} buckling λ₁ ${mine} vs stiff ${ref}`] : [];
+  return differs(mine, ref, 1e-4 * Math.abs(mine)) ? [`rigid ${method} buckling λ₁ ${mine} vs stiff ${ref}`] : [];
 }
 
 /** The classical frame methods keep members at their length: with axially rigid members they must match the matrix solve. */
@@ -475,6 +479,14 @@ function truss(seed: number) {
 // ── The sweep ───────────────────────────────────────────────────────
 
 describe('every explained method, everywhere it applies', () => {
+  it('counts a non-finite answer, reference or tolerance as a miss', () => {
+    expect(differs(1, 1, 0)).toBe(false);
+    expect(differs(Number.NaN, 1, 1)).toBe(true);
+    expect(differs(1, Number.NaN, 1)).toBe(true);
+    expect(differs(1, 1, Number.NaN)).toBe(true);
+    expect(differs(Infinity, Infinity, 1)).toBe(true);
+  });
+
   it('on every 2D example', async () => {
     const tally = new Map<string, number>();
     const failures: string[] = [];

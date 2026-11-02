@@ -14,7 +14,7 @@ import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import type { SolverInput } from '../types';
 import { buildSystem, type SecondOrderOptions, type SoSystem } from './system';
-import { clampedCount, reducedStiffness, solveState } from './pdelta';
+import { clampedCount, reducedStiffness, rigidAxialScale, solveState } from './pdelta';
 import { generalizedEigen, logDet, matVec, negativeEigenvalues, norm2, type Mat } from './dense';
 import { solveDense } from '../steps/sway-modes';
 import type { GeomMethod } from './member-matrices';
@@ -55,12 +55,14 @@ function expand(sys: SoSystem, x: number[]): number[] {
 export function firstOrderAxial(sys: SoSystem): { ok: true; N0: Map<number, number> } | { ok: false; reason: Txt } {
   const lin = solveState(sys, new Map(), 'none');
   if (!lin) return { ok: false, reason: tx('course.second-order.refuse.singular') };
-  if (!sys.members.some((m) => { const n = lin.N.get(m.id) ?? 0; return n < -1e-9 && n < -1e-9 * axialUncertainty(sys, m, lin); })) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
+  const rigidScale = rigidAxialScale(sys, lin, 'none');
+  if (sys.rigid && !rigidScale) return { ok: false, reason: tx('course.second-order.refuse.singular') };
+  const uncertainty = (m: SoSystem['members'][number]) => rigidScale ? Math.max(1e-12, rigidScale.get(m.id) ?? 0) : elasticUncertainty(sys, m, lin);
+  if (!sys.members.some((m) => { const n = lin.N.get(m.id) ?? 0; return n < -1e-9 && n < -1e-9 * uncertainty(m); })) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
   return { ok: true, N0: lin.N };
 }
 
-function axialUncertainty(sys: SoSystem, m: SoSystem['members'][number], lin: { D: number[]; N: Map<number, number> }): number {
-  if (sys.rigid) return Math.max(1e-12, ...sys.members.filter((o) => o.i === m.i || o.i === m.j || o.j === m.i || o.j === m.j).map((o) => Math.abs(lin.N.get(o.id) ?? 0)));
+function elasticUncertainty(sys: SoSystem, m: SoSystem['members'][number], lin: { D: number[] }): number {
   const at = (node: number) => Math.hypot(lin.D[sys.dof(node, 0)], lin.D[sys.dof(node, 1)]);
   return Math.max(1e-12, (m.EA / m.L) * (at(m.i) + at(m.j)));
 }

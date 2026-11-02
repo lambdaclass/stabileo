@@ -84,6 +84,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.diff': 'Die kleinen Abweichungen in u(t) stammen vom Zeitschritt der numerischen Integration.',
   'course.dynamics.sdof.err.mk': 'm und k müssen endliche Zahlen größer als null sein.',
   'course.dynamics.sdof.err.noModel': 'Es gibt kein Modell, aus dem m und k genommen werden können: Modell laden oder m und k von Hand eingeben.',
+  'course.dynamics.sdof.err.tooBig': 'Das Modell hat mehr Freiheitsgrade, als dieser Kurs Schritt für Schritt löst. Versuchen Sie ein kleineres Modell oder geben Sie m und k ein.',
   'course.dynamics.sdof.err.inputs': 'ξ, u₀, v₀, F₀ und Ω müssen endliche Zahlen sein; ξ und Ω dürfen nicht negativ sein.',
   'course.dynamics.sdof.err.noNode': 'Wählen Sie im Panel Dynamik einen Knoten mit Punktmasse oder geben Sie m und k von Hand ein.',
   'course.dynamics.sdof.err.restrained': 'Dieser Knoten hat ein Lager, das die Bewegung in der gewählten Richtung verhindert.',

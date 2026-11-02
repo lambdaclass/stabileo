@@ -64,6 +64,13 @@ describe('single degree of freedom: free vibration from u0, v0', () => {
     expect(Math.abs(u(100))).toBeLessThan(Math.abs(u(21)));
   });
 
+  it('overdamped far past critical keeps its slow decay ω/(ξ + √(ξ² − 1)): ξ = 1e8 reaches e⁻¹ at t = 2e8', () => {
+    const u = freeResponse(sdofProps(1, 1, 1e8), 1, 0);
+    expect(u(0)).toBeCloseTo(1, 12);
+    expect(u(2e8) / Math.exp(-1)).toBeCloseTo(1, 7);
+    expect(u(4e8) / Math.exp(-2)).toBeCloseTo(1, 7);
+  });
+
   it('every regime starts from u0 and satisfies m·ü + c·u̇ + k·u = 0', () => {
     for (const xi of [0, 0.05, 1, 2]) {
       const p = sdofProps(m, k, xi);

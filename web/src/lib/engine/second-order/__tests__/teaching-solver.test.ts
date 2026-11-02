@@ -480,3 +480,33 @@ describe('a joint that no bar holds across', () => {
     expect(run.ok).toBe(false);
   });
 });
+
+describe('the compression guard with rigid members reads each member\'s own round-off', () => {
+  const lShape = (pull: number, P: number): SolverInput => ({
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: 4 }], [3, { id: 3, x: 6, z: 4 }]]),
+    materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+    elements: new Map([
+      [1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+      [2, { id: 2, type: 'frame' as const, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }],
+    ]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 3, type: 'pinned' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 2, fx: -pull, fz: -P, my: 0 } }],
+  });
+
+  it('a column under 100 kN beside a beam pulled by 1e12 kN buckles clamped at both ends, λ = 4π²EI/(L²·P)', () => {
+    const pulled = teachingBuckling(lShape(1e12, 100), { method: 'phi', axialRigid: true }, 1);
+    if (!pulled.ok) throw new Error(pulled.reason.key);
+    expect(pulled.run.N0.get(1)).toBeCloseTo(-100, 6);
+    expect(pulled.run.N0.get(2)).toBeCloseTo(1e12, -3);
+    expect(pulled.run.modes[0].lambda / ((4 * Math.PI ** 2 * EI) / (16 * 100))).toBeCloseTo(1, 4);
+  });
+
+  it('still refuses when the only compression is round-off', () => {
+    const b = buildSystem(lShape(1e12, 0), { method: 'phi', axialRigid: true });
+    if (!b.ok) throw new Error(b.reason.key);
+    const first = firstOrderAxial(b.sys);
+    expect(first.ok).toBe(false);
+    if (!first.ok) expect(first.reason.key).toBe('course.second-order.refuse.noCompression');
+  });
+});

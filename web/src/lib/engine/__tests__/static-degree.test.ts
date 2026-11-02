@@ -84,6 +84,17 @@ describe('GH by the classic formula', () => {
     });
   }
 
+  it('counts no mobility for a nodal rotation nothing attaches to: fully hinged joints and nodes only bars reach', () => {
+    const pinJoint = ghReport(model([[1, 0, 0], [2, 4, 3], [3, 8, 0]], [[1, 1, 2, 'frame', false, true], [2, 2, 3, 'frame', true, false]], [[1, 'fixed'], [3, 'pinned']]), 0, { split: true });
+    expect(pinJoint.gh).toBe(1);
+    expect(pinJoint.split).toEqual({ external: 1, internal: 0, mechanisms: 1, bodies: 1 });
+    expect(ghReport(CASES[10].input, 0, { split: true }).split).toEqual({ external: 1, internal: 0, mechanisms: 2, bodies: 1 });
+    expect(ghReport(CASES[8].input, 0, { split: true }).split).toEqual({ external: 0, internal: 1, mechanisms: 0, bodies: 1 });
+    const hangingBar = ghReport(model([[1, 0, 0], [2, 6, 0], [3, 8, -2]], [[1, 1, 2, 'frame'], [2, 2, 3, 'truss']], [[1, 'fixed'], [3, 'rollerX']]), 0, { split: true });
+    expect(hangingBar.gh).toBe(0);
+    expect(hangingBar.split).toEqual({ external: 0, internal: 0, mechanisms: 1, bodies: 1 });
+  });
+
   it('classifies, and counts the hinge conditions per node', () => {
     const arch = ghReport(CASES[5].input);
     expect(arch.classification).toBe('isostatic');

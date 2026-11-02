@@ -84,6 +84,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.diff': 'Les petits écarts sur u(t) viennent du pas de temps de l\'intégration numérique.',
   'course.dynamics.sdof.err.mk': 'm et k doivent être des nombres finis supérieurs à zéro.',
   'course.dynamics.sdof.err.noModel': 'Il n\'y a pas de modèle d\'où prendre m et k : chargez un modèle ou choisissez de les saisir.',
+  'course.dynamics.sdof.err.tooBig': 'Le modèle a plus de degrés de liberté que ce cours n\'en résout pas à pas. Essayez un modèle plus petit ou saisissez m et k.',
   'course.dynamics.sdof.err.inputs': 'ξ, u₀, v₀, F₀ et Ω doivent être des nombres finis ; ξ et Ω ne peuvent pas être négatifs.',
   'course.dynamics.sdof.err.noNode': 'Choisissez un nœud avec une masse ponctuelle dans le panneau Dynamique, ou saisissez m et k.',
   'course.dynamics.sdof.err.restrained': 'Ce nœud a un appui qui empêche le mouvement dans la direction choisie.',

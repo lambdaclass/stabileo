@@ -6,18 +6,20 @@
  */
 import type { ModelData } from '../../solver-service';
 import { buildSolverInput2D } from '../../solver-service';
-import { solveDetailed } from '../../solver-detailed';
+import { freeDofCount, solveDetailed } from '../../solver-detailed';
 import type { PointMass } from '../mass-source';
 import { condense } from './mass-model';
 import { zeros } from './dense';
+import { MAX_SYSTEM_DOFS } from './mdof-system';
 
 export interface SdofFromModel { nodeId: number; dir: 'ux' | 'uz'; k: number; delta: number; m: number; nFree: number }
-export type SdofModelRefusal = 'noNode' | 'restrained' | 'mechanism' | 'noMass';
+export type SdofModelRefusal = 'noNode' | 'restrained' | 'mechanism' | 'noMass' | 'tooBig';
 
 export function sdofFromModel(model: ModelData, points: readonly PointMass[], nodeId: number | null, dir: 'ux' | 'uz'): SdofFromModel | SdofModelRefusal {
   if (nodeId === null || !model.nodes.has(nodeId)) return 'noNode';
   const input = buildSolverInput2D(model);
   if (!input) return 'noNode';
+  if (freeDofCount(input) > MAX_SYSTEM_DOFS) return 'tooBig';
   const det = solveDetailed(input);
   const nF = det.dofNumbering.nFree;
   const angle = det.nodeFrames.find((f) => f.nodeId === nodeId)?.angle ?? 0;

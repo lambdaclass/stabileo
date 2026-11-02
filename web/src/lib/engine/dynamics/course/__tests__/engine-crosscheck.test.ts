@@ -113,6 +113,19 @@ describe('point masses in Basic reach the engine', () => {
     expect(exactBeam(modelStore.model, points())).toBeNull();
   });
 
+  it('a cantilever with any other part (connector, constraint, plate, quad) is not taken for the exact cantilever', () => {
+    cantilever(3);
+    expect(exactBeam(modelStore.model, points())).not.toBeNull();
+    const base = modelStore.model;
+    const extras = {
+      connectors: { connectors: new Map([[1, { id: 1, nodeI: 1, nodeJ: 2, kMoment: 1e3 }]]) },
+      constraints: { constraints: [{ type: 'equalDof', masterNode: 1, slaveNode: 2, dofs: [0] }] },
+      plates: { plates: new Map([[1, { id: 1, nodes: [1, 2, 2] as [number, number, number], materialId: 1, thickness: 0.1 }]]) },
+      quads: { quads: new Map([[1, { id: 1, nodes: [1, 2, 2, 1] as [number, number, number, number], materialId: 1, thickness: 0.1 }]]) },
+    };
+    for (const [part, extra] of Object.entries(extras)) expect(exactBeam({ ...base, ...extra } as never, points()), part).toBeNull();
+  });
+
   it('a horizontal-only mass moves only the horizontal frequency', () => {
     cantilever(2);
     modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 2, horizontalOnly: true }] });

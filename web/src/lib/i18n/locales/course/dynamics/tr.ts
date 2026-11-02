@@ -84,6 +84,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.diff': 'u(t) deki küçük farklar sayısal integrasyonun zaman adımından gelir.',
   'course.dynamics.sdof.err.mk': 'm ve k sıfırdan büyük sonlu sayılar olmalıdır.',
   'course.dynamics.sdof.err.noModel': 'm ve k\'nin alınacağı bir model yok: bir model yükleyin ya da elle girmeyi seçin.',
+  'course.dynamics.sdof.err.tooBig': 'Modelin serbestlik derecesi bu dersin adım adım çözebileceğinden fazla. Daha küçük bir model deneyin ya da m ve k\'yi elle girin.',
   'course.dynamics.sdof.err.inputs': 'ξ, u₀, v₀, F₀ ve Ω sonlu sayılar olmalı; ξ ve Ω negatif olamaz.',
   'course.dynamics.sdof.err.noNode': 'Dinamik panelinde tekil kütlesi olan bir düğüm seçin ya da m ve k yi elle girin.',
   'course.dynamics.sdof.err.restrained': 'Bu düğümde seçilen doğrultudaki hareketi engelleyen bir mesnet var.',

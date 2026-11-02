@@ -53,17 +53,24 @@ export interface TeachingPDelta {
 export const PDELTA_MAX_ITER = 100;
 export const PDELTA_TOL = 1e-4;
 
-/** One solve of K(N)·D = F over the unknowns, and the axial forces the result implies. */
-export function solveState(sys: SoSystem, N: Map<number, number>, method: GeomMethod): State | null {
+function freeSystem(sys: SoSystem, N: Map<number, number>, method: GeomMethod): { Kff: Mat; rhs: number[] } | null {
   const f = sys.free;
   const settled = [...sys.prescribed].filter(([, v]) => v !== 0);
   const { K } = assemble(sys, N, method, f, [...f, ...settled.map(([d]) => d)]);
-  const D = new Array(sys.nTotal).fill(0);
-  for (const [d, v] of sys.prescribed) D[d] = v;
   const F = loadVector(sys, N, method);
   if (f.some((i) => !Number.isFinite(F[i]))) return null;
   const rhs = f.map((i, r) => F[i] - settled.reduce((s, [, v], k) => s + K[r][f.length + k] * v, 0));
-  const Kff = K.map((row) => row.slice(0, f.length));
+  return { Kff: K.map((row) => row.slice(0, f.length)), rhs };
+}
+
+/** One solve of K(N)·D = F over the unknowns, and the axial forces the result implies. */
+export function solveState(sys: SoSystem, N: Map<number, number>, method: GeomMethod): State | null {
+  const f = sys.free;
+  const D = new Array(sys.nTotal).fill(0);
+  for (const [d, v] of sys.prescribed) D[d] = v;
+  const lin = freeSystem(sys, N, method);
+  if (!lin) return null;
+  const { Kff, rhs } = lin;
   if (!sys.rigid) {
     const x = solveDense(Kff, rhs);
     if (!x || x.some((v) => !Number.isFinite(v))) return null;
@@ -79,6 +86,27 @@ export function solveState(sys: SoSystem, N: Map<number, number>, method: GeomMe
   const n = solveDense(matMul(C, transpose(C)), matVec(C, r));
   if (!n) return null;
   return { D, N: new Map(sys.members.map((m, k) => [m.id, n[k]])) };
+}
+
+/**
+ * With rigid members, for each one the size of the terms its N is recovered from,
+ * Σᵢ |Gₖᵢ|·(|Fᵢ| + Σⱼ |Kᵢⱼ·xⱼ|) with G = (CCᵀ)⁻¹C: the scale of that N's round-off.
+ */
+export function rigidAxialScale(sys: SoSystem, state: State, method: GeomMethod, N: Map<number, number> = new Map()): Map<number, number> | null {
+  if (!sys.rigid) return null;
+  const lin = freeSystem(sys, N, method);
+  if (!lin) return null;
+  const { C } = sys.rigid;
+  const x = sys.free.map((d) => state.D[d]);
+  const size = lin.rhs.map((v, i) => Math.abs(v) + lin.Kff[i].reduce((s, a, j) => s + Math.abs(a * x[j]), 0));
+  const CCt = matMul(C, transpose(C));
+  const scale = new Array(C.length).fill(0);
+  for (let i = 0; i < size.length; i++) {
+    const g = solveDense(CCt, C.map((row) => row[i]));
+    if (!g) return null;
+    g.forEach((v, k) => { scale[k] += Math.abs(v) * size[i]; });
+  }
+  return new Map(sys.members.map((m, k) => [m.id, scale[k]]));
 }
 
 /** The reduced K(N) the iteration solves with: over the free DOFs, and over Tq with rigid members. */

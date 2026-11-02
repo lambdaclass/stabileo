@@ -63,10 +63,12 @@ export function freeConstants(p: SdofProps, u0: number, v0: number): FreeConstan
     case 'undamped': B = v0 / p.omega; break;
     case 'underdamped': B = (v0 + s * u0) / p.omegaD; break;
     case 'critical': B = v0 + p.omega * u0; break;
-    case 'overdamped': B = (v0 + s * u0) / (p.omega * Math.sqrt(p.xi * p.xi - 1)); break;
+    case 'overdamped': B = (v0 + s * u0) / overdampedSpread(p); break;
   }
   return { A: u0, B, rho: Math.hypot(u0, B) };
 }
+
+const overdampedSpread = (p: SdofProps) => p.omega * Math.sqrt(p.xi - 1) * Math.sqrt(p.xi + 1);
 
 /** u(t) of the free vibration from u₀, v₀. */
 export function freeResponse(p: SdofProps, u0: number, v0: number): (t: number) => number {
@@ -77,9 +79,10 @@ export function freeResponse(p: SdofProps, u0: number, v0: number): (t: number) 
     case 'underdamped': return (t) => Math.exp(-s * t) * (A * Math.cos(p.omegaD * t) + B * Math.sin(p.omegaD * t));
     case 'critical': return (t) => Math.exp(-p.omega * t) * (A + B * t);
     case 'overdamped': {
-      const w = p.omega * Math.sqrt(p.xi * p.xi - 1);
-      const slow = (A + B) / 2, fast = (A - B) / 2;
-      return (t) => slow * Math.exp(-(s - w) * t) + fast * Math.exp(-(s + w) * t);
+      const w = overdampedSpread(p);
+      const fastRate = s + w, slowRate = (p.omega / fastRate) * p.omega;
+      const slow = (A + B) / 2, fast = -(u0 * slowRate + v0) / (2 * w);
+      return (t) => slow * Math.exp(-slowRate * t) + fast * Math.exp(-fastRate * t);
     }
   }
 }
