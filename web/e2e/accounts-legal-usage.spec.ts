@@ -167,7 +167,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(String(before.install_id)).toMatch(/^v-/);
     expect(await page.evaluate(() => localStorage.getItem('stabileo-install-id'))).toBeNull();
     const events = backend.events.flatMap((b) => b.events as { name: string; props: Record<string, unknown> }[]);
-    expect(events.map((e) => e.name)).toEqual(expect.arrayContaining(['diagram.show', 'solve']));
+    expect(events.map((e) => e.name)).toEqual(expect.arrayContaining(['mode.open', 'diagram.show', 'solve']));
     expect(events.find((e) => e.name === 'solve')!.props).toMatchObject({ outcome: 'ok', dim3: false, elements: '1-10' });
     expect(JSON.stringify(backend.events)).not.toMatch(/Portal Frame|"nodes"|"x"|coordinates/);
     expect(events.find((e) => e.name === 'example.open')?.props).toEqual({ example: 'portal-frame' });

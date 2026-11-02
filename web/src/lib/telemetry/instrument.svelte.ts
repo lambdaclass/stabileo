@@ -51,7 +51,7 @@ export function installUsageTracking(): () => void {
     });
     $effect(() => {
       const mode = appModeLabel();
-      untrack(() => trackUsage('mode.open', { mode }));
+      if (authStore.usageTelemetryEnabled) untrack(() => trackUsage('mode.open', { mode }));
     });
   });
   return () => {
