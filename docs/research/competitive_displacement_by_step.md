@@ -95,7 +95,7 @@ Sources: CSI reseller sites, Dlubal webshop, Autodesk AEC Collection pricing, Be
 
 **Savings per seat:** $0 (OpenSees) / ~$10,000-$15,000 (DIANA) / up to ~$1,500-$3,000 (CYPECAD), less design module seats
 **5-seat firm switching from DIANA:** ~$50,000-$75,000/yr
-**5-seat firm switching from CYPECAD:** ~$7,500-$15,000/yr
+**5-seat firm switching from CYPECAD:** up to ~$7,500-$15,000/yr, less design module seats
 **Value vs OpenSees:** eliminates the scripting expertise barrier that limits OpenSees adoption
 
 ---
