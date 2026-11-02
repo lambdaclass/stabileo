@@ -23,6 +23,8 @@
   import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { toneObject } from '../lib/viewport3d/category-tone';
+  import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
   import { osnapUnderlays } from '../lib/model/osnap';
@@ -971,6 +973,7 @@
 
       const _perfT0 = perfHud.on ? performance.now() : 0;
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
+      if (toneDirty) { toneDirty = false; applyCategoryTones(); }
       renderer.render(scene, camera);
       drawFreeBody3D();
       if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
@@ -1318,11 +1321,23 @@
 
   // Thin wrappers that delegate to extracted modules + keep local refs in sync.
   // Wrapped in perfTimed so the HUD can attribute per-edit CPU cost to scene sync.
-  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); }
-  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); }
-  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); }
-  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); }
-  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); }
+  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); toneDirty = true; }
+  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); toneDirty = true; }
+  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); toneDirty = true; }
+  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); toneDirty = true; }
+  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); toneDirty = true; }
+  /** Set by every rebuild of a category's objects: the next frame draws them in their state again. */
+  let toneDirty = true;
+  function applyCategoryTones() {
+    const s = (c: ViewCategory) => viewCategories.state(c);
+    toneObject(elementsParent, s('members'));
+    toneObject(nodesParent, s('nodes'));
+    toneObject(shellsParent, s('shells'));
+    toneObject(supportsParent, s('supports'));
+    toneObject(loadsParent, s('loads'));
+    for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
+    toneObject(underlaysGroup, s('underlays'));
+  }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
   // every node-drag tick. Suppress them while a node is being dragged (the cheap,
@@ -1439,6 +1454,7 @@
   }
   function syncLabels3D() {
     _syncLabels3D(resultsCtx);
+    toneDirty = true;
   }
 
   // ─── Clear stress query when leaving stress mode ────────────
@@ -1458,10 +1474,17 @@
   // are rebuilt from the visible part of the model. Nothing in the model changes.
   $effect(() => {
     viewVisibility.version;
+    void viewCategories.hiddenKey;
     untrack(() => {
       syncNodes(); syncElements(); syncSupports(); syncLoads(); syncShells();
       syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions();
     });
+    invalidate();
+  });
+
+  $effect(() => {
+    void viewCategories.version;
+    toneDirty = true;
     invalidate();
   });
 
@@ -1922,6 +1945,7 @@
     const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
     if (!scene) return;
     underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
+    toneDirty = true;
     invalidate();
   });
 
@@ -3135,7 +3159,7 @@
   /** Every load whose drawing is within a few pixels of the pointer, with its distance, nearest first. */
   function loadsNearPointer(e: MouseEvent): { id: number; d: number }[] {
     const fp = sceneCtx?.loadFootprints;
-    if (!fp || fp.size === 0) return [];
+    if (!fp || fp.size === 0 || viewCategories.isHidden('loads')) return [];
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
@@ -3437,7 +3461,7 @@
         if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
         hit = true;
       } else if (pick?.kind === 'load') { uiStore.selectLoad(pick.id, addToSel); hit = true; }
-      if (!hit && uiStore.selectsKind('supports')) {
+      if (!hit && uiStore.selectsKind('supports') && !viewCategories.isHidden('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
           const ud = findUserData(h.object);
           if (ud?.type === 'support') {
@@ -3460,7 +3484,7 @@
     }
 
     if (sm === 'supports') {
-      const supHits = raycaster.intersectObjects(supportsParent.children, true);
+      const supHits = !viewCategories.isHidden('supports') ? raycaster.intersectObjects(supportsParent.children, true) : [];
       for (const hit of supHits) {
         const ud = findUserData(hit.object);
         if (ud?.type === 'support') {
