@@ -45,7 +45,7 @@ import /etc/caddy/sites.d/*.caddy
 		not file {path}/index.html
 		file {english_twin}/index.html
 	}
-	redir @notInThisLanguage {english_twin}/ 301
+	redir @notInThisLanguage {english_twin}/{?query} 301
 
 	map {path} {unprefixed} {
 		~^/(?:en|es|pt|de|fr|tr)(?:/|$) ""

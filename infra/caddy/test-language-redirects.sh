@@ -60,7 +60,13 @@ expect() {
 	if [ "$got" != "$status" ]; then
 		echo "FAIL $path: status $got, expected $status"; failures=$((failures + 1)); return
 	fi
-	if [ -n "$needle" ] && ! grep -qiF -- "$needle" "$work/headers" "$work/body"; then
+	if [ "${needle#Location: }" != "$needle" ]; then
+		local location
+		location=$(grep -i '^location:' "$work/headers" | tr -d '\r' | cut -d' ' -f2-)
+		if [ "$location" != "${needle#Location: }" ]; then
+			echo "FAIL $path: Location '$location', expected '${needle#Location: }'"; failures=$((failures + 1)); return
+		fi
+	elif [ -n "$needle" ] && ! grep -qiF -- "$needle" "$work/headers" "$work/body"; then
 		echo "FAIL $path: response lacks '$needle'"; failures=$((failures + 1)); return
 	fi
 	echo "ok   $path${lang:+ [$lang]} -> $status${needle:+ ($needle)}"
@@ -74,6 +80,7 @@ expect /fr/research 301 'Location: /en/research/'
 expect /es/research/benchmarks/riks-crisfield/ 301 'Location: /en/research/benchmarks/riks-crisfield/'
 expect /pt/research/benchmarks/navier-plate/ 301 'Location: /en/research/benchmarks/navier-plate/'
 expect /de/blog/a-post/ 301 'Location: /en/blog/a-post/'
+expect '/de/paper/?utm_source=x' 301 'Location: /en/paper/?utm_source=x'
 expect /es/research/ 200 'ES-GALLERY'
 expect /es/research/benchmarks/navier-plate/ 200 'ES-NAVIER'
 expect /de/blog/translated/ 200 'DE-TRANSLATED'
