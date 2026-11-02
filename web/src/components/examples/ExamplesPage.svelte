@@ -227,6 +227,8 @@
   output { font: .875rem var(--lp-mono); text-align: right; color: var(--fg); }
   .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }
   .share { font: .75rem var(--lp-mono); color: var(--fg-2); overflow-wrap: anywhere; }
+  .share a { display: block; min-height: 44px; padding: .75rem 0; }
+  .ex-results :global(a) { display: inline-flex; align-items: center; min-height: 44px; }
   .ex-viewer { border: 1px solid var(--card-hair); border-radius: 6px; background: var(--card); overflow: hidden; }
   .viewer-heading { padding: .75rem 1rem; font: .875rem var(--lp-mono); color: var(--fg); border-bottom: 1px solid var(--hair); margin: 0; }
   .placeholder { display: grid; place-items: center; min-height: clamp(15rem, 34vh, 26rem); background: var(--lp-ink-2); }
