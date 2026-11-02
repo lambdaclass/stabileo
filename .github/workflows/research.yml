@@ -119,16 +119,22 @@ jobs:
           persist-credentials: false
       - name: Install the pinned checker dependencies
         run: |
-          python3 -m venv /tmp/catalog-venv
-          /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
-      - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
-      - run: /tmp/catalog-venv/bin/python -I research/tools/test_grossman_catalog.py
-      - run: /tmp/catalog-venv/bin/python -I research/tools/test_pastrana_catalog.py
-      - run: /tmp/catalog-venv/bin/python -I research/tools/test_fairclough_catalog.py
+          python3 -m venv "$RUNNER_TEMP/catalog-venv"
+          "$RUNNER_TEMP/catalog-venv/bin/pip" install --require-hashes -r research/tools/requirements.txt
+      - run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_required_ci.py
+      - run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_grossman_catalog.py
+      - run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_pastrana_catalog.py
+      - run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_fairclough_catalog.py
       - name: Checker rejects bad entries
-        run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py
+        run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_catalog.py
       - name: Every entry, evidence file and summary source is well formed
-        run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --offline
+        run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/catalog.py check --offline
 
   # External service outages must not block the required CI OK aggregate.
   catalog-online:
@@ -142,14 +148,16 @@ jobs:
           persist-credentials: false
       - name: Install the pinned checker dependencies
         run: |
-          python3 -m venv /tmp/catalog-venv
-          /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
+          python3 -m venv "$RUNNER_TEMP/catalog-venv"
+          "$RUNNER_TEMP/catalog-venv/bin/pip" install --require-hashes -r research/tools/requirements.txt
       - name: Checker rejects bad entries
-        run: /tmp/catalog-venv/bin/python -I research/tools/test_catalog.py --online
+        run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_catalog.py --online
       - name: Every DOI, title, author list, year, venue and code license matches its source
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --links
+        run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/catalog.py check --links
 
   phasefield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
@@ -225,27 +233,31 @@ jobs:
       - run: .github/scripts/retry-infra.sh nix develop -c sh -c 'cd web && npm ci'
       - run: make wasm
       - name: Compute native results from the engine-owned cases
-        run: MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
+        run: |
+          MACNEAL_HARDER_RESULTS="$RUNNER_TEMP/macneal-native.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
       - name: Compare the page runner through the production WASM wrapper
-        run: nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
+        run: |
+          nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs "$RUNNER_TEMP/macneal-native.json"
       - name: Test measurement and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'
       - name: Mattiasson native regression assertions
         run: nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation corotational_benchmarks
       - name: Mattiasson fresh production native results
-        run: nix develop -c cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- /tmp/mattiasson-native.json
+        run: |
+          nix develop -c cargo run --locked --release --manifest-path research/benchmarks/mattiasson-elastica/Cargo.toml -- "$RUNNER_TEMP/mattiasson-native.json"
       - name: Mattiasson production WASM parity and measurements
         run: |
-          nix develop -c node research/benchmarks/mattiasson-elastica/wasm/check.mjs /tmp/mattiasson-native.json
+          nix develop -c node research/benchmarks/mattiasson-elastica/wasm/check.mjs "$RUNNER_TEMP/mattiasson-native.json"
           nix develop -c sh -c 'cd web && npx vitest run src/components/research/mattiasson1981/__tests__/cases.test.ts'
 
       - name: Compute shell obstacle course native results without changing regression bounds
         run: |
-          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_scordelis_lo
-          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_pinched_cylinder
-          SHELL_OBSTACLE_RESULTS=/tmp/shell-native nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_hemisphere_hole_convergence
+          SHELL_OBSTACLE_RESULTS="$RUNNER_TEMP/shell-native" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_scordelis_lo
+          SHELL_OBSTACLE_RESULTS="$RUNNER_TEMP/shell-native" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_pinched_cylinder
+          SHELL_OBSTACLE_RESULTS="$RUNNER_TEMP/shell-native" nix develop -c cargo test --locked --release --manifest-path engine/Cargo.toml --test validation benchmark_hemisphere_hole_convergence
       - name: Compare shell obstacle course native and production WASM results
-        run: nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs /tmp/shell-native
+        run: |
+          nix develop -c node research/benchmarks/shell-obstacle-course/wasm/check.mjs "$RUNNER_TEMP/shell-native"
       - name: Test shell measurement, projection and editor handoff
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985/__tests__/cases.test.ts'
 
@@ -269,10 +281,10 @@ jobs:
         run: cargo test --release --locked -- --nocapture
       - name: The committed comparison series are what the code computes
         run: |
-          cargo run --release --locked --bin reproduce -- /tmp/stabileo_results.json
+          cargo run --release --locked --bin reproduce -- "$RUNNER_TEMP/stabileo_results.json"
           # Same numbers up to the last bits that the platform's libm (sin, cos, hypot) may change.
           python3 - <<'PY'
-          import json
+          import json, os
           def walk(a, b, path="$"):
               if isinstance(a, dict):
                   assert a.keys() == b.keys(), path
@@ -284,7 +296,7 @@ jobs:
                   assert abs(a - b) <= 1e-8 * max(1.0, abs(a), abs(b)), (path, a, b)
               else:
                   assert a == b, (path, a, b)
-          walk(json.load(open("/tmp/stabileo_results.json")), json.load(open("results/stabileo_results.json")))
+          walk(json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "stabileo_results.json"))), json.load(open("results/stabileo_results.json")))
           print("results/stabileo_results.json is current")
           PY
       - name: Reference values match their manifest
