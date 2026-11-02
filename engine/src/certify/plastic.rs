@@ -25,7 +25,7 @@
 
 use super::exact::*;
 use super::plastic_bundle::{sparse_rows, CubicF, LimitProblem, LinF, YieldComp, YieldMember, YieldPiece};
-use crate::solver::plastic::{solve_plastic_2d_unrefused, PlasticResult};
+use crate::solver::plastic::{solve_plastic_2d_body, PlasticResult};
 use crate::types::*;
 use num_traits::{One, Signed, Zero};
 use serde::{Deserialize, Serialize};
@@ -1721,14 +1721,18 @@ fn collapse_2d(input: &PlasticInput, solver: Option<&PlasticResult>) -> PlasticC
 pub fn certify_plastic_2d(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
     super::finite::check_input(input)?;
     crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
-    certify_plastic_2d_unrefused(input)
+    certify_plastic_2d_body(input)
 }
 
-/// `certify_plastic_2d` without the known-issue refusal, for tests only.
-#[doc(hidden)]
+/// `certify_plastic_2d` without the #758 refusal; compiled only for the engine's own tests.
+#[cfg(feature = "unrefused-for-tests")]
 pub fn certify_plastic_2d_unrefused(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
+    certify_plastic_2d_body(input)
+}
+
+fn certify_plastic_2d_body(input: &PlasticInput) -> Result<CertifiedPlastic2D, String> {
     super::finite::check_input(input)?;
-    let results = solve_plastic_2d_unrefused(input)?;
+    let results = solve_plastic_2d_body(input)?;
     super::finite::check_results(&results)?;
     let certificate = certify_collapse_2d(input, Some(&results));
     Ok(CertifiedPlastic2D { results, certificate })

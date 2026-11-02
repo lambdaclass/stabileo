@@ -286,7 +286,7 @@ def finish(r, tol, dump_dir, model):
     if r.pop("near_singular", False):
         st = "silent_singular" if bad else "near_singular"
         warned = sorted(set(sres["diags"]) & WARNED_CONDITIONING)
-        if bad and warned:
+        if bad and warned and "NUM-INVARIANCE" in sres.get("issues", []):
             st = "warned_singular"
         if bad:
             why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [

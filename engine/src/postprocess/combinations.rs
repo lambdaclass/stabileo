@@ -116,7 +116,11 @@ pub fn combine_results(input: &CombinationInput) -> Option<AnalysisResults> {
 
 /// `combine_results` over borrowed case results: `(case_id, &results)` pairs,
 /// avoiding per-combination clones of every case.
+/// `None` when a contributing case carries a refusal; `combine_results_checked` says which.
 pub fn combine_results_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults)]) -> Option<AnalysisResults> {
+    if cases.iter().any(|(id, r)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0) && crate::known_issues::refuse(&r.structured_diagnostics).is_err()) {
+        return None;
+    }
     let template = cases.first()?;
     let tr = template.1;
 
@@ -226,7 +230,11 @@ pub fn compute_envelope_checked(results: &[AnalysisResults]) -> Result<Option<Fu
 }
 
 /// Compute pointwise envelope from multiple results.
+/// `None` when any result carries a refusal; `compute_envelope_checked` says which.
 pub fn compute_envelope(results: &[AnalysisResults]) -> Option<FullEnvelope> {
+    if results.iter().any(|r| crate::known_issues::refuse(&r.structured_diagnostics).is_err()) {
+        return None;
+    }
     let first = results.first()?;
 
     // maxAbsResults

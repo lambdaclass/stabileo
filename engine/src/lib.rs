@@ -19,6 +19,12 @@ pub mod ordered;
 #[cfg(kani)]
 mod kani_proofs;
 
+#[cfg(feature = "unrefused-for-tests")]
+const _: () = assert!(
+    option_env!("CARGO_PRIMARY_PACKAGE").is_some(),
+    "unrefused-for-tests bypasses known-issue refusals and is for the engine's own tests only"
+);
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(start)]

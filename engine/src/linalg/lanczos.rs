@@ -1528,7 +1528,12 @@ mod factor_observation_tests {
                 (lanczos_generalized_eigen_sparse(&k, &m, 3, 0.0), lanczos_generalized_eigen_sparse_observed(&k, &m, 3, 0.0, &mut observe))
             };
             assert_eq!(count, 1);
-            assert_eq!(bits(plain.unwrap()), bits(observed.unwrap()));
+            let observed = observed.unwrap();
+            let mut values = observed.values.clone();
+            values.sort_by(|a, b| a.total_cmp(b));
+            let exact: Vec<f64> = if buckling { vec![1.0 / 3.0, 0.5, 1.0] } else { vec![1.0, 2.0, 3.0] };
+            for (v, e) in values.iter().zip(&exact) { assert!((v - e).abs() < 1e-9 * e, "buckling={buckling}: {values:?}"); }
+            assert_eq!(bits(plain.unwrap()), bits(observed));
         }
         let kd = k.to_dense_symmetric();
         let md = m.to_dense_symmetric();
@@ -1538,6 +1543,10 @@ mod factor_observation_tests {
             count += 1;
         });
         assert_eq!(count, 1);
-        assert_eq!(bits(lanczos_generalized_eigen(&kd, &md, n, 3, 0.0).unwrap()), bits(observed.unwrap()));
+        let observed = observed.unwrap();
+        let mut values = observed.values.clone();
+        values.sort_by(|a, b| a.total_cmp(b));
+        for (v, e) in values.iter().zip([1.0, 2.0, 3.0]) { assert!((v - e).abs() < 1e-9 * e, "{values:?}"); }
+        assert_eq!(bits(lanczos_generalized_eigen(&kd, &md, n, 3, 0.0).unwrap()), bits(observed));
     }
 }

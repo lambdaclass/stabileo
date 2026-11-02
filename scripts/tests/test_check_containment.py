@@ -35,3 +35,24 @@ class ContainmentTests(unittest.TestCase):
 
     def test_repository_ledger(self):
         self.assertTrue(m.decisions((Path(__file__).parents[2] / 'docs/verification/CONTAINMENT.md').read_text()))
+
+    def test_the_refusal_bypass_is_enabled_only_by_the_engines_own_tests(self):
+        root = Path(__file__).parents[2]
+        skip = ('target', 'node_modules', '.git')
+        uses = []
+        for path in root.rglob('*'):
+            if any(part in skip for part in path.relative_to(root).parts) or not path.is_file():
+                continue
+            if path.name != 'Cargo.toml' and path.suffix not in ('.yml', '.yaml', '.sh', '.mjs', '.js', '.ts') and path.name != 'Makefile':
+                continue
+            try:
+                text = path.read_text()
+            except (UnicodeDecodeError, OSError):
+                continue
+            uses += [(str(path.relative_to(root)), line.strip()) for line in text.splitlines() if 'unrefused-for-tests' in line]
+        self.assertEqual(sorted(uses), [
+            ('engine/Cargo.toml', 'dedaliano-engine = { path = ".", features = ["unrefused-for-tests"] }'),
+            ('engine/Cargo.toml', 'unrefused-for-tests = []'),
+        ])
+        manifest = (root / 'engine/Cargo.toml').read_text()
+        self.assertLess(manifest.index('[dev-dependencies]'), manifest.index('features = ["unrefused-for-tests"]'))

@@ -70,6 +70,8 @@ describe('known-issue warnings in the reader’s language', () => {
       'CERT-MECHANISM': { es: [/mecanismos/, /cota de error algebraico pequeña no demuestra la estabilidad/], pt: [/mecanismos/, /limite de erro algébrico pequeno não demonstra a estabilidade/] },
       'BU-BOUND': { es: [/Ni el factor mostrado ni el certificado/], pt: [/Nem o fator exibido nem o certificado/] },
       'FR-5': { es: [/restringir en exceso/, /de forma independiente/], pt: [/restringir em excesso/, /de forma independente/] },
+      'SP-17': { es: [/no puede orientar/, /de forma independiente/], pt: [/não pode orientar/, /de forma independente/] },
+      'TH-RECIPROCITY': { es: [/Todavía no se aisló/], pt: [/Ainda não se isolou/] },
     };
     for (const [id, byLocale] of Object.entries(clauses)) {
       for (const loc of ['es', 'pt'] as const) {

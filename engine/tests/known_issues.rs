@@ -367,6 +367,10 @@ fn combinations_and_envelopes_2d_refuse_withheld_cases() {
     let reference = clean.displacements.iter().map(|d| 1.5 * d.uz);
     for (d, expected) in combined.displacements.iter().zip(reference) { assert_eq!(d.uz, expected); }
     common::assert_containment(compute_envelope_checked(&[clean.clone(), withheld.clone()]), "PL-2D-INVARIANCE");
+    assert!(combine_results(&input(1.0)).is_none());
+    assert!(combine_results_refs(&input(1.0).factors, &[(1, &clean), (2, &withheld)]).is_none());
+    assert!(combine_results(&input(0.0)).is_some());
+    assert!(compute_envelope(&[clean.clone(), withheld.clone()]).is_none());
     let mut warned = clean.clone();
     warned.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("NL-DYNAMIC-GAPS"));
     let envelope = compute_envelope_checked(&[clean.clone(), warned]).unwrap().unwrap();
@@ -1318,5 +1322,22 @@ fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
         let (below_refuse, ds) = excess(0.95 * refuse);
         assert_eq!(warped_findings(&ds).iter().map(|d| d.severity).collect::<Vec<_>>(), vec![Severity::Warning], "{quad9}");
         assert!(below_refuse > below_warn && below_refuse < 0.05, "{quad9}: {below_refuse} only warned, over the 5 % refusal band");
+    }
+}
+
+#[test]
+fn a_direct_constrained_3d_solve_checks_the_constraints_it_solves_with() {
+    let mut solver = beam3d();
+    solver.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    let tie = Constraint::EqualDOF(EqualDOFConstraint { master_node: 3, slave_node: 4, dofs: vec![2] });
+    solver.constraints = vec![Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 999, dofs: vec![0] })];
+    let ci = dedaliano_engine::solver::constraints::ConstrainedInput3D { solver: solver.clone(), constraints: vec![tie.clone()] };
+    let direct = dedaliano_engine::solver::constraints::solve_constrained_3d(&ci).unwrap();
+    solver.constraints = vec![tie];
+    let through = dedaliano_engine::solver::linear::solve_3d(&solver).unwrap();
+    assert_eq!(ids(&direct.structured_diagnostics), ids(&through.structured_diagnostics));
+    assert_eq!(direct.displacements.len(), through.displacements.len());
+    for (a, b) in direct.displacements.iter().zip(&through.displacements) {
+        assert!((a.uz - b.uz).abs() <= 1e-12 * (1.0 + b.uz.abs()), "{} vs {}", a.uz, b.uz);
     }
 }

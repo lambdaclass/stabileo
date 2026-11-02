@@ -2100,13 +2100,14 @@ fn solve_constrained_2d_sparse(
     }))
 }
 
-/// Solve a 3D constrained analysis.
 /// Constrained 3D solve, with the known-issue warnings that apply attached (once).
 pub fn solve_constrained_3d(input: &ConstrainedInput3D) -> Result<AnalysisResults3D, String> {
-    crate::known_issues::refuse(&crate::known_issues::model_3d(&input.solver))?;
+    let mut solver = input.solver.clone();
+    solver.constraints = input.constraints.clone();
+    crate::known_issues::refuse(&crate::known_issues::model_3d(&solver))?;
     let mut r = solve_constrained_3d_inner(input, crate::known_issues::Analysis::Linear)?;
-    crate::known_issues::membrane_bending_3d(&input.solver, &input.solver.loads, &r)?;
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Linear));
+    crate::known_issues::membrane_bending_3d(&solver, &solver.loads, &r)?;
+    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_3d(&solver, crate::known_issues::Analysis::Linear));
     Ok(r)
 }
 

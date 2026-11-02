@@ -7235,8 +7235,6 @@ fn research_cylinder_12() { research_shell_accuracy(pinched_cylinder_solve(12, 1
 #[ignore = "#810: corrected model; MITC4 mesh still exceeds the unchanged 2% accuracy gate"]
 fn research_cylinder_16() { research_shell_accuracy(pinched_cylinder_solve(16, 16), -1.8248e-05); }
 
-// Shared research fixtures must retain their strict signed accuracy check if a
-// numerical result is available, and validate the registered refusal otherwise.
 fn research_hemisphere_accuracy_or_containment(n: usize) {
     crate::common::assert_containment(obstacle::try_solve("hemisphere", n, n), "SH-MITC4-DISTORTION");
 }

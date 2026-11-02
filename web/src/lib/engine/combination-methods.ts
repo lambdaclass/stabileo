@@ -268,6 +268,9 @@ export function superposed(parts: ReadonlyArray<{ r: AnalysisResults3D; f: numbe
   // The rest's own fields kept (`secondOrder`), never a magnitude's mark: the sum has a sign.
   const first: AnalysisResults3D = { ...parts[0]!.r };
   delete first.magnitude;
+  delete first.diagnostics;
+  delete first.solverDiagnostics;
+  delete first.structuredDiagnostics;
   return {
     ...first,
     ...mergeResultDiagnostics(parts.filter(({ f }) => f !== 0).map(({ r }) => r)),
