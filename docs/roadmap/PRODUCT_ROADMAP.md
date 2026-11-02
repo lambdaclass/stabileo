@@ -97,7 +97,7 @@ question. Safety, engine and app changes need two reviews before main (Codex alo
 | Desktop app, phases 1–3 | [#785](https://github.com/lambdaclass/stabileo/pull/785) | **Decision:** close or keep as tracking (its branch has no phase 1–3 work) |
 | PRO analysis polish, three parts | [#1076](https://github.com/lambdaclass/stabileo/pull/1076), [#1077](https://github.com/lambdaclass/stabileo/pull/1077), [#1078](https://github.com/lambdaclass/stabileo/pull/1078) | draft |
 | Roadmap and changelog | [#1228](https://github.com/lambdaclass/stabileo/pull/1228) | this update; follow-ups as small PRs off main |
-| **Agy review list** (checked on another server) | its own roadmap PR | will file issues and add P0/P1/P2 items; rebases on this one |
+| **Verified outside review** (40 claims checked against the code on another server) | this roadmap | P0 items in "Priority now", P1 in the backlog sections, P2 and housekeeping in "Verified review: later and housekeeping"; issue drafts still to be filed |
 
 ## Purpose
 
@@ -246,7 +246,7 @@ them.
 | 13 | **Safety advisories emailed** to affected users once accounts exist | [#727](https://github.com/lambdaclass/stabileo/issues/727) | Release safety |
 | 14 | **MITC4 shells under in-plane bending on distorted meshes** are about 10× too stiff (MacNeal–Harder: −92% trapezoidal, −90% parallelogram; regular meshes within 2%). First register it and warn users when such elements are distorted, then fix the membrane (enhanced/incompatible modes or a drilling membrane) with result-change registration. Found by the research benchmark page (#797) | [#798](https://github.com/lambdaclass/stabileo/issues/798) | Trust and verification |
 | 15 | **MITC4 and MITC9 shells too flexible on warped (twisted) geometry,** silently (MITC4 1.32×, MITC9 up to 2.4× on the 90° twisted beam). First contain it (a known-issue warning or refusal for warped elements beyond a measured threshold, with tests), then fix the warped-element formulation with result-change registration. Found by the benchmark test fixes (PR #1056) | [#1057](https://github.com/lambdaclass/stabileo/issues/1057) | Trust and verification |
-| 16 | **P0 candidate, unresolved: 3D design-demand axis mapping.** The report says certified design checks and 3D demand extraction (`certify/design.rs`, `postprocess/design_demands.rs`) read the lateral `shearY`/`momentZ` instead of strong-axis `shearZ`/`momentY`, which would pass gravity web shear and RC flexure unconservatively. Verify the axis convention against the 3D coordinate convention and a hand-checked beam; if confirmed, contain, then fix in our own PR with result-change registration. PR #533 is from an outside contributor whose code we don't merge: a lead only | [#532](https://github.com/lambdaclass/stabileo/issues/532) | Trust and verification |
+| 16 | **P0, confirmed by the verified review of 2026-11-02: 3D design-demand axis mapping.** The report says certified design checks and 3D demand extraction (`certify/design.rs`, `postprocess/design_demands.rs`) read the lateral `shearY`/`momentZ` instead of strong-axis `shearZ`/`momentY`, which would pass gravity web shear and RC flexure unconservatively. Verify the axis convention against the 3D coordinate convention and a hand-checked beam; if confirmed, contain, then fix in our own PR with result-change registration. PR #533 is from an outside contributor whose code we don't merge: a lead only | [#532](https://github.com/lambdaclass/stabileo/issues/532) | Trust and verification |
 
 **Status of the safety work (2026-11-01):**
 
