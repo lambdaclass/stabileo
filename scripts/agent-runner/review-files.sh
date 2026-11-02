@@ -6,6 +6,7 @@ set -uo pipefail
 . "$(dirname "$0")/common.sh"
 AUTHOR=${AUTHOR_ENGINE:-claude}
 first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_engine review "$AUTHOR" "$first")
+[ "$first" != "$AUTHOR" ] || { log "$(basename "$0"): reviewer $first is the author"; exit 2; }
 [ "$first" != none ] || { log "$(basename "$0"): no review engine available"; exit 75; }
 name=$1; instr=$2; shift 2; R=$ST/reviews; mkdir -p "$R"
 cd "$WT/base" || exit 1
