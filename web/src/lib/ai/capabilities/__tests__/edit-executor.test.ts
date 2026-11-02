@@ -332,6 +332,16 @@ describe('edit executor', () => {
     expect(arr(again, 'sections')).toHaveLength(arr(r, 'sections').length);
   });
 
+  it('NEGATIVE: a same-named section half a percent off the catalog is not reused', () => {
+    const snap = makeFrame();
+    const sid = arr(snap, 'sections').length + 1;
+    arr(snap, 'sections').push([sid, { id: sid, name: 'HEB 400', a: 198e-4 * 1.005, iz: 57680e-8 }]);
+    const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, snap);
+    const used = [...new Set(arr(r, 'elements').map(([, e]) => e.sectionId))];
+    expect(used).not.toContain(sid);
+    expect(arr(r, 'sections').find(([id]) => id === used[0])![1]).toMatchObject({ name: 'HEB 400', a: 198e-4, iz: 57680e-8 });
+  });
+
   it('a new 2D bay repeats the bracing of the bay beside it', () => {
     const snap = makeMultiStory();
     const xy = (r: Snap, id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number };

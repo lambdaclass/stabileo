@@ -140,7 +140,7 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
     }
     for (const key of ['a', 'iz', 'iy', 'j'] as const) {
       const v = asF64(data[key]);
-      if (listed && v !== undefined && Math.abs(v - listed[key]) > 0.01 * listed[key]) {
+      if (listed && v !== undefined && Math.abs(v - listed[key]) > 1e-3 * listed[key]) {
         throw new AiActionError(`section ${id}: ${key} is not that of ${listed.name}; use the listed values or name the section "${CUSTOM_SECTION}"`);
       }
     }

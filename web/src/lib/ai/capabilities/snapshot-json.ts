@@ -200,7 +200,7 @@ export function addSupportToSnap(snap: Json, nodeId: number, type: string): numb
 
 const close = (v: unknown, want: number): boolean => {
   const x = asF64(v);
-  return x !== undefined && Math.abs(x - want) <= 0.01 * want;
+  return x !== undefined && Math.abs(x - want) <= 1e-9 * want;
 };
 
 export function ensureSection(snap: Json, name: string): number {
