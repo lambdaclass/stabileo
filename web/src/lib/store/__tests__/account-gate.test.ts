@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const auth = { saveRequiresAccount: false, userLoginEnabled: false, isAuthenticated: false };
+const auth = { saveRequiresAccount: false, userLoginEnabled: false, isAuthenticated: false, needsTerms: false, account: null as { id: string } | null };
 const tracked: { name: string; props: Record<string, unknown> }[] = [];
 let accountsOn = true;
 
@@ -16,12 +16,42 @@ beforeEach(() => {
   auth.saveRequiresAccount = false;
   auth.userLoginEnabled = false;
   auth.isAuthenticated = false;
+  auth.needsTerms = false;
+  auth.account = null;
+  accountGate.dropPending();
   accountsOn = true;
   tracked.length = 0;
   accountGate.open = false;
 });
 
 describe('account gate', () => {
+  it('holds the action of an account under older terms until they are accepted, and drops it for another account', () => {
+    auth.saveRequiresAccount = true;
+    const run = vi.fn();
+    accountGate.guard('export', run);
+    auth.isAuthenticated = true;
+    auth.needsTerms = true;
+    auth.account = { id: 'a1' };
+    accountGate.open = false;
+    expect(run).not.toHaveBeenCalled();
+    accountGate.termsAccepted();
+    expect(run).not.toHaveBeenCalled();
+    auth.needsTerms = false;
+    accountGate.termsAccepted();
+    expect(run).toHaveBeenCalledOnce();
+
+    const other = vi.fn();
+    auth.isAuthenticated = false;
+    accountGate.guard('save', other);
+    auth.isAuthenticated = true;
+    auth.needsTerms = true;
+    accountGate.open = false;
+    auth.account = { id: 'b2' };
+    auth.needsTerms = false;
+    accountGate.termsAccepted();
+    expect(other).not.toHaveBeenCalled();
+  });
+
   it('runs at once while no account is required', () => {
     const run = vi.fn();
     accountGate.guard('save', run);

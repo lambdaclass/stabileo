@@ -50,12 +50,11 @@ function mode(): 'basic' | 'pro' {
   return uiStore.appMode === 'pro' ? 'pro' : 'basic';
 }
 
-function snapshot(linkedTab?: string) {
-  const own = modelStore.model.name.trim() || 'Stabileo';
+function snapshot() {
   return {
     text: serializeProject(),
     meta: {
-      name: linkedTab ? cloudLinks.name(linkedTab, own) : own,
+      name: modelStore.model.name.trim() || 'Stabileo',
       app_mode: mode(),
       node_count: modelStore.nodes.size,
       element_count: modelStore.elements.size,
@@ -73,22 +72,32 @@ function queued<T>(run: () => Promise<T>): Promise<T> {
   return next;
 }
 
-async function saveNow(opts: { asNew?: boolean }): Promise<CloudProject> {
+/** What a save was asked for: this tab's document as it was at the click, under the account signed in then. */
+function request() {
+  sameOwner();
+  const tab = tabKey();
+  return { who: owner, tab, generation: cloudLinks.generation(tab), edit: modelStore.modelVersion, ...snapshot() };
+}
+
+type SaveRequest = ReturnType<typeof request>;
+
+function stillValid(r: SaveRequest): void {
+  guard(r.who);
+  if (cloudLinks.generation(r.tab) !== r.generation) throw new Error('the document changed before it could be saved');
+}
+
+async function saveNow(r: SaveRequest, asNew: boolean): Promise<CloudProject> {
   saving = true;
   try {
-    sameOwner();
-    const who = owner;
-    const tab = tabKey();
-    const generation = cloudLinks.generation(tab);
-    const edit = modelStore.modelVersion;
-    const id = opts.asNew ? null : cloudLinks.get(tab);
-    const revision = cloudLinks.revision(tab);
-    const { text, meta } = snapshot(id ? tab : undefined);
-    const body = { ...meta, content: await gzipBase64(text) };
-    guard(who);
+    stillValid(r);
+    const id = asNew ? null : cloudLinks.get(r.tab);
+    const revision = cloudLinks.revision(r.tab);
+    const name = id ? cloudLinks.name(r.tab, r.meta.name) : r.meta.name;
+    const body = { ...r.meta, name, content: await gzipBase64(r.text) };
+    stillValid(r);
     const saved = id ? await projectsApi.update(id, { ...body, revision }) : await projectsApi.create(body);
-    if (!stillFor(who)) return saved;
-    cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
+    if (!stillFor(r.who)) return saved;
+    cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, saved.name, r.edit);
     trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
     items = [saved, ...items.filter((p) => p.id !== saved.id)];
     if (!id) {
@@ -101,21 +110,16 @@ async function saveNow(opts: { asNew?: boolean }): Promise<CloudProject> {
   }
 }
 
-async function replaceNow(id: string): Promise<CloudProject> {
+async function replaceNow(r: SaveRequest, id: string): Promise<CloudProject> {
   saving = true;
   try {
-    sameOwner();
-    const who = owner;
-    const tab = tabKey();
-    const generation = cloudLinks.generation(tab);
-    const edit = modelStore.modelVersion;
+    stillValid(r);
     const listed = items.find((p) => p.id === id)?.revision;
-    const { text, meta } = snapshot();
-    const body = { ...meta, content: await gzipBase64(text) };
-    guard(who);
+    const body = { ...r.meta, content: await gzipBase64(r.text) };
+    stillValid(r);
     const saved = await projectsApi.update(id, { ...body, revision: listed });
-    if (!stillFor(who)) return saved;
-    cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
+    if (!stillFor(r.who)) return saved;
+    cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, saved.name, r.edit);
     trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
     items = [saved, ...items.filter((p) => p.id !== saved.id)];
     return saved;
@@ -159,12 +163,14 @@ export const cloudProjects = {
 
   /** Updates the project this tab came from, or creates one; `asNew` always creates. */
   saveCurrent(opts: { asNew?: boolean } = {}): Promise<CloudProject> {
-    return queued(() => saveNow(opts));
+    const r = request();
+    return queued(() => saveNow(r, opts.asNew === true));
   },
 
   /** Overwrites a saved project with the open model, name included, and links this tab to it. */
   replace(id: string): Promise<CloudProject> {
-    return queued(() => replaceNow(id));
+    const r = request();
+    return queued(() => replaceNow(r, id));
   },
 
   /** Loads the project into this tab's document; false when the tab, the document or an edit moved on while it downloaded. */

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t, tp, i18n } from '../../lib/i18n';
   import { authStore } from '../../lib/store/auth.svelte';
+  import { accountGate } from '../../lib/store/account-gate.svelte';
   import { errorText } from '../../lib/api/error-text';
   import { legalHref, TERMS_PATH, PRIVACY_PATH, LEGAL_VERSION } from '../../lib/legal/legal';
 
@@ -28,6 +29,7 @@
     error = null;
     try {
       await authStore.recordConsent('terms', true);
+      accountGate.termsAccepted();
     } catch (e) {
       error = errorText(e);
     } finally {
@@ -47,7 +49,7 @@
     </p>
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     <div class="actions">
-      <button class="btn" onclick={() => authStore.logout()}>{t('legal.signOut')}</button>
+      <button class="btn" onclick={() => { accountGate.dropPending(); void authStore.logout(); }}>{t('legal.signOut')}</button>
       <button class="btn primary" onclick={accept} disabled={busy} data-testid="terms-update-accept">{t('legal.accept')}</button>
     </div>
   </dialog>

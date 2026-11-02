@@ -304,6 +304,29 @@ describe('cloud projects', () => {
     expect(seen.slice(-2).map((s) => s.body!.revision)).toEqual([1, 2]);
   });
 
+  it('a queued save keeps the document it was asked for, and is refused if a new document replaced it meanwhile', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('w1', 'Frame', 1) }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    replies.set('PUT /api/v1/projects/w1', async () => {
+      await new Promise((done) => setTimeout(done, 20));
+      return json(200, { data: meta('w1', 'Frame', 2) });
+    });
+    const asked = serializeProject();
+    const first = cloudProjects.saveCurrent();
+    const second = cloudProjects.saveCurrent();
+    modelStore.addNode(20, 20);
+    await first;
+    await second;
+    const sent = seen.filter((r) => r.method === 'PUT').map((r) => String(r.body!.content));
+    expect(sent).toHaveLength(2);
+    for (const content of sent) expect(JSON.parse(await gunzipBase64(content)).snapshot).toEqual(JSON.parse(asked).snapshot);
+
+    const third = cloudProjects.saveCurrent().catch((e) => e);
+    modelStore.clear();
+    expect(await third).toBeInstanceOf(Error);
+    expect(seen.filter((r) => r.method === 'PUT')).toHaveLength(2);
+  });
+
   it('two tabs holding the same project each keep the revision they last saw', async () => {
     if (!tabManager.activeTabId) tabManager.init();
     const first = tabManager.activeTabId!;

@@ -6,6 +6,7 @@ export type GatedAction = 'save' | 'share' | 'code' | 'export' | 'exercise' | 'f
 
 let pending = $state<{ action: GatedAction; run: () => unknown } | null>(null);
 let open = $state(false);
+let afterTerms: { action: GatedAction; run: () => unknown; who: string } | null = null;
 
 function required(): boolean {
   return accounts() && authStore.saveRequiresAccount && !authStore.isAuthenticated;
@@ -26,6 +27,10 @@ function settle(): void {
   pending = null;
   if (!next) return;
   if (!authStore.isAuthenticated) return;
+  if (authStore.needsTerms) {
+    afterTerms = { ...next, who: authStore.account!.id };
+    return;
+  }
   trackUsage('gate.passed', { action: next.action });
   void next.run();
 }
@@ -46,6 +51,20 @@ export const accountGate = {
   guard(action: GatedAction, run: () => unknown): void {
     if (required()) ask(action, run);
     else void run();
+  },
+
+  /** Runs the action a sign-in was asked for once the account accepted the terms in force; another account drops it. */
+  termsAccepted(): void {
+    const next = afterTerms;
+    if (!next || authStore.needsTerms) return;
+    afterTerms = null;
+    if (authStore.account?.id !== next.who) return;
+    trackUsage('gate.passed', { action: next.action });
+    void next.run();
+  },
+
+  dropPending(): void {
+    afterTerms = null;
   },
 
   /** Like `guard`, for what always needs an account while sign-in is open, whatever the save switch says. */
