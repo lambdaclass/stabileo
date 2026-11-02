@@ -9,7 +9,7 @@
    * and figures added from the view still go at the end.
    */
   import { proNav } from '../../lib/store/pro-nav.svelte';
-  import { modelStore } from '../../lib/store';
+  import { modelStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import ExportDialog from '../export/ExportDialog.svelte';
   import ExportSection from '../export/ExportSection.svelte';
@@ -23,6 +23,7 @@
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
   import type { ReportFormat } from '../../lib/export/report-formats';
+  import { defaultReportSetKey, resultSetChoices } from '../../lib/pro/export-results';
 
   interface Props {
     open: boolean;
@@ -70,6 +71,10 @@
   });
   let modes = $state<Record<ReportResult, ResultMode>>({ reactions: 'both', displacements: 'both', forces: 'both', shells: 'both', ...(saved.modes ?? {}) });
   let figs = $state<ReportFigureChoices>({ style: 'color', values: true, view: 'screen', shellComponent: 'vonMises', ...(saved.figures ?? {}) });
+  const setChoices = $derived(open && hasResults ? resultSetChoices() : []);
+  let resultSetKey = $state('screen');
+  $effect(() => { if (open) resultSetKey = defaultReportSetKey(); });
+  const sumChosen = $derived(resultSetKey === 'screen' && resultsStore.activeView === 'single' && resultsStore.activeCaseId === null && resultsStore.perCase3D.size > 1);
   /** Which advanced analyses to print, of the ones that ran. */
   let advancedPicked = $state<Record<string, boolean>>({});
 
@@ -187,6 +192,7 @@
         storyDrift: sec.storyDrift && hasDrift,
       },
       resultModes: $state.snapshot(modes),
+      resultSetKey,
     }, $state.snapshot(figs), format);
   }
 </script>
@@ -236,6 +242,15 @@
             <input type="checkbox" bind:checked={sec.results} onchange={persist} disabled={!hasResults} />
             <span>{t('proReport.results')}</span>
           </label>
+          {#if setChoices.length > 1}
+            <label class="rpt-row rpt-row-set" class:off={!sec.results}>
+              <span>{t('proReport.resultSet')}</span>
+              <select bind:value={resultSetKey} disabled={!sec.results} data-testid="rpt-result-set">
+                {#each setChoices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
+              </select>
+            </label>
+            {#if sumChosen}<p class="xs-note rpt-sum-note" data-testid="rpt-sum-note">{t('proReport.resultSetSumNote')}</p>{/if}
+          {/if}
           {#each resultsShown as r (r.id)}
             <label class="rpt-row" class:off={!sec.results || !hasResults}>
               <span>{t(r.key)}</span>
@@ -314,6 +329,8 @@
   .rpt-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-left: 20px; color: var(--st-text-2); font-size: 0.78rem; }
   .rpt-row.off { opacity: 0.5; }
   .rpt-row-sub { padding-left: 32px; color: var(--st-text-3); }
+  .rpt-sum-note { padding-left: 20px; margin: 0; color: var(--st-warn); }
+  .rpt-row.rpt-row-set select { width: 14em; max-width: 60%; }
   .rpt-row select { flex: none; width: 9.5em; padding: 2px 4px; background: var(--st-surface-2); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); color: var(--st-text); font: inherit; }
   .xs-seg { justify-self: start; align-self: flex-start; }
   .rpt-logo-row { display: flex; align-items: center; gap: 8px; color: var(--st-text-2); }

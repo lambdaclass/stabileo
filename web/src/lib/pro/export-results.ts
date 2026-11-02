@@ -60,6 +60,13 @@ export function resultSet(key: ResultSetKey): { results: AnalysisResults3D | nul
   return { results: resultsStore.results3D, name: resultSetName() };
 }
 
+/** What a report is of unless the user picks otherwise: the envelope when there are combinations, the one case when there is one. */
+export function defaultReportSetKey(): ResultSetKey {
+  if (resultsStore.envelope3D && resultsStore.perCombo3D.size > 0) return 'envelope';
+  if (resultsStore.perCase3D.size === 1) return `case:${[...resultsStore.perCase3D.keys()][0]}`;
+  return 'screen';
+}
+
 /** Whether the model has shells: PRO's figures and files then offer theirs. */
 export function hasShells(): boolean {
   return modelStore.plates.size + modelStore.quads.size > 0;

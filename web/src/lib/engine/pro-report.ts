@@ -68,6 +68,8 @@ export interface ReportConfig {
   };
   /** Per result, whether it is printed as its table, its figures or both (`both` when absent). */
   resultModes?: Partial<Record<ReportResult, ResultMode>>;
+  /** The result set the tables and figures are of (`pro/export-results.ts`); the screen's when absent. */
+  resultSetKey?: string;
 }
 
 /** The model data's tables the report can leave out. */

@@ -36,6 +36,7 @@ import type { ReportData, ReportConfig } from './pro-report';
 import { projectQuantities } from './quantities';
 import { staticsRows } from '../store/statics-rows';
 import { resultSetName } from '../export/figure';
+import { resultSet } from '../pro/export-results';
 import { ruleLabel } from './deflection-limits';
 import { detailingStore } from '../store/detailing.svelte';
 import {
@@ -239,7 +240,8 @@ export function buildProReportData(opts: {
   t: Translate;
 }): ReportData | null {
   const { config, advancedResults, screenshot, t } = opts;
-  const results = resultsStore.results3D
+  const chosen = config.resultSetKey && config.resultSetKey !== 'screen' ? resultSet(config.resultSetKey) : null;
+  const results = chosen?.results ?? resultsStore.results3D
     ?? (modelStore.nodes.size === 0 ? { displacements: [], reactions: [], elementForces: [] } : null);
   if (!results) return null;
 
@@ -271,7 +273,7 @@ export function buildProReportData(opts: {
   );
   // The project's own data for the cover, and the project-scale sections.
   data.projectInfo = modelStore.projectInfo;
-  data.resultSetName = resultSetName();
+  data.resultSetName = chosen?.results ? chosen.name : resultSetName();
   const combos = activePerCombo3D();
   const cname = new Map(modelStore.combinations.map((c) => [c.id, c.name]));
   const kname = new Map(modelStore.loadCases.map((c) => [c.id, c.name]));

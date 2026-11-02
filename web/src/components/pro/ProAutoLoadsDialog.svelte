@@ -138,6 +138,7 @@
     return { h: Math.max(...ns.map((n) => n.z ?? 0)), least: Math.min(span('x'), span('y')) || Math.max(span('x'), span('y')) };
   });
   let gravitySlab = $state<'twoWay' | 'oneWay'>(start.gravitySlab);
+  let gravityLoadEveryPanel = $state(start.gravityLoadEveryPanel);
   let gravitySpan = $state<'x' | 'y'>(start.gravitySpan);
 
   // ─── Seismic config ────────────────────
@@ -319,7 +320,7 @@
    * Only while the dialog is open: it lays out the whole model's gravity loads.
    */
   const autoRoofWeight = $derived(open && roofCfg.enabled && !roofCfg.weight
-    ? roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan }, tributaryWidth, roofCfg.dead ?? totalDead)
+    ? roofWeightFor(modelSlice(), { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel }, tributaryWidth, roofCfg.dead ?? totalDead)
     : undefined);
   let delta = $state<PlanDelta | null>(null);
   let applyError = $state<string | null>(null);
@@ -393,7 +394,7 @@
       occupancyKey: selectedOccupancy,
       partitionLive: partitionLive.on ? partitionLive.q : 0,
       tributaryWidth,
-      gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan },
+      gravity: { mode: gravityMode, slab: gravitySlab, spanAxis: gravitySpan, loadEveryPanel: gravityLoadEveryPanel },
       patterns: livePatterns,
       thermal: special.thermal.on ? { dtUniform: special.thermal.dt, dtGradient: special.thermal.grad } : undefined,
       soil: special.soil.on ? { gradeZ: special.soil.gradeZ, gamma: special.soil.gamma, k: special.soil.k, surcharge: special.soil.surcharge, permanent: special.soil.permanent,
@@ -401,7 +402,7 @@
       fluid: special.fluid.on ? { levelZ: special.fluid.levelZ, gamma: special.fluid.gamma,
         ...(special.fluid.insideOn ? { inside: { x: special.fluid.insideX, y: special.fluid.insideY } } : {}) } : undefined,
       roof: roofCfg.enabled ? {
-        use: roofCfg.use, dead: roofCfg.dead ?? totalDead,
+        use: roofCfg.use, dead: roofCfg.dead ?? totalDead, deadFromFloors: roofCfg.dead === null,
         // Absent unless chosen: the plan weighs the roof's structure with its cladding (§4.8.1,
         // `roofWeightOf`); the dead load alone took a concrete roof with light finishes for light.
         ...(roofCfg.weight ? { weight: roofCfg.weight } : {}),
@@ -471,7 +472,7 @@
       dead: deadComponents.map(d => ({ labelKey: d.labelKey, q: d.q })),
       tributaryWidth, applyLiveReduction, reductionElementKind, floorsSupported,
       // The dialog's own state, to start from next time (`restoreFromRoles`).
-      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, roofCfg, livePatterns, special }),
+      dialog: $state.snapshot({ deadRows, partitionLive, gravityMode, gravitySlab, gravitySpan, gravityLoadEveryPanel, roofCfg, livePatterns, special }),
     }, true);
     if (enableWind) {
       regulationsStore.configureRole('wind', {
@@ -509,7 +510,7 @@
     selectedOccupancy = m.selectedOccupancy; tributaryWidth = m.tributaryWidth;
     applyLiveReduction = m.applyLiveReduction; reductionElementKind = m.reductionElementKind;
     floorsSupported = m.floorsSupported;
-    deadRows = m.deadRows; partitionLive = m.partitionLive; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan;
+    deadRows = m.deadRows; partitionLive = m.partitionLive; gravityMode = m.gravityMode; gravitySlab = m.gravitySlab; gravitySpan = m.gravitySpan; gravityLoadEveryPanel = m.gravityLoadEveryPanel;
     roofCfg = m.roofCfg; livePatterns = m.livePatterns; special = m.special;
     enableWind = m.enableWind; windV = m.windV; windExposure = m.windExposure; windEnclosure = m.windEnclosure;
     windAltitude = m.windAltitude; windKzt = m.windKzt; windKztSurveyed = m.windKztSurveyed;
@@ -1177,7 +1178,7 @@
           {:else if section === 'applying'}
             <div class="al-pane-head"><h3>{t('autoLoad.applying')}</h3></div>
             <div class="al-pane-scroll">
-              <ProAutoLoadsApplying bind:mode={gravityMode} bind:slab={gravitySlab} bind:spanAxis={gravitySpan}
+              <ProAutoLoadsApplying bind:mode={gravityMode} bind:slab={gravitySlab} bind:spanAxis={gravitySpan} bind:loadEveryPanel={gravityLoadEveryPanel}
                 bind:tributaryWidth {clearExisting} onClearChange={onClearExistingChange} />
             </div>
 

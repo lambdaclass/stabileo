@@ -58,6 +58,8 @@ export interface GravityOptions {
   spanAxis?: 'x' | 'y';
   /** m, for the members no panel loads. */
   tributaryWidth: number;
+  /** Load every panel the beams close, also those within the roof's structure or too wide for a deck. */
+  loadEveryPanel?: boolean;
 }
 
 /**
@@ -247,6 +249,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
   const covered = coverage(model, out.zOf, panelsAt);
   if (opts.mode === 'width') levels.clear();
+  const deckless = opts.loadEveryPanel ? () => null : notADeck(model, carriers, covered);
 
   if (opts.mode === 'panels') {
     for (const [z, quads] of quadsAt) {
@@ -263,7 +266,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // Second pass: each panel on its own, as a floor or as a roof.
-  let byWidth = 0, unresolved = 0, partly = 0;
+  let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0;
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
@@ -282,6 +285,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       // the whole panel spreads it (the share is right, the shape over the beams approximate).
       const cover = shellCover(panel.polygon, z);
       if (cover >= 0.98) continue;
+      const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
+      if (why === 'lowHeadroom') { lowPanels++; continue; }
+      if (why === 'wide') { widePanels++; continue; }
       const share = cover > 0.02 ? 1 - cover : 1;
       if (share < 1) partly++;
       // The panel's own part of the level's result. Loading its members again on their own found
@@ -311,6 +317,17 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     }
   }
 
+  // A horizontal member within the roof's structure is a chord or an eave beam: no floor loads it.
+  const beforeDepth = out.widthMembers.length;
+  out.widthMembers = out.widthMembers.filter((m) => {
+    if (Math.abs(m.length - m.horizontalLength) > TOL) return true;
+    const e = model.elements.get(m.elementId)!;
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    return deckless([[a.x, a.y], [b.x, b.y]], a.z ?? 0) !== 'lowHeadroom';
+  });
+  if (out.widthMembers.length < beforeDepth) {
+    out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
+  }
   out.panelColour = checkerboard(panelBeams.length, panelLevel,
     (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
   out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
@@ -336,8 +353,59 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (out.widthMembers.length > 0) out.notes.push(msg('loadPlan.gravity.width', { n: out.widthMembers.length, sloped, width: round(opts.tributaryWidth, 2) }));
     if (unresolved > 0) out.notes.push(msg('loadPlan.gravity.unresolved', { n: unresolved }));
     if (partly > 0) out.notes.push(msg('loadPlan.gravity.partlyUnderShells', { n: partly }));
+    if (lowPanels > 0) out.notes.push(msg('loadPlan.gravity.lowHeadroom', { n: lowPanels, h: MIN_STOREY_HEADROOM }));
+    if (widePanels > 0) out.notes.push(msg('loadPlan.gravity.widePanels', { n: widePanels, span: MAX_DECK_SPAN }));
   }
   return out;
+}
+
+/** Less clear height than this under the roof's own members is the depth of the roof's structure, not a storey. */
+export const MIN_STOREY_HEADROOM = 2.2;
+/** A ring of beams wider than this both ways, with no beam or slab inside, is no deck: no slab spans it. */
+export const MAX_DECK_SPAN = 12;
+
+/** Why a panel of beams is not a floor or a roof deck, if it is not. */
+function notADeck(
+  model: GravityModel,
+  carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }>,
+  covered: (pt: [number, number], zTop: number) => boolean,
+): (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | null {
+  const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
+  for (const e of model.elements.values()) {
+    if (e.type === 'truss') continue;
+    const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
+    if (!a || !b || !beamLike(model, e).ok) continue;
+    if (covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0))) continue;
+    roofMembers.push([[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]]);
+  }
+  const roofShells = carriers.filter((c) => c.nodes);
+  const heightAbove = (p: [number, number], z: number): number => {
+    let h = Infinity;
+    for (const [a, b] of roofMembers) {
+      if (!nearSegment(p, [a[0], a[1]], [b[0], b[1]], 0.1)) continue;
+      const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2;
+      const t = L2 > 0 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2)) : 0;
+      const dz = a[2] + t * (b[2] - a[2]) - z;
+      if (dz > TOL) h = Math.min(h, dz);
+    }
+    for (const c of roofShells) {
+      if (!inside(p, c.poly)) continue;
+      const dz = heightIn(c.pts, [p[0], p[1], z]) - z;
+      if (dz > TOL) h = Math.min(h, dz);
+    }
+    return h;
+  };
+  return (poly, z) => {
+    const probes: Array<[number, number]> = [centroid(poly)];
+    poly.forEach((a, i) => {
+      const b = poly[(i + 1) % poly.length]!;
+      for (const t of [0.25, 0.5, 0.75]) probes.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+    });
+    if (probes.some((p) => heightAbove(p, z) < MIN_STOREY_HEADROOM)) return 'lowHeadroom';
+    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+    if (Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) > MAX_DECK_SPAN) return 'wide';
+    return null;
+  };
 }
 
 /** A quad's surface area, m²: its two triangles, as `quadCornerShares` integrates a flat one. */

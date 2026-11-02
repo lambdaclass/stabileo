@@ -36,6 +36,7 @@ import type { InkStyle } from '../export/paper-ink';
 import type { ShellContourComponent } from '../engine/shell-stress';
 import { t as tr } from '../i18n';
 import { modelStore, resultsStore } from '../store';
+import { resultSet } from './export-results';
 
 export interface ReportExportInputs {
   config: ReportConfig;
@@ -136,7 +137,11 @@ function asReportFigure(content: FigureContent, o: FigureOptions, caption: strin
  */
 export function reportResultFigures(config: ReportConfig, c: ReportFigureChoices): ReportResultFigures {
   const s = config.sections;
-  const o: FigureOptions = { ...DEFAULT_FIGURE_OPTIONS, style: c.style, values: c.values, titles: false, view: c.view, shells: true, shellComponent: c.shellComponent };
+  const set = config.resultSetKey && config.resultSetKey !== 'screen' ? resultSet(config.resultSetKey) : null;
+  const o: FigureOptions = {
+    ...DEFAULT_FIGURE_OPTIONS, style: c.style, values: c.values, titles: false, view: c.view, shells: true, shellComponent: c.shellComponent,
+    ...(set?.results ? { results: set.results, resultsName: set.name } : {}),
+  };
   const out: ReportResultFigures = {};
   if (s.modelData) {
     out.model = asReportFigure('model', { ...o, loads: false, numbering: true }, tr('report.modelFigureCaption'));
