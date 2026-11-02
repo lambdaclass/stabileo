@@ -241,7 +241,7 @@
       <span class="post-export">
         <button class="pk-btn" onclick={() => exportReport('csv')} data-testid="post-export-csv">CSV</button>
         <button class="pk-btn" onclick={() => exportReport('pdf')} data-testid="post-export-pdf">PDF</button>
-        <button class="pk-btn" onclick={() => exportReport('docx')} data-testid="post-export-docx">Word</button>
+        <button class="pk-btn" onclick={() => exportReport('docx')} data-testid="post-export-docx">{t('proReport.format.docx')}</button>
       </span>
     </div>
     {#snippet part(key: string, lines: PostAnalysisLine[])}
