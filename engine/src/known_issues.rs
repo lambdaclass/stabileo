@@ -110,7 +110,9 @@ pub fn contextual_error(error: String, context: String) -> String {
 }
 
 pub fn buckling_bound(computed: f64, lower: f64, upper: Option<f64>) -> Result<(), String> {
-    if computed < lower || upper.is_some_and(|bound| computed > bound) {
+    let inside = computed.is_finite() && lower.is_finite() && computed >= lower
+        && upper.is_none_or(|bound| bound.is_finite() && bound >= lower && computed <= bound);
+    if !inside {
         refuse(&[diagnostic("BU-BOUND")])
     } else {
         Ok(())
@@ -662,6 +664,12 @@ mod tests {
         assert!(buckling_bound(2.0, 1.99, Some(2.01)).is_ok());
         assert!(buckling_bound(2.02, 1.99, Some(2.01)).unwrap_err().contains("#741"));
         assert!(buckling_bound(1.98, 1.99, Some(2.01)).is_err());
+        assert!(buckling_bound(2.0, 1.99, None).is_ok());
+        for (computed, lower, upper) in [(f64::NAN, 1.99, Some(2.01)), (2.0, f64::NAN, Some(2.01)), (2.0, 1.99, Some(f64::NAN)),
+            (f64::NAN, 1.99, None), (f64::INFINITY, 1.99, None), (2.0, f64::NEG_INFINITY, Some(2.01)), (2.0, 1.99, Some(f64::INFINITY)),
+            (2.0, 2.01, Some(1.99))] {
+            assert!(buckling_bound(computed, lower, upper).unwrap_err().contains("#741"), "{computed} {lower} {upper:?}");
+        }
         assert!(refuse(&[diagnostic("NL-5")]).is_ok());
         let encoded = refuse(&[diagnostic("BU-BOUND")]).unwrap_err();
         let value: serde_json::Value = serde_json::from_str(&encoded).unwrap();

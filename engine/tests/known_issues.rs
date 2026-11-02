@@ -968,6 +968,18 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
             let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({"solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 20, accel: vec![1.0; 21]})).unwrap();
             let unsupported = solve_nonlinear_material_3d(&nonlinear).map(|_| ()).unwrap_err();
             assert!(unsupported.contains("does not support shell elements"), "{unsupported}");
+            let harmonic = |frequencies: Vec<f64>| dedaliano_engine::solver::harmonic::solve_harmonic_3d(&dedaliano_engine::solver::harmonic::HarmonicInput3D {
+                solver: solver.clone(), densities: densities.clone(), frequencies, damping_ratio: 0.05, response_node_id: 13, response_dof: if direction == 1 { "y".into() } else { "z".into() } });
+            let static_refused = dedaliano_engine::solver::linear::solve_3d(&solver).is_err();
+            assert_eq!(static_refused, refused, "static distorted={distorted} direction={direction}");
+            for frequencies in [vec![1e-3], vec![1e-3, 1.0, 10.0]] {
+                let outcome = harmonic(frequencies).map(|r| r.structured_diagnostics);
+                if distorted {
+                    common::assert_containment(outcome, "SH-MITC4-DISTORTION");
+                } else {
+                    assert!(!ids(&outcome.unwrap()).contains(&"SH-MITC4-DISTORTION".into()));
+                }
+            }
             for (name, outcome) in [("time history", solve_time_history_3d(&th).map(|r| r.structured_diagnostics))] {
                 if refused {
                     common::assert_containment(outcome, "SH-MITC4-DISTORTION");
