@@ -49,13 +49,14 @@ fn assert_plastic_coverage(t: &Tally, case: &str, invariants: &[&str]) {
             .cloned()
             .unwrap_or_default();
         assert!(
-            cell.pass == 1
+            cell.same_refusal == 1
+                && cell.pass == 0
                 && cell.refused == 0
                 && cell.unrep == 0
                 && cell.inconclusive == 0
                 && cell.ignored.is_empty()
                 && cell.fails.is_empty(),
-            "{case}: plastic collapse × {inv}: expected one successful comparison, got {cell:?}"
+            "{case}: plastic collapse × {inv}: expected one comparison returning the same refusal, got {cell:?}"
         );
     }
 }
@@ -72,6 +73,7 @@ fn plastic_coverage_rejects_missing_or_unsuccessful_comparisons() {
         Some(Verdict::Inconclusive(1.0)),
         Some(Verdict::Ignored("safety #758")),
         Some(Verdict::Fail("invariance violated".into())),
+        Some(Verdict::Pass(0.0)),
     ] {
         let t = Tally::default();
         if let Some(verdict) = verdict {
@@ -83,7 +85,7 @@ fn plastic_coverage_rejects_missing_or_unsuccessful_comparisons() {
         .is_err());
     }
     let t = Tally::default();
-    t.record("plastic collapse", "rotation", "case", Verdict::Pass(0.0));
+    t.record("plastic collapse", "rotation", "case", Verdict::SameRefusal);
     assert_plastic_coverage(&t, "case", &["rotation"]);
 }
 

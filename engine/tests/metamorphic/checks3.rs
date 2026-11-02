@@ -90,6 +90,7 @@ fn judge(res: Result<Report, String>, rel: f64) -> Verdict {
         return Verdict::Inconclusive(rel);
     }
     match res {
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(r) => Verdict::Pass(r.worst),
         Err(e) => Verdict::Fail(e),
     }
@@ -141,7 +142,7 @@ pub fn load_floor_3d(s: &SolverInput3D, lchar: f64) -> f64 {
     }).sum();
     let other: f64 = s.loads.iter().map(|l| match l {
         SolverLoad3D::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, iy, iz, _)| {
-            let alpha = t.alpha.unwrap_or(1.2e-5);
+            let alpha = t.alpha.unwrap_or(1.2e-5).abs();
             let hy = t.depth_y.unwrap_or((12.0 * iz / a).sqrt());
             let hz = t.depth_z.unwrap_or((12.0 * iy / a).sqrt());
             em * alpha * (a * t.dt_uniform.abs() + (iz * t.dt_gradient_y.abs() / hy + iy * t.dt_gradient_z.abs() / hz) / lchar)

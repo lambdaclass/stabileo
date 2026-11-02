@@ -183,6 +183,7 @@ pub fn check_2d(tally: &Tally, sym: &Sym2, anti: bool, anas: &[Ana2]) {
                         Verdict::Inconclusive(rel)
                     } else {
                         match compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar)) {
+                            Ok(rep) if rep.values == 0 && rep.refusals > 0 => Verdict::SameRefusal,
                             Ok(rep) => Verdict::Pass(rep.worst),
                             Err(e) => Verdict::Fail(format!("{} response not {}: {e}", if anti { "antisymmetric" } else { "symmetric" }, if anti { "antisymmetric" } else { "symmetric" })),
                         }
@@ -365,6 +366,7 @@ pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
                         Verdict::Inconclusive(rel)
                     } else {
                         match compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar)) {
+                            Ok(rep) if rep.values == 0 && rep.refusals > 0 => Verdict::SameRefusal,
                             Ok(rep) => Verdict::Pass(rep.worst),
                             Err(e) => Verdict::Fail(format!("response not {}: {e}", if anti { "antisymmetric" } else { "C2-symmetric" })),
                         }

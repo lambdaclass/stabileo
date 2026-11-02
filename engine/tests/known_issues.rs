@@ -956,6 +956,35 @@ fn macneal_strip(distorted: bool, direction: usize) -> SolverInput3D {
 }
 
 #[test]
+fn a_staged_analysis_is_judged_by_the_shells_its_stages_activate() {
+    use dedaliano_engine::solver::staged::solve_staged_3d;
+    let mut model = beam3d();
+    model.loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -1.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })];
+    let strip = macneal_strip(true, 1);
+    for n in strip.nodes.values() {
+        model.nodes.insert((n.id + 100).to_string(), SolverNode3D { id: n.id + 100, ..n.clone() });
+    }
+    for q in strip.quads.values() {
+        model.quads.insert(q.id.to_string(), SolverQuadElement { nodes: q.nodes.map(|n| n + 100), ..q.clone() });
+    }
+    for sup in strip.supports.values() {
+        let mut sup = sup.clone();
+        sup.node_id += 100;
+        model.supports.insert(sup.node_id.to_string(), sup);
+    }
+    let staged = |quads: Vec<usize>| {
+        let mut v = serde_json::to_value(&model).unwrap();
+        v["stages"] = serde_json::json!([{ "name": "frame", "elementsAdded": [1, 2, 3, 4], "supportsAdded": [1, 101, 102], "loadIndices": [0], "quadsAdded": quads }]);
+        solve_staged_3d(&serde_json::from_value(v).unwrap())
+    };
+    let distortion = |r: &StagedAnalysisResults3D| r.final_results.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION"));
+    let unused = staged(vec![]).unwrap();
+    assert!(!distortion(&unused), "{:?}", unused.final_results.structured_diagnostics);
+    assert!(unused.final_results.displacements.iter().find(|d| d.node_id == 5).unwrap().uz < 0.0);
+    assert!(distortion(&staged((1..=6).collect()).unwrap()));
+}
+
+#[test]
 fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
     use dedaliano_engine::solver::{material_nonlinear::solve_nonlinear_material_3d, modal::solve_modal_3d, spectral::solve_spectral_3d, time_integration::solve_time_history_3d};
     let densities = HashMap::from([("1".to_string(), 7850.0)]);

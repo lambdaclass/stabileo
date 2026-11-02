@@ -322,9 +322,11 @@ describe('analyses certified from the job their solve noted', () => {
     resultsStore.clear();
     const wasm = await import('../wasm-solver');
     const certify = vi.spyOn(wasm, 'callCertify');
+    const tag = vi.spyOn(await import('../certify-tags'), 'tagCertifyJob');
     expect(() => runPlasticCollapse()).toThrow(/#758/);
     expect(resultsStore.plasticResult).toBeNull();
     expect(resultsStore.hasAnyResults).toBe(false);
+    expect(tag).not.toHaveBeenCalled();
     expect(certify).not.toHaveBeenCalled();
   });
 

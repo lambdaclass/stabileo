@@ -49,6 +49,7 @@ fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, re
         return Verdict::Inconclusive(rel);
     }
     match res {
+        Ok(r) if r.values == 0 && r.refusals > 0 => Verdict::SameRefusal,
         Ok(r) => Verdict::Pass(r.worst),
         Err(e) => Verdict::Fail(e),
     }
@@ -87,7 +88,7 @@ pub fn transformed_failure(e: String) -> Verdict {
 pub fn settle(first: Verdict, retry: impl FnOnce() -> Verdict) -> Verdict {
     match first {
         Verdict::Refused(_) | Verdict::Unrepresentable(_) => match retry() {
-            v @ (Verdict::Pass(_) | Verdict::Fail(_) | Verdict::Inconclusive(_)) => v,
+            v @ (Verdict::Pass(_) | Verdict::SameRefusal | Verdict::Fail(_) | Verdict::Inconclusive(_)) => v,
             _ => first,
         },
         v => v,
@@ -281,7 +282,7 @@ pub fn load_floor_2d(s: &SolverInput, lchar: f64) -> f64 {
     }).sum();
     let thermal: f64 = s.loads.iter().map(|l| match l {
         SolverLoad::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, i, _)| {
-            let alpha = t.alpha.unwrap_or(1.2e-5);
+            let alpha = t.alpha.unwrap_or(1.2e-5).abs();
             let h = t.depth.unwrap_or((12.0 * i / a).sqrt());
             em * alpha * (a * t.dt_uniform.abs() + i * t.dt_gradient.abs() / (h * lchar))
         }),

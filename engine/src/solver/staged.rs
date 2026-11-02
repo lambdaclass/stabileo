@@ -1262,7 +1262,7 @@ fn iterate_cables_staged_2d(
 /// 6. Compute element forces using cumulative displacements
 pub fn solve_staged_3d(input: &StagedInput3D) -> Result<StagedAnalysisResults3D, String> {
     let mut r = solve_staged_3d_contained(input)?;
-    let mut diagnostics = crate::known_issues::for_3d(&staged_to_full_solver_input_3d(input), crate::known_issues::Analysis::Linear);
+    let mut diagnostics = crate::known_issues::for_3d(&staged_containment_input_3d(input), crate::known_issues::Analysis::Linear);
     for stage in &mut r.stages {
         crate::known_issues::attach(&mut stage.results.structured_diagnostics, diagnostics.clone());
         diagnostics = stage.results.structured_diagnostics.clone();
@@ -1622,6 +1622,23 @@ fn staged_to_full_solver_input_3d(input: &StagedInput3D) -> SolverInput3D {
         curved_beams: vec![],
         connectors: HashMap::new(),
     }
+}
+
+/// The full model reduced to what some stage activates: a member, shell, support or load that no
+/// stage adds never reaches a result, so it must not decide what the staged analysis refuses.
+fn staged_containment_input_3d(input: &StagedInput3D) -> SolverInput3D {
+    let ever = |pick: fn(&ConstructionStage3D) -> &Vec<usize>| -> HashSet<usize> {
+        input.stages.iter().flat_map(|s| pick(s).iter().copied()).collect()
+    };
+    let (elements, supports, plates, quads) = (ever(|s| &s.elements_added), ever(|s| &s.supports_added), ever(|s| &s.plates_added), ever(|s| &s.quads_added));
+    let loads = ever(|s| &s.load_indices);
+    let mut full = staged_to_full_solver_input_3d(input);
+    full.elements.retain(|_, e| elements.contains(&e.id));
+    full.supports.retain(|_, s| supports.contains(&s.node_id));
+    full.plates.retain(|_, p| plates.contains(&p.id));
+    full.quads.retain(|_, q| quads.contains(&q.id));
+    full.loads = crate::ordered::members(&loads).filter_map(|i| input.loads.get(*i).cloned()).collect();
+    full
 }
 
 /// Build a SolverInput3D with only active elements, supports, and stage loads.

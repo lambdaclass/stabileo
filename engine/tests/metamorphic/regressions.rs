@@ -813,3 +813,34 @@ fn a_section_shared_by_two_materials_gets_one_fiber_material_in_any_order() {
     }
     assert_eq!(pick(&[]), None);
 }
+
+#[test]
+fn a_negative_expansion_coefficient_raises_the_comparison_floor_as_a_positive_one_does() {
+    let heated = |alpha: f64| -> (SolverInput, SolverInput3D) {
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed"});
+        let s2: SolverInput = serde_json::from_value(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-5}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": support(1)},
+            "loads": [{"type": "thermal", "data": {"elementId": 1, "dtUniform": 50.0, "dtGradient": 10.0, "alpha": alpha}}],
+        })).unwrap();
+        let s3: SolverInput3D = serde_json::from_value(json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 4.0, "y": 0.0, "z": 0.0}},
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iy": 1e-5, "iz": 1e-5, "j": 1e-5}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+            "loads": [{"type": "thermal", "data": {"elementId": 1, "dtUniform": 50.0, "dtGradientY": 10.0, "dtGradientZ": 10.0, "alpha": alpha}}],
+        })).unwrap();
+        (s2, s3)
+    };
+    let (p2, p3) = heated(1.2e-5);
+    let (n2, n3) = heated(-1.2e-5);
+    let f2 = crate::checks2::load_floor_2d(&p2, 4.0);
+    let f3 = crate::checks3::load_floor_3d(&p3, 4.0);
+    assert!(f2 > 0.0 && f3 > 0.0, "{f2} {f3}");
+    assert_eq!(crate::checks2::load_floor_2d(&n2, 4.0), f2);
+    assert_eq!(crate::checks3::load_floor_3d(&n3, 4.0), f3);
+}

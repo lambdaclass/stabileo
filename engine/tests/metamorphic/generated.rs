@@ -660,11 +660,11 @@ fn assert_coverage(t: &Tally, names: &[&str], spatial: bool, count: u64, only: O
                     cell.ignored.iter().copied().collect::<Vec<_>>(),
                     vec!["ignored(#761)"]
                 );
-                assert_eq!(cell.pass + cell.fails.len(), 0);
+                assert_eq!(cell.pass + cell.same_refusal + cell.fails.len(), 0);
             } else {
                 assert!(cell.ignored.is_empty(), "unexpected ignore: {name} × {inv}");
                 assert_eq!(
-                    cell.pass + cell.fails.len(),
+                    cell.pass + cell.same_refusal + cell.fails.len(),
                     if expected == '-' { 0 } else { count as usize },
                     "coverage lost: {name} × {inv}"
                 );
@@ -1672,7 +1672,7 @@ fn refusal_changes_under_units_fail_in_both_directions() {
         .find(|a| a.name == "linear")
         .unwrap();
     a3.name = "buckling";
-    for (run, expected) in [(faulty2::<false> as fn(&Case2) -> _, "✗"), (faulty2::<true>, "✗"), (always2, "✓")] {
+    for (run, expected) in [(faulty2::<false> as fn(&Case2) -> _, "✗"), (faulty2::<true>, "✗"), (always2, "R")] {
         a2.run = run;
         let t = Tally::default();
         checks2::check_case(
