@@ -606,54 +606,17 @@ fn validation_ca_ssll117a_stepped_cantilever_partial_udl() {
     let m_base_expected = q * l_half * (l_half + l_half / 2.0);
     assert_close(r_base.my.abs(), m_base_expected, 0.02, "SSLL117a M_base = q(L/2)(3L/4)");
 
-    // Tip deflection by integration (virtual work with two segments):
-    // Segment 1 (root, 0 < x < L/2, I = 2I):
-    //   Real moment: M(x) = q*L/2*(3L/4 - x) for 0 <= x <= L/2
-    //     (load resultant q*L/2 at centroid 3L/4)
-    //   But more precisely: M(x) = total_load*(3L/4) - total_load*x for the resultant
-    //     minus the partial moment distribution. Let's use M(x) from statics directly.
-    //   For x in root segment: M(x) = q*(L/2)*((L/2 + L/4) - x) = q*L/2*(3L/4 - x)
-    //   Virtual: m(x) = 1*(L - x) (unit load at tip)
-    //
-    // Segment 2 (tip, L/2 < x < L, I = I):
-    //   Real: M(x) = q*(L-x)^2/2
-    //   Virtual: m(x) = (L-x)
-    //
-    // delta = integral_0^{L/2} M(x)*m(x)/(E*2I) dx + integral_{L/2}^L M(x)*m(x)/(E*I) dx
-    //
-    // Integral 2 (tip segment, substituting u = L-x, u from L/2 to 0):
-    //   = integral_0^{L/2} (q*u^2/2)*u / (E*I) du = q/(2*E*I) * [u^4/4]_0^{L/2}
-    //   = q/(2*E*I) * (L/2)^4/4 = q*L^4/(128*E*I)
+    // Tip deflection by virtual work, unit load at the tip so m(x) = L - x.
+    // Tip segment (I), u = L - x: ∫_0^{L/2} (q u²/2)·u / (E I) du = q L⁴ / (128 E I)
     let int2 = q * l.powi(4) / (128.0 * E_EFF * iz_tip);
 
-    // Integral 1 (root segment): integrate M(x)*m(x)/(E*2I) from 0 to L/2
-    //   M(x) = q*L_half*(3L/4 - x) - q*(x - L/2)^2/2, but x < L/2 so the partial term is:
-    //   Actually for x < L/2, no load exists, so M(x) = R_base_y * x (no, wait... wrong sign)
-    //   Let's do it properly:
-    //   For the cantilever, M(x) from right: at any x, M = integral of loads to the right.
-    //   For x < L/2: all load is to the right, so M(x) = q*(L/2)*((L/2+L/4) - x)
-    //     Wait, centroid of load block from x to ... no.
-    //   The load extends from L/2 to L with intensity q.
-    //   For x < L/2: M(x) = integral_{L/2}^{L} q*(s-x) ds = q*[(s-x)^2/2]_{L/2}^{L}
-    //     = q/2*((L-x)^2 - (L/2-x)^2)
-    //     = q/2*(L-x+L/2-x)*(L-x-L/2+x) = q/2*(3L/2-2x)*(L/2)
-    //     = q*L/4*(3L/2-2x)
-    //   Virtual: m(x) = (L - x)
-    //   Integral 1 = integral_0^{L/2} q*L/4*(3L/2-2x)*(L-x) / (E*2I) dx
-    //
-    //   Let's compute numerically:
-    //   q*L/(8*E*I) * integral_0^{L/2} (3L/2 - 2x)*(L - x) dx
-    //   Expand: (3L/2 - 2x)*(L - x) = 3L^2/2 - 3Lx/2 - 2Lx + 2x^2
-    //           = 3L^2/2 - 7Lx/2 + 2x^2
-    //   Integrate from 0 to L/2:
-    //     = [3L^2x/2 - 7Lx^2/4 + 2x^3/3]_0^{L/2}
-    //     = 3L^3/4 - 7L^3/16 + L^3/12
-    //     = L^3*(36/48 - 21/48 + 4/48) = L^3*19/48
-    let int1 = q * l / (8.0 * E_EFF * iz_root) * l.powi(3) * 19.0 / 48.0;
+    // Root segment (iz_root = 2I), M(x) = q L/4 (3L/2 - 2x):
+    //   ∫_0^{L/2} q L/4 (3L/2 - 2x)(L - x) / (E iz_root) dx = q L/(4 E iz_root) · 19 L³/48
+    let int1 = q * l / (4.0 * E_EFF * iz_root) * l.powi(3) * 19.0 / 48.0;
 
     let delta_expected = int1 + int2;
     let d_tip = results.displacements.iter().find(|d| d.node_id == tip_node).unwrap();
-    assert_close(d_tip.uz.abs(), delta_expected, 0.05, "SSLL117a tip deflection by virtual work");
+    assert_close(d_tip.uz.abs(), delta_expected, 1e-6, "SSLL117a tip deflection by virtual work");
 
     // Tip deflection should be larger than if entire beam had root stiffness (2I)
     // and smaller than if entire beam had tip stiffness (I)

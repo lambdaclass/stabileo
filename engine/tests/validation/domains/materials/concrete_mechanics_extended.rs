@@ -112,7 +112,7 @@ fn validation_conc_mech_ext_whitney_stress_block() {
     // R_A = -M/L, R_B = M/L (with sign depending on convention)
     // Sum of ry should be zero for a pure moment load
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.01, "sum Ry = 0 for pure moment load");
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6, "sum Ry = 0 for pure moment load");
 }
 
 // ═══════════════════════════════════════════════════════════════

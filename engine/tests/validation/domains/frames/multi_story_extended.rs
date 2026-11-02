@@ -648,7 +648,7 @@ fn validation_multi_story_base_shear_equilibrium() {
 
     // Sum of vertical reactions should be zero (no gravity loads)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry.abs(), 0.0, 0.02, "4-story sum Ry = 0 (no gravity)");
+    assert_close_abs(sum_ry.abs(), 0.0, 0.02, 1e-6, "4-story sum Ry = 0 (no gravity)");
 
     // Base shear is shared between two columns
     let rx_left = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rx;

@@ -936,7 +936,7 @@ fn validation_mdist_ext_multi_bay_gravity() {
         "Multi-bay: symmetric outer base moments");
     assert_close(r1.my.abs(), m_base1_cross, 0.05,
         "Multi-bay: left base moment solver vs Cross");
-    assert_close(r2.my.abs(), m_base2_cross, 0.05,
+    assert_close_abs(r2.my.abs(), m_base2_cross, 0.05, 1e-6,
         "Multi-bay: center base moment solver vs Cross");
     assert_close(r3.my.abs(), m_base3_cross, 0.05,
         "Multi-bay: right base moment solver vs Cross");

@@ -301,7 +301,7 @@ fn validation_path_truss_nodal_equilibrium() {
 
     // ΣRx = 0 (no horizontal loads)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.01, "Truss: ΣRx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6, "Truss: ΣRx = 0");
 
     // By symmetry: R1 = R5 = 3P/2
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();

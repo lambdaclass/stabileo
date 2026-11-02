@@ -221,8 +221,7 @@ fn validation_drift_ext2_portal_lateral_stiffness_formula() {
     let p = 10.0;
     let e_eff = E * 1000.0; // E in kPa
 
-    // Build a single vertical column: fixed at base, guidedY at top
-    // guidedY: uy fixed, rz fixed, ux free — produces a fixed-guided condition
+    // guidedX fixes uz and ry and leaves ux free; guidedY would fix the loaded ux DOF.
     let mut nodes = Vec::new();
     let mut elems = Vec::new();
     for i in 0..=n {
@@ -237,7 +236,7 @@ fn validation_drift_ext2_portal_lateral_stiffness_formula() {
         fz: 0.0,
         my: 0.0,
     })];
-    let sups = vec![(1, 1, "fixed"), (2, n + 1, "guidedY")];
+    let sups = vec![(1, 1, "fixed"), (2, n + 1, "guidedX")];
     let input = make_input(
         nodes,
         vec![(1, E, 0.3)],
@@ -261,7 +260,7 @@ fn validation_drift_ext2_portal_lateral_stiffness_formula() {
     assert_close(
         tip_ux,
         delta_exact,
-        0.02,
+        1e-9,
         "Fixed-guided column: delta = PH^3/(12EI)",
     );
 }
