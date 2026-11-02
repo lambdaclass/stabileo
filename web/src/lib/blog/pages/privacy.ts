@@ -17,7 +17,7 @@ export const privacyPage: StandingPage = {
         {
           k: 'ul',
           items: [
-            'Cuenta: nombre, email y contraseña (guardada cifrada) y, si los cargás, empresa, cargo, país e idioma.',
+            'Cuenta: nombre, email y contraseña (guardada como hash, nunca en claro) y, si los cargás, empresa, cargo, país e idioma.',
             'Sesiones: la dirección IP y el navegador de cada inicio de sesión, para proteger tu cuenta.',
             'Consentimientos: qué aceptaste y cuándo, con la IP y el navegador desde los que lo hiciste.',
             'Proyectos en la nube: los que elegís guardar desde tu cuenta.',
@@ -125,7 +125,7 @@ export const privacyPage: StandingPage = {
         {
           k: 'ul',
           items: [
-            'Conta: nome, e-mail e senha (guardada criptografada) e, se você informar, empresa, cargo, país e idioma.',
+            'Conta: nome, e-mail e senha (guardada como hash, nunca em texto puro) e, se você informar, empresa, cargo, país e idioma.',
             'Sessões: o endereço IP e o navegador de cada login, para proteger sua conta.',
             'Consentimentos: o que você aceitou e quando, com o IP e o navegador usados.',
             'Projetos na nuvem: os que você escolhe salvar pela sua conta.',

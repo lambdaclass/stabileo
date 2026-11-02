@@ -17,6 +17,7 @@ const body: StandingPage['i18n']['en'] = {
         "Chaque calcul : s’il a réussi ou échoué, combien de temps il a duré, s’il était en 2D ou en 3D, et la taille du modèle par tranches (par exemple, de 11 à 50 barres).",
         "Les exemples que vous ouvrez, les analyses avancées et les méthodes pas à pas que vous utilisez.",
         "Les exportations, avec leur format.",
+        "Quand un compte vous est demandé pour enregistrer, exporter ou partager, de quelle action il s’agissait et si vous avez continué ; et quand vous enregistrez ou ouvrez un projet dans le cloud, avec son mode et s’il a mis à jour ou remplacé un projet enregistré.",
         "Le mode (Basic ou PRO), la version de l’application et la langue.",
         "Un identifiant aléatoire pour cette visite. Si vous répondez à l’avis par « Compris », également un pour ce navigateur, stocké dans celui-ci pour compter les navigateurs distincts. Aucun des deux n’est lié à votre compte."
       ]

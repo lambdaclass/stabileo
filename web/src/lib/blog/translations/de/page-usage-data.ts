@@ -17,6 +17,7 @@ const body: StandingPage['i18n']['en'] = {
         "Jede Berechnung: ob sie erfolgreich war oder fehlgeschlagen ist, wie lange sie gedauert hat, ob sie 2D oder 3D war, und die Größe des Modells in Bereichen (zum Beispiel 11 bis 50 Stäbe).",
         "Die Beispiele, die Sie öffnen, die erweiterten Berechnungen und die Schritt-für-Schritt-Methoden, die Sie nutzen.",
         "Exporte, mit ihrem Format.",
+        "Wann Sie zum Speichern, Exportieren oder Teilen nach einem Konto gefragt werden, um welche Aktion es ging und ob Sie fortgefahren sind; und wann Sie ein Cloud-Projekt speichern oder öffnen, mit seinem Modus und ob es ein gespeichertes aktualisiert oder ersetzt hat.",
         "Der Modus (Basic oder PRO), die Version der App und die Sprache.",
         "Eine zufällige ID für diesen Besuch. Wenn Sie den Hinweis mit „Verstanden“ beantworten, zusätzlich eine für diesen Browser, die darin gespeichert wird, um verschiedene Browser zu zählen. Keine von beiden ist mit Ihrem Konto verknüpft."
       ]

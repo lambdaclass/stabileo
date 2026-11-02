@@ -17,6 +17,7 @@ const body: StandingPage['i18n']['en'] = {
         "Her hesap: başarılı mı yoksa başarısız mı olduğu, ne kadar sürdüğü, 2D mi 3D mi olduğu ve aralıklar halinde modelin boyutu (örneğin 11 ile 50 arası eleman).",
         "Açtığınız örnekler, kullandığınız ileri analizler ve adım adım yöntemler.",
         "Dışa aktarmalar, biçimleriyle birlikte.",
+        "Kaydetmek, dışa aktarmak veya paylaşmak için sizden hesap istendiğinde bunun hangi işlem olduğu ve devam edip etmediğiniz; bir bulut projesini kaydettiğinizde veya açtığınızda, modu ve kayıtlı bir projeyi güncelleyip güncellemediği ya da değiştirip değiştirmediği.",
         "Mod (Basic veya PRO), uygulama sürümü ve dil.",
         "Bu ziyaret için rastgele bir kimlik. Bildirime “Anladım” yanıtını verirseniz, farklı tarayıcıları saymak için bu tarayıcıda saklanan, tarayıcıya ait bir kimlik daha. Hiçbiri hesabınızla ilişkilendirilmez."
       ]
