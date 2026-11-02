@@ -896,11 +896,11 @@ pub fn rc_ratio_enclosures(m: &RCMemberData, f: &RCDesignForces, b: &DemandBound
         }
     };
     let flexure = required_ratio(RC_CHECK_NAMES[0], mu, phi_mn)?;
-    let phi_vn: Interval = rc_shear_capacity(m);
+    let pu = -nu;
+    let phi_vn: Interval = rc_shear_capacity(m, pu);
     let shear = loaded_ratio(RC_CHECK_NAMES[1], vu, phi_vn)?;
     // `if pu >= 0 { pu / phiPn,max } else { -pu / phiPnt }`, each "if loaded".
     let (pmax, pnt): (Interval, Interval) = rc_axial_capacity(m);
-    let pu = -nu;
     let zero = Interval::ZERO;
     let compression = || loaded_ratio(RC_CHECK_NAMES[2], pu.max(zero), pmax);
     let tension = || loaded_ratio(RC_CHECK_NAMES[2], (-pu).max(zero), pnt);

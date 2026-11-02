@@ -489,3 +489,52 @@ fn rc_check_vc_caps_sqrt_fc() {
     let expected = 0.75 * 0.66 * rho.cbrt() * 8.3 * 300.0 * 250.0;
     assert!((r.phi_vn - expected).abs() / expected < 1e-12, "{} vs {expected}", r.phi_vn);
 }
+
+/// Regression test (#561): ACI 318-19 Table 22.5.5.1 & 22.5.5.1.1 axial tension on Vc
+/// and Table 20.2.2.4(a) / 22.5.3.3 fyt <= 420 MPa cap on Vs.
+#[test]
+fn rc_check_shear_axial_tension_and_fyt_cap() {
+    let m = RCMemberData {
+        element_id: 1,
+        fc: 28e6,
+        fy: 500e6, // 500 MPa (> 420 MPa cap for Vs)
+        es: Some(200e9),
+        b: 0.30,
+        h: 0.50,
+        d: 0.44,
+        d_prime: Some(0.06),
+        as_tension: 1500e-6,
+        as_compression: Some(1500e-6),
+        section_type: RCSectionType::Rectangular,
+        bf: None,
+        hf: None,
+        av: Some(157e-6),
+        s_stirrup: Some(0.20),
+        lambda: None,
+    };
+
+    let input = RCCheckInput {
+        members: vec![m],
+        forces: vec![RCDesignForces {
+            element_id: 1,
+            mu: 50e3,
+            vu: Some(200e3),
+            nu: Some(350e3), // 350 kN axial tension (Nu_ACI = -350 kN)
+        }],
+    };
+
+    let results = check_rc_members(&input);
+    let r = &results[0];
+
+    let vc_expected = (0.17 * 28.0_f64.sqrt() - 350e3 / (6.0 * 0.15 * 1e6)) * 300.0 * 440.0;
+    let vs_expected = 157e-6 * 420e6 * 0.44 / 0.20;
+    let phi_vn_expected = 0.75 * (vc_expected + vs_expected);
+
+    assert!(
+        (r.phi_vn - phi_vn_expected).abs() / phi_vn_expected < 1e-6,
+        "phi*Vn: {:.2} vs {:.2}",
+        r.phi_vn,
+        phi_vn_expected
+    );
+    assert!(r.shear_ratio > 1.25, "Member must fail shear under axial tension: ratio={:.4}", r.shear_ratio);
+}
