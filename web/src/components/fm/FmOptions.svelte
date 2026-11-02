@@ -7,7 +7,7 @@
   import { t } from '../../lib/i18n';
   import { fmStepsStore } from '../../lib/store';
   import { fmChoice } from '../../lib/store/fm-choice.svelte';
-  import { resolveFlexibility } from '../../lib/actions/fm-fundamental';
+  import { switchFlexibilityAxial } from '../../lib/actions/fm-fundamental';
   import Prose from '../steps/Prose.svelte';
 
   let help = $state(false);
@@ -19,7 +19,7 @@
     <div class="fo-row">
       <label>
         <input type="checkbox" checked={r.axial !== false} data-testid="fm-opt-axial"
-          onchange={(e) => resolveFlexibility({ axial: e.currentTarget.checked })} />
+          onchange={(e) => switchFlexibilityAxial(e.currentTarget, r.axial !== false)} />
         {t('course.statics.fm.axial.label')}
       </label>
       <button class="fo-help" class:on={help} onclick={() => (help = !help)} aria-expanded={help}

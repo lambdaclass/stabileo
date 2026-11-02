@@ -437,3 +437,24 @@ describe('φ buckling of a member with every end held', () => {
     expect(teachingPDelta(held(), { method: 'phi', axialRigid: false }).ok).toBe(false);
   });
 });
+
+describe('a joint that no bar holds across', () => {
+  it('two collinear compressed truss bars: the middle joint can move sideways, so the run is refused, not held', () => {
+    const bar = (id: number, i: number, j: number) => ({ id, type: 'truss' as const, nodeI: i, nodeJ: j, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false });
+    const input: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 2, z: 0 }], [3, { id: 3, x: 4, z: 0 }]]),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+      elements: new Map([[1, bar(1, 1, 2)], [2, bar(2, 2, 3)]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' as const }], [2, { id: 2, nodeId: 3, type: 'rollerX' as const }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: -100, fz: 0, my: 0 } }],
+    };
+    for (const method of ['consistent', 'string', 'phi'] as const) {
+      const b = buildSystem(input, { method, axialRigid: false });
+      expect(b.ok).toBe(false);
+      if (!b.ok) expect(b.reason.key).toBe('course.second-order.refuse.singular');
+    }
+    const run = runPDelta2D(input, { ...DEFAULT_SETTINGS, method: 'phi', n: 1 });
+    expect(run.ok).toBe(false);
+  });
+});

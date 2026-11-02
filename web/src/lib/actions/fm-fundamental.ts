@@ -40,3 +40,9 @@ export function resolveFlexibility(next: { releases?: string[] | null; axial?: b
     return false;
   }
 }
+
+export function switchFlexibilityAxial(box: { checked: boolean }, applied: boolean): boolean {
+  if (resolveFlexibility({ axial: box.checked })) return true;
+  box.checked = applied;
+  return false;
+}

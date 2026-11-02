@@ -4,8 +4,8 @@ import { isSolverReady } from '../../../wasm-solver';
 import { methodContext } from '../../../../store/explained-steps.svelte';
 import { methodById } from '../../methods';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
-import { resolveMdof } from '../mdof-build';
-import { solveSdof } from '../sdof-doc';
+import { resolveMdof, MIN_HARMONIC_RATIO } from '../mdof-build';
+import { solveSdof, resolveSdof } from '../sdof-doc';
 import { stepsEs, stepsEn, stepsPt } from '../../../../i18n/locales/steps';
 import type { Block, StepDoc, Txt } from '../../doc';
 import { isTxt } from '../../doc';
@@ -13,6 +13,7 @@ import { num } from '../../format';
 import katex from 'katex';
 import { shearMatrixTex } from '../mdof-system-blocks';
 import { freeVibrationTex } from '../mdof-doc';
+import { firstModeTex } from '../mass-doc';
 
 const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
 beforeAll(async () => {
@@ -125,6 +126,25 @@ describe('the single degree of freedom document', () => {
 function resetAndGet() { return { source: 'model' as const, nodeId: null, dir: 'ux' as const, m: 2, k: 800, xi: 0.05, u0: 0.01, v0: 0, F0: 10, Omega: null }; }
 
 describe('the modal decomposition document', () => {
+  it('harmonic excitation needs a finite frequency ratio of at least the minimum, and ξ a finite number ≥ 0', async () => {
+    await load('dynamics-shear-building');
+    for (const ratio of [0, -1, NaN, Infinity, MIN_HARMONIC_RATIO / 2]) {
+      setDynamicsSettings({ mdof: { source: 'shear', excitation: 'harmonic', ratio, xi: 0.05 } });
+      const c = resolveMdof(methodContext('mdofModal')!);
+      expect('refusal' in c && c.refusal).toBe('mdof.err.ratio');
+    }
+    for (const xi of [-0.1, NaN, Infinity]) {
+      setDynamicsSettings({ mdof: { source: 'shear', excitation: 'free', ratio: 0.8, xi } });
+      const c = resolveMdof(methodContext('mdofModal')!);
+      expect('refusal' in c && c.refusal).toBe('mdof.err.xi');
+    }
+    setDynamicsSettings({ mdof: { source: 'shear', excitation: 'harmonic', ratio: MIN_HARMONIC_RATIO, xi: 0.05 } });
+    const ok = resolveMdof(methodContext('mdofModal')!);
+    if ('refusal' in ok) throw new Error(ok.refusal);
+    expect(ok.times.every(Number.isFinite)).toBe(true);
+    setDynamicsSettings({ mdof: { excitation: 'free', ratio: 0.8, xi: 0.05 } });
+  });
+
   it('shear building of the two-storey example: K tridiagonal with Σ12EI/h³ and ten steps', async () => {
     await load('dynamics-shear-building');
     setDynamicsSettings({ mdof: { source: 'shear' } });
@@ -249,5 +269,31 @@ describe('a modal free vibration written in its damping regime', () => {
     const over = freeVibrationTex(1, 1, 0, 2, 2);
     expect(over).toContain('\\cosh');
     expect(over).toContain('\\sinh');
+  });
+});
+
+describe('the exact first frequency as written', () => {
+  const base = { beamCase: 'cantilever' as const, L: 0.1, EI: 1.2e4, EA: 4e6, rhoA: 0.157 };
+  it('is the axial bar\'s when the axial mode is the lowest', () => {
+    const fa = (Math.PI / 2) * Math.sqrt(base.EA / base.rhoA) / base.L / (2 * Math.PI);
+    const fb = 3.516 * Math.sqrt(base.EI / (base.rhoA * base.L ** 4)) / (2 * Math.PI);
+    expect(fa).toBeLessThan(fb);
+    const tex = firstModeTex({ ...base, modes: [{ f: fa, kind: 'axial', order: 1 }, { f: fb, kind: 'bending', order: 1 }] });
+    expect(tex).toContain(`\\omega_1 = ${num(Math.PI / 2)}\\sqrt{\\frac{EA}`);
+    expect(() => katex.renderToString(tex, { throwOnError: true })).not.toThrow();
+  });
+  it('is the bending one when bending is the lowest', () => {
+    const fb = 3.516 * Math.sqrt(base.EI / (base.rhoA * base.L ** 4)) / (2 * Math.PI);
+    const tex = firstModeTex({ ...base, modes: [{ f: fb, kind: 'bending', order: 1 }, { f: 10 * fb, kind: 'axial', order: 1 }] });
+    expect(tex).toContain(`\\omega_1 = ${num(3.516)}\\sqrt{\\frac{EI}`);
+  });
+});
+
+describe('an SDOF taken from the model', () => {
+  it('is refused without a model, never built from the typed m and k', () => {
+    const s = { source: 'model' as const, nodeId: null, dir: 'ux' as const, m: 2, k: 800, xi: 0.05, u0: 0.01, v0: 0, F0: 10, Omega: null };
+    expect(resolveSdof({ model: null } as never, s)).toEqual({ refusal: 'sdof.err.noModel' });
+    const manual = resolveSdof({ model: null } as never, { ...s, source: 'manual' });
+    expect('refusal' in manual).toBe(false);
   });
 });

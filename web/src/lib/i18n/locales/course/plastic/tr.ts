@@ -5,7 +5,7 @@ const words: Translations = {
   'steps.m.plasticKinematic.title': 'Kinematik yöntem',
   'steps.m.plasticKinematic.help': 'Göçme yükünü olası mekanizmalar arasında arar. Kritik kesitleri belirler, temel mekanizmaları (kiriş, düğüm ve yanal öteleme) kurar, her biri için virtüel iş denklemini yazar ve mafsalları yok edip λ değerini düşürmek için bunları birleştirir. En küçük λ bir üst sınırdır; bu λ için momentler hiçbir yerde Mp değerini aşmıyorsa göçme yüküdür.',
   'steps.m.plasticKinematic.requires': 'eğilme etkisindeki çubuklardan oluşan, yüklü, yaylı mesnetsiz ve çubuklara uygulanmış tekil momentsiz, her kesitinde Mp tanımlı düzlemsel bir kiriş veya çerçeve.',
-  'steps.m.plasticKinematic.what': 'Yükler birlikte, bir λ katsayısıyla çarpılarak artar. Kinematik yöntem göçme mekanizmaları önerir ve her birini oluşturan λ değerini virtüel iş ile hesaplar. Kinematik teoreme göre bu λ değerlerinin her biri göçme yükü λc değerine eşit ya da ondan büyüktür; aranan en küçüğüdür.',
+  'steps.m.plasticKinematic.what': 'Yükler birlikte, bir λ katsayısıyla çarpılarak artar. Kinematik yöntem göçme mekanizmaları önerir ve her birini oluşturan λ değerini virtüel iş ile hesaplar. Kinematik teoreme göre bu λ değerlerinin her biri göçme yükü λc değerine eşit ya da ondan büyüktür: önerilenlerin en küçüğü bir üst sınırdır. Yalnızca tüm kabul edilebilir mekanizmalar üzerinde en küçüklenmişse ya da her yerde |M| ≤ Mp sağlayan dengede bir moment dağılımı varsa λc dir.',
   'steps.m.plasticStatic.title': 'Statik yöntem',
   'steps.m.plasticStatic.help': 'Göçme yükünü yüklerle dengede olan moment dağılımları arasında arar. Kritik kesitlerin momentleri arasındaki denge denklemlerini yazar, bir mekanizma oluşturacak kadar kesitte Mp kabul eder, λ ve diğer momentleri çözer ve hiçbirinin Mp değerini aşmadığını kontrol eder. Biri aşarsa kabulü düzeltir ve tekrarlar.',
   'steps.m.plasticStatic.requires': 'eğilme etkisindeki çubuklardan oluşan, yüklü, yaylı mesnetsiz ve çubuklara uygulanmış tekil momentsiz, her kesitinde Mp tanımlı düzlemsel bir kiriş veya çerçeve.',
@@ -149,6 +149,7 @@ const words: Translations = {
 
   'course.plastic.user.title': 'Bir mekanizma önerin',
   'course.plastic.user.help': 'GH + 1 mafsal, mafsallar bağımsız serbestlikler olduğu sürece tam mekanizmanın sayısıdır: o zaman hiperstatik bilinmeyen kalmaz ve momentler yalnızca dengeden çıkar. Bir mekanizma kısmi (yerel) de olabilir: yapının bir bölümünü hareket ettirirken başka yerde hiperstatik bilinmeyenler kalır, bu yüzden denge tek başına bütün momentleri vermez. Bir mafsal kümesinin tam, kısmi ya da birden fazla serbestlik dereceli olması yalnızca sayıya değil, hangi serbestliklerin bağımsız olduğuna, kaç hiperstatik bilinmeyen kaldığına ve mekanizmanın boyutuna bağlıdır. Virtüel işle her mekanizma bir üst sınır olan bir λ verir (kinematik teorem). Bu λ için momentler hiçbir yerde Mp değerini aşmıyorsa λ aynı zamanda bir alt sınırdır (statik teorem) ve dolayısıyla göçme yüküdür (teklik).',
+  'course.plastic.user.compareNone': 'Adım adım analiz doğrulanmış bir göçmeye ulaşmadı: karşılaştırılacak λc yok.',
   'course.plastic.user.summaryEmpty': 'mafsal koymak için çubuklara dokunun',
   'course.plastic.user.summaryCount': '{n} mafsal',
   'course.plastic.user.summaryLambda': '{n} mafsal, λ = {lambda}',

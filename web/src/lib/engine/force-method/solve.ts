@@ -202,7 +202,7 @@ export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = 
   const final: StateResult = { bars: finalBars, reactions: finalReactions };
 
   const dsmState = stateOf(solveState(input), input.loads);
-  const rigidOk = withAxial || kept.size ? undefined : rigidReferenceAgrees(input, final, biela);
+  const rigidOk = withAxial || kept.size ? undefined : rigidReferenceAgrees(input, final, new Set([...input.elements.keys()].filter((id) => isBiela(input, id))));
   return {
     count, isostatic: false, redundants, original, primary: geometryOf(p0.input),
     states: [stateOf(s0, p0.input.loads), ...unit.map((u) => stateOf(u, []))],

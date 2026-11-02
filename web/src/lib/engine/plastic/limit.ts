@@ -16,7 +16,7 @@
  */
 import type { SolverInput } from '../types';
 import { buildKinematics, dot, type KinModel } from './kinematics';
-import { buildSections, momentAt, momentForm, checkPoints, type SectionModel, type SectionOptions } from './sections';
+import { buildSections, endCouplesToNodal, momentAt, momentForm, checkPoints, type SectionModel, type SectionOptions } from './sections';
 import { rref } from '../steps/sway-modes';
 import { solveLp } from './lp';
 
@@ -62,7 +62,8 @@ function nullspaceOf(A: number[][], n: number, order?: number[]): number[][] {
 
 const rankOf = (A: number[][], n: number) => (A.length ? rref(A, n).pivots.length : 0);
 
-export function limitModel(input: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): LimitModel {
+export function limitModel(given: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): LimitModel {
+  const input = endCouplesToNodal(given);
   const sm = buildSections(input, mpOf, opts);
   const km = buildKinematics(input, sm.sections.map((s) => ({ member: s.member, t: s.t })));
   const basis = nullspaceOf(km.rows, km.n);

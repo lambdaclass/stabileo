@@ -279,6 +279,18 @@ describe('the shear building takes columns of one section only', () => {
   });
 });
 
+describe('the shear building takes its loads at the floors only', () => {
+  it('a horizontal distributed load on a column is refused, not dropped from F', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      const col = modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+      modelStore.addDistributedLoad(col, 5, 5);
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('memberLoad');
+  });
+});
+
 describe('truss mass at a support in a turned frame', () => {
   for (const angle of [0, 35]) {
     it(`a triangle truss on a roller at ${angle}°: consistent-mass frequencies equal the engine's`, () => {

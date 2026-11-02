@@ -119,6 +119,8 @@ test.describe('@slow virtual work: what to compute', () => {
     await shot(page, 'vw-params-open');
     const tabs = await page.getByTestId('steps-tab').count();
     for (let k = 0; k < tabs; k++) await page.getByTestId('steps-next').click();
+    await expect(page.getByTestId('steps-tab').last()).toHaveClass(/\bon\b/);
+    await expect(page.getByTestId('steps-next')).toBeDisabled();
     await expect(page.locator('.sb-compare')).toBeVisible();
     await expect(page.getByTestId('steps-doc')).toContainText(/agree up to rounding|coinciden salvo por el redondeo/);
     await shot(page, 'vw-rotation-compare');

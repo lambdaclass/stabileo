@@ -35,16 +35,24 @@ describe('a refused influence line leaves no line under the new choice', () => {
   });
 
   it('a click on a target the solver refuses clears the line of the old target', () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    const el = modelStore.addElement(a, b);
     resultsStore.setInfluenceLine(line());
-    vi.spyOn(modelStore, 'computeInfluenceLine').mockReturnValue('refused');
-    pickInfluenceTarget({ x: 0, y: 0 }, 1, undefined, 0.1);
+    uiStore.ilQuantity = 'M';
+    const solve = vi.spyOn(modelStore, 'computeInfluenceLine').mockReturnValue('refused');
+    pickInfluenceTarget({ x: 1, y: 0 }, undefined, el, 0);
+    expect(solve).toHaveBeenCalledTimes(1);
+    expect(solve).toHaveBeenCalledWith('M', undefined, el, 0.25, 20, 'vertical');
     expect(resultsStore.influenceLine).toBeNull();
+    modelStore.clear();
   });
 
   it('a section moved to where the solver refuses clears the line of the old section', () => {
     resultsStore.setInfluenceLine(line());
-    vi.spyOn(modelStore, 'computeInfluenceLine').mockReturnValue('refused');
+    const solve = vi.spyOn(modelStore, 'computeInfluenceLine').mockReturnValue('refused');
     moveInfluenceSection(1, 0.9);
+    expect(solve).toHaveBeenCalledWith('M', undefined, 1, 0.9, 20, 'vertical');
     expect(resultsStore.influenceLine).toBeNull();
   });
 });

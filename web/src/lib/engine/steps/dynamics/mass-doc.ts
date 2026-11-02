@@ -146,7 +146,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
       { kind: 'table', head, rows: chosen.map((f, i) => [i + 1, f, ...(exact ? [exact.modes[i]?.f ?? '—'] : [])]), caption: dt('mass.freq.caption') },
       ...(eng ? [p(sameMass ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), sameMass, dt('mdof.eig.engineCaption')), ...(!sameMass ? consistentCheck(ctx.model!, pts, n, true, eng.slice(0, chosen.length)) : [])] : []),
       ...(exact ? [p(`mass.exact.${exact.beamCase}`, { L: numText(exact.L) })] : [p('mass.exact.none', undefined, true)]),
-      ...(exact ? [{ kind: 'eq', tex: `\\omega_1 = ${num(exactCoef(exact))}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(exactCoef(exact))}\\sqrt{\\frac{${num(exact.EI)}}{${num(exact.rhoA)} \\cdot ${num(exact.L)}^4}}` } as Block] : []),
+      ...(exact ? [{ kind: 'eq', tex: firstModeTex(exact) } as Block] : []),
     ],
   });
 
@@ -174,6 +174,13 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   return { method: 'massDiscretization', title: tx('steps.m.massDiscretization.title'), subtitle: dt(`mass.subtitle.${st.massModel}`, { n }), intro, steps };
 }
 
-function exactCoef(e: NonNullable<ReturnType<typeof exactBeam>>): number {
-  return (e.modes.find((m) => m.kind === 'bending')!.f * 2 * Math.PI) / Math.sqrt(e.EI / (e.rhoA * e.L ** 4));
+export function firstModeTex(e: NonNullable<ReturnType<typeof exactBeam>>): string {
+  const first = e.modes[0];
+  const w = first.f * 2 * Math.PI;
+  if (first.kind === 'axial') {
+    const c = w / Math.sqrt(e.EA / (e.rhoA * e.L ** 2));
+    return `\\omega_1 = ${num(c)}\\sqrt{\\frac{EA}{\\rho A\\,L^2}} = ${num(c)}\\sqrt{\\frac{${num(e.EA)}}{${num(e.rhoA)} \\cdot ${num(e.L)}^2}}`;
+  }
+  const c = w / Math.sqrt(e.EI / (e.rhoA * e.L ** 4));
+  return `\\omega_1 = ${num(c)}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(c)}\\sqrt{\\frac{${num(e.EI)}}{${num(e.rhoA)} \\cdot ${num(e.L)}^4}}`;
 }

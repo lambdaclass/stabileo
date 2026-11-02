@@ -20,8 +20,12 @@ import { allMethods } from '../methods';
 import type { ExplainedMethod, MethodContext } from '../registry';
 import type { Block, Cell, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
-import { teachingPDelta } from '../../second-order/pdelta';
-import { teachingBuckling } from '../../second-order/buckling';
+import { teachingPDelta, solveState } from '../../second-order/pdelta';
+import { teachingBuckling, linearBuckling, phiBuckling } from '../../second-order/buckling';
+import { buildSystem } from '../../second-order/system';
+import type { GeomMethod } from '../../second-order/member-matrices';
+import { refineInput } from '../../second-order/refine';
+import { referenceInput } from '../second-order-common';
 import { generalizedEigen } from '../../second-order/dense';
 import { solveDense } from '../sway-modes';
 import type { SolverInput, SolverLoad } from '../../types';
@@ -166,7 +170,8 @@ function chordProblems(input: SolverInput, buckling: boolean): string[] {
   };
   if (!buckling) {
     const r = teachingPDelta(input, { method: 'string', axialRigid: false });
-    if (!r.ok || !r.run.converged || !r.run.stable) return [];
+    const bad = runFailure('chord P-Δ', r);
+    if (bad || !r.ok) return bad ? [bad] : [];
     const { sys, final, finalSolvedWith } = r.run;
     const Dof = (node: number, k: number) => final.D[sys.dof(node, k)];
     const eng = wasm.solve({ ...input, loads: [...input.loads, ...chordForces(finalSolvedWith, Dof, sys.members)] });
@@ -179,7 +184,7 @@ function chordProblems(input: SolverInput, buckling: boolean): string[] {
     return out;
   }
   const b = teachingBuckling(input, { method: 'string', axialRigid: false }, 1);
-  if (!b.ok || !b.run.modes.length) return [];
+  if (!b.ok || !b.run.modes.length) return [`chord buckling gave no mode although its document built${b.ok ? '' : `: ${b.reason.key}`}`];
   const sys = b.run.sys;
   const free = sys.free;
   const where = new Map<number, [number, number]>();
@@ -211,6 +216,98 @@ function chordProblems(input: SolverInput, buckling: boolean): string[] {
   const mine = b.run.modes[0].lambda;
   if (!pairs || !pairs.length) return [`chord buckling: no independent root, the method gives ${mine}`];
   return Math.abs(pairs[0].lambda - mine) > 1e-6 * Math.abs(mine) ? [`chord buckling λ₁ ${mine} vs independent ${pairs[0].lambda}`] : [];
+}
+
+/** A P-Δ run that every model of the sweep must finish: refused, broken down, unconverged or unstable is reported. */
+function runFailure(label: string, r: ReturnType<typeof teachingPDelta>): string | null {
+  if (!r.ok) return `${label} refused although its document built: ${r.reason.key}`;
+  if (r.run.failed || !r.run.converged || !r.run.stable) return `${label} did not end converged and stable (failed ${r.run.failed}, converged ${r.run.converged}, stable ${r.run.stable})`;
+  return null;
+}
+
+/** Pairs of cuts, finest first, for models too large for the finest. */
+const CUTS = [[8, 16], [4, 8]] as const;
+
+/** The nodal D of K(N)·D = F solved with the consistent matrix on `input` cut in n, every piece at its member's N. */
+function cutSolve(input: SolverInput, n: number, N: Map<number, number>): ((node: number, k: number) => number) | null {
+  const r = refineInput(input, n);
+  const b = buildSystem(r.input, { method: 'consistent', axialRigid: false });
+  if (!b.ok) return null;
+  const pieceN = new Map([...r.input.elements.keys()].map((id) => [id, N.get(r.parent.get(id) ?? id) ?? 0]));
+  const st = solveState(b.sys, pieceN, 'consistent');
+  return st ? (node, k) => st.D[b.sys.dof(node, k)] : null;
+}
+
+/**
+ * φ checked against the consistent matrix with the members cut in n and 2n (8 and 16 when the
+ * model allows), at the same axial forces: the cut solution converges to the exact one φ gives,
+ * so φ must lie within the change from n to 2n (plus 1e-9 of the largest value). P-Δ by the nodal D of the last solve, buckling by λ₁.
+ */
+function phiProblems(input: SolverInput, buckling: boolean): string[] {
+  if (!buckling) {
+    const r = teachingPDelta(input, { method: 'phi', axialRigid: false });
+    const bad = runFailure('φ P-Δ', r);
+    if (bad || !r.ok) return bad ? [bad] : [];
+    const { sys, final, finalSolvedWith } = r.run;
+    const pair = CUTS.map(([a, z]) => [cutSolve(input, a, finalSolvedWith), cutSolve(input, z, finalSolvedWith)] as const).find(([x, y]) => x && y);
+    if (!pair) return ['φ P-Δ: the cut reference could not be solved at any pair of cuts'];
+    const [c16, c32] = pair as [NonNullable<ReturnType<typeof cutSolve>>, NonNullable<ReturnType<typeof cutSolve>>];
+    const nodes = [...input.nodes.keys()];
+    const scale = Math.max(1e-12, ...final.D.map(Math.abs));
+    let conv = 0;
+    for (const node of nodes) for (let k = 0; k < 3; k++) conv = Math.max(conv, Math.abs(c16(node, k) - c32(node, k)));
+    const out: string[] = [];
+    for (const node of nodes) for (let k = 0; k < 3; k++) {
+      const mine = final.D[sys.dof(node, k)], ref = c32(node, k);
+      if (Math.abs(mine - ref) > conv + 1e-9 * scale) out.push(`φ P-Δ node ${node} dof ${k}: ${mine} vs cut reference ${ref} (change between the cuts ${conv})`);
+    }
+    return out;
+  }
+  const b = teachingBuckling(input, { method: 'phi', axialRigid: false }, 1);
+  if (!b.ok || !b.run.modes.length) return [`φ buckling gave no mode although its document built${b.ok ? '' : `: ${b.reason.key}`}`];
+  const mine = b.run.modes[0].lambda;
+  const cut = (n: number) => {
+    const r = refineInput(input, n);
+    const s = buildSystem(r.input, { method: 'consistent', axialRigid: false });
+    if (!s.ok) return null;
+    const N0 = new Map([...r.input.elements.keys()].map((id) => [id, b.run.N0.get(r.parent.get(id) ?? id) ?? 0]));
+    return linearBuckling(s.sys, 'consistent', 1, N0)[0]?.lambda ?? null;
+  };
+  const pairL = CUTS.map(([a, z]) => [cut(a), cut(z)] as const).find(([x, y]) => x !== null && y !== null);
+  if (!pairL) return ['φ buckling: the cut reference gave no mode at any pair of cuts'];
+  const [l16, l32] = pairL as [number, number];
+  return Math.abs(mine - l32) > Math.abs(l16 - l32) + 1e-9 * Math.abs(mine) ? [`φ buckling λ₁ ${mine} vs cut reference ${l32} (change between the cuts ${Math.abs(l16 - l32)})`] : [];
+}
+
+/**
+ * Rigid members checked against the same method with every area × 10⁵ at the same axial forces:
+ * what is left is that axial deformation, 1e-5 of the answer, so 1e-4 of the largest value.
+ */
+function rigidProblems(input: SolverInput, method: GeomMethod, buckling: boolean): string[] {
+  const stiff = buildSystem(referenceInput(input, true), { method, axialRigid: false }, method === 'phi');
+  if (!stiff.ok) return [`rigid ${method}: the stiff reference was refused: ${stiff.reason.key}`];
+  if (!buckling) {
+    const r = teachingPDelta(input, { method, axialRigid: true });
+    const bad = runFailure(`rigid ${method} P-Δ`, r);
+    if (bad || !r.ok) return bad ? [bad] : [];
+    const st = solveState(stiff.sys, r.run.finalSolvedWith, method);
+    if (!st) return [`rigid ${method} P-Δ: the stiff reference could not be solved`];
+    const scale = Math.max(1e-12, ...r.run.final.D.map(Math.abs));
+    const out: string[] = [];
+    for (const node of input.nodes.keys()) for (let k = 0; k < 3; k++) {
+      const mine = r.run.final.D[r.run.sys.dof(node, k)], ref = st.D[stiff.sys.dof(node, k)];
+      if (Math.abs(mine - ref) > 1e-4 * scale) out.push(`rigid ${method} P-Δ node ${node} dof ${k}: ${mine} vs stiff ${ref}`);
+    }
+    return out;
+  }
+  const b = teachingBuckling(input, { method, axialRigid: true }, 1);
+  if (!b.ok || !b.run.modes.length) return [`rigid ${method} buckling gave no mode although its document built${b.ok ? '' : `: ${b.reason.key}`}`];
+  const mine = b.run.modes[0].lambda;
+  const ref = method === 'phi'
+    ? phiBuckling(stiff.sys, 1, b.run.N0, [mine * 1.0001])[0]?.lambda
+    : linearBuckling(stiff.sys, method === 'string' ? 'string' : 'consistent', 1, b.run.N0)[0]?.lambda;
+  if (ref === undefined) return [`rigid ${method} buckling: the stiff reference gave no mode`];
+  return Math.abs(mine - ref) > 1e-4 * Math.abs(mine) ? [`rigid ${method} buckling λ₁ ${mine} vs stiff ${ref}`] : [];
 }
 
 /** The classical frame methods keep members at their length: with axially rigid members they must match the matrix solve. */
@@ -247,7 +344,13 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
       let doc: StepDoc;
       try { doc = m.build(ctx); } catch (e) { failures.push(`${label} ${m.id} ${JSON.stringify(opts)}: build threw ${String((e as Error)?.stack ?? e).slice(0, 300)}`); continue; }
       let found = problems(m, doc, opts);
-      if (m.id.endsWith('-kg') && opts.chord && !opts.axialRigid) found.push(...chordProblems(ctx.input, m.id.startsWith('so-buckling')));
+      if (m.id.startsWith('so-')) {
+        const buckles = m.id.startsWith('so-buckling');
+        const method: GeomMethod = m.id.endsWith('-phi') ? 'phi' : opts.chord ? 'string' : 'consistent';
+        if (opts.axialRigid) found.push(...rigidProblems(ctx.input, method, buckles));
+        else if (method === 'string') found.push(...chordProblems(ctx.input, buckles));
+        else if (method === 'phi') found.push(...phiProblems(ctx.input, buckles));
+      }
       // A classical frame method that differs from the matrix solve must be
       // exact once members cannot change length: then the difference was axial
       // deformation and nothing else.

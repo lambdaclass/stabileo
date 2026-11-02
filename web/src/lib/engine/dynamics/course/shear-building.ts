@@ -41,7 +41,7 @@ export interface ShearBuilding {
   dofs: DofRef[];
 }
 
-export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn';
+export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad';
 
 const TOL = 1e-6;
 
@@ -121,7 +121,7 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     if (l > 0) floors[l - 1].mPoint += p.m;
   }
   for (const ld of model.loads) {
-    if (ld.type !== 'nodal') continue;
+    if (ld.type !== 'nodal') return 'memberLoad';
     const d = ld.data as { nodeId: number; fx?: number };
     const n = model.nodes.get(d.nodeId);
     const l = n ? levelOf(n.y) : -1;

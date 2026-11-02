@@ -50,6 +50,8 @@ test.describe('@slow structural dynamics in Basic', () => {
     const n = await page.getByTestId('steps-tab').count();
     expect(n).toBeGreaterThan(9);
     for (let k = 0; k < n; k++) await page.getByTestId('steps-next').click();
+    await expect(page.getByTestId('steps-tab').last()).toHaveClass(/\bon\b/);
+    await expect(page.getByTestId('steps-next')).toBeDisabled();
     await expect(doc.locator('.sb-compare').or(doc.locator('.sb-table')).first()).toBeVisible();
     await doc.screenshot({ path: 'test-results/course-dynamics-mdof-doc.png' });
     await page.getByTestId('steps-back').click();

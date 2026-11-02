@@ -22,10 +22,11 @@ export interface ResolvedSdof { m: number; k: number; fromModel: SdofFromModel |
 export function resolveSdof(ctx: MethodContext, s: SdofSettings = dynamicsSettings().sdof): ResolvedSdof | { refusal: string } {
   const finite = [s.u0, s.v0, s.F0].every(Number.isFinite) && Number.isFinite(s.xi) && s.xi >= 0 && (s.Omega === null || (Number.isFinite(s.Omega) && s.Omega >= 0));
   if (!finite) return { refusal: 'sdof.err.inputs' };
-  if (s.source === 'manual' || !ctx.model) {
+  if (s.source === 'manual') {
     if (!(s.m > 0 && Number.isFinite(s.m)) || !(s.k > 0 && Number.isFinite(s.k))) return { refusal: 'sdof.err.mk' };
     return { m: s.m, k: s.k, fromModel: null, s };
   }
+  if (!ctx.model) return { refusal: 'sdof.err.noModel' };
   const pts = ctx.model.massSource?.points ?? [];
   const node = s.nodeId ?? defaultSdofNode(ctx.model, pts);
   const r = sdofFromModel(ctx.model, pts, node, s.dir);

@@ -10,6 +10,8 @@ import { limitModel, minimumOver, mechanismMoments, distribution } from '../limi
 import { plasticCollapse2D } from '../../plastic-collapse';
 import { countStaticDegree2D } from '../../kinematic-2d';
 import { solveLp } from '../lp';
+import { solve } from '../../wasm-solver';
+import type { SolverLoad } from '../../types';
 import { momentAt } from '../sections';
 import { model, fixedBeam, proppedUdl, portal, twoSpanUdl, uniformMp, MP, P, pOn, q } from './helpers';
 
@@ -214,6 +216,31 @@ describe('the peak |M|/Mp of a distribution', () => {
     let best = 0;
     for (let i = 0; i <= 600000; i++) best = Math.max(best, Math.abs(Mx((L * i) / 600000)));
     expect(d.ratio / (best / MP)).toBeCloseTo(1, 6);
+  });
+});
+
+
+describe('a couple applied at a member end', () => {
+  const couple = (elementId: number, a: number, my: number): SolverLoad => ({ type: 'pointOnElement', data: { elementId, a, p: 0, my } });
+  const nodal = (nodeId: number, my: number): SolverLoad => ({ type: 'nodal', data: { nodeId, fx: 0, fz: 0, my } });
+  const beam = (load: SolverLoad) => model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'rollerX']], [q(1, -10), load]);
+
+  it('at a joint free to turn is the same couple on the joint: the engine moves alike, and the collapse load is the same', () => {
+    const onMember = beam(couple(1, 6, 15)), onNode = beam(nodal(2, 15));
+    const d1 = solve(onMember).displacements, d2 = solve(onNode).displacements;
+    d1.forEach((d, i) => { expect(d.ux).toBeCloseTo(d2[i].ux, 12); expect(d.uz).toBeCloseTo(d2[i].uz, 12); expect(d.ry).toBeCloseTo(d2[i].ry, 12); });
+    const a = solveLimit(onMember, uniformMp), b = solveLimit(onNode, uniformMp);
+    expect(a).not.toBeNull();
+    expect(a!.best.lambda).toBeCloseTo(b!.best.lambda, 9);
+    expect(Math.abs(incremental(onMember) / a!.best.lambda - 1)).toBeLessThan(1e-4);
+  });
+
+  it('inside the span, at a hinged end, or at a support that holds the rotation, is still refused', () => {
+    expect(() => limitModel(beam(couple(1, 3, 15)), uniformMp)).toThrow(/couple inside a member/);
+    expect(() => limitModel(beam(couple(1, 0, 15)), uniformMp)).toThrow(/couple inside a member/);
+    const hinged = beam(couple(1, 6, 15));
+    hinged.elements.get(1)!.hingeEnd = true;
+    expect(() => limitModel(hinged, uniformMp)).toThrow(/couple inside a member/);
   });
 });
 

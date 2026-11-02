@@ -10,6 +10,7 @@
   import { thetaLabel } from '../../../lib/canvas/draw-plastic-course';
   import { fmtQ, fmtCoord, unitQ } from '../../../lib/store/display-units.svelte';
   import PlasticSection from './PlasticSection.svelte';
+  import { userCompare } from './user-compare';
 
   let { r }: { r: PlasticCollapseResult } = $props();
   let open = $state(false);
@@ -94,7 +95,9 @@
             M: mom(Math.abs(v.dist.worst.M)), mp: mom(v.dist.worst.mp), lambda: v.mech.lambda.toFixed(3), lower: v.lower.toFixed(3),
           })}</p>
         {/if}
-        <p>{tp('course.plastic.user.compare', { lambda: r.collapseFactor.toFixed(3), diff: (100 * (v.mech.lambda / r.collapseFactor - 1)).toFixed(1) })}</p>
+        {@const cmp = userCompare(r, v.mech.lambda)}
+        {#if cmp}<p>{tp('course.plastic.user.compare', { lambda: cmp.lambda.toFixed(3), diff: cmp.diff.toFixed(1) })}</p>
+        {:else}<p data-testid="plastic-user-no-reference">{t('course.plastic.user.compareNone')}</p>{/if}
         <div class="um-row" role="group" aria-label={t('course.plastic.user.showLabel')}>
           <button class="adv-result-btn" class:active={plasticCourse.userShows === 'mechanism'} onclick={() => { plasticCourse.userShows = 'mechanism'; plasticCourse.view = 'user'; }} data-testid="plastic-user-show-mech">{t('course.plastic.user.showMech')}</button>
           <button class="adv-result-btn" class:active={plasticCourse.userShows === 'moments'} onclick={() => { plasticCourse.userShows = 'moments'; plasticCourse.view = 'user'; }} data-testid="plastic-user-show-moments">{t('course.plastic.user.showMoments')}</button>

@@ -51,6 +51,24 @@ export interface SectionOptions {
 
 export const endKey = (member: number, end: 'I' | 'J') => `${member}:${end}`;
 
+export function endCouplesToNodal(input: SolverInput): SolverInput {
+  const loads: SolverInput['loads'] = [];
+  let moved = false;
+  for (const l of input.loads) {
+    const e = l.type === 'pointOnElement' && Math.abs(l.data.my ?? 0) > 1e-12 ? input.elements.get(l.data.elementId) : undefined;
+    if (l.type !== 'pointOnElement' || !e || e.type !== 'frame') { loads.push(l); continue; }
+    const a = input.nodes.get(e.nodeI)!, b = input.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    const free = (node: number) => ![...input.supports.values()].some((sp) => sp.nodeId === node && (sp.type === 'fixed' || (sp.type === 'spring' && (sp.kz ?? 0) > 0)));
+    const atI = l.data.a <= 1e-9 * L && !e.hingeStart && free(e.nodeI), atJ = l.data.a >= L * (1 - 1e-9) && !e.hingeEnd && free(e.nodeJ);
+    if (!atI && !atJ) { loads.push(l); continue; }
+    moved = true;
+    loads.push({ type: 'nodal', data: { nodeId: atI ? e.nodeI : e.nodeJ, fx: 0, fz: 0, my: l.data.my! } });
+    if (Math.abs(l.data.p) > 1e-12 || Math.abs(l.data.px ?? 0) > 1e-12) loads.push({ type: 'pointOnElement', data: { ...l.data, my: 0 } });
+  }
+  return moved ? { ...input, loads } : input;
+}
+
 /** Throws on a couple applied inside a member: the moment jump it makes is not modelled here. */
 export function buildSections(input: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): SectionModel {
   if (input.loads.some((l) => l.type === 'pointOnElement' && Math.abs(l.data.my ?? 0) > 1e-12)) throw new Error('plastic sections: couple inside a member');

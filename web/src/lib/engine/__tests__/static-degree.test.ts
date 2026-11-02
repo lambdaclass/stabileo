@@ -95,6 +95,12 @@ describe('GH by the classic formula', () => {
     expect(mech.classification).toBe('hypostatic');
   });
 
+  it('does not call a count of zero isostatic when the rank check finds a mechanism: three parallel rollers', () => {
+    const rollers = ghReport(model([[1, 0, 0], [2, 3, 0], [3, 6, 0]], [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']], [[1, 'rollerX'], [2, 'rollerX'], [3, 'rollerX']]));
+    expect(rollers.gh).toBe(0);
+    expect(rollers.classification).toBe('hypostatic');
+  });
+
   it('writes the formula of its kind', () => {
     expect(ghReport(CASES[0].input).formula.tex).toBe('GH = 3m + r - 3n - c');
     expect(ghReport(CASES[7].input).formula.tex).toBe('GH = m + r - 2n');

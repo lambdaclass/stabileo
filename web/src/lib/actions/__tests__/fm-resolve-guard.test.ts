@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { modelStore, uiStore, fmStepsStore } from '../../store';
 import * as solve from '../../engine/force-method/solve';
 import * as scope from '../../engine/step-by-step-scope';
-import { resolveFlexibility } from '../fm-fundamental';
+import { resolveFlexibility, switchFlexibilityAxial } from '../fm-fundamental';
 
 function portal() {
   modelStore.clear();
@@ -37,5 +37,23 @@ describe('solving the open flexibility wizard again checks the model as opening 
     const run = vi.spyOn(solve, 'solveForceMethod');
     expect(resolveFlexibility({ axial: true })).toBe(false);
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe('the axial switch of the flexibility wizard', () => {
+  it('goes back to the assumption in use when the solve is refused', () => {
+    portal();
+    vi.spyOn(modelStore, 'hasSlidingJoints').mockReturnValue(true);
+    const box = { checked: false };
+    expect(switchFlexibilityAxial(box, true)).toBe(false);
+    expect(box.checked).toBe(true);
+  });
+
+  it('keeps the new assumption when the solve succeeds', () => {
+    portal();
+    const box = { checked: false };
+    expect(switchFlexibilityAxial(box, true)).toBe(true);
+    expect(box.checked).toBe(false);
+    expect(fmStepsStore.result?.axial).toBe(false);
   });
 });

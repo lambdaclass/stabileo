@@ -11,6 +11,7 @@ import { modalSolve, modalResponse, modalDampingMatrix, directIntegration, type 
 import { solve, maxAbs, type Mat } from '../../dynamics/course/dense';
 
 export const MAX_MODAL_DOFS = 40;
+export const MIN_HARMONIC_RATIO = 0.01;
 
 export interface MdofCase {
   kind: 'model' | 'shear';
@@ -40,6 +41,8 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   if (!model) return { refusal: 'mdof.err.empty' };
   const points = model.massSource?.points ?? [];
   const ms = settings.mdof;
+  if (!(Number.isFinite(ms.xi) && ms.xi >= 0)) return { refusal: 'mdof.err.xi' };
+  if (ms.excitation !== 'free' && !(Number.isFinite(ms.ratio) && ms.ratio >= MIN_HARMONIC_RATIO)) return { refusal: 'mdof.err.ratio', params: { min: MIN_HARMONIC_RATIO } };
   let sys: MdofSystem | null = null, shear: ShearBuilding | null = null;
   let K: Mat, M: Mat, F: number[], dofs: DofRef[];
   if (ms.source === 'shear') {

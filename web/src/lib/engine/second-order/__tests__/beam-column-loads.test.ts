@@ -93,3 +93,20 @@ describe('φ with span loads against the closed-form beam-column', () => {
     expect(Math.abs(h.res.elementForces[0].mEnd)).toBeLessThan(1e-9 * Math.abs(pinned.res.elementForces[0].mStart));
   });
 });
+
+describe('a member under strong tension', () => {
+  const m = { L: 5, EI };
+  for (const kL of [50, 200, 700]) {
+    it(`kL = ${kL}: fixed-end moments from the closed forms, and the shears carry the whole load`, () => {
+      const N = EI * (kL / m.L) ** 2, x = kL / 2, w = 7, Q = 11;
+      const u = beamColumnEndLoads(m, N, [{ kind: 'dist', a: 0, b: m.L, qa: w, qb: w } as PMemberLoad])!;
+      expect(u.every(Number.isFinite)).toBe(true);
+      expect(Math.abs(u[1]) / ((w * m.L * m.L) / 12 * (3 * (x - Math.tanh(x))) / (x * x * Math.tanh(x)))).toBeCloseTo(1, 7);
+      expect((u[0] + u[2]) / (w * m.L)).toBeCloseTo(1, 10);
+      const p = beamColumnEndLoads(m, N, [{ kind: 'point', a: m.L / 2, p: Q, m: 0 } as PMemberLoad])!;
+      expect(p.every(Number.isFinite)).toBe(true);
+      expect(Math.abs(p[1]) / ((Q * m.L) / 8 * (2 * Math.tanh(x / 2)) / x)).toBeCloseTo(1, 7);
+      expect((p[0] + p[2]) / Q).toBeCloseTo(1, 10);
+    });
+  }
+});

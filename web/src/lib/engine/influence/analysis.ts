@@ -80,6 +80,18 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
         if (fb > Math.max(sg * a.value, sg * b.value) * (1 + 1e-9) + 1e-15) extra.push(at(a, b, tb, sg * fb));
       }
     }
+    for (const branch of branchesOf(pts)) {
+      for (let k = 0; k + 1 < branch.length; k++) {
+        const a = branch[k], b = branch[k + 1];
+        if (b.t - a.t < 1e-12) continue;
+        const fit = branch.length >= 4
+          ? branch.slice(Math.min(Math.max(k - 1, 0), branch.length - 4)).slice(0, 4).map((p) => [p.t, p.value] as const)
+          : [0, 1, 2, 3].map((j) => { const t = a.t + ((b.t - a.t) * j) / 3; return [t, j === 0 ? a.value : j === 3 ? b.value : ordinateAt(id, t)] as const; });
+        for (const r of cubicStationary(fit)) {
+          if (r - a.t > 1e-9 * (b.t - a.t) && b.t - r > 1e-9 * (b.t - a.t)) extra.push(at(a, b, r, ordinateAt(id, r)));
+        }
+      }
+    }
     const merged = [...pts, ...extra].sort((p, q) => p.t - q.t);
     const zeros: IlPoint[] = [];
     for (let k = 0; k + 1 < merged.length; k++) {
@@ -98,6 +110,45 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
     out.push(...[...merged, ...zeros].sort((p, q) => p.t - q.t));
   }
   return out;
+}
+
+function branchesOf(pts: IlPoint[]): IlPoint[][] {
+  const out: IlPoint[][] = [[]];
+  for (let k = 0; k < pts.length; k++) {
+    out[out.length - 1].push(pts[k]);
+    const next = pts[k + 1];
+    if (next && pts[k].side && next.side && Math.abs(next.t - pts[k].t) < 1e-12) out.push([]);
+  }
+  return out.filter((b) => b.length >= 2);
+}
+
+function cubicStationary(fit: ReadonlyArray<readonly [number, number]>): number[] {
+  const t0 = fit[0][0], h = fit[3][0] - t0;
+  if (!(h > 0)) return [];
+  const c = [0, 0, 0, 0];
+  for (let i = 0; i < 4; i++) {
+    let poly = [fit[i][1]];
+    for (let j = 0; j < 4; j++) {
+      if (j === i) continue;
+      const xi = (fit[i][0] - t0) / h, xj = (fit[j][0] - t0) / h;
+      const next = new Array(poly.length + 1).fill(0);
+      poly.forEach((v, d) => { next[d + 1] += v / (xi - xj); next[d] -= (v * xj) / (xi - xj); });
+      poly = next;
+    }
+    poly.forEach((v, d) => { c[d] += v; });
+  }
+  const [A, B, C] = [3 * c[3], 2 * c[2], c[1]];
+  const scale = Math.max(Math.abs(A), Math.abs(B), Math.abs(C));
+  if (!(scale > 0)) return [];
+  let roots: number[];
+  if (Math.abs(A) <= 1e-12 * scale) roots = Math.abs(B) > 0 ? [-C / B] : [];
+  else {
+    const disc = B * B - 4 * A * C;
+    if (disc < 0) return [];
+    const q = -0.5 * (B + Math.sign(B || 1) * Math.sqrt(disc));
+    roots = [q / A, ...(q !== 0 ? [C / q] : [])];
+  }
+  return roots.filter(Number.isFinite).map((x) => t0 + x * h);
 }
 
 export function readLine(

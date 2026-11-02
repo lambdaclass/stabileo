@@ -10,7 +10,7 @@
  * takes two equations.
  */
 import type { SolverInput } from './types';
-import { countStaticDegree2D, type StaticDegreeCount2D } from './kinematic-2d';
+import { analyzeKinematics, classifyKinematic, countStaticDegree2D, type StaticDegreeCount2D } from './kinematic-2d';
 import { solveDetailed } from './solver-detailed';
 import { solveAllowingNullModes } from './dense-solve';
 
@@ -41,7 +41,8 @@ export interface GhReport {
   count: StaticDegreeCount2D;
   gh: number;
   kind: GhKind;
-  classification: 'hypostatic' | 'isostatic' | 'hyperstatic';
+  /** From the count and the engine's rank check; null when the rank check is unavailable, since the count alone proves no stability. */
+  classification: 'hypostatic' | 'isostatic' | 'hyperstatic' | null;
   formula: { tex: string; text: string };
   subst: { tex: string; text: string };
   /** Spring components counted in r. */
@@ -150,7 +151,12 @@ export function ghReport(input: SolverInput, slidingConditions = 0, opts: { spli
   }
   return {
     count, gh, kind,
-    classification: gh > 0 ? 'hyperstatic' : gh === 0 ? 'isostatic' : 'hypostatic',
+    classification: classifyGh(input, gh),
     formula, subst, springs: springsOf(input, count), hinges: hingesOf(input, count), split,
   };
+}
+
+function classifyGh(input: SolverInput, gh: number): GhReport['classification'] {
+  const kin = analyzeKinematics(input);
+  return kin.rankAnalysis === 'available' ? classifyKinematic(gh, kin.mechanismModes) : null;
 }

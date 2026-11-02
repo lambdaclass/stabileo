@@ -57,3 +57,22 @@ describe('a narrow pocket of the other sign that only peak refinement finds', ()
     expect(a.neg / -(0.008 ** 3 / 6)).toBeCloseTo(1, 6);
   });
 });
+
+describe('two stationary points of a cubic branch inside one sampling interval', () => {
+  const f = (t: number) => 1000 * (t - 0.431) * (t - 0.435) * (t - 0.439);
+  const pts = [0, 0.4, 0.44, 0.48, 1].map((t) => pt(t, f(t)));
+
+  it('the samples rise throughout, yet all three zeros and both peaks are found', () => {
+    for (let k = 1; k < pts.length; k++) expect(pts[k].value).toBeGreaterThan(pts[k - 1].value);
+    const out = refinedPoints(pts, (_, t) => f(t), () => true);
+    const zeros = out.filter((p) => p.value === 0).map((p) => p.t).sort();
+    expect(zeros).toHaveLength(3);
+    [0.431, 0.435, 0.439].forEach((z, i) => expect(zeros[i]).toBeCloseTo(z, 8));
+    const d = Math.sqrt(((0.004) ** 2) / 3);
+    const top = out.find((p) => Math.abs(p.t - (0.435 - d)) < 1e-9), bottom = out.find((p) => Math.abs(p.t - (0.435 + d)) < 1e-9);
+    expect(top!.value).toBeCloseTo(f(0.435 - d), 15);
+    expect(bottom!.value).toBeCloseTo(f(0.435 + d), 15);
+    expect(top!.value).toBeGreaterThan(0);
+    expect(bottom!.value).toBeLessThan(0);
+  });
+});

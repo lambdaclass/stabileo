@@ -1,4 +1,5 @@
 import type { PMember, PMemberLoad } from '../steps/plane-model';
+import { solveDense } from '../steps/sway-modes';
 
 type Basis = { b2: number; b3: number; s1: number };
 
@@ -21,6 +22,21 @@ function basis(mu: number, x: number): Basis {
   return { s1: Math.sinh(k * x) / k, b2: (Math.cosh(k * x) - 1) / (k * k), b3: (Math.sinh(k * x) - k * x) / (k * k * k) };
 }
 
+function tension(k: number, L: number): { shape: (x: number) => number[]; slope: (x: number) => number[] } | null {
+  const s = Math.exp(-k * L);
+  const A = [[1, 0, 1, s], [0, 1, -k, k * s], [1, L, s, 1], [0, 1, -k * s, k]];
+  const coef: number[][] = [];
+  for (let i = 0; i < 4; i++) {
+    const c = solveDense(A.map((r) => r.slice()), [0, 1, 2, 3].map((j) => (j === i ? 1 : 0)));
+    if (!c || !c.every(Number.isFinite)) return null;
+    coef.push(c);
+  }
+  return {
+    shape: (x) => { const a = Math.exp(-k * x), b = Math.exp(k * (x - L)); return coef.map((c) => c[0] + c[1] * x + c[2] * a + c[3] * b); },
+    slope: (x) => { const a = Math.exp(-k * x), b = Math.exp(k * (x - L)); return coef.map((c) => c[1] - k * c[2] * a + k * c[3] * b); },
+  };
+}
+
 const G5 = [
   [-0.906179845938664, 0.2369268850561891], [-0.5384693101056831, 0.4786286704993665],
   [0, 0.5688888888888889], [0.5384693101056831, 0.4786286704993665], [0.906179845938664, 0.2369268850561891],
@@ -34,24 +50,26 @@ const G5 = [
 export function beamColumnEndLoads(m: Pick<PMember, 'L' | 'EI'>, N: number, loads: readonly PMemberLoad[]): number[] | null {
   const { L } = m;
   const mu = -N / m.EI;
+  const k = Math.sqrt(Math.abs(mu));
+  const taut = mu < 0 && k * L > 1 ? tension(k, L) : null;
+  if (mu < 0 && k * L > 1 && !taut) return null;
   const end = basis(mu, L);
   const det = end.b2 * end.b2 - end.b3 * end.s1;
-  if (!Number.isFinite(det) || Math.abs(det) <= 1e-14 * L ** 4) return null;
+  if (!taut && (!Number.isFinite(det) || Math.abs(det) <= 1e-14 * L ** 4)) return null;
   const ends: Array<[number, number, number, number]> = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
   const coef = ends.map(([v0, t0, vL, tL]) => {
     const r1 = vL - v0 - t0 * L, r2 = tL - t0;
     return [v0, t0, (r1 * end.b2 - r2 * end.b3) / det, (end.b2 * r2 - end.s1 * r1) / det];
   });
-  const shape = (x: number) => {
+  const shape = taut ? taut.shape : (x: number) => {
     const b = basis(mu, x);
     return coef.map((c) => c[0] + c[1] * x + c[2] * b.b2 + c[3] * b.b3);
   };
-  const slope = (x: number) => {
+  const slope = taut ? taut.slope : (x: number) => {
     const b = basis(mu, x);
     return coef.map((c) => c[1] + c[2] * b.s1 + c[3] * b.b2);
   };
   const out = [0, 0, 0, 0];
-  const k = Math.sqrt(Math.abs(mu));
   for (const l of loads) {
     if (l.kind === 'point') {
       const s = shape(l.a), t = slope(l.a);
