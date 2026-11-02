@@ -11,12 +11,13 @@ for i in $(seq 1 12); do head=$(gh pr view "$pr" -R lambdaclass/stabileo --json 
 sha=$(git -C "$REPO" rev-parse --short=10 "refs/rv/pr-$pr" 2>/dev/null) || sha=
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || sha=
 [ -n "$sha" ] || { echo "review-diff: could not fetch PR #$pr" >&2; exit 1; }
+base=$(git -C "$REPO" rev-parse origin/main)
 title=$(gh pr view "$pr" -R lambdaclass/stabileo --json title -q .title)
 p=$R/$pr-$sha-prompt.md
 { echo "Review Stabileo PR #$pr ($title) at $sha. Stabileo is safety-critical structural-engineering software."
   echo "Do NOT run commands or tools: the full diff against origin/main is below. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, i18n gaps, phone/tablet layout risks, research isolation breaks, production engine numeric changes, security. Then Nits (one line each). If clean, say so. Be concise."
   [ -n "$focus" ] && cat "$focus"
-  echo; echo '```diff'; git -C "$REPO" diff "origin/main...refs/rv/pr-$pr" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**' ':!**/__fixtures__/**'; echo '```'; } > "$p"
+  echo; echo '```diff'; git -C "$REPO" diff "$base...$want" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**' ':!**/__fixtures__/**'; echo '```'; } > "$p"
 size=$(wc -c < "$p"); [ "$size" -gt 900000 ] && { echo "review-diff: #$pr prompt is $size bytes, switching to review-chunked.sh" >&2; exec "$(dirname "$0")/review-chunked.sh" "$pr"; }; [ "$size" -gt 3000 ] || { echo "review-diff: diff for #$pr is empty ($size bytes), not reviewing" >&2; exit 1; }; [ "$size" -gt 400000 ] && echo "warning: prompt is $size bytes" >&2
 AUTHOR=${AUTHOR_ENGINE:-claude}
 first=$(pick_engine review "$AUTHOR"); second=$(pick_engine review "$AUTHOR" "$first")

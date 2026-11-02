@@ -13,7 +13,7 @@ head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid,ti
 branch=$(echo "$head" | cut -d' ' -f1); want=$(echo "$head" | cut -d' ' -f2); title=$(echo "$head" | cut -d' ' -f3-)
 for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/heads/$branch:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
-sha=${want:0:10}; range="origin/main...refs/rv/pr-$pr"
+sha=${want:0:10}; range="$(git -C "$REPO" rev-parse origin/main)...$want"
 files=$(git -C "$REPO" diff --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**' ':!**/__fixtures__/**')
 filelist=$(git -C "$REPO" diff --stat=200 "$range" -- . ':!**/package-lock.json' ':!research/papers.json' | tail -400)
 chunk=1; cur=0; : > "$R/$pr-$sha-c$chunk.files"
@@ -28,9 +28,15 @@ for c in $(seq 1 "$chunk"); do
   { echo "Review part $c of $chunk of Stabileo PR #$pr ($title) at $sha. Stabileo is safety-critical structural-engineering software."
     echo "Do NOT run commands or tools. Below: the complete list of changed files (for context), then the full diff of THIS PART's files only. Review this part; use the file list only to understand context, and don't report 'unseen file' issues. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, refusals/containment that can be bypassed or that refuse correct inputs, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, missing negative cases, i18n gaps, security. Then Nits (one line each). If clean, say so. Be concise."
     echo; echo "Changed files:"; echo "$filelist"; echo; echo '```diff'; git -C "$REPO" diff "$range" -- $(cat "$R/$pr-$sha-c$c.files"); echo '```'; } > "$p"
-  ( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-c$c-codex.md" ) &
-  ( if [ "$second" != none ]; then "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-c$c-second.md"; sed -i "1i SECOND REVIEWER: $second" "$R/$pr-$sha-c$c-second.md"; else echo "SECOND REVIEWER: none available" > "$R/$pr-$sha-c$c-second.md"; fi ) &
-  wait
+  ( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-c$c-codex.md" ) & p1=$!
+  ( if [ "$second" != none ]; then "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-c$c-second.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second" "$R/$pr-$sha-c$c-second.md"; exit $rc; else echo "SECOND REVIEWER: none available" > "$R/$pr-$sha-c$c-second.md"; fi ) & p2=$!
+  wait "$p1"; rc1=$?; wait "$p2"; rc2=$?
+  [ "$rc1" = 0 ] && [ "$rc2" = 0 ] || { log "review-chunked #$pr chunk $c: reviewer exit codes $rc1/$rc2"; exit 1; }
+  for f in "$R/$pr-$sha-c$c-codex.md" "$R/$pr-$sha-c$c-second.md"; do
+    case "$(head -1 "$f")" in *"none available"*) continue;; esac
+    grep -qiE 'blocker|should-fix|should fix|clean|nits?\b' "$f" || { log "review-chunked #$pr chunk $c: incomplete review in $f"; exit 1; }
+  done
 done
+[ "$second" != none ] || { log "review-chunked #$pr: only one reviewer available"; exit 75; }
 log "review-chunked #$pr $sha: $chunk chunks done"
 ls "$R/$pr-$sha-"c*-{codex,second}.md
