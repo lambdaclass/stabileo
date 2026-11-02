@@ -4,7 +4,7 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
   alias StabileoRepo.Features
   alias StabileoRepo.Schemas.Project
 
-  @keys ~w(app_mode app_version content_bytes element_count id inserted_at name node_count updated_at)
+  @keys ~w(app_mode app_version content_bytes element_count id inserted_at name node_count revision updated_at)
 
   setup do
     {:ok, _} = Features.set_cloud_projects_enabled(true)
@@ -68,6 +68,21 @@ defmodule StabileoProjects.Controllers.ProjectControllerTest do
 
     body = create(token, %{"app_mode" => "edu"}) |> json_body(422)
     assert body["details"]["app_mode"] == ["is invalid"]
+  end
+
+  test "409 project_changed for a content save from an older revision", %{token: token} do
+    body = create(token) |> json_body(201)
+    id = body["data"]["id"]
+    assert body["data"]["revision"] == 1
+
+    fresh = %{"content" => Base.encode64(:zlib.gzip(~s({"v":2}))), "revision" => 1}
+    assert (request(:put, "/#{id}", fresh, token) |> json_body(200))["data"]["revision"] == 2
+
+    stale = %{"content" => Base.encode64(:zlib.gzip(~s({"v":3}))), "revision" => 1}
+    error = request(:put, "/#{id}", stale, token) |> json_body(409)
+    assert error["error"] == "project_changed"
+
+    assert Jason.decode!(:zlib.gunzip(Repo.get!(Project, id).content)) == %{"v" => 2}
   end
 
   test "404 for another account's project", %{token: token} do

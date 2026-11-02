@@ -24,6 +24,7 @@ defmodule StabileoRepo.Schemas.Project do
     field(:element_count, :integer)
     field(:app_version, :string)
     field(:is_active, :boolean, default: true)
+    field(:revision, :integer, default: 1)
 
     belongs_to(:account, Account)
 
@@ -50,7 +51,11 @@ defmodule StabileoRepo.Schemas.Project do
     |> assoc_constraint(:account)
   end
 
-  @doc "Rename and/or replace the content. Never moves a project to another account."
+  @doc """
+  Rename and/or replace the content. Never moves a project to another account.
+  Bumps `revision` and fails with `Ecto.StaleEntryError` on update when the row
+  moved past the revision this struct was read at.
+  """
   def update_changeset(project, attrs) do
     project
     |> cast(attrs, [
@@ -64,6 +69,7 @@ defmodule StabileoRepo.Schemas.Project do
     ])
     |> validate_required([:name, :app_mode, :content, :content_bytes])
     |> validate_common()
+    |> optimistic_lock(:revision)
   end
 
   defp validate_common(changeset) do

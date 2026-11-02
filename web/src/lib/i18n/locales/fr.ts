@@ -14127,6 +14127,7 @@ const fr: Translations = {
   "account.gateLede": "Pour enregistrer, exporter ou partager le modèle, il faut un compte gratuit. Votre travail reste ouvert pendant que vous vous connectez, puis ce que vous avez demandé se poursuit.",
   "account.err.cloud_projects_disabled": "L’enregistrement des projets dans le cloud n’est pas disponible pour le moment.",
   "account.err.project_limit_reached": "Vous avez atteint le nombre maximal de projets dans le cloud. Supprimez-en un pour en enregistrer un autre.",
+  "account.err.project_changed": "Ce projet a été modifié sur un autre ordinateur depuis que vous l’avez ouvert. Ouvrez-le à nouveau ou enregistrez-le comme un nouveau projet.",
   "account.field.mustAccept": "Vous devez accepter les conditions pour créer un compte.",
   "account.field.tooLarge": "C’est trop volumineux.",
   "legal.acceptTerms": "J’accepte les Conditions d’utilisation et la Politique de confidentialité",

@@ -24,6 +24,7 @@ defmodule StabileoProjects.Projects do
     :node_count,
     :element_count,
     :app_version,
+    :revision,
     :is_active,
     :inserted_at,
     :updated_at
@@ -82,13 +83,30 @@ defmodule StabileoProjects.Projects do
     end
   end
 
+  @doc """
+  Renames and/or replaces the content. A new `content` needs the `revision` it
+  was based on: a save from an older revision answers `:project_changed`, so two
+  computers cannot silently overwrite each other's model.
+  """
   def update(%Account{} = account, id, params) do
     with :ok <- enabled(),
          {:ok, project} <- fetch(account, id),
-         {:ok, attrs} <- attrs(params, :update) do
+         {:ok, attrs} <- attrs(params, :update),
+         :ok <- current_revision(project, attrs, params["revision"]) do
       project |> Project.update_changeset(attrs) |> Repo.update()
     end
+  rescue
+    Ecto.StaleEntryError -> {:error, :project_changed}
   end
+
+  defp current_revision(_project, attrs, _revision) when not is_map_key(attrs, :content), do: :ok
+  defp current_revision(%Project{revision: r}, _attrs, r) when is_integer(r), do: :ok
+
+  defp current_revision(_project, _attrs, revision) when is_integer(revision),
+    do: {:error, :project_changed}
+
+  defp current_revision(_project, _attrs, _revision),
+    do: {:error, {:validation, %{revision: ["is required to replace the content"]}}}
 
   def delete(%Account{} = account, id) do
     with :ok <- enabled(),

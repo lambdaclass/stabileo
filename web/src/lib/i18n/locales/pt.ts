@@ -67,6 +67,7 @@ const pt: Translations = {
   'account.err.user_login_disabled': 'O login e o cadastro estão desativados por enquanto. Se você já tem uma sessão aberta, ela continua funcionando.',
   'account.err.cloud_projects_disabled': 'Salvar projetos na nuvem não está disponível no momento.',
   'account.err.project_limit_reached': 'Você atingiu o máximo de projetos na nuvem. Apague algum para salvar outro.',
+  'account.err.project_changed': 'Este projeto mudou em outro computador desde que você o abriu. Abra-o de novo ou salve-o como um projeto novo.',
   'account.field.mustAccept': 'Para criar a conta você precisa aceitar os termos.',
   'account.field.tooLarge': 'É grande demais.',
   'legal.acceptTerms': 'Aceito os Termos de uso e a Política de privacidade',

@@ -67,6 +67,7 @@ const en: Record<string, string> = {
   'account.err.user_login_disabled': 'Sign-in and registration are turned off for now. If you already have a session, it keeps working.',
   'account.err.cloud_projects_disabled': 'Saving projects to the cloud is not available right now.',
   'account.err.project_limit_reached': 'You have reached the maximum number of cloud projects. Delete one to save another.',
+  'account.err.project_changed': 'This project changed on another computer since you opened it. Open it again or save it as a new project.',
   'account.field.mustAccept': 'You need to accept the terms to create an account.',
   'account.field.tooLarge': 'It is too large.',
   'legal.acceptTerms': 'I accept the Terms of Use and the Privacy Policy',

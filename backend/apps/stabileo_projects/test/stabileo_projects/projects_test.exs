@@ -87,14 +87,55 @@ defmodule StabileoProjects.ProjectsTest do
 
   test "update renames and replaces the content", %{account: account} do
     {:ok, project} = Projects.create(account, attrs())
-    {:ok, _} = Projects.update(account, project.id, %{"name" => "Renamed"})
+    assert project.revision == 1
+    {:ok, renamed} = Projects.update(account, project.id, %{"name" => "Renamed"})
+    assert renamed.revision == 2
 
-    {:ok, _} =
-      Projects.update(account, project.id, %{"content" => content(%{"version" => "2.1"})})
+    {:ok, replaced} =
+      Projects.update(account, project.id, %{
+        "content" => content(%{"version" => "2.1"}),
+        "revision" => 2
+      })
 
     saved = Repo.get!(Project, project.id)
     assert saved.name == "Renamed"
+    assert saved.revision == 3 and replaced.revision == 3
     assert Jason.decode!(:zlib.gunzip(saved.content)) == %{"version" => "2.1"}
+  end
+
+  test "a content save from an older revision is refused and changes nothing", %{
+    account: account
+  } do
+    {:ok, project} = Projects.create(account, attrs())
+    new = content(%{"version" => "from-a"})
+    {:ok, _} = Projects.update(account, project.id, %{"content" => new, "revision" => 1})
+
+    assert {:error, :project_changed} =
+             Projects.update(account, project.id, %{
+               "content" => content(%{"version" => "from-b"}),
+               "revision" => 1
+             })
+
+    assert {:error, {:validation, %{revision: [_]}}} =
+             Projects.update(account, project.id, %{"content" => content()})
+
+    saved = Repo.get!(Project, project.id)
+    assert saved.revision == 2
+    assert Jason.decode!(:zlib.gunzip(saved.content)) == %{"version" => "from-a"}
+  end
+
+  test "a save that read the current revision but lost the race is refused", %{
+    account: account
+  } do
+    {:ok, project} = Projects.create(account, attrs())
+    stale = Repo.get!(Project, project.id)
+    {:ok, _} = Projects.update(account, project.id, %{"name" => "Moved on"})
+
+    assert_raise Ecto.StaleEntryError, fn ->
+      stale |> Project.update_changeset(%{name: "Stale"}) |> Repo.update()
+    end
+
+    assert Repo.get!(Project, project.id).name == "Moved on"
   end
 
   test "delete erases the row, content included", %{account: account} do

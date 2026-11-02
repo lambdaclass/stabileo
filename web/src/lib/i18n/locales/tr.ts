@@ -14127,6 +14127,7 @@ const tr: Translations = {
   "account.gateLede": "Modeli kaydetmek, dışa aktarmak veya paylaşmak için ücretsiz bir hesap gerekir. Siz oturum açarken çalışmanız açık kalır, ardından istediğiniz işlem devam eder.",
   "account.err.cloud_projects_disabled": "Projeleri buluta kaydetme şu anda kullanılamıyor.",
   "account.err.project_limit_reached": "Bulut projelerinin azami sayısına ulaştınız. Yeni bir proje kaydetmek için birini silin.",
+  "account.err.project_changed": "Bu proje, siz açtıktan sonra başka bir bilgisayarda değiştirildi. Yeniden açın veya yeni bir proje olarak kaydedin.",
   "account.field.mustAccept": "Hesap oluşturmak için koşulları kabul etmeniz gerekir.",
   "account.field.tooLarge": "Çok büyük.",
   "legal.acceptTerms": "Kullanım Koşulları'nı ve Gizlilik Politikası'nı kabul ediyorum",

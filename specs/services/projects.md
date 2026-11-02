@@ -16,7 +16,7 @@ Cloud copies of the projects users already save to disk: the same `.ded` documen
 
 | Table | Columns that matter | Ownership |
 |-------|---------------------|-----------|
-| `projects` | `name` (1–200), `app_mode` (`basic`, `pro`), `content` (gzip), `content_bytes` (uncompressed size), `node_count`, `element_count`, `app_version`, `is_active` (always true for rows the app writes; every query also filters on it) | `account_id`, set from the session, never from input; an account reads and writes only its own rows |
+| `projects` | `name` (1–200), `app_mode` (`basic`, `pro`), `content` (gzip), `content_bytes` (uncompressed size), `node_count`, `element_count`, `app_version`, `revision` (starts at 1, bumped by every update), `is_active` (always true for rows the app writes; every query also filters on it) | `account_id`, set from the session, never from input; an account reads and writes only its own rows |
 
 ## Endpoints
 
@@ -27,7 +27,7 @@ Product: `/api/v1/projects`, behind `StabileoAuth.Plugs.Authenticate` (product t
 | `GET` | `/` | owner | `200 {data, meta}`; `meta` adds `max_projects`, `max_compressed_bytes`, `max_bytes` | 401, 403 `cloud_projects_disabled` |
 | `POST` | `/` | owner | `201 {data}` (metadata) | 401, 403, 409 `project_limit_reached`, 422 |
 | `GET` | `/:id` | owner | `200 {data}` with `content` (gzip, base64) | 401, 403, 404 |
-| `PUT` | `/:id` | owner | `200 {data}`; `name`, `content` or both | 401, 403, 404, 422 |
+| `PUT` | `/:id` | owner | `200 {data}`; `name`, `content` or both; a new `content` needs the `revision` it was based on | 401, 403, 404, 409 `project_changed` (older revision), 422 (`content` without `revision`) |
 | `DELETE` | `/:id` | owner | `200 {data}`; deletes the row | 401, 403, 404 |
 
 Admin: `/api/v1/admin/projects`, behind `StabileoAuth.Plugs.Authenticate, app: "admin"`.
@@ -46,7 +46,7 @@ None beyond ownership: a project belongs to the account that saved it. Admins li
 
 ## Concurrency Invariants and Idempotency
 
-`projects`: the per-account limit spans rows, so `create` takes a transaction-scoped advisory lock on `projects:<account_id>` before counting. Two saves at once cannot both pass the limit. The two-connection race is not reachable under the Ecto sandbox; the limit is pinned sequentially by `projects_test.exs` ("create refuses past the per-account limit").
+`projects`: the per-account limit spans rows, so `create` takes a transaction-scoped advisory lock on `projects:<account_id>` before counting. Two saves at once cannot both pass the limit. A content update is optimistic: it must name the `revision` it was read at, and the `UPDATE ... WHERE revision = ?` (Ecto `optimistic_lock`) refuses a save that lost a race with `project_changed`, so two computers cannot silently overwrite each other's model. The two-connection race is not reachable under the Ecto sandbox; the limit is pinned sequentially by `projects_test.exs` ("create refuses past the per-account limit").
 
 No idempotency keys: saving twice creates two projects, as pressing Save twice on disk writes two files.
 
@@ -75,6 +75,7 @@ None: seeds create accounts only.
 | Content round trip | `GET /:id` answers the gzip that was sent |
 | Another account's id | 404 for read, update and delete; row unchanged |
 | Active project past `cloud_projects_limit` | 409 `project_limit_reached`; deleting one frees a slot, and updating one (the app's "replace") needs none |
+| Content save from an older revision | 409 `project_changed`, content unchanged |
 | Flag off | 403 `cloud_projects_disabled` everywhere |
 | Malformed or oversized content | 422 on `content`, nothing written |
 | Admin listing | Metadata and owner, no `content`; product token is a 401 |

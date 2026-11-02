@@ -8,6 +8,7 @@ export interface CloudProject {
   node_count: number | null;
   element_count: number | null;
   app_version: string | null;
+  revision: number;
   inserted_at: string;
   updated_at: string;
 }
@@ -24,6 +25,7 @@ export interface CloudProjectInput {
   node_count?: number;
   element_count?: number;
   app_version?: string;
+  revision?: number;
 }
 
 const BASE = '/api/v1/projects';

@@ -40,6 +40,15 @@ defmodule StabileoUtils.FallbackController do
     error(conn, :forbidden, "cloud_projects_disabled", "Cloud projects are currently disabled")
   end
 
+  def call(conn, {:error, :project_changed}) do
+    error(
+      conn,
+      :conflict,
+      "project_changed",
+      "The project changed since this copy was opened"
+    )
+  end
+
   def call(conn, {:error, :project_limit_reached}) do
     error(
       conn,

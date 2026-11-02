@@ -14127,6 +14127,7 @@ const de: Translations = {
   "account.gateLede": "Zum Speichern, Exportieren oder Teilen des Modells benötigen Sie ein kostenloses Konto. Ihre Arbeit bleibt geöffnet, während Sie sich anmelden, und danach wird Ihre Anfrage ausgeführt.",
   "account.err.cloud_projects_disabled": "Das Speichern von Projekten in der Cloud ist derzeit nicht verfügbar.",
   "account.err.project_limit_reached": "Sie haben die maximale Anzahl an Cloud-Projekten erreicht. Löschen Sie eines, um ein weiteres zu speichern.",
+  "account.err.project_changed": "Dieses Projekt wurde auf einem anderen Computer geändert, seit Sie es geöffnet haben. Öffnen Sie es erneut oder speichern Sie es als neues Projekt.",
   "account.field.mustAccept": "Sie müssen die Bedingungen akzeptieren, um ein Konto zu erstellen.",
   "account.field.tooLarge": "Es ist zu groß.",
   "legal.acceptTerms": "Ich akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung",

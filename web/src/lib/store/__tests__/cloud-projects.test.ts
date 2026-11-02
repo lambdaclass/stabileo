@@ -14,8 +14,8 @@ function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function meta(id: string, name = 'Frame') {
-  return { id, name, app_mode: 'basic', content_bytes: 10, node_count: 2, element_count: 1, app_version: 'dev', inserted_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z' };
+function meta(id: string, name = 'Frame', revision = 1) {
+  return { id, name, revision, app_mode: 'basic', content_bytes: 10, node_count: 2, element_count: 1, app_version: 'dev', inserted_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z' };
 }
 
 beforeEach(() => {
@@ -192,5 +192,38 @@ describe('cloud projects', () => {
     await cloudProjects.refresh();
     expect(cloudProjects.items).toEqual([]);
     who.mockRestore();
+  });
+  it('a content save names the revision it was based on, and a newer one elsewhere is reported', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('r1', 'Frame', 1) }));
+    replies.set('PUT /api/v1/projects/r1', () => json(200, { data: meta('r1', 'Frame', 2) }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 1 });
+
+    replies.set('PUT /api/v1/projects/r1', () => json(409, { error: 'project_changed', message: 'changed' }));
+    const err = await cloudProjects.saveCurrent().catch((e) => e);
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 2 });
+    expect(err.code).toBe('project_changed');
+    expect(cloudProjects.linkedId).toBe('r1');
+  });
+
+  it('opening a project takes its cloud name and revision, unless the tab moved on while it loaded', async () => {
+    const doc = serializeProject();
+    replies.set('GET /api/v1/projects/o1', async () => json(200, { data: { ...meta('o1', 'Renamed in the cloud', 4), content: await gzipBase64(doc) } }));
+    await cloudProjects.open('o1');
+    expect(modelStore.model.name).toBe('Renamed in the cloud');
+    expect(cloudProjects.linkedId).toBe('o1');
+    replies.set('PUT /api/v1/projects/o1', () => json(200, { data: meta('o1', 'Renamed in the cloud', 5) }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 4 });
+
+    modelStore.clear();
+    replies.set('GET /api/v1/projects/o2', async () => {
+      modelStore.clear();
+      return json(200, { data: { ...meta('o2', 'Late', 1), content: await gzipBase64(doc) } });
+    });
+    await cloudProjects.open('o2');
+    expect(modelStore.model.name).not.toBe('Late');
+    expect(cloudProjects.linkedId).toBeNull();
   });
 });

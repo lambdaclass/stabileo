@@ -67,6 +67,7 @@ const es: Record<string, string> = {
   'account.err.user_login_disabled': 'El inicio de sesión y el registro están desactivados por ahora. Si ya tenés una sesión abierta, sigue funcionando.',
   'account.err.cloud_projects_disabled': 'Guardar proyectos en la nube no está disponible por ahora.',
   'account.err.project_limit_reached': 'Llegaste al máximo de proyectos en la nube. Borrá alguno para guardar otro.',
+  'account.err.project_changed': 'Este proyecto cambió en otra computadora desde que lo abriste. Abrilo de nuevo o guardalo como un proyecto nuevo.',
   'account.field.mustAccept': 'Para crear la cuenta tenés que aceptar los términos.',
   'account.field.tooLarge': 'Es demasiado grande.',
   'legal.acceptTerms': 'Acepto los Términos de uso y la Política de privacidad',
