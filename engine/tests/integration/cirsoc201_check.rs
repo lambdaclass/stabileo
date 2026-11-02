@@ -336,3 +336,34 @@ fn cirsoc201_vc_caps_sqrt_fc() {
     assert!((r.vc - expected).abs() / expected < 1e-12, "Vc {} vs {expected}", r.vc);
     assert!(r.vc < (25.0 / 3.0) / 6.0 * 300.0 * 450.0);
 }
+
+/// 22.4.3.1 & Tabla 21.2.2: axial tension above φ·Pnt,max = 0,90·As·fy cannot
+/// be equilibrated by the section and must not pass.
+#[test]
+fn cirsoc201_axial_tension_exceeding_phi_pnt_does_not_pass() {
+    let m = section(25e6, 420e6, 0.30, 0.50, 0.45, 1.0e-3);
+    // φ·Pnt,max = 0,90 · 1,0e-3 · 420e6 = 378 kN < 400 kN tension
+    let r = check(m, forces(Some(5_000.0), None, Some(-400_000.0)));
+    assert!(!r.pass, "{r:?}");
+    assert!(r.unevaluated.iter().any(|n| n.contains("Flexure")), "{r:?}");
+}
+
+/// Tabla 22.4.2.1 & 21.2.2: compression-controlled axial force uses φ = 0,65
+/// in axial equilibrium (Pn = Nu / 0,65) and rejects Nu > φ·Pn,max = 0,80·0,65·Po.
+#[test]
+fn cirsoc201_axial_compression_uses_phi_and_enforces_phi_pn_max() {
+    let mut m = section(28e6, 420e6, 0.40, 0.40, 0.34, 1.6e-3);
+    m.as_compression = Some(0.8e-3);
+    m.d_prime = Some(0.06);
+    m.es = Some(200e9);
+
+    // Nu = 1800 kN (compression-controlled, φ = 0,65): φ·Mn ≈ 152,2 kN·m < Mu = 200 kN·m
+    let r = check(m.clone(), forces(Some(200_000.0), None, Some(1_800_000.0)));
+    assert!((r.phi_mn - 152_188.6).abs() / 152_188.6 < 1e-3, "phi_mn = {}", r.phi_mn);
+    assert!(r.flexure_ratio > 1.0 && !r.pass, "{r:?}");
+
+    // Nu = 2800 kN > φ·Pn,max = 0,80 · 0,65 · Po = 2474,6 kN: rejected
+    let r_over = check(m, forces(Some(10_000.0), None, Some(2_800_000.0)));
+    assert!(!r_over.pass, "{r_over:?}");
+    assert!(r_over.unevaluated.iter().any(|n| n.contains("Flexure")), "{r_over:?}");
+}
