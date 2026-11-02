@@ -83,6 +83,37 @@ async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean
   await expect(page.locator('.landing')).toBeVisible();
 }
 
+test.describe('the landing below the hero', () => {
+  const below = SECTIONS.filter((s) => s !== 'hero');
+  const shown = (page: Page) =>
+    page.evaluate((names) => names.map((name) => {
+      const el = document.querySelector<HTMLElement>(`.landing [data-section="${name}"]`);
+      if (!el) return { name, opacity: 'missing', text: 0 };
+      let opacity = 1;
+      for (let n: HTMLElement | null = el; n; n = n.parentElement) opacity *= Number(getComputedStyle(n).opacity);
+      return { name, opacity: String(opacity), text: el.innerText.trim().length };
+    }), [...below]);
+
+  test('@smoke is painted before any scroll, in the browser and in the prerendered page without JavaScript', async ({ page, browser }) => {
+    await bootLanding(page);
+    await page.waitForTimeout(800);
+    for (const s of await shown(page)) {
+      expect(s.opacity, `${s.name} is painted without scrolling`).toBe('1');
+      expect(s.text, `${s.name} has its copy`).toBeGreaterThan(20);
+    }
+    expect(await page.locator('.landing').evaluate((el) => el.scrollTop)).toBe(0);
+
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const noJs = await context.newPage();
+    await noJs.goto('/en/');
+    for (const s of await shown(noJs)) {
+      expect(s.opacity, `${s.name} is painted without JavaScript`).toBe('1');
+      expect(s.text, `${s.name} is in the prerendered HTML`).toBeGreaterThan(20);
+    }
+    await context.close();
+  });
+});
+
 test.describe('@landing landing page', () => {
   test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
@@ -162,15 +193,6 @@ test.describe('@landing landing page', () => {
       expect(s.id, `${s.cls} has aria-labelledby`).toBeTruthy();
       expect(s.text, `${s.cls} label resolves to a heading with text`).toBeTruthy();
     }
-  });
-
-  test('reveal animation does not leave content permanently hidden', async ({ page }) => {
-    await bootLanding(page);
-
-    const cta = page.locator('.landing [data-section="education"]');
-    await cta.scrollIntoViewIfNeeded();
-    await expect(cta).toHaveClass(/visible/);
-    await expect(cta).toBeVisible();
   });
 
   test('the primary CTA enters Basic mode', async ({ page }) => {
