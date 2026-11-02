@@ -124,12 +124,18 @@
     void authStore.recordConsent('usage_analytics', granted).catch((e) => (consentMsg = errorText(e)));
   }
 
-  async function setResearch(granted: boolean) {
+  let researchSaving = $state(false);
+
+  async function setResearch(input: HTMLInputElement) {
     consentMsg = null;
+    researchSaving = true;
     try {
-      await authStore.recordConsent('model_research', granted);
+      await authStore.recordConsent('model_research', input.checked);
     } catch (e) {
       consentMsg = errorText(e);
+    } finally {
+      researchSaving = false;
+      input.checked = authStore.account?.consents?.model_research === true;
     }
   }
 
@@ -273,7 +279,7 @@
           <span>{t('usage.registerOptIn')}</span>
         </label>
         <label class="acc-check">
-          <input type="checkbox" checked={authStore.account.consents?.model_research === true} onchange={(e) => setResearch(e.currentTarget.checked)} data-testid="profile-research" />
+          <input type="checkbox" checked={authStore.account.consents?.model_research === true} disabled={researchSaving} onchange={(e) => setResearch(e.currentTarget)} data-testid="profile-research" />
           <span>{t('account.researchToggle')}<br /><span class="acc-hint">{t('account.researchHint')}</span></span>
         </label>
         {#if consentMsg}<p class="acc-msg bad" role="status">{consentMsg}</p>{/if}

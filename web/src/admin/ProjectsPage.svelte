@@ -6,8 +6,8 @@
   import { formatDateTime } from './format';
   import { t, tp } from '../lib/i18n';
 
-  let search = $state('');
-  let mode = $state('');
+  let search = $state(String(adminProjects.params.search ?? ''));
+  let mode = $state(String(adminProjects.params.app_mode ?? ''));
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   onMount(() => {

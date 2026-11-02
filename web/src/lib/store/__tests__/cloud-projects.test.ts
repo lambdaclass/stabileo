@@ -207,6 +207,57 @@ describe('cloud projects', () => {
     expect(cloudProjects.linkedId).toBe('r1');
   });
 
+  it('a listing that shows a newer revision saved elsewhere does not let this document overwrite it', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('v1', 'Frame', 1) }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('v1', 'Frame', 5)], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    replies.set('PUT /api/v1/projects/v1', () => json(409, { error: 'project_changed', message: 'changed' }));
+    const err = await cloudProjects.saveCurrent().catch((e) => e);
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 1 });
+    expect(err.code).toBe('project_changed');
+  });
+
+  it('a rename from this list keeps the open document current, but not one that is already behind', async () => {
+    const doc = serializeProject();
+    replies.set('GET /api/v1/projects/n1', async () => json(200, { data: { ...meta('n1', 'Frame', 3), content: await gzipBase64(doc) } }));
+    await cloudProjects.open('n1');
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('n1', 'Frame', 3)], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    replies.set('PUT /api/v1/projects/n1', () => json(200, { data: meta('n1', 'Beam', 4) }));
+    await cloudProjects.rename('n1', 'Beam');
+    replies.set('PUT /api/v1/projects/n1', () => json(200, { data: meta('n1', 'Beam', 5) }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 4 });
+
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('n1', 'Beam', 7)], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    replies.set('PUT /api/v1/projects/n1', () => json(200, { data: meta('n1', 'Girder', 8) }));
+    await cloudProjects.rename('n1', 'Girder');
+    replies.set('PUT /api/v1/projects/n1', () => json(409, { error: 'project_changed', message: 'changed' }));
+    await cloudProjects.saveCurrent().catch(() => {});
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 5 });
+  });
+
+  it('two tabs holding the same project each keep the revision they last saw', async () => {
+    if (!tabManager.activeTabId) tabManager.init();
+    const first = tabManager.activeTabId!;
+    const doc = serializeProject();
+    replies.set('GET /api/v1/projects/t1', async () => json(200, { data: { ...meta('t1', 'Frame', 1), content: await gzipBase64(doc) } }));
+    await cloudProjects.open('t1');
+    tabManager.createTab();
+    await cloudProjects.open('t1');
+    replies.set('PUT /api/v1/projects/t1', () => json(200, { data: meta('t1', 'Frame', 2) }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 1 });
+
+    tabManager.switchTab(first);
+    replies.set('PUT /api/v1/projects/t1', () => json(409, { error: 'project_changed', message: 'changed' }));
+    const err = await cloudProjects.saveCurrent().catch((e) => e);
+    expect(seen.at(-1)!.body).toMatchObject({ revision: 1 });
+    expect(err.code).toBe('project_changed');
+  });
+
   it('opening a project takes its cloud name and revision, unless the tab moved on while it loaded', async () => {
     const doc = serializeProject();
     replies.set('GET /api/v1/projects/o1', async () => json(200, { data: { ...meta('o1', 'Renamed in the cloud', 4), content: await gzipBase64(doc) } }));

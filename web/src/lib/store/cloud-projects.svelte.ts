@@ -20,7 +20,6 @@ function sameOwner(): boolean {
   const me = authStore.account?.id ?? null;
   if (me === owner) return true;
   owner = me;
-  revisions.clear();
   items = [];
   total = 0;
   accountTotal = 0;
@@ -38,11 +37,6 @@ function stillFor(who: string | null): boolean {
 }
 
 let listRequest = 0;
-const revisions = new Map<string, number>();
-
-function remember(projects: CloudProject[]): void {
-  for (const p of projects) revisions.set(p.id, p.revision);
-}
 
 function guard(who: string | null): void {
   if (!stillFor(who)) throw new Error('signed-in account changed');
@@ -87,7 +81,6 @@ export const cloudProjects = {
     try {
       const list = await projectsApi.list({ search });
       if (!stillFor(who) || request !== listRequest) return;
-      remember(list.data);
       items = list.data;
       total = list.meta.total;
       if (!search) accountTotal = list.meta.total;
@@ -108,10 +101,9 @@ export const cloudProjects = {
       const id = opts.asNew ? null : cloudLinks.get(tab);
       const body = await payload();
       guard(who);
-      const saved = id ? await projectsApi.update(id, { ...body, revision: revisions.get(id) }) : await projectsApi.create(body);
+      const saved = id ? await projectsApi.update(id, { ...body, revision: cloudLinks.revision(tab) }) : await projectsApi.create(body);
       if (!stillFor(who)) return saved;
-      remember([saved]);
-      cloudLinks.setIf(tab, generation, saved.id);
+      cloudLinks.setIf(tab, generation, saved.id, saved.revision);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       if (!id) {
@@ -132,12 +124,12 @@ export const cloudProjects = {
       const who = owner;
       const tab = tabKey();
       const generation = cloudLinks.generation(tab);
+      const listed = items.find((p) => p.id === id)?.revision;
       const body = await payload();
       guard(who);
-      const saved = await projectsApi.update(id, { ...body, revision: revisions.get(id) });
+      const saved = await projectsApi.update(id, { ...body, revision: listed });
       if (!stillFor(who)) return saved;
-      remember([saved]);
-      cloudLinks.setIf(tab, generation, saved.id);
+      cloudLinks.setIf(tab, generation, saved.id, saved.revision);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
@@ -157,17 +149,17 @@ export const cloudProjects = {
     await loadProject(new File([text], `${project.name}.ded`, { type: 'application/json' }));
     if (tabKey() !== tab) return;
     modelStore.model.name = project.name;
-    remember([project]);
-    cloudLinks.set(tab, project.id);
+    cloudLinks.set(tab, project.id, project.revision);
     trackUsage('project.cloud_open', { mode: project.app_mode });
   },
 
   async rename(id: string, name: string): Promise<void> {
     sameOwner();
     const who = owner;
+    const before = items.find((p) => p.id === id)?.revision;
     const updated = await projectsApi.update(id, { name });
     if (!stillFor(who)) return;
-    remember([updated]);
+    if (before !== undefined && updated.revision === before + 1) cloudLinks.advance(id, before, updated.revision);
     items = items.map((p) => (p.id === id ? updated : p));
   },
 

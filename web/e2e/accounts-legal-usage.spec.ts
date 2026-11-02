@@ -17,11 +17,11 @@ const ACCOUNT = {
   inserted_at: '2026-10-27T12:00:00Z',
 };
 
-const consents = (termsCurrent: boolean, usage: boolean | null = null) => ({
+const consents = (termsCurrent: boolean, usage: boolean | null = null, research = false) => ({
   terms: termsCurrent ? { version: TERMS_VERSION, accepted_at: '2026-10-27T12:00:00Z' } : { version: '2020-01-01', accepted_at: '2020-01-01T12:00:00Z' },
   terms_current: termsCurrent,
   usage_analytics: usage,
-  model_research: false,
+  model_research: research,
 });
 
 const session = (termsCurrent = true, usage: boolean | null = null) => ({
@@ -40,15 +40,15 @@ interface Backend {
   feedback: Record<string, unknown>[];
 }
 
-const savedProject = (id: string, name: string) => ({
-  id, name, app_mode: 'basic', content_bytes: 100, node_count: 2, element_count: 1, app_version: 'test',
+const savedProject = (id: string, name: string, revision = 1) => ({
+  id, name, revision, app_mode: 'basic', content_bytes: 100, node_count: 2, element_count: 1, app_version: 'test',
   inserted_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z',
 });
 
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number } = {},
+  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; researchFails?: (granted: boolean) => boolean } = {},
 ): Promise<Backend> {
   const backend: Backend = { register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
@@ -83,26 +83,37 @@ async function boot(
       : json(r, 422, { error: 'validation_error', message: 'Validation failed', details: { accept_terms: ['must be accepted'] } });
   });
   let usage: boolean | null = opts.usageAnalytics ?? null;
-  await page.route('**/api/v1/auth/consents', (r) => {
+  let research = false;
+  await page.route('**/api/v1/auth/consents', async (r) => {
     const b = body(r);
     backend.consents.push(b);
+    if (b.kind === 'model_research' && opts.researchFails?.(b.granted)) return json(r, 500, { error: 'internal', message: 'down' });
+    if (b.kind === 'model_research') await new Promise((done) => setTimeout(done, 400));
     if (b.kind === 'usage_analytics') usage = b.granted;
-    return json(r, 201, { data: { ...ACCOUNT, consents: consents(true, usage) } });
+    if (b.kind === 'model_research') research = b.granted;
+    return json(r, 201, { data: { ...ACCOUNT, consents: consents(true, usage, research) } });
   });
   await page.route('**/api/v1/insights/events', (r) => {
     backend.events.push(body(r));
     return json(r, 202, { accepted: 1, rejected: 0, enabled: true });
   });
+  const revisions = new Map((opts.saved ?? []).map((p) => [p.id, p.revision]));
   await page.route('**/api/v1/projects**', (r) => {
     if (r.request().method() === 'POST') {
       const b = body(r);
       backend.projects.push(b);
-      return json(r, 201, { data: { id: 'p1', name: b.name, app_mode: b.app_mode, content_bytes: 100, node_count: b.node_count, element_count: b.element_count, app_version: 'test', inserted_at: '2026-10-27T12:00:00Z', updated_at: '2026-10-27T12:00:00Z' } });
+      revisions.set('p1', 1);
+      return json(r, 201, { data: { ...savedProject('p1', String(b.name)), app_mode: b.app_mode, node_count: b.node_count, element_count: b.element_count } });
     }
     if (r.request().method() === 'PUT') {
       const b = body(r);
+      const id = r.request().url().split('/').pop()!;
+      const current = revisions.get(id) ?? 1;
       backend.updates.push({ url: r.request().url(), ...b });
-      return json(r, 200, { data: { ...savedProject(r.request().url().split('/').pop()!, b.name), element_count: b.element_count } });
+      if ('content' in b && typeof b.revision !== 'number') return json(r, 422, { error: 'validation', details: { revision: ['is required to replace the content'] } });
+      if ('content' in b && b.revision !== current) return json(r, 409, { error: 'project_changed', message: 'changed' });
+      revisions.set(id, current + 1);
+      return json(r, 200, { data: { ...savedProject(id, String(b.name), current + 1), element_count: b.element_count } });
     }
     const saved = opts.saved ?? [];
     return json(r, 200, { data: saved, meta: { total: saved.length, limit: 100, offset: 0, max_projects: opts.maxProjects ?? 100, max_bytes: 1 } });
@@ -213,6 +224,25 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.events).toEqual([]);
   });
 
+  test('the research choice waits for the server before it can change again, and shows what was stored', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, researchFails: (granted) => !granted });
+    await page.getByTestId('account-button').click();
+    const research = page.getByTestId('profile-research');
+    await research.check();
+    await expect(research).toBeDisabled();
+    await expect(research).toBeEnabled();
+    await expect(research).toBeChecked();
+
+    await research.click();
+    await expect(research).toBeEnabled();
+    await expect(research).toBeChecked();
+    await expect(page.getByTestId('profile-dialog').getByRole('status')).toBeVisible();
+    expect(backend.consents).toEqual([
+      { kind: 'model_research', granted: true },
+      { kind: 'model_research', granted: false },
+    ]);
+  });
+
   test("an account that refused usage sharing elsewhere stops this browser sharing, without a notice", async ({ page }) => {
     const backend = await boot(page, { signedIn: true, usageAnalytics: false });
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
@@ -254,6 +284,9 @@ test.describe('accounts, legal and anonymous usage', () => {
     await page.getByTestId('cloud-save').click();
     await expect(page.getByTestId('cloud-row')).toHaveCount(1);
     await expect(page.getByTestId('cloud-save')).toHaveText(/Guardar cambios/);
+    await page.getByTestId('cloud-save').click();
+    await expect.poll(() => backend.updates.length).toBe(1);
+    expect(backend.updates[0]).toMatchObject({ url: expect.stringMatching(/\/projects\/p1$/), revision: 1 });
 
     expect(backend.projects).toHaveLength(1);
     const saved = backend.projects[0];
@@ -320,7 +353,7 @@ test.describe('accounts, legal and anonymous usage', () => {
   });
 
   test('with one free project already saved, the open model replaces it', async ({ page }) => {
-    const backend = await boot(page, { signedIn: true, saved: [savedProject('p0', 'Viejo')], maxProjects: 1 });
+    const backend = await boot(page, { signedIn: true, saved: [savedProject('p0', 'Viejo', 3)], maxProjects: 1 });
     page.on('dialog', (d) => d.accept());
     await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
     await page.getByTestId('hdr-project').click();
@@ -334,7 +367,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('cloud-save-new')).toHaveCount(0);
     expect(backend.projects).toEqual([]);
     expect(backend.updates).toHaveLength(1);
-    expect(backend.updates[0]).toMatchObject({ url: expect.stringMatching(/\/projects\/p0$/), app_mode: 'basic', element_count: 3 });
+    expect(backend.updates[0]).toMatchObject({ url: expect.stringMatching(/\/projects\/p0$/), app_mode: 'basic', element_count: 3, revision: 3 });
     const doc = JSON.parse(gunzipSync(Buffer.from(String(backend.updates[0].content), 'base64')).toString('utf8'));
     expect(doc.snapshot.elements).toHaveLength(3);
   });
