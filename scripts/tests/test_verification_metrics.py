@@ -525,9 +525,6 @@ class OfflineRecordProvenance(unittest.TestCase):
             self.assertEqual(vm.retained(self.prev, key, "x", "s", "offline run")["status"], "not_measured")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 def nightly(i, day, arts, status="completed"):
     return dict(run(i), createdAt=f"2026-11-{day:02d}T05:00:00Z", status=status), arts
@@ -590,3 +587,7 @@ class MutantsRotation(unittest.TestCase):
         for d in range(20000, 20000 + vm.MUTANTS_PROMISE_DAYS):
             covered |= set(eval(formula, {}, {"t": total, "s": slots, "d": d}))
         self.assertEqual(covered, set(range(total)))
+
+
+if __name__ == "__main__":
+    unittest.main()
