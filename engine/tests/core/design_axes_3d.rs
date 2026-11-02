@@ -371,3 +371,13 @@ fn a_nan_web_shear_leaves_the_steel_check_incomplete() {
     let r = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: vec![d] })[0];
     assert!(r.governing_check.ends_with("(incomplete)"), "{r:?}");
 }
+
+#[test]
+fn rc_shear_capacity_does_not_read_the_axial_force_the_extraction_pairs_with_peak_shear() {
+    let at = |nu: f64| {
+        let f = RCDesignForces { element_id: 1, mu: 1e4, vu: Some(1e5), nu: Some(nu) };
+        check_rc_members(&RCCheckInput { members: vec![rc_beam(1)], forces: vec![f] })[0].phi_vn
+    };
+    assert_eq!(at(-5e5), at(5e5));
+    assert_eq!(at(0.0), at(5e5));
+}
