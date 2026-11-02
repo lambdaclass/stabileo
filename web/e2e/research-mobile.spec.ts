@@ -43,13 +43,43 @@ async function audit(page: Page, state: string) {
     const root = document.querySelector('.research')!;
     const visible = (el: Element) => el.checkVisibility({ checkVisibilityCSS: true, checkOpacity: true })
       && el.getClientRects().length > 0 && !el.closest('[hidden], details:not([open]) > :not(summary)');
+    const scrolls = (el: Element) => {
+      for (let a = el.parentElement; a && a !== root; a = a.parentElement) {
+        if (['auto', 'scroll'].includes(getComputedStyle(a).overflowX)) return true;
+      }
+      return false;
+    };
+    const px = (value: string) => {
+      const n = parseFloat(value);
+      if (value.trim().endsWith('rem')) return n * parseFloat(getComputedStyle(document.documentElement).fontSize);
+      return value.trim().endsWith('px') ? n : NaN;
+    };
+    const thumbRules = (input: Element) => {
+      const sizes: [number, number][] = [];
+      const walk = (rules: CSSRuleList) => {
+        for (const rule of rules) {
+          if (rule instanceof CSSStyleRule) {
+            for (const selector of rule.selectorText.split(',')) {
+              const base = selector.trim().replace(/::-webkit-slider-thumb$/, '');
+              if (base === selector.trim() || !input.matches(base || '*')) continue;
+              if (rule.style.width || rule.style.height) sizes.push([px(rule.style.width), px(rule.style.height)]);
+            }
+          }
+          if ('cssRules' in rule && (!(rule instanceof CSSMediaRule) || matchMedia(rule.conditionText).matches)) walk((rule as CSSGroupingRule).cssRules);
+        }
+      };
+      for (const sheet of document.styleSheets) {
+        try { walk(sheet.cssRules); } catch { continue; }
+      }
+      return sizes;
+    };
     const describe = (el: Element) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${String(el.getAttribute('class') ?? '')} ${(el.getAttribute('aria-label') ?? el.textContent ?? '').trim().slice(0, 90)}`;
     const problems: string[] = [];
     for (const el of [document.documentElement, document.body, root, ...root.querySelectorAll('.rs-shell-app, .rs-panel, [role="tabpanel"], .rs-g-col')]) {
       if (visible(el) && el.scrollWidth > el.clientWidth + 1) problems.push(`overflow ${describe(el)}: ${el.scrollWidth} > ${el.clientWidth}`);
     }
     for (const el of root.querySelectorAll('*')) {
-      if (!visible(el) || el.closest('.rs-table-scroll, .rs-table, .sp-checks')) continue;
+      if (!visible(el) || el.closest('.rs-table-scroll, .rs-table, .sp-checks') || scrolls(el)) continue;
       const box = el.getBoundingClientRect();
       if (box.left < -1 || box.right > root.clientWidth + 1) problems.push(`outside page ${describe(el)}: ${box.left.toFixed(1)}…${box.right.toFixed(1)}`);
     }
@@ -60,8 +90,8 @@ async function audit(page: Page, state: string) {
       const box = el.getBoundingClientRect();
       if (box.width < 43.99 || box.height < 43.99) problems.push(`target ${describe(el)}: ${box.width.toFixed(1)}×${box.height.toFixed(1)}`);
       if (el.matches('input[type="range"]')) {
-        const thumb = getComputedStyle(el, '::-webkit-slider-thumb');
-        if (parseFloat(thumb.width) < 44 || parseFloat(thumb.height) < 44) problems.push(`slider thumb ${describe(el)}: ${thumb.width}×${thumb.height}`);
+        const sizes = thumbRules(el);
+        if (!sizes.length || sizes.some(([w, h]) => !(w >= 44 && h >= 44))) problems.push(`slider thumb ${describe(el)}: ${JSON.stringify(sizes)}`);
       }
     }
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -114,7 +144,17 @@ for (const locale of ['en', 'es', 'pt']) {
             const camera = page.locator('.rs-shell-app .cam-cube');
             await camera.click();
             await audit(page, 'camera menu');
-            await page.locator('.rs-shell-app .cam-backdrop').click({ position: { x: 1, y: 1 } });
+            const outside = await page.locator('.rs-shell-app .cam-backdrop').evaluate((backdrop) => {
+              const box = backdrop.getBoundingClientRect();
+              for (let y = Math.min(box.bottom, innerHeight) - 2; y > Math.max(box.top, 0); y -= 8) {
+                for (let x = Math.max(box.left, 0) + 2; x < Math.min(box.right, innerWidth); x += 8) {
+                  if (document.elementFromPoint(x, y) === backdrop) return { x, y };
+                }
+              }
+              return null;
+            });
+            expect(outside, 'some of the page outside the camera menu closes it').not.toBeNull();
+            await page.mouse.click(outside!.x, outside!.y);
             await expect(camera).toHaveAttribute('aria-expanded', 'false');
             const tabs = await page.locator('.rs-shell-app [role="tab"]').all();
             for (const tab of tabs) {

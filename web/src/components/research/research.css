@@ -104,8 +104,14 @@
   .landing.research .rs-prose code { overflow-wrap: anywhere; }
   .landing.research .sp-checks { display: block; overflow-x: auto; }
   .landing.research .eq { white-space: normal; }
-  .landing.research .rs-param { grid-template-columns: minmax(0, 1fr) 7rem 3rem; }
+  .landing.research .rs-param { grid-template-columns: minmax(0, 1fr) 7rem auto; }
+  .landing.research .cam-menu { top: calc(100% + 6px); right: 0; }
+  .landing.research :is(td, th, caption) { font-size: max(12px, 1em); }
   .landing.research .sp-controls label { grid-template-columns: minmax(0, 1fr) minmax(44px, 1fr) 3.5rem; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .landing.research .rs-viewer-slot .sfv-stage .sfv { flex: 1 1 0; min-width: 0; }
 }
 
 @media (any-pointer: coarse), (max-width: 1119px) {
