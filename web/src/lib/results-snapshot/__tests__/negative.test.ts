@@ -75,5 +75,8 @@ describe('containment audit', () => {
     collectContainment({ outcome: { ok: false, error: refusal } });
     expect([...containmentFindings]).toEqual(['error:BU-BOUND']);
     containmentFindings.clear();
+    collectContainment({ outcome: { ok: false, error: new Error(refusal) } });
+    expect([...containmentFindings]).toEqual(['error:BU-BOUND']);
+    containmentFindings.clear();
   });
 });

@@ -239,7 +239,7 @@ def _leaked(job):
     return os.path.exists(err) and "<FACTOR_60>" in open(err).read()
 
 
-def finish(r, tol, dump_dir, model):
+def finish(r, tol, dump_dir, model, binary=None):
     if "refused" in r:
         return _finish_refused(r, model, dump_dir)
     job = r.pop("job")
@@ -287,7 +287,7 @@ def finish(r, tol, dump_dir, model):
     if r.pop("near_singular", False):
         st = "silent_singular" if bad else "near_singular"
         warned = sorted(set(sres["diags"]) & WARNED_CONDITIONING)
-        if bad and warned and "NUM-INVARIANCE" in sres.get("issues", []) and all(unloaded_mechanism(model, b) for b in bad):
+        if bad and warned and "NUM-INVARIANCE" in sres.get("issues", []) and held_mechanism(model, sres, bad, binary, tol):
             st = "warned_singular"
         if bad:
             why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [
@@ -303,31 +303,56 @@ def finish(r, tol, dump_dir, model):
     return r
 
 
-def unloaded_mechanism(model, b):
-    """A disagreement a singular model can explain. Only displacements may differ (`finish` already
-    requires every reaction and member force to agree, so the difference strains no member and loads
-    no support: it is a mechanism motion), and only at a free, unsprung, unprescribed DOF of a node
-    no load reaches, since a mechanism moving a loaded DOF would make the load do work."""
-    kind, nid, comp = b[0], str(b[1]), b[2]
+def held_mechanism(model, sres, bad, binary, tol):
+    """Whether every disagreement is a mechanism of stabileo's own model. Each is a displacement, and
+    for each such DOF in turn stabileo is solved again with that DOF moved by a finite amount: it
+    qualifies only if no reaction, member force or displacement outside the disagreeing DOFs changes
+    beyond `tol` and the imposed motion needs no force. A stiff DOF needs a force to move, whatever
+    its original displacement, so it fails here."""
     names = ["ux", "uy", "uz", "rx", "ry", "rz"]
-    if kind != "disp" or comp not in names or not math.isfinite(b[5]):
+    dofs = set()
+    for b in bad:
+        if b[0] != "disp" or b[2] not in names or not math.isfinite(b[5]):
+            return False
+        dofs.add((str(b[1]), names.index(b[2])))
+    nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
+    if not binary or any(nid not in nodes for nid, _ in dofs):
         return False
-    k = names.index(comp)
-    for sup in (model.get("supports") or {}).values():
-        if str(sup.get("nodeId")) == nid and (sup.get("isInclined") or sup.get(to_aster.FLAGS[k])
-                                              or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0
-                                              or sup.get(to_aster.PRESC[k]) is not None):
+    for nid, k in sorted(dofs):
+        same = [abs(u[i]) for u in sres["disp"].values() for i in (range(3) if k < 3 else range(3, 6))]
+        original = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [0.0] * 6)[k]
+        moved = json.loads(json.dumps(model))
+        sups = moved.setdefault("supports", {})
+        sup = next((s for s in sups.values() if str(s.get("nodeId")) == nid), None)
+        if sup is None:
+            next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
+            sup = sups.setdefault(f"moved-{nid}", {"id": next_id, "nodeId": int(nid)})
+        if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
             return False
-    loads = model.get("loads", [])
-    for ld in loads.values() if isinstance(loads, dict) else loads:
-        x = ld.get("data", {})
-        if ld.get("type") == "nodal" and str(x.get("nodeId")) == nid:
+        sup[to_aster.FLAGS[k]] = True
+        imposed = original + max(same + [1e-3])
+        sup[to_aster.PRESC[k]] = imposed
+        try:
+            mres = dict(C.normalize_stabileo(C.stabileo(moved, binary), 3), dim=3)
+        except RuntimeError:
             return False
-        eid = x.get("elementId")
-        if eid is not None:
-            for e in (model.get("elements") or {}).values():
-                if e.get("id") == eid and nid in (str(e.get("nodeI")), str(e.get("nodeJ"))):
-                    return False
+        changed, _ = C.compare(model, sres, mres, tol)
+        for b in changed:
+            if b[0] == "disp" and b[2] in names and (str(b[1]), names.index(b[2])) in dofs:
+                continue
+            if b[0] == "reac" and b[2] == "missing" and str(b[1]) == nid:
+                continue
+            return False
+        applied = mres["disp"].get(int(nid)) or mres["disp"].get(nid)
+        if applied is None or not math.isfinite(applied[k]) or abs(applied[k] - imposed) > tol * abs(imposed):
+            return False
+        reaction = mres["reac"].get(int(nid)) or mres["reac"].get(nid)
+        if reaction is None or not math.isfinite(reaction[k]):
+            return False
+        scale = max([abs(v) for r in sres["reac"].values() for v in r]
+                    + [abs(v) for f in sres["forces"].values() for v in f.values()] + [1e-300])
+        if abs(reaction[k]) > tol * scale:
+            return False
     return True
 
 
@@ -398,7 +423,7 @@ def main():
     def safe_finish(r):
         job = r["job"]
         try:
-            return finish(r, a.tol, a.dump_dir, by_name[r["name"]])
+            return finish(r, a.tol, a.dump_dir, by_name[r["name"]], a.bin)
         except Exception:  # noqa: a harness bug on one model must not hide the others
             if a.dump_dir:
                 os.makedirs(a.dump_dir, exist_ok=True)

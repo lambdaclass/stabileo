@@ -60,7 +60,7 @@
     <p>{copy.theHeadlineCountsTheFinestSelectedBrowser}</p>
     <h2 id="limitations">{copy.findingsAndProvenance}</h2>
     <p><a href="https://github.com/lambdaclass/stabileo/blob/main/docs/audits/810-mitc4-curved-shells.md">{s.modelCorrection}</a></p>
-    <p>{copy.the}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course">{copy.findingsLedger}</a>{copy.recordsAccuracyAndModelLimitationsThe}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">{copy.productionRegistry}</a>{copy.containsShellContainment}</p>
+    <p>{copy.theLedger}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/tests/benchmarks/KNOWN_ISSUES.md#shell-obstacle-course">{copy.findingsLedger}</a>{copy.recordsAccuracyAndModelLimitationsThe}<a href="https://github.com/lambdaclass/stabileo/blob/main/engine/src/known_issues.rs">{copy.productionRegistry}</a>{copy.containsShellContainment}</p>
     <p>{copy.referencesAreInheritedFrom}<code>{copy.shellBenchmarkRs}</code>{copy.and}<code>{copy.solidShellLockingRs}</code>{copy.theRoofAndCylinderValuesAlsoAppear}<code>{copy.scordelisLoRs}</code>{copy.containsFlatPlateChecksDespiteItsFilename}</p>
     <h2>{s.native}</h2>
     <ul>{#each nativeOnly as c}<li><strong>{c.label}</strong>: {c.reason} <code>{c.nativeTest}</code></li>{/each}</ul>

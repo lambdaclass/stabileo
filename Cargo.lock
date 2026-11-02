@@ -386,7 +386,6 @@ dependencies = [
  "ciborium",
  "console_error_panic_hook",
  "criterion",
- "dedaliano-engine",
  "num-bigint",
  "num-integer",
  "num-rational",

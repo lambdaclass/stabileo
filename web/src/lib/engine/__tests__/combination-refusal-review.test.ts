@@ -17,11 +17,22 @@ it.each([false, true])('manual solve reports combination refusal and clears old 
   vi.spyOn(modelStore, 'solve').mockReturnValue(clean as never);
   vi.spyOn(modelStore, 'solveCombinations').mockReturnValue(refusal);
   vi.spyOn(modelStore, 'solveCombinations3DParallel').mockResolvedValue(refusal);
+  const prior = { ...clean, displacements: [{ nodeId: 2, ux: 987654, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] };
+  if (is3D) {
+    resultsStore.setResults3D(clean as never);
+    resultsStore.setCombinationResults3D(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null as never);
+  } else {
+    resultsStore.setResults(clean as never);
+    resultsStore.setCombinationResults(new Map([[1, prior]]) as never, new Map([[1, prior]]) as never, null as never);
+  }
+  resultsStore.activeComboId = 1; resultsStore.activeView = 'combo';
+  expect(is3D ? resultsStore.perCombo3D.size : resultsStore.perCombo.size).toBe(1);
   const toast = vi.spyOn(uiStore, 'toast');
   const result = await solveNow();
   expect(result.ok).toBe(false);
   if (!result.ok) { expect(result.error).toContain('#741'); expect(result.error).not.toContain('structuredDiagnostics'); }
-  expect(resultsStore.perCombo.size + resultsStore.perCombo3D.size).toBe(0);
+  expect(resultsStore.perCombo.size + resultsStore.perCombo3D.size + resultsStore.perCase.size + resultsStore.perCase3D.size).toBe(0);
+  expect(JSON.stringify([is3D ? resultsStore.results3D : resultsStore.results, resultsStore.envelope, resultsStore.envelope3D])).not.toContain('987654');
   expect(toast.mock.calls.some(([, kind]) => kind === 'success')).toBe(false);
 });
 it.each([false, true])('live solve clears prior combinations on string/throw refusal (3D=%s)', async is3D => {

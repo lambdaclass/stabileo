@@ -106,3 +106,18 @@ describe('shell obstacle course evidence', () => {
     expect(finest.filter(c => rows.find(r => r.id === c.id)!.pass).map(c => c.id)).toEqual(['roof-16']);
   }, 120_000);
 });
+
+describe('the containment passages in every offered article language', () => {
+  it('es and pt state the withheld hemisphere meshes and the #810 warning in their own language', async () => {
+    const { articleStrings } = await import('../article');
+    const en = articleStrings('en');
+    for (const [locale, withheld] of [['es', /retiene las mallas distorsionadas/], ['pt', /retém as malhas distorcidas/]] as const) {
+      const s = articleStrings(locale);
+      expect(s.containsShellContainment).toMatch(withheld);
+      expect(s.containsShellContainment).toContain('#798');
+      expect(s.containsShellContainment).toContain('#810');
+      expect(s.theHeadlineCountsTheFinestSelectedBrowser).toContain('#798');
+      expect(s.theHeadlineCountsTheFinestSelectedBrowser).not.toBe(en.theHeadlineCountsTheFinestSelectedBrowser);
+    }
+  });
+});

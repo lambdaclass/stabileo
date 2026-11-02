@@ -19,14 +19,15 @@ pub mod ordered;
 #[cfg(kani)]
 mod kani_proofs;
 
-#[cfg(all(feature = "unrefused-for-tests", target_arch = "wasm32"))]
-compile_error!("unrefused-for-tests bypasses known-issue refusals and must never reach the shipped WASM engine");
-
-#[cfg(feature = "unrefused-for-tests")]
-const _: () = assert!(
-    option_env!("CARGO_PRIMARY_PACKAGE").is_some(),
-    "unrefused-for-tests bypasses known-issue refusals and is for the engine's own tests only"
-);
+#[cfg(test)]
+extern crate self as dedaliano_engine;
+#[cfg(test)]
+#[allow(dead_code)]
+#[path = "../tests/common/mod.rs"]
+mod common;
+#[cfg(test)]
+#[path = "../tests/unrefused/mod.rs"]
+mod unrefused_oracles;
 
 use wasm_bindgen::prelude::*;
 

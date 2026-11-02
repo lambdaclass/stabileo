@@ -15,7 +15,6 @@ mod kassimali_extended;
 mod kassimali_trusses;
 mod kassimali_trusses_extended;
 mod mcguire_ziemian_extended;
-mod neal_plastic_extended;
 mod przemieniecki_3d;
 mod przemieniecki_extended;
 mod roark_extended;

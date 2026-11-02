@@ -102,7 +102,6 @@ pub fn scoped(analysis: &str, planar: bool, distorted_quads: bool, r: Resp) -> R
         let expected = match id.as_str() {
             "PL-2D-INVARIANCE" => planar && analysis == "plastic collapse",
             "SH-MITC4-DISTORTION" => distorted_quads,
-            "BU-BOUND" => analysis.contains("buckling"),
             _ => false,
         };
         if !expected {

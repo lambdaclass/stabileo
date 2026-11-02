@@ -269,7 +269,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&round_off_converged(|steps, tol| pdelta::solve_pdelta_2d(&c.s, steps, tol).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_2d(&round_off_converged(|steps, tol| pdelta::solve_pdelta_2d(&c.s, steps, tol).map(|r| (r.converged, r.results)), finite_2d)?)),
         },
         Ana2 {
             name: "corotational",
@@ -602,22 +602,45 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
 }
 
 /// An iteration solved to 1e-12 in 100 steps, or, when it stops short there, one proven stagnant at
-/// round-off: 900 further steps at 1e-12 change no reported number (displacements, reactions, member
-/// forces) by more than 1e-11 of the largest value of its quantity, so the iterate is a fixed point,
-/// and a 1e-11 solve converges to that same answer. Slow convergence still moves and is rejected.
-pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>) -> Result<T, String> {
+/// round-off: the iterates after 100, 1000 and 1001 steps at 1e-12 agree in every reported number
+/// (displacements, reactions, member forces) to 1e-11 of the largest value of its quantity, and a
+/// 1e-11 solve converges to the same answer. Iterates 1000 and 1001 are consecutive, so one more step
+/// of u <- (K + Kg(u))^-1 f does not move u: its residual is at most ||K + Kg|| times that change.
+/// A slow or cycling iteration still moves between them and is rejected, and so is a non-finite one.
+pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>, finite: impl Fn(&T) -> bool) -> Result<T, String> {
     let (converged, tight) = solve(100, 1e-12)?;
+    if !finite(&tight) {
+        return Err("did not converge: non-finite result".into());
+    }
     if converged {
         return Ok(tight);
     }
-    let (_, longer) = solve(1000, 1e-12)?;
-    let (converged, loose) = solve(100, 1e-11)?;
     let value = |r: &T| serde_json::to_value(r).unwrap();
-    if converged && same_to_round_off(&value(&tight), &value(&longer)) && same_to_round_off(&value(&tight), &value(&loose)) {
+    let (_, longer) = solve(1000, 1e-12)?;
+    let (_, next) = solve(1001, 1e-12)?;
+    let (converged, loose) = solve(100, 1e-11)?;
+    let reference = value(&tight);
+    if converged && [value(&longer), value(&next), value(&loose)].iter().all(|other| same_to_round_off(&reference, other)) {
         Ok(tight)
     } else {
         Err("did not converge".into())
     }
+}
+
+pub(crate) fn finite_2d(r: &AnalysisResults) -> bool {
+    r.displacements.iter().all(|d| [d.ux, d.uz, d.ry].iter().all(|v| v.is_finite()))
+        && r.reactions.iter().all(|x| [x.rx, x.rz, x.my].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().all(|v| v.is_finite()))
+}
+
+pub(crate) fn finite_3d(r: &AnalysisResults3D) -> bool {
+    r.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().all(|v| v.is_finite()))
+        && r.reactions.iter().all(|x| [x.fx, x.fy, x.fz, x.mx, x.my, x.mz].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| {
+            [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end]
+                .iter()
+                .all(|v| v.is_finite())
+        })
 }
 
 fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
@@ -640,19 +663,39 @@ fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
         let s = scale.entry(k.as_str()).or_insert(0.0);
         *s = s.max(v.abs());
     }
-    x.iter().zip(&y).all(|((k, p), (_, q))| (p - q).abs() <= 1e-11 * scale[k.as_str()])
+    x.iter().zip(&y).all(|((k, p), (_, q))| p.is_finite() && q.is_finite() && (p - q).abs() <= 1e-11 * scale[k.as_str()])
 }
 
 #[test]
 fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
     let stagnant = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0 + 1e-13], "n": [5.0e3]})));
-    assert!(round_off_converged(stagnant).is_ok());
+    assert!(round_off_converged(stagnant, |_| true).is_ok());
     let slow = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps > 100 { 2.0 } else { 2.0 + 1e-9 }]})));
-    assert!(round_off_converged(slow).is_err());
+    assert!(round_off_converged(slow, |_| true).is_err());
     let loose_differs = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if tol < 1e-11 { 2.0 } else { 2.001 }]})));
-    assert!(round_off_converged(loose_differs).is_err());
+    assert!(round_off_converged(loose_differs, |_| true).is_err());
     let forces_differ = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0], "n": [if tol < 1e-11 { 5.0e3 } else { 5.0e3 + 1e-6 }]})));
-    assert!(round_off_converged(forces_differ).is_err());
+    assert!(round_off_converged(forces_differ, |_| true).is_err());
     let never = |_: usize, _: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
-    assert!(round_off_converged(never).is_err());
+    assert!(round_off_converged(never, |_| true).is_err());
+    assert!(round_off_converged(stagnant, |_| false).is_err(), "matching non-finite outputs are not round-off");
+    let converged = |_: usize, _: f64| Ok::<_, String>((true, serde_json::json!({"u": [1.0]})));
+    assert!(round_off_converged(converged, |_| true).is_ok());
+    assert!(round_off_converged(converged, |_| false).is_err(), "a converged flag does not make a non-finite result usable");
+    let cycling = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps % 2 == 1 { 2.0 + 1e-9 } else { 2.0 }]})));
+    assert!(round_off_converged(cycling, |_| true).is_err(), "endpoints 100 and 1000 agree, the next step moves");
+}
+
+#[test]
+fn a_non_finite_member_force_is_not_finite() {
+    let s = crate::common::make_beam(2, 4.0, 200_000.0, 0.01, 1e-4, "fixed", None, vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 })]);
+    let mut r = dedaliano_engine::solver::linear::solve_2d(&s).unwrap();
+    assert!(finite_2d(&r));
+    r.element_forces[0].m_end = f64::NAN;
+    assert!(!finite_2d(&r));
+    let s3 = crate::common::make_3d_beam(2, 4.0, 200_000.0, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![]);
+    let mut r3 = dedaliano_engine::solver::linear::solve_3d(&s3).unwrap();
+    assert!(finite_3d(&r3));
+    r3.element_forces[0].mz_end = f64::INFINITY;
+    assert!(!finite_3d(&r3));
 }

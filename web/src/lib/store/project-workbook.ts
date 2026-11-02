@@ -205,7 +205,7 @@ export async function downloadProjectWorkbook(stations: StationSpec, opts: Workb
   }
   if (fitsInXlsx(sheets)) {
     // The cover already carries the provenance, prepared above.
-    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: sheets, provenance: false });
+    await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: sheets, provenance: false, modelOnly: opts.results === false && opts.design === false });
     return;
   }
   const zip = workbookZip(sheets);

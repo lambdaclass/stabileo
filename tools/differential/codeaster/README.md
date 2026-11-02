@@ -78,7 +78,7 @@ Statuses:
 | `ok` | agrees within tolerance |
 | `mismatch` | disagrees: a stabileo bug or a translation error, to be triaged |
 | `silent_singular` | Code_Aster finds the stiffness singular (a pivot lost more than 10 digits) where stabileo solved without a warning, and with the check off Code_Aster's solution disagrees with stabileo or cannot be computed |
-| `warned_singular` | as `silent_singular`, but stabileo gave a warning-level conditioning diagnostic (`high_diagonal_ratio`): inconclusive, not silent |
+| `warned_singular` | as `silent_singular`, but stabileo warned (`high_diagonal_ratio` and the NUM-INVARIANCE known issue) and every disagreement is a displacement that stabileo itself shows is a mechanism: solved again with those DOFs restrained, no other displacement, reaction or member force moves beyond the tolerance and the new restraints carry no force |
 | `near_singular` | Code_Aster's singularity check trips, but with the check off (`NPREC=-1`) its solution agrees with stabileo: an ill-conditioned model, not a mechanism |
 | `ill_conditioned` | stabileo flags it (`stiffness_not_positive_definite`, `residual_high`, ...), or MUMPS cannot reach its residual check (FACTOR_57, also after a FACTOR_11 rerun with the check off) |
 | `refused` | stabileo refuses the model and Code_Aster agrees there is no unique answer: its stiffness is singular (`FACTOR_11`/`FACTOR_42` at `NPREC=10`, or `FACTOR_57`), or the translator rejects the model for the same reason (a nodal moment on a rotation nothing stiffens, a rotational mechanism), or stabileo refuses a prescribed displacement that no rigid restraint carries (AC-10) on the same support and DOF the translator finds unrestrained (it would drop it and solve a different model) |
