@@ -3511,10 +3511,13 @@ fn benchmark_warped_element_accuracy() {
         if warp > 0.0 {
             let refused: serde_json::Value = serde_json::from_str(&linear::solve_3d(&input).expect_err("warped quads are withheld")).unwrap();
             let findings = refused["structuredDiagnostics"].as_array().unwrap();
-            let phases: Vec<_> = findings.iter().filter_map(|d| d["phase"].as_str()).collect();
-            assert!(phases.contains(&"SH-MITC4-DISTORTION"), "warp {warp}: {phases:?}");
+            let distortion = findings.iter().find(|d| d["phase"] == "SH-MITC4-DISTORTION").unwrap_or_else(|| panic!("warp {warp}: {findings:?}"));
+            let warped_withheld = findings.iter().any(|d| d["phase"] == "SH-WARPED-MITC4" && d["severity"] == "error");
+            assert_eq!(warped_withheld, warp >= 0.10, "warp {warp}: {findings:?}");
+            if !warped_withheld {
+                assert_eq!(distortion["severity"], "error", "warp {warp}: distortion alone withholds this result");
+            }
             let withheld = findings.iter().find(|d| d["severity"] == "error").unwrap();
-            assert!(["SH-MITC4-DISTORTION", "SH-WARPED-MITC4"].contains(&withheld["phase"].as_str().unwrap()));
             assert_eq!(refused["message"], withheld["message"]);
             continue;
         }
@@ -5082,8 +5085,6 @@ fn benchmark_q9_hypar() {
 // L=12, w=1.1, t=0.32, 90° linear twist. E=29×10⁶, ν=0.22.
 // Load A: Pz=1 at tip → ref uz = 0.005424
 // Load B: Py=1 at tip → ref uy = 0.001754
-// MITC4 24×8: ratio ~0.001-0.002 (severely locked on warped quads).
-
 fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> Result<f64, String> {
     let l = 12.0;
     let w = 1.1;
