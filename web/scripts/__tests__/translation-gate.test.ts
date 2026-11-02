@@ -86,6 +86,8 @@ describe('translation gate', () => {
     const es = { ...ES, blocks: [...ES.blocks.slice(0, 3), `Una introducción traducida. ${EN.blocks[3]} ${EN.blocks[2]}`] };
     const failures = gate(site({ '/en/': EN, '/es/': es }));
     expect(failures.map((f) => f.offending)).toEqual([[es.blocks[3]]]);
+    const prefixed = { ...ES, blocks: ES.blocks.map((b, i) => (i === 0 ? `Nota: ${EN.blocks[0]}` : b)) };
+    expect(gate(site({ '/en/': EN, '/es/': prefixed })).map((f) => f.offending)).toEqual([[prefixed.blocks[0]]]);
     const mixed = { ...ES, blocks: ES.blocks.map((b, i) => `${b} ${b} ${EN.blocks[i]}`) };
     const mixedFailures = gate(site({ '/en/': EN, '/es/': mixed }));
     expect(mixedFailures).toHaveLength(1);

@@ -102,10 +102,15 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
     return forces.map(f => f.elementId).sort((a, b) => a - b).join() === memberIds && forces.every(f => Number.isFinite(f.myStart) && Number.isFinite(f.myEnd));
   });
   const running = new Map<number, number[]>();
+  let hingesCarryForces = true;
   const yieldedOnTheWay = result.steps.some(step => {
     for (const f of step.results.elementForces ?? []) {
       const [a, b] = running.get(f.elementId) ?? [0, 0];
       running.set(f.elementId, [a + f.myStart, b + f.myEnd]);
+    }
+    for (const h of step.hingesFormed ?? []) {
+      const m = running.get(h.elementId)?.[h.end === 'start' ? 0 : 1] ?? NaN;
+      if (!(Math.abs(m - h.momentY) <= mp * yieldTolerance)) hingesCarryForces = false;
     }
     return [...running.values()].flat().some(m => !(Math.abs(m) <= mp * (1 + yieldTolerance)));
   });
@@ -114,7 +119,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   return [
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
-    { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch },
+    { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch && hingesCarryForces },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
     { id: 'equilibrium', passed: reactionsAtSupports && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
     { id: 'corner', passed: Math.abs(corner - cornerMoment(lambda)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance },

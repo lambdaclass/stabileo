@@ -78,9 +78,9 @@ export async function stripShareHash(strip: StripResult, label: string, stamp?: 
 
 export type StripLabel = { family: string; eta: number; keep: number; seed: number; strain: number };
 
-function label(p: StripLabel): string {
+export function stripLabel(p: StripLabel): string {
   const s = rs();
-  const fmt = (n: number) => new Intl.NumberFormat(publicI18n.locale).format(n);
+  const fmt = (n: number) => new Intl.NumberFormat(publicI18n.locale, Number.isInteger(n) ? {} : { maximumSignificantDigits: 6 }).format(n);
   const family = { foam: s.springsFoamOption, ordered: s.springsOrderedOption, honeycomb: s.springsHoneyOption, square: s.springsSquareOption }[p.family as 'foam'];
   return `${s.springsTitle}: ${family}, η = ${fmt(p.eta)}, ${s.springsBondsKept} ${fmt(p.keep)}, ${s.springsSeed} ${fmt(p.seed)}, ${s.springsStrain} ${fmt(p.strain)}`;
 }
@@ -91,7 +91,7 @@ async function payload(strip: StripResult, p: StripLabel): Promise<string> {
   // freshStamp() gives a new project), so the editor does not present it as results solved by an
   // unknown older version. The editor solves it itself on opening.
   const stamp = { resultsVersion: currentResultsVersion, resultsSchemaVersion: 1, analyses: [] };
-  return (await stripShareHash(strip, label(p), stamp)).slice('#data='.length);
+  return (await stripShareHash(strip, stripLabel(p), stamp)).slice('#data='.length);
 }
 
 /** The app in embed mode (ribbon and viewport, no header or footer) with the strip loaded. */

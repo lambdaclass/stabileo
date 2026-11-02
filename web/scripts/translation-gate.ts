@@ -87,6 +87,14 @@ export function segments(html: string, locale = 'en'): string[] {
     .filter((s) => (s.match(/\p{L}{2,}/gu) ?? []).length >= MIN_WORDS);
 }
 
+function containsWords(text: string, phrase: string): boolean {
+  for (let at = text.indexOf(phrase); at >= 0; at = text.indexOf(phrase, at + 1)) {
+    const before = text[at - 1], after = text[at + phrase.length];
+    if (!(before && /[\p{L}\p{N}]/u.test(before)) && !(after && /[\p{L}\p{N}]/u.test(after))) return true;
+  }
+  return false;
+}
+
 /** A block's sentences of at least four words, so a translated lead cannot hide English after it. */
 function sentences(block: string): string[] {
   return block.split(/(?<=[.!?])\s+/).filter((s) => (s.match(/\p{L}{2,}/gu) ?? []).length >= MIN_WORDS);
@@ -116,7 +124,11 @@ export function compareWithEnglish(page: string, locale: string, html: string, e
   const englishSet = new Set(englishSegments);
   const englishSentences = new Set(englishSegments.flatMap(sentences));
   const chars = (xs: string[]) => xs.reduce((n, s) => n + s.length, 0);
-  const englishChars = (s: string) => (englishSet.has(s) ? s.length : chars(sentences(s).filter((x) => englishSentences.has(x))));
+  const englishChars = (s: string) => {
+    if (englishSet.has(s)) return s.length;
+    const found = [...englishSentences].filter((x) => containsWords(s, x));
+    return Math.min(s.length, chars(found));
+  };
   const same = ownSegments.filter((s) => 2 * englishChars(s) > s.length);
   const countShare = same.length / ownSegments.length;
   const charShare = ownSegments.reduce((n, s) => n + englishChars(s), 0) / chars(ownSegments);

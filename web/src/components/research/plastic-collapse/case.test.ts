@@ -115,6 +115,8 @@ describe('the recorded replay', () => {
       const malformed = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, hingesFormed: [{ ...s.hingesFormed![0], ...hinge }] } : s)) };
       expect(checks(malformed).find(c => c.id === 'hinges')!.passed).toBe(false);
     }
+    const unloaded = { ...replay, steps: replay.steps.map(s => ({ ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 1 ? f : { ...f, myStart: 0, myEnd: 0 })) } })) };
+    expect(checks(unloaded).find(c => c.id === 'hinges')!.passed).toBe(false);
     const zeroLoads = { ...replay, steps: replay.steps.map(s => ({ ...s, loadFactor: 0 })) };
     expect(checks(zeroLoads).filter(c => !c.passed).map(c => c.id)).toEqual(['hinges']);
     const reversedCorner = { ...replay, steps: replay.steps.map(s => ({ ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 1 ? { ...f, myEnd: -f.myEnd } : f)) } })) };
