@@ -42,6 +42,13 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('NEGATIVE: a new model may not name a section that is neither listed nor the user\'s own values', () => {
+    const named = (name: string) => ({ ...minimal(), sections: [[1, { id: 1, name, a: 0.0171, iz: 0.000416 }]] });
+    expect(() => validateSnapshot(named('W 14x90'))).toThrow('section 1: "W 14x90" is not a listed section');
+    expect(() => validateSnapshot(named('W 14x90'), { existingModel: true })).not.toThrow();
+    expect(() => validateSnapshot(named('Custom (user values)'))).not.toThrow();
+    expect(() => validateSnapshot(named('Custom (user values) 2'))).not.toThrow();
+  });
   it('NEGATIVE: a new model may not put a distributed load on a truss member', () => {
     const truss = (load: Record<string, unknown>) => ({
       ...minimal(),

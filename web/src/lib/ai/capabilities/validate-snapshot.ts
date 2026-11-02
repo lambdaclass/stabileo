@@ -14,6 +14,8 @@ const LOAD_TARGET: Record<string, 'node' | 'element'> = {
   thermal: 'element', prestress3d: 'element',
 };
 
+export const CUSTOM_SECTION = 'Custom (user values)';
+
 const TRANSVERSE_MEMBER_LOADS = new Set(['distributed', 'distributed3d', 'pointOnElement', 'pointOnElement3d']);
 
 const MIN_LENGTH = 1e-6;
@@ -133,10 +135,13 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
       if (v === undefined || v <= 0) throw new AiActionError(`section ${id}: ${key} must be a positive number`);
     }
     const listed = !existingModel && typeof data.name === 'string' ? lookupSection(data.name) : undefined;
+    if (!existingModel && !listed && !(typeof data.name === 'string' && data.name.trim().startsWith(CUSTOM_SECTION))) {
+      throw new AiActionError(`section ${id}: ${JSON.stringify(data.name)} is not a listed section; use a listed one, or name values the user gave "${CUSTOM_SECTION}"`);
+    }
     for (const key of ['a', 'iz', 'iy', 'j'] as const) {
       const v = asF64(data[key]);
       if (listed && v !== undefined && Math.abs(v - listed[key]) > 0.01 * listed[key]) {
-        throw new AiActionError(`section ${id}: ${key} is not that of ${listed.name}; use the listed values or name the section "Custom (user values)"`);
+        throw new AiActionError(`section ${id}: ${key} is not that of ${listed.name}; use the listed values or name the section "${CUSTOM_SECTION}"`);
       }
     }
   }
