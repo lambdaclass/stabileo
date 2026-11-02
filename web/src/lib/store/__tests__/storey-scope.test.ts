@@ -1,0 +1,75 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { modelStore, uiStore, historyStore } from '../index';
+import { storeyScope } from '../storey-scope.svelte';
+import { nextMember } from '../next-member.svelte';
+import { elementLevel } from '../../model/similar-storeys';
+
+/** Thirteen levels; storeys 2–5 repeat 1, 7–9 repeat 6, the rest are their own. Two columns and a beam per storey. */
+function thirteen(): { beamOn: (lv: number) => number } {
+  uiStore.analysisMode = 'pro';
+  modelStore.clear();
+  const levels = Array.from({ length: 14 }, (_, k) => ({ id: `L${k}`, name: `N${k}`, z: 3 * k }));
+  for (const k of [2, 3, 4, 5]) (levels[k] as { similarTo?: string }).similarTo = 'L1';
+  for (const k of [7, 8, 9]) (levels[k] as { similarTo?: string }).similarTo = 'L6';
+  modelStore.setGrid({ axes: [], levels });
+  const at: Array<[number, number]> = [];
+  const beams = new Map<number, number>();
+  for (let k = 0; k <= 13; k++) {
+    at.push([modelStore.addNode(0, 0, 3 * k), modelStore.addNode(6, 0, 3 * k)]);
+    if (k === 0) continue;
+    modelStore.addElement(at[k - 1]![0], at[k]![0]);
+    modelStore.addElement(at[k - 1]![1], at[k]![1]);
+    beams.set(k, modelStore.addElement(at[k]![0], at[k]![1]));
+  }
+  if (!modelStore.sections.has(2)) modelStore.addSection({ name: 'V2', a: 0.1, iz: 1e-3, iy: 1e-3 } as never);
+  return { beamOn: (k) => beams.get(k)! };
+}
+
+const levelOf = (id: number) => elementLevel({ nodes: modelStore.nodes, elements: modelStore.elements }, id, modelStore.grid!.levels)!.name;
+
+describe('the storey scope', () => {
+  beforeEach(() => { storeyScope.scope = 'this'; uiStore.clearSelection(); });
+
+  it('takes a beam selected on the master to its similar storeys, and to no other', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    expect(storeyScope.expandSelection()).toBe(4);
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5']);
+    expect(storeyScope.last!.unmatched).toEqual([]);
+  });
+
+  it('an edit of the selection reaches them all, and is undone in one step', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(6)]));
+    storeyScope.expandSelection();
+    const section = [...modelStore.sections.keys()].at(-1)!;
+    modelStore.batch(() => { for (const id of uiStore.selectedElements) modelStore.updateElementSection(id, section); });
+    const changed = [...modelStore.elements.values()].filter((e) => e.sectionId === section).map((e) => levelOf(e.id)).sort();
+    expect(changed).toEqual(['N6', 'N7', 'N8', 'N9']);
+    historyStore.undo();
+    expect([...modelStore.elements.values()].some((e) => e.sectionId === section)).toBe(false);
+  });
+
+  it('a member drawn on a storey is drawn on its similar ones, in one undo step', () => {
+    thirteen();
+    storeyScope.scope = 'similar';
+    const a = modelStore.addNode(0, 5, 3), b = modelStore.addNode(6, 5, 3);
+    const before = modelStore.elements.size;
+    nextMember.add(a, b);
+    expect(modelStore.elements.size).toBe(before + 5);
+    historyStore.undo();
+    expect(modelStore.elements.size).toBe(before);
+  });
+
+  it('does nothing outside PRO, or with the scope on this storey', () => {
+    const { beamOn } = thirteen();
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    expect(storeyScope.expandSelection()).toBe(0);
+    storeyScope.scope = 'all';
+    uiStore.analysisMode = '3d';
+    expect(storeyScope.expandSelection()).toBe(0);
+    uiStore.analysisMode = 'pro';
+  });
+});

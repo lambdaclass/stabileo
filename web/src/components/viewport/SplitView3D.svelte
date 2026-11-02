@@ -29,9 +29,9 @@
   /** The levels to pick from: the grid's, or else one per height with nodes on it. */
   const levels = $derived.by(() => {
     const g = sortedLevels(modelStore.grid);
-    if (g.length) return g.map((l) => ({ id: l.id, name: l.name, z: l.z }));
+    if (g.length) return g.map((l) => ({ id: l.id, name: l.name, z: l.z, color: l.color }));
     const zs = [...new Set([...modelStore.nodes.values()].map((n) => Math.round((n.z ?? 0) * 100) / 100))].sort((a, b) => a - b);
-    return zs.map((z, i) => ({ id: `z${i}`, name: `${z.toFixed(2)} m`, z }));
+    return zs.map((z, i) => ({ id: `z${i}`, name: `${z.toFixed(2)} m`, z, color: undefined as string | undefined }));
   });
   const level = $derived(levels.reduce<{ z: number } | null>((best, l) => (!best || Math.abs(l.z - uiStore.nodeCreateZ) < Math.abs(best.z - uiStore.nodeCreateZ) ? l : best), null));
   const below = $derived.by(() => {
@@ -153,7 +153,7 @@
   {#if levels.length}
     <ul class="split-levels" aria-label={t('viewport.split.levels')} data-testid="split-levels">
       {#each [...levels].reverse() as l (l.id)}
-        <li><button type="button" class:on={level?.z === l.z} onclick={() => (uiStore.nodeCreateZ = l.z)} data-testid="split-level-{l.id}">{l.name}</button></li>
+        <li><button type="button" class:on={level?.z === l.z} style:border-left-color={l.color ?? 'transparent'} onclick={() => (uiStore.nodeCreateZ = l.z)} data-testid="split-level-{l.id}">{l.name}</button></li>
       {/each}
     </ul>
   {/if}
@@ -166,6 +166,6 @@
   .split-head button { pointer-events: auto; }
   .split-btn { border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text-2); border-radius: 4px; padding: 0 6px; cursor: pointer; }
   .split-levels { position: absolute; top: 34px; right: 8px; margin: 0; padding: 4px; list-style: none; display: flex; flex-direction: column; gap: 2px; background: var(--st-surface); border: 1px solid var(--st-hair-strong); border-radius: var(--st-radius); max-height: calc(100% - 50px); overflow-y: auto; }
-  .split-levels button { width: 100%; text-align: left; border: 0; background: none; color: var(--st-text-2); font-size: 0.68rem; padding: 2px 8px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
+  .split-levels button { width: 100%; text-align: left; border: 0; border-left: 3px solid transparent; background: none; color: var(--st-text-2); font-size: 0.68rem; padding: 2px 8px; border-radius: 3px; cursor: pointer; white-space: nowrap; }
   .split-levels button.on { background: var(--st-selected-bg); color: var(--st-text); }
 </style>

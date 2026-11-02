@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { similarityIssues } from '../../lib/model/similar-storeys';
   import Hint from './Hint.svelte';
   /**
    * The structural grid and the levels: typed as bays and storey heights, or read off the model;
@@ -78,6 +79,9 @@
     const lv = levelsFromHeights(h, base, names.split(/[;,]/));
     setGrid({ ...grid, levels: lv });
   }
+  /** Levels some other level repeats. */
+  const masters = $derived(new Set(levels.flatMap((l) => (l.similarTo ? [l.similarTo] : []))));
+  const similarIssues = $derived(similarityIssues(levels));
   function editLevel(l: Level, patch: Partial<Level>) {
     setGrid({ ...grid, levels: grid.levels.map((x) => (x.id === l.id ? { ...x, ...patch } : x)) });
   }
@@ -158,13 +162,21 @@
     </div>
     {#if levels.length > 0}
       <table class="gr-table">
-        <thead><tr><th>{t('grid.name')}</th><th>z ({unitQ('length')})</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
+        <thead><tr><th>{t('grid.name')}</th><th>z ({unitQ('length')})</th><th>{t('storeys.similarTo')}</th><th title={t('storeys.spliceHint')}>{t('storeys.splice')}</th><th>{t('storeys.color')}</th><th>{t('grid.workHere')}</th><th></th></tr></thead>
         <tbody>
           {#each [...levels].reverse() as l (l.id)}
             {@const active = activeZ !== null && Math.abs(activeZ - l.z) < 1e-6}
             <tr class:gr-active={active} data-testid="grid-level-{l.name}">
               <td><input class="gr-cell" value={l.name} onchange={(e) => editLevel(l, { name: e.currentTarget.value.trim() || l.name })} /></td>
               <td><QuantityInput cls="gr-cell gr-num" wrap="gr-qi" showUnit={false} value={l.z} quantity="length" onchange={(v) => editLevel(l, { z: v })} /></td>
+              <td>
+                <select class="gr-cell" value={l.similarTo ?? ''} onchange={(e) => editLevel(l, { similarTo: e.currentTarget.value || undefined })} aria-label={tp('storeys.similarToOf', { name: l.name })} data-testid="grid-similar-{l.name}">
+                  <option value="">{masters.has(l.id) ? t('storeys.master') : '—'}</option>
+                  {#each levels.filter((x) => x.id !== l.id && !x.similarTo) as m (m.id)}<option value={m.id}>{m.name}</option>{/each}
+                </select>
+              </td>
+              <td><input type="checkbox" checked={!!l.splice} onchange={(e) => editLevel(l, { splice: e.currentTarget.checked || undefined })} aria-label={tp('storeys.spliceOf', { name: l.name })} data-testid="grid-splice-{l.name}" /></td>
+              <td><input type="color" class="gr-color" value={l.color ?? '#8fa3b3'} onchange={(e) => editLevel(l, { color: e.currentTarget.value })} aria-label={tp('storeys.colorOf', { name: l.name })} /></td>
               <td><input type="radio" name="gr-active" checked={active} onchange={() => uiStore.setActiveLevel(l.z)} aria-label={tp('grid.workOn', { name: l.name })} data-testid="grid-activate-{l.name}" /></td>
               <td><button class="pk-btn gr-del" title={t('grid.remove')} onclick={() => removeLevel(l)}>×</button></td>
             </tr>
@@ -172,6 +184,8 @@
         </tbody>
       </table>
     {/if}
+    {#if levels.length > 1}<Hint text={t('storeys.hint')} />{/if}
+    {#each similarIssues as i (i.level + i.issue)}<p class="pk-warn" data-testid="grid-similar-issue">{tp(`storeys.issue.${i.issue}`, { name: levels.find((l) => l.id === i.level)?.name ?? i.level })}</p>{/each}
     <label class="pk-row gr-check"><input type="checkbox" bind:checked={uiStore.snapToAxes} data-testid="grid-snap" /> {t('grid.snap')}</label>
   </section>
 
@@ -197,6 +211,7 @@
 </div>
 
 <style>
+  .gr-color { width: 26px; height: 18px; padding: 0; border: 0; background: none; }
   .gr-dir { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid var(--st-hair); }
   .gr-dir:first-of-type { border-top: none; }
   .gr-dir-head { font-size: 0.66rem; font-weight: 600; color: var(--st-text-2); }

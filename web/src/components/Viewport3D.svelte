@@ -26,6 +26,7 @@
   import { buildLinkedReference, swapLinked } from '../lib/three/linked-3d';
   import { linkedGeometry } from '../lib/store/linked-geometry';
   import { federation } from '../lib/store/federation.svelte';
+  import StoreyScopeBar from './viewport/StoreyScopeBar.svelte';
   import SplitView3D from './viewport/SplitView3D.svelte';
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
@@ -4320,6 +4321,7 @@
   oncontextmenu={handleContextMenu3D}
 >
   {#if uiStore.planView3D}<PlanViewChip />{/if}
+  <StoreyScopeBar />
   <!-- The despiece, drawn over the scene in screen space (`canvas/free-body.ts`); only while it is on. -->
   {#if resultsStore.diagramType === 'despiece'}
     <canvas class="fb-overlay" bind:this={fbCanvas} aria-hidden="true"></canvas>
