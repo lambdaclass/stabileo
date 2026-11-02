@@ -121,35 +121,77 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
                     self.assertIn(f'--ro-bind {tools} {tools}', ' '.join(command))
                     self.assertNotIn('--ro-bind /usr/bin /usr/bin', ' '.join(command))
                 mac = readonly.sandbox_command([root / 'scratch'], ['reviewer'], 'darwin', sockets=sockets)
-                self.assertIn(f'(deny network-outbound (remote unix-socket (path-literal "{agent}")))', mac[2])
+                self.assertIn('(deny network-outbound (remote unix-socket', mac[2])
+                self.assertIn(f'(remote unix-socket (path-literal "{agent}"))', mac[2])
+
+    def test_every_listening_socket_is_masked_except_name_service(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
+            root = Path(tmp).resolve()
+            docker = root / 'docker.sock'
+            with socket.socket(socket.AF_UNIX) as server:
+                server.bind(str(docker))
+                table = root / 'unix'
+                table.write_text('Num RefCount Protocol Flags Type St Inode Path\n'
+                                 f'0: 00000002 00000000 00010000 0001 01 1 {docker}\n'
+                                 '0: 00000002 00000000 00010000 0001 01 2 @abstract\n'
+                                 '0: 00000002 00000000 00010000 0001 01 3 /run/systemd/resolve/io.systemd.Resolve\n'
+                                 f'0: 00000002 00000000 00010000 0001 01 4 {root}/gone.sock\n')
+                self.assertEqual(readonly.listening_sockets(table),
+                                 {docker, Path('/run/systemd/resolve/io.systemd.Resolve'), root / 'gone.sock'})
+                sockets = readonly.host_sockets({}, table)
+                self.assertIn(docker, sockets)
+                self.assertNotIn(root / 'gone.sock', sockets)
+                self.assertFalse(any(path.is_relative_to('/run/systemd/resolve') for path in sockets))
+                self.assertIn(f'--ro-bind /dev/null {docker}', ' '.join(
+                    readonly.sandbox_command([root / 'scratch'], ['reviewer'], 'linux', sockets=sockets)))
 
     def test_reviewer_cannot_reach_host_unix_sockets(self):
         if sys.platform == 'darwin' or not shutil.which('bwrap'):
             self.skipTest('bwrap is unavailable')
-        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+        script = """
+import socket, sys
+for path in sys.argv[1:]:
+    s = socket.socket(socket.AF_UNIX)
+    try:
+        s.connect(path)
+    except OSError:
+        print('unreachable')
+    else:
+        print('connected')
+"""
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp, tempfile.TemporaryDirectory(dir=ROOT) as other:
             root = Path(tmp).resolve()
             scratch = root / 'scratch'
             scratch.mkdir()
-            agent = root / 'agent.sock'
-            script = """
-import socket, sys
-s = socket.socket(socket.AF_UNIX)
-try:
-    s.connect(sys.argv[1])
-except OSError:
-    print('unreachable')
-else:
-    print('connected')
-"""
-            with socket.socket(socket.AF_UNIX) as server:
-                server.bind(str(agent))
-                server.listen(1)
+            agent, docker = root / 'agent.sock', Path(other).resolve() / 'docker.sock'
+            with socket.socket(socket.AF_UNIX) as first, socket.socket(socket.AF_UNIX) as second:
+                for server, path in ((first, agent), (second, docker)):
+                    server.bind(str(path))
+                    server.listen(1)
                 result = subprocess.run(readonly.sandbox_command(
-                    [scratch], [sys.executable, '-c', script, str(agent)],
+                    [scratch], [sys.executable, '-c', script, str(agent), str(docker)],
                     sockets=readonly.host_sockets({'SSH_AUTH_SOCK': str(agent)}), cwd=root),
                     cwd=root, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stdout, 'unreachable\n')
+            self.assertEqual(result.stdout, 'unreachable\nunreachable\n')
+
+    def test_git_worktree_under_tmp_stays_readable(self):
+        if sys.platform == 'darwin' or not shutil.which('bwrap') or not shutil.which('git'):
+            self.skipTest('bwrap or git is unavailable')
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root = Path(tmp).resolve()
+            git = ['git', '-c', 'user.name=t', '-c', 'user.email=t@t']
+            subprocess.run([*git, 'init', '-q', str(root / 'repo')], check=True)
+            subprocess.run([*git, '-C', str(root / 'repo'), 'commit', '-q', '--allow-empty', '-m', 'x'], check=True)
+            subprocess.run([*git, '-C', str(root / 'repo'), 'worktree', 'add', '-q', str(root / 'wt')], check=True)
+            scratch = root / 'scratch'
+            scratch.mkdir()
+            head = subprocess.run(['git', '-C', str(root / 'repo'), 'rev-parse', 'HEAD'], capture_output=True, text=True).stdout
+            result = subprocess.run(readonly.sandbox_command(
+                [scratch], ['git', 'rev-parse', 'HEAD'], sockets=readonly.host_sockets({}), cwd=root / 'wt'),
+                cwd=root / 'wt', capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, head)
 
     def test_private_config_and_scratch_are_cleaned_up(self):
         with tempfile.TemporaryDirectory() as tmp:

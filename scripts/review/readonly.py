@@ -22,13 +22,39 @@ def hidden_credentials(home, environ=os.environ):
 
 
 HOST_SOCKETS = ('/tmp', '/var/tmp', '/run/user', '/run/docker.sock', '/run/containerd', '/run/podman')
+NAME_SERVICE_SOCKETS = ('/run/systemd/resolve', '/run/nscd', '/run/systemd/userdb')
 
 
-def host_sockets(environ=os.environ):
-    candidates = {Path(path) for path in HOST_SOCKETS}
+def listening_sockets(table='/proc/net/unix'):
+    try:
+        lines = Path(table).read_text().splitlines()[1:]
+    except OSError:
+        return set()
+    return {Path(fields[7]) for fields in (line.split(None, 7) for line in lines)
+            if len(fields) == 8 and fields[7].startswith('/')}
+
+
+def host_sockets(environ=os.environ, table='/proc/net/unix'):
+    candidates = {Path(path) for path in HOST_SOCKETS} | listening_sockets(table)
     if environ.get('SSH_AUTH_SOCK'):
         candidates.add(Path(environ['SSH_AUTH_SOCK']))
-    return sorted({path.resolve() for path in candidates if path.exists()})
+    found = set()
+    for path in candidates:
+        try:
+            if (path.is_dir() and str(path) in HOST_SOCKETS) or path.is_socket():
+                found.add(path.resolve())
+        except OSError:
+            pass
+    return sorted(path for path in found if not any(path.is_relative_to(keep) for keep in NAME_SERVICE_SOCKETS))
+
+
+def git_dirs(cwd):
+    try:
+        out = subprocess.run(['git', '-C', str(cwd), 'rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'],
+                             capture_output=True, text=True, check=True).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return []
+    return [Path(line) for line in out.splitlines() if line]
 
 
 def sandbox_command(paths, command, platform=sys.platform, hide=(), sockets=(), cwd=None):
@@ -43,15 +69,18 @@ def sandbox_command(paths, command, platform=sys.platform, hide=(), sockets=(), 
                 f'(allow file-write* {rules})' + (f'(deny file-read* {hidden})' if hidden else '')
                 + (f'(deny network-outbound {unix})' if unix else ''), *command]
     masked = [str(path) for path in sockets if Path(path).is_dir()]
-    exposed = [Path(cwd)] if cwd else []
+    exposed = [Path(cwd), *git_dirs(cwd)] if cwd else []
     exposed += [Path(entry) for entry in os.environ.get('PATH', '').split(os.pathsep) if entry]
     visible = sorted({str(path.resolve()) for path in exposed
                       if path.is_dir() and any(path.resolve().is_relative_to(dir) for dir in masked)})
+    reachable = [str(path) for path in sockets if str(path) not in masked
+                 and (not any(Path(path).is_relative_to(dir) for dir in masked)
+                      or any(Path(path).is_relative_to(dir) for dir in visible))]
     return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev',
             *[arg for path in masked for arg in ('--tmpfs', path)],
             *[arg for path in visible for arg in ('--ro-bind', path, path)],
             *[arg for path in paths for arg in ('--bind', path, path)],
-            *[arg for path in map(str, sockets) if path not in masked for arg in ('--ro-bind', '/dev/null', path)],
+            *[arg for path in reachable for arg in ('--ro-bind', '/dev/null', path)],
             *[arg for path in map(str, hide) for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],
             '--unshare-pid', '--unshare-ipc', '--proc', '/proc', '--', *command]
 
