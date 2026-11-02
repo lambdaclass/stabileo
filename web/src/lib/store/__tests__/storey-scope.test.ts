@@ -39,6 +39,17 @@ describe('the storey scope', () => {
     expect(storeyScope.last!.unmatched).toEqual([]);
   });
 
+  it('keeps what it took when the selection it set comes back to it', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    expect(storeyScope.expandSelection()).toBe(0);
+    expect(storeyScope.last!.added).toBe(4);
+    uiStore.setSelection(new Set(), new Set([beamOn(6)]));
+    expect(storeyScope.expandSelection()).toBe(3);
+  });
+
   it('an edit of the selection reaches them all, and is undone in one step', () => {
     const { beamOn } = thirteen();
     storeyScope.scope = 'similar';
