@@ -261,6 +261,9 @@
   margin: 0 0 0.9rem;
 }
 
+.landing .fit { padding-bottom: 0; }
+.landing .fit-links { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; margin-top: 1.5rem; }
+
 .landing .lead {
   color: var(--fg-2);
   font-size: clamp(1rem, 1.15vw, 1.12rem);

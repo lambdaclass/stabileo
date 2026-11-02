@@ -6,6 +6,7 @@
   import SiteHeader from './site/SiteHeader.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
+  import LandingFit from './landing/LandingFit.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
   import LandingProCalc from './landing/LandingProCalc.svelte';
   import LandingProDesign from './landing/LandingProDesign.svelte';
@@ -187,6 +188,7 @@
   -->
   <SiteHeader page="landing" />
   <LandingHero {prefersReducedMotion} />
+  <LandingFit />
   <LandingBasic />
   <LandingProCalc />
   <LandingProDesign />

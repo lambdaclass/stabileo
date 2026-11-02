@@ -23,6 +23,7 @@
       <span class="badge badge-dev">{t('landing.badgeDevOpen')}</span>
     </div>
     <p class="lead">{t('landing.proDesignP')}</p>
+    <p class="lead">{t('landing.proDesign3d')}</p>
     <PublicLink to="/cirsoc" class="link-arrow">{t('landing.proDesignCirsocLink')}</PublicLink>
 
     <div class="card-row cols-1 cap-shots">
