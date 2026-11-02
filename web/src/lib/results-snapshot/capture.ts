@@ -61,6 +61,7 @@ export function collectContainment(value: unknown): void {
     try { collectContainment(JSON.parse(value)); } catch { /* Ordinary error text. */ }
   } else if (Array.isArray(value)) value.forEach(collectContainment);
   else if (value && typeof value === 'object') {
+    if (value instanceof Error) collectContainment(value.message);
     const record = value as Record<string, unknown>;
     if (record.code === 'known_issue') containmentFindings.add(`${record.severity}:${record.phase}`);
     for (const child of Object.values(record)) if (child && (typeof child === 'object' || typeof child === 'string')) collectContainment(child);

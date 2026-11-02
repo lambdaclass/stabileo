@@ -195,7 +195,9 @@ No new typecheck errors is the acceptance criterion; the repository has an exist
 The membrane-bending predicate is checked on constrained, prepared, combined, second-order,
 foundation, SSI, contact and staged static results, using the returned state's
 thermal loads. Model-less combination and envelope APIs cannot recompute the membrane predicate and refuse
-cases carrying `SH-MITC4-DISTORTION`; model-aware multi-case solves check the combined displacement
+cases carrying `SH-MITC4-DISTORTION`, except the identity combination (one case, factor 1), which returns the field
+the guard already checked (a scaled field can cross its absolute E·1e-12 threshold); envelopes keep refusing because the web hands them combinations it
+superposed itself; model-aware multi-case solves check the combined displacement
 field with factored thermal loads. This conservative model-less refusal is diagnostic-only.
 The determinism gate requires six structured 2D plastic refusals (#758), retains both 3D plastic
 certificates and their bundle exports, and compares all outputs exactly across runtimes.

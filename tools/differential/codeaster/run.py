@@ -304,10 +304,11 @@ def finish(r, tol, dump_dir, model, binary=None):
 
 
 def held_mechanism(model, sres, bad, binary, tol):
-    """Whether every disagreement is a mechanism of stabileo's own model: each is a displacement,
-    and solving again with those DOFs restrained changes no reaction, member force or other
-    displacement beyond `tol`, while the new restraints carry no force. Restraining a stiff DOF
-    moves the rest of the structure or loads the restraint, so it fails here."""
+    """Whether every disagreement is a mechanism of stabileo's own model. Each is a displacement, and
+    for each such DOF in turn stabileo is solved again with that DOF moved by a finite amount: it
+    qualifies only if no reaction, member force or displacement outside the disagreeing DOFs changes
+    beyond `tol` and the imposed motion needs no force. A stiff DOF needs a force to move, whatever
+    its original displacement, so it fails here."""
     names = ["ux", "uy", "uz", "rx", "ry", "rz"]
     dofs = set()
     for b in bad:
@@ -317,32 +318,35 @@ def held_mechanism(model, sres, bad, binary, tol):
     nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
     if not binary or any(nid not in nodes for nid, _ in dofs):
         return False
-    held = json.loads(json.dumps(model))
-    sups = held.setdefault("supports", {})
-    next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
     for nid, k in sorted(dofs):
+        same = [abs(u[i]) for u in sres["disp"].values() for i in (range(3) if k < 3 else range(3, 6))]
+        original = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [0.0] * 6)[k]
+        moved = json.loads(json.dumps(model))
+        sups = moved.setdefault("supports", {})
         sup = next((s for s in sups.values() if str(s.get("nodeId")) == nid), None)
         if sup is None:
-            sup = sups.setdefault(f"held-{nid}", {"id": next_id, "nodeId": int(nid)})
-            next_id += 1
-        if sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
+            next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
+            sup = sups.setdefault(f"moved-{nid}", {"id": next_id, "nodeId": int(nid)})
+        if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
             return False
         sup[to_aster.FLAGS[k]] = True
-    try:
-        hres = dict(C.normalize_stabileo(C.stabileo(held, binary), 3), dim=3)
-    except RuntimeError:
-        return False
-    moved, _ = C.compare(model, sres, hres, tol)
-    held_nodes = {nid for nid, _ in dofs}
-    for b in moved:
-        if b[0] == "disp" and (str(b[1]), names.index(b[2]) if b[2] in names else -1) in dofs:
-            continue
-        if b[0] == "reac" and b[2] == "missing" and str(b[1]) in held_nodes:
-            continue
-        return False
-    scale = max([abs(v) for r in hres["reac"].values() for v in r]
-                + [abs(v) for f in hres["forces"].values() for v in f.values()] + [1e-300])
-    return all(abs(hres["reac"].get(int(nid), hres["reac"].get(nid, [0.0] * 6))[k]) <= tol * scale for nid, k in dofs)
+        sup[to_aster.PRESC[k]] = original + max(same + [1e-3])
+        try:
+            mres = dict(C.normalize_stabileo(C.stabileo(moved, binary), 3), dim=3)
+        except RuntimeError:
+            return False
+        changed, _ = C.compare(model, sres, mres, tol)
+        for b in changed:
+            if b[0] == "disp" and b[2] in names and (str(b[1]), names.index(b[2])) in dofs:
+                continue
+            if b[0] == "reac" and b[2] == "missing" and str(b[1]) == nid:
+                continue
+            return False
+        scale = max([abs(v) for r in sres["reac"].values() for v in r]
+                    + [abs(v) for f in sres["forces"].values() for v in f.values()] + [1e-300])
+        if abs((mres["reac"].get(int(nid)) or mres["reac"].get(nid) or [0.0] * 6)[k]) > tol * scale:
+            return False
+    return True
 
 
 def C_size(model):

@@ -148,31 +148,40 @@ def _raw(rz5=0.0, uz2=-1e-3, reac5=None, m12=3.0):
 
 
 class HeldMechanism(unittest.TestCase):
-    """A singular disagreement is excused only when stabileo itself shows it is a mechanism:
-    restraining the disagreeing DOFs changes nothing else and the restraint carries nothing."""
+    """A singular disagreement is excused only when stabileo itself shows it is a mechanism: moving
+    the disagreeing DOF changes nothing else and needs no force."""
 
-    def held(self, original, held, bad, binary="bin"):
+    def held(self, original, moved, bad, binary="bin"):
         from unittest import mock
         import run as R
         sres = R.C.normalize_stabileo(original, 3)
-        with mock.patch.object(R.C, "stabileo", lambda model, b: held):
-            return R.held_mechanism(_mechanism_beam(), sres, bad, binary, 1e-6)
+        seen = []
+        def solve(model, b):
+            seen.append(model)
+            return moved
+        with mock.patch.object(R.C, "stabileo", solve):
+            ok = R.held_mechanism(_mechanism_beam(), sres, bad, binary, 1e-6)
+        for model in seen:
+            moved_support = [s for s in model["supports"].values() if s.get("nodeId") == 5]
+            self.assertTrue(moved_support and moved_support[0]["rrz"] and moved_support[0]["drz"] != 0.0)
+        return ok
 
     def test_a_free_unloaded_rotation_that_moves_nothing_is_a_mechanism(self):
-        self.assertTrue(self.held(_raw(rz5=1e13), _raw(rz5=0.0, reac5=0.0), [("disp", 5, "rz", 1e13, 0.0, 1.0)]))
+        self.assertTrue(self.held(_raw(rz5=1e13), _raw(rz5=2e13, reac5=0.0), [("disp", 5, "rz", 1e13, 0.0, 1.0)]))
 
-    def test_a_stiff_dof_is_not(self):
-        bad = [("disp", 5, "rz", 1e-3, 0.0, 1.0)]
-        self.assertFalse(self.held(_raw(rz5=1e-3), _raw(rz5=0.0, uz2=-2e-3, reac5=0.0), bad), "holding it moved node 2")
-        self.assertFalse(self.held(_raw(rz5=1e-3), _raw(rz5=0.0, reac5=0.5), bad), "the restraint carries a moment")
-        self.assertFalse(self.held(_raw(rz5=1e-3), _raw(rz5=0.0, reac5=0.0, m12=4.0), bad), "a member force changed")
+    def test_a_stiff_dof_is_not_even_at_zero_displacement(self):
+        bad = [("disp", 5, "rz", 0.0, 1e-3, 1.0)]
+        self.assertFalse(self.held(_raw(rz5=0.0), _raw(rz5=1e-3, reac5=0.5), bad), "moving it needs a moment")
+        self.assertFalse(self.held(_raw(rz5=0.0), _raw(rz5=1e-3, uz2=-2e-3, reac5=0.0), bad), "moving it moved node 2")
+        self.assertFalse(self.held(_raw(rz5=0.0), _raw(rz5=1e-3, reac5=0.0, m12=4.0), bad), "a member force changed")
 
-    def test_only_displacements_of_known_nodes_with_a_binary_qualify(self):
-        held = _raw(reac5=0.0)
-        self.assertFalse(self.held(_raw(), held, [("reac", 1, "fz", 1.0, 2.0, 1.0)]))
-        self.assertFalse(self.held(_raw(), held, [("force", 1, "mz", 1.0, 2.0, 1.0)]))
-        self.assertFalse(self.held(_raw(), held, [("disp", 9, "rz", 0.0, 1.0, 1.0)]))
-        self.assertFalse(self.held(_raw(), held, [("disp", 5, "rz", 0.0, 1.0, 1.0)], binary=None))
+    def test_only_displacements_of_known_free_nodes_with_a_binary_qualify(self):
+        moved = _raw(reac5=0.0)
+        self.assertFalse(self.held(_raw(), moved, [("reac", 1, "fz", 1.0, 2.0, 1.0)]))
+        self.assertFalse(self.held(_raw(), moved, [("force", 1, "mz", 1.0, 2.0, 1.0)]))
+        self.assertFalse(self.held(_raw(), moved, [("disp", 9, "rz", 0.0, 1.0, 1.0)]))
+        self.assertFalse(self.held(_raw(), moved, [("disp", 1, "rz", 0.0, 1.0, 1.0)]), "node 1 is fixed")
+        self.assertFalse(self.held(_raw(), moved, [("disp", 5, "rz", 0.0, 1.0, 1.0)], binary=None))
 
 
 class UnimposedSettlements(unittest.TestCase):

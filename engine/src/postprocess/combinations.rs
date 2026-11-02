@@ -343,9 +343,11 @@ pub fn combine_results_3d(input: &CombinationInput3D) -> Result<Option<AnalysisR
 /// `combine_results_3d` over borrowed case results: `(case_id, &results)` pairs,
 /// avoiding per-combination clones of every case.
 pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Result<Option<AnalysisResults3D>, String> {
-    for (_, result) in cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)) {
+    let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
+    for (_, result) in &contributing {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
-        if result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+        let identity = contributing.len() == 1 && factors.iter().filter(|f| f.factor != 0.0).all(|f| f.factor == 1.0);
+        if !identity && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }
