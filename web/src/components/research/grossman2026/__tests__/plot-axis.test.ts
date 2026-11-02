@@ -15,5 +15,6 @@ it('keeps small nonzero table values distinct from zero', () => {
   expect(tableValue(0.00003, 'en')).toBe('3E-5');
   expect(tableValue(-0.000012345, 'en')).toBe('−1.2345E-5');
   expect(tableValue(0.5, 'es')).toBe('0,5');
-  expect(tableValue(1e-14, 'en')).toBe('0');
+  expect(tableValue(1e-14, 'en')).toBe('1E-14');
+  expect(tableValue(0, 'en')).toBe('0');
 });

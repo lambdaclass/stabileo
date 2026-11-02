@@ -15,7 +15,7 @@ export function axis(lo: number, hi: number, fixed: boolean) {
 }
 
 export function tableValue(v: number, locale: string): string {
-  if (Math.abs(v) < 1e-12) return '0';
+  if (v === 0) return '0';
   const scientific = Math.abs(v) < 1e-3 || Math.abs(v) >= 1e6;
   return new Intl.NumberFormat(locale, { maximumSignificantDigits: 5, notation: scientific ? 'scientific' : 'standard' }).format(v).replace(/^-/, '−');
 }
