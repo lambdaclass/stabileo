@@ -140,4 +140,19 @@ describe('a cut bends each member about the axis the space model bends it about 
     for (const id of modelStore.elements.keys()) modelStore.elements.get(id)!.sectionId = sid;
     expect(membersBentOffAxis('yz', columns, modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual([]);
   });
+
+  it('a column whose section is turned 30° couples in-plane and out-of-plane bending, so even an X–Z cut is refused', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+    const column = modelStore.addElement(a, b, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
+    const sid = modelStore.addSection({ name: 'turned I', a: 0.0069, iy: 9.8e-5, iz: 4.51e-6, j: 4.7e-7, b: 0.125, h: 0.3, rotation: 30 } as never);
+    modelStore.elements.get(column)!.sectionId = sid;
+    const r3 = modelStore.solve3D(false, false, true);
+    if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
+    const head = r3.displacements.find((x) => x.nodeId === b)!;
+    expect(Math.abs(head.uy)).toBeGreaterThan(0.05 * Math.abs(head.ux));
+    expect(membersBentOffAxis('xz', [column], modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual([column]);
+    expect(sliceAt('xz', 0)).toEqual({ ok: false, error: 'slice.sectionAxis' });
+  });
 });

@@ -50,9 +50,8 @@ export function constraintsMisreadOn(
 
 /**
  * The frame members of a plane model cut on `plane` that the space model bends in that plane with
- * another inertia than the plane solver will (#1238): the plane solver bends every member about
- * the section's Y axis turned by its rotation, the space model about the plane's normal in the
- * member's own axes.
+ * another inertia than the plane solver will, or couples that bending with bending out of the
+ * plane, which the plane solver cannot (#1238).
  */
 export function membersBentOffAxis(
   plane: DrawPlane,
@@ -90,8 +89,10 @@ export function membersBentOffAxis(
       const props = solverProperties(s);
       const { iy, iz } = spaceBendingInertias(s, props);
       const space = iy * cy * cy + iz * cz * cz;
+      const coupling = (iy - iz) * cy * cz;
       const flat = effectiveBendingInertia(s, props);
-      return Math.abs(space - flat) > 1e-6 * Math.max(Math.abs(space), Math.abs(flat));
+      const scale = Math.max(Math.abs(space), Math.abs(flat), Math.abs(iy), Math.abs(iz));
+      return Math.abs(space - flat) > 1e-6 * scale || Math.abs(coupling) > 1e-6 * scale;
     });
     if (off) out.push(id);
   }

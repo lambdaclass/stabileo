@@ -115,13 +115,13 @@ fn helix(n: usize, alpha: f64, kl: f64) -> (SolverInput3D, [f64; 3]) {
 
 #[test]
 fn a_helix_from_a_non_coaxial_tip_moment_matches_the_exact_solution_and_carries_nl3() {
-    let (input, exact) = helix(20, std::f64::consts::FRAC_PI_4, std::f64::consts::FRAC_PI_2);
+    let (input, exact) = helix(40, std::f64::consts::FRAC_PI_4, std::f64::consts::FRAC_PI_2);
     let r = solve_corotational_3d(&input, 100, 1e-9, 40, false).unwrap();
     assert!(r.converged);
-    let tip = r.results.displacements.iter().find(|d| d.node_id == 21).unwrap();
+    let tip = r.results.displacements.iter().find(|d| d.node_id == 41).unwrap();
     let got = [10.0 + tip.ux, tip.uy, tip.uz];
     let error = (0..3).map(|i| (got[i] - exact[i]).powi(2)).sum::<f64>().sqrt();
-    assert!(error / 10.0 < 1e-3, "tip {got:?} vs exact {exact:?}");
+    assert!(error / 10.0 < 1e-4, "tip {got:?} vs exact {exact:?}, error {}", error / 10.0);
     assert!(known(&r.results.structured_diagnostics).contains(&"NL-3".to_string()));
 }
 
