@@ -130,6 +130,11 @@ review_second() {
     adversarial=$(cat "$REVIEW_SCRIPTS/review-adversarial-prompt.txt")
     adversarial=${adversarial//\{\{PR\}\}/$PR}
     adversarial=${adversarial//origin\/main/$BASE_REF}
+    adversarial="$adversarial
+
+The original review request follows; its scope and required checks still apply:
+
+$PROMPT"
     review_attempt adversarial codex exec --sandbox read-only --skip-git-repo-check -C "$WORK_ROOT/adversarial" "$adversarial" || return 1
     name=adversarial; label='adversarial Codex'
   fi
