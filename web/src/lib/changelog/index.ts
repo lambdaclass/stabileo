@@ -25,19 +25,23 @@ export type ChangelogEntry = {
 
 /**
  * What reached stabileo.com, newest first. From June 2026 one entry per weekly report, dated with
- * the report's Friday and listing only what was merged to main that week; before that, one entry
- * per month, from the first commit on 10 February 2026.
+ * the report's Friday and listing what was merged to main that week; an item about work still in
+ * review says so in its first words. Before that, one entry per month, from the first commit on 10 February 2026.
  */
 export const CHANGELOG: ChangelogEntry[] = [
   {
     date: '2026-11-06',
-    areas: ['site', 'site'],
+    areas: ['site', 'site', 'engine', 'engine', 'engine', 'site'],
     i18n: {
       es: {
         title: 'Herramientas que avisan cuando el resultado sale de lo que verifican',
         items: [
           'Las Herramientas avisan cuando el desplazamiento supera luz/50, cuando el motor y la fórmula clásica difieren en más del 1% o cuando una barra es demasiado robusta para la frecuencia de flexión, y rechazan una rigidez casi nula; la línea de influencia ya no da un corte un 200% errado justo después de un apoyo.',
           'Las páginas de Stabileo Research dicen con qué se comparan (por ejemplo, el top88.m original en GNU Octave) en lugar de dejar la comparación pendiente.',
+          'Las verificaciones nocturnas registran un hallazgo por causa raíz en lugar de uno por nudo o elemento, así un problema real del motor ya no se pierde entre duplicados.',
+          'En revisión, todavía no en stabileo.com: correcciones de resultados incorrectos encontrados esta semana. El diseño de columnas CIRSOC 201 leía el eje de flexión equivocado y podía dejar una columna con hasta un 36% menos de armadura de la necesaria; la flexión EC2 suponía que el acero traccionado fluye; el corte AISC y EC3 pasaba cuando faltaba el área del alma; la envolvente de cáscaras guardaba el registro de una sola combinación en lugar del extremo de cada componente; el análisis en el tiempo podía devolver números no finitos. Cada corrección llega con un aviso de seguridad, y los proyectos cuyos resultados cambian quedan marcados para volver a verificarlos.',
+          'También en revisión: una advertencia o un rechazo para cada problema abierto de resultados incorrectos, para que un problema conocido nunca se muestre como un número sin más; un factor de pandeo fuera de sus cotas certificadas ya no se certifica; el análisis modal ya no omite modos repetidos de estructuras simétricas.',
+          'En revisión: una galería /examples de estructuras paramétricas en vivo resueltas con el motor real, y textos de la portada sobre dónde encaja Stabileo y qué cubren hoy las verificaciones de diseño de PRO.',
         ],
       },
       en: {
@@ -45,6 +49,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           'Tools warn when the displacement exceeds span/50, when the engine and the classical formula differ by more than 1%, or when a member is too stocky for its bending frequency, and refuse a near-zero stiffness; the influence line no longer gives a shear 200% off just past a support.',
           'Stabileo Research pages say what they are compared with (for example, the original top88.m in GNU Octave) instead of leaving the comparison pending.',
+          'The nightly checks file one finding per root cause instead of one per node or element, so a real engine problem no longer drowns among duplicates.',
+          'In review, not on stabileo.com yet: fixes for wrong results found this week. The CIRSOC 201 column design read the wrong bending axis and could leave a column up to 36% short of steel; EC2 flexure assumed the tension steel yields; AISC and EC3 shear passed when the web area was missing; the shell envelope kept one combination\'s record instead of each component\'s extreme; time history could return non-finite numbers. Each fix lands with a safety advisory, and projects whose results change are flagged for a re-check.',
+          'Also in review: a warning or a refusal for every open wrong-result issue, so a known problem never shows as a plain number; a buckling factor outside its certified bounds is no longer certified; modal analysis no longer skips repeated modes of symmetric structures.',
+          'In review: an /examples gallery of live parametric structures solved on the real engine, and landing copy on where Stabileo fits and what the PRO design checks cover today.',
         ],
       },
       pt: {
@@ -52,6 +60,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           'As Ferramentas avisam quando o deslocamento passa de vão/50, quando o motor e a fórmula clássica diferem em mais de 1% ou quando uma barra é robusta demais para a frequência de flexão, e recusam uma rigidez quase nula; a linha de influência não dá mais um cortante 200% errado logo após um apoio.',
           'As páginas do Stabileo Research dizem com o que são comparadas (por exemplo, o top88.m original no GNU Octave) em vez de deixar a comparação pendente.',
+          'As verificações noturnas registram um achado por causa raiz em vez de um por nó ou elemento, assim um problema real do motor não se perde mais entre duplicatas.',
+          'Em revisão, ainda não em stabileo.com: correções de resultados errados encontrados nesta semana. O dimensionamento de pilares CIRSOC 201 lia o eixo de flexão errado e podia deixar um pilar com até 36% menos armadura que o necessário; a flexão EC2 supunha que o aço tracionado escoa; o cortante AISC e EC3 passava quando faltava a área da alma; a envoltória de cascas guardava o registro de uma única combinação em vez do extremo de cada componente; a análise no tempo podia devolver números não finitos. Cada correção chega com um aviso de segurança, e os projetos cujos resultados mudam ficam marcados para nova verificação.',
+          'Também em revisão: um aviso ou uma recusa para cada problema aberto de resultado errado, para que um problema conhecido nunca apareça como um simples número; um fator de flambagem fora dos seus limites certificados não é mais certificado; a análise modal não pula mais modos repetidos de estruturas simétricas.',
+          'Em revisão: uma galeria /examples de estruturas paramétricas ao vivo resolvidas com o motor real, e textos da página inicial sobre onde o Stabileo se encaixa e o que as verificações de dimensionamento do PRO cobrem hoje.',
         ],
       },
       de: {
@@ -59,6 +71,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           'Die Werkzeuge warnen, wenn die Verschiebung Spannweite/50 übersteigt, wenn Rechenkern und klassische Formel um mehr als 1% abweichen oder wenn ein Stab für seine Biegeeigenfrequenz zu gedrungen ist, und lehnen eine nahezu verschwindende Steifigkeit ab; die Einflusslinie liefert direkt hinter einem Auflager keine um 200% falsche Querkraft mehr.',
           'Die Seiten von Stabileo Research nennen, womit sie verglichen werden (zum Beispiel das unveränderte top88.m in GNU Octave), statt den Vergleich offen zu lassen.',
+          'Die nächtlichen Prüfungen melden einen Befund pro Ursache statt einen pro Knoten oder Element, sodass ein echtes Problem des Rechenkerns nicht mehr zwischen Duplikaten untergeht.',
+          'In Prüfung, noch nicht auf stabileo.com: Korrekturen falscher Ergebnisse, die diese Woche gefunden wurden. Die Stützenbemessung nach CIRSOC 201 las die falsche Biegeachse und konnte einer Stütze bis zu 36% zu wenig Bewehrung geben; die Biegung nach EC2 nahm an, dass der Zugstahl fließt; der Querkraftnachweis nach AISC und EC3 bestand, wenn die Stegfläche fehlte; die Umhüllende der Schalen behielt den Datensatz einer einzigen Kombination statt des Extremwerts jeder Komponente; die Zeitverlaufsberechnung konnte nicht endliche Zahlen liefern. Jede Korrektur kommt mit einem Sicherheitshinweis, und Projekte, deren Ergebnisse sich ändern, werden zur erneuten Prüfung markiert.',
+          'Ebenfalls in Prüfung: eine Warnung oder Ablehnung für jedes offene Problem mit falschen Ergebnissen, damit ein bekanntes Problem nie als bloße Zahl erscheint; ein Knickfaktor außerhalb seiner zertifizierten Schranken wird nicht mehr zertifiziert; die Modalanalyse überspringt keine mehrfachen Eigenformen symmetrischer Tragwerke mehr.',
+          'In Prüfung: eine Galerie /examples mit parametrischen Tragwerken, live mit dem echten Rechenkern gelöst, und Texte auf der Startseite dazu, wo Stabileo hingehört und was die Bemessungsnachweise in PRO heute abdecken.',
         ],
       },
       fr: {
@@ -66,6 +82,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           'Les Outils avertissent quand le déplacement dépasse portée/50, quand le moteur et la formule classique diffèrent de plus de 1 % ou quand une barre est trop trapue pour sa fréquence de flexion, et refusent une rigidité quasi nulle ; la ligne d\'influence ne donne plus un effort tranchant faux de 200 % juste après un appui.',
           'Les pages de Stabileo Research indiquent à quoi elles sont comparées (par exemple le top88.m original dans GNU Octave) au lieu de laisser la comparaison en attente.',
+          'Les vérifications nocturnes signalent une anomalie par cause racine au lieu d\'une par nœud ou par élément, pour qu\'un vrai problème du moteur ne se perde plus parmi les doublons.',
+          'En revue, pas encore sur stabileo.com : des corrections de résultats faux trouvés cette semaine. Le dimensionnement des poteaux CIRSOC 201 lisait le mauvais axe de flexion et pouvait laisser un poteau avec jusqu\'à 36 % d\'armatures en moins ; la flexion EC2 supposait que l\'acier tendu plastifie ; le cisaillement AISC et EC3 était validé quand l\'aire de l\'âme manquait ; l\'enveloppe des coques gardait l\'enregistrement d\'une seule combinaison au lieu de l\'extrême de chaque composante ; l\'analyse temporelle pouvait renvoyer des nombres non finis. Chaque correction arrive avec un avis de sécurité, et les projets dont les résultats changent sont signalés pour une nouvelle vérification.',
+          'Aussi en revue : un avertissement ou un refus pour chaque problème ouvert de résultat faux, pour qu\'un problème connu ne s\'affiche jamais comme un simple nombre ; un facteur de flambement hors de ses bornes certifiées n\'est plus certifié ; l\'analyse modale ne saute plus les modes répétés des structures symétriques.',
+          'En revue : une galerie /examples de structures paramétriques en direct, résolues par le vrai moteur, et des textes de la page d\'accueil sur la place de Stabileo et ce que couvrent aujourd\'hui les vérifications de dimensionnement de PRO.',
         ],
       },
       tr: {
@@ -73,6 +93,10 @@ export const CHANGELOG: ChangelogEntry[] = [
         items: [
           'Araçlar, yer değiştirme açıklık/50 değerini aştığında, motor ile klasik formül %1\'den fazla farklı olduğunda veya bir çubuk eğilme frekansı için fazla kısa ve kalın olduğunda uyarıyor ve sıfıra yakın rijitliği reddediyor; tesir çizgisi artık bir mesnedin hemen ardında %200 hatalı kesme kuvveti vermiyor.',
           'Stabileo Research sayfaları karşılaştırmayı beklemede bırakmak yerine neyle karşılaştırıldıklarını söylüyor (örneğin GNU Octave\'daki özgün top88.m).',
+          'Gece kontrolleri artık her düğüm veya eleman için ayrı değil, her kök neden için tek bir bulgu açıyor; böylece motorun gerçek bir sorunu kopyalar arasında kaybolmuyor.',
+          'İncelemede, henüz stabileo.com\'da değil: bu hafta bulunan hatalı sonuçların düzeltmeleri. CIRSOC 201 kolon tasarımı yanlış eğilme eksenini okuyordu ve bir kolonu gerekenden %36\'ya kadar az donatıyla bırakabiliyordu; EC2 eğilmesi çekme donatısının aktığını varsayıyordu; AISC ve EC3 kesme kontrolü gövde alanı eksik olduğunda geçiyordu; kabuk zarfı her bileşenin uç değeri yerine tek bir kombinasyonun kaydını tutuyordu; zaman tanım alanında analiz sonlu olmayan sayılar döndürebiliyordu. Her düzeltme bir güvenlik duyurusuyla geliyor ve sonuçları değişen projeler yeniden kontrol için işaretleniyor.',
+          'Yine incelemede: açık her hatalı sonuç sorunu için bir uyarı veya ret, böylece bilinen bir sorun asla düz bir sayı olarak görünmüyor; sertifikalı sınırlarının dışındaki bir burkulma katsayısı artık sertifikalanmıyor; modal analiz simetrik yapıların tekrarlanan modlarını artık atlamıyor.',
+          'İncelemede: gerçek motorla canlı çözülen parametrik yapılardan oluşan bir /examples galerisi ve Stabileo\'nun nerede durduğunu, PRO\'daki tasarım kontrollerinin bugün neyi kapsadığını anlatan ana sayfa metinleri.',
         ],
       },
     },
