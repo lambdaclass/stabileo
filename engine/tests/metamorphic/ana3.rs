@@ -244,7 +244,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_3d(&conv(pdelta::solve_pdelta_3d(&c.s, 100, 1e-10).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_3d(&crate::ana2::round_off_converged(|tol| pdelta::solve_pdelta_3d(&c.s, 100, tol).map(|r| (r.converged, r.results)), |r| r.displacements.iter().flat_map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]).collect())?)),
         },
         Ana3 {
             name: "corotational",
@@ -401,11 +401,7 @@ pub fn rows() -> Vec<Ana3> {
                 // the pair, and the response of a symmetric model is then not
                 // symmetric (rich3d-5/sym, built from two copies joined at
                 // one node, has such a pair at modes 6 and 7).
-                let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
-                let mut n = md.modes.len().min(6);
-                while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
-                    n += 1;
-                }
+                let (md, n) = crate::ana2::cluster_complete(|k| modal::solve_modal_3d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 6, 12)?;
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput3D {

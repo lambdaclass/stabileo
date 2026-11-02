@@ -269,7 +269,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&conv(pdelta::solve_pdelta_2d(&c.s, 100, 1e-10).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_2d(&round_off_converged(|tol| pdelta::solve_pdelta_2d(&c.s, 100, tol).map(|r| (r.converged, r.results)), |r| r.displacements.iter().flat_map(|d| [d.ux, d.uz, d.ry]).collect())?)),
         },
         Ana2 {
             name: "corotational",
@@ -404,11 +404,7 @@ pub fn rows() -> Vec<Ana2> {
             full_static: false,
             run: |c| {
                 // Never cut a repeated pair: a symmetric model's response would not be symmetric (#1030).
-                let md = modal::solve_modal_2d(&c.s, &c.dens, 8)?;
-                let mut n = md.modes.len().min(4);
-                while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
-                    n += 1;
-                }
+                let (md, n) = cluster_complete(|k| modal::solve_modal_2d(&c.s, &c.dens, k), |m| m.modes.iter().map(|x| x.omega).collect(), 4, 8)?;
                 let modes = md.modes[..n]
                     .iter()
                     .map(|x| SpectralModeInput {
@@ -571,3 +567,64 @@ pub fn rows() -> Vec<Ana2> {
         },
     ]
 }
+
+/// The first `first` modes, extended to the end of a nearly repeated cluster, asking the solver for
+/// more modes until the cluster's end is seen; an unresolved cluster is an error, never a cut.
+pub(crate) fn cluster_complete<M>(solve: impl Fn(usize) -> Result<M, String>, omegas: impl Fn(&M) -> Vec<f64>, first: usize, mut requested: usize) -> Result<(M, usize), String> {
+    loop {
+        let md = solve(requested)?;
+        let w = omegas(&md);
+        let mut n = w.len().min(first);
+        while n > 0 && n < w.len() && w[n] - w[n - 1] <= 1e-3 * w[n] {
+            n += 1;
+        }
+        if n < w.len() || w.len() < requested {
+            return Ok((md, n));
+        }
+        if requested >= 64 {
+            return Err(format!("repeated-mode cluster not resolved within {requested} modes"));
+        }
+        requested *= 2;
+    }
+}
+
+#[test]
+fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
+    let spectrum: Vec<f64> = [1.0, 2.0, 3.0].into_iter().chain([4.0; 9]).chain((0..10).map(|k| 10.0 + k as f64)).collect();
+    let asked = std::cell::RefCell::new(Vec::new());
+    let solve = |k: usize| -> Result<Vec<f64>, String> { asked.borrow_mut().push(k); Ok(spectrum[..k.min(spectrum.len())].to_vec()) };
+    let (modes, n) = cluster_complete(solve, |m: &Vec<f64>| m.clone(), 4, 8).unwrap();
+    assert_eq!(n, 12);
+    assert_eq!(modes.len(), 16);
+    assert_eq!(*asked.borrow(), vec![8, 16]);
+    let flat = |k: usize| -> Result<Vec<f64>, String> { Ok(vec![1.0; k]) };
+    assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8).unwrap_err().contains("not resolved"));
+}
+
+/// An iteration solved to 1e-12, or, when it stagnates there, one that converges at 1e-11 to the same
+/// answer within 1e-11 of its largest component: stagnation at round-off, not slow convergence.
+pub(crate) fn round_off_converged<T>(solve: impl Fn(f64) -> Result<(bool, T), String>, values: impl Fn(&T) -> Vec<f64>) -> Result<T, String> {
+    let (converged, tight) = solve(1e-12)?;
+    if converged {
+        return Ok(tight);
+    }
+    let (converged, loose) = solve(1e-11)?;
+    let (a, b) = (values(&tight), values(&loose));
+    let scale = b.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+    if converged && a.len() == b.len() && a.iter().zip(&b).all(|(x, y)| (x - y).abs() <= 1e-11 * scale) {
+        Ok(tight)
+    } else {
+        Err("did not converge".into())
+    }
+}
+
+#[test]
+fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
+    let stagnant = |tol: f64| Ok::<_, String>((tol >= 1e-11, vec![1.0, 2.0 + 1e-13]));
+    assert_eq!(round_off_converged(stagnant, |v| v.clone()).unwrap(), vec![1.0, 2.0 + 1e-13]);
+    let slow = |tol: f64| Ok::<_, String>((tol >= 1e-11, if tol < 1e-11 { vec![1.0, 2.0] } else { vec![1.0, 2.001] }));
+    assert!(round_off_converged(slow, |v| v.clone()).is_err());
+    let never = |_: f64| Ok::<_, String>((false, vec![1.0]));
+    assert!(round_off_converged(never, |v| v.clone()).is_err());
+}
+

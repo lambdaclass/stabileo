@@ -124,3 +124,16 @@ it('an envelope carrying its own refusal is withheld with clean constituents', (
   resultsStore.activeView = 'envelope';
   expect(JSON.stringify(resultsStore.results ?? null)).not.toContain('987654');
 });
+it('an expired refused named envelope does not hide a later valid solve', () => {
+  const env = (r: object) => ({ maxAbsResults3D: { ...clean, ...r, displacements: [{ nodeId: 1, ux: 4.5, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] } });
+  resultsStore.setResults3D(clean as never);
+  resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[2, clean]]) as never, env({}) as never);
+  resultsStore.viewEnvelope3D(env(refused) as never, 'named');
+  expect(resultsStore.fullEnvelope3D).toBeNull();
+  expect(resultsStore.knownIssues3D.refused).toBe(true);
+  const fresh = env({});
+  resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[2, clean]]) as never, fresh as never);
+  expect(resultsStore.envelope3D).toBe(fresh);
+  expect(resultsStore.fullEnvelope3D).toBe(fresh);
+  expect(resultsStore.knownIssues3D.refused).toBe(false);
+});

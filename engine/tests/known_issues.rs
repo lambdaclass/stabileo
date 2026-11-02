@@ -367,6 +367,10 @@ fn combinations_and_envelopes_2d_refuse_withheld_cases() {
     let reference = clean.displacements.iter().map(|d| 1.5 * d.uz);
     for (d, expected) in combined.displacements.iter().zip(reference) { assert_eq!(d.uz, expected); }
     common::assert_containment(compute_envelope_checked(&[clean.clone(), withheld.clone()]), "PL-2D-INVARIANCE");
+    assert!(combine_results(&input(1.0)).is_none());
+    assert!(combine_results_refs(&input(1.0).factors, &[(1, &clean), (2, &withheld)]).is_none());
+    assert!(combine_results(&input(0.0)).is_some());
+    assert!(compute_envelope(&[clean.clone(), withheld.clone()]).is_none());
     let mut warned = clean.clone();
     warned.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("NL-DYNAMIC-GAPS"));
     let envelope = compute_envelope_checked(&[clean.clone(), warned]).unwrap().unwrap();

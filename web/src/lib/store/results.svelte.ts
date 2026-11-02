@@ -278,7 +278,8 @@ function createResultsStore() {
   const NO_RESULTS = new Map<number, never>();
   const comboRefused2D = () => anyRefused(perCase, perCombo) || knownIssueResultDisposition(envelope?.maxAbsResults).refused;
   const comboRefused3D = () => anyRefused(perCase3D, perCombo3D) || knownIssueResultDisposition(envelope3D?.maxAbsResults3D).refused
-    || knownIssueResultDisposition(viewedEnvelope3D?.env.maxAbsResults3D).refused;
+    || knownIssueResultDisposition(liveViewedEnvelope3D()?.maxAbsResults3D).refused;
+  const liveViewedEnvelope3D = () => viewedEnvelope3D && envelope3D && viewedEnvelope3D.over === envelope3D ? viewedEnvelope3D.env : null;
   /** A named envelope on screen in place of the active one, valid only over the solve it was
    *  built from (`over`): any republish or clear makes it lapse without being reset. */
   let viewedEnvelope3D = $state.raw<{ env: FullEnvelope3D; name: string; over: FullEnvelope3D } | null>(null);
@@ -1408,7 +1409,7 @@ function createResultsStore() {
       return knownIssueResultDisposition([singleResults, results, [...perCase.values()], [...perCombo.values()], envelope?.maxAbsResults, pdeltaResult, modalResult, bucklingResult, plasticResult, spectralResult, movingLoadEnvelope, influenceLine]);
     },
     get knownIssues3D() {
-      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, viewedEnvelope3D?.env.maxAbsResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.stored]);
+      return knownIssueResultDisposition([singleResults3D, results3D, [...perCase3D.values()], [...perCombo3D.values()], envelope3D?.maxAbsResults3D, liveViewedEnvelope3D()?.maxAbsResults3D, pdeltaResult3D, modalResult3D, bucklingResult3D, spectralResult3D, timeHistoryView.stored]);
     },
 
     get maxDisplacement(): number {

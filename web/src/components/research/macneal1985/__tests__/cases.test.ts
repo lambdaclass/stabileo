@@ -90,7 +90,7 @@ describe('engine benchmark evidence', () => {
 describe('containment explanation is localized', () => {
   it('translates which results are withheld and why', () => {
     for (const loc of ['es', 'pt'] as const) {
-      for (const key of ['accuracyDescription', 'limitationsBeforeRegistry', 'limitationsAfterLedger'] as const) {
+      for (const key of ['accuracyDescription', 'limitationsBeforeRegistry', 'limitationsAfterLedger', 'registryStatus', 'ledgerLink', 'registryLink'] as const) {
         expect(strings[loc][key], `${loc} ${key}`).not.toBe(strings.en[key]);
       }
       expect(strings[loc].limitationsBeforeRegistry).toMatch(/#798/);
