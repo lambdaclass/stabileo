@@ -191,11 +191,12 @@ export interface ElementVerification {
   cover: number; // m
   // Results
   flexure: FlexureResult;
-  /** Local bending axis the beam flexure check used: 'My' (vertical-plane,
-   *  gravity, depth=h) or 'Mz' (horizontal-plane, lateral, depth=b). Columns
-   *  always use 'Mz' (strong axis, SEAM-3). Set by auto-verify. */
+  /** Local bending axis of `Mu`: 'My' bends over the section's h, 'Mz' over its b, and then
+   *  `b`/`h` here are the section's turned. Set by auto-verify. */
   flexureAxis?: 'My' | 'Mz';
   shear: ShearResult;
+  /** A column's secondary-axis shear, over the turned section (`VerificationInput.VuSecondary`). */
+  shearSecondary?: ShearResult;
   column?: ColumnResult;
   torsion?: TorsionResult;
   biaxial?: BiaxialResult;
@@ -1121,8 +1122,8 @@ export function checkSlender(
 export interface VerificationInput {
   elementId: number;
   elementType: 'beam' | 'column' | 'wall';
-  Mu: number;    // kN·m (max |Mz|)
-  Vu: number;    // kN (max |Vy|)
+  Mu: number;    // kN·m, the primary-axis moment, bending over depth h
+  Vu: number;    // kN, the shear of the primary axis
   Nu: number;    // kN (+ = compression)
   /**
    * Axial force for the shear check, kN, + = compression, − = tension. Absent → `Nu`.
@@ -1146,8 +1147,9 @@ export interface VerificationInput {
   cover: number; // m
   stirrupDia: number; // mm
   // Sprint 2 — optional additional solicitations
-  Muy?: number;   // kN·m — moment about Y (for biaxial columns)
-  Vz?: number;    // kN — shear in Z direction
+  Muy?: number;   // kN·m — secondary-axis moment, bending over b (biaxial columns)
+  /** kN — a column's secondary-axis shear, checked over the section turned (b and h swapped). */
+  VuSecondary?: number;
   Tu?: number;    // kN·m — torsion
   Lu?: number;    // m — unsupported length (for slender columns)
   // Slender column parameters (optional — conservative defaults if omitted)
@@ -1243,6 +1245,9 @@ export function verifyElement(input: VerificationInput): ElementVerification {
   const flexureNu = isVertical ? 0 : (input.NuShear ?? 0);
   const flexure = checkFlexure(params, designMu, flexureNu, { edition });
   const shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv });
+  const shearSecondary = isVertical && input.VuSecondary
+    ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition })
+    : undefined;
   let column: ColumnResult | undefined;
   let biaxial: BiaxialResult | undefined;
   let torsionResult: TorsionResult | undefined;
@@ -1270,7 +1275,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
 
   // Overall status
   let overallStatus: VerifStatus = 'ok';
-  const allStatuses = [flexure.status, shear.status, column?.status, torsionResult?.status, biaxial?.status];
+  const allStatuses = [flexure.status, shear.status, shearSecondary?.status, column?.status, torsionResult?.status, biaxial?.status];
   if (allStatuses.some(s => s === 'fail')) {
     overallStatus = 'fail';
   } else if (allStatuses.some(s => s === 'warn')) {
@@ -1286,10 +1291,12 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     diags.push({ severity: 'warning', code: 'VERIF_WARN_FLEXURE', message: 'diag.verifWarnFlexure', source: 'verification', elementIds: [input.elementId], details: { ratio: flexure.ratio } });
   }
 
-  if (shear.status === 'fail') {
-    diags.push({ severity: 'error', code: 'VERIF_FAIL_SHEAR', message: 'diag.verifFailShear', source: 'verification', elementIds: [input.elementId], details: { ratio: shear.ratio, phiVn: shear.phiVn, Vu: shear.Vu } });
-  } else if (shear.status === 'warn') {
-    diags.push({ severity: 'warning', code: 'VERIF_WARN_SHEAR', message: 'diag.verifWarnShear', source: 'verification', elementIds: [input.elementId], details: { ratio: shear.ratio } });
+  for (const sh of [shear, shearSecondary]) {
+    if (sh?.status === 'fail') {
+      diags.push({ severity: 'error', code: 'VERIF_FAIL_SHEAR', message: 'diag.verifFailShear', source: 'verification', elementIds: [input.elementId], details: { ratio: sh.ratio, phiVn: sh.phiVn, Vu: sh.Vu } });
+    } else if (sh?.status === 'warn') {
+      diags.push({ severity: 'warning', code: 'VERIF_WARN_SHEAR', message: 'diag.verifWarnShear', source: 'verification', elementIds: [input.elementId], details: { ratio: sh.ratio } });
+    }
   }
 
   if (column) {
@@ -1333,6 +1340,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     cover: input.cover,
     flexure,
     shear,
+    ...(shearSecondary ? { shearSecondary } : {}),
     column,
     torsion: torsionResult,
     biaxial,

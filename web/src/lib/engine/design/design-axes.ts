@@ -172,23 +172,30 @@ export function resolveDesignAxes(
   }
 
   const isVertical = elementType === 'column' || elementType === 'wall';
-  if (isVertical) {
-    // Columns are (near-)square in most models, so a stress proxy adds nothing and
-    // can flip on numerical noise. Take the larger moment as primary — the biaxial
-    // check then covers the pair. Deterministic tie-break: My wins ties.
-    return forAxis(my >= mz ? 'My' : 'Mz', 'dominant-moment');
-  }
+  const primary = primaryAxis(elementType, section, my, mz);
+  if (isVertical) return forAxis(primary, 'dominant-moment');
 
   // A beam under its slab bends vertically; whatever the in-plane moment, the slab takes it. The
   // stress proxy would put a 15 cm edge band's design on its width for the slab's in-plane action.
   if (o.slab) return withSlabDiaphragm(forAxis('My', 'stress-proxy'), true);
+  return forAxis(primary, 'stress-proxy');
+}
 
-  // Beams: elastic-stress proxy with the axis-correct section orientation.
-  // stressMy = My / (b · h²)   — bending over depth h
-  // stressMz = Mz / (h · b²)   — bending over width b
+/**
+ * The primary flexural axis from the peak moments. Columns: the larger moment (My on ties).
+ * Beams: the larger elastic-stress proxy, My/(b·h²) against Mz/(h·b²).
+ */
+export function primaryAxis(
+  elementType: 'beam' | 'column' | 'wall',
+  section: AxisSectionInput,
+  my: number,
+  mz: number,
+): MomentAxis {
+  if (elementType === 'column' || elementType === 'wall') return my >= mz ? 'My' : 'Mz';
+  const { b, h } = section;
   const stressMy = b > 0 && h > 0 ? my / (b * h * h) : 0;
   const stressMz = b > 0 && h > 0 ? mz / (h * b * b) : 0;
-  return forAxis(stressMy >= stressMz ? 'My' : 'Mz', 'stress-proxy');
+  return stressMy >= stressMz ? 'My' : 'Mz';
 }
 
 /** Read the signed station moment for the primary flexural axis from a force tuple. */

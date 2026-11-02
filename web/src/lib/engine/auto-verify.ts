@@ -19,6 +19,7 @@ import type { ElementDesignDemands } from './station-design-forces';
 import { verifyElement, classifyElement, computeJointPsiFromModel } from './codes/argentina/cirsoc201';
 import type { ElementVerification, VerificationInput } from './codes/argentina/cirsoc201';
 import { isDesignedMember } from './design/behaviour-demands';
+import { primaryAxis } from './design/design-axes';
 import { engineRecheckElement } from './codes/argentina/cirsoc201-engine-gate';
 import { CIRSOC201_DESIGN_EDITION } from './codes/argentina/cirsoc201-basis';
 import type { RegulationEdition } from '../codes/regulation';
@@ -251,51 +252,25 @@ export function autoVerifyFromResults(
       TuMax = Math.max(Math.abs(ef.mxStart), Math.abs(ef.mxEnd));
     }
 
-    // ─── Flexure axis selection ───────────────────────────────
-    // SEAM-3 identity is preserved: My and Mz are NEVER magnitude-sorted into a
-    // single "Mu". For COLUMNS, the strong axis stays Mz (Mu, paired shear Vy)
-    // and My is the weak/biaxial moment (Muy, paired shear Vz) — unchanged.
-    //
-    // For BEAMS, the primary flexural axis is chosen per element: in this
-    // solver's local frame a horizontal beam's vertical-plane (gravity) bending
-    // is My (depth = h, paired shear Vz), while horizontal-plane (lateral)
-    // bending is Mz (depth = b, paired shear Vy). We pick the governing axis by
-    // an elastic-stress proxy Mu/(width·depth²) that embeds the correct b/h, then
-    // run the full CIRSOC check on that axis with the axis-correct section
-    // orientation + paired shear. Columns previously "worked" only because their
-    // gravity+lateral demand is genuinely Mz; beams were stuck at Mz → 0.
-    const MuyMax = MyMax; // column weak-axis moment (biaxial) — unchanged
-    let MuMax: number, VuMax: number, bFlex: number, hFlex: number;
-    let flexureAxis: 'My' | 'Mz';
-    if (isVertical) {
-      MuMax = MzMax; VuMax = VyAbs; bFlex = section.b; hFlex = section.h; flexureAxis = 'Mz';
-    } else {
-      // My bends about local-y → depth h; Mz bends about local-z → depth b.
-      const stressMy = MyMax / (section.b * section.h * section.h);
-      const stressMz = MzMax / (section.h * section.b * section.b);
-      if (stressMy >= stressMz) {
-        flexureAxis = 'My'; MuMax = MyMax; VuMax = VzMax;
-        bFlex = section.b; hFlex = section.h;            // standard orientation (depth h)
-        // Re-point flexure/shear governing combos to the My/Vz pairing.
-        if (stationGovCombos) {
-          if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
-          if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
-        }
-      } else {
-        flexureAxis = 'Mz'; MuMax = MzMax; VuMax = VyAbs;
-        bFlex = section.h; hFlex = section.b;            // rotated orientation (depth b)
-      }
+    const flexureAxis = primaryAxis(elemType, section, MyMax, MzMax);
+    const onMy = flexureAxis === 'My';
+    const MuMax = onMy ? MyMax : MzMax;
+    const VuMax = onMy ? VzMax : VyAbs;
+    const MuySecondary = onMy ? MzMax : MyMax;
+    const VuSecondary = onMy ? VyAbs : VzMax;
+    const bFlex = onMy ? section.b : section.h;
+    const hFlex = onMy ? section.h : section.b;
+    if (stationGovCombos && onMy) {
+      if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
+      if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
     }
 
     let M1: number | undefined, M2: number | undefined;
     if (isVertical) {
-      if (Math.abs(ef.mzStart) >= Math.abs(ef.mzEnd)) {
-        M2 = Math.abs(ef.mzStart);
-        M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzEnd) : -Math.abs(ef.mzEnd);
-      } else {
-        M2 = Math.abs(ef.mzEnd);
-        M1 = Math.sign(ef.mzStart) === Math.sign(ef.mzEnd) ? Math.abs(ef.mzStart) : -Math.abs(ef.mzStart);
-      }
+      const [mStart, mEnd] = onMy ? [ef.myStart, ef.myEnd] : [ef.mzStart, ef.mzEnd];
+      const [big, small] = Math.abs(mStart) >= Math.abs(mEnd) ? [mStart, mEnd] : [mEnd, mStart];
+      M2 = Math.abs(big);
+      M1 = Math.sign(mStart) === Math.sign(mEnd) ? Math.abs(small) : -Math.abs(small);
     }
 
     let psiA: number | undefined, psiB: number | undefined;
@@ -313,11 +288,9 @@ export function autoVerifyFromResults(
     const input: VerificationInput = {
       elementId: ef.elementId, elementType: elemType,
       Mu: MuMax, Vu: VuMax, Nu: NuMax, NuShear, axialLoads, edition,
-      // Axis-correct section orientation for the governing beam axis (columns
-      // keep their real b/h since they always use Mz).
       b: bFlex, h: hFlex, fc, fy: rebarFy, cover: isVertical ? options?.columnCover ?? cover : cover, stirrupDia,
-      Muy: isVertical ? MuyMax : undefined,
-      Vz: VzMax > 0.01 ? VzMax : undefined,
+      Muy: isVertical ? MuySecondary : undefined,
+      VuSecondary: isVertical && VuSecondary > 0.01 ? VuSecondary : undefined,
       Tu: TuMax > 0.001 ? TuMax : undefined,
       Lu: isVertical ? L : undefined, M1, M2, psiA, psiB,
     };
@@ -338,8 +311,9 @@ export function autoVerifyFromResults(
       const gov = governing?.get(ef.elementId);
       if (gov) {
         v.governingCombos = {};
-        if (gov.momentZ) v.governingCombos.flexure = { comboId: gov.momentZ.comboId, comboName: gov.momentZ.comboName };
-        if (gov.shearY) v.governingCombos.shear = { comboId: gov.shearY.comboId, comboName: gov.shearY.comboName };
+        const flex = onMy ? gov.momentY : gov.momentZ, shear = onMy ? gov.shearZ : gov.shearY;
+        if (flex) v.governingCombos.flexure = { comboId: flex.comboId, comboName: flex.comboName };
+        if (shear) v.governingCombos.shear = { comboId: shear.comboId, comboName: shear.comboName };
         if (gov.axial) v.governingCombos.axial = { comboId: gov.axial.comboId, comboName: gov.axial.comboName };
         if (gov.momentY) v.governingCombos.momentY = { comboId: gov.momentY.comboId, comboName: gov.momentY.comboName };
         if (gov.shearZ) v.governingCombos.shearZ = { comboId: gov.shearZ.comboId, comboName: gov.shearZ.comboName };

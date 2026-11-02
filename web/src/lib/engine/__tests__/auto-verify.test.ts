@@ -195,7 +195,7 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
   it('slenderness end moments come from the primary axis', () => {
     const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: 60, mzStart: 5, mzEnd: -5 }), columnModel(0.3, 0.6), null).concrete;
     expect(v!.flexureAxis).toBe('My');
-    expect(v!.slender?.Cm).toBeCloseTo(0.6 + 0.4 * 60 / 120, 9);
+    expect(v!.slender?.steps.some((x) => x.startsWith('M1/M2 = 0.500'))).toBe(true);
   });
 
   it('the secondary shear is checked over the rotated section', () => {
