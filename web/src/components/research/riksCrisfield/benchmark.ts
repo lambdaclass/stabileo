@@ -133,7 +133,8 @@ export function inputFor(c: BenchmarkCase, parameters: RunParameters): ArcInput 
 export function measuredLimitFrame(frames: BenchmarkFrame[]): BenchmarkFrame | null {
   const firstLimit = frames.findIndex((frame, index) => index > 0 && index + 1 < frames.length
     && frames[index - 1].converged && frame.converged && frames[index + 1].converged
-    && frame.load > 0 && frames[index - 1].load <= frame.load && frames[index + 1].load < frame.load);
+    && frame.load > 0 && frames[index - 1].load < frame.load && frames[index + 1].load < frame.load
+    && frames[index - 1].displacement < frame.displacement && frame.displacement < frames[index + 1].displacement);
   return firstLimit >= 0
     ? frames[firstLimit]
     : null;

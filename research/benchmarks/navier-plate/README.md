@@ -50,7 +50,7 @@ Increments shrink 3.33× and then 3.92×; Richardson extrapolation of 16×16 and
 | Vertical equilibrium | 1e-6 kN | |
 | WASM vs native replay, every node | 1e-9 mm | same engine, two builds |
 
-The MITC4 soft-support rows are pinned only by replay parity and by the requirement that they keep rising above both series; if that changes, the page text must be revisited.
+The MITC4 soft-support rows are pinned by replay parity, by the requirement that they keep rising above both series, and by the documented 32×32 and 64×64 values to 1e-6; if that changes, the page text must be revisited.
 
 Regenerate the replay from repository root inside the pinned Nix shell:
 

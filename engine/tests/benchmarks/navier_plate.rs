@@ -168,6 +168,7 @@ fn navier_plate_shared_cases() {
     println!("MITC4 soft 32: {soft_32:.9} mm, 64: {soft_64:.9} mm");
     assert!(mitc4[1] < mitc4[2] && mitc4[2] < soft_32 && soft_32 < soft_64 && soft_64 > mindlin * 1.015, "soft-support MITC4 no longer drifts above both series");
     assert!(increment_ratio(&[mitc4[1], mitc4[2], soft_32]) < 1.5, "soft-support MITC4 now converges at a higher order: revisit the page");
+    assert!(relative(soft_32, 1.305399383).abs() < 1e-6 && relative(soft_64, 1.310611471).abs() < 1e-6, "soft-support MITC4 32x32/64x64 moved from the values the page documents");
 
     if let Ok(path) = std::env::var("NAVIER_RESULTS") {
         std::fs::write(path, serde_json::to_string(&json!({"parameters": p, "rows": rows, "hard_rows": hard_rows})).unwrap() + "\n").unwrap();

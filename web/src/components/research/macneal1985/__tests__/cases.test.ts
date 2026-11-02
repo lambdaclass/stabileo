@@ -151,6 +151,11 @@ describe('engine benchmark evidence', () => {
     expect(viewerData(byId('mitc4-regular-out')).cells).toHaveLength(24);
     expect(viewerData(c).displacement).toBeNull();
     expect(viewerData(c).displayMode).toBe('geometry');
+    const plate = byId('mitc4-regular-out');
+    const ids = Object.values(plate.input.nodes).map(n => n.id);
+    const field = viewerData(plate, { id: plate.id, value: 0, error: 0, pass: true, displacement: ids.map(nodeId => ({ nodeId, ux: 3, uy: 12, uz: 4 })) });
+    expect(field.values!.every(v => v === 13)).toBe(true);
+    expect(field.displacement!.slice(0, 2)).toEqual([3, 4]);
     const shell = byId('mitc4-regular-out');
     expect(viewerData(shell, { id: shell.id, value: null, error: null, pass: false, failure: 'x' }).displayMode).toBe('geometry');
     const r = compare(shell, Object.values(shell.input.nodes).map(n => ({ nodeId: n.id, ux: 0, uy: 0, uz: shell.reference })));

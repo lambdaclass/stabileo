@@ -107,6 +107,8 @@ describe('the recorded replay', () => {
     expect(checks(unknownMember).find(c => c.id === 'yield')!.passed).toBe(false);
     const transient = { ...replay, steps: replay.steps.map((s, i) => (i === 0 || i === 2 ? { ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 1 ? { ...f, myEnd: f.myEnd + (i === 0 ? 150 : -150) } : f)) } } : s)) };
     expect(checks(transient).filter(c => !c.passed).map(c => c.id)).toEqual(['yield']);
+    const deferred = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, results: { ...s.results, elementForces: [] } } : i === 1 ? { ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => { const first = replay.steps[0].results.elementForces!.find(g => g.elementId === f.elementId)!; return { ...f, myStart: f.myStart + first.myStart, myEnd: f.myEnd + first.myEnd }; }) } } : s)) };
+    expect(checks(deferred).find(c => c.id === 'yield')!.passed).toBe(false);
     const zeroLoads = { ...replay, steps: replay.steps.map(s => ({ ...s, loadFactor: 0 })) };
     expect(checks(zeroLoads).filter(c => !c.passed).map(c => c.id)).toEqual(['hinges']);
     const reversedCorner = { ...replay, steps: replay.steps.map(s => ({ ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 1 ? { ...f, myEnd: -f.myEnd } : f)) } })) };

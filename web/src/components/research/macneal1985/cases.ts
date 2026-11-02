@@ -81,7 +81,10 @@ export function viewerData(c: Case, result?: Result) {
     const d = result.displacement!.find(d => d.nodeId === n.id)!;
     return [d.ux, c.dimension === 2 || c.measurement.component === 'uz' ? d.uz : d.uy];
   }) : null;
-  const values = displacement ? nodes.map((_, i) => Math.hypot(displacement[2 * i], displacement[2 * i + 1])) : null;
+  const values = result?.displacement ? nodes.map(n => {
+    const d = result.displacement!.find(d => d.nodeId === n.id)!;
+    return Math.hypot(d.ux ?? 0, d.uy ?? 0, d.uz ?? 0);
+  }) : null;
   const displayMode: 'field' | 'geometry' = values ? 'field' : 'geometry';
   return { xy, cells, displacement, values, displayMode, range: { min: 0, max: Math.max(...(values ?? [1]), 1e-12) } };
 }

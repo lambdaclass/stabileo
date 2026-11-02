@@ -94,6 +94,11 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
       && Math.abs(s.loadFactor - want.loadFactor) < tolerance;
   });
   const ends = [...moments.values()].flatMap(m => [m.myStart, m.myEnd]);
+  const memberIds = elements.map(e => e.id).sort((a, b) => a - b).join();
+  const completeEvents = result.steps.every(step => {
+    const forces = step.results.elementForces ?? [];
+    return forces.map(f => f.elementId).sort((a, b) => a - b).join() === memberIds && forces.every(f => Number.isFinite(f.myStart) && Number.isFinite(f.myEnd));
+  });
   const running = new Map<number, number[]>();
   const yieldedOnTheWay = result.steps.some(step => {
     for (const f of step.results.elementForces ?? []) {
@@ -108,7 +113,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
     { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch },
-    { id: 'yield', passed: [...moments.keys()].sort((a, b) => a - b).join() === elements.map(e => e.id).sort((a, b) => a - b).join() && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
+    { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
     { id: 'equilibrium', passed: reactions.size === 2 && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
     { id: 'corner', passed: Math.abs(corner - cornerMoment(lambda)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance },
   ];
