@@ -1,3 +1,4 @@
+import { LEGAL_VERSION } from '../legal/version';
 import { request } from './client';
 
 export interface Consents {
@@ -35,6 +36,7 @@ export interface RegisterInput {
   name: string;
   locale?: string;
   accept_terms: boolean;
+  terms_version?: string;
   usage_analytics?: boolean;
 }
 
@@ -90,8 +92,10 @@ export const authApi = {
     return (await request<{ data: Account }>('PUT', `${BASE}/me`, { body: patch, auth: true })).data;
   },
 
+  /** Accepting the terms names the version this app shows; the server refuses any other with `terms_changed`. */
   async recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
-    return (await request<{ data: Account }>('POST', `${BASE}/consents`, { body: { kind, granted }, auth: true })).data;
+    const body = kind === 'terms' ? { kind, granted, version: LEGAL_VERSION } : { kind, granted };
+    return (await request<{ data: Account }>('POST', `${BASE}/consents`, { body, auth: true })).data;
   },
 
   async changePassword(currentPassword: string, password: string): Promise<void> {

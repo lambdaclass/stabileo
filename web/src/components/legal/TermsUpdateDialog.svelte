@@ -8,7 +8,7 @@
   let busy = $state(false);
   let error = $state<string | null>(null);
 
-  const date = $derived(new Date(`${authStore.termsVersion ?? LEGAL_VERSION}T12:00:00Z`).toLocaleDateString(i18n.locale, { dateStyle: 'long' }));
+  const date = $derived(new Date(`${LEGAL_VERSION}T12:00:00Z`).toLocaleDateString(i18n.locale, { dateStyle: 'long' }));
 
   let dialog = $state<HTMLDialogElement | undefined>();
 

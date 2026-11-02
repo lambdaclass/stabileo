@@ -1,3 +1,4 @@
+import { LEGAL_VERSION } from '../../legal/version';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Account, Session } from '../../api/auth';
 
@@ -538,7 +539,7 @@ describe('consents and server switches', () => {
 
     await authStore.recordConsent('terms', true);
 
-    expect(seen.at(-1)).toEqual({ route: 'POST /consents', body: { kind: 'terms', granted: true }, auth: 'Bearer access-1' });
+    expect(seen.at(-1)).toEqual({ route: 'POST /consents', body: { kind: 'terms', granted: true, version: LEGAL_VERSION }, auth: 'Bearer access-1' });
     expect(authStore.needsTerms).toBe(false);
     expect(authStore.account?.consents?.terms_current).toBe(true);
   });

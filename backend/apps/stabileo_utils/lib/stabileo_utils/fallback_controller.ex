@@ -49,6 +49,10 @@ defmodule StabileoUtils.FallbackController do
     )
   end
 
+  def call(conn, {:error, :terms_changed}) do
+    error(conn, :conflict, "terms_changed", "The terms changed since this page was loaded")
+  end
+
   def call(conn, {:error, :project_limit_reached}) do
     error(
       conn,

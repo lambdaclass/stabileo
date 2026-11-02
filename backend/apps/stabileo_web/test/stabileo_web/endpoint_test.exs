@@ -13,7 +13,8 @@ defmodule StabileoWeb.EndpointTest do
           email: "endpoint@example.com",
           password: "long-enough",
           name: "E",
-          accept_terms: true
+          accept_terms: true,
+          terms_version: StabileoAuth.Consents.terms_version()
         })
       )
       |> json_response(201)

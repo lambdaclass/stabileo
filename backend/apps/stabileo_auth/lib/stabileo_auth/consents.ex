@@ -21,6 +21,10 @@ defmodule StabileoAuth.Consents do
   """
   def terms_version, do: @terms_version
 
+  @doc "The browser names the terms version it showed; an acceptance of any other answers `:terms_changed`."
+  def shown_terms_current(@terms_version), do: :ok
+  def shown_terms_current(_version), do: {:error, :terms_changed}
+
   @doc "Records one decision. `terms` always records the version in force."
   def record(%Account{id: account_id}, kind, granted, metadata \\ %{}) do
     attrs = %{

@@ -14129,6 +14129,7 @@ const de: Translations = {
   "account.err.project_limit_reached": "Sie haben die maximale Anzahl an Cloud-Projekten erreicht. Löschen Sie eines, um ein weiteres zu speichern.",
   "account.err.project_changed": "Dieses Projekt wurde auf einem anderen Computer geändert, seit Sie es geöffnet haben. Öffnen Sie es erneut oder speichern Sie es als neues Projekt.",
   "account.err.rate_limited": "Zu viele Anfragen in kurzer Zeit. Warten Sie eine Minute und versuchen Sie es erneut.",
+  "account.err.terms_changed": "Die Bedingungen haben sich geändert, seit diese Seite geladen wurde. Laden Sie die Seite neu, um die geltenden zu lesen.",
   "account.err.account_changed": "Sie haben sich mit einem anderen Konto angemeldet, bevor dies abgeschlossen war, daher wurde es nicht ausgeführt.",
   "account.err.document_changed": "Dieser Tab hat ein anderes Dokument geöffnet, bevor das Speichern beginnen konnte, daher wurde nichts gespeichert. Speichern Sie erneut.",
   "cloud.confirmOpen": "Das Öffnen von „{name}“ ersetzt das Modell in diesem Tab, und seine Änderungen sind nicht in der Cloud gespeichert. Fortfahren?",

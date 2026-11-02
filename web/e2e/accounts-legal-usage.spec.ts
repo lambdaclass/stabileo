@@ -48,7 +48,7 @@ const savedProject = (id: string, name: string, revision = 1) => ({
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; researchFails?: (granted: boolean) => boolean } = {},
+  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; researchFails?: (granted: boolean) => boolean; refreshDelayMs?: number } = {},
 ): Promise<Backend> {
   const backend: Backend = { register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
@@ -74,7 +74,10 @@ async function boot(
   await page.route('**/api/v1/auth/config', (r) =>
     json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true }),
   );
-  await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true, opts.usageAnalytics ?? null)));
+  await page.route('**/api/v1/auth/refresh', async (r) => {
+    if (opts.refreshDelayMs) await new Promise((done) => setTimeout(done, opts.refreshDelayMs));
+    return json(r, 200, session(opts.termsCurrent ?? true, opts.usageAnalytics ?? null));
+  });
   await page.route('**/api/v1/auth/register', (r) => {
     const b = body(r);
     backend.register.push(b);
@@ -150,7 +153,7 @@ test.describe('accounts, legal and anonymous usage', () => {
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     expect(backend.register).toEqual([
-      expect.objectContaining({ email: 'ada@example.com', name: 'Ada Lovelace', accept_terms: true, usage_analytics: true }),
+      expect.objectContaining({ email: 'ada@example.com', name: 'Ada Lovelace', accept_terms: true, terms_version: TERMS_VERSION, usage_analytics: true }),
     ]);
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
   });
@@ -272,6 +275,18 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.consents).toEqual([]);
   });
 
+  test('nothing is sent while a returning session is still being restored, so its recorded refusal holds', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, usageAnalytics: false, refreshDelayMs: 4000 });
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace', { timeout: 15_000 });
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(500);
+    expect(backend.events).toEqual([]);
+  });
+
   test('an account under older terms is asked to accept the ones in force', async ({ page }) => {
     const backend = await boot(page, { signedIn: true, termsCurrent: false });
     await expect(page.getByTestId('terms-update')).toBeVisible();
@@ -291,7 +306,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('save-dialog')).toHaveCount(0);
     await page.getByTestId('terms-update-accept').click();
     await expect(page.getByTestId('terms-update')).toHaveCount(0);
-    expect(backend.consents).toEqual([{ kind: 'terms', granted: true }]);
+    expect(backend.consents).toEqual([{ kind: 'terms', granted: true, version: TERMS_VERSION }]);
   });
 
   test('a signed-in user saves the open project to the cloud, gzipped', async ({ page }) => {

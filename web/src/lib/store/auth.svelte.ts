@@ -32,6 +32,7 @@ let accessToken: string | null = null;
 let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
 let consentWrites = $state(0);
+let initialized = $state(false);
 let consentQueue: Promise<unknown> = Promise.resolve();
 
 function applySession(session: Session): Account {
@@ -112,21 +113,28 @@ export const authStore = {
   get account() { return account; },
   get status() { return status; },
   get isAuthenticated() { return status === 'authenticated'; },
-  get userLoginEnabled() { return userLoginEnabled; },
+  get userLoginEnabled() { return accounts() && userLoginEnabled; },
   get showAccountEntry() { return accounts() && (userLoginEnabled || account !== null); },
   get cloudProjectsEnabled() { return serverConfig?.cloud_projects_enabled === true; },
-  get saveRequiresAccount() { return userLoginEnabled && serverConfig?.save_requires_account === true; },
+  get saveRequiresAccount() { return accounts() && userLoginEnabled && serverConfig?.save_requires_account === true; },
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
   get consentSaving() { return consentWrites > 0; },
+  /** The server switches are known and any stored session restored, with its recorded choices. */
+  get initialized() { return initialized; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
+  /** Without the accounts feature there is no backend to ask, so every server switch stays off. */
   async init(): Promise<void> {
     if (!accounts()) return;
     const restore = status === 'anonymous' && readRefreshToken() !== null;
     if (restore) status = 'loading';
-    const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
-    if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+    try {
+      const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
+      if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+    } finally {
+      initialized = true;
+    }
   },
 
   register(input: RegisterInput): Promise<Account> {

@@ -15,6 +15,7 @@ const KNOWN_CODES = new Set([
   'rate_limited',
   'account_changed',
   'document_changed',
+  'terms_changed',
 ]);
 
 export function errorText(e: unknown): string {

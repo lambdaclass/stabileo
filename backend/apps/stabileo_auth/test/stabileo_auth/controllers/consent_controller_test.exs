@@ -27,7 +27,15 @@ defmodule StabileoAuth.Controllers.ConsentControllerTest do
   end
 
   test "POST /consents accepts the terms in force", %{account: account, token: token} do
-    body = request(:post, "/consents", %{"kind" => "terms"}, token) |> json_body(201)
+    body =
+      request(
+        :post,
+        "/consents",
+        %{"kind" => "terms", "version" => StabileoAuth.Consents.terms_version()},
+        token
+      )
+      |> json_body(201)
+
     assert body["data"]["consents"]["terms_current"] == true
 
     assert Repo.get_by!(Consent, account_id: account.id).version ==
@@ -55,14 +63,36 @@ defmodule StabileoAuth.Controllers.ConsentControllerTest do
     assert body["details"] == %{"kind" => ["can't be blank"]}
   end
 
+  test "409 terms_changed, recording nothing, for an acceptance of terms other than those in force",
+       %{account: account, token: token} do
+    for params <- [%{"kind" => "terms"}, %{"kind" => "terms", "version" => "2020-01-01"}] do
+      body = request(:post, "/consents", params, token) |> json_body(409)
+      assert body["error"] == "terms_changed"
+    end
+
+    assert Repo.get_by(Consent, account_id: account.id, kind: "terms") == nil
+  end
+
   test "401 without a token" do
-    assert request(:post, "/consents", %{"kind" => "terms"}) |> json_body(401) |> Map.get("error") ==
+    assert request(:post, "/consents", %{
+             "kind" => "terms",
+             "version" => StabileoAuth.Consents.terms_version()
+           })
+           |> json_body(401)
+           |> Map.get("error") ==
              "missing_token"
   end
 
   test "an admin-site token is refused" do
     admin = Factory.insert(:admin, email: Factory.unique_email("consent-admin"))
     token = admin_log_in(admin).access_token
-    assert request(:post, "/consents", %{"kind" => "terms"}, token) |> json_body(401)
+
+    assert request(
+             :post,
+             "/consents",
+             %{"kind" => "terms", "version" => StabileoAuth.Consents.terms_version()},
+             token
+           )
+           |> json_body(401)
   end
 end

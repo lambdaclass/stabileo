@@ -33,7 +33,8 @@ defmodule StabileoAuth.Controllers.Admin.SettingsControllerTest do
       "email" => "late@example.org",
       "password" => "long-enough",
       "name" => "Late",
-      "accept_terms" => true
+      "accept_terms" => true,
+      "terms_version" => StabileoAuth.Consents.terms_version()
     }
 
     assert request(:post, "/register", signup) |> json_body(403) |> Map.get("error") ==

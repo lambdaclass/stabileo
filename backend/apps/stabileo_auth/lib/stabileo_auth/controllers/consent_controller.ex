@@ -6,8 +6,9 @@ defmodule StabileoAuth.Controllers.ConsentController do
   alias StabileoAuth.{AccountJSON, Consents}
 
   @doc """
-  Records one decision of the signed-in account: `{"kind": "terms"}` accepts
-  the terms in force; `usage_analytics` and `model_research` take `granted`.
+  Records one decision of the signed-in account: `{"kind": "terms", "version": v}`
+  accepts the terms in force, and only when `v` is their version; `usage_analytics`
+  and `model_research` take `granted`.
   Answers the account with its consents, as `GET /me` does.
   """
   def create(conn, %{"kind" => kind} = params) do
@@ -15,6 +16,7 @@ defmodule StabileoAuth.Controllers.ConsentController do
     granted = if kind == "terms", do: true, else: params["granted"]
 
     with :ok <- boolean(granted),
+         :ok <- shown_terms(kind, params["version"]),
          {:ok, _consent} <- Consents.record(account, kind, granted, metadata(conn)) do
       conn
       |> put_status(:created)
@@ -23,6 +25,9 @@ defmodule StabileoAuth.Controllers.ConsentController do
   end
 
   def create(_conn, _params), do: {:error, {:validation, %{kind: ["can't be blank"]}}}
+
+  defp shown_terms("terms", version), do: Consents.shown_terms_current(version)
+  defp shown_terms(_kind, _version), do: :ok
 
   defp boolean(value) when is_boolean(value), do: :ok
   defp boolean(_value), do: {:error, {:validation, %{granted: ["must be true or false"]}}}

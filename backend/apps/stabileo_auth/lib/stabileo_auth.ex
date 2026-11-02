@@ -13,12 +13,13 @@ defmodule StabileoAuth do
   @doc """
   Closed while `user_login_enabled` is off; see `StabileoRepo.Features`.
 
-  Needs `"accept_terms" => true`: the account and the acceptance of the terms
-  in force are written together, with the optional `"usage_analytics"` and
+  Needs `"accept_terms" => true` and the `"terms_version"` the browser showed,
+  which must be the one in force: the account and that acceptance are written together, with the optional `"usage_analytics"` and
   `"model_research"` choices when given.
   """
   def register(attrs, metadata \\ %{}) do
     with :ok <- user_login_open(),
+         :ok <- shown_terms(attrs),
          {:ok, account} <- create_account(attrs, metadata) do
       sign_in(account, metadata, "app")
     end
@@ -36,6 +37,11 @@ defmodule StabileoAuth do
       end
     end)
   end
+
+  defp shown_terms(%{"accept_terms" => true} = attrs),
+    do: Consents.shown_terms_current(attrs["terms_version"])
+
+  defp shown_terms(_attrs), do: :ok
 
   defp require_terms(changeset, %{"accept_terms" => true}), do: changeset
 

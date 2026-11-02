@@ -17,12 +17,14 @@ describe('product error text', () => {
     setLocale('en');
   });
 
-  it('translates 429 rate_limited from the feedback inbox in every offered language', () => {
-    const e = new ApiError(429, 'rate_limited', 'Too many requests, try again later');
-    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
-      setLocale(locale);
-      expect(errorText(e)).toBe(tAt('account.err.rate_limited', locale));
-      expect(errorText(e)).not.toBe('Too many requests, try again later');
+  it('translates rate limits, changed terms and refused queued work in every offered language', () => {
+    for (const code of ['rate_limited', 'terms_changed', 'account_changed', 'document_changed']) {
+      const e = new ApiError(code === 'rate_limited' ? 429 : 409, code, 'server words');
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+        setLocale(locale);
+        expect(errorText(e)).toBe(tAt(`account.err.${code}`, locale));
+        expect(errorText(e)).not.toBe('server words');
+      }
     }
     setLocale('en');
   });

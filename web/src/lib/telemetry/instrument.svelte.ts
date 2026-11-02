@@ -30,7 +30,7 @@ export function noteSolve(ok: boolean, startedAt: number): void {
 }
 
 export function installUsageTracking(): () => void {
-  setUsageContext({ appMode: appModeLabel, locale: () => i18n.locale, enabled: () => authStore.usageTelemetryEnabled });
+  setUsageContext({ appMode: appModeLabel, locale: () => i18n.locale, enabled: () => authStore.initialized && authStore.usageTelemetryEnabled });
   const stopLifecycle = installUsageLifecycle();
   const stopEffects = $effect.root(() => {
     let firstTool = true;
@@ -51,7 +51,7 @@ export function installUsageTracking(): () => void {
     });
     $effect(() => {
       const mode = appModeLabel();
-      if (authStore.usageTelemetryEnabled) untrack(() => trackUsage('mode.open', { mode }));
+      if (authStore.initialized && authStore.usageTelemetryEnabled) untrack(() => trackUsage('mode.open', { mode }));
     });
   });
   return () => {

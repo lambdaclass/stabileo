@@ -46,7 +46,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
           "password" => "long-enough",
           "name" => "New User",
           "locale" => "en",
-          "accept_terms" => true
+          "accept_terms" => true,
+          "terms_version" => StabileoAuth.Consents.terms_version()
         })
 
       body = json_body(conn, 201)
@@ -71,7 +72,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
           "name" => "Sneaky",
           "is_active" => false,
           "email_verified_at" => "2026-01-01T00:00:00Z",
-          "accept_terms" => true
+          "accept_terms" => true,
+          "terms_version" => StabileoAuth.Consents.terms_version()
         })
 
       body = json_body(conn, 201)
@@ -91,6 +93,26 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
       assert body["details"]["password"] == ["should be at least 8 character(s)"]
       assert body["details"]["name"] == ["can't be blank"]
       assert body["details"]["accept_terms"] == ["must be accepted"]
+      assert Repo.aggregate(Account, :count) == before
+    end
+
+    test "409 terms_changed, and nothing written, when the browser showed other terms" do
+      before = Repo.aggregate(Account, :count)
+
+      for version <- [nil, "2020-01-01"] do
+        params =
+          %{
+            "email" => "old-terms@example.com",
+            "password" => "long-enough",
+            "name" => "Old Terms",
+            "accept_terms" => true
+          }
+          |> then(&if(version == nil, do: &1, else: Map.put(&1, "terms_version", version)))
+
+        body = request(:post, "/register", params) |> json_body(409)
+        assert body["error"] == "terms_changed"
+      end
+
       assert Repo.aggregate(Account, :count) == before
     end
 
@@ -118,6 +140,7 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
           "password" => "long-enough",
           "name" => "Consents",
           "accept_terms" => true,
+          "terms_version" => StabileoAuth.Consents.terms_version(),
           "usage_analytics" => true,
           "model_research" => false
         })
@@ -153,7 +176,8 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
           "email" => String.upcase(existing.email),
           "password" => "long-enough",
           "name" => "Dup",
-          "accept_terms" => true
+          "accept_terms" => true,
+          "terms_version" => StabileoAuth.Consents.terms_version()
         })
         |> json_body(422)
 

@@ -30,21 +30,22 @@ Prefix `/api/v1/auth`, router `StabileoAuth.Router`. Public routes run the `:api
 | Method | Path | Auth | Success | Errors |
 |--------|------|------|---------|--------|
 | `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled, save_requires_account}` | — |
-| `POST` | `/register` | public | `201 <session>` | 403 `user_login_disabled`, 422 `validation_error` (email taken, short password, `accept_terms` not true, …) |
+| `POST` | `/register` | public | `201 <session>` | 403 `user_login_disabled`, 409 `terms_changed` (`terms_version` is not the version in force), 422 `validation_error` (email taken, short password, `accept_terms` not true, …) |
 | `POST` | `/login` | public | `200 <session>` | 403 `user_login_disabled`, 401 `invalid_credentials`, 403 `account_disabled` |
 | `POST` | `/refresh` | public | `200 <session>` | 401 `refresh_failed` |
 | `DELETE` | `/logout` | public | `200 {message}` | never fails |
 | `GET` | `/me` | bearer | `200 {data: <account>}` | 401 |
 | `PUT` | `/me` | bearer | `200 {data: <account>}` | 401, 422 `validation_error` |
 | `PUT` | `/password` | bearer | `200 {message}` | 401, 401 `invalid_current_password`, 422 `validation_error` |
-| `POST` | `/consents` | bearer | `201 {data: <account>}` | 401, 422 `validation_error` (`kind` unknown or missing, `granted` not a boolean) |
+| `POST` | `/consents` | bearer | `201 {data: <account>}` | 401, 409 `terms_changed` (terms `version` missing or not the one in force), 422 `validation_error` (`kind` unknown or missing, `granted` not a boolean) |
 
 Bodies:
 
 ```jsonc
-// POST /register: accept_terms must be true; usage_analytics and model_research are optional
-{ "email": "ada@example.com", "password": "at-least-8-chars", "name": "Ada", "locale": "es", "accept_terms": true, "usage_analytics": true }
-// POST /consents: terms records the version in force and ignores granted
+// POST /register: accept_terms must be true, with the terms_version the browser showed; usage_analytics and model_research are optional
+{ "email": "ada@example.com", "password": "at-least-8-chars", "name": "Ada", "locale": "es", "accept_terms": true, "terms_version": "2026-10-27", "usage_analytics": true }
+// POST /consents: terms names the version shown and ignores granted
+{ "kind": "terms", "version": "2026-10-27" }
 { "kind": "usage_analytics", "granted": false }
 // POST /login
 { "email": "ada@example.com", "password": "..." }

@@ -2,7 +2,7 @@
   import { authStore } from '../../lib/store/auth.svelte';
   import { errorText, fieldErrors } from '../../lib/api/error-text';
   import { t, i18n, isOfferedLocale } from '../../lib/i18n';
-  import { legalHref, TERMS_PATH, PRIVACY_PATH } from '../../lib/legal/legal';
+  import { legalHref, TERMS_PATH, PRIVACY_PATH, LEGAL_VERSION } from '../../lib/legal/legal';
   import { untrack } from 'svelte';
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
 
@@ -56,6 +56,7 @@
           name: name.trim(),
           locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
           accept_terms: acceptTerms,
+          terms_version: LEGAL_VERSION,
           usage_analytics: usageConsent.sharing,
         });
         if (usageConsent.sharing) usageConsent.set('granted');
