@@ -1,5 +1,6 @@
 import { ApiError, setAuthHooks, type RefreshOutcome } from '../api/client';
-import { authApi, type Account, type AuthConfig, type ConsentKind, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
+import { authApi, type Account, type AuthConfig, type ConsentKind, type GoogleRegisterInput, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
+import { openGooglePopup, type PendingPopup } from '../auth/google-popup';
 import { accounts } from '../features';
 
 export type AuthStatus = 'anonymous' | 'loading' | 'authenticated';
@@ -106,6 +107,10 @@ async function startSession(open: () => Promise<Session>): Promise<Account> {
   }
 }
 
+export type GoogleOutcome =
+  | { kind: 'signedIn'; account: Account }
+  | { kind: 'signup'; token: string; email: string; name: string };
+
 export const authStore = {
   get account() { return account; },
   get status() { return status; },
@@ -116,6 +121,8 @@ export const authStore = {
   get saveRequiresAccount() { return userLoginEnabled && serverConfig?.save_requires_account === true; },
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
+  get googleLogin() { return serverConfig?.google_login === true; },
+  get passwordLogin() { return serverConfig?.password_login === true; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
   async init(): Promise<void> {
@@ -132,6 +139,24 @@ export const authStore = {
 
   login(input: LoginInput): Promise<Account> {
     return startSession(() => authApi.login(input));
+  },
+
+  /**
+   * Opens Google's window and waits for its answer: a session for a known person, or what a new
+   * one needs to accept the terms with `completeGoogleSignup`. Call it straight from the click.
+   */
+  signInWithGoogle(open: (url: string) => PendingPopup = openGooglePopup): { result: Promise<GoogleOutcome>; cancel(): void } {
+    const pending = open(authApi.googleStartUrl());
+    const result = pending.answer.then(async (code) => {
+      const answer = await authApi.googleExchange(code);
+      if ('signup_required' in answer) return { kind: 'signup' as const, token: answer.signup_token, email: answer.email, name: answer.name };
+      return { kind: 'signedIn' as const, account: applySession(answer) };
+    });
+    return { result, cancel: pending.cancel };
+  },
+
+  completeGoogleSignup(input: GoogleRegisterInput): Promise<Account> {
+    return startSession(() => authApi.googleRegister(input));
   },
 
   async logout(): Promise<void> {

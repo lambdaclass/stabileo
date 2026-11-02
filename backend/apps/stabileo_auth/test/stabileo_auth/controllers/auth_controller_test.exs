@@ -5,7 +5,7 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
 
   alias StabileoRepo.Schemas.{Account, Session}
 
-  @account_keys ~w(id email name company job_title country locale email_verified_at inserted_at consents)
+  @account_keys ~w(id email name company job_title country locale email_verified_at inserted_at sign_in_method consents)
 
   describe "user sign-in turned off" do
     @describetag user_login: false
@@ -16,7 +16,9 @@ defmodule StabileoAuth.Controllers.AuthControllerTest do
                "terms_version" => StabileoAuth.Consents.terms_version(),
                "usage_telemetry_enabled" => false,
                "cloud_projects_enabled" => false,
-               "save_requires_account" => false
+               "save_requires_account" => false,
+               "google_login" => true,
+               "password_login" => true
              }
     end
 

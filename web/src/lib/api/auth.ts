@@ -1,4 +1,4 @@
-import { request } from './client';
+import { API_URL, request } from './client';
 
 export interface Consents {
   terms: { version: string; accepted_at: string } | null;
@@ -19,6 +19,7 @@ export interface Account {
   locale: string;
   email_verified_at: string | null;
   inserted_at: string;
+  sign_in_method?: 'google' | 'password';
   consents?: Consents;
 }
 
@@ -49,6 +50,22 @@ export interface AuthConfig {
   usage_telemetry_enabled?: boolean;
   cloud_projects_enabled?: boolean;
   save_requires_account?: boolean;
+  google_login?: boolean;
+  password_login?: boolean;
+}
+
+export interface GoogleSignup {
+  signup_required: true;
+  signup_token: string;
+  email: string;
+  name: string;
+}
+
+export interface GoogleRegisterInput {
+  signup_token: string;
+  accept_terms: boolean;
+  usage_analytics?: boolean;
+  locale?: string;
 }
 
 export type ProfileUpdate = Partial<{
@@ -72,6 +89,18 @@ export const authApi = {
 
   login(input: LoginInput): Promise<Session> {
     return request<Session>('POST', `${BASE}/login`, { body: input });
+  },
+
+  googleStartUrl(): string {
+    return `${API_URL}${BASE}/google`;
+  },
+
+  googleExchange(code: string): Promise<Session | GoogleSignup> {
+    return request<Session | GoogleSignup>('POST', `${BASE}/google/exchange`, { body: { code } });
+  },
+
+  googleRegister(input: GoogleRegisterInput): Promise<Session> {
+    return request<Session>('POST', `${BASE}/google/register`, { body: input });
   },
 
   refresh(refreshToken: string): Promise<Session> {

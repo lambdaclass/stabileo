@@ -4,6 +4,9 @@ defmodule StabileoAuth do
   access/refresh token pair and the account. `app` is `"app"` for the product
   and `"admin"` for the admin site; a refresh token only refreshes for the app
   it was issued to.
+
+  The product signs in with Google (`StabileoAuth.UserOAuth`); password sign-up
+  and sign-in answer only while `:user_password_login` is on.
   """
 
   alias StabileoAuth.{AccountJSON, Accounts, Consents, Sessions, Tokens}
@@ -19,6 +22,7 @@ defmodule StabileoAuth do
   """
   def register(attrs, metadata \\ %{}) do
     with :ok <- user_login_open(),
+         :ok <- password_login_open(),
          {:ok, account} <- create_account(attrs, metadata) do
       sign_in(account, metadata, "app")
     end
@@ -45,6 +49,7 @@ defmodule StabileoAuth do
   @doc "Closed while `user_login_enabled` is off. Refresh is not: existing sessions keep working."
   def login(email, password, metadata \\ %{}) do
     with :ok <- user_login_open(),
+         :ok <- password_login_open(),
          {:ok, account} <- Accounts.authenticate(email, password) do
       sign_in(account, metadata, "app")
     end
@@ -56,8 +61,17 @@ defmodule StabileoAuth do
       terms_version: Consents.terms_version(),
       usage_telemetry_enabled: Features.usage_telemetry_enabled?(),
       cloud_projects_enabled: Features.cloud_projects_enabled?(),
-      save_requires_account: Features.save_requires_account?()
+      save_requires_account: Features.save_requires_account?(),
+      google_login: StabileoAuth.GoogleOAuth.app_configured?(),
+      password_login: password_login?()
     }
+  end
+
+  def password_login?,
+    do: Application.get_env(:stabileo_auth, :user_password_login, false) == true
+
+  defp password_login_open do
+    if password_login?(), do: :ok, else: {:error, :password_login_disabled}
   end
 
   defp user_login_open do

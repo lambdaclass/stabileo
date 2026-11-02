@@ -14,7 +14,8 @@ defmodule StabileoAuth.AccountJSON do
       country: account.country,
       locale: account.locale,
       email_verified_at: account.email_verified_at,
-      inserted_at: account.inserted_at
+      inserted_at: account.inserted_at,
+      sign_in_method: if(account.google_subject, do: "google", else: "password")
     }
   end
 

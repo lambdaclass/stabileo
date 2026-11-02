@@ -117,6 +117,7 @@
       <dt>{t('admin.detail.locale')}</dt><dd>{user.locale}</dd>
       <dt>{t('admin.detail.emailVerified')}</dt>
       <dd>{user.email_verified_at ? formatDateTime(user.email_verified_at) : t('admin.detail.notVerified')}</dd>
+      <dt>{t('admin.detail.signIn')}</dt><dd data-testid="admin-drawer-sign-in">{user.sign_in_method === 'google' ? t('admin.signIn.google') : t('admin.signIn.password')}</dd>
       <dt>{t('admin.col.created')}</dt><dd>{formatDateTime(user.inserted_at)}</dd>
       <dt>{t('admin.col.lastActive')}</dt><dd data-testid="admin-drawer-last-active">{formatDateTime(user.last_active_at ?? user.last_sign_in_at)}</dd>
       <dt>{t('admin.col.lastSignIn')}</dt><dd>{formatDateTime(user.last_sign_in_at)}</dd>

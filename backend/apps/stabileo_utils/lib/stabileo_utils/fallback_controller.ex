@@ -36,6 +36,10 @@ defmodule StabileoUtils.FallbackController do
     error(conn, :forbidden, "user_login_disabled", "Sign-in is currently disabled")
   end
 
+  def call(conn, {:error, :password_login_disabled}) do
+    error(conn, :forbidden, "password_login_disabled", "Sign in with Google")
+  end
+
   def call(conn, {:error, :cloud_projects_disabled}) do
     error(conn, :forbidden, "cloud_projects_disabled", "Cloud projects are currently disabled")
   end

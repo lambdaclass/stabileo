@@ -549,4 +549,67 @@ describe('consents and server switches', () => {
     await authStore.register({ email: 'ada@example.com', password: 'longenough', name: 'Ada', accept_terms: true, usage_analytics: true });
     expect(seen.at(-1)!.body).toEqual({ email: 'ada@example.com', password: 'longenough', name: 'Ada', accept_terms: true, usage_analytics: true });
   });
+
+  describe('with Google', () => {
+    const popup = (answer: Promise<string>) => {
+      const opened: string[] = [];
+      const cancel = vi.fn();
+      return { opened, cancel, open: (url: string) => (opened.push(url), { answer, cancel }) };
+    };
+
+    it('a known person: opens Google on the backend, trades the code and keeps the session', async () => {
+      const { authStore, REFRESH_TOKEN_KEY } = await load();
+      on('POST /google/exchange', () => json(200, session(1)));
+      const p = popup(Promise.resolve('code-1'));
+
+      const outcome = await authStore.signInWithGoogle(p.open).result;
+
+      expect(p.opened).toEqual(['http://localhost:4100/api/v1/auth/google']);
+      expect(seen).toEqual([{ route: 'POST /google/exchange', body: { code: 'code-1' }, auth: undefined }]);
+      expect(outcome).toEqual({ kind: 'signedIn', account: ADA });
+      expect(authStore.status).toBe('authenticated');
+      expect(storage.get(REFRESH_TOKEN_KEY)).toBe('refresh-1');
+    });
+
+    it('someone new: answers the sign-up, then opens the session once the terms are accepted', async () => {
+      const { authStore, REFRESH_TOKEN_KEY } = await load();
+      on('POST /google/exchange', () => json(200, { signup_required: true, signup_token: 'st-1', email: 'ada@gmail.test', name: 'Ada' }));
+      const outcome = await authStore.signInWithGoogle(popup(Promise.resolve('code-1')).open).result;
+
+      expect(outcome).toEqual({ kind: 'signup', token: 'st-1', email: 'ada@gmail.test', name: 'Ada' });
+      expect(authStore.status).toBe('anonymous');
+      expect(storage.size).toBe(0);
+
+      on('POST /google/register', () => json(201, session(2, { ...ADA, consents: CONSENTS })));
+      await authStore.completeGoogleSignup({ signup_token: 'st-1', accept_terms: true, usage_analytics: true, locale: 'es' });
+
+      expect(seen.at(-1)).toEqual({
+        route: 'POST /google/register',
+        body: { signup_token: 'st-1', accept_terms: true, usage_analytics: true, locale: 'es' },
+        auth: undefined,
+      });
+      expect(authStore.status).toBe('authenticated');
+      expect(storage.get(REFRESH_TOKEN_KEY)).toBe('refresh-2');
+    });
+
+    it('an error from Google reaches the caller and nothing is sent', async () => {
+      const { authStore } = await load();
+      const { GoogleSignInError } = await import('../../auth/google-popup');
+      const err = await authStore.signInWithGoogle(popup(Promise.reject(new GoogleSignInError('email_not_verified'))).open).result.catch((e) => e);
+
+      expect(err).toBeInstanceOf(GoogleSignInError);
+      expect(err.code).toBe('email_not_verified');
+      expect(seen).toEqual([]);
+      expect(authStore.status).toBe('anonymous');
+    });
+
+    it('reads which ways in the server offers', async () => {
+      const { authStore } = await load();
+      on('GET /config', () => json(200, { user_login_enabled: true, google_login: true, password_login: false }));
+      vi.stubGlobal('window', { localStorage });
+      await authStore.init();
+      expect(authStore.googleLogin).toBe(true);
+      expect(authStore.passwordLogin).toBe(false);
+    });
+  });
 });

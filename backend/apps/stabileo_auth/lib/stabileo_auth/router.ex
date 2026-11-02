@@ -11,6 +11,11 @@ defmodule StabileoAuth.Router do
     plug(StabileoRepo.Plugs.RequestMetadata)
   end
 
+  pipeline :oauth do
+    plug(:fetch_session)
+    plug(StabileoRepo.Plugs.RequestMetadata)
+  end
+
   pipeline :authenticated do
     plug(StabileoAuth.Plugs.Authenticate)
   end
@@ -23,6 +28,16 @@ defmodule StabileoAuth.Router do
     post("/login", AuthController, :login)
     post("/refresh", AuthController, :refresh)
     delete("/logout", AuthController, :logout)
+    post("/google/exchange", GoogleController, :exchange)
+    post("/google/register", GoogleController, :register)
+  end
+
+  scope "/google", StabileoAuth.Controllers do
+    pipe_through(:oauth)
+
+    get("/", GoogleController, :request)
+    get("/callback", GoogleController, :callback)
+    get("/dev", GoogleController, :dev)
   end
 
   scope "/", StabileoAuth.Controllers do

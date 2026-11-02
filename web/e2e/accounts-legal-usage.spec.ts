@@ -32,6 +32,7 @@ const session = (termsCurrent = true) => ({
 });
 
 interface Backend {
+  googleOpened: number;
   register: Record<string, unknown>[];
   consents: Record<string, unknown>[];
   events: Record<string, unknown>[];
@@ -48,9 +49,9 @@ const savedProject = (id: string, name: string) => ({
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number } = {},
+  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; knownToGoogle?: boolean } = {},
 ): Promise<Backend> {
-  const backend: Backend = { register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
+  const backend: Backend = { googleOpened: 0, register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     try {
@@ -72,10 +73,20 @@ async function boot(
     route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(data) });
 
   await page.route('**/api/v1/auth/config', (r) =>
-    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true }),
+    json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true, google_login: true, password_login: false }),
   );
+  await page.context().route('**/api/v1/auth/google', (r) => {
+    backend.googleOpened += 1;
+    return r.fulfill({ status: 302, headers: { location: '/oauth-callback.html?code=code-1' } });
+  });
+  await page.route('**/api/v1/auth/google/exchange', (r) => {
+    expect(body(r)).toEqual({ code: 'code-1' });
+    return opts.knownToGoogle
+      ? json(r, 200, session())
+      : json(r, 200, { signup_required: true, signup_token: 'signup-1', email: 'ada@gmail.test', name: 'Ada Lovelace' });
+  });
   await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true)));
-  await page.route('**/api/v1/auth/register', (r) => {
+  await page.route('**/api/v1/auth/google/register', (r) => {
     const b = body(r);
     backend.register.push(b);
     return b.accept_terms === true
@@ -114,6 +125,13 @@ async function boot(
   return backend;
 }
 
+/** Google's window opens, comes back with a code for someone new, and the dialog asks for the terms. */
+async function continueWithGoogle(page: Page) {
+  await expect(page.getByTestId('auth-password')).toHaveCount(0);
+  await page.getByTestId('auth-google').click();
+  await expect(page.getByTestId('auth-google-email')).toContainText('ada@gmail.test');
+}
+
 async function solvePortal(page: Page) {
   await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
   await expect.poll(() => page.evaluate(() => window.__stabileo.elementIds().length)).toBeGreaterThan(0);
@@ -121,13 +139,11 @@ async function solvePortal(page: Page) {
 }
 
 test.describe('accounts, legal and anonymous usage', () => {
-  test('sign-up waits for the terms and sends their acceptance with the optional usage choice', async ({ page }) => {
+  test('sign-up is with Google only, waits for the terms and sends them with the optional usage choice', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('account-button').click();
-    await page.getByTestId('auth-mode-register').click();
-    await page.getByTestId('auth-name').fill('Ada Lovelace');
-    await page.getByTestId('auth-email').fill('ada@example.com');
-    await page.getByTestId('auth-password').fill('long-enough-1');
+    await expect(page.getByTestId('auth-mode-register')).toHaveCount(0);
+    await continueWithGoogle(page);
     await expect(page.getByTestId('auth-submit')).toBeDisabled();
 
     await expect(page.getByTestId('auth-usage-note')).toBeVisible();
@@ -135,8 +151,9 @@ test.describe('accounts, legal and anonymous usage', () => {
     await page.getByTestId('auth-submit').click();
 
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    expect(backend.googleOpened).toBe(1);
     expect(backend.register).toEqual([
-      expect.objectContaining({ email: 'ada@example.com', name: 'Ada Lovelace', accept_terms: true, usage_analytics: true }),
+      { signup_token: 'signup-1', accept_terms: true, usage_analytics: true, locale: 'es' },
     ]);
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
   });
@@ -242,10 +259,7 @@ test.describe('accounts, legal and anonymous usage', () => {
 
     await page.locator('body').press('Control+s');
     await expect(page.getByTestId('auth-reason')).toBeVisible();
-    await expect(page.getByTestId('auth-name')).toBeVisible();
-    await page.getByTestId('auth-name').fill('Ada Lovelace');
-    await page.getByTestId('auth-email').fill('ada@example.com');
-    await page.getByTestId('auth-password').fill('long-enough-1');
+    await continueWithGoogle(page);
     await page.getByTestId('auth-accept-terms').check();
     const download = page.waitForEvent('download');
     await page.getByTestId('auth-submit').click();
@@ -268,14 +282,27 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     await expect(page.getByTestId('save-confirm')).toHaveCount(0);
 
-    await page.getByTestId('export-excel').click();
+    await page.getByTestId('export-results').click();
+    await page.getByTestId('results-format-xlsx').click();
+    await page.getByTestId('results-export-download').click();
     await expect(page.getByTestId('auth-reason')).toBeVisible();
-    await page.getByRole('button', { name: 'Cancelar' }).click();
+    await page.getByTestId('auth-dialog').getByRole('button', { name: 'Cancelar' }).click();
 
+    await page.getByTestId('results-format-csv').click();
     const download = page.waitForEvent('download');
-    await page.getByTestId('export-csv').click();
+    await page.getByTestId('results-export-download').click();
     expect((await download).suggestedFilename()).toMatch(/\.csv$/);
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+  });
+
+  test('someone Google already knows is signed in without a terms step', async ({ page }) => {
+    const backend = await boot(page, { knownToGoogle: true });
+    await page.getByTestId('account-button').click();
+    await page.getByTestId('auth-google').click();
+
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+    expect(backend.register).toEqual([]);
   });
 
   test('a signed-in user saves without being asked', async ({ page }) => {
@@ -315,9 +342,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     await page.getByTestId('contact-feedback').click();
 
     await expect(page.getByTestId('auth-reason')).toBeVisible();
-    await page.getByTestId('auth-name').fill('Ada Lovelace');
-    await page.getByTestId('auth-email').fill('ada@example.com');
-    await page.getByTestId('auth-password').fill('long-enough-1');
+    await continueWithGoogle(page);
     await page.getByTestId('auth-accept-terms').check();
     await page.getByTestId('auth-submit').click();
 

@@ -8,7 +8,8 @@ defmodule StabileoAuth.Controllers.PasswordController do
   def update(conn, %{"current_password" => current, "password" => new}) do
     %{current_account: account, current_session_id: session_id} = conn.assigns
 
-    with {:ok, _account} <- Accounts.change_password(account, current, new, session_id) do
+    with true <- StabileoAuth.password_login?() || {:error, :password_login_disabled},
+         {:ok, _account} <- Accounts.change_password(account, current, new, session_id) do
       json(conn, %{message: "Password changed"})
     end
   end

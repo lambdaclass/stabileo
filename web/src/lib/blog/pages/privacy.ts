@@ -17,7 +17,7 @@ export const privacyPage: StandingPage = {
         {
           k: 'ul',
           items: [
-            'Cuenta: nombre, email y contraseña (guardada cifrada) y, si los cargás, empresa, cargo, país e idioma.',
+            'Cuenta: el nombre, el email y el identificador que nos pasa Google cuando entrás con tu cuenta de Google y, si los cargás, empresa, cargo, país e idioma. No guardamos contraseñas.',
             'Sesiones: la dirección IP y el navegador de cada inicio de sesión, para proteger tu cuenta.',
             'Consentimientos: qué aceptaste y cuándo, con la IP y el navegador desde los que lo hiciste.',
             'Proyectos en la nube: los que elegís guardar desde tu cuenta.',
@@ -40,7 +40,7 @@ export const privacyPage: StandingPage = {
         { k: 'h', t: 'Asistente de inteligencia artificial' },
         { k: 'p', t: 'Cuando usás las funciones de inteligencia artificial, el contenido del modelo que corresponde a tu consulta se envía al proveedor del modelo de lenguaje para generar la respuesta.' },
         { k: 'h', t: 'Con quién los compartimos' },
-        { k: 'p', t: 'No vendemos datos. Se alojan en servidores contratados por Stabileo SAS, y solo los compartimos con proveedores necesarios para prestar el servicio o cuando una autoridad competente lo exige.' },
+        { k: 'p', t: 'No vendemos datos. Se alojan en servidores contratados por Stabileo SAS, y solo los compartimos con proveedores necesarios para prestar el servicio o cuando una autoridad competente lo exige. Para entrar usamos el inicio de sesión de Google, que trata tus datos según su propia política de privacidad.' },
         { k: 'h', t: 'Cuánto tiempo los guardamos' },
         {
           k: 'ul',
@@ -71,7 +71,7 @@ export const privacyPage: StandingPage = {
         {
           k: 'ul',
           items: [
-            'Account: name, email and password (stored hashed) and, if you enter them, company, job title, country and language.',
+            'Account: the name, email and identifier Google passes us when you sign in with your Google account and, if you enter them, company, job title, country and language. We do not store passwords.',
             'Sessions: the IP address and browser of each sign-in, to protect your account.',
             'Consents: what you accepted and when, with the IP address and browser you used.',
             'Cloud projects: the ones you choose to save from your account.',
@@ -94,7 +94,7 @@ export const privacyPage: StandingPage = {
         { k: 'h', t: 'AI assistant' },
         { k: 'p', t: 'When you use the AI features, the part of the model your request is about is sent to the language model provider to generate the answer.' },
         { k: 'h', t: 'Who we share it with' },
-        { k: 'p', t: 'We do not sell data. It is hosted on servers contracted by Stabileo SAS, and we only share it with providers needed to run the service or when a competent authority requires it.' },
+        { k: 'p', t: 'We do not sell data. It is hosted on servers contracted by Stabileo SAS, and we only share it with providers needed to run the service or when a competent authority requires it. To sign in we use Google sign-in, which processes your data under its own privacy policy.' },
         { k: 'h', t: 'How long we keep it' },
         {
           k: 'ul',
@@ -125,7 +125,7 @@ export const privacyPage: StandingPage = {
         {
           k: 'ul',
           items: [
-            'Conta: nome, e-mail e senha (guardada criptografada) e, se você informar, empresa, cargo, país e idioma.',
+            'Conta: o nome, o e-mail e o identificador que o Google nos repassa quando você entra com sua conta do Google e, se você informar, empresa, cargo, país e idioma. Não guardamos senhas.',
             'Sessões: o endereço IP e o navegador de cada login, para proteger sua conta.',
             'Consentimentos: o que você aceitou e quando, com o IP e o navegador usados.',
             'Projetos na nuvem: os que você escolhe salvar pela sua conta.',
@@ -148,7 +148,7 @@ export const privacyPage: StandingPage = {
         { k: 'h', t: 'Assistente de inteligência artificial' },
         { k: 'p', t: 'Quando você usa as funções de inteligência artificial, a parte do modelo a que a sua consulta se refere é enviada ao provedor do modelo de linguagem para gerar a resposta.' },
         { k: 'h', t: 'Com quem os compartilhamos' },
-        { k: 'p', t: 'Não vendemos dados. Eles ficam em servidores contratados pela Stabileo SAS, e só os compartilhamos com provedores necessários para prestar o serviço ou quando uma autoridade competente exige.' },
+        { k: 'p', t: 'Não vendemos dados. Eles ficam em servidores contratados pela Stabileo SAS, e só os compartilhamos com provedores necessários para prestar o serviço ou quando uma autoridade competente exige. Para entrar usamos o login do Google, que trata seus dados conforme a própria política de privacidade.' },
         { k: 'h', t: 'Por quanto tempo os guardamos' },
         {
           k: 'ul',

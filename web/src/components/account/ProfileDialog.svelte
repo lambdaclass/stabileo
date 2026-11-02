@@ -222,6 +222,7 @@
         </div>
       </form>
 
+      {#if authStore.passwordLogin && authStore.account?.sign_in_method !== 'google'}
       <form class="acc-section" onsubmit={changePassword} novalidate>
         <h4 class="acc-section-head">{t('account.passwordSection')}</h4>
         <div class="acc-row">
@@ -259,6 +260,12 @@
           >{changing ? t('account.working') : t('account.changePassword')}</button>
         </div>
       </form>
+      {:else}
+        <section class="acc-section">
+          <h4 class="acc-section-head">{t('account.google.section')}</h4>
+          <p class="acc-hint" data-testid="profile-google">{tp('account.google.signedInAs', { email: authStore.account?.email ?? '' })}</p>
+        </section>
+      {/if}
 
       <section class="acc-section" data-testid="profile-privacy">
         <h4 class="acc-section-head">{t('account.privacySection')}</h4>

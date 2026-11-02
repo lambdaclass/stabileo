@@ -1,10 +1,12 @@
 <script lang="ts">
   import { authStore } from '../../lib/store/auth.svelte';
   import { errorText, fieldErrors } from '../../lib/api/error-text';
-  import { t, i18n, isOfferedLocale } from '../../lib/i18n';
+  import { t, tp, i18n, isOfferedLocale } from '../../lib/i18n';
   import { legalHref, TERMS_PATH, PRIVACY_PATH } from '../../lib/legal/legal';
   import { untrack } from 'svelte';
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
+  import { GoogleSignInError } from '../../lib/auth/google-popup';
+  import { ApiError } from '../../lib/api/client';
 
   type Mode = 'login' | 'register';
 
@@ -23,6 +25,10 @@
   let error = $state<string | null>(null);
   let fields = $state<Record<string, string>>({});
 
+  type GoogleStep = { kind: 'start' } | { kind: 'waiting'; cancel: () => void } | { kind: 'terms'; token: string; email: string };
+  let step = $state<GoogleStep>({ kind: 'start' });
+  const googleOnly = $derived(!authStore.passwordLogin);
+
   function switchMode(next: Mode) {
     mode = next;
     error = null;
@@ -30,14 +36,70 @@
   }
 
   $effect(() => {
-    if (open) untrack(() => switchMode(startIn));
+    if (open) untrack(() => {
+      switchMode(startIn);
+      step = { kind: 'start' };
+      acceptTerms = false;
+    });
   });
 
   function close() {
+    if (step.kind === 'waiting') step.cancel();
+    step = { kind: 'start' };
     open = false;
     password = '';
     error = null;
     fields = {};
+  }
+
+  function googleErrorText(err: unknown): string {
+    if (err instanceof GoogleSignInError) {
+      const known = ['popup_blocked', 'provider_error', 'email_not_verified', 'invalid_state', 'oauth_unavailable', 'account_disabled', 'user_login_disabled'];
+      return known.includes(err.code) ? t(`account.google.err.${err.code}`) : t('account.google.err.callback_failed');
+    }
+    return errorText(err);
+  }
+
+  async function google() {
+    if (busy) return;
+    error = null;
+    const attempt = authStore.signInWithGoogle();
+    step = { kind: 'waiting', cancel: attempt.cancel };
+    try {
+      const outcome = await attempt.result;
+      if (outcome.kind === 'signedIn') close();
+      else step = { kind: 'terms', token: outcome.token, email: outcome.email };
+    } catch (err) {
+      step = { kind: 'start' };
+      if (!(err instanceof GoogleSignInError && err.code === 'cancelled')) error = googleErrorText(err);
+    }
+  }
+
+  async function completeSignup(e: SubmitEvent) {
+    e.preventDefault();
+    if (busy || step.kind !== 'terms') return;
+    busy = true;
+    error = null;
+    fields = {};
+    try {
+      await authStore.completeGoogleSignup({
+        signup_token: step.token,
+        accept_terms: acceptTerms,
+        usage_analytics: usageConsent.sharing,
+        locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
+      });
+      if (usageConsent.sharing) usageConsent.set('granted');
+      close();
+    } catch (err) {
+      fields = fieldErrors(err);
+      error = Object.keys(fields).length ? t('account.err.validation_error') : errorText(err);
+      if (err instanceof ApiError && err.code === 'invalid_or_expired_code') {
+        step = { kind: 'start' };
+        error = t('account.google.err.expired');
+      }
+    } finally {
+      busy = false;
+    }
   }
 
   async function submit(e: SubmitEvent) {
@@ -83,6 +145,73 @@
       aria-labelledby="acc-auth-title"
       data-testid="auth-dialog"
     >
+      {#if googleOnly}
+      {#if step.kind === 'terms'}
+        <h3 class="acc-title" id="acc-auth-title">{t('account.registerTitle')}</h3>
+        <p class="acc-lede" data-testid="auth-google-email">{tp('account.google.signupLede', { email: step.email })}</p>
+        <form class="acc-form" onsubmit={completeSignup} novalidate>
+          <label class="acc-check" class:bad={fields.accept_terms}>
+            <input type="checkbox" bind:checked={acceptTerms} data-testid="auth-accept-terms" />
+            <span>
+              {t('legal.acceptTerms')}
+              <span class="acc-legal-links">
+                <a href={legalHref(TERMS_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.termsLink')}</a> ·
+                <a href={legalHref(PRIVACY_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('legal.privacyLink')}</a>
+              </span>
+            </span>
+          </label>
+          {#if fields.accept_terms}<span class="acc-field-err">{fields.accept_terms}</span>{/if}
+          <p class="acc-hint acc-usage" data-testid="auth-usage-note">{t('legal.usageIncluded')}</p>
+
+          {#if error}
+            <p class="acc-error" role="alert" data-testid="auth-error">{error}</p>
+          {/if}
+
+          <div class="acc-footer">
+            <button type="button" class="acc-btn" onclick={close}>{t('account.cancel')}</button>
+            <button type="submit" class="acc-btn acc-primary" disabled={busy || !acceptTerms} data-testid="auth-submit">
+              {busy ? t('account.working') : t('account.register')}
+            </button>
+          </div>
+        </form>
+      {:else}
+        {#if reason}
+          <h3 class="acc-title" id="acc-auth-title">{reason.title}</h3>
+          <p class="acc-lede" data-testid="auth-reason">{reason.lede}</p>
+        {:else}
+          <h3 class="acc-title" id="acc-auth-title">{t('account.signInTitle')}</h3>
+          <p class="acc-lede">{t('account.google.lede')}</p>
+        {/if}
+
+        {#if step.kind === 'waiting'}
+          <p class="acc-waiting" role="status" data-testid="auth-google-waiting">{t('account.google.waiting')}</p>
+        {:else}
+          <button
+            type="button" class="acc-google" onclick={google}
+            disabled={!authStore.googleLogin} data-testid="auth-google"
+          >
+            <svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/>
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>
+            </svg>
+            {t('account.google.continue')}
+          </button>
+          {#if !authStore.googleLogin}
+            <p class="acc-hint" data-testid="auth-google-unavailable">{t('account.google.err.oauth_unavailable')}</p>
+          {/if}
+        {/if}
+
+        {#if error}
+          <p class="acc-error" role="alert" data-testid="auth-error">{error}</p>
+        {/if}
+
+        <div class="acc-footer">
+          <button type="button" class="acc-btn" onclick={close}>{t('account.cancel')}</button>
+        </div>
+      {/if}
+      {:else}
       {#if reason}
         <h3 class="acc-title" id="acc-auth-title">{reason.title}</h3>
         <p class="acc-lede" data-testid="auth-reason">{reason.lede}</p>
@@ -167,6 +296,7 @@
           </button>
         </div>
       </form>
+      {/if}
     </div>
   </div>
 {/if}
@@ -179,7 +309,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 200;
+    z-index: 10001;
   }
 
   .acc {
@@ -195,6 +325,27 @@
 
   .acc-title { margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; color: var(--st-text); }
   .acc-lede { margin: 0 0 14px; font-size: 0.72rem; line-height: 1.5; color: var(--st-text-3); }
+
+  .acc-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    background: #fff;
+    border: 1px solid #dadce0;
+    border-radius: var(--st-radius);
+    color: #1f1f1f;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .acc-google:hover:not(:disabled) { background: #f8f9fa; }
+  .acc-google:disabled { opacity: 0.5; cursor: default; }
+  .acc-waiting { margin: 4px 0; font-size: 0.74rem; color: var(--st-text-2); }
 
   .acc-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; }
 

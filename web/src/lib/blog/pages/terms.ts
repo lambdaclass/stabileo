@@ -22,7 +22,7 @@ export const termsPage: StandingPage = {
           k: 'ul',
           items: [
             'Los datos que cargás tienen que ser verdaderos, y la cuenta es personal.',
-            'Cuidás tu contraseña y nos avisás si sospechás de un acceso indebido.',
+            'Entrás con tu cuenta de Google: cuidás su acceso y nos avisás si sospechás de un acceso indebido.',
             'Podemos suspender una cuenta que se use para dañar el servicio o a terceros, o que no cumpla estos términos.',
           ],
         },
@@ -70,7 +70,7 @@ export const termsPage: StandingPage = {
           k: 'ul',
           items: [
             'The information you enter must be true, and the account is personal.',
-            'You keep your password safe and let us know if you suspect unauthorized access.',
+            'You sign in with your Google account: you keep it secure and let us know if you suspect unauthorized access.',
             'We may suspend an account used to harm the service or others, or that does not comply with these terms.',
           ],
         },
@@ -118,7 +118,7 @@ export const termsPage: StandingPage = {
           k: 'ul',
           items: [
             'Os dados que você informa devem ser verdadeiros, e a conta é pessoal.',
-            'Você cuida da sua senha e nos avisa se suspeitar de um acesso indevido.',
+            'Você entra com sua conta do Google: cuida do acesso a ela e nos avisa se suspeitar de um acesso indevido.',
             'Podemos suspender uma conta usada para prejudicar o serviço ou terceiros, ou que não cumpra estes termos.',
           ],
         },

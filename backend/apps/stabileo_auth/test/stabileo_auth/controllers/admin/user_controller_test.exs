@@ -5,7 +5,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
 
   import Ecto.Query
 
-  @keys ~w(active_sessions company consents country email email_verified_at id inserted_at is_active is_admin job_title last_active_at last_sign_in_at locale name project_count)
+  @keys ~w(active_sessions company consents country email email_verified_at id inserted_at is_active is_admin job_title last_active_at last_sign_in_at locale name project_count sign_in_method)
 
   setup do
     admin = Factory.insert(:admin)
