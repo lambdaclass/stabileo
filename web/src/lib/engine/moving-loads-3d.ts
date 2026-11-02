@@ -202,6 +202,7 @@ export async function sweepMovingLoad3D(
   const count = passes.reduce((n, p) => n + p.refs.length, 0);
   const env: MovingEnvelope3D['elements'] = new Map();
   const structuredDiagnostics: StructuredDiagnostic[] = [];
+  const seen = new Set<string>();
   let done = 0, failed = 0;
   const session = prepareLoadSession3D(base);
   try {
@@ -219,7 +220,8 @@ export async function sweepMovingLoad3D(
             throw new Error(JSON.stringify({ structuredDiagnostics: diagnostics }));
           }
           for (const d of diagnostics) {
-            if (!structuredDiagnostics.some(existing => existing.code === d.code && existing.phase === d.phase)) structuredDiagnostics.push(d);
+            const key = JSON.stringify(d);
+            if (!seen.has(key)) { seen.add(key); structuredDiagnostics.push(d); }
           }
           foldPosition(env, result, r);
         } catch (error) {

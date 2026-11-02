@@ -13,6 +13,8 @@ import { storedDecisions } from '../design-decisions';
 import { placeFrame, placeWall, placeSlabs } from '../../model/building/build-on-grid';
 import type { StructuralGrid } from '../../model/grid';
 import * as wasmSolver from '../../engine/wasm-solver';
+import { computeEnvelope3D } from '../../engine/wasm-solver';
+import type { AnalysisResults3D, ElementForces3D, QuadStress } from '../../engine/types-3d';
 
 beforeAll(async () => {
   await new Promise((r) => setTimeout(r, 0));
@@ -41,6 +43,22 @@ function build(opening: Opening) {
   for (const n of modelStore.nodes.values()) if (Math.abs((n.z ?? 0) - 3) < 1e-6) modelStore.addNodalLoad3D(n.id, 8, 0, 0, 0, 0, 0, 1);
 }
 
+/** Per-combination results a solve would publish: every member unstressed, every shell under `sigma` kPa of compression. */
+function publish(sigma = 1000) {
+  const quadStresses: QuadStress[] = [...modelStore.quads.keys()].map((elementId) => ({ elementId, sigmaXx: -sigma, sigmaYy: -sigma, tauXy: 0, mx: 0, my: 0, mxy: 0, vonMises: sigma }));
+  const elementForces = [...modelStore.elements.values()].map((e) => {
+    const [a, b] = [modelStore.nodes.get(e.nodeI)!, modelStore.nodes.get(e.nodeJ)!];
+    const length = Math.hypot(b.x - a.x, (b.y ?? 0) - (a.y ?? 0), (b.z ?? 0) - (a.z ?? 0));
+    return { elementId: e.id, length, nStart: 0, nEnd: 0, vyStart: 0, vyEnd: 0, vzStart: 0, vzEnd: 0, mxStart: 0, mxEnd: 0, myStart: 0, myEnd: 0, mzStart: 0, mzEnd: 0, releaseMyStart: false, releaseMyEnd: false, releaseMzStart: false, releaseMzEnd: false, releaseTStart: false, releaseTEnd: false, qYI: 0, qYJ: 0, qZI: 0, qZJ: 0, distributedLoadsY: [], pointLoadsY: [], distributedLoadsZ: [], pointLoadsZ: [] } as ElementForces3D;
+  });
+  const result = () => ({ displacements: [], reactions: [], elementForces, quadStresses }) as AnalysisResults3D;
+  resultsStore.setCombinationResults3D(
+    new Map(modelStore.model.loadCases.map((c) => [c.id, result()])),
+    new Map(modelStore.model.combinations.map((c) => [c.id, result()])),
+    computeEnvelope3D(modelStore.model.combinations.map(() => result()))!,
+  );
+}
+
 describe('a wall designed as a member', () => {
   const opening = { offset: 1.5, width: 1, sill: 0.9, height: 1.2 };
 
@@ -49,11 +67,9 @@ describe('a wall designed as a member', () => {
     expectMembraneRefusal(() => modelStore.solveCombinations3D(false, false, true));
   });
 
-  it.skip('geometry, opening bars, and saved bars that govern (skipped: #798 SH-MITC4-DISTORTION withholds every paved wall mesh placeWall makes)', () => {
+  it('geometry, opening bars, and saved bars that govern, designed from published combination results', () => {
     build(opening);
-    const combo = modelStore.solveCombinations3D(false, false, true);
-    if (!combo || typeof combo === 'string') throw new Error(String(combo));
-    resultsStore.setCombinationResults3D(combo.perCase, combo.perCombo, combo.envelope);
+    publish();
     expect(designRunStore.computeDemands().ok).toBe(true);
 
     const run = detailingStore.generateFloors({ families: ['wall'] })!;
@@ -64,6 +80,8 @@ describe('a wall designed as a member', () => {
     expect(w.reinforcement.openings).toEqual({ count: 2, diameter: 16 });
     expect(w.checks.find((c) => c.category === 'Openings (§11.7.5)')?.ok).toBe(true);
     expect(w.input.openingCount).toBe(1);
+    expect(w.input.pu).toBeGreaterThan(0);
+    expect(w.input.vuInPlane).toBe(0);
 
     // A person's bars: Ø10 c/20 both ways, then they govern and are drawn.
     const mine = { vertical: { diameter: 10, spacing: 0.2 }, horizontal: { diameter: 10, spacing: 0.2 }, curtains: 1 as const, openings: { count: 3, diameter: 12 } };
@@ -83,5 +101,10 @@ describe('a wall designed as a member', () => {
       return along > 1.5 && along < 2.5 && Math.min(...zs) < 0.9 + 1.2 && Math.max(...zs) > 0.9 + 0.01;
     });
     expect(through).toEqual([]);
+
+    publish(2000);
+    expect(designRunStore.computeDemands().ok).toBe(true);
+    const doubled = detailingStore.generateFloors({ families: ['wall'] })!.walls.find((x) => x.wallId === w.wallId)!;
+    expect(doubled.input.pu).toBeCloseTo(2 * w.input.pu, 6);
   });
 });

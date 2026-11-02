@@ -156,6 +156,23 @@ fn a_direct_constrained_solve_carries_its_warnings_once() {
 }
 
 #[test]
+fn constrained_2d_entry_points_refuse_a_withheld_result() {
+    use dedaliano_engine::solver::constraints::contain_constrained_2d;
+    let solver = make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0));
+    let tie = Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 3, dofs: vec![1] });
+    let ci = ConstrainedInput { solver: solver.clone(), constraints: vec![tie] };
+    let dofs = dedaliano_engine::solver::dof::DofNumbering::build_2d(&solver);
+    for clean in [solve_constrained_2d(&ci).unwrap(), dedaliano_engine::solver::constraints::solve_constrained_2d_dense(&ci, &dofs).unwrap()] {
+        assert_eq!(ids(&clean.structured_diagnostics), vec!["AC-PLANE-MAPPING".to_string()]);
+        let again = contain_constrained_2d(&ci, clean.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&again).unwrap(), serde_json::to_value(&clean).unwrap());
+        let mut withheld = clean;
+        withheld.structured_diagnostics.push(dedaliano_engine::known_issues::diagnostic("PL-2D-INVARIANCE"));
+        common::assert_containment(contain_constrained_2d(&ci, withheld), "PL-2D-INVARIANCE");
+    }
+}
+
+#[test]
 fn invariance_reported_seeds_are_flagged_or_refused() {
     for seed in [20800,20833,20865,20795,20756,20824,20840,20806] {
         let (mut input, _) = crate::fuzz_models::random_2d_model_rich(seed);
@@ -296,6 +313,11 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                 assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
+                let single = dedaliano_engine::postprocess::combinations::compute_envelope_3d(std::slice::from_ref(&result)).unwrap().unwrap().max_abs_results_3d;
+                assert!(single.displacements.iter().zip(&result.displacements).all(|(e, d)| e.ux == d.ux && e.uy == d.uy && e.uz == d.uz));
+                assert_eq!(ids(&single.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
+                let pair = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&[result.clone(), result.clone()]);
+                if shape == "regular" { assert!(pair.is_ok()); } else { common::assert_containment(pair, "SH-MITC4-DISTORTION"); }
                 assert_warning(&result.structured_diagnostics, "SH-MITC4-CONVERGENCE", 810.0);
                 let tip = result.displacements.iter().find(|d| d.node_id == 13).unwrap();
                 let (published, reference) = [(tip.ux, 3.0e-5), (tip.uy, 0.1081), (tip.uz, 0.4321)][direction];
@@ -345,7 +367,10 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
     let mut distorted = dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION");
     distorted.severity = Severity::Warning;
     r.structured_diagnostics.push(distorted);
-    common::assert_containment(compute_envelope_3d(&[r.clone()]), "SH-MITC4-DISTORTION");
+    let single = compute_envelope_3d(&[r.clone()]).unwrap().unwrap().max_abs_results_3d;
+    assert!(single.displacements.iter().zip(&r.displacements).all(|(e, d)| e.uz == d.uz));
+    assert!(single.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
+    common::assert_containment(compute_envelope_3d(&[r.clone(), r.clone()]), "SH-MITC4-DISTORTION");
     let same = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]).unwrap().unwrap();
     assert!(same.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
     assert!(same.displacements.iter().zip(&r.displacements).all(|(s, d)| s.uz == d.uz));

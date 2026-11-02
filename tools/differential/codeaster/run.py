@@ -304,54 +304,59 @@ def finish(r, tol, dump_dir, model, binary=None):
 
 
 def held_mechanism(model, sres, bad, binary, tol):
-    """Whether every disagreement is a mechanism of stabileo's own model. Each is a displacement, and
-    for each such DOF in turn stabileo is solved again with that DOF moved by a finite amount: it
-    qualifies only if no reaction, member force or displacement outside the disagreeing DOFs changes
-    beyond `tol` and the imposed motion needs no force. A stiff DOF needs a force to move, whatever
-    its original displacement, so it fails here."""
+    """Whether the disagreement is a mechanism of stabileo's own model. Every disagreement must be a
+    displacement, and stabileo is solved again with all of them moved at once along the difference
+    vector (Code_Aster minus stabileo), scaled to a finite amplitude: it qualifies only if no reaction,
+    member force or other displacement changes beyond `tol` and the imposed motion needs no force at
+    any moved DOF. A difference that deforms the structure, even between DOFs that share a rigid-body
+    motion, needs a force to impose, so it fails here."""
     names = ["ux", "uy", "uz", "rx", "ry", "rz"]
-    dofs = set()
+    diff = {}
     for b in bad:
-        if b[0] != "disp" or b[2] not in names or not math.isfinite(b[5]):
+        if b[0] != "disp" or b[2] not in names or not all(isinstance(v, (int, float)) and math.isfinite(v) for v in b[3:6]):
             return False
-        dofs.add((str(b[1]), names.index(b[2])))
+        diff[(str(b[1]), names.index(b[2]))] = b[4] - b[3]
     nodes = {str(n.get("id")) for n in (model.get("nodes") or {}).values()}
-    if not binary or any(nid not in nodes for nid, _ in dofs):
+    if not binary or not diff or any(nid not in nodes for nid, _ in diff):
         return False
-    for nid, k in sorted(dofs):
-        same = [abs(u[i]) for u in sres["disp"].values() for i in (range(3) if k < 3 else range(3, 6))]
-        original = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [0.0] * 6)[k]
-        moved = json.loads(json.dumps(model))
-        sups = moved.setdefault("supports", {})
+    peak = max(abs(d) for d in diff.values())
+    if peak == 0.0:
+        return False
+    amplitude = 2.0 * max([abs(v) for u in sres["disp"].values() for v in u] + [1e-3]) / peak
+    moved = json.loads(json.dumps(model))
+    sups = moved.setdefault("supports", {})
+    imposed = {}
+    for (nid, k), d in sorted(diff.items()):
         sup = next((s for s in sups.values() if str(s.get("nodeId")) == nid), None)
         if sup is None:
             next_id = max([int(s.get("id", 0) or 0) for s in sups.values()] + [0]) + 1
             sup = sups.setdefault(f"moved-{nid}", {"id": next_id, "nodeId": int(nid)})
         if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
             return False
+        original = (sres["disp"].get(int(nid)) or sres["disp"].get(nid) or [0.0] * 6)[k]
+        imposed[(nid, k)] = original + amplitude * d
         sup[to_aster.FLAGS[k]] = True
-        imposed = original + max(same + [1e-3])
-        sup[to_aster.PRESC[k]] = imposed
-        try:
-            mres = dict(C.normalize_stabileo(C.stabileo(moved, binary), 3), dim=3)
-        except RuntimeError:
-            return False
-        changed, _ = C.compare(model, sres, mres, tol)
-        for b in changed:
-            if b[0] == "disp" and b[2] in names and (str(b[1]), names.index(b[2])) in dofs:
-                continue
-            if b[0] == "reac" and b[2] == "missing" and str(b[1]) == nid:
-                continue
-            return False
+        sup[to_aster.PRESC[k]] = imposed[(nid, k)]
+    try:
+        mres = dict(C.normalize_stabileo(C.stabileo(moved, binary), 3), dim=3)
+    except RuntimeError:
+        return False
+    changed, _ = C.compare(model, sres, mres, tol)
+    moved_nodes = {nid for nid, _ in imposed}
+    for b in changed:
+        if b[0] == "disp" and b[2] in names and (str(b[1]), names.index(b[2])) in imposed:
+            continue
+        if b[0] == "reac" and b[2] == "missing" and str(b[1]) in moved_nodes:
+            continue
+        return False
+    scale = max([abs(v) for r in sres["reac"].values() for v in r]
+                + [abs(v) for f in sres["forces"].values() for v in f.values()] + [1e-300])
+    for (nid, k), value in imposed.items():
         applied = mres["disp"].get(int(nid)) or mres["disp"].get(nid)
-        if applied is None or not math.isfinite(applied[k]) or abs(applied[k] - imposed) > tol * abs(imposed):
+        if applied is None or not math.isfinite(applied[k]) or abs(applied[k] - value) > tol * max(abs(value), 1e-300):
             return False
         reaction = mres["reac"].get(int(nid)) or mres["reac"].get(nid)
-        if reaction is None or not math.isfinite(reaction[k]):
-            return False
-        scale = max([abs(v) for r in sres["reac"].values() for v in r]
-                    + [abs(v) for f in sres["forces"].values() for v in f.values()] + [1e-300])
-        if abs(reaction[k]) > tol * scale:
+        if reaction is None or not math.isfinite(reaction[k]) or abs(reaction[k]) > tol * scale:
             return False
     return True
 

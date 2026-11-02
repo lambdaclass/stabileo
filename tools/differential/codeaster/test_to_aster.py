@@ -194,6 +194,47 @@ class HeldMechanism(unittest.TestCase):
         self.assertFalse(self.held(_raw(), moved, [("disp", 5, "rz", 0.0, 1.0, 1.0)], binary=None))
 
 
+class CoupledMechanism(unittest.TestCase):
+    """Two DOFs of node 5 (rx, rz) share a rigid motion: the stiffness [[1, -1], [-1, 1]] needs no
+    force to move both together, but one to move them apart. A disagreement is a mechanism only along
+    that shared motion; each DOF moved alone, with the other free to follow, would excuse both."""
+
+    def held(self, d_rx, d_rz):
+        from unittest import mock
+        import run as R
+        original = _raw()
+        sres = R.C.normalize_stabileo(original, 3)
+        seen = []
+
+        def solve(model, b):
+            seen.append(model)
+            sup = next(s for s in model["supports"].values() if s.get("nodeId") == 5)
+            rx, rz = sup.get("drx"), sup.get("drz")
+            rx, rz = (rz if rx is None else rx), (rx if rz is None else rz)
+            moved = _raw(rz5=rz, reac5=(rz - rx) if sup.get("rrz") else 0.0)
+            for d in moved["displacements"]:
+                if d["nodeId"] == 5:
+                    d["rx"] = rx
+            next(r for r in moved["reactions"] if r["nodeId"] == 5)["mx"] = (rx - rz) if sup.get("rrx") else 0.0
+            return moved
+
+        bad = [("disp", 5, "rx", 0.0, d_rx, 1.0), ("disp", 5, "rz", 0.0, d_rz, 1.0)]
+        with mock.patch.object(R.C, "stabileo", solve):
+            ok = R.held_mechanism(_mechanism_beam(), sres, bad, "bin", 1e-6)
+        return ok, seen
+
+    def test_a_shared_rigid_motion_is_a_mechanism(self):
+        ok, seen = self.held(1.0, 1.0)
+        self.assertTrue(ok)
+        self.assertEqual(len(seen), 1, "one rerun moves every disagreeing DOF at once")
+        sup = next(s for s in seen[0]["supports"].values() if s.get("nodeId") == 5)
+        self.assertTrue(sup["rrx"] and sup["rrz"] and sup["drx"] == sup["drz"] != 0.0)
+
+    def test_a_relative_deformation_between_coupled_dofs_is_not(self):
+        self.assertFalse(self.held(1.0, -1.0)[0])
+        self.assertFalse(self.held(1.0, 0.5)[0])
+
+
 class UnimposedSettlements(unittest.TestCase):
     """A settlement no rigid restraint carries: the translator drops it, the
     engine refuses it (AC-10). The harness must not call that refusal false."""

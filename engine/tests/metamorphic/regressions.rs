@@ -605,6 +605,35 @@ fn buckling_without_compression_refuses_in_every_orientation() {
     }
 }
 
+/// The #959 refusal bounds the round-off of N recovered from u_j − u_i, which grows with the
+/// displacements themselves: a thermal compression a rigid translation leaves unchanged is
+/// refused only past a translation of αΔT·L_e/(200ε) along the members (1.4e10 m here), never at a
+/// physical one.
+#[test]
+fn restrained_thermal_compression_buckles_under_a_common_translation() {
+    let column = |shift: f64| -> SolverInput {
+        let support = |id: usize| json!({"id": id, "nodeId": id, "type": "fixed", "kx": null, "ky": null, "kz": null, "dx": shift, "dz": shift, "dry": null, "angle": null});
+        serde_json::from_value(json!({
+            "nodes": (1..=5).map(|i| (i.to_string(), json!({"id": i, "x": (i - 1) as f64, "z": 0.0}))).collect::<serde_json::Map<_, _>>(),
+            "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+            "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-5}},
+            "elements": (1..=4).map(|i| (i.to_string(), json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}))).collect::<serde_json::Map<_, _>>(),
+            "supports": {"1": support(1), "5": support(5)},
+            "loads": (1..=4).map(|i| json!({"type": "thermal", "data": {"elementId": i, "dtUniform": 50.0, "dtGradient": 0.0, "alpha": 1.2e-5}})).collect::<Vec<_>>(),
+        })).unwrap()
+    };
+    let factor = |shift: f64| dedaliano_engine::solver::buckling::solve_buckling_2d(&column(shift), 1).unwrap_or_else(|e| panic!("shift {shift}: {e}")).modes[0].load_factor;
+    let still = factor(0.0);
+    let euler = 4.0 * std::f64::consts::PI.powi(2) * 2e8 * 1e-5 / 16.0 / (2e8 * 0.01 * 1.2e-5 * 50.0);
+    assert!((still / euler - 1.0).abs() < 0.02, "{still} vs {euler}");
+    for shift in [0.5, -30.0, 4.0e3, 1.0e6] {
+        let moved = factor(shift);
+        assert!((moved / still - 1.0).abs() < 1e-6, "shift {shift}: {moved} vs {still}");
+    }
+    let beyond = dedaliano_engine::solver::buckling::solve_buckling_2d(&column(2.0e10), 1).map(|b| b.modes[0].load_factor).unwrap_err();
+    assert!(beyond.contains("Buckling not determinable"), "{beyond}");
+}
+
 /// #982: a third mode with λ ≈ 1e10 came from the round-off axial force of the
 /// uncompressed cantilever, in some orientations only. Wherever such a mode is
 /// returned it is named as unresolved, and the two physical modes never are.

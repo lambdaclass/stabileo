@@ -269,7 +269,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&round_off_converged(|steps, tol| pdelta::solve_pdelta_2d(&c.s, steps, tol).map(|r| (r.converged, r.results)), finite_2d)?)),
+            run: |c| Ok(static_2d(&round_off_converged(|steps, tol| pdelta::solve_pdelta_2d(&c.s, steps, tol).map(|r| (r.converged, r.results)), finite_2d, |r| pdelta::backward_error_2d(&c.s, r))?)),
         },
         Ana2 {
             name: "corotational",
@@ -602,18 +602,21 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
 }
 
 /// An iteration solved to 1e-12 in 100 steps, or, when it stops short there, one proven stagnant at
-/// round-off: the iterates after 100, 1000 and 1001 steps at 1e-12 agree in every reported number
-/// (displacements, reactions, member forces) to 1e-11 of the largest value of its quantity, and a
-/// 1e-11 solve converges to the same answer. Iterates 1000 and 1001 are consecutive, so one more step
-/// of u <- (K + Kg(u))^-1 f does not move u: its residual is at most ||K + Kg|| times that change.
+/// round-off: its normwise equilibrium backward error is within 1e-12, the iterates after 100, 1000
+/// and 1001 steps at 1e-12 agree in every reported number (displacements, reactions, member forces)
+/// to 1e-11 of the largest value of its quantity, and a 1e-11 solve converges to the same answer.
 /// A slow or cycling iteration still moves between them and is rejected, and so is a non-finite one.
-pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>, finite: impl Fn(&T) -> bool) -> Result<T, String> {
+pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>, finite: impl Fn(&T) -> bool, backward_error: impl Fn(&T) -> Result<f64, String>) -> Result<T, String> {
     let (converged, tight) = solve(100, 1e-12)?;
     if !finite(&tight) {
         return Err("did not converge: non-finite result".into());
     }
     if converged {
         return Ok(tight);
+    }
+    let error = backward_error(&tight)?;
+    if !(error <= 1e-12) {
+        return Err(format!("did not converge: equilibrium backward error {error:e}"));
     }
     let value = |r: &T| serde_json::to_value(r).unwrap();
     let (_, longer) = solve(1000, 1e-12)?;
@@ -669,21 +672,24 @@ fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
 #[test]
 fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
     let stagnant = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0 + 1e-13], "n": [5.0e3]})));
-    assert!(round_off_converged(stagnant, |_| true).is_ok());
+    assert!(round_off_converged(stagnant, |_| true, |_| Ok(1e-16)).is_ok());
     let slow = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps > 100 { 2.0 } else { 2.0 + 1e-9 }]})));
-    assert!(round_off_converged(slow, |_| true).is_err());
+    assert!(round_off_converged(slow, |_| true, |_| Ok(1e-16)).is_err());
     let loose_differs = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if tol < 1e-11 { 2.0 } else { 2.001 }]})));
-    assert!(round_off_converged(loose_differs, |_| true).is_err());
+    assert!(round_off_converged(loose_differs, |_| true, |_| Ok(1e-16)).is_err());
     let forces_differ = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0], "n": [if tol < 1e-11 { 5.0e3 } else { 5.0e3 + 1e-6 }]})));
-    assert!(round_off_converged(forces_differ, |_| true).is_err());
+    assert!(round_off_converged(forces_differ, |_| true, |_| Ok(1e-16)).is_err());
     let never = |_: usize, _: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
-    assert!(round_off_converged(never, |_| true).is_err());
-    assert!(round_off_converged(stagnant, |_| false).is_err(), "matching non-finite outputs are not round-off");
+    assert!(round_off_converged(never, |_| true, |_| Ok(1e-16)).is_err());
+    assert!(round_off_converged(stagnant, |_| false, |_| Ok(1e-16)).is_err(), "matching non-finite outputs are not round-off");
     let converged = |_: usize, _: f64| Ok::<_, String>((true, serde_json::json!({"u": [1.0]})));
-    assert!(round_off_converged(converged, |_| true).is_ok());
-    assert!(round_off_converged(converged, |_| false).is_err(), "a converged flag does not make a non-finite result usable");
+    assert!(round_off_converged(converged, |_| true, |_| Ok(1e-16)).is_ok());
+    assert!(round_off_converged(converged, |_| false, |_| Ok(1e-16)).is_err(), "a converged flag does not make a non-finite result usable");
     let cycling = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps % 2 == 1 { 2.0 + 1e-9 } else { 2.0 }]})));
-    assert!(round_off_converged(cycling, |_| true).is_err(), "endpoints 100 and 1000 agree, the next step moves");
+    assert!(round_off_converged(cycling, |_| true, |_| Ok(1e-16)).is_err(), "endpoints 100 and 1000 agree, the next step moves");
+    assert!(round_off_converged(stagnant, |_| true, |_| Ok(1e-10)).is_err(), "agreeing iterates out of equilibrium");
+    assert!(round_off_converged(stagnant, |_| true, |_| Ok(f64::NAN)).is_err());
+    assert!(round_off_converged(stagnant, |_| true, |_| Err("no residual".into())).is_err());
 }
 
 #[test]

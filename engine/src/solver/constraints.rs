@@ -1480,10 +1480,15 @@ fn map_dof_forces_to_constraint_forces(
 /// Constrained 2D solve, with the known-issue warnings that apply attached (once, also when
 /// reached through `linear::solve_2d`).
 pub fn solve_constrained_2d(input: &ConstrainedInput) -> Result<AnalysisResults, String> {
-    let mut r = solve_constrained_2d_inner(input)?;
+    contain_constrained_2d(input, solve_constrained_2d_inner(input)?)
+}
+
+#[doc(hidden)]
+pub fn contain_constrained_2d(input: &ConstrainedInput, mut r: AnalysisResults) -> Result<AnalysisResults, String> {
     let mut solver = input.solver.clone();
     solver.constraints = input.constraints.clone();
     crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&solver, crate::known_issues::Analysis::Linear));
+    crate::known_issues::refuse(&r.structured_diagnostics)?;
     Ok(r)
 }
 
@@ -1525,11 +1530,7 @@ pub fn solve_constrained_2d_dense(
     input: &ConstrainedInput,
     dof_num: &DofNumbering,
 ) -> Result<AnalysisResults, String> {
-    let mut r = solve_constrained_2d_dense_inner(input, dof_num)?;
-    let mut solver = input.solver.clone();
-    solver.constraints = input.constraints.clone();
-    crate::known_issues::attach(&mut r.structured_diagnostics, crate::known_issues::for_2d(&solver, crate::known_issues::Analysis::Linear));
-    Ok(r)
+    contain_constrained_2d(input, solve_constrained_2d_dense_inner(input, dof_num)?)
 }
 
 fn solve_constrained_2d_dense_inner(input: &ConstrainedInput, dof_num: &DofNumbering) -> Result<AnalysisResults, String> {

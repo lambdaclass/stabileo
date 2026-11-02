@@ -131,29 +131,72 @@ fn spectral_enclosure_error_of_non_finite_is_infinite() {
 /// keys. They were not crashes: libFuzzer's slow-unit reports and a process
 /// RSS that grew to 2 GB over the run (84 MB live heap), charged to whichever
 /// input was running. Alone, each certifies within 25 MB.
-///
-/// The 10.125 is the z-sway mechanism: four column-base hinges (Mp_y =
-/// 250e3·0.15·0.3²/4 = 843.75 kN·m) and four transverse-beam end hinges
-/// (Mp_z = 250e3·0.3·0.15²/4 = 421.875 kN·m) rotate δ/4 under 5 + 2·10·6 =
-/// 125 kN along z: λ = (843.75 + 421.875)/125.
 #[test]
 fn plastic_3d_certificate_nightly_inputs_finish() {
-    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
-    use dedaliano_engine::types::PlasticInput3D;
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic");
     let mut files: Vec<_> = std::fs::read_dir(dir).unwrap().map(|e| e.unwrap().path()).collect();
     files.sort();
     assert_eq!(files.len(), 6);
     for f in files {
-        let name = f.file_name().unwrap().to_string_lossy().into_owned();
-        let input: PlasticInput3D = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
-        let t = std::time::Instant::now();
-        let c = certify_plastic_3d(&input).unwrap().certificate;
-        assert!(t.elapsed().as_secs() < 300, "{name}: {:?}", t.elapsed());
-        let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
-        assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{name}: {c:?}");
-        if !name.starts_with("991-") {
-            assert!(lo <= 10.125 && 10.125 <= hi && hi - lo < 1e-9, "{name}: [{lo}, {hi}]");
-        }
+        assert!(within_limits(&f, std::time::Duration::from_secs(300), 4 << 20), "{}", f.display());
     }
+}
+
+/// Certifies one fixture in a fresh copy of this test binary under a virtual memory limit (KiB),
+/// killed at `timeout`, so a hang or a runaway allocation fails the test instead of stalling or
+/// killing the whole run. True only when the copy ran that one test and it passed.
+fn within_limits(fixture: &std::path::Path, timeout: std::time::Duration, kib: u64) -> bool {
+    use std::io::Read;
+    let test = format!("{}::plastic_3d_certificate_of_one_nightly_input", module_path!().split_once("::").map_or("", |m| m.1));
+    let exe = std::env::current_exe().unwrap();
+    let mut child = std::process::Command::new("sh")
+        .args(["-c", &format!("ulimit -v {kib} && exec \"$0\" \"$@\""), exe.to_str().unwrap(), "--exact", &test, "--ignored", "--test-threads=1"])
+        .env("FUZZ_PLASTIC_FIXTURE", fixture)
+        .stdout(std::process::Stdio::piped())
+        .spawn().unwrap();
+    let mut stdout = child.stdout.take().unwrap();
+    let reader = std::thread::spawn(move || { let mut out = String::new(); let _ = stdout.read_to_string(&mut out); out });
+    let start = std::time::Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break Some(status);
+        }
+        if start.elapsed() > timeout {
+            child.kill().unwrap();
+            child.wait().unwrap();
+            break None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
+    let out = reader.join().unwrap();
+    eprintln!("{}: {status:?} after {:?}", fixture.display(), start.elapsed());
+    status.is_some_and(|s| s.success()) && out.contains("test result: ok. 1 passed")
+}
+
+/// The 10.125 is the z-sway mechanism: four column-base hinges (Mp_y =
+/// 250e3·0.15·0.3²/4 = 843.75 kN·m) and four transverse-beam end hinges
+/// (Mp_z = 250e3·0.3·0.15²/4 = 421.875 kN·m) rotate δ/4 under 5 + 2·10·6 =
+/// 125 kN along z: λ = (843.75 + 421.875)/125.
+#[test]
+#[ignore = "run by plastic_3d_certificate_nightly_inputs_finish in a limited subprocess"]
+fn plastic_3d_certificate_of_one_nightly_input() {
+    use dedaliano_engine::certify::plastic_3d::certify_plastic_3d;
+    use dedaliano_engine::types::PlasticInput3D;
+    let f = std::path::PathBuf::from(std::env::var_os("FUZZ_PLASTIC_FIXTURE").expect("FUZZ_PLASTIC_FIXTURE names the fixture"));
+    let name = f.file_name().unwrap().to_string_lossy().into_owned();
+    let input: PlasticInput3D = serde_json::from_slice(&std::fs::read(&f).unwrap()).unwrap();
+    let c = certify_plastic_3d(&input).unwrap().certificate;
+    let (lo, hi) = (c.lambda_lower.unwrap(), c.lambda_upper.unwrap());
+    assert!(c.certified && lo <= hi && hi - lo < 1e-4 * hi, "{name}: {c:?}");
+    if !name.starts_with("991-") {
+        assert!(lo <= 10.125 && 10.125 <= hi && hi - lo < 1e-9, "{name}: [{lo}, {hi}]");
+    }
+}
+
+#[test]
+fn a_fixture_past_its_limits_fails() {
+    let f = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic")).read_dir().unwrap().next().unwrap().unwrap().path();
+    assert!(!within_limits(&f, std::time::Duration::from_millis(1), 4 << 20), "killed at its timeout");
+    assert!(!within_limits(&f, std::time::Duration::from_secs(300), 1 << 10), "out of memory");
+    assert!(!within_limits(std::path::Path::new("/nonexistent"), std::time::Duration::from_secs(300), 4 << 20), "a missing fixture");
 }

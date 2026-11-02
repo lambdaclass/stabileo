@@ -241,6 +241,22 @@ it('3D moving loads retain warnings from later positions', async () => {
   expect(result.structuredDiagnostics).toEqual([warning]);
 });
 
+it('3D moving loads keep each distinct warning under one code and phase', async () => {
+  const { sweepMovingLoad3D, buildPath3D, movingLoadBase3D } = await import('../moving-loads-3d');
+  await model();
+  const base = movingLoadBase3D(modelStore.model)!;
+  const path = buildPath3D(base, [base.elements.keys().next().value!])!;
+  const at = (n: number) => ({ ...warning, message: `modes ${n}`, elementIds: [n] });
+  let count = 0;
+  vi.spyOn(wasm, 'prepareLoadSession3D').mockReturnValue({
+    solve: () => { count++; return { displacements: [], reactions: [], elementForces: [], structuredDiagnostics: [at(count > 2 ? 2 : count)] }; },
+    free: vi.fn(),
+  } as never);
+  const result = await sweepMovingLoad3D(base, path, { name: 'unit', axles: [{ offset: 0, weight: 1 }] }, { step: 1 });
+  expect(count).toBeGreaterThan(2);
+  expect(result.structuredDiagnostics).toEqual([at(1), at(2)]);
+});
+
 it.each(['warning', 'error'])('influence result UI contains %s ordinates', async severity => {
   const { default: KnownIssueResult } = await import('../../../components/KnownIssueResult.svelte');
   const result = { points: [{ value: 123.45 }], structuredDiagnostics: [{ ...warning, severity }] };
