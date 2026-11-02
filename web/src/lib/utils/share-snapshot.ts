@@ -89,6 +89,8 @@ function referencesResolve(value: RecordValue): boolean {
   const nodes = keys(value.nodes), elements = keys(value.elements);
   const materials = keys(value.materials), sections = keys(value.sections);
   const plates = keys(value.plates ?? []), quads = keys(value.quads ?? []);
+  const position = new Map((value.nodes as Entry[]).map(([key, n]) => [key, `${n.x},${n.y},${n.z ?? 0}`]));
+  const corners = (d: RecordValue, count: number) => d.qNodes === undefined || (d.qNodes as unknown[]).length === count;
   const shellNodes = (shell: RecordValue, count: number) => Array.isArray(shell.nodes)
     && shell.nodes.length === count && new Set(shell.nodes).size === count
     && shell.nodes.every(n => nodes.has(n as number));
@@ -99,7 +101,7 @@ function referencesResolve(value: RecordValue): boolean {
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
-      && e.nodeI !== e.nodeJ
+      && position.get(e.nodeI as number) !== position.get(e.nodeJ as number)
       && materials.has(e.materialId as number) && sections.has(e.sectionId as number)
       && (e.variableSection === undefined
         || (record(e.variableSection) && sections.has(e.variableSection.sectionJ as number))))
@@ -125,8 +127,8 @@ function referencesResolve(value: RecordValue): boolean {
       const target = LOAD_TARGET[type as Load['type']];
       return target === 'node' ? nodes.has(d.nodeId as number)
         : target === 'member' ? elements.has(d.elementId as number)
-          : d.on === 'plate' ? plates.has(d.quadId as number)
-            : d.on === undefined && quads.has(d.quadId as number);
+          : d.on === 'plate' ? plates.has(d.quadId as number) && corners(d, 3)
+            : d.on === undefined && quads.has(d.quadId as number) && corners(d, 4);
     });
 }
 

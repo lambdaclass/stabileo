@@ -95,6 +95,11 @@ describe('shared-link importer', () => {
       unknownLoadType: p => { p.loads[0].type = 'distributed '; },
       miscasedShellTarget: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'Plate', q: 1 } }); },
       nullShellTarget: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: null, q: 1 } }); },
+      coincidentMemberEnds: p => { p.nodes.push([3, { id: 3, x: 0, y: 0, z: 0 }]); p.elements[0][1].nodeJ = 3; },
+      emptyCornerPressures: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, qNodes: [] } }); },
+      shortCornerPressures: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, qNodes: [1, 1, 1] } }); },
+      longCornerPressures: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, qNodes: [1, 1, 1, 1, 1] } }); },
+      quadCornerPressuresOnPlate: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }]); p.plates = [[1, { id: 1, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', qNodes: [1, 1, 1, 1] } }); },
       danglingPlateLoad: p => { p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } }); },
       danglingPlateMaterial: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.plates = [[1, { id: 1, nodes: [1, 2, 3], materialId: 9, thickness: 0.1 }]]; },
       danglingPlateNode: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 9], materialId: 1, thickness: 0.1 }]]; },
@@ -185,7 +190,8 @@ describe('shared-link importer', () => {
     payload.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]);
     payload.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; 
     payload.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, q: 1 } });
-    expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'surface3d']);
+    payload.loads.push({ type: 'surface3d', data: { id: 3, caseId: 1, quadId: 1, q: 0, qNodes: [1, 2, 3, 4] } });
+    expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'surface3d', 'surface3d']);
   });
 
   it('keeps a hostile model name as a plain string in the store', () => {
