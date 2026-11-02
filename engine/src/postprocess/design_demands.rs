@@ -127,7 +127,7 @@ fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStr
             DemandStrategy::MaxAbsAxial => d.n.abs(),
             DemandStrategy::MaxInteraction { n_ref, m_ref } => {
                 let nr = if n_ref.abs() > 1e-30 { (d.n / n_ref).abs() } else { 0.0 };
-                let mr = if m_ref.abs() > 1e-30 { m / m_ref } else { 0.0 };
+                let mr = if m_ref.abs() > 1e-30 { m / m_ref.abs() } else { 0.0 };
                 nr + mr
             }
         };
@@ -222,6 +222,18 @@ mod tests {
         let g = pick_governing_2d(&stations, DemandStrategy::MaxAbsAxial);
         assert!((g.at.n - (-200.0)).abs() < 1e-10);
         assert!((g.at.m_strong - (-50.0)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn max_interaction_with_negative_references_picks_the_largest_demand() {
+        let stations = vec![
+            make_station_2d(1, 0, 0.0, vec![(1, -10.0, 1.0, -20.0)]),
+            make_station_2d(1, 1, 0.5, vec![(1, -10.0, 1.0, -120.0)]),
+        ];
+        for (n_ref, m_ref) in [(100.0, 200.0), (-100.0, -200.0)] {
+            let g = pick_governing_2d(&stations, DemandStrategy::MaxInteraction { n_ref, m_ref });
+            assert_eq!(g.at.m_strong, -120.0);
+        }
     }
 
     #[test]

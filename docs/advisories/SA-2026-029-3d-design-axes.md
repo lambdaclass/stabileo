@@ -51,8 +51,10 @@ same beam, which match the 3D strong-axis result (`engine/tests/core/design_axes
 
 ## How to tell if your model is affected
 
-App: your model has CIRSOC 201 concrete columns or walls whose section is not square, and the
-moment about the column's local z (`Mz`) is the larger of the two. Engine: you called one of the
+App: your model has CIRSOC 201 concrete columns or walls. A section that is not square, with the
+moment about the column's local z (`Mz`) the larger of the two, was designed over the wrong depth.
+Any column, square ones included, had only the shear `Vy` checked: a column whose `Vz` exceeds the
+capacity was not caught. Engine: you called one of the
 functions above with 3D results.
 
 ## Fixed in
@@ -72,7 +74,8 @@ about `Mz` with the section turned (b and h swapped).
 
 ## What to do with results you already have
 
-Re-check the bars of every CIRSOC 201 rectangular column whose larger moment is `Mz`. Results
+Re-check the bars of every CIRSOC 201 rectangular column whose larger moment is `Mz`, and the
+stirrups of every column whose shear `Vz` is the larger one. Results
 from the engine functions above with 3D input are unreliable for shear (steel), and for flexure
 and shear (RC).
 

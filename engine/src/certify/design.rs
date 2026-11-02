@@ -413,7 +413,7 @@ fn steel_forces_3d(element_id: usize, a: AxisDemand) -> ElementDesignForces {
 /// Err when the demand carries a component a check covering only the strong
 /// axis (or, with `biaxial`, only one shear) would drop.
 fn strong_axis_only(d: &BoundedSteelDemand, code: &str, biaxial: bool) -> Result<(), String> {
-    let present = |x: f64, b: f64| !(x == 0.0 && b == 0.0);
+    let present = |x: f64, b: f64| x != 0.0 || b > 0.0;
     let weak_shear = present(d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak);
     let weak_moment = !biaxial && present(d.forces.mz.unwrap_or(0.0), d.bound.mz);
     if weak_shear || weak_moment {
@@ -2405,6 +2405,20 @@ mod tests {
             demands: vec![BoundedCfsDemand { forces: f0, bound: ZERO_BOUND }],
         });
         assert!(!res[0].certified && !res[0].certified_ok, "{res:?}");
+    }
+
+    #[test]
+    fn converters_pass_a_missing_bound_on_to_the_per_member_refusal() {
+        let d = BoundedSteelDemand { forces: steel_forces_2d(7, AxisDemand::plane_2d(-1.0, 2.0, 3.0)), bound: NAN_BOUND };
+        let rc = rc_demands(std::slice::from_ref(&d)).unwrap();
+        assert!(rc[0].bound.n.is_nan());
+        assert!(ec3_demands(std::slice::from_ref(&d)).is_ok() && cfs_demands(&[d]).is_ok());
+        let weak = BoundedSteelDemand {
+            forces: steel_forces_3d(7, AxisDemand { v_weak: 1.0, ..AxisDemand::plane_2d(-1.0, 2.0, 3.0) }),
+            bound: demand_bound(AxisDemand::default()),
+        };
+        assert!(rc_demands(std::slice::from_ref(&weak)).unwrap_err().contains("weak-axis shear"));
+        assert!(ec3_demands(&[weak]).is_err());
     }
 
     #[test]
