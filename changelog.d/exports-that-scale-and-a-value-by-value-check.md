@@ -9,7 +9,10 @@ how many cells the file will have and whether it comes as .xlsx or as a zip.
 
 The report, PNG and SVG froze the browser for minutes (19 on an industrial shed) placing load
 labels: every label tried each spot against every label and member placed before it. Labels now
-look only at their neighbours, with the same placement as before. The report draws the loads one
+look only at their neighbours, large obstacles in a coarser grid, and a spot that cannot beat the
+best one found is not measured, with the same placement as before. On the audited six-storey
+building the report went from about four minutes to ten seconds, and the PNG drawing from two
+minutes to about fifteen seconds. The report draws the loads one
 figure per load case (twelve at most; the table lists them all) instead of every case on one
 unreadable figure, and a drawing of the model takes the cases shown on screen or one chosen case.
 
