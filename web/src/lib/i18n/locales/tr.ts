@@ -10559,6 +10559,7 @@ const tr: Translations = {
   'design.memo.flexure': 'Eğilme',
   'design.memo.shear': 'Kesme',
   'design.memo.shearSecondary': 'Kesme, ikincil eksen',
+  'design.memo.slenderSecondary': 'Narinlik, ikincil eksen',
   'design.memo.column': 'Bileşik eğilme ve eksenel kuvvet',
   'design.memo.torsion': 'Burulma',
   'design.memo.torsionNegligible': 'Burulma (ihmal edilebilir)',

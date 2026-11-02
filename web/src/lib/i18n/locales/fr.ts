@@ -10551,6 +10551,7 @@ const fr: Translations = {
   'design.memo.flexure': 'Flexion',
   'design.memo.shear': 'Effort tranchant',
   'design.memo.shearSecondary': 'Effort tranchant, axe secondaire',
+  'design.memo.slenderSecondary': 'Élancement, axe secondaire',
   'design.memo.column': 'Flexion composée',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (négligeable)',

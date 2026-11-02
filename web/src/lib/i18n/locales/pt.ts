@@ -1502,6 +1502,7 @@ const pt: Translations = {
   'design.memo.flexure': 'Flexão',
   'design.memo.shear': 'Cortante',
   'design.memo.shearSecondary': 'Cortante, eixo secundário',
+  'design.memo.slenderSecondary': 'Esbeltez, eixo secundário',
   'design.memo.torsion': 'Torção',
   'design.memo.torsionNegligible': 'Torção (desprezível)',
   'design.nav.keyboardHint': 'j/k · ↵ · espaço',

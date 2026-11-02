@@ -1164,6 +1164,9 @@ export function getCodeDetail(v: ElementVerification | undefined | null): CodeDe
   if (v.column?.steps?.length) {
     memos.push({ title: 'Flexo-compression', titleKey: 'design.memo.column', steps: v.column.steps });
   }
+  if (v.slenderSecondary?.isSlender && v.slenderSecondary.steps.length) {
+    memos.push({ title: 'Slenderness, secondary axis', titleKey: 'design.memo.slenderSecondary', steps: v.slenderSecondary.steps });
+  }
   if (v.torsion?.steps?.length) {
     memos.push({
       title: `Torsion${v.torsion.neglect ? ' (negligible)' : ''}`,

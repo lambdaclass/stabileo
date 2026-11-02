@@ -10551,6 +10551,7 @@ const de: Translations = {
   'design.memo.flexure': 'Biegung',
   'design.memo.shear': 'Querkraft',
   'design.memo.shearSecondary': 'Querkraft, Nebenachse',
+  'design.memo.slenderSecondary': 'Schlankheit, Nebenachse',
   'design.memo.column': 'Normalkraft mit Biegung',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (vernachlässigbar)',

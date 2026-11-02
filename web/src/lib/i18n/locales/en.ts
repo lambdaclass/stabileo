@@ -10717,6 +10717,7 @@ const en: Record<string, string> = {
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
   'design.memo.shearSecondary': 'Shear, secondary axis',
+  'design.memo.slenderSecondary': 'Slenderness, secondary axis',
   'design.memo.column': 'Combined axial and bending',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

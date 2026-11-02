@@ -201,6 +201,8 @@ export interface ElementVerification {
   torsion?: TorsionResult;
   biaxial?: BiaxialResult;
   slender?: SlenderResult;
+  /** The secondary axis's own slenderness, over the section turned: its magnified moment is the biaxial partner. */
+  slenderSecondary?: SlenderResult;
   overallStatus: VerifStatus;
   diagnostics?: SolverDiagnostic[];
   /** Governing combination per force component (from combo-driven verification). */
@@ -1156,6 +1158,8 @@ export interface VerificationInput {
   // Slender column parameters (optional — conservative defaults if omitted)
   M1?: number;    // kN·m — smaller end moment (positive = same curvature as M2)
   M2?: number;    // kN·m — larger end moment (always taken positive)
+  M1Secondary?: number;
+  M2Secondary?: number;
   psiA?: number;  // restraint coefficient Ψ at end A (0.2 = fixed, 20 = pinned)
   psiB?: number;  // restraint coefficient Ψ at end B
   PuD?: number;   // kN — factored dead load for βdns
@@ -1236,6 +1240,19 @@ export function verifyElement(input: VerificationInput): ElementVerification {
       designMu = slender.Mc; // use amplified moment
     }
   }
+  let slenderSecondary: SlenderResult | undefined;
+  let designMuy = input.Muy;
+  if (isVertical && input.Lu && input.Lu > 0 && input.Muy !== undefined) {
+    slenderSecondary = checkSlender({ ...params, b: params.h, h: params.b }, input.Nu, input.Muy, input.Lu, {
+      M1: input.M1Secondary,
+      M2: input.M2Secondary,
+      psiA: input.psiA,
+      psiB: input.psiB,
+      PuD: input.PuD,
+      PuL: input.PuL,
+    });
+    if (slenderSecondary.isSlender) designMuy = slenderSecondary.Mc;
+  }
 
   const edition = input.edition ?? '2025';
   /*
@@ -1246,7 +1263,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
   const flexureNu = isVertical ? 0 : (input.NuShear ?? 0);
   const flexure = checkFlexure(params, designMu, flexureNu, { edition });
   const shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv });
-  const shearSecondary = isVertical && input.VuSecondary
+  const shearSecondary = isVertical && input.VuSecondary !== undefined
     ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition })
     : undefined;
   let column: ColumnResult | undefined;
@@ -1258,10 +1275,10 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     column = checkColumn(params, loads[0], designMu, { edition, axialLoads: loads.slice(1) });
 
     // Biaxial check if Muy is provided, under every axial force the member sees
-    if (input.Muy && Math.abs(input.Muy) > 0.01) {
+    if (designMuy !== undefined && !(Math.abs(designMuy) <= 0.01)) {
       let worst: BiaxialResult | undefined;
       for (const load of loads) {
-        const r = checkBiaxial(params, load, input.Muy, designMu, column.AsProv,
+        const r = checkBiaxial(params, load, designMuy, designMu, column.AsProv,
           { edition, barCount: column.barCount, barDia: column.barDia });
         if (!worst || !(r.ratio <= worst.ratio)) worst = r;
       }
@@ -1346,6 +1363,7 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     torsion: torsionResult,
     biaxial,
     slender,
+    slenderSecondary,
     overallStatus,
     diagnostics: diags.length > 0 ? diags : undefined,
     detailing: computeDetailingRules(

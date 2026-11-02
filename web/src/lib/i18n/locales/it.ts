@@ -3635,6 +3635,7 @@ const it: Translations = {
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
   'design.memo.shearSecondary': 'Taglio, asse secondario',
+  'design.memo.slenderSecondary': 'Snellezza, asse secondario',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

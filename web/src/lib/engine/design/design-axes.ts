@@ -191,6 +191,8 @@ export function primaryAxis(
   my: number,
   mz: number,
 ): MomentAxis {
+  if (!Number.isFinite(my)) return 'My';
+  if (!Number.isFinite(mz)) return 'Mz';
   if (elementType === 'column' || elementType === 'wall') return my >= mz ? 'My' : 'Mz';
   const { b, h } = section;
   const stressMy = b > 0 && h > 0 ? my / (b * h * h) : 0;

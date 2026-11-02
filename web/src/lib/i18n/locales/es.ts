@@ -10706,6 +10706,7 @@ const es: Record<string, string> = {
   'design.memo.flexure': 'Flexión',
   'design.memo.shear': 'Corte',
   'design.memo.shearSecondary': 'Corte, eje secundario',
+  'design.memo.slenderSecondary': 'Esbeltez, eje secundario',
   'design.memo.column': 'Flexocompresión',
   'design.memo.torsion': 'Torsión',
   'design.memo.torsionNegligible': 'Torsión (despreciable)',

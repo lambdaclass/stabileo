@@ -3634,6 +3634,7 @@ const hi: Translations = {
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
   'design.memo.shearSecondary': 'अपरूपण, द्वितीयक अक्ष',
+  'design.memo.slenderSecondary': 'पतलापन, द्वितीयक अक्ष',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

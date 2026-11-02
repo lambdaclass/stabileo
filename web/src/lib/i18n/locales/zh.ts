@@ -3623,6 +3623,7 @@ const zh: Translations = {
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
   'design.memo.shearSecondary': '剪力（次轴）',
+  'design.memo.slenderSecondary': '长细比（次轴）',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

@@ -205,6 +205,29 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     expect(v!.shearSecondary?.ratio).toBeCloseTo(reference(0.6, 0.3, 120, 150).shear.ratio, 9);
   });
 
+  it('the secondary axis is magnified with its own slenderness, and the magnified moment is the biaxial partner', () => {
+    const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, mzStart: 110, mzEnd: 110 }), columnModel(0.2, 0.6), null).concrete;
+    expect(v!.flexureAxis).toBe('My');
+    const weak = v!.slenderSecondary!;
+    expect(weak.isSlender).toBe(true);
+    expect(weak.r).toBeCloseTo(0.3 * 0.2, 12);
+    expect(weak.Mc).toBeGreaterThan(v!.Mu);
+    expect(v!.biaxial!.Muy).toBeCloseTo(weak.Mc, 9);
+    const unmagnified = verifyElement({
+      elementId: 1, elementType: 'column', Mu: v!.Mu, Vu: 0, Nu: 800, axialLoads: [800], NuShear: 800,
+      b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8, Muy: 110,
+    });
+    expect(v!.biaxial!.ratio).toBeGreaterThan(unmagnified.biaxial!.ratio);
+  });
+
+  it('a non-finite demand is checked, and fails, on whichever axis it is', () => {
+    expect(() => autoVerifyFromResults(column({ myStart: NaN, myEnd: NaN, mzStart: 50, mzEnd: -50 }), columnModel(0.3, 0.6), null))
+      .toThrow(/non-finite/);
+    const [nanShear] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: NaN, vyEnd: NaN }), columnModel(0.3, 0.6), null).concrete;
+    expect(nanShear!.shearSecondary?.status).toBe('fail');
+    expect(nanShear!.overallStatus).toBe('fail');
+  });
+
   it('each shear row names the combination that governs its own axis', () => {
     const governing = new Map([[1, {
       momentY: { comboId: 1, comboName: '1.2D+1.6L', value: 120 },

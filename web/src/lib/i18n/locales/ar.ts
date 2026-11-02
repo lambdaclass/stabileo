@@ -3622,6 +3622,7 @@ const ar: Translations = {
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
   'design.memo.shearSecondary': 'القص، المحور الثانوي',
+  'design.memo.slenderSecondary': 'النحافة، المحور الثانوي',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

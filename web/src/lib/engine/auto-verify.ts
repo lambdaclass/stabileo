@@ -270,12 +270,15 @@ export function autoVerifyFromResults(
       if (isVertical && secondary) stationGovCombos.shearSecondary = secondary;
     }
 
-    let M1: number | undefined, M2: number | undefined;
-    if (isVertical) {
-      const [mStart, mEnd] = onMy ? [ef.myStart, ef.myEnd] : [ef.mzStart, ef.mzEnd];
+    const endMoments = (mStart: number, mEnd: number) => {
       const [big, small] = Math.abs(mStart) >= Math.abs(mEnd) ? [mStart, mEnd] : [mEnd, mStart];
-      M2 = Math.abs(big);
-      M1 = Math.sign(mStart) === Math.sign(mEnd) ? Math.abs(small) : -Math.abs(small);
+      return { M2: Math.abs(big), M1: Math.sign(mStart) === Math.sign(mEnd) ? Math.abs(small) : -Math.abs(small) };
+    };
+    let M1: number | undefined, M2: number | undefined, M1Secondary: number | undefined, M2Secondary: number | undefined;
+    if (isVertical) {
+      const my = endMoments(ef.myStart, ef.myEnd), mz = endMoments(ef.mzStart, ef.mzEnd);
+      ({ M1, M2 } = onMy ? my : mz);
+      ({ M1: M1Secondary, M2: M2Secondary } = onMy ? mz : my);
     }
 
     let psiA: number | undefined, psiB: number | undefined;
@@ -295,9 +298,9 @@ export function autoVerifyFromResults(
       Mu: MuMax, Vu: VuMax, Nu: NuMax, NuShear, axialLoads, edition,
       b: bFlex, h: hFlex, fc, fy: rebarFy, cover: isVertical ? options?.columnCover ?? cover : cover, stirrupDia,
       Muy: isVertical ? MuySecondary : undefined,
-      VuSecondary: isVertical && VuSecondary > 0.01 ? VuSecondary : undefined,
+      VuSecondary: isVertical && !(VuSecondary <= 0.01) ? VuSecondary : undefined,
       Tu: TuMax > 0.001 ? TuMax : undefined,
-      Lu: isVertical ? L : undefined, M1, M2, psiA, psiB,
+      Lu: isVertical ? L : undefined, M1, M2, M1Secondary, M2Secondary, psiA, psiB,
     };
 
     // The TypeScript designs and checks; the engine re-checks what it settled on, and a pass the
