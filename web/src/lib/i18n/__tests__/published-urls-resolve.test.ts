@@ -61,6 +61,7 @@ import catalog from '../../../../../research/papers.json';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../../../components/research/locales';
 import { PAPER_LOCALES } from '../../../components/paper/locales';
+import { PUBLIC_LOCALES } from '../offered';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -218,6 +219,8 @@ describe('every published URL is served, not redirected', () => {
     expect(paper.sort()).toEqual(PAPER_LOCALES.map((l) => `${ORIGIN}/${l}/paper/`).sort());
     const declared = hreflangSet(readFileSync(join(DIST, 'en/paper/index.html'), 'utf8')).filter((l) => !l.startsWith('x-default '));
     expect(declared).toEqual(PAPER_LOCALES.map((l) => `${l} ${ORIGIN}/${l}/paper/`).sort());
+    const built = PUBLIC_LOCALES.filter((l) => existsSync(join(DIST, l, 'paper/index.html')));
+    expect(built).toEqual(PUBLIC_LOCALES.filter((l) => PAPER_LOCALES.includes(l)));
   });
 
   describe('research', () => {

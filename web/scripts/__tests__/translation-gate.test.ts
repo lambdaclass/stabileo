@@ -2,8 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { checkTranslations, englishFallbacks, formatFailures, segments } from '../translation-gate';
-import { i18n, registerFeatureDictionaries, setLocale, t } from '../../src/lib/i18n/store.svelte';
+import { checkTranslations, formatFailures, segments } from '../translation-gate';
 
 const ORIGIN = 'https://stabileo.com';
 const LOCALES = ['en', 'es'] as const;
@@ -128,30 +127,5 @@ describe('translation gate', () => {
 
   it('segments block text of four words or more, leaving out code and markup', () => {
     expect(segments('<div id="prerender"><p>One <strong>two</strong> three four</p><p>too short here</p><pre>let a = b + c + d</pre><li>a b c d e</li></div><div id="app">')).toEqual(['One two three four']);
-  });
-});
-
-describe('English fallbacks', () => {
-  it('records a key the page language lacks, and nothing for a key it has or a label that is no key', () => {
-    registerFeatureDictionaries({ en: { 'gate.only-in-english': 'Only in English' } });
-    const misses: string[] = [];
-    const before = i18n.locale;
-    (globalThis as { __i18nMisses?: string[] }).__i18nMisses = misses;
-    try {
-      setLocale('es');
-      expect(t('gate.only-in-english')).toBe('Only in English');
-      expect(t('R1')).toBe('R1');
-      t('lang.es');
-    } finally {
-      delete (globalThis as { __i18nMisses?: string[] }).__i18nMisses;
-      setLocale(before);
-    }
-    expect(misses).toEqual(['es gate.only-in-english']);
-    expect(englishFallbacks('es', misses)).toEqual(['gate.only-in-english']);
-  });
-
-  it('turns a page\'s misses into the keys its language fell back on', () => {
-    expect(englishFallbacks('es', ['es landing.b', 'es landing.a', 'es landing.a', 'de landing.c'])).toEqual(['landing.a', 'landing.b']);
-    expect(englishFallbacks('en', ['en landing.a'])).toEqual([]);
   });
 });

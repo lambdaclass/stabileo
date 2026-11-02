@@ -129,11 +129,8 @@ export function t(key: string): string {
 
 function lookup(key: string, locale: string): string {
 	void _revision;
-	const own = (dicts[locale] as any)?.[key];
-	if (own !== undefined) return own;
-	const english = (dicts.en as any)[key];
-	if (locale !== 'en' && english !== undefined) (globalThis as { __i18nMisses?: string[] }).__i18nMisses?.push(`${locale} ${key}`);
-	return english ?? key;
+	const dict = dicts[locale] ?? dicts.en;
+	return (dict as any)[key] ?? (dicts.en as any)[key] ?? key;
 }
 
 /**

@@ -2,9 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { routeKind } from '../lib/public-route';
 import { STANDING_PAGES } from '../lib/blog/pages';
-import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS } from '../components/research/locales';
+import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLocales } from '../components/research/locales';
 import { POSTS, writtenIn as writtenInContent } from '../lib/blog';
-import { publishedLocales } from '../lib/i18n/published';
+import { PUBLIC_LOCALES } from '../lib/i18n/offered';
+import { PAPER_LOCALES } from '../components/paper/locales';
 import { publicPaths, writtenIn } from '../../scripts/public-paths';
 import { SITE_NAV } from '../components/site/site-nav';
 
@@ -49,10 +50,11 @@ describe('merged public routes', () => {
     }
   });
   it('builds each page in exactly the languages it is written in', async () => {
-    for (const path of await publicPaths()) {
-      expect(writtenIn(path), path).toEqual([...publishedLocales(path)]);
-      expect(writtenIn(path), path).toContain('en');
-    }
+    const paths = await publicPaths();
+    for (const path of paths) expect(writtenIn(path), path).toContain('en');
+    for (const path of ['/', '/blog', '/tools', ...paths.filter((p) => p.startsWith('/tools/'))]) expect(writtenIn(path), path).toEqual([...PUBLIC_LOCALES]);
+    expect(writtenIn('/paper')).toEqual(PUBLIC_LOCALES.filter((l) => PAPER_LOCALES.includes(l)));
+    for (const path of [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS]) expect(writtenIn(path), path).toEqual(PUBLIC_LOCALES.filter((l) => researchLocales(path).includes(l)));
     for (const p of POSTS) expect(writtenIn(`/blog/${p.slug}`), p.slug).toEqual(writtenInContent(p.i18n));
     for (const page of STANDING_PAGES) expect(writtenIn(page.path), page.path).toEqual(writtenInContent(page.i18n));
   });

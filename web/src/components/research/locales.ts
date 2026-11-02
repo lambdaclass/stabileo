@@ -1,8 +1,8 @@
 import { EXPERIMENTS } from './experiments';
 import catalog from '../../../../research/papers.json';
-import { RESEARCH_GALLERY, isResearchRoute, researchLocales } from './published';
+import { RESEARCH_GALLERY, isResearchRoute, researchLocales } from '../../lib/i18n/research-routes';
 
-export { RESEARCH_GALLERY, isResearchRoute, researchLocales } from './published';
+export { RESEARCH_GALLERY, isResearchRoute, researchLocales } from '../../lib/i18n/research-routes';
 
 export const RESEARCH_PAPER_PATHS: readonly string[] = EXPERIMENTS.map((e) => e.path);
 

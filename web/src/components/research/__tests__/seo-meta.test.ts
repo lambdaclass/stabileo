@@ -6,7 +6,8 @@ import { EXPERIMENTS } from '../experiments';
 import { bibliography } from '../catalogue';
 import { RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../locales';
 import { galleryGraph, paperMeta, paperTitle } from '../meta';
-import { publishedLocale, publishedLocales } from '../../../lib/i18n/published';
+import { PAPER_PUBLISHED, publishedLocale, publishedLocales } from '../../../lib/i18n/published';
+import { PAPER_LOCALES } from '../../paper/locales';
 import { publicI18n, setLocale, type PublicLocale } from '../../../lib/i18n/store.svelte';
 
 const labels = { research: 'Research', researchTitle: 'Research in structural engineering' };
@@ -29,6 +30,11 @@ it('publishes every paper page, in English at least and never in a language with
   expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('en');
   expect(publishedLocale('/research/stability/ferrari-sigmund-2025', 'de')).toBe('en');
   expect(publishedLocale('/research/benchmarks/lee-frame-1968#edit', 'es')).toBe('es');
+});
+
+it('publishes /paper in the languages PaperPage declares', () => {
+  expect(PAPER_PUBLISHED).toEqual(PAPER_LOCALES);
+  expect(publishedLocales('/paper')).toEqual(PAPER_LOCALES);
 });
 
 it('dates each research page by its latest review, not by the build', () => {

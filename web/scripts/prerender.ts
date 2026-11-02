@@ -45,7 +45,6 @@ import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
-import { englishFallbacks } from './translation-gate';
 import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
 
@@ -219,7 +218,6 @@ async function newCapturePage(browser: Browser) {
     } catch {
       /* private mode */
     }
-    (window as { __i18nMisses?: string[] }).__i18nMisses = [];
   });
   return page;
 }
@@ -248,8 +246,7 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
     body: document.querySelector('#app')?.innerHTML ?? '',
   }));
   const lang = await page.evaluate(() => document.documentElement.lang);
-  const misses = await page.evaluate(() => (window as { __i18nMisses?: string[] }).__i18nMisses ?? []);
-  return { head, body, lang, href, misses };
+  return { head, body, lang, href };
 }
 
 /**
@@ -312,15 +309,13 @@ async function main() {
       () => newCapturePage(browser), p => p.close(),
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
-        const { head, body, lang, href, misses } = result;
+        const { head, body, lang, href } = result;
         if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(head, body, lang));
-        return { head, href, fallbacks: englishFallbacks(locale, misses) };
+        return { head, href };
       });
-    const fellBack = captures.filter((c) => c.fallbacks.length).map((c) => `${c.href}: ${c.fallbacks.join(', ')}`);
-    if (fellBack.length) console.error(`prerender: these pages drew strings in English because their language lacks the keys:\n  ${fellBack.join('\n  ')}`);
     // Pool results retain the original route order, including feed date ties.
     // The sitemap below likewise uses paths/locales, never completion order.
     for (const [index, { head, href }] of captures.entries()) {
