@@ -402,6 +402,20 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(doc.snapshot.elements).toHaveLength(3);
   });
 
+  test('a comment from the profile opens on top, with the profile closed', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true });
+    await page.getByTestId('usage-notice-ok').click();
+    await page.getByTestId('account-button').click();
+    await page.getByTestId('profile-feedback-open').click();
+
+    await expect(page.getByTestId('profile-feedback-open')).toHaveCount(0);
+    await page.getByTestId('feedback-kind').selectOption('bug');
+    await page.getByTestId('feedback-message').fill('El diálogo quedaba tapado');
+    await page.getByTestId('feedback-send').click();
+    await expect(page.getByTestId('feedback-msg')).toBeVisible();
+    expect(backend.feedback).toEqual([expect.objectContaining({ kind: 'bug', message: 'El diálogo quedaba tapado' })]);
+  });
+
   test('a comment from the contact menu reaches the inbox, asking for an account first', async ({ page }) => {
     const backend = await boot(page);
     await page.getByTestId('usage-notice-ok').click();

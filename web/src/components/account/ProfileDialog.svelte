@@ -62,6 +62,11 @@
     open = false;
   }
 
+  function openFeedback() {
+    close();
+    feedbackDialog.open = true;
+  }
+
   async function saveProfile(e: SubmitEvent) {
     e.preventDefault();
     if (saving) return;
@@ -290,7 +295,7 @@
         <h4 class="acc-section-head">{t('feedbackForm.section')}</h4>
         <p class="acc-hint">{t('feedbackForm.lede')}</p>
         <div class="acc-actions">
-          <button type="button" class="acc-btn" onclick={() => (feedbackDialog.open = true)} data-testid="profile-feedback-open">{t('feedbackForm.open')}</button>
+          <button type="button" class="acc-btn" onclick={openFeedback} data-testid="profile-feedback-open">{t('feedbackForm.open')}</button>
         </div>
       </section>
 
