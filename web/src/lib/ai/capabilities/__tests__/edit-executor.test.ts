@@ -267,6 +267,20 @@ describe('edit executor', () => {
     expect(loadsOf(forward).at(-1)!.data).toMatchObject({ qI: -8, qJ: -8 });
   });
 
+  it('a catalog profile change never reuses a same-named section whose properties were edited', () => {
+    const snap = makeFrame();
+    const sid = arr(snap, 'sections').length + 1;
+    arr(snap, 'sections').push([sid, { id: sid, name: 'HEB 400', a: 0.01, iz: 0.0001 }]);
+    const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, snap);
+    const used = new Set(arr(r, 'elements').map(([, e]) => e.sectionId));
+    expect(used.size).toBe(1);
+    const section = arr(r, 'sections').find(([id]) => used.has(id))![1];
+    expect(section).toMatchObject({ name: 'HEB 400', a: 198e-4, iz: 57680e-8 });
+    expect([...used][0]).not.toBe(sid);
+    const again = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, r);
+    expect(arr(again, 'sections')).toHaveLength(arr(r, 'sections').length);
+  });
+
   it('takes side as left or right only, in any case', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
     expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);

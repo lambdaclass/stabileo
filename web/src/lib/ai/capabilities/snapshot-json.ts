@@ -198,11 +198,20 @@ export function addSupportToSnap(snap: Json, nodeId: number, type: string): numb
   return id;
 }
 
+const close = (v: unknown, want: number): boolean => {
+  const x = asF64(v);
+  return x !== undefined && Math.abs(x - want) <= 0.01 * want;
+};
+
 export function ensureSection(snap: Json, name: string): number {
-  for (const s of asArray(snap.sections) ?? []) {
-    if (at(at(s, 1), 'name') === name) return asU64(at(s, 0)) ?? 1;
-  }
   const props = lookupSection(name);
+  for (const s of asArray(snap.sections) ?? []) {
+    const data = at(s, 1);
+    if (at(data, 'name') !== name) continue;
+    if (!props || (['a', 'iz', 'iy', 'j'] as const).every((k) => at(data, k) === undefined || close(at(data, k), props[k]))) {
+      return asU64(at(s, 0)) ?? 1;
+    }
+  }
   if (!props) throw new AiActionError(`Unknown section '${name}'`);
   const id = nextId(snap, 'section');
   arrayMut(snap, 'sections').push(sectionToJson(id, props));
