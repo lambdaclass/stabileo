@@ -214,16 +214,16 @@ pub struct SteelCheckResult {
     pub flexure_z_ratio: f64,
     /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied
     pub shear_ratio: f64,
-    /// Combined interaction ratio (AISC H1-1)
     /// Weak-axis shear ratio, AISC G4/G6 against `aw_weak`.
     #[serde(default)]
     pub shear_weak_ratio: f64,
+    /// Combined interaction ratio (AISC H1-1)
     pub interaction_ratio: f64,
     /// Available shear strength (phi*Vn), 0.0 when Aw was not supplied
     pub phi_vn: f64,
-    /// Available axial compression strength (phi*Pn)
     #[serde(default)]
     pub phi_vn_weak: f64,
+    /// Available axial compression strength (phi*Pn)
     pub phi_pn_compression: f64,
     /// Available axial tension strength (phi*Pn)
     pub phi_pn_tension: f64,
