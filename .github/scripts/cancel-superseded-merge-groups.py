@@ -29,26 +29,39 @@ def superseded(runs, queue_heads, own_sha):
             and run['head_sha'] not in queue_heads]
 
 
-def main():
-    repo = os.environ['GITHUB_REPOSITORY']
-    owner, name = repo.split('/')
+def queue_heads(repo, owner, name):
     data = json.loads(gh('api', 'graphql', '-f', f'query={QUERY}', '-f', f'owner={owner}', '-f', f'name={name}'))
     nodes = data['data']['repository']['mergeQueue']['entries']['nodes']
     refs = json.loads(gh('api', f'repos/{repo}/git/matching-refs/heads/gh-readonly-queue/main/'))
-    heads = live_heads(nodes, refs)
+    return live_heads(nodes, refs)
+
+
+def confirmed(runs, snapshots, own_sha):
+    if not snapshots or any(own_sha not in heads for heads in snapshots):
+        return []
+    return superseded(runs, set().union(*snapshots), own_sha)
+
+
+def main():
+    repo = os.environ['GITHUB_REPOSITORY']
+    owner, name = repo.split('/')
+    own_sha = os.environ['GITHUB_SHA']
+    before = queue_heads(repo, owner, name)
     runs = []
     for workflow in sys.argv[1:]:
         for status in ('queued', 'in_progress', 'waiting', 'pending', 'requested'):
             page = json.loads(gh('api', f'repos/{repo}/actions/workflows/{workflow}/runs?event=merge_group&status={status}&per_page=100'))
             runs += page['workflow_runs']
-    stale = superseded(runs, heads, os.environ['GITHUB_SHA'])
-    if not stale and os.environ['GITHUB_SHA'] not in heads:
+    after = queue_heads(repo, owner, name)
+    stale = set(confirmed(runs, [before, after], own_sha))
+    if stale:
+        stale &= set(confirmed(runs, [before, after, queue_heads(repo, owner, name)], own_sha))
+    elif own_sha not in before or own_sha not in after:
         print('this run is not in the merge queue; cancelling nothing')
-    for run_id in sorted(set(stale)):
+    for run_id in sorted(stale):
         print(f'cancel superseded merge_group run {run_id}')
         subprocess.run(['gh', 'run', 'cancel', str(run_id), '-R', repo], check=False)
     return 0
-
 
 if __name__ == '__main__':
     sys.exit(main())

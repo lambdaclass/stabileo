@@ -26,6 +26,16 @@ class CancelSuperseded(unittest.TestCase):
         runs = [run(1, 'entry'), run(2, 'group'), run(3, 'gone')]
         self.assertEqual(cancel.superseded(runs, heads, 'group'), [3])
 
+    def test_a_head_seen_in_any_snapshot_is_never_cancelled(self):
+        runs = [run(1, 'rebuilt'), run(2, 'gone'), run(3, 'own')]
+        self.assertEqual(cancel.confirmed(runs, [{'own'}, {'own', 'rebuilt'}], 'own'), [2])
+        self.assertEqual(cancel.confirmed(runs, [{'own', 'rebuilt'}, {'own'}, {'own'}], 'own'), [2])
+
+    def test_cancels_nothing_unless_every_snapshot_holds_its_own_head(self):
+        runs = [run(1, 'gone')]
+        self.assertEqual(cancel.confirmed(runs, [{'own'}, set()], 'own'), [])
+        self.assertEqual(cancel.confirmed(runs, [], 'own'), [])
+
     def test_cancels_nothing_when_its_own_head_is_not_queued(self):
         self.assertEqual(cancel.superseded([run(1, 'old')], set(), 'own'), [])
         self.assertEqual(cancel.superseded([run(1, 'old')], {'live'}, 'own'), [])
