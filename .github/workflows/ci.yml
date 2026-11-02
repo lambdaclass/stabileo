@@ -33,8 +33,8 @@ on:
   merge_group:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # A newer push to a PR makes its older run moot; every run on main is kept.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  # Only PR runs share a group: a third run in a shared group cancels the pending one, even without cancel-in-progress.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -49,28 +49,24 @@ env:
 # Every job installs the toolchain from flake.nix and runs a make target, so a
 # job that passes here passes on a developer's machine with the same command.
 #
-# Self-hosted runners (six on Stabileo's stabileo-ci-1, an AX102 running Arch Linux;
-# dotfiles servers/runners-stabileo.sh, labels `self-hosted`, `stabileo`): Lint Repo,
-# Lint Engine, both Engine Suite shards, Engine Metamorphic, WASM, Research WASM and Results Snapshot
-# run there when STABILEO_SELF_HOSTED is 'true', only for merge_group and pushes to main.
-# Every pull_request, including fork PRs, stays on GitHub; forks cannot trigger merge_group.
-# Each runner keeps its own CARGO_TARGET_DIR; checkout explicitly cleans each job's workspace.
-# Nix is already installed on the host. Tools come from the flake; self-hosted jobs skip the
-# installer, rust-cache, magic-nix-cache (runner users are not trusted Nix users) and free-disk.
-# Engine Gates and both Web Unit shards stay on GitHub: their timing budgets have failed
-# beside other busy jobs on the shared host. Research validation and route budgets stay there too.
-# Web Build, E2E Site, all ten E2E shards and e2e-flaky use the same trusted
-# event/variable gate below. Their Linux e2e shell supplies pinned Rust and Playwright
-# browsers, libraries and fallback fonts; no browser downloads, apt or sudo on the Arch host.
-# Chromium and Firefox passed the Linux host preflight; Nix WebKit did not start.
-# Determinism stays on GitHub to check Chromium, Firefox and WebKit.
-# Run scripts/ci/check-playwright-nix.sh on the host before enabling the variable.
-# Docker build smoke stays on GitHub because Docker is not guaranteed on stabileo-ci-1.
-# Other jobs remain on GitHub. Unset or 'false', the variable sends every job to GitHub.
+# Self-hosted runners on stabileo-ci-1 (dotfiles servers/runners-stabileo.sh). With
+# STABILEO_SELF_HOSTED 'true', every job that builds or tests runs on `[self-hosted, stabileo]`
+# for merge_group and pushes to main and, with STABILEO_PR_POOL 'true' too, on
+# `[self-hosted, stabileo-pr]` for pull requests from this repository's own branches; only part of
+# the pool carries `stabileo-pr`, so pull requests never take every runner from the merge queue.
+# Fork and Dependabot pull requests stay on GitHub: the repo is public, and their code must never
+# reach a persistent runner. Engine Gates, Web Unit and the research engine benchmarks time
+# themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
+# to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
+# On GitHub always: Detect Changes, CI OK and the rust/npm aggregates (no build work; a full host
+# must not delay them), Determinism (Nix WebKit does not start on the host) and Docker build
+# smoke (no Docker for runner users). Self-hosted jobs skip the Nix installer, rust-cache,
+# magic-nix-cache and free-disk; each runner keeps its own CARGO_TARGET_DIR.
 jobs:
   changes:
     name: Detect Changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
@@ -162,6 +158,8 @@ jobs:
               - '.github/workflows/research.yml'
               - 'scripts/nightly-*.py'
               - '.github/workflows/nightly.yml'
+              - '.github/workflows/supply-chain.yml'
+              - '.github/workflows/merge-queue-supersede.yml'
               - 'scripts/tests/**'
               - 'scripts/ci/**'
               - 'Makefile'
@@ -206,7 +204,7 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -237,7 +235,8 @@ jobs:
 
   test-ci-scripts:
     name: Test CI Scripts
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.ci_scripts == 'true'
     steps:
@@ -259,15 +258,12 @@ jobs:
           .github/scripts/retry-infra.sh nix develop --command true
       - name: Shellcheck
         run: make test.ci-scripts
-      # Pull requests never run on the self-hosted runners, so the merge queue's browser shell
-      # (.#e2e: Playwright browsers from nix, version-locked to package-lock) is checked here on
-      # a GitHub-hosted runner whenever the tooling it depends on changes.
       - name: Browser shell (.#e2e) launches Chromium and Firefox
         run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
 
   lint-engine:
     name: Lint Engine
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -302,12 +298,9 @@ jobs:
   # Named correctness gates. Every gate's tests are EXCLUDED from the suite
   # job below — each test must run exactly once per CI run. The make targets
   # (test.engine.gates / test.engine.suite) keep the two in step.
-  #
-  # GitHub's runners even when STABILEO_SELF_HOSTED is on: its perf gates time the solver, and
-  # next to five busy jobs on stabileo-ci-1 they ran over budget (scale_3d_assembly_sub_cubic).
   test-engine-gates:
     name: Engine Gates
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -339,15 +332,15 @@ jobs:
         run: make test.engine.gates
 
   test-engine-suite:
-    name: Engine Suite (${{ matrix.shard }}/2)
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    name: Engine Suite (${{ matrix.shard }}/4)
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -374,14 +367,14 @@ jobs:
       - name: Fetch Rust dependencies
         run: .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked
       - name: Test suite
-        run: make test.engine.suite SHARD=${{ matrix.shard }}/2
+        run: make test.engine.suite SHARD=${{ matrix.shard }}/4
         timeout-minutes: 25
 
   # Metamorphic tests, sampled tier (docs/verification/METAMORPHIC.md), in release:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -416,7 +409,7 @@ jobs:
 
   test-ai-backend:
     name: Test AI Backend
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.ai_backend == 'true'
@@ -449,7 +442,8 @@ jobs:
 
   lint-backend:
     name: Lint Backend
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
     steps:
@@ -486,7 +480,8 @@ jobs:
 
   test-backend:
     name: Test Backend
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
     steps:
@@ -516,14 +511,23 @@ jobs:
           key: ${{ runner.os }}-mix-${{ env.MIX_ENV }}-${{ hashFiles('backend/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-${{ env.MIX_ENV }}-
+      - name: A PostgreSQL port of this runner's own
+        if: runner.environment == 'self-hosted'
+        run: |
+          n=${RUNNER_NAME##*[!0-9]}
+          echo "PGPORT=$((5460 + ${n:-0}))" >> "$GITHUB_ENV"
       - name: Start PostgreSQL and set up the database
         run: make setup
       - name: Run tests
         run: make test.backend
+      - name: Stop PostgreSQL
+        if: always() && runner.environment == 'self-hosted'
+        run: make services.stop
 
   check-migrations-immutable:
     name: Check Migrations Immutable
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 10
     needs: [changes]
     if: needs.changes.outputs.backend == 'true' && github.event_name == 'pull_request'
     steps:
@@ -536,7 +540,8 @@ jobs:
 
   check-migrations:
     name: Check Migration Safety
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
     steps:
@@ -596,7 +601,7 @@ jobs:
   # Vite would substitute a stub solver; the e2e readiness gate fails loudly if that happens.
   wasm:
     name: WASM
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
@@ -641,7 +646,7 @@ jobs:
   # test runs the real simulation.
   research-wasm:
     name: Research WASM
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 60  # ~15 research crates since 2026-10-29 on GitHub runners; cached build in PR #866
     needs: [changes]
     if: needs.changes.outputs.web == 'true'
@@ -732,7 +737,7 @@ jobs:
   # says so, and playwright.config.ts refuses a prebuilt dist without it.
   site-e2e:
     name: E2E Site
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web == 'true'
@@ -810,21 +815,19 @@ jobs:
           retention-days: 3
           if-no-files-found: error
 
-  # The unit pass needs the WASM engine and nothing else, so it shards two ways;
+  # The unit pass needs the WASM engine and nothing else, so it shards four ways;
   # the production-build tests need Chromium and the built app, so they stay
   # with the build.
-  # GitHub's runners even when STABILEO_SELF_HOSTED is on: its budget tests time the app's
-  # calculations, and next to five busy jobs on stabileo-ci-1 they ran over (scale-budget 2622 ms
-  # against 1500).
   web-unit:
-    name: Web Unit (${{ matrix.shard }}/2)
-    runs-on: ubuntu-24.04
+    name: Web Unit (${{ matrix.shard }}/4)
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 30
     needs: [changes, wasm]
     if: needs.changes.outputs.web == 'true'
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -859,11 +862,12 @@ jobs:
       - name: Unit + integration tests
         env:
           UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
-        run: make test.web.unit SHARD=${{ matrix.shard }}/2
+        run: make test.web.unit SHARD=${{ matrix.shard }}/4
 
   web-build:
     name: Web Build
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 45
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web_build == 'true'
     steps:
@@ -970,7 +974,7 @@ jobs:
   # result-changes.json and a "BREAKING (results)" changelog fragment).
   results-snapshot:
     name: Results Snapshot
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes, wasm]
     if: needs.changes.outputs.results == 'true'
@@ -1100,7 +1104,8 @@ jobs:
   # and up to 55 in the queue, so the queue's critical path was one shard.
   e2e:
     name: E2E (${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }})
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 45
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.web == 'true'
     env:
@@ -1240,7 +1245,7 @@ jobs:
   e2e-flaky:
     needs: [changes, wasm, site-e2e]
     if: needs.changes.outputs.flaky == 'true'
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.event_name == 'push' && github.ref == 'refs/heads/main'))) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 45
     env:
       E2E_PREBUILT: '1'
@@ -1336,6 +1341,7 @@ jobs:
   ci-ok:
     name: CI OK
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     if: always()
     needs:
       - changes
@@ -1375,6 +1381,7 @@ jobs:
     needs: ci-ok
     if: always()
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - env:
           RESULT: ${{ needs.ci-ok.result }}
@@ -1385,6 +1392,7 @@ jobs:
     needs: ci-ok
     if: always()
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - env:
           RESULT: ${{ needs.ci-ok.result }}

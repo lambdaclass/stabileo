@@ -1,0 +1,24 @@
+name: Merge queue supersede
+
+on:
+  merge_group:
+
+permissions: {}
+
+jobs:
+  cancel:
+    name: Cancel superseded merge-group runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I .github/scripts/cancel-superseded-merge-groups.py ci.yml supply-chain.yml

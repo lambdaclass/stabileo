@@ -34,7 +34,7 @@ POSTGRES_DIR = $(DATA_DIR)/postgres
 INST_REGISTRY = $(DATA_DIR)/instances
 
 # Not the default 5432 (nor scasaas's 5442), so this runs next to other projects' servers.
-PG_PORT = 5452
+PG_PORT = $(or $(PGPORT),5452)
 DB_USER = postgres
 
 SUBMAKE = $(MAKE) --no-print-directory
@@ -80,10 +80,10 @@ help:
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
-	@echo "  make test.engine.suite [SHARD=1/2] - Every engine test outside the gates"
+	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
-	@echo "  make test.web.unit [SHARD=1/2] - Vitest unit pass"
+	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
 	@echo "  make test.web.build       - Production build + build-pass tests"
 	@echo "  make test.web.determinism - WASM results bit-identical across Node and three browsers"
 	@echo "  make e2e.web.build        - The VITE_E2E=1 site the e2e suites run on with E2E_PREBUILT=1"
@@ -354,8 +354,10 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_cancel_superseded.py
+	python3 -B -I scripts/tests/test_ci_runners.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

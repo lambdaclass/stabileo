@@ -27,7 +27,7 @@ assert '.github/workflows/research.yml' in filters['ci_scripts']
 assert 'actionlint .github/workflows/ci.yml .github/workflows/research.yml' in (root / 'Makefile').read_text()
 assert 'pkgs.actionlint' in (root / 'flake.nix').read_text()
 for job in research['jobs'].values():
-    assert job['runs-on'] == 'ubuntu-24.04'
+    assert job['runs-on'] == 'ubuntu-24.04' or job['runs-on'].endswith("|| 'ubuntu-24.04' }}")
 assert {'phasefield', 'catalog', 'isolation', 'route-size'} <= research['jobs'].keys()
 # Network checks never run inside the required CI OK (the caller's workflow name is CI there).
 assert workflow['name'] == 'CI'
@@ -110,7 +110,7 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"] == "ubuntu-24.04" and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
+assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 
 assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}

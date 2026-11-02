@@ -27,7 +27,7 @@ on:
     - cron: '17 6 * * 1'
 
 concurrency:
-  group: ${{ github.workflow }}-research-${{ github.ref }}
+  group: ${{ github.workflow }}-research-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -40,7 +40,8 @@ jobs:
   isolation:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Research isolation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -57,7 +58,7 @@ jobs:
   route-size:
     if: github.workflow != 'Research' || github.event_name != 'pull_request'
     name: Landing and app route byte budgets
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -110,7 +111,8 @@ jobs:
   catalog:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Research catalog
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -132,7 +134,8 @@ jobs:
   catalog-online:
     name: Research catalog (Crossref, licenses)
     if: github.workflow == 'Research'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -151,7 +154,7 @@ jobs:
   phasefield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Phase-field (Shauer 2025) validation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     defaults:
       run:
@@ -185,13 +188,14 @@ jobs:
   topopt:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Topology optimization (Andreassen 2011)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
       - run: nix develop -c cargo test --release --locked --manifest-path research/optimization/andreassen-2011/Cargo.toml
       - run: nix develop -c cargo test --release --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
       - run: nix develop -c node --test research/optimization/andreassen-2011/wasm/check.test.mjs
@@ -201,7 +205,7 @@ jobs:
   engine-benchmarks:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Production engine benchmarks (native and WASM)
-    runs-on: ubuntu-24.04
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -248,7 +252,7 @@ jobs:
   springs:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Spring networks (Grossman 2026) validation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     defaults:
       run:
@@ -298,7 +302,7 @@ jobs:
   koiter:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Roorda frame (Ferrari and Sigmund 2025) groundwork
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     defaults:
       run:
@@ -316,7 +320,7 @@ jobs:
   form-finding:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Four-cable FDM (Pastrana 2026) validation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -328,7 +332,7 @@ jobs:
   arches:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Curvature-patterned arches validation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -340,18 +344,19 @@ jobs:
   fairclough:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Five-node gridshell (Fairclough 2026) validation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
   riks-crisfield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -346,7 +346,7 @@ jobs:
   fuzz:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' fuzz ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_NIGHTLY_POOL == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 180
     strategy:
       fail-fast: false

@@ -13,12 +13,16 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
   contents: read
 
 jobs:
   rust:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -27,6 +31,8 @@ jobs:
       - uses: taiki-e/install-action@8cca0918f8471c33515202b73f56ab27f2bed283 # v2.87.29
         with:
           tool: cargo-deny@0.20.2,cargo-audit@0.22.2
+      - name: Toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
       # Advisories, licences, banned/duplicate crates and allowed sources,
       # per deny.toml.
       - name: cargo deny
@@ -56,7 +62,7 @@ jobs:
           cargo audit --deny warnings --file research/metamaterials/grossman-2026/wasm/Cargo.lock
 
   npm:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 10
     defaults:
       run:

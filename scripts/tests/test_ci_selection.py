@@ -159,7 +159,7 @@ class Selection(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         unit = workflow.split('  web-unit:', 1)[1].split('  web-build:', 1)[0]
         self.assertIn("if: needs.changes.outputs.web == 'true'", unit)
-        self.assertIn('shard: [1, 2]', unit)
+        self.assertIn('shard: [1, 2, 3, 4]', unit)
         build = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
         self.assertIn('run: make typecheck.web', build)
         self.assertEqual(workflow.count('run: make typecheck.web'), 1)
