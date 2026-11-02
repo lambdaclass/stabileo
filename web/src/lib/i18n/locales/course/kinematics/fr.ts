@@ -122,7 +122,7 @@ const words: Translations = {
   'course.kinematics.dsm.rigid.label': 'Barres axialement rigides',
   'course.kinematics.dsm.rigid.help': 'Les barres fléchies gardent leur longueur, comme dans le calcul à la main. Certaines translations cessent d’être indépendantes : elles s’écrivent en fonction des autres avec u_f = u⁰ + T·q, le système se réduit à K* = Tᵀ·K_ff·T et les efforts normaux viennent de l’équilibre des nœuds. Les bielles restent extensibles. Cela change peu dans un portique courant et nettement plus dans les structures hautes, les arcs ou les barres très élancées.',
   'course.kinematics.dsm.rigid.on': 'Barres axialement rigides : le système se résout avec {q} inconnues indépendantes au lieu de {f}.',
-  'course.kinematics.dsm.rigid.mechanism': 'Avec des barres axialement rigides la structure serait un mécanisme : la réduction à des barres rigides n\'est donc pas possible. Les étapes affichées gardent la rigidité axiale des barres : c\'est un autre modèle, pas une correction du mécanisme.',
+  'course.kinematics.dsm.rigid.mechanism': 'La réduction à des barres axialement rigides n\'a pas pu être résolue : la rigidité réduite est singulière, ou aucun jeu d\'efforts normaux n\'équilibre les nœuds. Les étapes affichées gardent la rigidité axiale des barres, c\'est un autre modèle.',
   'course.kinematics.dsm.rigid.conditions': 'Chaque barre fléchie garde sa longueur, à son allongement thermique près : (u_j − u_i)·e = α·ΔT·L (nul sans température). Les déplacements des appuis étant connus, ces conditions laissent {q} déplacements indépendants q ; les {d} autres en dépendent.',
   'course.kinematics.dsm.rigid.conditionsCaption': 'Conditions de longueur constante',
   'course.kinematics.dsm.rigid.dependent': 'Déplacements dépendants',

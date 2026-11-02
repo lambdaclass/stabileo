@@ -202,7 +202,7 @@ export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = 
   const final: StateResult = { bars: finalBars, reactions: finalReactions };
 
   const dsmState = stateOf(solveState(input), input.loads);
-  const rigidOk = withAxial ? undefined : rigidReferenceAgrees(input, final);
+  const rigidOk = withAxial || kept.size ? undefined : rigidReferenceAgrees(input, final, biela);
   return {
     count, isostatic: false, redundants, original, primary: geometryOf(p0.input),
     states: [stateOf(s0, p0.input.loads), ...unit.map((u) => stateOf(u, []))],
@@ -212,13 +212,16 @@ export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = 
   };
 }
 
-/** The stiffness method on the same structure with its frame members' areas × 10⁶: what leaving the axial term out should give. */
-function rigidReferenceAgrees(input: SolverInput, final: StateResult): boolean {
+/**
+ * The stiffness method on the same structure with the areas of the members that lose their axial term × 10⁶ (bielas keep
+ * theirs): what leaving the axial term out should give. Not defined when some redundants keep it.
+ */
+function rigidReferenceAgrees(input: SolverInput, final: StateResult, biela: ReadonlySet<number>): boolean {
   const sections = new Map(input.sections);
   const elements = new Map(input.elements);
   let next = Math.max(0, ...sections.keys()) + 1;
   for (const [id, e] of input.elements) {
-    if (e.type !== 'frame') continue;
+    if (e.type !== 'frame' || biela.has(id)) continue;
     const sec = input.sections.get(e.sectionId);
     if (!sec) return false;
     sections.set(next, { ...sec, id: next, a: sec.a * 1e6 });

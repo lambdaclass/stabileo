@@ -33,7 +33,7 @@ const words: Translations = {
 
   // Kuvvet yöntemi
   'course.statics.fm.axial.label': 'Eksenel şekil değiştirmeyi dahil et',
-  'course.statics.fm.axial.help': 'Her katsayıya çerçeve çubuklarının ∫ nᵢ·nⱼ/EA dx terimini ekler. Sıradan kiriş ve çerçevelerde katkısı küçüktür ve ders çözümü bunu ihmal eder. Gergi çubuklarında, kemerlerde (neredeyse yalnızca basınç altında çalışırlar), eksenel kuvveti büyük kolonlarda ve çaprazlı yapılarda önemlidir. Pandül çubuklar bu terimi her durumda korur: şekil değiştirmelerinin tek yolu budur. Kapatırsanız 9. adım yine de bu terimi içeren rijitlik yöntemiyle karşılaştırır ve farkı gösterir.',
+  'course.statics.fm.axial.help': 'Her katsayıya çerçeve çubuklarının ∫ nᵢ·nⱼ/EA dx terimini ekler. Sıradan kiriş ve çerçevelerde katkısı küçüktür ve ders çözümü bunu ihmal eder. Gergi çubuklarında, kemerlerde (yalnızca basınç çizgisine yakın yüklerde ağırlıklı olarak basınçla çalışırlar; simetrik olmayan veya tekil yükler belirgin eğilme de oluşturur), eksenel kuvveti büyük kolonlarda ve çaprazlı yapılarda önemlidir. Pandül çubuklar bu terimi her durumda korur: şekil değiştirmelerinin tek yolu budur. Kapatırsanız 9. adım yine de bu terimi içeren rijitlik yöntemiyle karşılaştırır ve farkı gösterir.',
   'course.statics.fm.fund.summaryAuto': 'Esas sistem: otomatik seçildi',
   'course.statics.fm.fund.summaryMine': 'Esas sistem: sizin seçiminiz',
   'course.statics.fm.fund.change': 'Değiştir',
@@ -78,6 +78,7 @@ const words: Translations = {
   'course.statics.vw.target.dispAngle': '{n} düğümünün yataydan {a}° açılı doğrultudaki yer değiştirmesi; birim yükün yönünde ölçülür.',
   'course.statics.vw.target.rot': '{n} düğümünün dönmesi; saat yönünün tersi pozitif.',
   'course.statics.vw.target.relDispLine': '{n} ile {m} arasında, onları birleştiren doğru boyunca göreli yer değiştirme: birbirlerinden uzaklaşıyorlarsa pozitif.',
+  'course.statics.vw.err.coincident': '{n} ve {m} aynı noktada: aralarında doğru yok. Bir doğrultu seçin (x, z veya bir açı).',
   'course.statics.vw.target.relDispX': '{n} ile {m} arasındaki yatay göreli yer değiştirme: {m} düğümününki eksi {n} düğümününki, sağa doğru pozitif.',
   'course.statics.vw.target.relDispZ': '{n} ile {m} arasındaki düşey göreli yer değiştirme: {m} düğümününki eksi {n} düğümününki, aşağı doğru pozitif.',
   'course.statics.vw.target.relDispAngle': '{n} ile {m} arasında, yataydan {a}° açılı doğrultudaki göreli yer değiştirme: {m} düğümününki eksi {n} düğümününki.',

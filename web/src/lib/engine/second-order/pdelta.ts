@@ -12,9 +12,9 @@
 import type { SolverInput, AnalysisResults, ElementForces } from '../types';
 import type { Txt } from '../steps/doc';
 import { solveDense } from '../steps/sway-modes';
-import { assemble, buildSystem, elasticAxial, localDisplacements, memberDofs, type SecondOrderOptions, type SoSystem } from './system';
+import { assemble, buildSystem, condensedLoads, memberLocals, elasticAxial, loadVector, localDisplacements, memberDofs, type SecondOrderOptions, type SoSystem } from './system';
 import { congruent, matMul, matVec, negativeEigenvalues, norm2, transpose, type Mat } from './dense';
-import { memberStiffness, rotation, type GeomMethod } from './member-matrices';
+import { rotation, type GeomMethod } from './member-matrices';
 import { clampedModesBelow } from './stability-functions';
 
 export interface State {
@@ -54,12 +54,15 @@ export const PDELTA_TOL = 1e-4;
 
 /** One solve of K(N)·D = F over the unknowns, and the axial forces the result implies. */
 export function solveState(sys: SoSystem, N: Map<number, number>, method: GeomMethod): State | null {
-  const { K } = assemble(sys, N, method);
   const f = sys.free;
+  const settled = [...sys.prescribed].filter(([, v]) => v !== 0);
+  const { K } = assemble(sys, N, method, f, [...f, ...settled.map(([d]) => d)]);
   const D = new Array(sys.nTotal).fill(0);
   for (const [d, v] of sys.prescribed) D[d] = v;
-  const rhs = f.map((i) => sys.F[i] - [...sys.prescribed].reduce((s, [d, v]) => s + K[i][d] * v, 0));
-  const Kff = f.map((i) => f.map((j) => K[i][j]));
+  const F = loadVector(sys, N, method);
+  if (f.some((i) => !Number.isFinite(F[i]))) return null;
+  const rhs = f.map((i, r) => F[i] - settled.reduce((s, [, v], k) => s + K[r][f.length + k] * v, 0));
+  const Kff = K.map((row) => row.slice(0, f.length));
   if (!sys.rigid) {
     const x = solveDense(Kff, rhs);
     if (!x || x.some((v) => !Number.isFinite(v))) return null;
@@ -79,8 +82,7 @@ export function solveState(sys: SoSystem, N: Map<number, number>, method: GeomMe
 
 /** The reduced K(N) the iteration solves with: over the free DOFs, and over Tq with rigid members. */
 export function reducedStiffness(sys: SoSystem, N: Map<number, number>, method: GeomMethod): Mat {
-  const { K } = assemble(sys, N, method);
-  const Kff = sys.free.map((i) => sys.free.map((j) => K[i][j]));
+  const Kff = assemble(sys, N, method, sys.free).K;
   return sys.rigid ? congruent(Kff, sys.rigid.T) : Kff;
 }
 
@@ -128,17 +130,16 @@ export function teachingPDelta(input: SolverInput, opts: SecondOrderOptions): { 
 }
 
 /**
- * A member's end forces in its own axes, f = K(N)·d − p (p its equivalent loads, condensed elastically as in the load vector):
+ * A member's end forces in its own axes, f = K(N)·d − p (p its equivalent loads under the same N, condensed as in the load vector):
  * the forces the nodes apply to it. With rigid members the axial ones come from N.
  */
 export function memberEndForces(sys: SoSystem, state: State, method: GeomMethod, N: Map<number, number>): Map<number, number[]> {
-  const { local } = assemble(sys, N, method);
+  const local = memberLocals(sys, N, method);
   const out = new Map<number, number[]>();
   for (const m of sys.members) {
     const ms = local.get(m.id)!;
     const d = localDisplacements(sys, m, state.D);
-    const p = sys.memberLoads.get(m.id) ?? [0, 0, 0, 0, 0, 0];
-    const pc = transpose(memberStiffness(m, 0, 'none').T).map((r) => r.reduce((s, v, j) => s + v * p[j], 0));
+    const pc = condensedLoads(sys, m, N.get(m.id) ?? 0, method) ?? [0, 0, 0, 0, 0, 0];
     const f = ms.k.map((r, i) => r.reduce((s, v, j) => s + v * d[j], 0) - pc[i]);
     if (sys.rigid) { const n = state.N.get(m.id) ?? 0; f[0] -= n; f[3] += n; }
     out.set(m.id, f);

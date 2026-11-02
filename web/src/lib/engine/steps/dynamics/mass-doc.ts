@@ -40,9 +40,11 @@ export function massApplies(ctx: MethodContext): Applicability {
   }
 }
 
-function rows(ctx: MethodContext, ns: number[], engineAt?: EngineAt): ConvergenceRow[] {
+interface Sweep { table: ConvergenceRow[]; skipped: Array<{ n: number; code: SystemError['code'] }>; cut: boolean }
+
+function rows(ctx: MethodContext, ns: number[], engineAt?: EngineAt): Sweep {
   const points = ctx.model!.massSource?.points ?? [];
-  const out: ConvergenceRow[] = [];
+  const out: Sweep = { table: [], skipped: [], cut: false };
   for (const n of ns) {
     try {
       const f = {} as Record<MassModel, number[]>, dofs = {} as Record<MassModel, number>;
@@ -51,10 +53,11 @@ function rows(ctx: MethodContext, ns: number[], engineAt?: EngineAt): Convergenc
         f[mm] = r.f; dofs[mm] = r.dofs;
       }
       const e = engineAt?.(n) ?? null;
-      out.push({ n, f, dofs, ...(e ? { engine: e.slice(0, MODES) } : {}) });
+      out.table.push({ n, f, dofs, ...(e ? { engine: e.slice(0, MODES) } : {}) });
     } catch (e) {
-      if (e instanceof SystemError && e.code === 'tooBig') break;
-      throw e;
+      if (!(e instanceof SystemError)) throw e;
+      if (e.code === 'tooBig') { out.cut = true; break; }
+      out.skipped.push({ n, code: e.code });
     }
   }
   return out;
@@ -148,7 +151,8 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   });
 
   const ns = [...new Set([1, 2, 4, 8, n])].sort((a, b) => a - b);
-  const table = rows(ctx, ns, engineAt);
+  const sweep = rows(ctx, ns, engineAt);
+  const table = sweep.table;
   const ref = exact?.modes[0]?.f ?? table[table.length - 1]?.f.consistent[0];
   const err = (f: number) => (ref ? `${numText(((f - ref) / ref) * 100, 3)} %` : '—');
   const convRows = table.map((r) => [r.n, r.dofs.lumped, r.f.lumped[0], err(r.f.lumped[0]), r.f.consistent[0], err(r.f.consistent[0]), r.f.guyan[0], err(r.f.guyan[0]), ...(r.engine ? [r.engine[0]] : [])]);
@@ -162,7 +166,8 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
       { kind: 'plot', plot: plotOf('n', 'f₁ (Hz)', [...series, ...(exact && ref ? [{ points: [[ns[0], ref], [ns[ns.length - 1], ref]] as Array<[number, number]>, color: 'muted' as const, dashed: true, label: dt('mass.col.exact') }] : [])]), caption: dt('mass.conv.plotCaption') },
       ...(ref && exact ? [p('mass.conv.exactLine', { f: numText(ref, 4) })] : []),
       p('mass.conv.why', undefined, true),
-      ...(table.length < ns.length ? [note('info', 'mass.conv.cut', { n: table[table.length - 1]?.n ?? 1 })] : []),
+      ...sweep.skipped.flatMap((x) => [note('info', 'mass.conv.skip', { n: x.n }), note('info', `mdof.err.${x.code}`)]),
+      ...(sweep.cut ? [note('info', 'mass.conv.cut', { n: table[table.length - 1]?.n ?? 1 })] : []),
     ],
   });
 

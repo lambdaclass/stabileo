@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { releasedSupport } from '../../steps/influence-figs';
+import type { SketchSupport } from '../../steps/sketch';
 
 describe('Müller–Breslau releases only the target reaction', () => {
   it('a pin keeps the other translation', () => {
@@ -20,4 +21,20 @@ describe('Müller–Breslau releases only the target reaction', () => {
     expect(releasedSupport('roller', 'Rz')).toBeNull();
     expect(releasedSupport('rollerV', 'Rx')).toBeNull();
   });
+});
+
+describe('each release keeps exactly the other restraints, as the figure draws them', () => {
+  const holds: Record<Exclude<SketchSupport, 'spring'>, string[]> = {
+    fixed: ['Rx', 'Rz', 'My'], pinned: ['Rx', 'Rz'], roller: ['Rz'], rollerV: ['Rx'],
+    guided: ['Rx', 'My'], guidedV: ['Rz', 'My'], rotationOnly: ['My'],
+  };
+  for (const [type, kept] of Object.entries(holds) as Array<[Exclude<SketchSupport, 'spring'>, string[]]>) {
+    for (const c of kept) {
+      it(`${type} without ${c}`, () => {
+        const left = kept.filter((k) => k !== c).sort();
+        const got = releasedSupport(type, c);
+        expect(got === null ? [] : [...holds[got as keyof typeof holds]].sort()).toEqual(left);
+      });
+    }
+  }
 });

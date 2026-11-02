@@ -183,6 +183,31 @@ describe('hand-checked cases', () => {
     againstEngine(input);
   });
 
+  it('a member released at one end under span load and settlement: the written formula, as substituted, gives the result', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0), c = modelStore.addNode(12, 0);
+    const e1 = modelStore.addElement(a, b), e2 = modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed'); const sb = modelStore.addSupport(b, 'rollerX'); modelStore.addSupport(c, 'rollerX');
+    modelStore.updateSupport(sb, { dz: -0.01 });
+    modelStore.addDistributedLoad(e1, -12, -12); modelStore.addDistributedLoad(e2, -12, -12);
+    const doc = build(ctxOf(modelStore.buildSolverInput(false)!));
+    const all = (bs: Block[]): Block[] => bs.flatMap((x) => (x.kind === 'sub' ? [x, ...all(x.blocks)] : [x]));
+    const calcs = all(doc.steps.flatMap((st) => st.blocks)).filter((x): x is Extract<Block, { kind: 'calc' }> => x.kind === 'calc' && isTxt(x.label) && x.label.key.endsWith('state.memberThree'));
+    expect(calcs.length).toBeGreaterThan(0);
+    const value = (tex: string) => Function(`return ${tex
+      .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '(($1)/($2))')
+      .replace(/\\cdot 10\^\{(-?\d+)\}/g, '*1e$1').replace(/(^|[^\d.])10\^\{(-?\d+)\}/g, '$11e$2')
+      .replace(/\\cdot/g, '*').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')};`)() as number;
+    let carried = 0;
+    for (const x of calcs) {
+      const rhs = x.subst!.split('=')[1];
+      if (x.formula.includes('\\frac{M_{')) carried++;
+      const res = x.result.match(/= (.*)\\ /)![1];
+      expect(value(rhs)).toBeCloseTo(value(res), 1);
+      expect(Math.abs(value(rhs) - value(res))).toBeLessThan(2e-3 * Math.max(1, Math.abs(value(res))));
+    }
+    expect(carried).toBeGreaterThan(0);
+  });
+
   it('temperature in estado 0: a gradient bends, a uniform rise stretches (rigid members take it as an imposed elongation)', () => {
     const p = portal();
     modelStore.addThermalLoad(p.beam, 30, 10);

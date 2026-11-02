@@ -26,6 +26,7 @@ export function runInfluence(q: InfluenceQuantity, node: number | undefined, ele
   const result = run(uiStore.ilDirection);
   influenceTool.envelope = null;
   if (typeof result === 'string') {
+    resultsStore.setInfluenceLine(null);
     uiStore.toast(result, 'error');
     return false;
   }
@@ -83,12 +84,10 @@ export function setInfluenceQuantity(q: InfluenceQuantity): void {
   const il = resultsStore.influenceLine;
   if (!il || il.quantity === q) return;
   const family = familyOf(q);
-  let ok: boolean;
-  if (family === 'reaction' && il.targetNodeId !== undefined) ok = runInfluence(q, il.targetNodeId, undefined, 0.5, true);
-  else if (family !== 'reaction' && il.targetElementId !== undefined) ok = runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);
-  else if (family === 'displacement' && il.targetNodeId !== undefined) ok = runInfluence(q, il.targetNodeId, undefined, 0.5, true);
-  else { resultsStore.setInfluenceLine(null); uiStore.toast(t('viewport.ilClickHint'), 'info'); return; }
-  if (!ok) resultsStore.setInfluenceLine(null);
+  if (family === 'reaction' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
+  else if (family !== 'reaction' && il.targetElementId !== undefined) runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);
+  else if (family === 'displacement' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
+  else { resultsStore.setInfluenceLine(null); uiStore.toast(t('viewport.ilClickHint'), 'info'); }
 }
 
 /**

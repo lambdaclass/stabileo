@@ -122,7 +122,7 @@ const words: Translations = {
   'course.kinematics.dsm.rigid.label': 'Eksenel rijit çubuklar',
   'course.kinematics.dsm.rigid.help': 'Eğilen çubuklar, elle hesapta olduğu gibi boylarını korur. Bazı ötelemeler artık bağımsız değildir: u_f = u⁰ + T·q ile diğerleri cinsinden yazılır, sistem K* = Tᵀ·K_ff·T’ye indirgenir ve normal kuvvetler düğüm dengesinden bulunur. Pandül çubuklar uzayabilir kalır. Sıradan bir çerçevede az, yüksek yapılarda, kemerlerde veya çok narin çubuklarda belirgin biçimde değişir.',
   'course.kinematics.dsm.rigid.on': 'Eksenel rijit çubuklar: sistem {f} yerine {q} bağımsız bilinmeyenle çözülür.',
-  'course.kinematics.dsm.rigid.mechanism': 'Eksenel rijit çubuklarla yapı bir mekanizma olurdu, bu yüzden rijit çubuklara indirgeme yapılamaz. Gösterilen adımlar çubukların eksenel rijitliğini korur: bu başka bir modeldir, mekanizmanın çözümü değildir.',
+  'course.kinematics.dsm.rigid.mechanism': 'Eksenel rijit çubuklara indirgeme çözülemedi: indirgenmiş rijitlik tekil çıktı ya da hiçbir eksenel kuvvet takımı düğümleri dengelemiyor. Gösterilen adımlar çubukların eksenel rijitliğini korur, bu başka bir modeldir.',
   'course.kinematics.dsm.rigid.conditions': 'Eğilen her çubuk, ısıl uzaması dışında boyunu korur: (u_j − u_i)·e = α·ΔT·L (sıcaklık yoksa sıfır). Mesnet yer değiştirmeleri bilindiğine göre bu koşullar {q} bağımsız yer değiştirme q bırakır; diğer {d} tanesi bunlara bağlıdır.',
   'course.kinematics.dsm.rigid.conditionsCaption': 'Sabit boy koşulları',
   'course.kinematics.dsm.rigid.dependent': 'Bağımlı yer değiştirmeler',

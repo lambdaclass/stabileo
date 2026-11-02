@@ -180,6 +180,26 @@ describe('the distributed mass document', () => {
     }
   });
 
+  it('fixed-fixed beam: n = 1 has nothing free to vibrate, so it is left out of the table with its reason, and the rest is built', async () => {
+    await load('cantilever');
+    const ends = [...modelStore.nodes.keys()];
+    for (const id of ends) if (![...modelStore.supports.values()].some((s) => s.nodeId === id)) modelStore.addSupport(id, 'fixed');
+    expect(modelStore.elements.size).toBe(1);
+    setDynamicsSettings({ mass: { nPerMember: 4, massModel: 'consistent' } });
+    const doc = build('massDiscretization');
+    const blocks = doc.steps[5].blocks;
+    const conv = blocks.find((b) => b.kind === 'table');
+    if (conv?.kind !== 'table') throw new Error('no table');
+    expect(conv.rows.map((r) => r[0])).toEqual([2, 4, 8]);
+    const notes = blocks.filter((b) => b.kind === 'note').map((b) => (b.kind === 'note' && isTxt(b.text) ? b.text : null));
+    const skip = notes.findIndex((x) => x?.key === 'course.dynamics.mass.conv.skip');
+    expect(skip).toBeGreaterThanOrEqual(0);
+    expect(notes[skip]!.params).toEqual({ n: 1 });
+    expect(notes[skip + 1]!.key).toMatch(/^course\.dynamics\.mdof\.err\./);
+    expect(notes.some((x) => x?.key === 'course.dynamics.mass.conv.cut')).toBe(false);
+    expectTranslated(doc);
+  });
+
   it('portal frame with lumped mass', async () => {
     await load('portal-frame');
     setDynamicsSettings({ mass: { nPerMember: 2, massModel: 'lumped' } });

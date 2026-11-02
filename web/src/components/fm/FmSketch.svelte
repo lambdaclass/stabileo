@@ -112,6 +112,12 @@
     x: number; y: number; dx?: number; dy?: number; axis?: string;
   };
   const AXES: V3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const forceDir = (nodeId: number, c: number): V3 => {
+    if (is3D) return AXES[c];
+    if (c === 0) return AXES[0];
+    const a = geometry.supports.find((s) => s.nodeId === nodeId)?.angle;
+    return a === undefined ? AXES[2] : [Math.sin(a), 0, Math.cos(a)];
+  };
   const marks = $derived(redundants.map((r): Mark | null => {
     const on = focus === null || focus === r.index;
     const tag = `X${sub(r.index)}`;
@@ -122,8 +128,7 @@
       const nForce = is3D ? 3 : 2;
       if (c >= nForce) return { r, on, tag, kind: 'moment', x: p.x, y: p.y, axis: is3D ? ['x', 'y', 'z'][c - 3] : '' };
       /* Plane: 0 is x, 1 is z. Space: 0, 1, 2 are x, y, z. */
-      const dir = is3D ? AXES[c] : (c === 0 ? AXES[0] : AXES[2]);
-      const q = P(along(p3, dir, -1));
+      const q = P(along(p3, forceDir(r.nodeId, c), -1));
       const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
       return { r, on, tag, kind: 'force', x: p.x, y: p.y, dx: (q.x - p.x) / len, dy: (q.y - p.y) / len };
     }
@@ -157,12 +162,15 @@
   const spots = $derived((pick?.options ?? []).map((o) => {
     if (o.kind === 'cut') return null;
     if (o.kind === 'reaction' || o.kind === 'spring') {
-      const p = P(pos3(node(o.nodeId)));
+      const p3 = pos3(node(o.nodeId));
+      const p = P(p3);
       const c = o.component ?? 1;
       if (c === 2) return { o, kind: 'moment' as const, x: p.x - 13, y: p.y - 13, ax: p.x, ay: p.y };
-      return c === 0
-        ? { o, kind: 'force' as const, x: p.x - 22, y: p.y, ax: p.x - 6, ay: p.y }
-        : { o, kind: 'force' as const, x: p.x, y: p.y + 24, ax: p.x, ay: p.y + 8 };
+      if (c === 0) return { o, kind: 'force' as const, x: p.x - 22, y: p.y, ax: p.x - 6, ay: p.y };
+      const q = P(along(p3, forceDir(o.nodeId, c), -1));
+      const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+      const dx = (q.x - p.x) / len, dy = (q.y - p.y) / len;
+      return { o, kind: 'force' as const, x: p.x + 24 * dx, y: p.y + 24 * dy, ax: p.x + 8 * dx, ay: p.y + 8 * dy };
     }
     const bar = bars.find((b) => b.id === o.elementId);
     if (!bar) return null;

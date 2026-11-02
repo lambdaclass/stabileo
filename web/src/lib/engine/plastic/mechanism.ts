@@ -25,9 +25,9 @@ export interface MechanismView { km: KinModel; d: number[]; hinges: DrawnHinge[]
 
 const pointOf = (km: KinModel, member: number, t: number) => km.stations.get(member)?.find((s) => Math.abs(s.t - t) < 1e-7)?.p ?? -1;
 
-/** The mechanism the step-by-step analysis ended in: its hinges released, its yielded bars removed. */
+/** The mechanism the step-by-step analysis ended in: its hinges released, its yielded bars removed. Null when that end is unresolved. */
 export function collapseMechanism(input: SolverInput, r: PlasticCollapseResult): MechanismView | null {
-  if (!r.isMechanism) return null;
+  if (!r.isMechanism || r.unresolved) return null;
   const bending = r.hinges.filter((h) => h.kind === 'bending' && h.unloadedAt === undefined);
   const removed = new Set(r.hinges.filter((h) => h.kind === 'axial').map((h) => h.elementId));
   const secs = bending.map((h) => ({ member: h.elementId, t: h.position ?? (h.end === 'start' ? 0 : 1) }));

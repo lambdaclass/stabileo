@@ -9,6 +9,7 @@
   import { t } from '../../../lib/i18n';
   import { numText } from '../../../lib/engine/steps/format';
   import type { PointMass } from '../../../lib/engine/dynamics/mass-source';
+  import { pointMassNode } from './point-mass-node';
 
   let { onChange }: { onChange: () => void } = $props();
 
@@ -42,7 +43,7 @@
         {#each points as p, i (p.nodeId)}
           <tr>
             <td><input class="pm-in" type="number" min="1" step="1" value={p.nodeId} data-testid={`dyn-pm-node-${i}`}
-              onchange={(e) => { const v = Number(e.currentTarget.value); if (Number.isInteger(v) && modelStore.nodes.has(v) && !points.some((q, k) => k !== i && q.nodeId === v)) { error = null; set(i, { nodeId: v }); } else error = t('course.dynamics.ui.points.badNode'); }} /></td>
+              onchange={(e) => { const v = pointMassNode(e.currentTarget, points, i, (id) => modelStore.nodes.has(id)); if (v !== null) { error = null; set(i, { nodeId: v }); } else error = t('course.dynamics.ui.points.badNode'); }} /></td>
             <td><input class="pm-in" type="number" min="0" step="0.1" value={p.m} data-testid={`dyn-pm-m-${i}`}
               onchange={(e) => { const raw = e.currentTarget.value.trim(); const v = Number(raw.replace(',', '.')); if (raw !== '' && Number.isFinite(v) && v >= 0) { error = null; set(i, { m: v }); } else { error = t('course.dynamics.ui.points.badValue'); e.currentTarget.value = String(p.m); } }} /></td>
             <td><input type="checkbox" checked={p.horizontalOnly === true} title={t('course.dynamics.ui.points.hOnlyTitle')} onchange={(e) => set(i, { horizontalOnly: e.currentTarget.checked })} /></td>

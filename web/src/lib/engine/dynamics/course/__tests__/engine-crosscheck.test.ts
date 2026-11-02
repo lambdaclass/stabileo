@@ -65,6 +65,8 @@ describe('cantilever: frequencies against n, mass model and the exact beam', () 
     for (const n of [1, 2, 4]) {
       const mine = convergenceTable(modelStore.model, points(), [n], 3, true)[0].f.consistent;
       const eng = engineFrequencies(n);
+      expect(mine).toHaveLength(3);
+      expect(eng.length).toBeGreaterThanOrEqual(3);
       mine.forEach((f, i) => expect(f).toBeCloseTo(eng[i], 6));
     }
   });
@@ -132,6 +134,8 @@ describe('point masses in Basic reach the engine', () => {
     modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m: 5, horizontalOnly: true }] });
     const mine = convergenceTable(modelStore.model, points(), [4], 3, true)[0].f.consistent;
     const eng = engineFrequencies(4);
+    expect(mine).toHaveLength(3);
+    expect(eng.length).toBeGreaterThanOrEqual(3);
     mine.forEach((f, i) => expect(f / eng[i]).toBeCloseTo(1, 6));
   });
 });
@@ -183,6 +187,43 @@ describe('the shear building needs each floor joined', () => {
   }
 });
 
+describe('the shear building needs every foot on a support', () => {
+  it('a portal with one fixed foot and one free foot is refused', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed');
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('unsupportedBase');
+  });
+});
+
+describe('a column end turns freely where every floor beam end is released', () => {
+  const portal = (releaseI: boolean, releaseJ: boolean, base: 'fixed' | 'pinned' = 'fixed') => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(d, c);
+      const beam = modelStore.addElement(b, c);
+      modelStore.addSupport(a, base); modelStore.addSupport(d, base);
+      const rel = (on: boolean) => ({ my: false, mz: on, t: false });
+      modelStore.updateElement(beam, { releaseI: rel(releaseI), releaseJ: rel(releaseJ) } as never);
+    });
+    return shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: 5 }], false);
+  };
+  const EI = 200e6 * RECT.iz;
+  for (const [ri, rj, factors] of [[false, false, [12, 12]], [true, false, [3, 12]], [true, true, [3, 3]]] as const) {
+    it(`floor beam released at ${ri && rj ? 'both ends' : ri ? 'one end' : 'neither end'}: column factors ${factors.join(', ')}`, () => {
+      const r = portal(ri, rj);
+      if (typeof r === 'string') throw new Error(r);
+      expect(r.floors[0].columns.map((c) => c.factor).sort((x, y) => x - y)).toEqual([...factors].sort((x, y) => x - y));
+      expect(r.floors[0].k).toBeCloseTo(((factors[0] + factors[1]) * EI) / 27, 3);
+    });
+  }
+  it('pinned feet and a floor beam released at both ends: no storey stiffness, refused', () => {
+    expect(portal(true, true, 'pinned')).toBe('noColumns');
+  });
+});
+
 describe('the shear building takes columns of one section only', () => {
   it('a tapered column is refused: one EI cannot give its storey stiffness', () => {
     build(() => {
@@ -208,6 +249,8 @@ describe('truss mass at a support in a turned frame', () => {
       });
       const mine = frequenciesOf(modelStore.model, [], { nPerMember: 1, massModel: 'consistent', barMass: true }, 3).f;
       const eng = engineFrequencies(1);
+      expect(mine).toHaveLength(3);
+      expect(eng.length).toBeGreaterThanOrEqual(3);
       mine.forEach((f, i) => expect(f / eng[i]).toBeCloseTo(1, 6));
     });
   }

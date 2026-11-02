@@ -23,7 +23,7 @@ export interface Sketch {
     label?: string;
     color?: SketchColor;
   }>;
-  /** roller: rolls along X (holds z); rollerV: rolls along Z (holds x); guided / guidedV: the same, with the rotation held; rotationOnly: only the rotation held. */
+  /** roller: rolls along X (holds z); rollerV: rolls along Z (holds x); guided: slides along Z (holds x and the rotation), drawn against a vertical wall; guidedV: slides along X (holds z and the rotation); rotationOnly: only the rotation held. */
   supports?: Array<{ node: number; type: SketchSupport }>;
   /** A hinge at a member end, or at a node (all members there). */
   hinges?: Array<{ node: number; member?: number }>;

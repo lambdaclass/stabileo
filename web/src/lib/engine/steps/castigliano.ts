@@ -9,11 +9,11 @@ import { solveReference } from './reference';
 import type { SolverInput } from '../types';
 import { countIndeterminacy } from '../force-method/primary';
 import { ghBlocks } from './gh-blocks';
-import { pickTarget, unitLoadInput, refAlong, unitSketch, targetNote, targetUnit } from './unit-target';
+import { pickTarget, targetApplies, unitLoadInput, refAlong, unitSketch, targetNote, targetUnit } from './unit-target';
 import { ghReport } from '../static-degree';
 import { solveForceMethod, ForceMethodError, FM_MAX_GH, type ForceMethodOptions, type ForceMethodResult, type Redundant, type StateResult, type TermRow } from '../force-method/solve';
 import {
-  U, TOL, no, OK, p, texCell, sq, baseApplies, intro, compareBlock, diagramOf,
+  U, TOL, no, p, texCell, sq, baseApplies, intro, compareBlock, diagramOf,
   memberWork, axialTable, endValuesTable, frameIds,
   structureSketch, bendingBlocks, axialOn, axialShareWarning,
 } from './deformation-common';
@@ -45,7 +45,7 @@ export function castiglianoApplies(ctx: MethodContext): Applicability {
     if (r instanceof ForceMethodError) return no(r.key in LEGACY_ERRORS ? `fm.err.${r.key}` : `course.statics.err.${r.key}`, { gh: r.gh, max: FM_MAX_GH, chosen: r.detail.chosen ?? 0 });
     if (r instanceof Error) return no('steps.req.unstable');
   }
-  return OK;
+  return targetApplies(ctx);
 }
 
 function redundantText(r: Redundant, pm: PlaneModel): Txt {

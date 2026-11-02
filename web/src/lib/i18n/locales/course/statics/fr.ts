@@ -33,7 +33,7 @@ const words: Translations = {
 
   // Méthode des forces
   'course.statics.fm.axial.label': 'Inclure la déformation axiale',
-  'course.statics.fm.axial.help': 'Ajoute à chaque coefficient le terme ∫ nᵢ·nⱼ/EA dx des barres de portique. Dans les poutres et portiques courants, il apporte peu et la solution de cours le néglige. Il compte dans les tirants, les arcs (ils travaillent presque uniquement en compression), les poteaux à fort effort normal et les structures contreventées. Les bielles le conservent dans tous les cas : c\'est leur seule façon de se déformer. Si vous le désactivez, l\'étape 9 compare quand même avec la méthode des rigidités, qui l\'inclut, et montre l\'écart.',
+  'course.statics.fm.axial.help': 'Ajoute à chaque coefficient le terme ∫ nᵢ·nⱼ/EA dx des barres de portique. Dans les poutres et portiques courants, il apporte peu et la solution de cours le néglige. Il compte dans les tirants, les arcs (surtout comprimés seulement sous des charges proches de leur funiculaire ; des charges dissymétriques ou concentrées les fléchissent aussi nettement), les poteaux à fort effort normal et les structures contreventées. Les bielles le conservent dans tous les cas : c\'est leur seule façon de se déformer. Si vous le désactivez, l\'étape 9 compare quand même avec la méthode des rigidités, qui l\'inclut, et montre l\'écart.',
   'course.statics.fm.fund.summaryAuto': 'Structure de base : choisie automatiquement',
   'course.statics.fm.fund.summaryMine': 'Structure de base : votre choix',
   'course.statics.fm.fund.change': 'Modifier',
@@ -78,6 +78,7 @@ const words: Translations = {
   'course.statics.vw.target.dispAngle': 'Déplacement du nœud {n} dans la direction à {a}° de l\'horizontale, mesuré dans le sens de la charge unitaire.',
   'course.statics.vw.target.rot': 'Rotation du nœud {n}, positive dans le sens antihoraire.',
   'course.statics.vw.target.relDispLine': 'Déplacement relatif entre {n} et {m} selon la droite qui les relie : positif quand ils s\'éloignent.',
+  'course.statics.vw.err.coincident': '{n} et {m} sont au même point : aucune droite ne les relie. Choisissez une direction (x, z ou un angle).',
   'course.statics.vw.target.relDispX': 'Déplacement relatif horizontal entre {n} et {m} : celui de {m} moins celui de {n}, positif vers la droite.',
   'course.statics.vw.target.relDispZ': 'Déplacement relatif vertical entre {n} et {m} : celui de {m} moins celui de {n}, positif vers le bas.',
   'course.statics.vw.target.relDispAngle': 'Déplacement relatif entre {n} et {m} dans la direction à {a}° de l\'horizontale : celui de {m} moins celui de {n}.',

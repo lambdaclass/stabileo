@@ -7,7 +7,7 @@
  * internal virtual work.
  */
 import type { MethodContext, MethodParam } from './registry';
-import type { Txt } from './doc';
+import type { Applicability, Txt } from './doc';
 import { tx } from './doc';
 import type { PlaneModel } from './plane-model';
 import type { Reference } from './reference';
@@ -82,7 +82,7 @@ export function pickTarget(ctx: MethodContext): Target {
   let node2: number | null = null;
   if (relative) {
     node2 = nodeParam(ctx, 'node2') ?? sel.find((n) => n !== node) ?? null;
-    if (node2 === null || node2 === node) node2 = [...pm.nodeOrder].reverse().find((n) => n !== node) ?? node;
+    if (node2 === null) node2 = [...pm.nodeOrder].reverse().find((n) => n !== node) ?? node;
   }
   const rawDir = ctx.params?.dir;
   const angle = Number(ctx.params?.angle ?? 30);
@@ -96,8 +96,8 @@ export function pickTarget(ctx: MethodContext): Target {
     if (dir === 'x') return [1, 0];
     if (dir === 'z') return [0, -1];
     if (dir === 'angle') return [Math.cos((angle * Math.PI) / 180), Math.sin((angle * Math.PI) / 180)];
-    const L = Math.hypot(b.x - a.x, b.z - a.z) || 1;
-    return [(b.x - a.x) / L, (b.z - a.z) / L];
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    return L > 0 ? [(b.x - a.x) / L, (b.z - a.z) / L] : [0, 0];
   };
   const [ex, ez] = unit();
   let loads: UnitLoad[];
@@ -109,6 +109,14 @@ export function pickTarget(ctx: MethodContext): Target {
   const sym = quantity === 'disp' ? `\\delta_{${name}}` : quantity === 'rot' ? `\\theta_{${name}}`
     : quantity === 'relDisp' ? `\\Delta\\delta_{${name}${name2}}` : `\\Delta\\theta_{${name}${name2}}`;
   return { quantity, node, name, node2, name2, dir, angle, chosen, loads, rotation: quantity === 'rot' || quantity === 'relRot', sym };
+}
+
+/** A relative displacement along the line between two distinct nodes at one point has no direction. */
+export function targetApplies(ctx: MethodContext): Applicability {
+  const tg = pickTarget(ctx);
+  if (tg.quantity !== 'relDisp' || tg.dir !== 'line' || tg.node2 === null || tg.node2 === tg.node) return { ok: true };
+  const a = ctx.pm.nodes.get(tg.node)!, b = ctx.pm.nodes.get(tg.node2)!;
+  return Math.hypot(b.x - a.x, b.z - a.z) > 0 ? { ok: true } : { ok: false, reason: tx('course.statics.vw.err.coincident', { n: tg.name, m: tg.name2 }) };
 }
 
 /** The structure under the virtual load alone: no loads, no support movements. */

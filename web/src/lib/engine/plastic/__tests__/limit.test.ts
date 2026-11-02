@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { solveLimit } from '../solve-limit';
+import { evaluateUserMechanism } from '../mechanism';
 import { limitModel, minimumOver, mechanismMoments, distribution } from '../limit';
 import { plasticCollapse2D } from '../../plastic-collapse';
 import { countStaticDegree2D } from '../../kinematic-2d';
@@ -77,6 +78,21 @@ describe('critical sections, independent mechanisms and GH', () => {
     expect(s.lm.ghF).toBe(6);
     expect(s.elementary.map((e) => e.kind).sort()).toEqual(['beam', 'beam', 'joint', 'sway']);
     expect(s.best.lambda).toBeCloseTo(incremental(m), 4);
+  });
+});
+
+describe('the reference load\'s size', () => {
+  it('a fixed-fixed beam under 1e-10 kN: λ scales by 1e10 with the same mechanism, and a drawn mechanism still does work', () => {
+    const big = solveLimit(fixedBeam(6, 10), uniformMp)!;
+    const tiny = solveLimit(fixedBeam(6, 1e-10), uniformMp)!;
+    expect(tiny.best.lambda / (big.best.lambda * 1e11)).toBeCloseTo(1, 9);
+    const sign = (v: number) => (v === 0 ? 0 : Math.sign(v));
+    expect(tiny.best.theta.map(sign)).toEqual(big.best.theta.map(sign));
+    const hinges = [{ member: 1, t: 0 }, { member: 1, t: 0.5 }, { member: 1, t: 1 }];
+    const a = evaluateUserMechanism(fixedBeam(6, 10), uniformMp, hinges);
+    const b = evaluateUserMechanism(fixedBeam(6, 1e-10), uniformMp, hinges);
+    expect(b.verdict.kind).toBe(a.verdict.kind);
+    expect(b.verdict.kind).not.toBe('noWork');
   });
 });
 

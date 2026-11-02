@@ -13,12 +13,13 @@ import {
   p, baseApplies, intro, diagramOf, memberWork,
   axialTable, endValuesTable, frameIds, structureSketch, bendingBlocks, compareBlock, axialOn, axialShareWarning,
 } from './deformation-common';
-import { pickTarget, unitLoadInput, refAlong, unitSketch, targetNote, targetUnit } from './unit-target';
+import { pickTarget, targetApplies, unitLoadInput, refAlong, unitSketch, targetNote, targetUnit } from './unit-target';
 import { vwExtras } from './vw-extras';
 import { extrasBlocks } from './vw-extras-blocks';
 
 export function virtualWorkApplies(ctx: MethodContext): Applicability {
-  return baseApplies(ctx, true, true);
+  const base = baseApplies(ctx, true, true);
+  return base.ok ? targetApplies(ctx) : base;
 }
 
 export function buildVirtualWork(ctx: MethodContext): StepDoc {

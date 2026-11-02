@@ -113,6 +113,13 @@ describe('the mechanism the step-by-step analysis ends in', () => {
     // Sway to the right: the top-left node moves +x by h·θ.
     expect(v.d[2 * v.km.nodePoint.get(2)!]).toBeCloseTo(4, 9);
   });
+
+  it('an analysis that stopped unresolved shows no collapse mechanism', () => {
+    const m = portal(1, 1);
+    const r = plasticCollapse2D(m, { mp: uniformMp, np: () => Infinity });
+    expect(collapseMechanism(m, r)).not.toBeNull();
+    expect(collapseMechanism(m, { ...r, unresolved: true })).toBeNull();
+  });
 });
 
 describe('plastic rotation at the hinges', () => {

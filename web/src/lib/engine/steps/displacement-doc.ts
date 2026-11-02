@@ -90,10 +90,13 @@ function memberCalc(ks: KinSet, d: MemberData, k: MKin, a: MAct, base: { Mi: num
       if (!tiny(th(near))) terms.push(`${num((3 * EI) / L)}\\cdot${par(th(near))}`);
       if (!tiny(k.psi)) terms.push(`- ${num((3 * EI) / L)}\\cdot${par(k.psi)}`);
       const Mn = near === 'i' ? a.Mi : a.Mj, Mf = far === 'i' ? a.Mi : a.Mj;
-      const b0 = base ? (near === 'i' ? base.Mi : base.Mj) + (Mf - (far === 'i' ? base.Mi : base.Mj)) / 2 : 0;
+      const fn = base ? (near === 'i' ? base.Mi : base.Mj) : 0, ff = base ? (far === 'i' ? base.Mi : base.Mj) : 0;
+      const carry = base !== null && !tiny(Mf - ff);
+      const fixedF = base ? `M^{*}_{${sn}} + ${carry ? `\\frac{M_{${sf}} - M^{*}_{${sf}}}{2} + ` : ''}` : '';
+      const fixedS = base && (!tiny(fn) || carry) ? `${num(fn)} + ${carry ? `\\frac{${num(Mf)} - ${par(ff)}}{2} + ` : ''}` : '';
       out.push({ kind: 'calc', label: tx(`${P}state.memberThree`, { m: d.m.name, n: far === 'i' ? d.ni : d.nj }),
-        formula: `M_{${sn}} = ${preF(sn)}\\frac{3EI}{L}\\left(\\theta_{${nn}} - \\psi\\right), \\qquad M_{${sf}} = ${num(Mf)}`,
-        subst: `M_{${sn}} = ${base && !tiny(b0) ? `${num(b0)} + ` : ''}${terms.join(' + ').replace(/\+ -/g, '-') || '0'}`,
+        formula: `M_{${sn}} = ${fixedF}\\frac{3EI}{L}\\left(\\theta_{${nn}} - \\psi\\right), \\qquad M_{${sf}} = ${num(Mf)}`,
+        subst: `M_{${sn}} = ${fixedS}${terms.join(' + ').replace(/\+ -/g, '-') || '0'}`,
         result: `\\boxed{M_{${sn}} = ${num(Mn)}\\ ${UM}}` });
     }
   }

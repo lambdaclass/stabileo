@@ -213,12 +213,29 @@ describe('the axial term, on and off', () => {
     expect(tOff.verification.ok).toBe(true);
   });
 
+  it('off, the rigid reference keeps a soft biela\'s axial flexibility, as the method does', () => {
+    const m = model({ nodes: [[1, 0, 0], [2, 6, 0], [3, 6, -3]], elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', true, true]], supports: [[1, 'fixed'], [3, 'pinned']], loads: [q(1, -10)] });
+    m.sections.set(2, { id: 2, a: 1e-6, iz: 1e-4 } as never);
+    m.elements.set(2, { ...m.elements.get(2)!, sectionId: 2 });
+    const r = solveForceMethod(m, { axial: false });
+    expect(r.axialKept).toEqual([]);
+    expect(r.verification.ok).toBe(true);
+    expect(r.verification.rigidOk).toBe(true);
+  });
+
+  it('off, with an axial row kept the rigid reference is not defined, so no verdict is drawn from it', () => {
+    const beam = model({ nodes: [[1, 0, 0], [2, 6, 0]], elements: [[1, 1, 2, 'frame']], supports: [[1, 'fixed'], [2, 'fixed']], loads: [q(1, -10)] });
+    const r = solveForceMethod(beam, { axial: false, releases: ['r:2:0', 'r:2:1', 'r:2:2'] });
+    expect(r.axialKept).toEqual([0]);
+    expect(r.verification.rigidOk).toBeUndefined();
+  });
+
   it('off, a redundant that works only axially keeps its axial row (a fixed-fixed beam\'s horizontal reaction)', () => {
     const beam = model({ nodes: [[1, 0, 0], [2, 6, 0]], elements: [[1, 1, 2, 'frame']], supports: [[1, 'fixed'], [2, 'fixed']], loads: [q(1, -10)] });
     const r = solveForceMethod(beam, { axial: false, releases: ['r:2:0', 'r:2:1', 'r:2:2'] });
     expect(r.axialKept).toEqual([0]);
     expect(Math.abs(reaction(r, 1, 2))).toBeCloseTo(30, 6);
-    expect(r.verification.ok || r.verification.rigidOk).toBe(true);
+    expect(r.verification.ok).toBe(true);
   });
 
   it('off, the portal\'s redundants are the classical ones, close to the stiffness method', () => {

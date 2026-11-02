@@ -38,8 +38,10 @@ describe('Maxwell\'s figure is the deflection under the unit action it draws', (
       const ratios = il.points.map((p, i) => ({ p, d: drawn[i].z - p.y })).filter(({ p }) => Math.abs(p.value) > 1e-12);
       for (const { p, d } of ratios) expect(Math.sign(d)).toBe(Math.sign(p.value * UNIT_LOAD_DIR.vertical.z));
       const labels = peakLabels(pm, il.points, UNIT_LOAD_DIR.vertical, true);
-      const low = labels.find((l) => Math.abs(l.z - Math.min(...drawn.map((x) => x.z))) < 1e-12);
-      if (low) expect(low.anchor).toBe('s');
+      const far = drawn.reduce((m, x) => (Math.abs(x.z) > Math.abs(m.z) ? x : m), drawn[0]);
+      const peak = labels.find((l) => Math.abs(l.z - far.z) < 1e-12 && Math.abs(l.x - far.x) < 1e-12);
+      expect(peak).toBeDefined();
+      expect(peak!.anchor).toBe(far.z > 0 ? 'n' : 's');
     });
   }
 });

@@ -9,7 +9,7 @@ import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
 import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
-import { unitLoadInput } from '../unit-target';
+import { pickTarget, unitLoadInput } from '../unit-target';
 import { methods } from '../methods/deformation';
 import type { MethodContext } from '../registry';
 import type { Block, CompareRow, StepDoc } from '../doc';
@@ -175,5 +175,36 @@ describe('Castigliano\'s second theorem on the force method\'s chosen primary st
     const rows = rowsOf(doc);
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) expect(Math.abs(r.method - r.matrix), r.label).toBeLessThan(1e-6 * Math.max(1, Math.abs(r.matrix)));
+  });
+});
+
+describe('a relative quantity between the nodes the reader chose', () => {
+  it('the same node twice is kept: its relative displacement is zero, not that of another node', async () => {
+    await modelStore.loadExample('portal-frame');
+    const params = { quantity: 'relDisp', node: '2', node2: '2', dir: 'x' };
+    const tg = pickTarget(ctxOf(params));
+    expect([tg.node, tg.node2]).toEqual([2, 2]);
+    const rows = rowsOf(build('virtualWork', params));
+    expect(rows).toHaveLength(1);
+    expect(Math.abs(rows[0].method)).toBeLessThan(1e-12);
+    expect(Math.abs(rows[0].matrix)).toBeLessThan(1e-12);
+  });
+
+  it('two distinct nodes at one point have no line between them: refused until a direction is chosen', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    const c = modelStore.addNode(8, 0), d = modelStore.addNode(4, 0);
+    expect(d).not.toBe(b);
+    modelStore.addElement(a, b); modelStore.addElement(c, d);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'fixed');
+    modelStore.addNodalLoad(b, 0, -10, 0);
+    for (const id of ['virtualWork', 'castigliano']) {
+      const m = methods.find((x) => x.id === id)!;
+      const refused = m.applies(ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'auto' }));
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.reason.key).toBe('course.statics.vw.err.coincident');
+      const rows = rowsOf(m.build!(ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'z' })));
+      expect(Math.abs(rows[0].method - rows[0].matrix)).toBeLessThan(1e-9 * Math.max(Math.abs(rows[0].matrix), 1e-3));
+      expect(Math.abs(rows[0].matrix)).toBeGreaterThan(1e-6);
+    }
   });
 });

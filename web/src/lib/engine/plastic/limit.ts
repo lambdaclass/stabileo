@@ -97,7 +97,8 @@ export function asMechanism(lm: LimitModel, d0: number[]): Mechanism {
   if (W < 0) { d = d.map((v) => -v); W = -W; }
   theta = lm.km.rotation.map((r) => dot(r, d)).map((v) => (Math.abs(v) < TOL * Math.max(big / unit, 1) ? 0 : v));
   const Wi = theta.reduce((s, v, k) => s + lm.sm.sections[k].mp * Math.abs(v), 0);
-  const scale = Math.max(1, ...lm.km.work.map(Math.abs)) * Math.max(1, ...d.map(Math.abs));
+  const terms = lm.km.work.reduce((s, v, i) => s + Math.abs(v * d[i]), 0);
+  const scale = Math.max(terms, Math.max(0, ...lm.km.work.map(Math.abs)) * Math.max(0, ...d.map(Math.abs)));
   return { d, theta, W, Wi, lambda: W > 1e-9 * scale ? Wi / W : Infinity };
 }
 

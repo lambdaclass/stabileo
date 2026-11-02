@@ -260,6 +260,24 @@ describe('the size limit', () => {
   });
 });
 
+describe('a large model with few unknowns', () => {
+  it('3000 fixed joints and one free cantilever tip: solved over its 3 unknowns, the same answer as the cantilever alone', () => {
+    const n = 3000, L = 4, P = 100, H = 5;
+    const nodes = new Map(Array.from({ length: n }, (_, k) => [k + 1, { id: k + 1, x: 0, z: k === n - 1 ? L : -k }]));
+    const elements = new Map([[1, { id: 1, type: 'frame' as const, nodeI: 1, nodeJ: n, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]);
+    for (let k = 2; k < n; k++) elements.set(k, { id: k, type: 'frame' as const, nodeI: k - 1, nodeJ: k, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false });
+    const supports = new Map(Array.from({ length: n - 1 }, (_, k) => [k + 1, { id: k + 1, nodeId: k + 1, type: 'fixed' as const }]));
+    const big: SolverInput = { ...column('fixed', null, L, P, H), nodes, elements, supports, loads: [{ type: 'nodal', data: { nodeId: n, fx: H, fz: -P, my: 0 } }] };
+    const a = teachingPDelta(big, { method: 'consistent', axialRigid: false });
+    const b = teachingPDelta(column('fixed', null, L, P, H), { method: 'consistent', axialRigid: false });
+    if (!a.ok || !b.ok) throw new Error('refused');
+    expect(a.run.sys.free).toHaveLength(3);
+    expect(a.run.converged).toBe(true);
+    const tip = (r: typeof a.run, id: number) => r.final.D[r.sys.dof(id, 0)];
+    expect(tip(a.run, n) / tip(b.run, 2)).toBeCloseTo(1, 12);
+  });
+});
+
 describe('φ buckling never invents a mode', () => {
   it('a two-bar truss has at most as many critical loads as free DOFs: asking for more gives no fabricated λ', () => {
     const input: SolverInput = {
@@ -275,7 +293,10 @@ describe('φ buckling never invents a mode', () => {
     const first = firstOrderAxial(b.sys);
     if (!first.ok) throw new Error(first.reason.key);
     const modes = phiBuckling(b.sys, 3, first.N0, []);
-    expect(modes.length).toBeLessThan(3);
+    const exact = (200000 * 1000 * 0.01) / (100 / Math.SQRT2);
+    expect(modes).toHaveLength(2);
+    for (const m of modes) expect(m.lambda / exact).toBeCloseTo(1, 8);
+    expect(criticalCount(b.sys, first.N0, exact * 1.001)).toBe(2);
     for (const m of modes) {
       expect(Number.isFinite(m.lambda)).toBe(true);
       expect(criticalCount(b.sys, first.N0, m.lambda * (1 + 1e-6))).toBeGreaterThan(criticalCount(b.sys, first.N0, m.lambda * (1 - 1e-6)));
