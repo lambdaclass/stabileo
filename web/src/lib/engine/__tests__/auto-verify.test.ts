@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults } from '../auto-verify';
 import { verifyElement } from '../codes/argentina/cirsoc201';
+import { normalizeCirsoc201 } from '../design-check-results';
 
 function makeElementForces(overrides: Partial<any> = {}) {
   return {
@@ -202,5 +203,32 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 }), columnModel(0.3, 0.6), null).concrete;
     expect(v!.shearSecondary?.Vu).toBe(150);
     expect(v!.shearSecondary?.ratio).toBeCloseTo(reference(0.6, 0.3, 120, 150).shear.ratio, 9);
+  });
+
+  it('each shear row names the combination that governs its own axis', () => {
+    const governing = new Map([[1, {
+      momentY: { comboId: 1, comboName: '1.2D+1.6L', value: 120 },
+      shearZ: { comboId: 1, comboName: '1.2D+1.6L', value: 80 },
+      shearY: { comboId: 2, comboName: '1.2D+1.0E', value: 150 },
+    }]]);
+    const forces = column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 });
+    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing).concrete;
+    expect(v!.governingCombos?.shear?.comboName).toBe('1.2D+1.6L');
+    expect(v!.governingCombos?.shearSecondary?.comboName).toBe('1.2D+1.0E');
+    const rows = normalizeCirsoc201([v!], new Map([[1, 'RC']]))[0]!.checks;
+    expect(rows.find((r) => r.name === 'Shear')?.comboName).toBe('1.2D+1.6L');
+    expect(rows.find((r) => r.name === 'Shear, secondary axis')?.comboName).toBe('1.2D+1.0E');
+  });
+
+  it('a Mz-governed column takes its secondary shear combination from Vz', () => {
+    const governing = new Map([[1, {
+      momentZ: { comboId: 1, comboName: '1.2D+1.6L', value: 120 },
+      shearY: { comboId: 1, comboName: '1.2D+1.6L', value: 80 },
+      shearZ: { comboId: 3, comboName: '0.9D+1.0E', value: 150 },
+    }]]);
+    const forces = column({ mzStart: 120, mzEnd: -120, vyStart: 80, vyEnd: 80, vzStart: 150, vzEnd: 150 });
+    const [v] = autoVerifyFromResults(forces, columnModel(0.3, 0.6), governing).concrete;
+    expect(v!.flexureAxis).toBe('Mz');
+    expect(v!.governingCombos?.shearSecondary?.comboName).toBe('0.9D+1.0E');
   });
 });

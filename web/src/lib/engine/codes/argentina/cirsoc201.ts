@@ -210,6 +210,7 @@ export interface ElementVerification {
     axial?: { comboId: number; comboName: string };
     momentY?: { comboId: number; comboName: string };
     shearZ?: { comboId: number; comboName: string };
+    shearSecondary?: { comboId: number; comboName: string };
     torsion?: { comboId: number; comboName: string };
   };
   /** RC detailing rules per CIRSOC 201 Ch. 12 */

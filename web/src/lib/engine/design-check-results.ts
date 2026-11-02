@@ -103,6 +103,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         ratio: v.shearSecondary.ratio,
         unit: 'kN',
         status: v.shearSecondary.status as CheckStatus,
+        comboName: v.governingCombos?.shearSecondary?.comboName,
       });
     }
 

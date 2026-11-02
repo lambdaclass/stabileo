@@ -260,9 +260,14 @@ export function autoVerifyFromResults(
     const VuSecondary = onMy ? VyAbs : VzMax;
     const bFlex = onMy ? section.b : section.h;
     const hFlex = onMy ? section.h : section.b;
-    if (stationGovCombos && onMy) {
-      if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
-      if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
+    if (stationGovCombos) {
+      const shearY = stationGovCombos.shear;
+      if (onMy) {
+        if (stationGovCombos.momentY) stationGovCombos.flexure = stationGovCombos.momentY;
+        if (stationGovCombos.shearZ) stationGovCombos.shear = stationGovCombos.shearZ;
+      }
+      const secondary = onMy ? shearY : stationGovCombos.shearZ;
+      if (isVertical && secondary) stationGovCombos.shearSecondary = secondary;
     }
 
     let M1: number | undefined, M2: number | undefined;
@@ -317,6 +322,8 @@ export function autoVerifyFromResults(
         if (gov.axial) v.governingCombos.axial = { comboId: gov.axial.comboId, comboName: gov.axial.comboName };
         if (gov.momentY) v.governingCombos.momentY = { comboId: gov.momentY.comboId, comboName: gov.momentY.comboName };
         if (gov.shearZ) v.governingCombos.shearZ = { comboId: gov.shearZ.comboId, comboName: gov.shearZ.comboName };
+        const secondary = onMy ? gov.shearY : gov.shearZ;
+        if (isVertical && secondary) v.governingCombos.shearSecondary = { comboId: secondary.comboId, comboName: secondary.comboName };
         if (gov.torsion) v.governingCombos.torsion = { comboId: gov.torsion.comboId, comboName: gov.torsion.comboName };
       }
     }
