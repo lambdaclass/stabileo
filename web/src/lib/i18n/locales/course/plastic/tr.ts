@@ -14,7 +14,7 @@ const words: Translations = {
   'course.plastic.req.frames': 'Yapıda eğilme etkisindeki çubuk yok: eğilme olmadan plastik mafsal oluşmaz.',
   'course.plastic.req.links': 'Yapıda düğümler arası bağlar veya bağlantı elemanları var; bu yöntemler bunları dikkate almaz.',
   'course.plastic.req.springs': 'Yapıda elastik (yaylı) mesnetler var; bu yöntemler rijit mesnetlerle çalışır.',
-  'course.plastic.req.couples': 'Bir çubuğa tekil moment uygulanmış; bu yöntemler için momenti bir düğüme uygulayın.',
+  'course.plastic.req.couples': 'Bir çubuğun içinde tekil moment etkiyor. Bu yöntemler için tam etkidiği noktaya bir düğüm ekleyin (çubuk aynı kesitle, rijit bağlı iki parçaya ayrılır) ve momenti oraya uygulayın.',
   'course.plastic.req.loads': 'Yapıda yük yok.',
   'course.plastic.req.mp': '{m} çubuğunun Mp değeri tanımlı değil: kesitini ve malzemesini kontrol edin.',
   'course.plastic.req.size': '{n} kritik kesit var; elle en fazla {max} kesitle çalışılır.',

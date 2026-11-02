@@ -36,10 +36,8 @@
     return { x0, x1, y0: y0 < 0 ? y0 - pad : y0, y1: y1 + pad };
   });
   const sx = (x: number) => L + ((x - box.x0) / (box.x1 - box.x0)) * (W - L - R);
-  const sy = (y: number) => {
-    const c = Math.max(box.y0, Math.min(box.y1, y));
-    return T + (1 - (c - box.y0) / (box.y1 - box.y0)) * (H - T - B);
-  };
+  const sy = (y: number) => T + (1 - (y - box.y0) / (box.y1 - box.y0)) * (H - T - B);
+  const clipId = `sp-clip-${Math.random().toString(36).slice(2)}`;
   const path = (pts: Array<[number, number]>) => pts.map(([x, y], k) => `${k ? 'L' : 'M'}${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(' ');
   const xt = $derived(ticks(box.x0, box.x1));
   const yt = $derived(ticks(box.y0, box.y1, 4));
@@ -63,10 +61,13 @@
     <line x1={sx(v.x)} x2={sx(v.x)} y1={T} y2={H - B} class="vline" />
     {#if v.label}<text x={sx(v.x) + 3} y={T + 9} class="tick">{v.label}</text>{/if}
   {/each}
-  {#each plot.series as s}
-    <path d={path(s.points)} class="curve c-{s.color ?? 'accent'}" class:dashed={s.dashed} />
-  {/each}
-  {#each plot.marks ?? [] as m}
+  <clipPath id={clipId}><rect x={L} y={T} width={W - L - R} height={H - T - B} /></clipPath>
+  <g clip-path="url(#{clipId})">
+    {#each plot.series as s}
+      <path d={path(s.points)} class="curve c-{s.color ?? 'accent'}" class:dashed={s.dashed} />
+    {/each}
+  </g>
+  {#each (plot.marks ?? []).filter((m) => m.y >= box.y0 && m.y <= box.y1) as m}
     <circle cx={sx(m.x)} cy={sy(m.y)} r="3" class="mark" />
     {#if m.label}<text x={sx(m.x) + 5} y={sy(m.y) - 5} class="tick strong">{m.label}</text>{/if}
   {/each}

@@ -51,7 +51,9 @@ export interface SectionOptions {
 
 export const endKey = (member: number, end: 'I' | 'J') => `${member}:${end}`;
 
+/** Throws on a couple applied inside a member: the moment jump it makes is not modelled here. */
 export function buildSections(input: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): SectionModel {
+  if (input.loads.some((l) => l.type === 'pointOnElement' && Math.abs(l.data.my ?? 0) > 1e-12)) throw new Error('plastic sections: couple inside a member');
   const frames = [...input.elements.values()].filter((e) => e.type === 'frame');
   const members = new Map<number, { L: number; points: Pt[]; dists: Dist[] }>();
   for (const e of frames) {

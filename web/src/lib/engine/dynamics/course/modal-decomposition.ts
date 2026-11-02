@@ -41,8 +41,15 @@ export interface ModalSolution {
   totalMassZ: number;
 }
 
+/** A rigid unit translation along global `dir`, in each DOF's own frame. */
 export function influence(dofs: readonly DofRef[], dir: 'ux' | 'uz'): number[] {
-  return dofs.map((d) => (d.dir === dir ? 1 : 0));
+  return dofs.map((d) => {
+    if (d.dir === 'ry') return 0;
+    if (d.angle === undefined) return d.dir === dir ? 1 : 0;
+    const c = Math.cos(d.angle), s = Math.sin(d.angle);
+    const local = dir === 'ux' ? [c, -s] : [s, c];
+    return d.dir === 'ux' ? local[0] : local[1];
+  });
 }
 
 function offDiagonal(a: Mat): number {
@@ -53,10 +60,13 @@ function offDiagonal(a: Mat): number {
   return diag > 0 ? off / diag : 0;
 }
 
-export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[]): ModalSolution {
+/**
+ * `ground`: the inertia load of a unit ground acceleration along X and Z (M·r with the supports
+ * moving too); without it, M·r over `dofs`, which misses the mass coupled to supports in a turned frame.
+ */
+export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[], ground?: { x: number[]; z: number[] }): ModalSolution {
   const { lambda, phi } = generalizedEigen(K, M);
-  const rx = influence(dofs, 'ux'), rz = influence(dofs, 'uz');
-  const Mrx = matVec(M, rx), Mrz = matVec(M, rz);
+  const Mrx = ground?.x ?? matVec(M, influence(dofs, 'ux')), Mrz = ground?.z ?? matVec(M, influence(dofs, 'uz'));
   const cols: number[][] = [];
   const modes: Mode[] = lambda.map((lam, i) => {
     const raw = column(phi, i);
@@ -73,7 +83,8 @@ export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[]): ModalSoluti
   const Phi = transpose(cols);
   const PtMP = matMul(transpose(Phi), matMul(M, Phi));
   const PtKP = matMul(transpose(Phi), matMul(K, Phi));
-  return { modes, Phi, PtMP, PtKP, offM: offDiagonal(PtMP), offK: offDiagonal(PtKP), totalMassX: dot(rx, Mrx), totalMassZ: dot(rz, Mrz) };
+  const total = (p: number[]) => modes.reduce((acc, m) => acc + dot(m.phi, p) ** 2 / m.Mg, 0);
+  return { modes, Phi, PtMP, PtKP, offM: offDiagonal(PtMP), offK: offDiagonal(PtKP), totalMassX: total(Mrx), totalMassZ: total(Mrz) };
 }
 
 export type Excitation =

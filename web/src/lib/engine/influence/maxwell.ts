@@ -106,6 +106,10 @@ export function maxwellLine(solver: SolverInput, quantity: InfluenceQuantity, ta
 
 /** The target's own displacement under the loads of one solve on the split input (for checks). */
 export function targetDisplacement(solver: SolverInput, quantity: InfluenceQuantity, target: IlTarget, loads: SolverLoad[]): number {
+  if (target.kind === 'section' && solver.elements.get(target.elementId)?.type === 'truss') {
+    const u = displacementAlong(solver, solve({ ...solver, loads }), target.elementId, target.t);
+    return canonicalQuantity(quantity) === 'ux' ? u.ux : u.uz;
+  }
   const split = withSectionNode(solver, target);
   const pc = split.pieces;
   const cutAt = pc ? pc.t * memberGeom(solver, pc.original).L : 0;

@@ -12,7 +12,8 @@
   let { r, step }: { r: PlasticCollapseResult; step: number } = $props();
 
   const st = $derived(r.steps[step]);
-  const before = $derived(r.hinges.filter((h) => h.step < step).length);
+  const startLambda = $derived(step > 0 ? r.steps[step - 1].loadFactor : 0);
+  const before = $derived(r.hinges.filter((h) => h.step < step && !(h.unloadedAt !== undefined && h.unloadedAt <= startLambda * (1 + 1e-12))).length);
   const last = $derived(step === r.steps.length - 1);
   const f3 = (v: number) => v.toFixed(3);
   const mom = (v: number) => `${fmtQ(v, 'moment')} ${unitQ('moment')}`;

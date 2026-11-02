@@ -12,7 +12,7 @@ export type SketchColor =
   | 'structure' | 'muted' | 'load' | 'reaction' | 'moment' | 'unknown'
   | 'dof' | 'accent' | 'tension' | 'compression' | 'deformed' | 'diagram';
 
-export type SketchSupport = 'fixed' | 'pinned' | 'roller' | 'rollerV' | 'guided' | 'guidedV' | 'spring';
+export type SketchSupport = 'fixed' | 'pinned' | 'roller' | 'rollerV' | 'guided' | 'guidedV' | 'rotationOnly' | 'spring';
 
 export interface Sketch {
   nodes: Array<{ id: number; x: number; z: number; label?: string }>;
@@ -23,7 +23,7 @@ export interface Sketch {
     label?: string;
     color?: SketchColor;
   }>;
-  /** roller: rolls along X (holds z); rollerV: rolls along Z (holds x); guided / guidedV: the same, with the rotation held. */
+  /** roller: rolls along X (holds z); rollerV: rolls along Z (holds x); guided / guidedV: the same, with the rotation held; rotationOnly: only the rotation held. */
   supports?: Array<{ node: number; type: SketchSupport }>;
   /** A hinge at a member end, or at a node (all members there). */
   hinges?: Array<{ node: number; member?: number }>;

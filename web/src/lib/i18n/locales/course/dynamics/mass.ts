@@ -56,6 +56,7 @@ export const es: Translations = {
   'course.dynamics.mass.conv.why': 'La masa concentrada suele quedar por debajo de la exacta y la consistente por encima; las dos se acercan al aumentar n. La columna del motor coincide con la consistente porque el motor usa esa masa.',
   'course.dynamics.mass.conv.cut': 'Las divisiones más finas que n = {n} superan el tamaño que explica este paso a paso.',
   'course.dynamics.mass.err.noBars': 'Hace falta al menos una barra con masa (densidad del material mayor que cero).',
+  'course.dynamics.mass.err.noFrames': 'Esta explicación arma las matrices de masa de una barra de pórtico; el modelo sólo tiene barras de reticulado.',
 };
 
 export const en: Translations = {
@@ -114,6 +115,7 @@ export const en: Translations = {
   'course.dynamics.mass.conv.why': 'Lumped mass tends to stay below the exact value and consistent mass above it; both get closer as n grows. The engine column matches the consistent one because the engine uses that mass.',
   'course.dynamics.mass.conv.cut': 'Cuts finer than n = {n} exceed the size this step by step explains.',
   'course.dynamics.mass.err.noBars': 'At least one member with mass is needed (a material density above zero).',
+  'course.dynamics.mass.err.noFrames': 'This explanation builds the mass matrices of a frame member; the model has truss bars only.',
 };
 
 export const pt: Translations = {
@@ -172,4 +174,5 @@ export const pt: Translations = {
   'course.dynamics.mass.conv.why': 'A massa concentrada costuma ficar abaixo da exata e a consistente acima; as duas se aproximam ao aumentar n. A coluna do motor coincide com a consistente porque o motor usa essa massa.',
   'course.dynamics.mass.conv.cut': 'As divisões mais finas que n = {n} superam o tamanho que este passo a passo explica.',
   'course.dynamics.mass.err.noBars': 'É preciso ao menos uma barra com massa (densidade do material maior que zero).',
+  'course.dynamics.mass.err.noFrames': 'Esta explicação monta as matrizes de massa de uma barra de pórtico; o modelo só tem barras de treliça.',
 };

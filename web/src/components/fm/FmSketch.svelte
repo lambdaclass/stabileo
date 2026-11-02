@@ -243,6 +243,8 @@
       </g>
     {:else if m.kind === 'bar'}
       <text x={m.x + 3} y={m.y - 3} class="fm-xlbl" class:fm-x-off={!m.on}>{m.tag}</text>
+    {:else if m.kind === 'hinge'}
+      <circle cx={m.x} cy={m.y} r="3.4" class="fm-hinge" />
     {:else if m.kind === 'cut'}
       <line x1={m.x + m.dy! * 6 - m.dx! * 2} y1={m.y - m.dx! * 6 - m.dy! * 2} x2={m.x - m.dy! * 6 - m.dx! * 2} y2={m.y + m.dx! * 6 - m.dy! * 2} class="fm-cut" />
       <line x1={m.x + m.dy! * 6 + m.dx! * 2} y1={m.y - m.dx! * 6 + m.dy! * 2} x2={m.x - m.dy! * 6 + m.dx! * 2} y2={m.y + m.dx! * 6 + m.dy! * 2} class="fm-cut" />

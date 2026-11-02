@@ -266,6 +266,9 @@
         <circle cx={p.x - 11} cy={p.y - 6} r="2.6" class="support-shape" />
         <circle cx={p.x - 11} cy={p.y + 6} r="2.6" class="support-shape" />
         <line x1={p.x - 14} y1={p.y - 13} x2={p.x - 14} y2={p.y + 13} class="support" />
+      {:else if s.type === 'rotationOnly'}
+        <rect x={p.x - 6} y={p.y - 6} width="12" height="12" fill="url(#hatch)" />
+        <rect x={p.x - 6} y={p.y - 6} width="12" height="12" class="support" fill="none" />
       {:else if s.type === 'guidedV'}
         <rect x={p.x - 13} y={p.y} width="26" height="8" fill="url(#hatch)" />
         <line x1={p.x - 13} y1={p.y} x2={p.x + 13} y2={p.y} class="support" />

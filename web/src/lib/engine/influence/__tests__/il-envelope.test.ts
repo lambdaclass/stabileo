@@ -13,7 +13,7 @@ import { ilExtremes, ilAreas, extremeLoads, uniformAlong, defaultLoadedMembers }
 import { ilEnvelopeAlong } from '../envelope-along';
 import type { IlTarget } from '../quantities';
 import type { InfluenceQuantity } from '../../../store/model.svelte';
-import { simpleBeam, threeSpan } from './fixtures';
+import { simpleBeam, threeSpan, twoSpan } from './fixtures';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -106,6 +106,20 @@ describe('the envelope along the members', () => {
     // At midspan q on one half only: g·0 + q·L/8 = 5.
     expect(V.members[0].max[mid]).toBeCloseTo(5, 6);
     expect(V.members[0].min[mid]).toBeCloseTo(-5, 6);
+  });
+
+  it('a two-span beam under P: M at midspan of span 2 takes its off-grid hogging peak in span 1, P·0.0962·L/2 at ξ = 1 − 1/√3', () => {
+    const L = 6, P = 100;
+    const unit = unitSolver(buildSolverInput2D(twoSpan(L) as never, false)!);
+    const t0 = performance.now();
+    const env = ilEnvelopeAlong(unit, 'M', { g: 0, q: 0, P }, 'zones', DOWN, [1, 2], 4);
+    const ms = performance.now() - t0;
+    const xi = 1 - 1 / Math.sqrt(3);
+    const hog = (P * xi * (1 - xi) * (2 - xi) / 4) * (L / 2);
+    const m2 = env.members.find((m) => m.elementId === 2)!;
+    const mid = m2.t.indexOf(0.5);
+    expect(m2.min[mid] / -hog).toBeCloseTo(1, 7);
+    expect(ms).toBeLessThan(20_000);
   });
 
   it('a continuous beam: the dead-load envelope is the direct solve of g on every span, at every section (curved lines integrated exactly)', () => {

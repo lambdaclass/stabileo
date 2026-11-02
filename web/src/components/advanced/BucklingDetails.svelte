@@ -51,12 +51,13 @@
       <tbody>
         {#each result.modes as m, i (i)}
           <tr class:now={resultsStore.activeBucklingMode === i}>
-            <td><button class="bk-pick" onclick={() => { resultsStore.activeBucklingMode = i; resultsStore.diagramType = 'bucklingMode'; }} aria-pressed={resultsStore.activeBucklingMode === i}>{i + 1}</button></td><td>{num(m.loadFactor)}</td>{#if info.engineFactors}<td>{num(info.engineFactors[i])}</td>{/if}
+            <td><button class="bk-pick" onclick={() => { resultsStore.activeBucklingMode = i; resultsStore.diagramType = 'bucklingMode'; }} aria-pressed={resultsStore.activeBucklingMode === i}>{i + 1}</button></td><td>{num(m.loadFactor)}{#if (m as { internal?: true }).internal} *{/if}</td>{#if info.engineFactors}<td>{num(info.engineFactors[i])}</td>{/if}
           </tr>
         {/each}
       </tbody>
     </table>
     {#if info.engineFactors}<p class="bk-note">{tp(`${K}.engineNote`, { n: info.settings.n })}</p>{/if}
+    {#if result.modes.some((m) => (m as { internal?: true }).internal)}<p class="bk-note" data-testid="bk-internal">{t('course.second-order.bk.internalNote')}</p>{/if}
   </details>
 {/if}
 {#if data.length}

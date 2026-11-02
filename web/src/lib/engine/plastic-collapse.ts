@@ -324,7 +324,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
     if (!open.length) return false;
     const removed = new Set(members.filter((mb) => mb.yielded).map((mb) => mb.id));
-    const km = buildKinematics(original, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), removed);
+    const km = buildKinematics(original, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), removed, 'rigid');
     const space = nullspace(km.rows, km.n);
     if (!space.length) return false;
     const dotRow = (row: number[], d: number[]) => row.reduce((acc, w, i) => acc + w * d[i], 0);

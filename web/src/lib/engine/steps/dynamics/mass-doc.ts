@@ -32,6 +32,7 @@ export function massApplies(ctx: MethodContext): Applicability {
   try {
     const s = system(ctx, dynamicsSettings().mass.nPerMember, dynamicsSettings().mass.massModel);
     if (!s.members.length) return { ok: false, reason: tx(KEY + 'mass.err.noBars') };
+    if (!s.members.some((m) => m.type === 'frame')) return { ok: false, reason: tx(KEY + 'mass.err.noFrames') };
     return { ok: true };
   } catch (e) {
     if (e instanceof SystemError) return { ok: false, reason: tx(KEY + `mdof.err.${e.code}`, e.params) };
@@ -64,7 +65,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   const n = st.nPerMember;
   const sys = system(ctx, n, st.massModel);
   const names = nodeNames(ctx.pm, sys);
-  const piece = sys.members.find((m) => m.type === 'frame') ?? sys.members[0];
+  const piece = sys.members.find((m) => m.type === 'frame')!;
   const steps: Step[] = [];
   const added = sys.coords.size - ctx.pm.nodes.size;
   const pts = ctx.model!.massSource?.points ?? [];

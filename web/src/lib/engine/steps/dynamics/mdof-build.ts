@@ -60,14 +60,16 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   let ust: number[];
   try { ust = solve(K, F); } catch { return { refusal: 'mdof.err.singular' }; }
   let sol: ModalSolution;
-  try { sol = modalSolve(K, M, dofs); } catch { return { refusal: 'mdof.err.singular' }; }
+  try { sol = modalSolve(K, M, dofs, sys?.ground); } catch { return { refusal: 'mdof.err.singular' }; }
   if (!(sol.modes[0]?.omega > 0)) return { refusal: 'mdof.err.singular' };
   const Omega = ms.ratio * sol.modes[0].omega;
   const ex: Excitation = ms.excitation === 'free'
     ? { kind: 'free', u0: ust, v0: ust.map(() => 0) }
     : { kind: 'harmonic', F, Omega };
   const resp = modalResponse(sol, M, ms.xi, ex);
-  const at = ust.reduce((b, v, i) => (Math.abs(v) > Math.abs(ust[b]) ? i : b), 0);
+  const moves = dofs.map((_, i) => i).filter((i) => dofs[i].dir !== 'ry');
+  if (!moves.length) return { refusal: 'mdof.err.noMass' };
+  const at = moves.reduce((b, i) => (Math.abs(ust[i]) > Math.abs(ust[b]) ? i : b), moves[0]);
   const T1 = sol.modes[0].T;
   const tEnd = ex.kind === 'free' ? 4 * T1 : Math.max(6 * T1, (8 * Math.PI) / Omega);
   const N = 160;

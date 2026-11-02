@@ -140,3 +140,16 @@ describe('the largest displacement amplification', () => {
     expect(displacementAmplification(lin, rev)!.ratio).toBe(Infinity);
   });
 });
+
+describe('internal buckling modes through the wrapper', () => {
+  it('a fixed-fixed column of one element with φ: the modes keep their internal flag and draw nothing', () => {
+    const got = runBuckling2D(column('fixed', 'guided', 5, 100), { ...DEFAULT_SETTINGS, method: 'phi', n: 1, modes: 2 });
+    if (!got.ok) throw new Error(got.reason.key);
+    expect(got.result.modes).toHaveLength(2);
+    for (const m of got.result.modes) {
+      expect(m.internal).toBe(true);
+      expect(m.displacements.every((d) => Object.entries(d).every(([k, v]) => k === 'nodeId' || v === 0))).toBe(true);
+    }
+    expect(got.result.modes[0].loadFactor).toBeCloseTo((4 * Math.PI ** 2 * EI) / 25 / 100, 4);
+  });
+});

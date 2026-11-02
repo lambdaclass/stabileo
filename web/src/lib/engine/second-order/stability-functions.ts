@@ -114,7 +114,7 @@ function tanRootsBelow(limit: number): number {
  */
 export function clampedModesBelow(u: number, hingeI: boolean, hingeJ: boolean): number {
   if (!(u > 0)) return 0;
-  if (hingeI && hingeJ) return Math.floor(u / Math.PI - 1e-12);
+  if (hingeI && hingeJ) return Math.max(0, Math.floor(u / Math.PI - 1e-12));
   if (hingeI || hingeJ) return tanRootsBelow(u);
-  return Math.floor(u / (2 * Math.PI) - 1e-12) + tanRootsBelow(u / 2);
+  return Math.max(0, Math.floor(u / (2 * Math.PI) - 1e-12)) + tanRootsBelow(u / 2);
 }

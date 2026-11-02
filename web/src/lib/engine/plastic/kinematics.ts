@@ -45,7 +45,11 @@ export interface KinModel {
 
 const key = (m: number, t: number) => `${m}:${t.toFixed(9)}`;
 
-export function buildKinematics(input: SolverInput, sections: KinSection[], removed: ReadonlySet<number> = new Set()): KinModel {
+/**
+ * `springs`: 'refuse' throws on an elastic spring support, which a rigid-plastic mechanism cannot
+ * represent; 'rigid' holds it as a restraint (the incremental analysis' closing check only).
+ */
+export function buildKinematics(input: SolverInput, sections: KinSection[], removed: ReadonlySet<number> = new Set(), springs: 'refuse' | 'rigid' = 'refuse'): KinModel {
   const points: Array<{ x: number; z: number }> = [];
   const nodePoint = new Map<number, number>();
   for (const n of input.nodes.values()) { nodePoint.set(n.id, points.length); points.push({ x: n.x, z: n.z }); }
@@ -126,7 +130,10 @@ export function buildKinematics(input: SolverInput, sections: KinSection[], remo
     else if (t === 'rollerX') hold(0, 1);
     else if (t === 'rollerZ') hold(1, 0);
     else if (t === 'inclinedRoller') { const a = s.angle ?? 0; hold(-Math.sin(a), Math.cos(a)); }
-    else if (t === 'spring') { if ((s.kx ?? 0) > 0) hold(1, 0); if ((s.ky ?? 0) > 0) hold(0, 1); }
+    else if (t === 'spring') {
+      if (springs === 'refuse') throw new Error('rigid-plastic mechanism: elastic spring support');
+      if ((s.kx ?? 0) > 0) hold(1, 0); if ((s.ky ?? 0) > 0) hold(0, 1);
+    }
     const holdsRotation = t === 'fixed' || (t === 'spring' && (s.kz ?? 0) > 0);
     if (holdsRotation && joint.has(s.nodeId)) { const r = row(); r[joint.get(s.nodeId)!] = 1; rows.push(r); }
   }

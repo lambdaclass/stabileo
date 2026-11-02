@@ -14,7 +14,8 @@ import { type Mat, zeros, congruence } from './dense';
 import { type MassModel, type Condensation, lumpedFrameMass, consistentFrameMass, trussMass, condense } from './mass-model';
 
 export type DofDir = 'ux' | 'uz' | 'ry';
-export interface DofRef { nodeId: number; dir: DofDir }
+/** `angle`: the node's frame, u_local = R(angle)·u_global, when a support turns it. */
+export interface DofRef { nodeId: number; dir: DofDir; angle?: number }
 
 export const dofTex = (d: DofRef): string => (d.dir === 'ux' ? `u_{${d.nodeId}}` : d.dir === 'uz' ? `v_{${d.nodeId}}` : `\\theta_{${d.nodeId}}`);
 export const dofText = (d: DofRef): string => `${d.dir === 'ux' ? 'u' : d.dir === 'uz' ? 'v' : 'θ'}${d.nodeId}`;
@@ -42,6 +43,8 @@ export interface MdofSystem {
   M: Mat;
   F: number[];
   condensation: Condensation | null;
+  /** The inertia load of a unit ground acceleration along global X and Z, on `dofs`: supports in a turned frame move with the ground too. */
+  ground: { x: number[]; z: number[] };
   massModel: MassModel;
   nPerMember: number;
   members: MemberMass[];
@@ -78,7 +81,11 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   if (nF > MAX_SYSTEM_DOFS) throw new SystemError('tooBig', { n: nF, max: MAX_SYSTEM_DOFS });
   const nT = det.dofNumbering.nTotal;
   const dirs: DofDir[] = det.dofNumbering.dofsPerNode === 3 ? ['ux', 'uz', 'ry'] : ['ux', 'uz'];
-  const fullDofs: DofRef[] = det.dofNumbering.dofs.filter((d) => d.isFree).map((d) => ({ nodeId: d.nodeId, dir: dirs[d.localDof] }));
+  const frameOf = new Map(det.nodeFrames.map((f) => [f.nodeId, f.angle]));
+  const fullDofs: DofRef[] = det.dofNumbering.dofs.filter((d) => d.isFree).map((d) => {
+    const angle = frameOf.get(d.nodeId);
+    return angle !== undefined && d.localDof < 2 ? { nodeId: d.nodeId, dir: dirs[d.localDof], angle } : { nodeId: d.nodeId, dir: dirs[d.localDof] };
+  });
   const memberOf = new Map<number, number>();
   for (const [mid, segs] of sub.segments) for (const s of segs) memberOf.set(s, mid);
 
@@ -121,12 +128,23 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   const translational = (i: number) => fullDofs[i].dir !== 'ry';
   const masters = fullDofs.map((_, i) => i).filter((i) => hasMass(i) && (opts.massModel !== 'guyan' || translational(i)));
   if (!masters.length) throw new SystemError('noMass');
+  const rigid = (dir: 'ux' | 'uz') => {
+    const r = new Array(nT).fill(0);
+    for (const d of det.dofNumbering.dofs) {
+      if (d.localDof > 1) continue;
+      const a = frameOf.get(d.nodeId) ?? 0, c = Math.cos(a), sn = Math.sin(a);
+      r[d.globalIndex] = dir === 'ux' ? (d.localDof === 0 ? c : -sn) : (d.localDof === 0 ? sn : c);
+    }
+    return Mt.slice(0, nF).map((row) => row.reduce((acc, v, j) => acc + v * r[j], 0));
+  };
+  let ground = { x: rigid('ux'), z: rigid('uz') };
   let condensation: Condensation | null = null;
   let K = fullK, M = fullM, F = fullF, dofs = fullDofs;
   if (masters.length < nF) {
     try { condensation = condense(fullK, fullM, fullF, masters); } catch { throw new SystemError('singular'); }
     ({ K, M, F } = condensation);
     dofs = masters.map((i) => fullDofs[i]);
+    ground = { x: condense(fullK, fullM, ground.x, masters).F, z: condense(fullK, fullM, ground.z, masters).F };
   }
 
   const chains = new Map<number, number[]>();
@@ -137,5 +155,5 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   }
   const coords = new Map([...input.nodes.values()].map((n) => [n.id, { x: n.x, z: n.z }]));
   const totalMass = members.reduce((s, m) => s + m.rhoA * m.L, 0) + pts.reduce((s, p) => s + p.mx, 0);
-  return { fullDofs, fullK, fullM, fullF, dofs, K, M, F, condensation, massModel: opts.massModel, nPerMember: Math.max(1, opts.nPerMember), members, points: pts, totalMass, chains, coords };
+  return { fullDofs, fullK, fullM, fullF, dofs, K, M, F, condensation, ground, massModel: opts.massModel, nPerMember: Math.max(1, opts.nPerMember), members, points: pts, totalMass, chains, coords };
 }

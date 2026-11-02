@@ -8,7 +8,8 @@
   import { resultsStore, modelStore, uiStore } from '../../lib/store';
   import UnitInput from '../UnitInput.svelte';
   import InfluenceLoading from './InfluenceLoading.svelte';
-  import { moveInfluenceSection, runInfluence, openInfluenceExplanation, currentUnitInput, loadedMembers } from '../../lib/actions/influence-line';
+  import { moveInfluenceSection, runInfluence, openInfluenceExplanation, currentUnitInput, loadedMembers, setInfluenceQuantity, setInfluenceDirection } from '../../lib/actions/influence-line';
+  import { IL_QUANTITY_GROUPS, IL_DIRECTIONS } from '../../lib/influence-line-quantities';
   import { positionToT, otherSideOf } from '../../lib/engine/influence/section-pick';
   import { canonicalQuantity, familyOf, ordinateUnit } from '../../lib/engine/influence/quantities';
   import { numText } from '../../lib/engine/steps/format';
@@ -57,6 +58,28 @@
 </script>
 
 <div class="ilp" data-testid="il-panel">
+  {#if uiStore.isMobile}
+    <div class="ilp-pick" data-testid="il-pick">
+      {#each IL_QUANTITY_GROUPS as group}
+        <div class="ilp-row">
+          <span class="ilp-label">{t(group.labelKey)}</span>
+          <div class="ilp-snaps">
+            {#each group.quantities as qq}
+              <button class:on={uiStore.ilQuantity === qq.id} onclick={() => setInfluenceQuantity(qq.id)} data-testid={`ilp-q-${qq.id}`}>{t(qq.labelKey)}</button>
+            {/each}
+          </div>
+        </div>
+      {/each}
+      <div class="ilp-row">
+        <span class="ilp-label">{t('float.ilUnitLoad')}</span>
+        <div class="ilp-snaps">
+          {#each IL_DIRECTIONS as d (d.id)}
+            <button class:on={uiStore.ilDirection === d.id} title={t(d.tip)} onclick={() => setInfluenceDirection(d.id)} data-testid={`ilp-dir-${d.id}`}>{t(d.key)}</button>
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
   {#if !il}
     <p class="ilp-hint">{t('course.influence.panel.pick')}</p>
     <p class="ilp-hint">{t('course.influence.panel.pickWhere')}</p>
@@ -116,6 +139,9 @@
   .ilp-x :global(input) { width: 4.6rem; }
   .ilp-sub { color: var(--st-text-3); font-size: 0.66rem; }
   .ilp-snaps { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+  .ilp-pick { display: flex; flex-direction: column; gap: 0.3rem; }
+  .ilp-pick .ilp-snaps button { min-height: 2rem; font-size: 0.78rem; }
+  .ilp-pick .ilp-snaps button.on { background: var(--st-accent); border-color: var(--st-accent); color: var(--st-text-on-accent); }
   .ilp-snaps button, .ilp-btn {
     background: none; border: 1px solid var(--st-hair); border-radius: var(--st-radius); color: var(--st-text-2);
     font-size: 0.7rem; padding: 0.2rem 0.45rem; cursor: pointer;

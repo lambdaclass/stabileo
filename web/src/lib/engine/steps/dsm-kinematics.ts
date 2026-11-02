@@ -1,7 +1,7 @@
 /**
  * What the stiffness wizard shows from the displacement method's side: the
  * kinematic count (GIC) beside the static one in step 1, and, with axially
- * rigid members, the reduction u_f = T·q (step 6), the reduced solve (step
+ * rigid members, the reduction u_f = u⁰ + T·q (step 6), the reduced solve (step
  * 7) and the axial forces from equilibrium (steps 8 and 9).
  */
 import type { SolverInput } from '../types';

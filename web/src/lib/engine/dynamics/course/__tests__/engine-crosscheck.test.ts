@@ -4,6 +4,8 @@ import { solveModal, solveHarmonic2D, solveTimeHistory2D, guyanReduce2D, isSolve
 import { withBasicMass } from '../../basic-mass';
 import { densityRecord } from '../../requests';
 import { modelSystem } from '../mdof-system';
+import { modalSolve } from '../modal-decomposition';
+import { sdofFromModel } from '../sdof-model';
 import { condense } from '../mass-model';
 import { convergenceTable, exactBeam } from '../convergence';
 import { subdivideForAnalysis } from '../../../../model/edit/analysis-subdivision';
@@ -131,6 +133,33 @@ describe('point masses in Basic reach the engine', () => {
     const eng = engineFrequencies(4);
     mine.forEach((f, i) => expect(f / eng[i]).toBeCloseTo(1, 6));
   });
+});
+
+describe('ground excitation with a support in a turned frame', () => {
+  for (const angle of [0, 35, 60]) {
+    it(`a horizontal-only point mass on a roller at ${angle}°: it all moves with an X ground motion, none with Z; the SDOF takes the same mass`, () => {
+      build(() => {
+        const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 0);
+        modelStore.addElement(a, b);
+        modelStore.addSupport(a, 'pinned');
+        modelStore.addSupport(b, 'rollerX', undefined, { angle });
+      });
+      const pts = [{ nodeId: 2, m: 5, horizontalOnly: true }, { nodeId: 2, m: 2 }];
+      const s = modelSystem(modelStore.model, pts, { nPerMember: 1, massModel: 'lumped', barMass: false });
+      const sol = modalSolve(s.K, s.M, s.dofs, s.ground);
+      expect(s.dofs).toHaveLength(1);
+      const d = s.dofs[0], a = d.angle ?? 0;
+      const [tx, tz] = d.dir === 'ux' ? [Math.cos(a), Math.sin(a)] : [-Math.sin(a), Math.cos(a)];
+      if (angle !== 0) expect(Math.abs(tz)).toBeGreaterThan(0.3);
+      const mt = 7 * tx * tx + 2 * tz * tz;
+      const along = (gx: number, gz: number) => (7 * tx * gx + 2 * tz * gz) ** 2 / mt;
+      expect(sol.totalMassX).toBeCloseTo(along(1, 0), 9);
+      expect(sol.totalMassZ).toBeCloseTo(along(0, 1), 9);
+      const sx = sdofFromModel(modelStore.model, pts, 2, 'ux');
+      if (typeof sx === 'string') throw new Error(sx);
+      expect(sx.m).toBe(7);
+    });
+  }
 });
 
 describe('static condensation against the engine', () => {

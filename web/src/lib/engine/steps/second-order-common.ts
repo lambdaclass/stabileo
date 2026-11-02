@@ -116,8 +116,9 @@ export function symbolicMatrix(method: GeomMethod): Block[] {
   if (method === 'phi') {
     return [
       { kind: 'eq', tex: '\\mathbf{k}(N) = \\frac{EI}{L^3}\\begin{bmatrix} 12\\varphi_1 & 6L\\varphi_2 & -12\\varphi_1 & 6L\\varphi_2 \\\\ 6L\\varphi_2 & 4L^2\\varphi_3 & -6L\\varphi_2 & 2L^2\\varphi_4 \\\\ -12\\varphi_1 & -6L\\varphi_2 & 12\\varphi_1 & -6L\\varphi_2 \\\\ 6L\\varphi_2 & 2L^2\\varphi_4 & -6L\\varphi_2 & 4L^2\\varphi_3 \\end{bmatrix}', note: tx(`${P}.phi.matrixNote`) },
-      { kind: 'eq', tex: '\\varphi_3 = \\frac{s}{4},\\quad \\varphi_4 = \\frac{s\\,c}{2},\\quad \\varphi_2 = \\frac{s(1+c)}{6},\\quad \\varphi_1 = \\frac{2s(1+c) - (kL)^2}{12}' },
-      { kind: 'eq', tex: 's = \\frac{kL\\,(\\sin kL - kL\\cos kL)}{2 - 2\\cos kL - kL\\sin kL},\\qquad c = \\frac{kL - \\sin kL}{\\sin kL - kL\\cos kL},\\qquad kL = L\\sqrt{\\frac{|N|}{EI}}', note: tx(`${P}.phi.scNote`) },
+      { kind: 'eq', tex: '\\varphi_3 = \\frac{s}{4},\\quad \\varphi_4 = \\frac{s\\,c}{2},\\quad \\varphi_2 = \\frac{s(1+c)}{6},\\quad \\varphi_1 = \\frac{2s(1+c) \\mp (kL)^2}{12}\\qquad \\left(N < 0:\\ -;\\quad N > 0:\\ +\\right)' },
+      { kind: 'eq', tex: 'N < 0:\\quad s = \\frac{kL\\,(\\sin kL - kL\\cos kL)}{2 - 2\\cos kL - kL\\sin kL},\\qquad c = \\frac{kL - \\sin kL}{\\sin kL - kL\\cos kL},\\qquad kL = L\\sqrt{\\frac{|N|}{EI}}', note: tx(`${P}.phi.scNote`) },
+      { kind: 'eq', tex: 'N > 0:\\quad s = \\frac{kL\\,(kL\\cosh kL - \\sinh kL)}{kL\\sinh kL - 2\\cosh kL + 2},\\qquad c = \\frac{\\sinh kL - kL}{kL\\cosh kL - \\sinh kL};\\qquad N = 0:\\quad s = 4,\\ c = \\tfrac{1}{2},\\ \\varphi_1 = \\varphi_2 = \\varphi_3 = \\varphi_4 = 1' },
     ];
   }
   if (method === 'string') {

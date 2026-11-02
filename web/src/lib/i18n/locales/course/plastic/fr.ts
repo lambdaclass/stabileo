@@ -14,7 +14,7 @@ const words: Translations = {
   'course.plastic.req.frames': 'La structure n\'a pas de barres fléchies : sans flexion, il ne se forme pas de rotules plastiques.',
   'course.plastic.req.links': 'La structure a des liaisons entre nœuds ou des connecteurs, que ces méthodes ne prennent pas en compte.',
   'course.plastic.req.springs': 'La structure a des appuis élastiques (ressorts) ; ces méthodes travaillent avec des appuis rigides.',
-  'course.plastic.req.couples': 'Un couple est appliqué sur une barre ; pour ces méthodes, placez-le sur un nœud.',
+  'course.plastic.req.couples': 'Un couple agit à l’intérieur d’une barre. Pour ces méthodes, ajoutez un nœud exactement là où il agit (la barre est coupée en deux, même section, liaison rigide) et appliquez-y le couple.',
   'course.plastic.req.loads': 'La structure n\'a pas de charges.',
   'course.plastic.req.mp': 'La barre {m} n\'a pas de Mp défini : vérifiez sa section et son matériau.',
   'course.plastic.req.size': 'Il y a {n} sections critiques ; à la main, on travaille avec {max} au plus.',

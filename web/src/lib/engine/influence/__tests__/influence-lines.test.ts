@@ -158,6 +158,19 @@ describe('displacement and rotation lines (Maxwell)', () => {
     expect(unit.loads).toEqual([]);
   });
 
+  it('a displacement inside a truss bar: the line and the check both interpolate the bar\'s end nodes', () => {
+    const tr = kingPostTruss();
+    const u = unitSolver(buildSolverInput2D(tr as never, false)!);
+    for (const [q, el, t] of [['uz', 1, 0.5], ['uz', 3, 0.4], ['ux', 3, 0.7]] as const) {
+      const il = line(tr, q, undefined, el, t);
+      for (const p of il.points.filter((_, k) => k % 4 === 0)) {
+        const L = Math.hypot(...(() => { const e = u.elements.get(p.elementId)!; const a = u.nodes.get(e.nodeI)!, b = u.nodes.get(e.nodeJ)!; return [b.x - a.x, b.z - a.z]; })());
+        const brute = targetDisplacement(u, q, { kind: 'section', elementId: el, t }, loadOnMember(u, p.elementId, p.t * L, 1, { x: 0, z: -1 }));
+        expect(p.value).toBeCloseTo(brute, 12);
+      }
+    }
+  });
+
   it('a rotation is refused where it has no meaning: a hinged member end, a node only hinges reach, a truss bar', () => {
     expect(typeof computeInfluenceLine(m, 'ry', 1)).not.toBe('string');
     const hinged = planeModel([[1, 0, 0], [2, 5, 0], [3, 10, 0]], [[1, 1, 2, 'frame', { hingeI: true }], [2, 2, 3]], [[1, 'pinned'], [3, 'rollerX']]);

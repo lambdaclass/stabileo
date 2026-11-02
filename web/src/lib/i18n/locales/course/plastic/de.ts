@@ -14,7 +14,7 @@ const words: Translations = {
   'course.plastic.req.frames': 'Das Tragwerk hat keine biegebeanspruchten Stäbe: Ohne Biegung bilden sich keine Fließgelenke.',
   'course.plastic.req.links': 'Das Tragwerk hat Kopplungen zwischen Knoten oder Verbindungselemente, die diese Verfahren nicht berücksichtigen.',
   'course.plastic.req.springs': 'Das Tragwerk hat elastische Lager (Federn); diese Verfahren arbeiten mit starren Lagern.',
-  'course.plastic.req.couples': 'Auf einem Stab wirkt ein Einzelmoment; setzen Sie es für diese Verfahren in einen Knoten.',
+  'course.plastic.req.couples': 'Innerhalb eines Stabs wirkt ein Einzelmoment. Fügen Sie für diese Verfahren genau an seiner Stelle einen Knoten ein (der Stab wird in zwei biegesteif verbundene Teile mit demselben Querschnitt geteilt) und setzen Sie das Moment dort an.',
   'course.plastic.req.loads': 'Das Tragwerk hat keine Lasten.',
   'course.plastic.req.mp': 'Der Stab {m} hat kein definiertes Mp: Prüfen Sie Querschnitt und Werkstoff.',
   'course.plastic.req.size': 'Es gibt {n} kritische Querschnitte; von Hand rechnet man mit höchstens {max}.',

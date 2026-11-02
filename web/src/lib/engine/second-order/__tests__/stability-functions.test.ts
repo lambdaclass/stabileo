@@ -92,6 +92,9 @@ describe('stability functions s, c and φ₁…φ₄', () => {
   it('count the buckling loads of a member with its ends held (J₀)', () => {
     expect(clampedModesBelow(2 * Math.PI - 1e-6, false, false)).toBe(0);
     expect(clampedModesBelow(2 * Math.PI + 1e-6, false, false)).toBe(1);
+    for (const [a, b] of [[false, false], [true, false], [false, true], [true, true]] as const) {
+      for (const u of [1e-15, 1e-13, 1e-9]) expect(clampedModesBelow(u, a, b)).toBe(0);
+    }
     expect(clampedModesBelow(8.99, false, false)).toBe(2);
     expect(clampedModesBelow(4.49, true, false)).toBe(0);
     expect(clampedModesBelow(4.5, false, true)).toBe(1);

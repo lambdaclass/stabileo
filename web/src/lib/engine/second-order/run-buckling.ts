@@ -53,6 +53,7 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
   if (!got.ok) return got;
   const { run } = got;
   const modes = run.modes.map((m) => ({
+    ...(m.internal ? { internal: true as const } : {}),
     loadFactor: m.lambda,
     displacements: run.sys.pm.nodeOrder.map((id) => ({ nodeId: id, ux: m.D[run.sys.dof(id, 0)], uz: m.D[run.sys.dof(id, 1)], ry: m.D[run.sys.dof(id, 2)] })),
   }));

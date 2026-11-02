@@ -116,8 +116,9 @@ export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir): NonNull
 export function releasedSupport(type: SketchSupport, c: string): SketchSupport | null {
   if (type === 'fixed') return c === 'Rz' ? 'guided' : c === 'Rx' ? 'guidedV' : 'pinned';
   if (type === 'pinned') return c === 'Rz' ? 'rollerV' : c === 'Rx' ? 'roller' : 'pinned';
-  if (type === 'guided') return c === 'Rx' ? null : c === 'My' ? 'rollerV' : type;
-  if (type === 'guidedV') return c === 'Rz' ? null : c === 'My' ? 'roller' : type;
+  if (type === 'guided') return c === 'Rx' ? 'rotationOnly' : c === 'My' ? 'rollerV' : type;
+  if (type === 'guidedV') return c === 'Rz' ? 'rotationOnly' : c === 'My' ? 'roller' : type;
+  if (type === 'rotationOnly') return c === 'My' ? null : type;
   if (type === 'roller') return c === 'Rz' ? null : type;
   if (type === 'rollerV') return c === 'Rx' ? null : type;
   return null;

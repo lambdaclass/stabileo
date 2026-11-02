@@ -11,6 +11,11 @@ describe('Müller–Breslau releases only the target reaction', () => {
     expect(releasedSupport('fixed', 'Rz')).toBe('guided');
     expect(releasedSupport('fixed', 'Rx')).toBe('guidedV');
   });
+  it('a guide keeps its rotation when its translation goes', () => {
+    expect(releasedSupport('guided', 'Rx')).toBe('rotationOnly');
+    expect(releasedSupport('guidedV', 'Rz')).toBe('rotationOnly');
+    expect(releasedSupport('guided', 'My')).toBe('rollerV');
+  });
   it('a roller holding only that reaction goes', () => {
     expect(releasedSupport('roller', 'Rz')).toBeNull();
     expect(releasedSupport('rollerV', 'Rx')).toBeNull();

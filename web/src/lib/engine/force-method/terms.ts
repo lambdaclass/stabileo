@@ -45,12 +45,14 @@ export function springRows(sup: SolverSupport, a: Disp, b: Disp): TermRow[] {
 
 /**
  * Which unknowns a square system cannot determine: Gaussian elimination with
- * complete pivoting, stopping where every pivot left is below 1e-9 of the
- * largest entry. The columns never pivoted are the unknowns left free.
+ * complete pivoting on the system scaled by 1/√|aᵢᵢ| on both sides (so forces and
+ * moments, stiff and soft, weigh alike), stopping where every pivot left is below
+ * 1e-9 of the largest entry. The columns never pivoted are the unknowns left free.
  */
 export function undetermined(A: number[][]): number[] {
   const n = A.length;
-  const M = A.map((r) => [...r]);
+  const d = A.map((r, i) => (Math.abs(r[i]) > 0 ? 1 / Math.sqrt(Math.abs(r[i])) : 1));
+  const M = A.map((r, i) => r.map((v, j) => v * d[i] * d[j]));
   const cols = [...Array(n).keys()];
   let big = 0;
   for (const r of M) for (const v of r) big = Math.max(big, Math.abs(v));
