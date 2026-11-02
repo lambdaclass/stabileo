@@ -186,7 +186,7 @@ struct Ec2Block<T> {
 fn ec2_block<T: Real>(m: &Ec2MemberData) -> Ec2Block<T> {
     let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
     let (one, fifty) = (T::exact(1.0), T::exact(50.0));
-    let normal = fck_mpa.le(fifty);
+    let normal = T::exact(m.fck).le(T::exact(50e6));
     let lambda = branch(normal, || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
     let eta = branch(normal, || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
     let ecu3 = branch(
@@ -266,14 +266,11 @@ pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
             let inside = flexure_state(m, &k64, &k, true);
             let outside_holds = (k.lambda * outside.0).lt(d_p);
             let inside_holds = d_p.le(k.lambda * inside.0);
-            let pick = |f: fn((T, T)) -> T| {
-                branch(
-                    outside_holds,
-                    || branch(inside_holds, || branch(outside.1.le(inside.1), || f(outside), || f(inside)), || f(outside)),
-                    || f(inside),
-                )
+            let pick = |f: fn((T, T)) -> T, both: &dyn Fn() -> T| {
+                branch(outside_holds, || branch(inside_holds, both, || f(outside)), || f(inside))
             };
-            (pick(|s| s.0), pick(|s| s.1))
+            let x = pick(|s| s.0, &|| branch(outside.1.le(inside.1), || outside.0, || inside.0));
+            (x, pick(|s| s.1, &|| outside.1.min(inside.1)))
         }
     };
     let z = T::exact(m.d) - (k.lambda * x_na).dv(T::exact(2.0));

@@ -317,3 +317,12 @@ fn where_both_sides_of_the_displaced_concrete_balance_the_smaller_moment_governs
     close(r.x_na, governing.0, 1e-9, "x");
     close(r.m_rd, governing.1, 1e-9, "MRd");
 }
+
+#[test]
+fn c50_60_is_certified_tightly_on_the_table_3_1_boundary() {
+    let m = section(50e6, 0.30, 0.50, 0.45, 1.4e-3, Some((0.3e-3, 0.05)));
+    let m_rd = run(&m, 0.0).m_rd;
+    let c = certify(&m, 0.9 * m_rd);
+    assert!(c.certified && c.certified_ok, "{c:?}");
+    assert!(c.utilization_upper - c.utilization_lower < 1e-9, "{c:?}");
+}
