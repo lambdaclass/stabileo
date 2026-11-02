@@ -89,7 +89,7 @@ Round 2 containment audit for #447. Every result this change still returns has t
 
 ## Decisions (2026-11-02)
 
-- #798 SH-MITC4-DISTORTION ships as is. The predicate over-refuses: hemisphere, hypar and spherical-cap meshes whose results are within 2% of their references are currently withheld. Narrowing the predicate to the membrane-bending mode that is actually wrong is a separate follow-up on the roadmap; until then the refusal stands.
+- #798 SH-MITC4-DISTORTION ships as is. The membrane-response predicate (§ thresholds below) already lets distorted meshes without membrane bending through, but it still over-refuses accurate curved-shell benchmarks: the pinched hemisphere (4×4, 8×8 and the R/t sweep), the hypar self-convergence meshes, the spherical cap and the obstacle-course hemisphere are withheld although they are within 2% of their references (shell_benchmark.rs and discretization_error.rs assert each refusal). Combinations whose Σ|factor| exceeds 1, envelopes of more than one distorted result and 3D harmonic analysis of a distorted model are refused for the same reason: the combined or dynamic field is not checked. Narrowing all of these is a separate follow-up on the roadmap (item 16); until then the refusals stand.
 - #458 and #762 near-mechanisms stay WARN (CERT-MECHANISM, NUM-INVARIANCE), not REFUSE. The static certificate never certifies them.
 
 ## Predicates and limits

@@ -7396,3 +7396,34 @@ fn assert_json_matches(a: &serde_json::Value, b: &serde_json::Value, at: &str) {
         _ => assert_eq!(a, b, "{at}. Regenerate with UPDATE_SHELL_OBSTACLE=1"),
     }
 }
+
+/// The #1057 twist measure is zero on a saddle meshed along its principal axes, z = x² − y²; that
+/// mesh is not over-flexible: MITC9 approaches the curved-shell solution from below.
+#[test]
+fn mitc9_on_a_principal_axis_saddle_is_not_over_flexible() {
+    let surf = |xi: f64, eta: f64| { let (x, y) = (xi - 0.5, eta - 0.5); (x, y, x * x - y * y) };
+    let curved = |n: usize| -> f64 {
+        let mut nodes = HashMap::new();
+        let id = |i: usize, j: usize| i * (n + 1) + j + 1;
+        for i in 0..=n { for j in 0..=n { let (x, y, z) = surf(i as f64 / n as f64, j as f64 / n as f64); nodes.insert(id(i, j).to_string(), SolverNode3D { id: id(i, j), x, y, z }); } }
+        let mut curved_shells = HashMap::new();
+        let mut loads = Vec::new();
+        let mut k = 1;
+        for i in 0..n { for j in 0..n {
+            curved_shells.insert(k.to_string(), SolverCurvedShellElement { id: k, nodes: [id(i, j), id(i + 1, j), id(i + 1, j + 1), id(i, j + 1)], material_id: 1, thickness: 0.01, normals: None });
+            loads.push(SolverLoad3D::CurvedShellPressure(SolverPressureLoad { element_id: k, pressure: -1.0 }));
+            k += 1;
+        } }
+        let mut supports = HashMap::new();
+        for j in 0..=n { supports.insert((j + 1).to_string(), sup3d(id(0, j), true, true, true, true, true, true)); }
+        let mut mats = HashMap::new();
+        mats.insert("1".to_string(), SolverMaterial { id: 1, e: 200_000.0, nu: 0.3 });
+        let input = SolverInput3D { solver_options: None, masses: Default::default(), nodes, materials: mats, sections: HashMap::new(), elements: HashMap::new(), supports, loads, constraints: vec![], left_hand: None, plates: HashMap::new(), quads: HashMap::new(), quad9s: HashMap::new(), solid_shells: HashMap::new(), curved_shells, curved_beams: vec![], connectors: HashMap::new() };
+        let res = linear::solve_3d(&input).expect("curved");
+        res.displacements.iter().map(|d| (d.ux * d.ux + d.uy * d.uy + d.uz * d.uz).sqrt()).fold(0.0_f64, f64::max)
+    };
+    let reference = curved(48);
+    let (coarse, fine) = (q9_hypar_solve(8), q9_hypar_solve(16));
+    assert!(coarse < fine && fine <= reference * 1.001, "MITC9 8×8 {coarse:e}, 16×16 {fine:e}, curved shell 48×48 {reference:e}");
+    assert!(fine > reference * 0.99, "MITC9 16×16 {fine:e} vs curved shell 48×48 {reference:e}");
+}
