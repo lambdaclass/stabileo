@@ -124,7 +124,7 @@ export function engineRecheckElement(
           }],
           demands: [{
             forces: { elementId: v.elementId, mu: f.Mu * 1e3, vu: v.shear.Vu * 1e3, axialCompression: shearNu * 1e3 },
-            bound: { n: 0, my: 0, mz: 0, vy: 0 },
+            bound: { n: 0, my: 0, mz: 0, vStrong: 0 },
           }],
         })]) as Array<{ certified: boolean; certifiedOk: boolean; utilizationLower: number; utilizationUpper: number; reason?: string }>;
         if (res) {

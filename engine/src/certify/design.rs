@@ -59,13 +59,13 @@ use crate::postprocess::steel_check::{
 
 /// Absolute bounds |exact − computed| on one set of design forces.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct DemandBound {
     pub n: f64,
     pub my: f64,
     #[serde(default)]
     pub mz: f64,
-    #[serde(default, rename = "vy")]
+    #[serde(default)]
     pub v_strong: f64,
     #[serde(default)]
     pub v_weak: f64,

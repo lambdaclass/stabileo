@@ -579,3 +579,16 @@ fn certify_members_over_demand_boxes() {
     let res = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput { members: vec![bad], demands: vec![d(-100.0, 10.0)] });
     assert!(!res[0].certified && !res[0].certified_ok);
 }
+
+#[test]
+fn the_strong_axis_shear_travels_as_vstrong_and_a_bare_vy_is_refused() {
+    use dedaliano_engine::postprocess::steel_check::ElementDesignForces;
+    let f: ElementDesignForces =
+        serde_json::from_value(serde_json::json!({ "elementId": 1, "n": 0.0, "my": 1.0, "vStrong": 20.0, "vWeak": 5.0 })).unwrap();
+    assert_eq!((f.v_strong, f.v_weak), (Some(20.0), Some(5.0)));
+    assert!(serde_json::to_value(&f).unwrap().get("vStrong").is_some());
+    assert!(serde_json::from_value::<ElementDesignForces>(serde_json::json!({ "elementId": 1, "n": 0.0, "my": 1.0, "vy": 20.0 })).is_err());
+    let b: DemandBound = serde_json::from_value(serde_json::json!({ "n": 0.0, "my": 0.0, "vStrong": 0.5 })).unwrap();
+    assert_eq!(b.v_strong, 0.5);
+    assert!(serde_json::from_value::<DemandBound>(serde_json::json!({ "n": 0.0, "my": 0.0, "vy": 0.5 })).is_err());
+}

@@ -217,7 +217,9 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
     const v = verifyElement({ ...input, VuSecondary: 150 });
     expect(v.shear.spacing).toBe(secondaryAlone.spacing);
     expect(v.shearSecondary!.spacing).toBe(secondaryAlone.spacing);
-    expect(v.shearSecondary!.ratio).toBeCloseTo(secondaryAlone.ratio, 9);
+    const legs = Math.max(alone.shear.stirrupLegs, secondaryAlone.stirrupLegs);
+    expect([v.shear.stirrupLegs, v.shearSecondary!.stirrupLegs]).toEqual([legs, legs]);
+    expect(v.shearSecondary!.ratio).toBeLessThanOrEqual(secondaryAlone.ratio + 1e-12);
     expect(v.shear.phiVn).toBeGreaterThan(alone.shear.phiVn);
     expect(v.shear.steps).toContain(`Estribos: ${v.shear.stirrupLegs} ramas Ø8 c/${(secondaryAlone.spacing * 100).toFixed(0)} cm`);
   });
@@ -235,6 +237,20 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
       b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8, Muy: 110,
     });
     expect(v!.biaxial!.ratio).toBeGreaterThan(unmagnified.biaxial!.ratio);
+  });
+
+  it('a face that needs more legs gives them to the other axis too', () => {
+    const input = {
+      elementId: 1, elementType: 'column' as const, Mu: 50, Vu: 10, Nu: 300, axialLoads: [300], NuShear: 300,
+      b: 0.25, h: 0.9, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+    };
+    const wide = verifyElement({ ...input, b: 0.9, h: 0.25, Vu: 700 }).shear;
+    const alone = verifyElement(input).shear;
+    expect(wide.stirrupLegs).toBeGreaterThan(alone.stirrupLegs);
+    const v = verifyElement({ ...input, VuSecondary: 700 });
+    expect(v.shear.stirrupLegs).toBe(wide.stirrupLegs);
+    expect(v.shearSecondary!.stirrupLegs).toBe(wide.stirrupLegs);
+    expect(v.shear.spacing).toBe(v.shearSecondary!.spacing);
   });
 
   it('a non-finite demand is checked, and fails, on whichever axis it is', () => {

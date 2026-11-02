@@ -176,7 +176,7 @@ pub struct SteelCheckInput {
 
 /// Design forces for an element.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ElementDesignForces {
     pub element_id: usize,
     /// Axial force (positive = tension, negative = compression)
@@ -187,7 +187,7 @@ pub struct ElementDesignForces {
     #[serde(default)]
     pub mz: Option<f64>,
     /// Strong-axis shear, along the web (local z in 3D, `design_axes`).
-    #[serde(default, rename = "vy")]
+    #[serde(default)]
     pub v_strong: Option<f64>,
     /// Weak-axis shear, across the web (local y in 3D). Checked against
     /// `aw_weak`; without it the shear check is not evaluated.

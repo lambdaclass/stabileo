@@ -503,7 +503,7 @@ export function checkFlexure(
 
 export function checkShear(
   params: ConcreteDesignParams, Vu: number, Nu: number = 0,
-  opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number } = {},
+  opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number; legs?: number } = {},
 ): ShearResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
@@ -536,7 +536,7 @@ export function checkShear(
   const table = transverseSpacingLimits('2025', {
     VsRequired: VsReq, bw: b, d, fc, cover, stirrupDiaMm: stirrupBar.diameter,
   });
-  const legs = table.requiredLegs;
+  const legs = Math.max(table.requiredLegs, opts.legs ?? 0);
 
   // The widest spacing (multiples of 2,5 cm, 5 cm at least) the engine passes.
   let spacing = opts.spacing ?? 0.05;
@@ -1266,10 +1266,10 @@ export function verifyElement(input: VerificationInput): ElementVerification {
   let shearSecondary = isVertical && input.VuSecondary !== undefined
     ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition })
     : undefined;
-  if (shearSecondary && shearSecondary.spacing !== shear.spacing) {
-    const spacing = Math.min(shear.spacing, shearSecondary.spacing);
-    shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, spacing });
-    shearSecondary = checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary!, input.NuShear ?? input.Nu, { edition, spacing });
+  if (shearSecondary && (shearSecondary.spacing !== shear.spacing || shearSecondary.stirrupLegs !== shear.stirrupLegs)) {
+    const cage = { spacing: Math.min(shear.spacing, shearSecondary.spacing), legs: Math.max(shear.stirrupLegs, shearSecondary.stirrupLegs) };
+    shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, ...cage });
+    shearSecondary = checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary!, input.NuShear ?? input.Nu, { edition, ...cage });
   }
   let column: ColumnResult | undefined;
   let biaxial: BiaxialResult | undefined;
