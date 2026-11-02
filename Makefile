@@ -1,7 +1,7 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
-       test.ci-scripts test.nightly-scripts \
+       test.ci-scripts test.nightly-scripts test.infra.caddy.redirects check.web.translations \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
        wasm web.setup web.run web.build admin.run admin.build \
@@ -262,10 +262,15 @@ test.web.unit:
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx tsx scripts/translation-gate.ts dist && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
 
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
+
+# Every non-English page of a built site (DIST, default web/dist) must be translated, and the
+# sitemap, the hreflang sets and the built files must agree (web/scripts/translation-gate.ts).
+check.web.translations:
+	$(NIX_RUN) bash -c "cd web && npx tsx scripts/translation-gate.ts $(abspath $(or $(DIST),web/dist))"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
@@ -364,6 +369,9 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+
+test.infra.caddy.redirects:
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-language-redirects.sh
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"
