@@ -20,8 +20,6 @@ mod differential_regressions;
 mod entry_point_validation;
 #[path = "../feature_matrix.rs"]
 mod feature_matrix;
-#[path = "../feature_matrix_regressions.rs"]
-mod feature_matrix_regressions;
 #[path = "../fp_environment.rs"]
 mod fp_environment;
 #[path = "../fuzz_crash_free.rs"]

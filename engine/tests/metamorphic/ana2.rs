@@ -603,8 +603,9 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
 
 /// An iteration solved to 1e-12 in 100 steps, or, when it stops short there, one proven stagnant at
 /// round-off: 900 further steps at 1e-12 change no reported number (displacements, reactions, member
-/// forces) by more than 1e-11 of the largest value of its quantity, so the iterate is a fixed point,
-/// and a 1e-11 solve converges to that same answer. Slow convergence still moves and is rejected.
+/// forces) by more than 1e-11 of the largest value of its quantity, so the iterate is a fixed point
+/// of u ← (K + Kg(u))⁻¹ f, whose residual is bounded by ‖K + Kg‖ times that change, and a 1e-11 solve
+/// converges to that same answer. Slow convergence still moves and is rejected.
 pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>) -> Result<T, String> {
     let (converged, tight) = solve(100, 1e-12)?;
     if converged {

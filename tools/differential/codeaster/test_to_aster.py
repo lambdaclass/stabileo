@@ -128,6 +128,13 @@ def _engine_refusal(key, node, name, value, why):
             f"because {why}. Restrain that direction to impose it, or remove the prescribed value.")
 
 
+def _mechanism_beam():
+    model = _beam({f: True for f in T.FLAGS})
+    model["nodes"]["5"] = {"id": 5, "x": 3.0, "y": 2.0, "z": 0.0}
+    model["elements"]["2"] = {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 5, "materialId": 1, "sectionId": 1}
+    return model
+
+
 class UnimposedSettlements(unittest.TestCase):
     """A settlement no rigid restraint carries: the translator drops it, the
     engine refuses it (AC-10). The harness must not call that refusal false."""
@@ -219,7 +226,7 @@ class SingularVerdict(unittest.TestCase):
             with open(os.path.join(job, "result.json"), "w") as f:
                 J.dump({}, f)
             r = {"name": "m", "job": job, "sres": {"diags": diags, "issues": list(issues), "forces": {}}, "meta": {"elements": []}, "near_singular": True}
-            return R.finish(r, 1e-6, None, _beam({f: True for f in T.FLAGS}))
+            return R.finish(r, 1e-6, None, _mechanism_beam())
 
     def test_unwarned_singular_solve_is_silent(self):
         r = self.finish(["dense_lu", "residual_ok"])
@@ -238,8 +245,7 @@ class SingularVerdict(unittest.TestCase):
 
     def test_a_warned_disagreement_at_a_restrained_or_prescribed_dof_is_silent(self):
         import run as R
-        model = _beam({f: True for f in T.FLAGS})
-        model["nodes"]["5"] = {"id": 5, "x": 6.0, "y": 0.0, "z": 0.0}
+        model = _mechanism_beam()
         model["supports"]["5"] = {"nodeId": 5, "rrz": True}
         self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
         model["supports"]["5"] = {"nodeId": 5, "drz": 0.001}
@@ -249,6 +255,9 @@ class SingularVerdict(unittest.TestCase):
         del model["supports"]["5"]
         self.assertTrue(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
         self.assertFalse(R.unloaded_mechanism(model, ("disp", 1, "rz", 0.0, 1.0, 1.0)))
+        self.assertFalse(R.unloaded_mechanism(model, ("disp", 9, "rz", 0.0, 1.0, 1.0)))
+        model["constraints"] = [{"type": "equalDOF", "masterNode": 2, "slaveNode": 5, "dofs": [5]}]
+        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
 
     def test_a_conditioning_warning_without_the_known_issue_is_silent(self):
         r = self.finish(["high_diagonal_ratio"])

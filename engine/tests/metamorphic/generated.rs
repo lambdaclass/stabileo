@@ -1662,7 +1662,7 @@ fn refusal_changes_under_units_fail_in_both_directions() {
         );
         assert_eq!(t.symbol("plastic collapse", "units"), expected, "{}", t.report());
     }
-    for (run, expected) in [(faulty3::<false> as fn(&Case3) -> _, "✗"), (faulty3::<true>, "✗"), (always3, "✓")] {
+    for (run, expected) in [(faulty3::<false> as fn(&Case3) -> _, "✗"), (faulty3::<true>, "✗"), (always3, "✗")] {
         a3.run = run;
         let t = Tally::default();
         checks3::check_case(

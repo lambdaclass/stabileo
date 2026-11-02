@@ -313,6 +313,11 @@ def unloaded_mechanism(model, b):
     if kind != "disp" or comp not in names or not math.isfinite(b[5]):
         return False
     k = names.index(comp)
+    if nid not in {str(n.get("id")) for n in (model.get("nodes") or {}).values()}:
+        return False
+    for row in model.get("constraints") or []:
+        if nid in {str(v) for v in _constraint_nodes(row)}:
+            return False
     for sup in (model.get("supports") or {}).values():
         if str(sup.get("nodeId")) == nid and (sup.get("isInclined") or sup.get(to_aster.FLAGS[k])
                                               or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0
@@ -329,6 +334,20 @@ def unloaded_mechanism(model, b):
                 if e.get("id") == eid and nid in (str(e.get("nodeI")), str(e.get("nodeJ"))):
                     return False
     return True
+
+
+def _constraint_nodes(row):
+    if isinstance(row, dict):
+        for key, v in row.items():
+            if key in ("masterNode", "slaveNode", "nodeId") and v is not None:
+                yield v
+            elif key in ("slaveNodes", "nodes"):
+                yield from v or []
+            elif isinstance(v, (dict, list)):
+                yield from _constraint_nodes(v)
+    elif isinstance(row, list):
+        for v in row:
+            yield from _constraint_nodes(v)
 
 
 def C_size(model):

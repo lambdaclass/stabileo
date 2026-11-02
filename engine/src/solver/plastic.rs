@@ -590,9 +590,9 @@ pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     solve_plastic_2d_body(input)
 }
 
-/// `solve_plastic_2d` without the #758 refusal; compiled only for the engine's own tests.
-#[cfg(feature = "unrefused-for-tests")]
-pub fn solve_plastic_2d_unrefused(input: &PlasticInput) -> Result<PlasticResult, String> {
+/// `solve_plastic_2d` without the #758 refusal; it exists only in the engine's unit-test build.
+#[cfg(test)]
+pub(crate) fn solve_plastic_2d_unrefused(input: &PlasticInput) -> Result<PlasticResult, String> {
     solve_plastic_2d_body(input)
 }
 
