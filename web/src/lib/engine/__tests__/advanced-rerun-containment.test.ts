@@ -243,3 +243,21 @@ it.each([
     expect(scope.solving).toBe(false);
   }
 });
+
+it('a moving-load envelope returned with a refusal shows the refusal and no envelope values', async () => {
+  const moving = readFileSync(new URL('../../../components/pro/ProMovingLoadsPanel.svelte', import.meta.url), 'utf8');
+  const start = moving.indexOf('    try {\n      result = await sweepTrains3D(');
+  const end = moving.indexOf('\n    } finally {', start);
+  const body = ts.transpile(`async function sweep() {${moving.slice(start, end)}\n    } finally {}}`, { target: ts.ScriptTarget.ES2022 });
+  const scope: Record<string, any> = {
+    result: null, error: null, notes: [], resultProvenance: null, progress: null, controller: { signal: null },
+    input: { base: {}, path: [], trains: [], step: 1, path2: null }, provenance: () => 'p',
+    knownIssueResultDisposition, errorText, t: (s: string) => s,
+    sweepTrains3D: async () => ({ positions: 4, path: [], elements: new Map([[1, { mz: { max: { value: 12345 } } }]]), structuredDiagnostics: [diagnostic] }),
+  };
+  await new Function('scope', `with (scope) { ${body}; return sweep; }`)(scope)();
+  expect(scope.result).toBeNull();
+  expect(scope.resultProvenance).toBeNull();
+  expect(scope.error).toContain('#741');
+  expect(scope.notes.join()).not.toContain('#741');
+});

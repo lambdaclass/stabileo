@@ -236,6 +236,20 @@ class SingularVerdict(unittest.TestCase):
             r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"], [("disp", 5, "rz", 0.0, 1.04e13, 1.0), bad])
             self.assertEqual(r["status"], "silent_singular", bad)
 
+    def test_a_warned_disagreement_at_a_restrained_or_prescribed_dof_is_silent(self):
+        import run as R
+        model = _beam({f: True for f in T.FLAGS})
+        model["nodes"]["5"] = {"id": 5, "x": 6.0, "y": 0.0, "z": 0.0}
+        model["supports"]["5"] = {"nodeId": 5, "rrz": True}
+        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
+        model["supports"]["5"] = {"nodeId": 5, "drz": 0.001}
+        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
+        model["supports"]["5"] = {"nodeId": 5, "krz": 10.0}
+        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
+        del model["supports"]["5"]
+        self.assertTrue(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
+        self.assertFalse(R.unloaded_mechanism(model, ("disp", 1, "rz", 0.0, 1.0, 1.0)))
+
     def test_a_conditioning_warning_without_the_known_issue_is_silent(self):
         r = self.finish(["high_diagonal_ratio"])
         self.assertEqual(r["status"], "silent_singular")
