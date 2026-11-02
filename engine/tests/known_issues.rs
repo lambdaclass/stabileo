@@ -1311,11 +1311,11 @@ fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
             }
             (worst, diagnostics)
         };
-        let (below_warn, ds) = excess(0.98 * warn);
+        let (below_warn, ds) = excess(0.95 * warn);
         assert!(warped_findings(&ds).is_empty(), "{quad9}");
-        assert!(below_warn < 0.02, "{quad9}: {below_warn} unflagged");
-        let (below_refuse, ds) = excess(0.98 * refuse);
+        assert!(below_warn < 0.015, "{quad9}: {below_warn} unflagged, over the 1.5 % warning band");
+        let (below_refuse, ds) = excess(0.95 * refuse);
         assert_eq!(warped_findings(&ds).iter().map(|d| d.severity).collect::<Vec<_>>(), vec![Severity::Warning], "{quad9}");
-        assert!(below_refuse > below_warn && below_refuse < 0.06, "{quad9}: {below_refuse} only warned");
+        assert!(below_refuse > below_warn && below_refuse < 0.05, "{quad9}: {below_refuse} only warned, over the 5 % refusal band");
     }
 }
