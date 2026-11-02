@@ -11,6 +11,7 @@
   import ProMovingLoadsPanel from './ProMovingLoadsPanel.svelte';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import SpectralCertificate from '../advanced/SpectralCertificate.svelte';
   import HarmonicCertificate from '../advanced/HarmonicCertificate.svelte';
@@ -59,6 +60,7 @@
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
   import { errorText } from '../../lib/utils/error-text';
+  import { eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
     isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
@@ -77,7 +79,7 @@
   // Expose advanced results to parent via bindable props
   interface AdvancedResults3D {
     pdelta?: { converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean; structuredDiagnostics?: import('../../lib/engine/types').StructuredDiagnostic[] };
+    modal?: { modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('../../lib/engine/types').StructuredDiagnostic[] };
     buckling?: { factors: number[] };
     spectral?: { baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   }
@@ -264,7 +266,7 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
@@ -283,10 +285,10 @@
             massRatioX: m.massRatioX, massRatioY: m.massRatioY,
           }),
         }));
-        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
+        advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained, structuredDiagnostics: res.structuredDiagnostics } };
       }
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -380,14 +382,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
       resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -1057,6 +1059,7 @@
       </div>
       {#if modalResult}
         <ModalCertificate result={resultsStore.modalResult3D ?? modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
+        <FiniteSpectrumWarning result={modalResult} />
         <div class="adv-inline">
           {#if modalResult.totalMass != null}{t('pro.modalMass')}: {fmtNum(modalResult.totalMass)} t — {/if}
           {tp('adv.modesCount', { n: modalResult.modes?.length ?? 0 })}{#if modalElapsed != null} — {modalElapsed >= 1000 ? (modalElapsed / 1000).toFixed(2) + ' s' : modalElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}{/if}

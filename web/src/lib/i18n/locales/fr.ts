@@ -1,6 +1,10 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "advanced.finiteSpectrum": "Il existe seulement {n} modes finis. Les directions sans masse n’ont pas de fréquence finie.",
+  "advanced.finiteSpectrumOne": "Il n’existe qu’un seul mode fini. Les directions sans masse n’ont pas de fréquence finie.",
+  "advanced.modalIncomplete": "Analyse modale refusée : seuls {n} des {m} modes calculés ont une fréquence positive (ω² > 1e-10). Aucun ensemble incomplet de modes n’a été renvoyé. Vérifiez le conditionnement de la rigidité et de la masse ainsi que les appuis.",
+  "advanced.eigenFailure": "Analyse aux valeurs propres refusée : la convergence et la complétude de Sturm n’ont pas pu être établies pour {n} degrés de liberté libres. Aucun ensemble incomplet de résultats n’a été renvoyé. Vérifiez les appuis et les relâchements (mécanismes), le conditionnement de la rigidité et de la masse, ou demandez moins de modes.",
   "landing.navTools": "Outils",
 
   // ─── Shared scalar-field viewer ───
@@ -12295,6 +12299,7 @@ const fr: Translations = {
   'discretization.refuse.other': 'le moteur n\'a pas pu raffiner ni recalculer ce modèle (détails dans l\'info-bulle)',
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certifié)',
   'certificate.bucklingNotCertified': 'λ_cr non certifié : {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'le facteur de charge calculé {computed} dépasse la borne supérieure certifiée {upper}',
   'certificate.bucklingTooltip': 'Encadrement rigoureux, prouvé en Lean : la structure est certifiée stable pour tout facteur de charge jusqu\'à la valeur inférieure et certifiée instable à la valeur supérieure.',
   'float.loadFrameGlobalTip': 'Les valeurs sont selon les axes globaux (Z est la verticale).',
   'float.loadFrameLocalTip': 'Les valeurs sont selon les axes locaux de la barre.',

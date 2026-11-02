@@ -404,8 +404,10 @@ describe('3D — a mechanism the static solve accepts: its zero modes are discar
     buildRandom('hinged-frame', 10);
     expect(typeof staticSolve3D()).toBe('object');
     const input = input3D();
-    // Modal: the engine's own cut drops a zero frequency; none reaches the result.
-    expect(solveModal3D(input, densities()).modes.every((q: { frequency: number }) => q.frequency > 1e-3)).toBe(true);
+    // Modal: rank analysis identifies the spin; the retry reports the held DOF.
+    const md = solveModal3D(input, densities());
+    expect(md.modes.every((q: { frequency: number }) => q.frequency > 1e-3)).toBe(true);
+    expect(md.discardedModes).toEqual([{ value: 0, nodeId: 11, dof: 'rz' }]);
     // Buckling: the spin is held for the analysis and named, instead of a failed decomposition.
     const bk = solveBuckling3D(input);
     expect(bk.modes.every((q: { loadFactor: number }) => q.loadFactor > 0)).toBe(true);

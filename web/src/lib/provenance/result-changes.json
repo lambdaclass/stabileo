@@ -1,11 +1,11 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 6,
+  "currentResultsVersion": 8,
   "changes": [
     {
       "id": "static-modal-runtime-self-checks",
-      "resultsVersion": 6,
+      "resultsVersion": 8,
       "date": "2026-10-29",
       "prs": [865],
       "area": "analysis",
@@ -23,6 +23,65 @@
       "changelog": {
         "file": "docs/safety/self-checks.md",
         "heading": "First-slice contract and thresholds"
+      }
+    },
+    {
+      "id": "modal-repeated-eigenspace-completeness",
+      "resultsVersion": 7,
+      "date": "2026-10-29",
+      "prs": [827],
+      "area": "analysis",
+      "when": {
+        "allOf": [["members", "shells", "curvedShells", "connectors", "springs"]],
+        "any": [
+          "analysis:modal",
+          "analysis:spectral",
+          "analysis:timeHistory",
+          "analysis:harmonic",
+          "analysis:buckling"
+        ]
+      },
+      "title": {
+        "en": "Repeated eigenvalues retain their multiplicity",
+        "es": "Los autovalores repetidos conservan su multiplicidad",
+        "pt": "Autovalores repetidos preservam sua multiplicidade"
+      },
+      "explanation": {
+        "en": "Repeated modes could be missing. Re-run modal, dependent dynamic and buckling analyses; frequencies, masses and responses may change.",
+        "es": "Podían faltar modos repetidos. Recalcule los análisis modal, dinámicos dependientes y de pandeo; pueden cambiar frecuencias, masas y respuestas.",
+        "pt": "Podiam faltar modos repetidos. Recalcule as análises modal, dinâmicas dependentes e de flambagem; frequências, massas e respostas podem mudar."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-modal-completeness.md",
+        "heading": "Preserve repeated modes and certify finite-spectrum exhaustion"
+      }
+    },
+    {
+      "id": "buckling-certificate-rejects-outside-factor",
+      "resultsVersion": 6,
+      "date": "2026-10-29",
+      "prs": [817],
+      "area": "analysis",
+      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:buckling"]] },
+      "title": {
+        "en": "Buckling factors outside their enclosure are no longer certified",
+        "es": "Los factores de pandeo fuera de su intervalo ya no se certifican",
+        "pt": "Fatores de flambagem fora do intervalo não são mais certificados",
+        "de": "Knicklastfaktoren außerhalb ihres Einschließungsintervalls werden nicht mehr zertifiziert",
+        "fr": "Les facteurs de flambement hors de leur intervalle d’encadrement ne sont plus certifiés",
+        "tr": "Sınır aralığının dışındaki burkulma katsayıları artık sertifikalandırılmıyor"
+      },
+      "explanation": {
+        "en": "Buckling certification now refuses a computed factor above its independently bounded upper limit. The computed factor is unchanged; where it exceeds that limit, an earlier certificate certified it in error and certification now refuses it. Re-run buckling certification before relying on an earlier certificate.",
+        "es": "La certificación de pandeo ahora rechaza un factor calculado superior a su cota superior independiente. El factor calculado no cambia; cuando supera esa cota, un certificado anterior lo certificó por error y la certificación ahora lo rechaza. Vuelva a ejecutar la certificación de pandeo antes de utilizar un certificado anterior.",
+        "pt": "A certificação de flambagem agora recusa um fator calculado acima do seu limite superior independente. O fator calculado não muda; quando ele excede esse limite, um certificado anterior o certificou por engano e a certificação agora o recusa. Execute novamente a certificação de flambagem antes de usar um certificado anterior.",
+        "de": "Die Knickzertifizierung lehnt jetzt einen berechneten Faktor oberhalb seiner unabhängig bestimmten oberen Schranke ab. Der berechnete Faktor bleibt unverändert; wo er diese Schranke überschreitet, hat ein früheres Zertifikat ihn fälschlich zertifiziert, und die Zertifizierung lehnt ihn jetzt ab. Führen Sie die Knickzertifizierung erneut aus, bevor Sie sich auf ein früheres Zertifikat verlassen.",
+        "fr": "La certification du flambement refuse désormais un facteur calculé supérieur à sa borne supérieure déterminée indépendamment. Le facteur calculé reste inchangé ; lorsqu’il dépasse cette borne, un certificat antérieur l’a certifié à tort et la certification le refuse désormais. Relancez la certification du flambement avant de vous fier à un certificat antérieur.",
+        "tr": "Burkulma sertifikasyonu artık bağımsız olarak belirlenen üst sınırı aşan hesaplanmış bir katsayıyı reddediyor. Hesaplanan katsayı değişmiyor; bu sınırı aştığı durumlarda önceki bir sertifika onu hatalı olarak sertifikalandırdı ve sertifikasyon artık onu reddediyor. Önceki bir sertifikaya güvenmeden önce burkulma sertifikasyonunu yeniden çalıştırın."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-buckling-certificate.md",
+        "heading": "Buckling factors outside their enclosure are refused"
       }
     },
     {

@@ -1,6 +1,10 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  "advanced.finiteSpectrum": "Yalnızca {n} sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
+  "advanced.finiteSpectrumOne": "Yalnızca 1 sonlu mod vardır. Kütlesiz yönlerin sonlu frekansı yoktur.",
+  "advanced.modalIncomplete": "Modal analiz reddedildi: hesaplanan {m} moddan yalnızca {n} tanesinin frekansı pozitif (ω² > 1e-10). Eksik bir mod kümesi döndürülmedi. Rijitlik ve kütle koşullanmasını ve mesnetleri kontrol edin.",
+  "advanced.eigenFailure": "Özdeğer analizi reddedildi: {n} serbest serbestlik derecesi için yakınsama ve Sturm tamlığı doğrulanamadı. Eksik bir sonuç kümesi döndürülmedi. Mekanizmalar için mesnetleri ve serbest bırakmaları, rijitlik ve kütle koşullanmasını kontrol edin veya daha az mod isteyin.",
   "recheck.saveAndReload": "Açık projeleri kaydet ve sayfayı yeniden yükle",
   "recheck.recoveryFailed": "Projeler tarayıcıya kaydedilemedi. Sayfa yeniden yüklenmedi. Çalışmanızı korumak için oturum yedeğini indirin.",
   "recheck.downloadBackup": "Tüm açık projeleri indir",
@@ -12303,6 +12307,7 @@ const tr: Translations = {
   'discretization.refuse.other': 'hesap motoru bu modeli sıklaştıramadı veya yeniden çözemedi (ayrıntılar araç ipucunda)',
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (sertifikalı)',
   'certificate.bucklingNotCertified': 'λ_cr sertifikalı değil: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'hesaplanan yük katsayısı {computed}, sertifikalı üst sınır {upper} değerini aşıyor',
   'certificate.bucklingTooltip': 'Lean ile kanıtlanmış kesin aralık: yapı, alt değere kadar her yük katsayısı için kesinlikle kararlı, üst değerde ise kesinlikle kararsızdır.',
   'float.loadFrameGlobalTip': 'Değerler global eksenler boyuncadır (Z düşeydir).',
   'float.loadFrameLocalTip': 'Değerler çubuğun yerel eksenleri boyuncadır.',

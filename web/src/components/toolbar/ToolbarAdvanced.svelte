@@ -72,6 +72,8 @@
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
+  import FiniteSpectrumWarning from '../advanced/FiniteSpectrumWarning.svelte';
+  import { finiteSpectrumWarning, eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
   import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
@@ -300,7 +302,7 @@
   function bucklingFailure(e: unknown): void {
     const msg = errText(e, 'toast.bucklingError');
     if (/no compressed elements/i.test(msg)) uiStore.toast(t('toast.bucklingNoCompression'), 'info');
-    else uiStore.toast(msg, 'error');
+    else uiStore.toast(eigenRefusalText(msg, t), 'error');
   }
 
   function errText(e: unknown, fallbackKey: string): string {
@@ -428,15 +430,15 @@
       const physical = withSectionMass(input, modelStore.model);
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult(result);
       const rayleighInfo = result.rayleigh ? ` | Rayleigh: a\u2080=${result.rayleigh.a0.toFixed(3)}, a\u2081=${result.rayleigh.a1.toFixed(5)}` : '';
       // The plane solver's y is the vertical, labelled Z everywhere else.
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioY * 100).toFixed(0)}%`;
-      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0)), 'success');
+      uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', rayleighInfo).replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, true);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.modalError'), 'error');
+      uiStore.toast(eigenRefusalText(errText(e, 'toast.modalError'), t), 'error');
     }
   }
 
@@ -449,7 +451,7 @@
       const t0 = performance.now();
       const result = solveBuckling(input);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
@@ -554,13 +556,13 @@
       const physical = withSectionMass(input, modelStore.model);
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setModalResult3D(result);
       const cumMassInfo = ` | \u03a3Meff: X=${(result.cumulativeMassRatioX * 100).toFixed(0)}%, Y=${(result.cumulativeMassRatioY * 100).toFixed(0)}%, Z=${(result.cumulativeMassRatioZ * 100).toFixed(0)}%`;
-      uiStore.toast(t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0)), 'success');
+      uiStore.toast([finiteSpectrumWarning(result, t), t('toast.modalSuccess').replace('{modes}', String(result.modes.length)).replace('{cumMass}', cumMassInfo).replace('{rayleigh}', '').replace('{ms}', dt.toFixed(0))].filter(Boolean).join(' '), result.finiteSpectrumDiagnostic ? 'info' : 'success');
       nullModesToast(result, false);
     } catch (e: any) {
-      uiStore.toast(errText(e, 'toast.modalError'), 'error');
+      uiStore.toast(eigenRefusalText(errText(e, 'toast.modalError'), t), 'error');
     }
   }
 
@@ -574,7 +576,7 @@
       let result: any;
       result = wasmBuckling3D(input);
       const dt = performance.now() - t0;
-      if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      if (typeof result === 'string') { uiStore.toast(eigenRefusalText(result, t), 'error'); return; }
       resultsStore.setBucklingResult3D(result);
       const factor = result.modes[0]?.loadFactor;
       const nComp = result.elementData.length;
@@ -962,6 +964,7 @@
   {/if}
   {#if moR}
     <ModalCertificate result={moR} mode={resultsStore.activeModeIndex} />
+    <FiniteSpectrumWarning result={moR} />
     <div class="adv-result-row">
       <button class="adv-result-btn" class:active={resultsStore.diagramType === 'modeShape'} onclick={() => resultsStore.diagramType = 'modeShape'}>{t('advanced.dynamic')}</button>
       <button class="small-btn" onclick={() => { if (resultsStore.activeModeIndex > 0) resultsStore.activeModeIndex--; }} disabled={resultsStore.activeModeIndex === 0}>&#9664;</button>

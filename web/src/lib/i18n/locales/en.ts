@@ -1,4 +1,8 @@
 const en: Record<string, string> = {
+  "advanced.finiteSpectrum": "Only {n} finite modes exist. Massless directions have no finite frequency.",
+  "advanced.finiteSpectrumOne": "Only 1 finite mode exists. Massless directions have no finite frequency.",
+  "advanced.modalIncomplete": "Modal analysis refused: only {n} of {m} computed modes have a positive frequency (ω² > 1e-10). No incomplete set of modes was returned. Check stiffness and mass conditioning and the supports.",
+  "advanced.eigenFailure": "Eigenvalue analysis refused: convergence and Sturm completeness could not be established for {n} free degrees of freedom. No incomplete set of results was returned. Check supports and releases for mechanisms, stiffness and mass conditioning, or request fewer modes.",
   "landing.navTools": "Tools",
 
   // Shared scalar-field viewer
@@ -12458,6 +12462,7 @@ const en: Record<string, string> = {
   'discretization.refuse.other': "the engine could not refine or re-solve this model (details in the tooltip)",
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certified)',
   'certificate.bucklingNotCertified': 'λ_cr not certified: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'computed load factor {computed} exceeds certified upper bound {upper}',
   'certificate.bucklingTooltip': 'Rigorous enclosure, proved in Lean: the structure is certified stable for every load factor up to the lower value and certified unstable at the upper one.',
   'float.loadFrameGlobalTip': 'The values are along the global axes (Z is the vertical).',
   'float.loadFrameLocalTip': 'The values are along the member\'s local axes.',
