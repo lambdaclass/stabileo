@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import { assessProject } from '../applicability';
+import { RESULT_CHANGES } from '../full-registry';
 import type { FeatureSnapshot } from '../model-features';
 import type { SolveStamp } from '../solve-stamp';
 
@@ -21,4 +22,12 @@ it('tells CIRSOC 201 concrete projects solved before the fix, and no others', ()
   expect(changes(concrete, 6)).toContain(ID);
   expect(changes(concrete, 7)).not.toContain(ID);
   expect(changes(frame({ name: 'F-24', e: 200000, nu: 0.3, rho: 78.5, fy: 235 }), 5)).not.toContain(ID);
+});
+
+it('words the re-check notice in every locale the app ships', () => {
+  const entry = RESULT_CHANGES.changes.find((c) => c.id === ID) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+    expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+  }
 });
