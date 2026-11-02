@@ -7,8 +7,9 @@ tile) at the eaves, with their four pattern cases, and loaded rings of wall girt
 same way. Panels within the roof's structure (less than 2.2 m under its trusses, rafters or
 purlins) and panels more than 12 m both ways with no beam or slab inside now take no area load;
 the derivation lists them, and "Load every panel" in Applying keeps the old behaviour for a real
-mezzanine or loft. A roof whose dead load is "the floors'" in a model with no floors now stops the
-plan with a message, instead of carrying the floors' screed and tile.
+mezzanine or loft. A pitched roof (5° or more) with no slab, whose dead load is "the floors'" in a model with no
+floors, now stops the plan with a message, instead of carrying the floors' screed and tile; a flat
+roof still takes it.
 
 The seismic weight of each level now includes the slabs, walls and roof decks drawn as shells
 (thickness × density × surface, a wall half to each level it joins); it counted only the members,

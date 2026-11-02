@@ -163,4 +163,40 @@ describe('a roof that would take the dead load of floors there are not', () => {
     expect(blocked.blockedKeys.map((b) => b.key)).toContain('loadPlan.blocked.roofDeadWithoutFloors');
     expect(buildLoadPlan(input(false)).outcome).not.toBe('BLOCKED');
   });
+
+  it('lets a flat roof over no floors take the floors\' dead load, by panels and by width', async () => {
+    const { buildLoadPlan } = await import('../load-plan');
+    const { defaultRegulations } = await import('../../../codes/roles');
+    const reg = defaultRegulations();
+    for (const k of Object.keys(reg) as Array<keyof typeof reg>) if (reg[k].adapterId) reg[k] = { ...reg[k], configComplete: true, state: 'applied' };
+    const f = (await import('../../../templates/fixtures/rc-design-qa-8.json')).default as {
+      nodes: Array<{ id: number; x: number; y: number; z?: number }>;
+      elements: Array<{ id: number; nodeI: number; nodeJ: number; type?: string }>;
+      quads?: Array<{ id: number; nodes: number[]; thickness?: number }>;
+    };
+    const m = {
+      nodes: new Map(f.nodes.map((n) => [n.id, n])),
+      elements: new Map(f.elements.map((e) => [e.id, { ...e, type: e.type === 'truss' ? 'truss' : 'frame', sectionId: 1, materialId: 1 }])),
+      quads: new Map((f.quads ?? []).map((q) => [q.id, { ...q, materialId: 1, thickness: q.thickness ?? 0.12 }])),
+      sections: new Map([[1, { id: 1, a: 0.09 }]]), materials: new Map([[1, { id: 1, rho: 25 }]]),
+      loadCases: [{ id: 1, type: 'D', name: 'D' }],
+    };
+    const plan = buildLoadPlan({
+      regulations: reg, model: m as never,
+      dead: [{ labelKey: 'a', q: 1.8 }], occupancyKey: 'vivienda', tributaryWidth: 3,
+      reductionElementKind: 'interiorBeam' as const, floorsSupported: 1, applyLiveReduction: true, generateCombinations: true,
+      gravity: { mode: 'panels' as const },
+      roof: { use: 'maintenance' as const, dead: 1.8, slopeDeg: 0, deadFromFloors: true },
+    });
+    expect(plan.outcome).not.toBe('BLOCKED');
+    const byWidth = buildLoadPlan({
+      regulations: reg, model: m as never,
+      dead: [{ labelKey: 'a', q: 1.8 }], occupancyKey: 'vivienda', tributaryWidth: 3,
+      reductionElementKind: 'interiorBeam' as const, floorsSupported: 1, applyLiveReduction: true, generateCombinations: true,
+      gravity: { mode: 'width' as const },
+      roof: { use: 'maintenance' as const, dead: 1.8, slopeDeg: 0, deadFromFloors: true },
+    });
+    expect(byWidth.blockedKeys.map((b) => b.key)).not.toContain('loadPlan.blocked.roofDeadWithoutFloors');
+    expect(plan.blockedKeys.map((b) => b.key)).not.toContain('loadPlan.blocked.roofDeadWithoutFloors');
+  });
 });

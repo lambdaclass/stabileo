@@ -594,6 +594,9 @@ export function findCase(model: LoadModelData, type: string, nameMatch?: string)
  * `engine/src/loads`): without it, or when it refuses, the plan is BLOCKED by name with the
  * engine's message, never a plan computed some other way and never an exception for the dialog.
  */
+/** A roof at this slope or steeper is pitched: sheeting on purlins, not a deck that takes a floor's finishes. */
+export const PITCHED_ROOF_DEG = 5;
+
 export function buildLoadPlan(input: LoadPlanInput): LoadPlan {
   try {
     return buildLoadPlanWithEngine(input);
@@ -761,7 +764,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
-  if (input.roof?.deadFromFloors && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.every((q) => layout.roofQuads.has(q.quadId))) {
+  // A flat roof may well carry the floors' screed and tiles; a pitched one with no slab, on rafters or trusses, may not.
+  if (input.roof?.deadFromFloors && input.roof.slopeDeg >= PITCHED_ROOF_DEG && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0) {
     return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };
   }
   /*
