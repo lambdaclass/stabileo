@@ -16,7 +16,7 @@ const words: Translations = {
   'course.statics.gh.verdict.hyper': 'Das Tragwerk ist {g}-fach statisch unbestimmt: Es hat {g} Unbekannte mehr als Gleichgewichtsbedingungen.',
   'course.statics.gh.verdict.hypo': 'Das Tragwerk ist kinematisch verschieblich (GH = {g}): Ihm fehlen Bindungen, und es ist ein Mechanismus.',
   'course.statics.gh.redundants': 'Für das Kraftgrößenverfahren ist GH = {g} die Anzahl der Überzähligen X_i: Es werden genau {g} Bindungen oder Schnittgrößen gelöst, um ein statisch bestimmtes Grundsystem zu erhalten.',
-  'course.statics.gh.necessary': 'Die Abzählung ist eine notwendige Bedingung, aber keine hinreichende: Ein Tragwerk mit GH ≥ 0 kann trotzdem ein Mechanismus sein, wenn seine Auflager ungünstig angeordnet sind (drei parallele verschiebliche Auflager, drei Gelenke auf einer Geraden). Die kinematische Untersuchung prüft das.',
+  'course.statics.gh.necessary': 'Die Abzählung ist eine notwendige Bedingung, aber keine hinreichende: Ein Tragwerk mit GH ≥ 0 kann trotzdem ein Mechanismus sein, wenn seine Bindungen ungünstig angeordnet sind (drei parallele verschiebliche Auflager, drei Gelenke auf einer Geraden). Die kinematische Untersuchung prüft das.',
   'course.statics.gh.dsm': 'Das Weggrößenverfahren arbeitet bei jedem Grad gleich: Seine Unbekannten sind die Knotenverschiebungen.',
   'course.statics.err.count': 'Ihre Freigaben ergeben {chosen} Unbekannte, und GH = {gh}: Das Grundsystem braucht genau {gh}. Mit weniger bleibt es statisch unbestimmt, mit mehr wird es ein Mechanismus.',
   'course.statics.err.unstable': 'Mit diesen Freigaben ist das Grundsystem ein Mechanismus: Die Knoten {nodes} bewegen sich frei. Sie haben eine Bindung entfernt, die das Tragwerk braucht, um in Ruhe zu bleiben. Lösen Sie stattdessen eine andere.',
@@ -120,7 +120,7 @@ const words: Translations = {
   'course.statics.vw.p.help': 'Die virtuelle Last hängt von der gesuchten Größe ab: eine Einheitskraft für eine Verschiebung, ein Einheitsmoment für eine Verdrehung, zwei entgegengesetzte Kräfte für eine Relativverschiebung zwischen zwei Knoten und zwei entgegengesetzte Momente für eine Relativverdrehung. Die Option Automatisch nimmt den im Modell ausgewählten Knoten oder den, der sich am meisten bewegt; bei einer relativen Größe ist die automatische Richtung die Verbindungslinie der beiden Knoten.',
   'course.statics.cast.realCouple': 'Bei {n} wirkt bereits ein Moment P = {P} kN·m: Die Verdrehung ist die Ableitung der Energie nach diesem Moment.',
   'course.statics.cast.dummyCouple': 'Bei {n} wirkt kein Moment: Es wird ein fiktives Moment Q hinzugefügt, die Energie nach Q abgeleitet und am Ende Q = 0 gesetzt.',
-  'course.statics.cast.dummyPair': 'Für eine relative Größe wird ein Paar entgegengesetzter fiktiver Lasten Q hinzugefügt, bei {n} und bei {m}: Die Ableitung der Energie nach Q liefert die relative Größe, und am Ende wird Q = 0 gesetzt.',
+  'course.statics.cast.dummyPair': 'Für eine relative Größe wird ein Paar entgegengesetzter fiktiver Lasten Q hinzugefügt, bei {n} und bei {m} (Kräfte, oder Momente für eine relative Verdrehung): Die Ableitung der Energie nach Q liefert die relative Größe, und am Ende wird Q = 0 gesetzt.',
   'course.statics.fm.fund.section': 'Um einen Stab an einem Zwischenpunkt zu schneiden, unterteilen Sie ihn zuerst (Rechtsklick auf den Stab, Unterteilen in) und schneiden Sie am neuen Knoten.',
 };
 

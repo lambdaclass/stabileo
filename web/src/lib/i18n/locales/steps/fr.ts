@@ -755,7 +755,7 @@ const stepsFr: Translations = {
   'steps.m.virtualWork.what': 'La grandeur choisie s\'obtient par le principe des travaux virtuels : le travail d\'une charge virtuelle unitaire (une force, un couple ou une paire de charges opposées) dans le déplacement recherché est égal au travail interne de ses efforts virtuels dans les déformations réelles.',
   'steps.m.virtualWork.s1': 'Point, direction et principe',
   'steps.m.virtualWork.principle': 'Principe des travaux virtuels avec une charge unitaire.',
-  'steps.m.virtualWork.principleWhy': 'La charge unitaire et ses efforts m et n forment un système en équilibre ; les courbures M/EI et les déformations axiales N/EA sont les réelles, compatibles avec les appuis. L\'égalité des travaux extérieur et intérieur donne le déplacement.',
+  'steps.m.virtualWork.principleWhy': 'La charge unitaire et ses efforts m et n forment un système en équilibre ; les courbures M/EI et les déformations axiales N/EA sont les réelles, compatibles avec les appuis. L\'égalité des travaux extérieur et intérieur donne la grandeur cherchée : déplacement, rotation ou valeur relative.',
   'steps.m.virtualWork.s2': 'État réel : M et N',
   'steps.m.virtualWork.s3': 'État virtuel : charge unitaire',
   'steps.m.virtualWork.unitLead': 'On applique une charge unitaire en {n}, dans la direction et le sens du déplacement recherché, sans aucune autre charge.',

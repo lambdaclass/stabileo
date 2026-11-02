@@ -39,7 +39,7 @@ const words: Translations = {
   'course.plastic.doc.peak': 'En büyük |M|/Mp oranı {ratio}; {member} çubuğunda, x = {x} m.',
   'course.plastic.doc.admissible': 'Momentler hiçbir yerde Mp değerini aşmıyor: dağılım statik olarak uygundur. Aynı anda bir mekanizma ve uygun bir dağılım olduğundan λ = {lambda} göçme yüküdür (teklik teoremi).',
   'course.plastic.doc.notAdmissible': 'Moment Mp değerinin {ratio} katına ulaşıyor: dağılım uygun değil. λ = {lambda} bir üst sınırdır. Tüm momentler {ratio} ile bölündüğünde uygun bir dağılım elde edilir; bu yüzden λ = {lower} bir alt sınırdır.',
-  'course.plastic.doc.compareNote': 'Adım adım hesapla karşılaştırma (mafsallar oluştukça uygulanan matris yöntemi). Yayılı yükler altında bu hesap mafsalı çubuk başına 200 kesitten birine yerleştirir; dördüncü basamakta farklılık olabilir.',
+  'course.plastic.doc.compareNote': 'Adım adım hesapla karşılaştırma (mafsallar oluştukça uygulanan matris yöntemi). Yayılı yükler altında bu hesap mafsalı çubuk başına 200 kesitten birine yerleştirir; dördüncü anlamlı basamakta farklılık olabilir.',
   'course.plastic.doc.noIncremental': 'Adım adım hesap bu yükler altında bir mekanizmaya ulaşmadı; karşılaştırılacak bir değer yok.',
   'course.plastic.doc.noCollapse': 'Bu yapının hiçbir mekanizması yüklerle hareket etmiyor: bu yükler altında yapı eğilmeden göçmez.',
 

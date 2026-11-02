@@ -755,7 +755,7 @@ const stepsDe: Translations = {
   'steps.m.virtualWork.what': 'Die gewählte Größe wird mit dem Prinzip der virtuellen Arbeit ermittelt: Die Arbeit einer virtuellen Einheitslast (einer Kraft, eines Moments oder eines Paars entgegengesetzter Lasten) auf der gesuchten Verschiebung ist gleich der inneren Arbeit ihrer virtuellen Schnittgrößen an den wirklichen Verformungen.',
   'steps.m.virtualWork.s1': 'Punkt, Richtung und Prinzip',
   'steps.m.virtualWork.principle': 'Prinzip der virtuellen Arbeit mit einer Einheitslast.',
-  'steps.m.virtualWork.principleWhy': 'Die Einheitslast und ihre Schnittgrößen m und n bilden ein System im Gleichgewicht; die Krümmungen M/EI und die Dehnungen N/EA sind die wirklichen, mit den Auflagern verträglichen. Die Gleichsetzung von äußerer und innerer Arbeit liefert die Verschiebung.',
+  'steps.m.virtualWork.principleWhy': 'Die Einheitslast und ihre Schnittgrößen m und n bilden ein System im Gleichgewicht; die Krümmungen M/EI und die Dehnungen N/EA sind die wirklichen, mit den Auflagern verträglichen. Die Gleichsetzung von äußerer und innerer Arbeit liefert die gesuchte Größe: Verschiebung, Verdrehung oder relativen Wert.',
   'steps.m.virtualWork.s2': 'Wirklicher Zustand: M und N',
   'steps.m.virtualWork.s3': 'Virtueller Zustand: Einheitslast',
   'steps.m.virtualWork.unitLead': 'Bei {n} wird eine Einheitslast in Richtung und Sinn der gesuchten Verschiebung aufgebracht, ohne weitere Lasten.',

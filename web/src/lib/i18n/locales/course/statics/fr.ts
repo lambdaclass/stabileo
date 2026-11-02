@@ -124,7 +124,7 @@ const words: Translations = {
   'course.statics.vw.p.help': 'La charge virtuelle dépend de ce que vous cherchez : une force unitaire pour un déplacement, un couple unitaire pour une rotation, deux forces opposées pour un déplacement relatif entre deux nœuds et deux couples opposés pour une rotation relative. Automatique prend le nœud sélectionné dans le modèle ou celui qui se déplace le plus ; pour une grandeur relative, la direction automatique est la droite qui relie les deux nœuds.',
   'course.statics.cast.realCouple': 'Un moment P = {P} kN·m agit déjà en {n} : la rotation est la dérivée de l\'énergie par rapport à ce moment.',
   'course.statics.cast.dummyCouple': 'Aucun moment n\'agit en {n} : on ajoute un moment fictif Q, on dérive l\'énergie par rapport à Q, puis on fait Q = 0.',
-  'course.statics.cast.dummyPair': 'Pour une grandeur relative, on ajoute une paire de charges fictives opposées Q, en {n} et en {m} : la dérivée de l\'énergie par rapport à Q donne la grandeur relative, puis on fait Q = 0.',
+  'course.statics.cast.dummyPair': 'Pour une grandeur relative, on ajoute une paire de charges fictives opposées Q, en {n} et en {m} (des forces, ou des couples pour une rotation relative) : la dérivée de l\'énergie par rapport à Q donne la grandeur relative, puis on fait Q = 0.',
   'course.statics.fm.fund.section': 'Pour couper une barre en un point intermédiaire, subdivisez-la d’abord (clic droit sur la barre, Subdiviser en) et coupez au nouveau nœud.',
 };
 

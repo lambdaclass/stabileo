@@ -755,7 +755,7 @@ const stepsTr: Translations = {
   'steps.m.virtualWork.what': 'Seçilen büyüklük virtüel iş ilkesiyle bulunur: virtüel birim yükün (bir kuvvet, bir moment veya bir çift zıt yük) aranan yer değiştirme üzerindeki işi, virtüel iç kuvvetlerinin gerçek şekil değiştirmeler üzerindeki iç işine eşittir.',
   'steps.m.virtualWork.s1': 'Nokta, doğrultu ve ilke',
   'steps.m.virtualWork.principle': 'Birim yükle virtüel iş ilkesi.',
-  'steps.m.virtualWork.principleWhy': 'Birim yük ve onun m ve n kuvvetleri dengede bir sistem oluşturur; M/EI eğrilikleri ve N/EA eksenel birim şekil değiştirmeleri gerçektir ve mesnetlerle uyumludur. Dış ve iç işi eşitlemek yer değiştirmeyi verir.',
+  'steps.m.virtualWork.principleWhy': 'Birim yük ve onun m ve n kuvvetleri dengede bir sistem oluşturur; M/EI eğrilikleri ve N/EA eksenel birim şekil değiştirmeleri gerçektir ve mesnetlerle uyumludur. Dış ve iç işi eşitlemek aranan büyüklüğü verir: yer değiştirme, dönme ya da göreli değer.',
   'steps.m.virtualWork.s2': 'Gerçek durum: M ve N',
   'steps.m.virtualWork.s3': 'Virtüel durum: birim yük',
   'steps.m.virtualWork.unitLead': '{n} noktasına, aranan yer değiştirmenin doğrultusunda ve yönünde, başka yük olmadan bir birim yük uygulanır.',

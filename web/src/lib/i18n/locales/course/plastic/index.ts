@@ -406,7 +406,7 @@ export const pt: Translations = {
   'course.plastic.doc.peak': 'O maior |M|/Mp é {ratio}, na barra {member} em x = {x} m.',
   'course.plastic.doc.admissible': 'Os momentos não ultrapassam Mp em nenhum ponto: a distribuição é estaticamente admissível. Com um mecanismo e uma distribuição admissível ao mesmo tempo, λ = {lambda} é a carga de colapso (teorema da unicidade).',
   'course.plastic.doc.notAdmissible': 'O momento chega a {ratio} vezes Mp: a distribuição não é admissível. λ = {lambda} é um limite superior. Dividindo todos os momentos por {ratio} obtém-se uma distribuição admissível, então λ = {lower} é um limite inferior.',
-  'course.plastic.doc.compareNote': 'Comparação com o cálculo passo a passo (método matricial com as rótulas que vão se formando). Sob cargas distribuídas esse cálculo coloca a rótula em uma de 200 seções por barra, então pode diferir na quarta casa.',
+  'course.plastic.doc.compareNote': 'Comparação com o cálculo passo a passo (método matricial com as rótulas que vão se formando). Sob cargas distribuídas esse cálculo coloca a rótula em uma de 200 seções por barra, então pode diferir na quarto algarismo significativo.',
   'course.plastic.doc.noIncremental': 'O cálculo passo a passo não chegou a um mecanismo para estas cargas, então não há com o que comparar.',
   'course.plastic.doc.noCollapse': 'Nenhum mecanismo desta estrutura é movido pelas cargas: com estas cargas a estrutura não colapsa por flexão.',
 

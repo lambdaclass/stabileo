@@ -52,7 +52,7 @@ export function rigidStep6(data: DSMStepData): Block[] {
   return [
     { kind: 'note', tone: 'info', text: tx(`${P}dsm.rigid.on`, { q: r.indep.length, f: data.dofNumbering.nFree }) },
     { kind: 'p', text: tx(`${P}dsm.rigid.conditions`, { q: r.indep.length, d: r.deps.length }) },
-    { kind: 'table', head: [tx('steps.common.member'), { tex: '(u_j - u_i)\\cdot e = \\alpha\\,\\Delta T\\,L' }], rows: cond, caption: tx(`${P}dsm.rigid.conditionsCaption`) },
+    { kind: 'table', head: [tx('steps.common.member'), { tex: '(u_j - u_i)\\cdot n = \\alpha\\,\\Delta T\\,L' }], rows: cond, caption: tx(`${P}dsm.rigid.conditionsCaption`) },
     ...(deps.length ? [{ kind: 'table' as const, head: [tx(`${P}dsm.rigid.dependent`), { tex: 'q' }] as Cell[], rows: deps, caption: tx(`${P}dsm.rigid.tCaption`) }] : []),
     { kind: 'matrix', name: '\\mathbf{T}', rows: r.T, rowLabels: data.freeDofLabels, colLabels: qL, caption: tx(`${P}dsm.rigid.tCaption`) },
     { kind: 'p', text: tx(`${P}dsm.rigid.reduce`) },
