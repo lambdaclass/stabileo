@@ -12,7 +12,7 @@ import { PUBLIC_KEY_PREFIXES } from '../public-prefixes';
 
 const SRC = join(import.meta.dirname, '../../..');
 /** What Root.svelte renders without the application, and what it imports. */
-const PUBLIC = ['Root.svelte', 'components/LandingPage.svelte', 'components/landing', 'components/blog', 'components/LocaleSelect.svelte', 'lib/blog', 'lib/contact', 'lib/page-meta.ts'];
+const PUBLIC = ['Root.svelte', 'components/LandingPage.svelte', 'components/landing', 'components/blog', 'components/LocaleSelect.svelte', 'components/site', 'components/examples', 'lib/blog', 'lib/contact', 'lib/page-meta.ts'];
 
 function files(p: string): string[] {
   const full = join(SRC, p);
@@ -30,6 +30,18 @@ describe('the public pages use public dictionary keys only', () => {
       for (const m of code.matchAll(/['"`]([a-zA-Z0-9_]+\.[a-zA-Z0-9_.]+)['"`]/g)) {
         const key = m[1]!;
         if (key in en && !PUBLIC_KEY_PREFIXES.some((p) => key.startsWith(p))) outside.push(`${f.slice(SRC.length + 1)}: ${key}`);
+      }
+    }
+    expect(outside).toEqual([]);
+  });
+
+  it('every key built from a template starts with a public prefix', () => {
+    const outside: string[] = [];
+    for (const f of PUBLIC.flatMap(files)) {
+      const code = readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+      for (const m of code.matchAll(/\bt\(\s*`([a-zA-Z0-9_.]+\.)\$\{/g)) {
+        const prefix = m[1]!;
+        if (Object.keys(en).some((k) => k.startsWith(prefix)) && !PUBLIC_KEY_PREFIXES.some((p) => prefix.startsWith(p))) outside.push(`${f.slice(SRC.length + 1)}: ${prefix}`);
       }
     }
     expect(outside).toEqual([]);
