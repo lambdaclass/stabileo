@@ -1,5 +1,6 @@
 import base64
 import importlib.util
+import json
 import os
 import pathlib
 import stat
@@ -56,11 +57,11 @@ class SuspectRange(Repo):
         self.assertEqual(revert.suspect_merges(self.repo, self.good, second), [second, first])
         self.assertEqual(revert.pr_numbers(self.repo, [second, first]), ['2', '1'])
 
-    def test_without_a_green_ancestor_only_the_failing_merge_is_suspect(self):
+    def test_without_a_green_ancestor_nothing_is_reverted_automatically(self):
         merge_pr(self.repo, 1, lambda: write(self.repo, 'one.txt', '1\n'))
         second = merge_pr(self.repo, 2, lambda: write(self.repo, 'two.txt', '2\n'))
-        self.assertEqual(revert.suspect_merges(self.repo, None, second), [second])
-        self.assertEqual(revert.suspect_merges(self.repo, '0' * 40, second), [second])
+        self.assertIsNone(revert.suspect_merges(self.repo, None, second))
+        self.assertIsNone(revert.suspect_merges(self.repo, '0' * 40, second))
 
 
 class RevertChanges(Repo):
@@ -116,6 +117,28 @@ class Decisions(unittest.TestCase):
         self.assertIsNone(revert.last_green_before(self.runs, '2026-11-02T08:00:00Z'))
         self.assertFalse(revert.green_after(self.runs, '2026-11-02T11:00:00Z'))
         self.assertTrue(revert.green_after(self.runs, '2026-11-02T09:30:00Z'))
+
+    def test_runs_are_paged_until_a_green_push_before_the_failure(self):
+        pages = {1: [{'conclusion': 'failure', 'created_at': '2026-11-02T12:00:00Z', 'head_sha': 'b1'}],
+                 2: [{'conclusion': 'success', 'created_at': '2026-11-02T13:00:00Z', 'head_sha': 'g9'}],
+                 3: [{'conclusion': 'success', 'created_at': '2026-11-02T10:00:00Z', 'head_sha': 'g0'}],
+                 4: [{'conclusion': 'success', 'created_at': '2026-11-02T09:00:00Z', 'head_sha': 'never'}]}
+        asked = []
+
+        def fake_gh(*args, **_):
+            page = int(args[1].rsplit('page=', 1)[1])
+            asked.append(page)
+            return json.dumps({'workflow_runs': pages.get(page, [])})
+        real, revert.gh = revert.gh, fake_gh
+        try:
+            runs = revert.main_runs('o/r', '2026-11-02T12:00:00Z')
+            self.assertEqual(asked, [1, 2, 3])
+            self.assertEqual(revert.last_green_before(runs, '2026-11-02T12:00:00Z'), 'g0')
+            asked.clear()
+            self.assertIsNone(revert.last_green_before(revert.main_runs('o/r', '2026-11-02T08:00:00Z', pages=3), '2026-11-02T08:00:00Z'))
+            self.assertEqual(asked, [1, 2, 3])
+        finally:
+            revert.gh = real
 
     def test_enqueue_only_when_approved_and_every_required_check_passed(self):
         self.assertTrue(revert.ready({'review': 'APPROVED', 'checks': ['pass', 'skipping']}))

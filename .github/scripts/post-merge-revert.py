@@ -59,11 +59,19 @@ def green_after(runs, created_at):
 
 
 def suspect_merges(repo, good, bad):
-    if good and subprocess.run(['git', 'merge-base', '--is-ancestor', good, bad], cwd=repo).returncode == 0:
-        span = f'{good}..{bad}'
-    else:
-        span = f'{bad}^..{bad}'
-    return run('git', 'rev-list', '--first-parent', '--merges', span, cwd=repo).split()
+    if not good or subprocess.run(['git', 'merge-base', '--is-ancestor', good, bad], cwd=repo).returncode:
+        return None
+    return run('git', 'rev-list', '--first-parent', '--merges', f'{good}..{bad}', cwd=repo).split()
+
+
+def main_runs(repo_name, created_at, pages=20):
+    runs = []
+    for page in range(1, pages + 1):
+        batch = json.loads(gh('api', f'repos/{repo_name}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100&page={page}'))['workflow_runs']
+        runs += batch
+        if not batch or last_green_before(batch, created_at):
+            break
+    return runs
 
 
 def revert_changes(repo, base, merges):
@@ -153,7 +161,7 @@ def main():
         print(f'first failure of run {run_id}: failed jobs rerun')
         return 0
 
-    runs = json.loads(gh('api', f'repos/{repo_name}/actions/workflows/ci.yml/runs?branch=main&event=push&status=completed&per_page=100'))['workflow_runs']
+    runs = main_runs(repo_name, created_at)
     if green_after(runs, created_at):
         notify('default', 'main CI failure already superseded', f'{url}\nA later push to main is green; nothing reverted.')
         return 0
@@ -166,10 +174,10 @@ def main():
         notify('urgent', 'main CI failed again', f'{url}\nAn auto-revert is already open ({pending}); land it, then check this failure by hand.')
         return 1
     main_head = run('git', 'rev-parse', 'origin/main', cwd=repo).strip()
-    merges = suspect_merges(repo, last_green_before(runs, created_at), bad)
+    merges = suspect_merges(repo, last_green_before(runs, created_at), bad) or []
     subjects = [run('git', 'log', '-1', '--format=%s%n%b', sha, cwd=repo) for sha in merges]
     if not merges or any(MARKER in s for s in subjects):
-        notify('urgent', 'main CI failed: revert by hand', f'{url}\nNo merge to revert automatically (none found, or the range holds an auto-revert).')
+        notify('urgent', 'main CI failed: revert by hand', f'{url}\nNo merge to revert automatically (no green ancestor push, no merge since it, or the range holds an auto-revert).')
         return 1
     changes = revert_changes(repo, main_head, merges)
     if changes is None:
@@ -197,6 +205,10 @@ def main():
     if outcome != 'ready':
         notify('urgent', f'main CI failed: revert {outcome}', f'{url}\n{pr_url} was not approved and green in time ({outcome}); enqueue it by hand.')
         return 1
+    if green_after(main_runs(repo_name, created_at), created_at):
+        gh('pr', 'close', str(number), '-R', repo_name, '--delete-branch', '--comment', 'A later push to main is green; this revert is no longer needed.', token=bot, check=False)
+        notify('default', 'main CI failure superseded', f'{url}\nA later push to main went green while {pr_url} waited; closed it.')
+        return 0
     try:
         graphql('''mutation($id: ID!) { enqueuePullRequest(input: {pullRequestId: $id, jump: true}) { mergeQueueEntry { position } } }''',
                 {'id': node}, bot)
