@@ -83,12 +83,16 @@ export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
   const a = a0.map((r) => [...r]);
   const v = identity(n);
   for (let sweep = 0; sweep < 100; sweep++) {
-    let off = 0, norm = 0;
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { norm += a[i][j] ** 2; if (i !== j) off += a[i][j] ** 2; }
-    if (off <= 1e-26 * Math.max(norm, 1e-300)) break;
+    let norm = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) norm += a[i][j] ** 2;
+    const floor = 1e-30 * Math.sqrt(norm) + 1e-300;
+    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p] * a[q][q])) + floor;
+    let done = true;
+    for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
+    if (done) break;
     for (let p = 0; p < n - 1; p++) {
       for (let q = p + 1; q < n; q++) {
-        if (Math.abs(a[p][q]) < 1e-300) continue;
+        if (small(p, q)) continue;
         const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
         const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1), s = t * c;

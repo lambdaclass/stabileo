@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generalizedEigen, matMul, transpose } from '../dense';
+import { generalizedEigen, matMul, transpose, symmetricEigen } from '../dense';
 import { modalSolve, modalResponse, directIntegration, modalDampingMatrix } from '../modal-decomposition';
 import { condense, consistentFrameMass } from '../mass-model';
 import { SystemError, circularFrequencies, type DofRef } from '../mdof-system';
@@ -107,6 +107,16 @@ describe('a stiffness that is not positive semidefinite', () => {
     expect(() => modalSolve([[-1, 0], [0, 4]], I, dofs)).toThrow(SystemError);
     try { modalSolve([[-1, 0], [0, 4]], I, dofs); } catch (e) { expect((e as SystemError).code).toBe('indefinite'); }
     expect(circularFrequencies([-1e-13, 4])).toEqual([0, 2]);
+  });
+});
+
+describe('symmetric eigenvalues', () => {
+  it('a large eigenvalue does not hide an unresolved block: diag(1e16, [[2, 1], [1, 2]]) gives 1, 3, 1e16', () => {
+    const { values } = symmetricEigen([[1e16, 0, 0], [0, 2, 1], [0, 1, 2]]);
+    const v = [...values].sort((a, b) => a - b);
+    expect(v[0]).toBeCloseTo(1, 12);
+    expect(v[1]).toBeCloseTo(3, 12);
+    expect(v[2] / 1e16).toBeCloseTo(1, 12);
   });
 });
 

@@ -117,13 +117,17 @@ export function symmetricEigen(S: Mat): { values: number[]; vectors: Mat } {
   const V = zeros(n, n);
   for (let i = 0; i < n; i++) V[i][i] = 1;
   for (let sweep = 0; sweep < 100; sweep++) {
-    let off = 0, diag = 0;
-    for (let i = 0; i < n; i++) { diag += A[i][i] * A[i][i]; for (let j = i + 1; j < n; j++) off += A[i][j] * A[i][j]; }
-    if (off <= 1e-30 * Math.max(diag, 1e-300)) break;
+    let norm = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) norm += A[i][j] * A[i][j];
+    const floor = 1e-30 * Math.sqrt(norm) + 1e-300;
+    const small = (p: number, q: number) => Math.abs(A[p][q]) <= 1e-15 * Math.sqrt(Math.abs(A[p][p] * A[q][q])) + floor;
+    let done = true;
+    for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
+    if (done) break;
     for (let p = 0; p < n - 1; p++) {
       for (let q = p + 1; q < n; q++) {
         const apq = A[p][q];
-        if (Math.abs(apq) < 1e-300) continue;
+        if (small(p, q)) continue;
         const theta = (A[q][q] - A[p][p]) / (2 * apq);
         const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1), s = t * c;
