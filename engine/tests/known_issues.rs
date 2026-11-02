@@ -1053,6 +1053,36 @@ fn fiber_solves_of_a_mechanism_are_flagged() {
 }
 
 #[test]
+fn a_fiber_solve_keeps_its_warning_after_the_stiff_member_yields() {
+    use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
+    use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, FiberNonlinearInput};
+    let fibers = (0..20).map(|k| Fiber { y: -0.05 + (k as f64 + 0.5) * 0.005, z: 0.0, area: 0.0005, material_idx: 0 }).collect();
+    let steel = FiberSectionDef { fibers, materials: vec![FiberMaterial::SteelBilinear { e: E, fy: 250.0, hardening_ratio: 1e-6 }] };
+    for (copies, modified_nr) in [(1usize, false), (1, true), (12, false), (12, true)] {
+        let mut nodes = Vec::new();
+        let mut elems = Vec::new();
+        let mut sups = Vec::new();
+        let mut loads = Vec::new();
+        for c in 0..copies {
+            let n = 3 * c;
+            for k in 0..3 { nodes.push((n + k + 1, k as f64, 2.0 * c as f64)); }
+            elems.push((2 * c + 1, "frame", n + 1, n + 2, 1, 1, false, false));
+            elems.push((2 * c + 2, "frame", n + 2, n + 3, 1, 2, false, false));
+            sups.push((c + 1, n + 1, "fixed"));
+            loads.push(SolverLoad::Nodal(SolverNodalLoad { node_id: n + 3, fx: 3000.0, fz: 0.0, my: 0.0 }));
+        }
+        let solver = common::make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.01, 8.33e-6), (2, 1e-6, 1e-14)], elems, sups, loads);
+        let r = solve_fiber_nonlinear_2d(&FiberNonlinearInput {
+            solver, fiber_sections: HashMap::from([("1".to_string(), steel.clone())]),
+            n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 4, modified_nr,
+        }).unwrap();
+        let label = format!("{copies} copies, modified {modified_nr}");
+        assert!((modified_nr || r.converged) && r.fiber_status.iter().filter(|s| s.yielded).count() == copies, "{label}: {:?}", r.fiber_status);
+        assert!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), "{label}: {:?}", ids(&r.results.structured_diagnostics));
+    }
+}
+
+#[test]
 fn a_mechanism_solve_keeps_its_warning_after_a_later_stable_iteration() {
     let mut input = transverse_loaded_bar();
     input.loads = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 0.0, fz: -10.0, my: 0.0 })];

@@ -1,6 +1,6 @@
 # Safety containment ledger
 
-Round 2 containment audit for #447. Every result this change still returns has the same numbers. Results that are now withheld: CORRECTED rows below (#959: 2D buckling whose only compression is round-off is refused as not determinable) and the REFUSE rows; an influence line now fails instead of returning zero ordinates where a unit-load solve fails. WARN preserves the result; REFUSE withholds it with a structured code, issue number, id and message. SCOPE identifies process, coverage or feature work without an additional demonstrated wrong-result mechanism.
+Round 2 containment audit for #447. Every result this change still returns has the same numbers, except 2D support reactions of a settled rigid support that also carries a spring on the settled DOF, which now include that spring's force (#1113, CORRECTED below). Results that are now withheld: CORRECTED rows below (#959: 2D buckling whose only compression is round-off is refused as not determinable) and the REFUSE rows; an influence line now fails instead of returning zero ordinates where a unit-load solve fails. WARN preserves the result; REFUSE withholds it with a structured code, issue number, id and message. SCOPE identifies process, coverage or feature work without an additional demonstrated wrong-result mechanism.
 
 | Issue | id | mode | predicate / disposition | evidence |
 |---|---|---|---|---|

@@ -289,7 +289,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                         );
                         let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
                         let factor = numeric_cholesky(sym, &k_csc);
-                        conditioning = crate::known_issues::sparse_factor_conditioning(&k_csc, factor.as_ref());
+                        if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_csc, factor.as_ref()) { conditioning = Some(found); }
                         match factor {
                             Some(num) => {
                                 let result = sparse_cholesky_solve(&num, &r_s);
@@ -323,7 +323,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                     };
                     let mut l = k_s.clone();
                     let factored = cholesky_decompose(&mut l, ns);
-                    conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, factored.then_some(l.as_slice()));
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factored.then_some(l.as_slice())) { conditioning = Some(found); }
                     if factored {
                         let y = forward_solve(&l, &r_s, ns);
                         let result = back_solve(&l, &y, ns);
@@ -347,7 +347,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                 };
                 let mut k_work = k_s.clone();
                 let solved = cholesky_solve(&mut k_work, &r_s, ns);
-                conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+                if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice())) { conditioning = Some(found); }
                 match solved {
                     Some(u) => u,
                     None => {
@@ -1011,7 +1011,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                         );
                         let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
                         let factor = numeric_cholesky(sym, &k_csc);
-                        conditioning = crate::known_issues::sparse_factor_conditioning(&k_csc, factor.as_ref());
+                        if let Some(found) = crate::known_issues::sparse_factor_conditioning(&k_csc, factor.as_ref()) { conditioning = Some(found); }
                         match factor {
                             Some(num) => {
                                 let result = sparse_cholesky_solve(&num, &r_s);
@@ -1045,7 +1045,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                     };
                     let mut l = k_s.clone();
                     let factored = cholesky_decompose(&mut l, ns);
-                    conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, factored.then_some(l.as_slice()));
+                    if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, factored.then_some(l.as_slice())) { conditioning = Some(found); }
                     if factored {
                         let y = forward_solve(&l, &r_s, ns);
                         let result = back_solve(&l, &y, ns);
@@ -1068,7 +1068,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                 };
                 let mut k_work = k_s.clone();
                 let solved = cholesky_solve(&mut k_work, &r_s, ns);
-                conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+                if let Some(found) = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice())) { conditioning = Some(found); }
                 match solved {
                     Some(u) => u,
                     None => {

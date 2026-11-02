@@ -1,6 +1,6 @@
 # Safety containment diagnostics
 
-PR #807, issue #447. Known-issue warnings added; affected unsafe results are withdrawn. Numerical values of retained results are unchanged.
+PR #807, issue #447. Known-issue warnings added; affected unsafe results are withdrawn. Numerical values of retained results are unchanged, except the 2D support reactions corrected for #1113 (below).
 
 The snapshot diagnostic strings now name known issues. Numerical baselines of retained results are unchanged. Three paths now withhold results they used to return: 2D buckling refuses as not determinable when every member's compression is within the round-off of its elongation, 100·ε·EA·Σ‖u_k·e_k‖/L (#959; it had returned load factors of 2.4e7 to 9.4e7 for an uncompressed cantilever); combinations and envelopes return no numbers when a contributing case is refused; and an influence line whose unit-load solve fails is an error instead of zero ordinates. Structured refusals withhold affected unsafe results, including 2D plastic (#758) and distorted MITC4 membrane bending (#798). The non-XY solid-shell refusal (#757) was retired when this branch merged the #814 fix, so solid-shell results are not withheld. See [the containment ledger](../verification/CONTAINMENT.md) for all predicates and controls.
 
