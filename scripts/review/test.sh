@@ -220,13 +220,16 @@ assert_clean
 bash scripts/review/record-review.sh shauer-2025 Kimi "$TEST_SHA" 'ready to merge'
 bash scripts/review/record-review.sh shauer-2025 Grok "$TEST_SHA" 'not ready'
 python3 research/tools/catalog.py --offline
-python3 - <<'PY'
+python3 - "$SOURCE/research/papers.yaml" <<'PY'
+import sys
 import yaml
 from research.tools.catalog import check_reviews
-with open('research/papers.yaml') as f:
-    reviews = yaml.safe_load(f)['papers'][0]['reviews']
-assert len(reviews) == 2
-assert [r['reviewer'] for r in reviews] == ['Kimi', 'Grok']
+def shauer(path):
+    with open(path) as f:
+        return next(p for p in yaml.safe_load(f)['papers'] if p['id'] == 'shauer-2025').get('reviews') or []
+before, reviews = shauer(sys.argv[1]), shauer('research/papers.yaml')
+assert reviews[:len(before)] == before
+assert [r['reviewer'] for r in reviews[len(before):]] == ['Kimi', 'Grok']
 assert check_reviews([])
 assert check_reviews([{'round': 1, 'reviewers': ['codex', 'kimi'], 'date': '2026-10-30'}])
 for invalid in (None, {}, [None], [{}], [{'reviewer': 'Kimi', 'sha': 'bad', 'verdict': 'ready to merge'}],
