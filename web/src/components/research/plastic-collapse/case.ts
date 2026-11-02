@@ -86,12 +86,13 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const { mp, vertical: v, span: l, tolerance, yieldTolerance, equilibriumTolerance } = portal;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
-  const formed = result.steps.flatMap(s => s.hingesFormed ?? []);
   const hingeNodes = events(result).flatMap(e => e.hinges.map(x => x.node)).sort((a, b) => a - b);
-  const hingesMatch = formed.length === portal.events.length && formed.every((h, i) => {
+  const hingesMatch = result.steps.length === portal.events.length && result.steps.every((s, i) => {
     const want = portal.events[i];
-    return h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance;
-  }) && result.steps.length === portal.events.length && result.steps.every((s, i) => Math.abs(s.loadFactor - portal.events[i].loadFactor) < tolerance);
+    const formed = s.hingesFormed ?? [];
+    return formed.length === 1 && formed.every(h => h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance)
+      && Math.abs(s.loadFactor - want.loadFactor) < tolerance;
+  });
   const ends = [...moments.values()].flatMap(m => [m.myStart, m.myEnd]);
   const corner = moments.get(1)?.myEnd ?? NaN;
   const r = residual(result);

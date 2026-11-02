@@ -195,6 +195,11 @@ export function checkTranslations(distDir: string, origin = 'https://stabileo.co
     if (declaredLocales.join('\n') !== expected.join('\n')) {
       failures.push({ page: path, locale, rule: 'page hreflang set is not the set of languages the page was built in', offending: [`declared: ${declaredLocales.join(', ') || '(none)'}`, `built:    ${expected.join(', ')}`] });
     }
+    const xDefault = declared.filter((l) => l.startsWith('x-default '));
+    const expectedDefault = builtIn(rest(path)).includes('en') ? [`x-default ${origin}/en${rest(path)}`] : [];
+    if (xDefault.join('\n') !== expectedDefault.join('\n')) {
+      failures.push({ page: path, locale, rule: 'x-default is not the single English version of this page', offending: [`declared: ${xDefault.join(', ') || '(none)'}`, `expected: ${expectedDefault.join(', ') || '(none)'}`] });
+    }
     const entry = entries.get(path);
     if (entry !== undefined && hreflangs(entry).join('\n') !== declared.join('\n')) {
       failures.push({ page: path, locale, rule: 'sitemap hreflang set differs from the page', offending: [`sitemap: ${hreflangs(entry).join(', ') || '(none)'}`, `page:    ${declared.join(', ') || '(none)'}`] });
