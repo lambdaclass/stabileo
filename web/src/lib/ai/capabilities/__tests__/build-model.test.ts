@@ -393,6 +393,8 @@ describe('change summaries', () => {
       expect(actionSummary(model(['IPE 300', 'Custom (user values)', 'Custom (user values) 2'])))
         .toBe('Modelo propio (2 nudos, 1 elementos). Custom (user values), Custom (user values) 2: valores de sección que no son del catálogo, revíselos antes de aplicar');
       expect(actionSummary(model(['IPE 300']))).toBe('Modelo propio (2 nudos, 1 elementos)');
+      const tuples = { action: 'create_model', params: { nodes: [1, 2], elements: [1], materials: [], supports: [], sections: [[1, { id: 1, name: 'Custom (user values)' }]] } } as never;
+      expect(actionSummary(tuples)).toBe('Modelo propio (2 nudos, 1 elementos). Custom (user values): valores de sección que no son del catálogo, revíselos antes de aplicar');
       expect(actionSummary({ action: 'add_story', params: { height: 3 } })).toBe('Se agregó un piso de 3 m. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
     } finally {

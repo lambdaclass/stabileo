@@ -183,6 +183,14 @@ describe('edit executor', () => {
     expect(arr(r, 'supports')).toEqual(arr(snap, 'supports'));
   });
 
+  it('a support changed to another type keeps none of the old type\'s settings', () => {
+    const snap = makeFrame();
+    Object.assign(arr(snap, 'supports')[0][1], { type: 'spring', kx: 1000, ky: 2000, kz: 300, angle: 30 });
+    const r = applyEdit({ action: 'set_all_supports', params: { support_type: 'pinned' } }, snap);
+    expect(arr(r, 'supports').map(([, sup]) => Object.keys(sup).sort())).toEqual(arr(r, 'supports').map(() => ['id', 'nodeId', 'type']));
+    expect(arr(r, 'supports')[0][1]).toEqual({ id: arr(snap, 'supports')[0][1].id, nodeId: arr(snap, 'supports')[0][1].nodeId, type: 'pinned' });
+  });
+
   it('a new bay keeps the base support of the frame it extends', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
     expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);

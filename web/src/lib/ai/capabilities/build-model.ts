@@ -236,7 +236,8 @@ export function actionSummary(a: BuildAction): string {
     case 'delete_load': return tp('ai.sum.deleteLoad', { id: a.params.load_id });
     case 'create_model': {
       const summary = tp('ai.sum.custom', { nodes: a.params.nodes.length, elements: a.params.elements.length });
-      const custom = a.params.sections.map((sec) => (isPlainObject(sec) && typeof sec.name === 'string' ? sec.name.trim() : ''))
+      const custom = toTuples(a.params.sections).map((entry) => (Array.isArray(entry) && isPlainObject(entry[1]) ? entry[1].name : undefined))
+        .map((name) => (typeof name === 'string' ? name.trim() : ''))
         .filter((name) => name.startsWith(CUSTOM_SECTION));
       return custom.length > 0 ? `${summary}. ${tp('ai.sum.customSections', { names: custom.join(', ') })}` : summary;
     }

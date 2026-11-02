@@ -107,7 +107,9 @@ function setAllSupports(snap: Json, type: string): void {
   for (const s of supports) {
     const data = at(s, 1);
     if (!isPlainObject(data)) throw new AiActionError('snapshot is malformed: support data is not an object');
-    data.type = type;
+    const { id, nodeId } = data;
+    for (const key of Object.keys(data)) delete data[key];
+    Object.assign(data, { id, nodeId, type });
   }
 }
 
