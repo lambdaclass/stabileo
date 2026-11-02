@@ -1,4 +1,4 @@
 ### Added
-#### Research and Tools pages are easier to find in search (2026-10-30)
+#### Research and calculators link to each other (2026-11-02)
 
-Every Research and Tools page now has its own search title, description, social preview, canonical and language links, and structured data (articles cite the original paper's DOI; calculators are listed as free web applications), in all six languages. The metadata is written into the prerendered HTML, not shipped in JavaScript. Every page is in each language's sitemap, and calculators, related benchmarks, the galleries and the blog link to each other. Tests cover the search copy and schema, and the prerender step checks its own output for crawlable headings, text, sitemap entries and social images.
+Each calculator page links to the research benchmarks that check the same mechanics, each of those research pages links back to its calculators, and both link to the research gallery, the calculators and the blog, in the reader's language. Research links go to the language the paper page is published in.

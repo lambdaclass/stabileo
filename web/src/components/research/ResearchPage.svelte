@@ -1,15 +1,21 @@
 <script lang="ts">
-  import RelatedLinks from "./RelatedLinks.svelte";
   import BigginsPage from './biggins2026/BigginsPage.svelte';
   import { rs } from './i18n';
   /**
    * Stabileo Research: the gallery at /research and one page per runnable paper. Loaded as its own
    * chunk by Root.svelte; the experiment's WASM is fetched only when a simulation is started.
    */
+  import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
+  import { publicI18n, type PublicLocale } from '../../lib/i18n/store.svelte';
+  import { EXPERIMENTS } from './experiments';
+  import { paperHead } from './head.svelte';
+  import { RESEARCH_GALLERY, researchLocales } from './locales';
+  import { galleryGraph, paperMeta } from './meta';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
+  import RelatedLinks from './RelatedLinks.svelte';
   import TopoptPage from './andreassen2011/TopoptPage.svelte';
   import MattiassonPage from './mattiasson1981/MattiassonPage.svelte';
   import ShellPage from './shell1985/ShellPage.svelte';
@@ -33,6 +39,19 @@
   let { path }: { path: string } = $props();
   const route = $derived(path.replace(/\/+$/, '') || '/research');
 
+  $effect(() => {
+    const locale = publicI18n.locale;
+    const strings = rs();
+    const labels = { research: strings.research, researchTitle: strings.researchTitle };
+    const head = paperHead.current;
+    const paperPath = head ? EXPERIMENTS.find((e) => e.paperId === head.paperId)?.path : undefined;
+    if (route === RESEARCH_GALLERY) {
+      applyPageMeta({ title: `${strings.researchTitle} — Stabileo Research`, description: strings.galleryLead, locale, path: route, written: researchLocales(route) as readonly PublicLocale[], graph: galleryGraph(locale, labels) });
+    } else if (head && paperPath === route) {
+      applyPageMeta({ ...paperMeta(head, locale, labels), locale });
+    }
+    return () => restorePageMeta();
+  });
   const s = $derived(rs());
 </script>
 
@@ -82,7 +101,7 @@
       </div>
     </section>
   {/if}
-  <RelatedLinks {path} />
+  {#if route !== '/research' && EXPERIMENTS.some((e) => e.path === route)}<RelatedLinks path={route} />{/if}
   <LandingFooter />
 </div>
 

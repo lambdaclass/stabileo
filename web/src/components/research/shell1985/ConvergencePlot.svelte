@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { Case, Result } from './cases';
+  import { responseRatio, type Case, type Result } from './cases';
   let { cases, rows, title, xLabel, yLabel, locale }: { cases: Case[]; rows: Result[]; title: string; xLabel: string; yLabel: string; locale: string } = $props();
-  const points = $derived(cases.map(c => ({ n: c.mesh, ratio: rows.find(r => r.id === c.id)?.value == null ? null : rows.find(r => r.id === c.id)!.value! / c.reference })));
+  const points = $derived(cases.map(c => ({ n: c.mesh, ratio: rows.find(r => r.id === c.id)?.value == null ? null : responseRatio(c, rows.find(r => r.id === c.id)!.value!) })));
   const ymax = $derived(Math.max(1.1, ...points.map(p => (p.ratio ?? 0) * 1.1)));
   const xmin = $derived(Math.min(...cases.map(c => c.mesh)));
   const xmax = $derived(Math.max(...cases.map(c => c.mesh)));
@@ -24,7 +24,7 @@
         {#if i > 0 && points[i - 1].ratio !== null}
           <line x1={x(points[i - 1].n)} y1={y(points[i - 1].ratio!)} x2={x(point.n)} y2={y(point.ratio)} stroke="var(--rs-accent, #5ab7da)" stroke-width="2" />
         {/if}
-        <circle cx={x(point.n)} cy={y(point.ratio)} r="4" fill="var(--rs-accent, #5ab7da)" aria-label={`${point.n} × ${point.n}: ${fmt(point.ratio)}`} />
+        <circle cx={x(point.n)} cy={y(point.ratio)} r="4" fill="var(--rs-accent, #5ab7da)"><title>{point.n} × {point.n}: {fmt(point.ratio)}</title></circle>
       {/if}
       <text x={x(point.n)} y="200" text-anchor="middle">{point.n}</text>
     {/each}

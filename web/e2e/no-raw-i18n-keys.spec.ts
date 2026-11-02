@@ -108,8 +108,8 @@ async function bootBasic(page: Page, locale: string): Promise<void> {
     } catch { /* private mode */ }
   }, locale);
   await page.goto('/app/basic?e2e=1');
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 }).toBe(true);
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 }).toBe(true);
 }
 
 /** PRO with its design setting off (the default a new user gets), in a language. */
@@ -122,12 +122,12 @@ async function bootProDesignOff(page: Page, locale: string): Promise<void> {
     } catch { /* private mode */ }
   }, locale);
   await page.goto(PRO_URL);
-  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 60_000 });
-  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 60_000 }).toBe(true);
+  await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+  await expect.poll(() => page.evaluate(() => window.__stabileo?.solverReady() ?? false), { timeout: 45_000 }).toBe(true);
 }
 
 async function solved(page: Page, before: number): Promise<void> {
-  await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 90_000 }).toBeGreaterThan(before);
+  await expect.poll(() => page.evaluate(() => window.__stabileo.solveCount()), { timeout: 45_000 }).toBeGreaterThan(before);
 }
 
 for (const locale of PUBLIC_LOCALES) {
@@ -158,7 +158,7 @@ for (const locale of LOCALES) {
       await page.getByTestId('rb-cmd-solve').click();
       await expect(page.locator('[data-testid="basic-panel"][data-panel="results"]')).toBeVisible();
       // The result commands come on with results.
-      await expect(page.getByTestId('rb-cmd-deformed')).toBeEnabled({ timeout: 60_000 });
+      await expect(page.getByTestId('rb-cmd-deformed')).toBeEnabled({ timeout: 45_000 });
       await expectNoRawKeys(page, `Basic results (${locale})`);
 
       // A dialog: switching a 3D model to 2D.
