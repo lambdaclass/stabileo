@@ -36,6 +36,16 @@ def queue_heads(repo, owner, name):
     return live_heads(nodes, refs)
 
 
+def unfinished_runs(repo, workflows):
+    runs = []
+    for workflow in workflows:
+        for status in ('queued', 'in_progress', 'waiting', 'pending', 'requested'):
+            out = gh('api', '--paginate', '--jq', '.workflow_runs[]',
+                     f'repos/{repo}/actions/workflows/{workflow}/runs?event=merge_group&status={status}&per_page=100')
+            runs += [json.loads(line) for line in out.splitlines() if line.strip()]
+    return runs
+
+
 def confirmed(runs, snapshots, own_sha):
     if not snapshots or any(own_sha not in heads for heads in snapshots):
         return []
@@ -47,11 +57,7 @@ def main():
     owner, name = repo.split('/')
     own_sha = os.environ['GITHUB_SHA']
     before = queue_heads(repo, owner, name)
-    runs = []
-    for workflow in sys.argv[1:]:
-        for status in ('queued', 'in_progress', 'waiting', 'pending', 'requested'):
-            page = json.loads(gh('api', f'repos/{repo}/actions/workflows/{workflow}/runs?event=merge_group&status={status}&per_page=100'))
-            runs += page['workflow_runs']
+    runs = unfinished_runs(repo, sys.argv[1:])
     after = queue_heads(repo, owner, name)
     stale = set(confirmed(runs, [before, after], own_sha))
     if stale:

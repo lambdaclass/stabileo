@@ -49,6 +49,29 @@ class CancelSuperseded(unittest.TestCase):
         self.assertEqual(cancel.confirmed(runs, [heads, heads, heads], 'pr7-new'), [1])
         self.assertEqual(cancel.confirmed(runs, [heads, heads, heads], 'pr8-new'), [1])
 
+    def test_every_page_of_every_status_and_workflow_is_read(self):
+        calls = []
+
+        def fake_gh(*args):
+            calls.append(args)
+            workflow = args[-1].split('/workflows/', 1)[1].split('/', 1)[0]
+            status = args[-1].split('status=', 1)[1].split('&', 1)[0]
+            if status != 'in_progress':
+                return ''
+            return '\n'.join(f'{{"id": {i}, "workflow": "{workflow}"}}' for i in range(150)) + '\n'
+        real, cancel.gh = cancel.gh, fake_gh
+        try:
+            runs = cancel.unfinished_runs('o/r', ['ci.yml', 'verify.yml'])
+        finally:
+            cancel.gh = real
+        self.assertEqual(len(runs), 300)
+        self.assertTrue(all(c[:3] == ('api', '--paginate', '--jq') for c in calls))
+        self.assertEqual(len(calls), 10)
+
+    def test_the_cancelling_script_comes_from_main_not_from_the_queued_prs(self):
+        workflow = (ROOT / '.github/workflows/merge-queue-supersede.yml').read_text()
+        self.assertIn('ref: ${{ github.event.merge_group.base_sha }}', workflow)
+
     def test_every_workflow_on_merge_group_is_covered(self):
         workflow = (ROOT / '.github/workflows/merge-queue-supersede.yml').read_text()
         listed = set(workflow.split('cancel-superseded-merge-groups.py ', 1)[1].split('\n', 1)[0].split())
