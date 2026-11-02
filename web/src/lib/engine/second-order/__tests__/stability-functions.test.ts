@@ -1,4 +1,4 @@
-import { generalizedEigen, symmetricEigen } from '../dense';
+import { generalizedEigen, symmetricEigen, negativeEigenvalues } from '../dense';
 import { describe, it, expect } from 'vitest';
 import { stabilityFunctions, memberStability, clampedModesBelow } from '../stability-functions';
 import { memberStiffness } from '../member-matrices';
@@ -116,6 +116,14 @@ describe('symmetric eigenvalues', () => {
     const v = [...symmetricEigen([[1e16, 0, 0], [0, 2, 1], [0, 1, 2]]).values].sort((a, b) => a - b);
     expect(v[0]).toBeCloseTo(1, 12);
     expect(v[1]).toBeCloseTo(3, 12);
+  });
+});
+
+describe('the inertia count', () => {
+  it('a zero pivot does not hide a negative eigenvalue: [[0, 1e8], [1e8, 1e16]] has one', () => {
+    expect(negativeEigenvalues([[0, 1e8], [1e8, 1e16]])).toBe(1);
+    expect(negativeEigenvalues([[2, 1], [1, 2]])).toBe(0);
+    expect(negativeEigenvalues([[1, 2], [2, 1]])).toBe(1);
   });
 });
 

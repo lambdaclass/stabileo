@@ -65,27 +65,15 @@ function triSolve(L: Mat, b: number[], upper: boolean): number[] {
 }
 
 /**
- * Number of negative eigenvalues of a symmetric matrix (Sylvester's law of inertia), from the
- * signs of the pivots of symmetric elimination. A pivot that is exactly zero is nudged.
+ * Number of negative eigenvalues of a symmetric matrix: those of D·A·D with D = |diag A|^(−1/2), which has the
+ * same inertia (Sylvester) and no scale to hide a small one, beyond round-off.
  */
 export function negativeEigenvalues(A: Mat): number {
-  const n = A.length;
-  const M = A.map((r) => r.slice());
-  let scale = 0;
-  for (let i = 0; i < n; i++) scale = Math.max(scale, Math.abs(M[i][i]));
-  let neg = 0;
-  for (let c = 0; c < n; c++) {
-    let p = M[c][c];
-    if (p === 0 || !Number.isFinite(p)) p = 1e-300 + 1e-14 * scale;
-    if (p < 0) neg++;
-    for (let r = c + 1; r < n; r++) {
-      const f = M[r][c] / p;
-      if (f === 0) continue;
-      const Mr = M[r], Mc = M[c];
-      for (let k = c + 1; k < n; k++) Mr[k] -= f * Mc[k];
-    }
-  }
-  return neg;
+  if (!A.length) return 0;
+  const d = A.map((r, i) => (Math.abs(r[i]) > 0 && Number.isFinite(r[i]) ? 1 / Math.sqrt(Math.abs(r[i])) : 1));
+  const { values } = symmetricEigen(A.map((r, i) => r.map((v, j) => d[i] * v * d[j])));
+  const tol = 1e-14 * Math.max(0, ...values.map(Math.abs));
+  return values.filter((v) => v < -tol).length;
 }
 
 /** The determinant as sign and log₁₀ of its magnitude (LU with partial pivoting). */
