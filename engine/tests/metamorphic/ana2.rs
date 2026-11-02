@@ -630,11 +630,17 @@ pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64
 pub(crate) fn finite_2d(r: &AnalysisResults) -> bool {
     r.displacements.iter().all(|d| [d.ux, d.uz, d.ry].iter().all(|v| v.is_finite()))
         && r.reactions.iter().all(|x| [x.rx, x.rz, x.my].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| [f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end].iter().all(|v| v.is_finite()))
 }
 
 pub(crate) fn finite_3d(r: &AnalysisResults3D) -> bool {
     r.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().all(|v| v.is_finite()))
         && r.reactions.iter().all(|x| [x.fx, x.fy, x.fz, x.mx, x.my, x.mz].iter().all(|v| v.is_finite()))
+        && r.element_forces.iter().all(|f| {
+            [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end]
+                .iter()
+                .all(|v| v.is_finite())
+        })
 }
 
 fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
@@ -675,4 +681,18 @@ fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
     assert!(round_off_converged(stagnant, |_| false).is_err(), "matching non-finite outputs are not round-off");
     let cycling = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps % 2 == 1 { 2.0 + 1e-9 } else { 2.0 }]})));
     assert!(round_off_converged(cycling, |_| true).is_err(), "endpoints 100 and 1000 agree, the next step moves");
+}
+
+#[test]
+fn a_non_finite_member_force_is_not_finite() {
+    let s = crate::common::make_beam(2, 4.0, 200_000.0, 0.01, 1e-4, "fixed", None, vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: -1.0, my: 0.0 })]);
+    let mut r = dedaliano_engine::solver::linear::solve_2d(&s).unwrap();
+    assert!(finite_2d(&r));
+    r.element_forces[0].m_end = f64::NAN;
+    assert!(!finite_2d(&r));
+    let s3 = crate::common::make_3d_beam(2, 4.0, 200_000.0, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![]);
+    let mut r3 = dedaliano_engine::solver::linear::solve_3d(&s3).unwrap();
+    assert!(finite_3d(&r3));
+    r3.element_forces[0].mz_end = f64::INFINITY;
+    assert!(!finite_3d(&r3));
 }
