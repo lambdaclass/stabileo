@@ -61,7 +61,7 @@ export function parsePrerenderedResult<T>(text: string, params: Record<string, u
 
 /** Only during scripts/prerender.ts (it sets the flag): leaves the result in <head>, which the capture ships. */
 export function recordPrerenderedResult(tool: string, params: Record<string, unknown>, result: unknown) {
-  if (typeof window === 'undefined' || !(window as { __stabileoPrerender?: boolean }).__stabileoPrerender) return;
+  if (typeof window === 'undefined' || !(window as { __prerenderCapture?: boolean }).__prerenderCapture) return;
   const text = serializePrerenderedResult(params, result);
   if (text === null) return;
   document.head.querySelector(`script[data-prerendered-result="${tool}"]`)?.remove();

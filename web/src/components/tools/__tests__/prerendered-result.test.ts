@@ -53,7 +53,7 @@ describe('a tool result carried by the prerendered page', () => {
     recordPrerenderedResult('beam', params, result);
     expect(scripts).toHaveLength(0);
     expect(prerenderedResult('beam', params)).toBeNull();
-    vi.stubGlobal('window', { __stabileoPrerender: true });
+    vi.stubGlobal('window', { __prerenderCapture: true });
     recordPrerenderedResult('beam', params, { value: 1 });
     recordPrerenderedResult('beam', params, { value: 2 });
     expect(scripts).toHaveLength(1);
