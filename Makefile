@@ -254,7 +254,7 @@ typecheck.web:
 	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run check:gate && node scripts/check-site-header.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $(if $(SHARD),--shard=$(SHARD))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
@@ -351,8 +351,11 @@ test.nightly-scripts:
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 
 test.ci-scripts: test.nightly-scripts
+	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_ci_selection.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

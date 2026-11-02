@@ -2,19 +2,17 @@ name: Research
 
 on:
   workflow_call:
-  push:
-    branches: [main]
+    inputs:
+      route_only:
+        type: boolean
+        default: false
+  pull_request:
     paths:
       - 'research/**'
+      - 'web/src/components/research/**'
       - '.github/workflows/research.yml'
-      - 'engine/**'
-      - 'web/**'
-      - 'Cargo.lock'
-      - 'Cargo.toml'
-      - 'flake.*'
-      - 'rust-toolchain*'
-      - 'Makefile'
-  pull_request:
+  push:
+    branches: [main]
     paths:
       - 'research/**'
       - '.github/workflows/research.yml'
@@ -35,8 +33,12 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CARGO_HTTP_MULTIPLEXING: false
+
 jobs:
   isolation:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Research isolation
     runs-on: ubuntu-24.04
     steps:
@@ -53,6 +55,7 @@ jobs:
         run: research/tools/test_check_viewer.sh
 
   route-size:
+    if: github.workflow != 'Research' || github.event_name != 'pull_request'
     name: Landing and app route byte budgets
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -61,37 +64,51 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      # The budget keeps research from growing the product's routes; a change with no research code shipped to the browser is not measured.
-      - name: Measure only a change that touches research code
+      - name: Select research isolation enforcement
         id: scope
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
           RESEARCH_PATHS: '^(research/.*\.(json|csv)$|web/src/components/research/|web/public/research-|web/vite\.research-viewer\.config\.ts$)'
           NOT_SHIPPED: '^research/tools/'
         run: |
-          if [ -z "$BASE" ] || git diff --name-only "$BASE" HEAD | grep -E "$RESEARCH_PATHS" | grep -qvE "$NOT_SHIPPED"; then
+          if [ -n "$BASE" ]; then
+            git diff --no-renames --name-only "$BASE" HEAD > /tmp/route-changed-paths
+          fi
+          if [ -z "$BASE" ] || grep -E "$RESEARCH_PATHS" /tmp/route-changed-paths | grep -vE "$NOT_SHIPPED" > /dev/null; then
             echo research=true >> "$GITHUB_OUTPUT"
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: steps.scope.outputs.research == 'true'
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'main' }}
           path: route-main
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
-      - name: Build main and the candidate with the same pinned toolchain and measurement script
-        if: steps.scope.outputs.research == 'true'
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
         run: |
-          cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs route-main/web/scripts/
-          nix develop . -c sh -c 'cd route-main/web && npm ci && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && npm ci && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+          .github/scripts/retry-infra.sh nix develop --command true
+      - name: Build the base and the candidate with the same pinned toolchain and measurement script
+        env:
+          RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
+        run: |
+          cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs web/scripts/product-route-growth-budgets.json route-main/web/scripts/
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
+          .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
+          nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
+          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
   catalog:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Research catalog
     runs-on: ubuntu-24.04
     steps:
@@ -111,9 +128,7 @@ jobs:
       - name: Every entry, evidence file and summary source is well formed
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --offline
 
-  # Online: Crossref, licences and links. Runs only as the standalone Research workflow (its own
-  # pull_request, push and weekly triggers), never inside the required CI OK: an outage at Crossref
-  # must not block unrelated merges.
+  # External service outages must not block the required CI OK aggregate.
   catalog-online:
     name: Research catalog (Crossref, licenses)
     if: github.workflow == 'Research'
@@ -134,6 +149,7 @@ jobs:
         run: /tmp/catalog-venv/bin/python -I research/tools/catalog.py check --links
 
   phasefield:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Phase-field (Shauer 2025) validation
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -146,8 +162,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Tests, including the validation against the reference outputs
         run: cargo test --release --locked -- --nocapture
+      - name: Fetch browser crate dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked --manifest-path wasm/Cargo.toml
       - name: Browser configuration limits reject oversized meshes before allocation
         run: cargo test --locked --manifest-path wasm/Cargo.toml
       - name: Reference outputs match their manifest
@@ -163,6 +183,7 @@ jobs:
           PY
 
   topopt:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Topology optimization (Andreassen 2011)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -178,6 +199,7 @@ jobs:
       - run: nix develop -c make wasm
       - run: nix develop -c sh -c 'cd web && npm ci && npx vitest run src/components/research/andreassen2011/model.test.ts'
   engine-benchmarks:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Production engine benchmarks (native and WASM)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -185,9 +207,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
-      - run: nix develop -c sh -c 'cd web && npm ci'
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - run: .github/scripts/retry-infra.sh nix develop -c sh -c 'cd web && npm ci'
       - run: make wasm
       - name: Compute native results from the engine-owned cases
         run: MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
@@ -215,6 +246,7 @@ jobs:
         run: nix develop -c sh -c 'cd web && npx vitest run src/components/research/shell1985/__tests__/cases.test.ts'
 
   springs:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Spring networks (Grossman 2026) validation
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -227,6 +259,8 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Tests, including the checks against the paper's published values
         run: cargo test --release --locked -- --nocapture
       - name: The committed comparison series are what the code computes
@@ -262,6 +296,7 @@ jobs:
           PY
 
   koiter:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Roorda frame (Ferrari and Sigmund 2025) groundwork
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -274,9 +309,12 @@ jobs:
           persist-credentials: false
       - name: Toolchain from rust-toolchain.toml
         run: rustup show active-toolchain || rustup toolchain install
+      - name: Fetch Rust dependencies
+        run: bash "$GITHUB_WORKSPACE/.github/scripts/retry-infra.sh" cargo fetch --locked
       - name: Buckling, energy derivatives and every replay frame
         run: cargo test --release --locked -- --nocapture
   form-finding:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Four-cable FDM (Pastrana 2026) validation
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -288,6 +326,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/Cargo.toml
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
   arches:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Curvature-patterned arches validation
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -299,6 +338,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
       - run: cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
   fairclough:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Five-node gridshell (Fairclough 2026) validation
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -309,6 +349,7 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
   riks-crisfield:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Arc-length (Riks–Crisfield) native and WASM validation
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -316,8 +357,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-      - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - name: Native production results reproduce the committed evidence, including known failures
         run: nix develop . -c cargo run --release --locked --manifest-path research/numerical-methods/riks-crisfield/native/Cargo.toml -- check
       - name: Build the production browser engine

@@ -53,6 +53,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_JOBS: 2
+  CARGO_HTTP_MULTIPLEXING: false
 
 jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
