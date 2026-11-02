@@ -65,7 +65,6 @@ function createNextMember() {
         if (sec !== null && modelStore.sections.has(sec)) modelStore.updateElementSection(id, sec);
         // Declared as it is drawn: a chained beam or column continues the element it extends.
         run = pro && physical ? declareDrawnBar(id, physical.kind, physical.typology, run) : null;
-        // On the similar storeys too, when the scope says so.
         for (const copy of storeyScope.replicateMember(id)) if (physical) declareDrawnBar(copy, physical.kind, physical.typology, null);
       });
       return id;
