@@ -286,7 +286,7 @@ use dedaliano_engine::postprocess::steel_check::{check_steel_members, ElementDes
 /// W310x97-like section in kN, m (fy, E in kN/m²).
 fn w_member(id: usize, lb: f64) -> SteelMemberData {
     serde_json::from_value(serde_json::json!({
-        "elementId": id, "fy": 345e3, "fu": 450e3, "ag": 1.23e-2, "aw": 3.08e-3,
+        "elementId": id, "fy": 345e3, "fu": 450e3, "ag": 1.23e-2, "aw": 3.08e-3, "awWeak": 9.39e-3,
         "lby": lb, "lbz": lb, "iy": 2.22e-4, "iz": 7.25e-5, "ry": 0.134, "rz": 0.0768,
         "zy": 1.59e-3, "zz": 7.23e-4, "sy": 1.44e-3, "sz": 4.77e-4, "j": 9.1e-7, "cw": 1.56e-6,
         "lb": lb, "cb": 1.0, "e": 200e6, "depth": 0.308,
