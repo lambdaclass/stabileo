@@ -104,7 +104,8 @@ jobs:
           node -e '
             const cfg = require("./stryker.config.json").mutate;
             const wf = require("fs").readFileSync("../.github/workflows/mutation-ts.yml", "utf8");
-            const missing = cfg.filter((f) => !wf.includes(f));
+            const sharded = new Set([...wf.matchAll(/^\s+mutate: >-\n\s+(\S+)$/gm)].flatMap((m) => m[1].split(",")));
+            const missing = cfg.filter((f) => !sharded.has(f));
             if (missing.length) { console.error("::error::not in any mutation-ts.yml shard: " + missing.join(", ")); process.exit(1); }
           '
 

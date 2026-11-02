@@ -17,7 +17,7 @@ function harness({run: runOverrides = {}, jobs = [], open = [], workflows = [], 
       return {data: {}};
     }),
     createLabel: record('createLabel', {data: {}}),
-    listForRepo: record('listForRepo', {data: open}),
+    listForRepo: record('listForRepo', () => ({data: typeof open === 'function' ? open() : open})),
     create: record('create', (a) => ({data: {...a, number: 900}})),
     createComment: record('createComment', {data: {}}),
     update: record('update', {data: {}}),
@@ -88,16 +88,18 @@ test('a later failure comments on the open issue instead of opening another', as
   assert.match(w[0].args.body, /mutants \(3\)/);
 });
 
-const human = {user: {login: 'someone', type: 'User'}, body: 'Triaged: #757, #758.'};
-const bot = {user: {login: 'github-actions[bot]', type: 'Bot'}, body: 'Run 54 of Nightly verification ...'};
+const at = (h) => `2026-11-01T${String(h).padStart(2, '0')}:00:00Z`;
+const issue14 = {number: 14, title: 'CI failure: Nightly verification', created_at: at(5)};
+const bot = {user: {login: 'github-actions[bot]', type: 'Bot'}, body: 'Run 54 of Nightly verification ...', created_at: at(6)};
+const human = (h) => ({user: {login: 'someone', type: 'User'}, body: 'Triaged: #757, #758.', created_at: at(h)});
 
-test('a green scheduled run closes a triaged issue', async () => {
+test('a green scheduled run closes an issue triaged after its latest failure', async () => {
   for (const triaged of [
-    {comments: [bot, human]},
-    {comments: [bot], timeline: [{event: 'commented'}, {event: 'cross-referenced'}]},
-    {comments: [bot], open: [{number: 14, title: 'CI failure: Nightly verification', labels: [{name: 'ci-failure'}, {name: 'triaged'}]}]},
+    {comments: [bot, human(7)]},
+    {comments: [bot], timeline: [{event: 'commented', created_at: at(6)}, {event: 'cross-referenced', created_at: at(7)}]},
+    {comments: [bot], timeline: [{event: 'labeled', label: {name: 'triaged'}, created_at: at(7)}]},
   ]) {
-    const h = harness({run: {conclusion: 'success'}, open: [{number: 14, title: 'CI failure: Nightly verification'}], ...triaged});
+    const h = harness({run: {conclusion: 'success'}, open: [issue14], ...triaged});
     await h.run();
     const w = h.writes();
     assert.deepEqual(w.map((c) => c.name), ['createComment', 'update'], JSON.stringify(triaged));
@@ -106,9 +108,21 @@ test('a green scheduled run closes a triaged issue', async () => {
   }
 });
 
-test('a green scheduled run leaves an untriaged issue open and says so once', async () => {
-  const h = harness({run: {conclusion: 'success'}, open: [{number: 14, title: 'CI failure: Nightly verification'}],
-    comments: [bot], timeline: [{event: 'commented'}, {event: 'labeled'}]});
+test('triage before the latest failure does not count', async () => {
+  for (const stale of [
+    {comments: [human(5), bot]},
+    {comments: [bot], timeline: [{event: 'cross-referenced', created_at: at(5)}, {event: 'labeled', label: {name: 'triaged'}, created_at: at(5)}]},
+    {comments: [bot], timeline: [{event: 'labeled', label: {name: 'bug'}, created_at: at(7)}]},
+  ]) {
+    const h = harness({run: {conclusion: 'success'}, open: [issue14], ...stale});
+    await h.run();
+    assert.deepEqual(h.writes().map((c) => c.name), ['createComment'], JSON.stringify(stale));
+    assert.match(h.writes()[0].args.body, /^Green again, but this issue is not triaged yet/);
+  }
+});
+
+test('a green scheduled run leaves an untriaged issue open and says so once per failure', async () => {
+  const h = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot], timeline: [{event: 'commented', created_at: at(6)}]});
   await h.run();
   const w = h.writes();
   assert.deepEqual(w.map((c) => c.name), ['createComment']);
@@ -116,10 +130,25 @@ test('a green scheduled run leaves an untriaged issue open and says so once', as
   assert.match(w[0].args.body, /^Green again, but this issue is not triaged yet: run \[55\]/);
   assert.doesNotMatch(w[0].args.body, /Closing\./);
 
-  const again = harness({run: {conclusion: 'success'}, open: [{number: 14, title: 'CI failure: Nightly verification'}],
-    comments: [bot, {user: bot.user, body: w[0].args.body}]});
+  const held = {user: bot.user, body: w[0].args.body, created_at: at(8)};
+  const again = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot, held]});
   await again.run();
   assert.deepEqual(again.writes(), []);
+
+  const newFailure = {...bot, created_at: at(9)};
+  const later = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot, held, newFailure]});
+  await later.run();
+  assert.deepEqual(later.writes().map((c) => c.name), ['createComment']);
+});
+
+test('two alerts that both opened an issue keep the oldest and close the other', async () => {
+  let listed = 0;
+  const open = () => (listed++ === 0 ? [] : [{number: 901, title: 'CI failure: Nightly verification'}, {number: 900, title: 'CI failure: Nightly verification'}]);
+  const h = harness({jobs: [failedJob], label: true, open});
+  await h.run();
+  const w = h.writes().map((c) => [c.name, c.args.issue_number, c.args.state]);
+  assert.deepEqual(w, [['create', undefined, undefined], ['createComment', 900, undefined], ['createComment', 901, undefined], ['update', 901, 'closed']]);
+  assert.match(h.writes()[2].args.body, /Duplicate of #900/);
 });
 
 test('a green run with nothing open writes nothing', async () => {

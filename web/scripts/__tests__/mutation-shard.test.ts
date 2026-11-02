@@ -92,4 +92,10 @@ describe('mutation-ts.yml split shards', () => {
       expectPartition(readFileSync(new URL(file, web), 'utf8'), n);
     }
   });
+
+  it('every file of stryker.config.json is mutated by a shard, and nothing else is', () => {
+    const config: string[] = JSON.parse(readFileSync(new URL('stryker.config.json', web), 'utf8')).mutate;
+    const sharded = new Set([...workflow.matchAll(/^\s+mutate: >-\n\s+(\S+)$/gm)].flatMap((m) => m[1].split(',')));
+    expect([...sharded].sort()).toEqual([...config].sort());
+  });
 });

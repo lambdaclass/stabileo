@@ -28,14 +28,31 @@ async function ensureLabel(github, owner, repo) {
   }
 }
 
-async function findOpen(github, owner, repo, issueTitle) {
+async function listOpen(github, owner, repo, issueTitle) {
   const open = await github.paginate(github.rest.issues.listForRepo, {
     owner, repo, labels: LABEL, state: 'open', per_page: 100,
   });
-  return open.find((i) => i.title === issueTitle && !i.pull_request);
+  return open.filter((i) => i.title === issueTitle && !i.pull_request).sort((a, b) => a.number - b.number);
 }
 
-async function raise({ github, core, owner, repo, dryRun }, issueTitle, body) {
+async function findOpen(github, owner, repo, issueTitle) {
+  return (await listOpen(github, owner, repo, issueTitle))[0];
+}
+
+async function closeDuplicates({ github, core, owner, repo }, issueTitle, body, created) {
+  const [keep, ...dups] = await listOpen(github, owner, repo, issueTitle);
+  if (!keep) return created;
+  for (const d of dups) {
+    await github.rest.issues.createComment({ owner, repo, issue_number: keep.number, body });
+    await github.rest.issues.createComment({ owner, repo, issue_number: d.number, body: `Duplicate of #${keep.number} (two alerts raced).` });
+    await github.rest.issues.update({ owner, repo, issue_number: d.number, state: 'closed', state_reason: 'not_planned' });
+    core.warning(`${issueTitle}: closed duplicate #${d.number} in favour of #${keep.number}`);
+  }
+  return keep.number;
+}
+
+async function raise(ctx, issueTitle, body) {
+  const { github, core, owner, repo, dryRun } = ctx;
   const existing = await findOpen(github, owner, repo, issueTitle);
   if (dryRun) {
     core.info(`[dry run] ${existing ? `comment on #${existing.number}` : 'open issue'}: ${issueTitle}\n${body}`);
@@ -55,20 +72,25 @@ async function raise({ github, core, owner, repo, dryRun }, issueTitle, body) {
       `\`${TRIAGED}\` label; after that the next green scheduled run closes this issue.`,
   });
   core.warning(`${issueTitle}: opened #${created.data.number}`);
-  return created.data.number;
+  return closeDuplicates(ctx, issueTitle, body, created.data.number);
 }
 
 async function triage(github, owner, repo, issue) {
   const comments = await github.paginate(github.rest.issues.listComments, {
     owner, repo, issue_number: issue.number, per_page: 100,
   });
-  const held = comments.some((c) => (c.body || '').startsWith(HELD));
-  if ((issue.labels || []).some((l) => (typeof l === 'string' ? l : l.name) === TRIAGED)) return { triaged: true, held };
-  if (comments.some((c) => c.user && c.user.type !== 'Bot')) return { triaged: true, held };
+  const isBot = (c) => c.user && c.user.type === 'Bot';
+  const reports = comments.filter((c) => isBot(c) && !(c.body || '').startsWith(HELD)).map((c) => c.created_at);
+  const since = [issue.created_at, ...reports].filter(Boolean).sort().at(-1) || '';
+  const after = (x) => (x.created_at || '') > since;
+  const held = comments.some((c) => (c.body || '').startsWith(HELD) && after(c));
+  if (comments.some((c) => !isBot(c) && after(c))) return { triaged: true, held };
   const events = await github.paginate(github.rest.issues.listEventsForTimeline, {
     owner, repo, issue_number: issue.number, per_page: 100,
   });
-  return { triaged: events.some((e) => e.event === 'cross-referenced'), held };
+  const triaged = events.some((e) => after(e) &&
+    (e.event === 'cross-referenced' || (e.event === 'labeled' && e.label && e.label.name === TRIAGED)));
+  return { triaged, held };
 }
 
 async function resolve({ github, core, owner, repo, dryRun }, issueTitle, body) {
