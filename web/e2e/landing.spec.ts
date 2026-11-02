@@ -84,6 +84,19 @@ async function bootLanding(page: Page, opts: { locale?: string; manual?: boolean
 }
 
 test.describe('@landing landing page', () => {
+  test('a long German compound in the hero does not widen the page on a phone', async ({ page }) => {
+    // "Tragwerksberechnung" once set the hero grid's minimum width: 424 px of page at 390 px.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/de/');
+    await expect(page.locator('.landing h1').first()).toBeVisible();
+    const widths = await page.evaluate(() => {
+      const root = document.querySelector<HTMLElement>('.landing')!;
+      return { page: document.documentElement.scrollWidth, landing: root.scrollWidth, view: window.innerWidth };
+    });
+    expect(widths.page).toBeLessThanOrEqual(widths.view);
+    expect(widths.landing).toBeLessThanOrEqual(widths.view);
+  });
+
   test('the nav\'s Changelog item, beside Blog, opens the whole history, and the landing ends at the blog', async ({ page }) => {
     await bootLanding(page, { locale: 'es' });
     await expect(page.locator('#changelog')).toHaveCount(0);
