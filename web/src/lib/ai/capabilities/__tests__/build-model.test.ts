@@ -42,6 +42,10 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('measures a 2D member in its plane, so a stray z never hides a zero length', () => {
+    const snap = { ...minimal(), nodes: [[1, { id: 1, x: 0, y: 0, z: 0 }], [2, { id: 2, x: 0, y: 0, z: 5 }]] };
+    expect(() => validateSnapshot(snap)).toThrow('element 1 has zero length');
+  });
   it('refuses a listed profile name carrying properties that are not that profile\'s', () => {
     expect(() => validateSnapshot(minimal())).not.toThrow();
     const wrong = { ...minimal(), sections: [[1, { id: 1, name: 'IPE 300', a: 0.005381, iz: 0.0002 }]] };

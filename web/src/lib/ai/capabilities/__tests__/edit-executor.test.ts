@@ -296,6 +296,16 @@ describe('edit executor', () => {
     expect(diagonals[1][1]).toMatchObject({ type: 'truss', hingeStart: true, hingeEnd: true });
   });
 
+  it('a 3D profile change does not reuse a same-named section missing iy or j', () => {
+    const snap = makeMultiStory3d();
+    const sid = Math.max(...arr(snap, 'sections').map((x) => x[0])) + 1;
+    arr(snap, 'sections').push([sid, { id: sid, name: 'HEB 400', a: 198e-4, iz: 57680e-8 }]);
+    const r = applyEdit({ action: 'change_section', params: { section: 'HEB 400' } }, snap);
+    const used = new Set(arr(r, 'elements').map(([, e]) => e.sectionId));
+    expect(used.has(sid)).toBe(false);
+    expect(arr(r, 'sections').find(([id]) => used.has(id))![1]).toMatchObject({ name: 'HEB 400', iy: 10820e-8, j: 3.68e-6 });
+  });
+
   it('takes side as left or right only, in any case', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
     expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);

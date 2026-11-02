@@ -208,7 +208,8 @@ export function ensureSection(snap: Json, name: string): number {
   for (const s of asArray(snap.sections) ?? []) {
     const data = at(s, 1);
     if (at(data, 'name') !== name) continue;
-    if (!props || (['a', 'iz', 'iy', 'j'] as const).every((k) => at(data, k) === undefined || close(at(data, k), props[k]))) {
+    const needed = (k: string): boolean => k === 'a' || k === 'iz' || isSnapshot3d(snap);
+    if (!props || (['a', 'iz', 'iy', 'j'] as const).every((k) => (at(data, k) === undefined && !needed(k)) || close(at(data, k), props[k]))) {
       return asU64(at(s, 0)) ?? 1;
     }
   }

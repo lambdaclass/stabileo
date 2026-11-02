@@ -108,7 +108,7 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
       if (key === 'z' && (!space || existingModel) && data.z === undefined) continue;
       if (asF64(data[key]) === undefined) throw new AiActionError(`node ${id} has no finite ${key}`);
     }
-    coords.set(id, [data.x as number, data.y as number, (data.z as number | undefined) ?? 0]);
+    coords.set(id, [data.x as number, data.y as number, space ? (data.z as number | undefined) ?? 0 : 0]);
   }
 
   for (const entry of elements) {
