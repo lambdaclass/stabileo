@@ -152,11 +152,11 @@ describe('Vitest harness architecture', () => {
     expect(timing![1]).toMatch(/maxWorkers: 1/);
   });
 
-  it('`npm test` runs BOTH passes and propagates either failure', () => {
+  it('`npm test` runs every pass and propagates any failure', () => {
     expect(PKG.scripts.test).toBe('node scripts/test-all.mjs');
     const projects = [...RUNNER.matchAll(/project: '(\w+)'/g)].map((m) => m[1]);
     expect(projects).toEqual(['unit', 'build', 'timing', 'results']);
-    // Both passes run before the verdict, so one broken pass cannot hide the other.
+    // Every pass runs before the verdict, so one broken pass cannot hide another.
     expect(RUNNER).toMatch(/process\.exit\(1\)/);
     expect(RUNNER).toMatch(/results\.filter\(\(r\) => r\.code !== 0\)/);
   });
