@@ -55,9 +55,14 @@ function expand(sys: SoSystem, x: number[]): number[] {
 export function firstOrderAxial(sys: SoSystem): { ok: true; N0: Map<number, number> } | { ok: false; reason: Txt } {
   const lin = solveState(sys, new Map(), 'none');
   if (!lin) return { ok: false, reason: tx('course.second-order.refuse.singular') };
-  const scale = Math.max(1e-12, ...[...lin.N.values()].map(Math.abs));
-  if (![...lin.N.values()].some((n) => n < -1e-9 * scale && n < -1e-9)) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
+  if (!sys.members.some((m) => { const n = lin.N.get(m.id) ?? 0; return n < -1e-9 && n < -1e-9 * axialUncertainty(sys, m, lin); })) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
   return { ok: true, N0: lin.N };
+}
+
+function axialUncertainty(sys: SoSystem, m: SoSystem['members'][number], lin: { D: number[]; N: Map<number, number> }): number {
+  if (sys.rigid) return Math.max(1e-12, ...sys.members.filter((o) => o.i === m.i || o.i === m.j || o.j === m.i || o.j === m.j).map((o) => Math.abs(lin.N.get(o.id) ?? 0)));
+  const at = (node: number) => Math.hypot(lin.D[sys.dof(node, 0)], lin.D[sys.dof(node, 1)]);
+  return Math.max(1e-12, (m.EA / m.L) * (at(m.i) + at(m.j)));
 }
 
 /** The eigenproblem with a geometric matrix linear in N. */

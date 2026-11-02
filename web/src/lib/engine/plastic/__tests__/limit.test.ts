@@ -244,3 +244,23 @@ describe('a couple applied at a member end', () => {
   });
 });
 
+
+describe('the redundants chosen against the peaks along the members, not only at the check points', () => {
+  it('propped cantilever under a uniform load, nothing fixed: the lowest max |M| is (3 − 2√2)/2 · wL², its peak off every check point', () => {
+    const L = 6, w = 10;
+    const lm = limitModel(proppedUdl(L, w), uniformMp);
+    const d = distribution(lm, new Map(), 1)!;
+    expect(d.free).toBe(1);
+    expect(Math.abs((d.ratio * MP) / (((3 - 2 * Math.sqrt(2)) / 2) * w * L * L) - 1)).toBeLessThan(1e-9);
+  });
+});
+
+describe('a reference load far below 1e-12', () => {
+  it('a simply supported beam under 1e-13 kN at midspan keeps its section there: λ is 1e14 times the 10 kN one, the same hinge', () => {
+    const L = 6;
+    const beam = (p: number) => model([[1, 0, 0], [2, L, 0]], [[1, 1, 2]], [[1, 'pinned'], [2, 'rollerX']], [pOn(1, L / 2, -p)]);
+    const big = solveLimit(beam(10), uniformMp)!, small = solveLimit(beam(1e-13), uniformMp)!;
+    expect(big.best.lambda).toBeCloseTo((4 * MP) / (10 * L), 9);
+    expect(Math.abs((small.best.lambda * 1e-13) / (big.best.lambda * 10) - 1)).toBeLessThan(1e-9);
+  });
+});

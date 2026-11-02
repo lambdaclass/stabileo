@@ -159,7 +159,7 @@ export function elementaryMechanisms(lm: LimitModel): Elementary[] {
   const jointNodes: number[] = [];
   for (const [node, j] of km.joint) {
     const own = sm.sections.filter((s) => s.node === node && s.kind === 'joint').length;
-    if (own < 2 && !(own === 1 && sm.input.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && Math.abs(l.data.my) > 1e-12))) continue;
+    if (own < 2 && !(own === 1 && sm.input.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && (l.data.my ?? 0) !== 0))) continue;
     const d = new Array(km.n).fill(0);
     d[j] = 1;
     if (km.rows.some((r) => Math.abs(dot(r, d)) > 1e-12)) continue;
@@ -219,11 +219,14 @@ export interface Distribution {
   free: number;
 }
 
+const MAX_CUTS = 40;
+
 /**
  * Section moments in equilibrium with λ times the loads, with the moments in
  * `fixed` set; whatever equilibrium leaves free is chosen to make the largest
- * |M|/Mp as small as possible. Null when the fixed moments contradict
- * equilibrium.
+ * |M|/Mp along the members as small as possible (the peaks between check points
+ * are added until none exceeds the optimum). Null when the fixed moments
+ * contradict equilibrium or that choice is not settled.
  */
 export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda: number): Distribution | null {
   const N = lm.N;
@@ -247,28 +250,36 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
   };
   let M = compose([]);
   if (Z.length) {
-    const forms: Array<{ c0: number; cy: number[]; mp: number }> = [];
-    for (const [member] of lm.sm.members) {
-      for (const t of checkPoints(lm.sm, member)) {
-        const f = momentForm(lm.sm, member, t);
-        let c0 = lambda * f.load;
-        const cy = new Array(Z.length).fill(0);
-        for (const [s, c] of f.coef) {
-          const at = freeIdx.indexOf(s);
-          if (at < 0) c0 += c * (fixed.get(s) ?? 0);
-          else { c0 += c * part[at]; Z.forEach((z, j) => { cy[j] += c * z[at]; }); }
-        }
-        forms.push({ c0, cy, mp: lm.sm.mpOf(member) });
-      }
-    }
     const nz = Z.length;
-    const rows = forms.flatMap((f) => [
-      { a: [...f.cy, -f.mp], op: '<=' as const, b: -f.c0 },
-      { a: [...f.cy.map((v) => -v), -f.mp], op: '<=' as const, b: f.c0 },
-    ]);
-    const res = solveLp({ c: [...new Array(nz).fill(0), 1], rows, free: [...new Array(nz).fill(true), false] });
-    if (res.status !== 'optimal') return null;
-    M = compose(res.x.slice(0, nz));
+    const formAt = (member: number, t: number) => {
+      const f = momentForm(lm.sm, member, t);
+      let c0 = lambda * f.load;
+      const cy = new Array(nz).fill(0);
+      for (const [s, c] of f.coef) {
+        const at = freeIdx.indexOf(s);
+        if (at < 0) c0 += c * (fixed.get(s) ?? 0);
+        else { c0 += c * part[at]; Z.forEach((z, j) => { cy[j] += c * z[at]; }); }
+      }
+      return { c0, cy, mp: lm.sm.mpOf(member) };
+    };
+    const forms: Array<{ c0: number; cy: number[]; mp: number }> = [];
+    for (const [member] of lm.sm.members) for (const t of checkPoints(lm.sm, member)) forms.push(formAt(member, t));
+    let done = false;
+    for (let round = 0; round < MAX_CUTS && !done; round++) {
+      const rows = forms.flatMap((f) => [
+        { a: [...f.cy, -f.mp], op: '<=' as const, b: -f.c0 },
+        { a: [...f.cy.map((v) => -v), -f.mp], op: '<=' as const, b: f.c0 },
+      ]);
+      const res = solveLp({ c: [...new Array(nz).fill(0), 1], rows, free: [...new Array(nz).fill(true), false] });
+      if (res.status !== 'optimal') return null;
+      M = compose(res.x.slice(0, nz));
+      if (!M.every(Number.isFinite)) return null;
+      const peak = peakRatio(lm.sm, M, lambda);
+      const bound = res.x[nz];
+      if (!(peak.ratio > bound + 1e-9 * Math.max(1, bound)) || !peak.worst) done = true;
+      else forms.push(formAt(peak.worst.member, peak.worst.t));
+    }
+    if (!done) return null;
   }
   if (!M.every(Number.isFinite)) return null;
   const peak = peakRatio(lm.sm, M, lambda);

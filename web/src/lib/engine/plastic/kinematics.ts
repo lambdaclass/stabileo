@@ -85,7 +85,7 @@ export function buildKinematics(input: SolverInput, sections: KinSection[], remo
     pieceRot.set(e.id, Array.from({ length: k }, () => n++));
   }
   const endReleased = new Set(sections.filter((s) => s.t <= 1e-9 || s.t >= 1 - 1e-9).map((s) => `${s.member}:${s.t < 0.5 ? 'I' : 'J'}`));
-  const nodalMoment = new Set(input.loads.filter((l) => l.type === 'nodal' && Math.abs(l.data.my) > 1e-12).map((l) => (l.data as { nodeId: number }).nodeId));
+  const nodalMoment = new Set(input.loads.filter((l) => l.type === 'nodal' && (l.data.my ?? 0) !== 0).map((l) => (l.data as { nodeId: number }).nodeId));
   const joint = new Map<number, number>();
   for (const e of members) {
     if (e.type === 'truss') continue;

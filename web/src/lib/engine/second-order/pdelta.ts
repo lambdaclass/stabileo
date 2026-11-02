@@ -16,6 +16,7 @@ import { assemble, buildSystem, condensedLoads, memberLocals, elasticAxial, load
 import { congruent, matMul, matVec, negativeEigenvalues, norm2, transpose, type Mat } from './dense';
 import { rotation, type GeomMethod } from './member-matrices';
 import { clampedModesBelow } from './stability-functions';
+import { interiorMoments, throughMoments, withCurvature } from './beam-column-interior';
 
 export interface State {
   /** Every DOF of the model (restrained ones at their prescribed value). */
@@ -167,9 +168,22 @@ export function toAnalysisResults(sys: SoSystem, input: SolverInput, state: Stat
   }).sort((a, b) => a.nodeId - b.nodeId);
   const elementForces: ElementForces[] = sys.members.map((m) => {
     const f = ends.get(m.id)!;
-    return { elementId: m.id, nStart: -f[0], nEnd: f[3], vStart: f[1], vEnd: -f[4], mStart: f[2], mEnd: -f[5], length: m.L, hingeStart: m.hingeI, hingeEnd: m.hingeJ, ...memberLoadsOf(input, m.id, m.L) };
+    const ef: ElementForces = { elementId: m.id, nStart: -f[0], nEnd: f[3], vStart: f[1], vEnd: -f[4], mStart: f[2], mEnd: -f[5], length: m.L, hingeStart: m.hingeI, hingeEnd: m.hingeJ, ...memberLoadsOf(input, m.id, m.L) };
+    return method === 'phi' ? withPDelta(sys, m, ef, state.D, N.get(m.id) ?? 0) : ef;
   });
   return { displacements, reactions, elementForces };
+}
+
+const INTERIOR_SAMPLES = 64;
+
+function withPDelta(sys: SoSystem, m: SoSystem['members'][number], ef: ElementForces, D: number[], N: number): ElementForces {
+  if (m.truss || !(m.EI > 0) || N === 0) return ef;
+  const d = localDisplacements(sys, m, D);
+  const xs = Array.from({ length: INTERIOR_SAMPLES }, (_, j) => (m.L * (j + 1)) / INTERIOR_SAMPLES);
+  const ms = interiorMoments(ef, m.EI, -N, xs, m.hingeI ? null : d[2], m.hingeJ ? null : d[5], d[4] - d[1]);
+  if (!ms) throw new Error(`member ${m.id}: the second-order moment inside it is not finite`);
+  const exact = ms.map((v, j) => (j === xs.length - 1 ? ef.mEnd : v));
+  return throughMoments(withCurvature(ef, -N / m.EI, xs, exact), xs.map((x, j) => ({ x, m: exact[j] })));
 }
 
 /** The loads along a member, as the engine lists them with its forces (for the diagrams). */

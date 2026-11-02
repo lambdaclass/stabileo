@@ -92,11 +92,11 @@ describe('Basic P-Δ', () => {
     input.loads = [{ type: 'distributed', data: { elementId: 1, qI: w, qJ: w } }];
     const rows = pdeltaConvergence(input, S());
     const exact = (5 * w * L ** 4) / (384 * EI);
-    for (const r of rows.filter((x) => x.label === 'n')) {
+    expect(rows).toHaveLength(5);
+    for (const r of rows) {
       expect(r.uAt).toEqual({ member: 1 });
       expect(r.u! / exact).toBeCloseTo(1, 6);
     }
-    expect(rows.find((r) => r.label === 'phi')!.u).toBeNull();
   });
 
   it('a column whose top node moves: u stays that node\'s translation', () => {

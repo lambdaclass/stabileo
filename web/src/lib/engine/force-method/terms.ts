@@ -86,8 +86,7 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
   const reduced = () => terms.map((r, i) => r.map((rows, j) => (kept.has(i) || kept.has(j)
     ? full[i][j] : rows.filter((q) => !droppable(q)).reduce((s, q) => s + q.value, 0))));
   let D = reduced();
-  const maxDiag = Math.max(0, ...D.map((r, j) => Math.abs(r[j])));
-  for (let j = 0; j < n; j++) if (!(Math.abs(D[j][j]) > 1e-9 * Math.max(maxDiag, Math.abs(full[j][j])))) kept.add(j);
+  for (let j = 0; j < n; j++) if (!(Math.abs(D[j][j]) > 1e-9 * Math.abs(full[j][j]))) kept.add(j);
   D = reduced();
   for (let pass = 0; pass < n; pass++) {
     const free = undetermined(D);
@@ -99,16 +98,18 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
   return kept;
 }
 
-function positiveDefinite(A: number[][]): boolean {
-  const n = A.length;
+function positiveDefinite(B: number[][]): boolean {
+  const n = B.length;
+  if (!B.every((r, i) => r[i] > 0)) return false;
+  const s = B.map((r, i) => 1 / Math.sqrt(r[i]));
+  const A = B.map((r, i) => r.map((v, j) => v * s[i] * s[j]));
   const L = A.map(() => new Array(n).fill(0));
-  const big = Math.max(0, ...A.map((r, i) => Math.abs(r[i])));
   for (let j = 0; j < n; j++) {
     for (let i = j; i < n; i++) {
       let v = A[i][j];
       for (let k = 0; k < j; k++) v -= L[i][k] * L[j][k];
       if (i === j) {
-        if (!(v > 1e-12 * big)) return false;
+        if (!(v > 1e-12)) return false;
         L[j][j] = Math.sqrt(v);
       } else L[i][j] = v / L[j][j];
     }

@@ -9,7 +9,7 @@ import type { AnalysisResults, ElementForces, SolverInput, SolverLoad } from '..
 import type { Load } from '../../store/model.svelte';
 import { segmentBounds, splitElementLoads } from '../../model/edit/member-split';
 import { memberLoadsOf } from './pdelta';
-import { computeDiagramValueAt } from '../diagrams';
+import { throughMoments } from './beam-column-interior';
 
 export interface Piece { id: number; nodeI: number; nodeJ: number; x0: number; x1: number }
 
@@ -96,7 +96,7 @@ export function refineInput(input: SolverInput, n: number): Refined {
  * the start of each piece the transverse force that the axial force on the bent piece adds, so the moment diagram passes
  * through every piece's second-order end moments (its shear is then dM/dx, not the end shears).
  */
-export function collapseResults(r: Refined, original: SolverInput, res: AnalysisResults): AnalysisResults {
+export function collapseResults(r: Refined, original: SolverInput, res: AnalysisResults, interior = false): AnalysisResults {
   if (r.identity) return res;
   const byId = new Map(res.elementForces.map((f) => [f.elementId, f]));
   const elementForces: ElementForces[] = [];
@@ -111,16 +111,16 @@ export function collapseResults(r: Refined, original: SolverInput, res: Analysis
       hingeStart: e.hingeStart, hingeEnd: e.hingeEnd,
       ...memberLoadsOf(original, id, L),
     };
+    if (interior) {
+      ef.pointLoads = list.flatMap((piece) => (byId.get(piece.id)?.pointLoads ?? []).map((p) => ({ ...p, a: p.a + piece.x0 })));
+      ef.distributedLoads = list.flatMap((piece) => (byId.get(piece.id)?.distributedLoads ?? []).map((d) => ({ ...d, a: d.a + piece.x0, b: d.b + piece.x0 })));
+    }
+    const targets: Array<{ x: number; m: number }> = [];
     list.forEach((piece, k) => {
       const target = k + 1 < list.length ? byId.get(list[k + 1].id)?.mStart : last.mEnd;
-      if (target === undefined) return;
-      const at = piece.x1 / L;
-      const before = computeDiagramValueAt('moment', at, ef);
-      ef.pointLoads = [...ef.pointLoads, { a: piece.x0, p: 1 }];
-      const unit = computeDiagramValueAt('moment', at, ef) - before;
-      ef.pointLoads[ef.pointLoads.length - 1] = { a: piece.x0, p: (target - before) / unit };
+      if (target !== undefined) targets.push({ x: piece.x1, m: target });
     });
-    elementForces.push(ef);
+    elementForces.push(throughMoments(ef, targets));
   }
   elementForces.sort((a, b) => a.elementId - b.elementId);
   return {

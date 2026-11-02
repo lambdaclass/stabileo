@@ -67,10 +67,7 @@ export function displacementAmplification(linear: AnalysisResults, second: Analy
 
 const maxMoment = (r: AnalysisResults) => Math.max(0, ...r.elementForces.map((f) => peakAlong('moment', f)));
 
-/**
- * Midpoint deflection of a member from its chord, ∫ G(L/2, x)·M(x)/EI dx: a fixed physical point at every n. Not for φ
- * with one element, whose drawn M inside the member has no P-δ.
- */
+/** Midpoint deflection of a member from its chord, ∫ G(L/2, x)·M(x)/EI dx: a fixed physical point at every n. */
 function midspanSag(r: AnalysisResults, id: number, EI: number): number | null {
   const f = r.elementForces.find((e) => e.elementId === id);
   if (!f || !(EI > 0)) return null;
@@ -125,7 +122,7 @@ function reportedB2(lambda1: number | null, b2: number, stable: boolean, fallbac
 function teachingResults(r: Refined, input: SolverInput, run: TeachingPDelta): { results: AnalysisResults; linear: AnalysisResults } {
   const results = toAnalysisResults(run.sys, r.input, run.final, run.method, run.finalSolvedWith);
   const linear = toAnalysisResults(run.sys, r.input, run.linear, 'none', new Map());
-  return { results: collapseResults(r, input, results), linear: collapseResults(r, input, linear) };
+  return { results: collapseResults(r, input, results, run.method === 'phi'), linear: collapseResults(r, input, linear) };
 }
 
 function engineRun(r: Refined, input: SolverInput) {
@@ -207,7 +204,7 @@ export function pdeltaConvergence(input: SolverInput, s: SoSettings, counts: rea
     }
     return member === null ? null : { member };
   };
-  const read = (res: SoPDeltaResult, interior = true): Pick<ConvergenceRow, 'u' | 'm' | 'uAt'> => {
+  const read = (res: SoPDeltaResult): Pick<ConvergenceRow, 'u' | 'm' | 'uAt'> => {
     if (!(res.converged && res.isStable)) return { u: null, m: null, uAt: ref };
     ref ??= pick(res);
     const m = maxMoment(res.results);
@@ -216,7 +213,7 @@ export function pdeltaConvergence(input: SolverInput, s: SoSettings, counts: rea
       const d = res.results.displacements.find((x) => x.nodeId === id);
       return { u: d ? translation(d) : null, m, uAt: ref };
     }
-    if (!ref || !interior) return { u: null, m, uAt: ref };
+    if (!ref) return { u: null, m, uAt: ref };
     const id = ref.member;
     return { u: midspanSag(res.results, id, pm.members.get(id)?.EI ?? 0), m, uAt: ref };
   };
@@ -226,6 +223,6 @@ export function pdeltaConvergence(input: SolverInput, s: SoSettings, counts: rea
     out.push({ label: 'n', n, ...read(got.result), lambda1: got.result.secondOrder.lambda1 });
   }
   const phi = runPDelta2D(input, { ...s, method: 'phi', n: 1 });
-  if (phi.ok) out.push({ label: 'phi', n: 1, ...read(phi.result, false), lambda1: phi.result.secondOrder.lambda1 });
+  if (phi.ok) out.push({ label: 'phi', n: 1, ...read(phi.result), lambda1: phi.result.secondOrder.lambda1 });
   return out;
 }

@@ -29,4 +29,9 @@ describe('which redundants keep their axial term', () => {
     const kept = axialKept(rows(b, a), full(b, a), droppable);
     expect([...kept].sort()).toEqual([0, 1]);
   });
+
+  it('a row whose bending term is small but not negligible against its own axial term keeps no axial term, whatever the other rows', () => {
+    const b = [[1, 0], [0, 1e-10]], a = [[0, 0], [0, 1e-6]];
+    expect([...axialKept(rows(b, a), full(b, a), droppable)]).toEqual([]);
+  });
 });

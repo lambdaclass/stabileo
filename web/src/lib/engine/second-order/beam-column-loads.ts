@@ -3,7 +3,7 @@ import { solveDense } from '../steps/sway-modes';
 
 type Basis = { b2: number; b3: number; s1: number };
 
-function basis(mu: number, x: number): Basis {
+export function basis(mu: number, x: number): Basis {
   if (Math.abs(mu) * x * x <= 1) {
     let s1 = 0, b2 = 0, b3 = 0, c = 1, e = x;
     for (let n = 1; n <= 30; n++) {
