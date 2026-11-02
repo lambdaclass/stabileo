@@ -203,7 +203,7 @@ const pt: Translations = {
   'landing.pricingP': 'O Stabileo é open source e é construído com a comunidade: o código está à vista, pode ser auditado e qualquer pessoa pode participar. Queremos que as ferramentas de cálculo tradicionais sejam de acesso livre e que, com o tempo, as de projeto específico e o Stabileo IA ajudem a financiar o projeto. Para as universidades, o programa é gratuito em todos os casos.',
   'landing.pricingCommunity': 'O repositório está aberto. Contribuições, relatos de problemas e discussões de projeto são bem-vindos.',
   'landing.figTitle': 'Uma carga unitária descendente percorrendo uma treliça Pratt de seis painéis',
-  'landing.figDesc': 'Treliça Pratt de seis painéis, apoio fixo à esquerda e móvel à direita. Uma carga unitária percorre o tabuleiro; cor pela força axial: vermelho tração, azul compressão, cinza quase zero.',
+  'landing.figDesc': 'Treliça Pratt de seis painéis, apoio fixo à esquerda e móvel à direita. Uma carga unitária percorre o tabuleiro; cor pela força axial: vermelho tração, azul compressão, cinza quase zero; deformada normalizada.',
   'landing.figTension': 'TRAÇÃO  +',
   'landing.figCompression': 'COMPRESSÃO  −',
   'landing.figZero': 'QUASE NULO  ≈0',

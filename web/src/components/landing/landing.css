@@ -989,13 +989,6 @@
 }
 
 .landing .badge-today { color: var(--ok); }
-/*
-   Four tiers, not three. "Partial" and "in development" were previously the
-   same badge, which let a mode that calculates something today (PRO) and a
-   mode whose teacher half does not exist (Education) share a label. Blue for
-   in-development keeps it visually distinct from the accent used by partial
-   without implying either is shipped.
-*/
 .landing .badge-dev { color: var(--dev); }
 
 /* ─── MODES (shared by the mode sections and the overview) ────────────────── */
