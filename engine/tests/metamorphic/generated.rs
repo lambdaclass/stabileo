@@ -1585,6 +1585,30 @@ fn refusals_must_be_registered_and_in_scope() {
     let distortion = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("SH-MITC4-DISTORTION")]).unwrap_err())).unwrap();
     assert!(scoped("linear", false, true, distortion()).is_ok());
     assert!(scoped("linear", false, false, distortion()).is_err());
+    let strip = |direction: usize| -> dedaliano_engine::types::SolverInput3D {
+        let nodes: serde_json::Map<_, _> = (0..=6).flat_map(|i| (0..2).map(move |j| {
+            let shift = if i == 0 || i == 6 { 0.0 } else { (if i % 2 == 1 { 0.1 } else { -0.1 }) * (if j == 0 { -1.0 } else { 1.0 }) };
+            let id = 1 + 2 * i + j;
+            (id.to_string(), json!({"id": id, "x": i as f64 + shift, "y": 0.2 * j as f64, "z": 0.0}))
+        })).collect();
+        let quads: serde_json::Map<_, _> = (0..6).map(|i| ((i + 1).to_string(), json!({"id": i + 1, "nodes": [2 * i + 1, 2 * i + 3, 2 * i + 4, 2 * i + 2], "materialId": 1, "thickness": 0.1}))).collect();
+        let fixed = |id: usize| json!({"nodeId": id, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+        let mut f = [0.0; 3];
+        f[direction] = 0.5;
+        let load = |id: usize| json!({"type": "nodal", "data": {"nodeId": id, "fx": f[0], "fy": f[1], "fz": f[2], "mx": 0.0, "my": 0.0, "mz": 0.0}});
+        serde_json::from_value(json!({
+            "nodes": nodes, "quads": quads, "elements": {}, "sections": {},
+            "materials": {"1": {"id": 1, "e": 10000.0, "nu": 0.3}},
+            "supports": {"1": fixed(1), "2": fixed(2)},
+            "loads": [load(13), load(14)],
+        })).unwrap()
+    };
+    let admissible = |direction: usize| crate::checks3::distortion_refusal_admissible("linear", &strip(direction));
+    assert!(admissible(1), "in-plane bending of the distorted strip is refused");
+    assert!(!admissible(2), "an unconditional refusal of the distorted strip under out-of-plane bending must fail");
+    assert!(dedaliano_engine::solver::linear::solve_3d(&strip(2)).is_ok());
+    assert!(scoped("linear", false, admissible(2), distortion()).is_err());
+    assert!(crate::checks3::distortion_refusal_admissible("modal", &strip(2)), "fields the harness does not solve keep the model-level scope");
     let mut promoted = known_issues::diagnostic("NUM-INVARIANCE");
     promoted.severity = dedaliano_engine::types::Severity::Error;
     assert!(outcome(Err(known_issues::refuse(&[promoted]).unwrap_err())).is_err(), "a warning-only issue is not a registered refusal");

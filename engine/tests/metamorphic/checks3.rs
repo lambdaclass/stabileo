@@ -34,10 +34,50 @@ pub struct Ctx<'a> {
     pub rng_seed: u64,
 }
 
+/// Analyses whose guarded field is the linear static response to the model's loads.
+const LINEAR_STATIC_FIELD: [&str; 8] = [
+    "linear", "linear (sparse path)", "linear (PCG)", "certified linear", "load combinations",
+    "Winkler (no foundation)", "contact (no gaps)", "SSI (no soil springs)",
+];
+
+/// Whether an SH-MITC4-DISTORTION refusal may stand: the model has distorted quads and, where the
+/// guarded field is the linear static one and the harness can solve it independently, that field
+/// at twice its size still exceeds the membrane-bending bound.
+pub(crate) fn distortion_refusal_admissible(analysis: &str, s: &SolverInput3D) -> bool {
+    use dedaliano_engine::known_issues::{model_3d, MembraneBendingGuard};
+    if !model_3d(s).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+        return false;
+    }
+    let independent = LINEAR_STATIC_FIELD.contains(&analysis)
+        && s.constraints.is_empty()
+        && s.curved_beams.is_empty()
+        && s.loads.iter().all(|l| matches!(l, SolverLoad3D::Nodal(_)))
+        && s.supports.values().all(|x| !x.is_inclined.unwrap_or(false)
+            && [x.dx, x.dy, x.dz, x.drx, x.dry, x.drz].iter().all(|d| d.unwrap_or(0.0) == 0.0));
+    if !independent {
+        return true;
+    }
+    let dof = dedaliano_engine::solver::dof::DofNumbering::build_3d(s);
+    let assembled = dedaliano_engine::solver::assembly::assemble_3d(s, &dof);
+    let (n, nf) = (dof.n_total, dof.n_free);
+    let mut k: Vec<f64> = (0..nf * nf).map(|ij| assembled.k[(ij / nf) * n + ij % nf]).collect();
+    let mut f = assembled.f[..nf].to_vec();
+    let Some(u) = dedaliano_engine::linalg::lu_solve(&mut k, &mut f, nf) else { return true };
+    let field = |node: usize| {
+        let mut d = [0.0; 6];
+        for (i, v) in d.iter_mut().enumerate() {
+            if let Some(&g) = dof.map.get(&(node, i)) {
+                if g < nf { *v = 2.0 * u[g]; }
+            }
+        }
+        Some(d)
+    };
+    MembraneBendingGuard::new(s).check_field(&s.loads, field).is_err()
+}
+
 pub(crate) fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
     guarded(|| {
-        let distorted_quads = dedaliano_engine::known_issues::model_3d(&c.s).iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION"));
-        let r = crate::response::scoped(a.name, false, distorted_quads, crate::response::outcome((a.run)(c))?)?.tag_shell_families(&c.s);
+        let r = crate::response::scoped(a.name, false, distortion_refusal_admissible(a.name, &c.s), crate::response::outcome((a.run)(c))?)?.tag_shell_families(&c.s);
         if crate::generated::strict() && r.1.is_empty() {
             crate::generated::validate_3d(a.name, &r, c)?;
         }
