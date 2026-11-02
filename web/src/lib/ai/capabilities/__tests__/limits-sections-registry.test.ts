@@ -84,8 +84,8 @@ describe('registry', () => {
 
   it('prompt lists sections', () => {
     const text = promptText('2d');
-    expect(text).toContain('IPE 300');
-    expect(text).toContain('HEB 300');
+    expect(text).toContain('IPE 300 (a=0.005380, iz=0.00008356, iy=0.000006040, j=2.000e-7)');
+    expect(text).toContain('HEB 300 (a=0.01490, iz=0.0002517, iy=0.00008563, j=0.000001850)');
   });
 
   it('tool definitions: 2D without model has 2D generators plus create_model', () => {

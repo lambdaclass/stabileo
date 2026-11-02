@@ -140,6 +140,25 @@ describe('edit executor', () => {
     expect(xyz(r, copy.nodeI).x).toBeGreaterThan(xyz(r, copy.nodeJ).x);
   });
 
+  it('a column section given for a new 3D bay goes to its columns, not to the braces it repeats', () => {
+    const snap = frame(true);
+    const xyz = (r: Snap, id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number; z: number };
+    const at = (x: number, y: number, z: number) => arr(snap, 'nodes').find(([, n]) => n.x === x && n.y === y && n.z === z)![0];
+    arr(snap, 'sections').push([99, { id: 99, name: 'L 80x80x8', a: 12.3e-4, iz: 80e-8, iy: 80e-8, j: 2.6e-8 }]);
+    const brace = { ...arr(snap, 'elements')[0][1], id: 999, nodeI: at(5, 0, 0), nodeJ: at(5, 5, 3), sectionId: 99, type: 'truss' };
+    arr(snap, 'elements').push([999, brace]);
+    const r = applyEdit({ action: 'add_bay', params: { width: 5, column_section: 'HEB 400' } }, snap);
+    const sec = (id: unknown) => arr(r, 'sections').find((s) => s[0] === id)![1].name;
+    const added = arr(r, 'elements').slice(arr(snap, 'elements').length).map((e) => e[1]);
+    const kind = (e: Record<string, unknown>) => {
+      const [a, b] = [xyz(r, e.nodeI), xyz(r, e.nodeJ)];
+      return a.z === b.z ? 'beam' : a.x === b.x && a.y === b.y ? 'column' : 'brace';
+    };
+    expect(added.filter((e) => kind(e) === 'column').map((e) => sec(e.sectionId))).toEqual(['HEB 400', 'HEB 400']);
+    const braces = added.filter((e) => kind(e) === 'brace').map((e) => sec(e.sectionId)).sort();
+    expect(braces).toEqual(['IPE 300', 'IPE 300', 'IPE 300', 'IPE 300', 'IPE 300', 'IPE 300', 'L 80x80x8']);
+  });
+
   it('a new bay keeps the base support of the frame it extends', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
     expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);

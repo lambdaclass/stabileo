@@ -168,7 +168,8 @@ function addBay3d(snap: Json, width: number, side?: string, beamSection?: string
     }
     if (pair) {
       const cloned: Json = { ...elem };
-      const secId = near(ci.z ?? 0, cj.z ?? 0) ? beamOverride : colOverride;
+      const vertical = near(ci.x, cj.x) && near(ci.y, cj.y);
+      const secId = near(ci.z ?? 0, cj.z ?? 0) ? beamOverride : vertical ? colOverride : undefined;
       if (secId !== undefined) cloned.sectionId = secId;
       cloneElementToSnap(snap, cloned, pair[0], pair[1]);
     }
