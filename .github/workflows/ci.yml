@@ -690,11 +690,13 @@ jobs:
         if: runner.environment == 'github-hosted'
         run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       - name: Build and production-build tests
+        env:
+          NO_WALL_CLOCK: ${{ github.event_name == 'merge_group' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make test.web.build NIX_RUN=
+            nix develop .#e2e -c make test.web.build NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
           else
-            make test.web.build
+            make test.web.build NO_WALL_CLOCK="$NO_WALL_CLOCK"
           fi
       - name: Built site includes the research runtime
         run: |
@@ -893,11 +895,13 @@ jobs:
       # now, like the smoke suite, from its own table.
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
         if: github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        env:
+          NO_WALL_CLOCK: ${{ github.event_name == 'merge_group' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
-            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN=
+            nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
           else
-            make e2e.web.slow SHARD=${{ matrix.shard }}/10
+            make e2e.web.slow SHARD=${{ matrix.shard }}/10 NO_WALL_CLOCK="$NO_WALL_CLOCK"
           fi
       # Non-blocking until the Linux baselines under web/e2e/__screenshots__/linux/
       # prove stable. Never pass --update-snapshots by default: it would overwrite
