@@ -145,6 +145,24 @@ describe('the auth store', () => {
     expect(storage.get('stabileo-refresh-token')).toBe('refresh-1');
   });
 
+  it('is not settled while a stored session could not be checked, and is once it is restored or there is none', async () => {
+    storage.set('stabileo-refresh-token', 'refresh-0');
+    const { authStore } = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true }));
+    on('POST /refresh', () => json(503, { error: 'unavailable', message: 'down' }));
+    await authStore.init();
+    expect(authStore.initialized).toBe(false);
+    on('POST /login', () => json(200, session(2)));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    expect(authStore.initialized).toBe(true);
+
+    storage.clear();
+    const again = await load();
+    on('GET /config', () => json(200, { user_login_enabled: true }));
+    await again.authStore.init();
+    expect(again.authStore.initialized).toBe(true);
+  });
+
   it('init without a stored token only reads /config', async () => {
     const { authStore } = await load();
     on('GET /config', () => json(200, { user_login_enabled: true }));

@@ -48,7 +48,7 @@ const savedProject = (id: string, name: string, revision = 1) => ({
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; researchFails?: (granted: boolean) => boolean; refreshDelayMs?: number } = {},
+  opts: { termsCurrent?: boolean; usageAnalytics?: boolean | null; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; researchFails?: (granted: boolean) => boolean; refreshDelayMs?: number; refreshUnavailable?: boolean } = {},
 ): Promise<Backend> {
   const backend: Backend = { register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
@@ -76,6 +76,7 @@ async function boot(
   );
   await page.route('**/api/v1/auth/refresh', async (r) => {
     if (opts.refreshDelayMs) await new Promise((done) => setTimeout(done, opts.refreshDelayMs));
+    if (opts.refreshUnavailable) return json(r, 503, { error: 'unavailable', message: 'down' });
     return json(r, 200, session(opts.termsCurrent ?? true, opts.usageAnalytics ?? null));
   });
   await page.route('**/api/v1/auth/register', (r) => {
@@ -283,6 +284,18 @@ test.describe('accounts, legal and anonymous usage', () => {
     });
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace', { timeout: 15_000 });
     await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(500);
+    expect(backend.events).toEqual([]);
+  });
+
+  test('nothing is sent while a stored session could not be restored, since its recorded choice is unknown', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, usageAnalytics: false, refreshUnavailable: true });
+    await solvePortal(page);
+    await page.getByTestId('results-disclaimer-ok').click();
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
     await page.waitForTimeout(500);
     expect(backend.events).toEqual([]);
   });

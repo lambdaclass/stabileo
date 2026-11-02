@@ -33,6 +33,7 @@ let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
 let consentWrites = $state(0);
 let initialized = $state(false);
+let sessionUnresolved = $state(false);
 let consentQueue: Promise<unknown> = Promise.resolve();
 
 function applySession(session: Session): Account {
@@ -41,6 +42,7 @@ function applySession(session: Session): Account {
   writeRefreshToken(session.refresh_token);
   account = session.account;
   status = 'authenticated';
+  sessionUnresolved = false;
   return session.account;
 }
 
@@ -51,6 +53,7 @@ function clearSession(token: string | null = readRefreshToken()): void {
   if (readRefreshToken() === token) writeRefreshToken(null);
   account = null;
   status = 'anonymous';
+  sessionUnresolved = false;
 }
 
 async function renew(token: string, retried = false): Promise<RefreshOutcome> {
@@ -120,8 +123,8 @@ export const authStore = {
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
   get consentSaving() { return consentWrites > 0; },
-  /** The server switches are known and any stored session restored, with its recorded choices. */
-  get initialized() { return initialized; },
+  /** The server switches are known and a stored session either restored, with its recorded choices, or refused. */
+  get initialized() { return initialized && !sessionUnresolved; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
   /** Without the accounts feature there is no backend to ask, so every server switch stays off. */
@@ -132,6 +135,7 @@ export const authStore = {
     try {
       const [, outcome] = await Promise.all([loadConfig(), restore ? refreshSession() : Promise.resolve('ok')]);
       if (outcome !== 'ok' && status === 'loading') status = account ? 'authenticated' : 'anonymous';
+      sessionUnresolved = restore && outcome === 'unavailable' && account === null;
     } finally {
       initialized = true;
     }
