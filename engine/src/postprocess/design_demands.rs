@@ -114,7 +114,13 @@ struct Governing {
 }
 
 fn signed_peak(a: f64, b: f64) -> f64 {
-    if b.abs() > a.abs() { b } else { a }
+    if a.is_nan() || b.is_nan() {
+        f64::NAN
+    } else if b.abs() > a.abs() {
+        b
+    } else {
+        a
+    }
 }
 
 fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStrategy) -> Governing {
@@ -131,8 +137,9 @@ fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStr
                 nr + mr
             }
         };
-        if score > best_score {
-            best_score = score;
+        let invalid = [d.n, d.m_strong, d.v_strong, d.m_weak, d.v_weak].iter().any(|x| x.is_nan());
+        if invalid || score > best_score {
+            best_score = if invalid { f64::INFINITY } else { score };
             g.at = d;
         }
         g.peak = AxisDemand {
@@ -234,6 +241,29 @@ mod tests {
             let g = pick_governing_2d(&stations, DemandStrategy::MaxInteraction { n_ref, m_ref });
             assert_eq!(g.at.m_strong, -120.0);
         }
+    }
+
+    #[test]
+    fn a_nan_component_reaches_the_demand_instead_of_vanishing() {
+        let stations = vec![
+            make_station_3d(1, 0, 0.0, vec![(1, 0.0, 0.0, f64::NAN, -30.0, 0.0, 0.0)]),
+            make_station_3d(1, 1, 0.5, vec![(1, 0.0, 0.0, 3.0, -60.0, 0.0, 0.0)]),
+        ];
+        let g = pick_governing_3d(&stations, DemandStrategy::MaxAbsMoment);
+        assert!(g.peak.v_strong.is_nan() && g.at.v_strong.is_nan());
+        let weak = vec![make_station_3d(1, 0, 0.0, vec![(1, 0.0, f64::NAN, 3.0, -60.0, 0.0, 0.0)])];
+        assert!(pick_governing_3d(&weak, DemandStrategy::MaxAbsMoment).peak.v_weak.is_nan());
+        let moment = vec![
+            make_station_2d(1, 0, 0.0, vec![(1, 0.0, 1.0, f64::NAN)]),
+            make_station_2d(1, 1, 0.5, vec![(1, 0.0, 1.0, -120.0)]),
+        ];
+        assert!(pick_governing_2d(&moment, DemandStrategy::MaxAbsMoment).at.m_strong.is_nan());
+    }
+
+    #[test]
+    fn extract_rc_demands_3d_refuses_a_nan_weak_component() {
+        let f = (1, -50.0, f64::NAN, 5.0, -10.0, 0.0, 1.0);
+        assert!(extract_rc_demands_3d(&grouped_3d(vec![f]), DemandStrategy::MaxAbsMoment).is_err());
     }
 
     #[test]

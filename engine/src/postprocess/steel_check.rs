@@ -320,7 +320,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
     let phi_vn: f64 = shear_capacity(member);
     let v_strong = forces.v_strong.unwrap_or(0.0).abs();
     let v_weak = forces.v_weak.unwrap_or(0.0).abs();
-    let strong_shear_ratio = if phi_vn > 0.0 { v_strong / phi_vn } else { 0.0 };
+    let strong_shear_ratio = ledger.require_finite("Shear G2", if phi_vn > 0.0 { v_strong / phi_vn } else { 0.0 });
     let weak_shear_ratio = match member.aw_weak {
         Some(_) => ledger.ratio_if_loaded(SHEAR_WEAK, v_weak, shear_capacity_weak(member)),
         None if v_weak != 0.0 => {

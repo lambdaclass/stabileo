@@ -364,3 +364,10 @@ fn certified_3d_demands_refuse_single_plane_converters() {
     close(my, 0.0, "My");
     close(v_strong, 0.0, "web shear");
 }
+
+#[test]
+fn a_nan_web_shear_leaves_the_steel_check_incomplete() {
+    let d = ElementDesignForces { element_id: 1, n: 0.0, my: 10.0, mz: Some(0.0), v_strong: Some(f64::NAN), v_weak: Some(0.0) };
+    let r = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: vec![d] })[0];
+    assert!(r.governing_check.ends_with("(incomplete)"), "{r:?}");
+}
