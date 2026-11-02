@@ -113,19 +113,19 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
             for path in artifacts:
                 path.write_text('original')
             script = """
-import pathlib, sys
+import errno, pathlib, sys
 for name in sys.argv[1:]:
     path = pathlib.Path(name)
     try:
         path.write_text('forged')
-    except PermissionError:
-        pass
+    except OSError as error:
+        assert error.errno in (errno.EACCES, errno.EPERM, errno.EROFS), error
     else:
         raise AssertionError('artifact was writable: ' + name)
     try:
         path.unlink()
-    except PermissionError:
-        pass
+    except OSError as error:
+        assert error.errno in (errno.EACCES, errno.EPERM, errno.EROFS), error
     else:
         raise AssertionError('artifact was removable: ' + name)
 pathlib.Path('scratch/probe').write_text('allowed')

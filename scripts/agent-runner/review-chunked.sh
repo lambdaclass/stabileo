@@ -14,7 +14,10 @@ head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid,ti
 branch=$(echo "$head" | cut -d' ' -f1); want=$(echo "$head" | cut -d' ' -f2); title=$(echo "$head" | cut -d' ' -f3-)
 for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/heads/$branch:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
-sha=${want:0:10}; range="$(git -C "$REPO" rev-parse origin/main)...$want"
+sha=${want:0:10}
+exec 9>"$R/.lock-$pr-$sha"
+flock -n 9 || { echo "review-chunked: a review of #$pr at $sha is already running" >&2; exit 75; }
+range="$(git -C "$REPO" rev-parse origin/main)...$want"
 mapfile -d '' -t files < <(git -C "$REPO" diff -z --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**')
 filelist=$(git -C "$REPO" diff --stat=200 "$range" -- . ':!**/package-lock.json' ':!research/papers.json' | tail -400)
 chunk=1; cur=0; : > "$R/$pr-$sha-c$chunk.files"
