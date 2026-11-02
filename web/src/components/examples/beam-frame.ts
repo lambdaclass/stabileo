@@ -65,7 +65,7 @@ export function references(v: Values): Partial<Record<'moment' | 'deflection', {
 type Diagram = { elementId: number; points: { t: number; x: number; y: number; value: number }[] };
 
 function solveCertified(model: Model, engine: import('./define').EngineApi): { results: AnalysisResults; certificate: Certificate } {
-  if (!engine.hasCertifyExport()) return { results: engine.solve(model), certificate: { status: 'unavailable', kind: 'linear', reason: 'certify export not in this build' } };
+  if (!engine.hasCertifyExport()) return { results: engine.solve(model), certificate: { status: 'unavailable', kind: 'linear', code: 'noExport' } };
   const out = engine.certifyLinear2D(model);
   return { results: out.results, certificate: linearCertificate(out.certificate, out.endToEnd) };
 }
@@ -86,7 +86,7 @@ export const beamFrame = defineExample<Model>({
   benchmark: { path: '/tools/simply-supported-beam', title: 'tools' },
   editor: (model) => ({ app: 'basic', model }),
   analyses(model, v, engine) {
-    if (model.loads.length === 0) return { status: 'refused', reason: 'noLoad' };
+    if (model.loads.length === 0) return { status: 'refused', code: 'noLoad' };
     const { results, certificate } = solveCertified(model, engine);
     const diagrams = engine.computeDiagrams2D(model, results) as { moment: Diagram[]; shear: Diagram[] };
     const L = model.length, H = model.portal ? model.height : 0;

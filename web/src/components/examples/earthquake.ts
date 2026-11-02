@@ -55,13 +55,24 @@ export function request(model: Model, v: Values) {
   };
 }
 
-type History = { timeSteps: number[]; nodeHistories: { nodeId: number; ux: number[]; uz: number[] }[]; peakReactions: { nodeId: number; fx: number }[] };
+type History = { timeSteps: number[]; nodeHistories: { nodeId: number; ux: number[]; uz: number[]; ry: number[] }[] };
 
-function timeCertificate(raw: { certificate?: Record<string, any> } | null, reason: string): Certificate {
+export function timeCertificate(raw: { certificate?: Record<string, any> } | null): Certificate {
   const c = raw?.certificate;
-  if (!c) return { status: 'unavailable', kind: 'timeHistory', reason };
-  if (!c.stabilityCertified) return { status: 'uncertified', kind: 'timeHistory', reason: c.stabilityReason ?? c.residualReason ?? 'stability not certified' };
-  return { status: 'certified', kind: 'timeHistory', bound: c.residual?.maxRelEquation ?? null, boundUnit: 'relative' };
+  if (!c) return { status: 'unavailable', kind: 'timeHistory', code: 'noExport' };
+  if (!c.stabilityCertified) return { status: 'uncertified', kind: 'timeHistory', code: 'notStable', reason: c.stabilityReason ?? undefined };
+  if (!c.residual) return { status: 'uncertified', kind: 'timeHistory', code: 'noResidual', reason: c.residualReason ?? undefined };
+  return { status: 'certified', kind: 'timeHistory', bound: c.residual.maxRelEquation, measure: 'residual' };
+}
+
+export function baseShear(model: Model, histories: Map<number, { ux: number[]; ry: number[] }>, step: number): number {
+  const h = model.storeyHeight, ei = 30000 * 1000 * COLUMN.iy;
+  let total = 0;
+  for (const top of [3, 4]) {
+    const u = histories.get(top)!;
+    total += 12 * ei / h ** 3 * u.ux[step] - 6 * ei / h ** 2 * u.ry[step];
+  }
+  return total;
 }
 
 export const earthquake = defineExample<Model>({
@@ -85,14 +96,14 @@ export const earthquake = defineExample<Model>({
     let certificate: Certificate;
     if (engine.hasCertify('certify_time_history_3d')) {
       const json = JSON.stringify({ ...config, solver: engine.input3DToWireObject(model) });
-      certificate = timeCertificate(engine.callCertify('certify_time_history_3d', [json]), '');
-    } else certificate = timeCertificate(null, 'certify export not in this build');
+      certificate = timeCertificate(engine.callCertify('certify_time_history_3d', [json]));
+    } else certificate = timeCertificate(null);
     const modal = engine.solveModal3D(model, new Map([[1, DENSITY]]), 1) as { modes: { period: number }[] };
     const roofId = model.storeys * 2 + 1;
     const histories = new Map(result.nodeHistories.map(h => [h.nodeId, h]));
     const roof = histories.get(roofId)!.ux;
     const time = result.timeSteps;
-    if (![...roof, ...time].every(Number.isFinite)) return { status: 'refused', reason: 'nonFinite' };
+    if (![...roof, ...time].every(Number.isFinite)) return { status: 'refused', code: 'nonFinite' };
     const roofPoints = time.map((t, k) => [t, roof[k] * 1000] as [number, number]);
     const [peakTime, peakRoof] = peak(roofPoints);
     const step = time.indexOf(peakTime);
@@ -101,12 +112,12 @@ export const earthquake = defineExample<Model>({
       const above = histories.get(level * 2 + 1)!.ux, below = level === 1 ? null : histories.get(level * 2 - 1)!.ux;
       for (let k = 0; k < time.length; k++) drift = Math.max(drift, Math.abs(above[k] - (below ? below[k] : 0)) / model.storeyHeight);
     }
-    const baseShear = Math.abs(result.peakReactions.filter(r => r.nodeId <= 2).reduce((s, r) => s + r.fx, 0));
+    const shear = time.reduce((m, _, k) => Math.max(m, Math.abs(baseShear(model, histories, k))), 0);
     const readouts: Readout[] = [
       { key: 'period', value: modal.modes[0].period, unit: 's' },
       { key: 'peakRoof', value: Math.abs(peakRoof), unit: 'mm' },
       { key: 'peakDrift', value: drift * 100, unit: '%' },
-      { key: 'peakBaseShear', value: baseShear, unit: 'kN' },
+      { key: 'peakBaseShear', value: shear, unit: 'kN' },
     ];
     const s = new Sketch();
     const size = Math.max(model.bay, model.storeys * model.storeyHeight);
@@ -125,7 +136,7 @@ export const earthquake = defineExample<Model>({
     }
     const ground = config.groundAccelX.map((a, k) => [k * DT, a / G] as [number, number]);
     return {
-      status: 'ok', readouts, certificate, notes: ['chord'],
+      status: 'ok', readouts, certificate, notes: ['chord', 'editorFrameOnly'],
       views: { deformed: s.view('deformed', 'mm', boundsOf(s.xy, 0.1)) },
       charts: [
         { key: 'roof', xUnit: 's', yUnit: 'mm', points: roofPoints, marker: peakTime },

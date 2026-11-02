@@ -13,7 +13,7 @@
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { EXAMPLES, findExample } from './catalog';
-  import { defaults, readValues, writeValues, type Outcome, type Values } from './define';
+  import { readValues, writeValues, mergeQuery, type Outcome, type Values } from './define';
   import { editorHref } from './editor';
   import { te } from './strings';
   import '../landing/landing.css';
@@ -53,7 +53,7 @@
     const current = example;
     const snapshot = { ...values };
     if (!current || Object.keys(snapshot).length === 0) return;
-    const query = writeValues(current.params, snapshot);
+    const query = mergeQuery(current.params, snapshot, location.search);
     if (location.search !== query) history.replaceState(history.state, '', `${location.pathname}${query}${location.hash}`);
     busy = true;
     const mine = ++token;
@@ -70,7 +70,7 @@
         busy = false;
         if (outcome.status === 'ok' && !(active in outcome.views)) active = Object.keys(outcome.views)[0];
       };
-      worker.onerror = (event) => { outcome = { status: 'refused', reason: event.message }; busy = false; };
+      worker.onerror = (event) => { outcome = { status: 'refused', code: 'engine', reason: event.message }; busy = false; };
     }
     worker.postMessage({ id, values: snapshot, token: mine });
   }
@@ -85,7 +85,6 @@
     try { await navigator.clipboard.writeText(shareLink); copied = true; setTimeout(() => (copied = false), 2000); } catch { copied = false; }
   }
   const number = (n: number, digits = 5) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: digits }).format(n);
-  const reason = (r: string) => r.startsWith('noLoad') || r.startsWith('nonFinite') ? te(`refuse.${r}`) : r;
   const view = $derived(outcome?.status === 'ok' ? outcome.views[active] : undefined);
 </script>
 
@@ -140,6 +139,7 @@
             {#if editorLink}<a class="btn btn-primary" data-testid="open-editor" href={editorLink}>{te('editor')} ↗</a>{/if}
             <button class="btn" type="button" data-testid="copy-share" onclick={copy}>{copied ? te('copied') : te('share')}</button>
           </div>
+          {#if outcome?.status === 'ok' && outcome.notes.includes('editorFrameOnly')}<p class="fine" data-testid="editor-note">{te('note.editorFrameOnly')}</p>{/if}
           <p class="share"><a data-testid="share-link" href={shareLink}>{shareLink}</a></p>
         </section>
         <article class="ex-results rs-prose">
@@ -147,7 +147,7 @@
           <div aria-live="polite">
             {#if busy}<p role="status" data-testid="solving">{te('solving')}</p>{/if}
             {#if outcome?.status === 'refused'}
-              <p class="warning" role="alert" data-testid="refusal">{te('refused')} {reason(outcome.reason)}</p>
+              <p class="warning" role="alert" data-testid="refusal" data-code={outcome.code}>{te('refused')} {te(`refuse.${outcome.code}`)}{#if outcome.reason} <span lang="en">({outcome.reason})</span>{/if}</p>
             {:else if outcome?.status === 'ok' && !busy}
               <div class="readouts">
                 {#each outcome.readouts as r (r.key)}
@@ -162,8 +162,8 @@
               </div>
               {@const c = outcome.certificate}
               <p class="certificate" data-testid="certificate" data-status={c.status}>
-                {#if c.status === 'certified'}{te('cert.certified')} ({te(`cert.${c.kind}`)}){#if c.bound !== null} · {te('cert.bound')} <Sci value={c.bound} unit="" />{/if}
-                {:else}{te(`cert.${c.status}`)} {te(`cert.${c.kind}`)}{#if c.reason}: {c.reason}{/if}{/if}
+                {#if c.status === 'certified'}{te('cert.certified')} ({te(`cert.${c.kind}`)}){#if c.bound !== null} · {te(`cert.${c.measure}`)} ≤ <Sci value={c.bound} unit="" />{/if}{#if c.kind === 'timeHistory'}. {te('cert.timeNote')}{/if}
+                {:else}{te(`cert.${c.status}`)} {te(`cert.${c.kind}`)}: {te(`cert.code.${c.code}`)}{#if c.reason} <span lang="en">({c.reason})</span>{/if}{/if}
               </p>
               {#each outcome.charts as chart (chart.key)}
                 <div class="chart">

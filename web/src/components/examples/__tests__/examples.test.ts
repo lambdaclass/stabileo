@@ -3,17 +3,17 @@ import * as engine from '../../../lib/engine/wasm-solver';
 import { codeToModel } from '../../../lib/model/code/format';
 import { EXAMPLES } from '../catalog';
 import { EXAMPLE_IDS } from '../ids';
-import { defaults, readValues, writeValues, clampValue, type Outcome, type Values } from '../define';
+import { defaults, readValues, writeValues, mergeQuery, clampValue, type Outcome, type Values } from '../define';
 import { exampleStrings } from '../strings';
 import { proCode } from '../editor';
 import { beamFrame, EI } from '../beam-frame';
 import { slab, navierCentre } from '../slab';
-import { earthquake, G, DT, DURATION, CYCLES, BEAM, COLUMN } from '../earthquake';
+import { earthquake, G, DT, DURATION, CYCLES, BEAM, COLUMN, baseShear, timeCertificate } from '../earthquake';
 
 function run(example: typeof EXAMPLES[number], extra: Values = {}): Extract<Outcome, { status: 'ok' }> {
   const v = { ...defaults(example.params), ...extra };
   const out = example.analyses(example.build(v), v, engine);
-  if (out.status !== 'ok') throw new Error(`refused: ${out.reason}`);
+  if (out.status !== 'ok') throw new Error(`refused: ${out.code} ${out.reason ?? ''}`);
   return out;
 }
 const readout = (out: Extract<Outcome, { status: 'ok' }>, key: string) => out.readouts.find(r => r.key === key)!;
@@ -29,6 +29,8 @@ describe('catalog and contract', () => {
     const changed = { ...defaults(params), span: 7.5, supports: 2 };
     expect(readValues(params, writeValues(params, changed))).toEqual(changed);
     expect(clampValue(params[2], 2.26)).toBe(2.5);
+    expect(mergeQuery(params, changed, '?e2e=1&span=3')).toBe('?e2e=1&supports=2&span=7.5');
+    expect(mergeQuery(params, defaults(params), '?e2e=1&span=3')).toBe('?e2e=1');
   });
   it('has every string in all six languages', () => {
     const keys = Object.keys(exampleStrings.en).sort();
@@ -43,7 +45,11 @@ describe('catalog and contract', () => {
       for (const r of out.readouts) expect(keys).toContain(`r.${r.key}`);
       for (const c of out.charts) expect(keys).toContain(`c.${c.key}`);
       for (const v of Object.keys(out.views)) expect(keys).toContain(`pane.${v}`);
+      for (const n of out.notes) expect(keys).toContain(`note.${n}`);
     }
+    for (const code of ['engine', 'noExport', 'notStable', 'noResidual']) expect(keys).toContain(`cert.code.${code}`);
+    for (const code of ['engine', 'noLoad', 'nonFinite']) expect(keys).toContain(`refuse.${code}`);
+    for (const measure of ['errorBound', 'residual']) expect(keys).toContain(`cert.${measure}`);
   });
 });
 
@@ -76,7 +82,7 @@ describe('beam and frame playground', () => {
   });
   it('refuses a model with no load instead of drawing zeros', () => {
     const v = { ...defaults(beamFrame.params), load: 0, point: 0 };
-    expect(beamFrame.analyses(beamFrame.build(v), v, engine)).toEqual({ status: 'refused', reason: 'noLoad' });
+    expect(beamFrame.analyses(beamFrame.build(v), v, engine)).toEqual({ status: 'refused', code: 'noLoad' });
   });
 });
 
@@ -132,6 +138,22 @@ describe('earthquake frame', () => {
     const exact = sdofPeak(readout(out, 'period').value, 0.2, 0.5) * 1000;
     expect(Math.abs(readout(out, 'peakRoof').value / exact - 1)).toBeLessThan(0.02);
     expect(out.certificate.status).toBe('certified');
+  });
+  it('computes base shear from the column forces that balance a static lateral load', () => {
+    const v: Values = { ...defaults(earthquake.params), storeys: 1 };
+    const model = earthquake.build(v);
+    const results = engine.solve3D({ ...model, loads: [3, 4].map(nodeId => ({ type: 'nodal' as const, data: { nodeId, fx: 50, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } })) });
+    const histories = new Map(results.displacements.map(d => [d.nodeId, { ux: [d.ux], ry: [d.ry] }]));
+    expect(baseShear(model, histories, 0)).toBeCloseTo(100, 6);
+    expect(results.reactions.filter(r => r.nodeId <= 2).reduce((s, r) => s + r.fx, 0)).toBeCloseTo(-100, 6);
+  });
+  it('certifies a time history only with stability and certified residuals', () => {
+    expect(timeCertificate(null)).toEqual({ status: 'unavailable', kind: 'timeHistory', code: 'noExport' });
+    expect(timeCertificate({ certificate: { stabilityCertified: false, stabilityReason: 'x' } })).toMatchObject({ status: 'uncertified', code: 'notStable' });
+    expect(timeCertificate({ certificate: { stabilityCertified: true, residual: null, residualReason: 'y' } })).toMatchObject({ status: 'uncertified', code: 'noResidual', reason: 'y' });
+    expect(timeCertificate({ certificate: { stabilityCertified: true, residual: { maxRelEquation: 1e-13 } } })).toEqual({ status: 'certified', kind: 'timeHistory', bound: 1e-13, measure: 'residual' });
+    const out = run(earthquake);
+    expect(out.certificate).toMatchObject({ status: 'certified', measure: 'residual' });
   });
   it('scales linearly with the ground acceleration and is damped', () => {
     const base = readout(run(earthquake), 'peakRoof').value;

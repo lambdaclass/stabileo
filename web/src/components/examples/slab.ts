@@ -69,12 +69,12 @@ export const slab = defineExample<Model>({
       displacements = out.results.displacements;
     } else {
       displacements = engine.solve3D(model).displacements;
-      certificate = { status: 'unavailable', kind: 'linear', reason: 'certify export not in this build' };
+      certificate = { status: 'unavailable', kind: 'linear', code: 'noExport' };
     }
     const byNode = new Map(displacements.map(d => [d.nodeId, -d.uz * 1000]));
     const nodes = [...model.nodes.values()];
     const values = nodes.map(n => byNode.get(n.id) ?? 0);
-    if (values.some(x => !Number.isFinite(x))) return { status: 'refused', reason: 'nonFinite' };
+    if (values.some(x => !Number.isFinite(x))) return { status: 'refused', code: 'nonFinite' };
     const max = Math.max(...values);
     const index = new Map(nodes.map((n, k) => [n.id, k]));
     const cells = [...model.quads!.values()].flatMap(q => q.nodes.map(id => index.get(id)!));

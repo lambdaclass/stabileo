@@ -10,6 +10,6 @@ self.onmessage = async ({ data }: MessageEvent<{ id: string; values: Values; tok
     const outcome = example.analyses(example.build(data.values), data.values, engine);
     self.postMessage({ token: data.token, outcome });
   } catch (error) {
-    self.postMessage({ token: data.token, outcome: { status: 'refused', reason: error instanceof Error ? error.message : String(error) } });
+    self.postMessage({ token: data.token, outcome: { status: 'refused', code: 'engine', reason: error instanceof Error ? error.message : String(error) } });
   }
 };

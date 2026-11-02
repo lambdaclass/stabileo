@@ -22,8 +22,8 @@ export type Readout = {
 };
 
 export type Certificate =
-  | { status: 'certified'; kind: string; bound: number | null; boundUnit: string }
-  | { status: 'uncertified' | 'failed' | 'unavailable'; kind: string; reason: string };
+  | { status: 'certified'; kind: 'linear' | 'timeHistory'; bound: number | null; measure: 'errorBound' | 'residual' }
+  | { status: 'uncertified' | 'failed' | 'unavailable'; kind: 'linear' | 'timeHistory'; code: 'engine' | 'noExport' | 'notStable' | 'noResidual'; reason?: string };
 
 export type View = {
   xy: number[];
@@ -43,7 +43,7 @@ export type Chart = { key: string; xUnit: string; yUnit: string; points: [number
 
 export type Outcome =
   | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[] }
-  | { status: 'refused'; reason: string };
+  | { status: 'refused'; code: 'engine' | 'noLoad' | 'nonFinite'; reason?: string };
 
 export type EditorModel = { app: 'basic'; model: import('../../lib/engine/types').SolverInput } | { app: 'pro'; model: import('../../lib/engine/types-3d').SolverInput3D };
 
@@ -71,6 +71,14 @@ export function clampValue(param: Param, raw: number): number {
   return Number(Math.min(param.max, Math.max(param.min, stepped)).toPrecision(12));
 }
 
+export function mergeQuery(params: readonly Param[], values: Values, search: string): string {
+  const query = new URLSearchParams(search);
+  for (const p of params) query.delete(p.key);
+  for (const [key, value] of new URLSearchParams(writeValues(params, values))) query.set(key, value);
+  const text = query.toString();
+  return text ? `?${text}` : '';
+}
+
 export function readValues(params: readonly Param[], search: string): Values {
   const query = new URLSearchParams(search);
   return Object.fromEntries(params.map(p => {
@@ -87,9 +95,9 @@ export function writeValues(params: readonly Param[], values: Values): string {
 }
 
 export function linearCertificate(certificate: Engine.LinearCertificate, endToEnd: Engine.EndToEnd | undefined): Certificate {
-  if (endToEnd && endToEnd.status === 'failed') return { status: 'failed', kind: 'linear', reason: endToEnd.reason };
-  if (certificate.status === 'certified') return { status: 'certified', kind: 'linear', bound: certificate.relBound, boundUnit: 'relative' };
-  return { status: 'uncertified', kind: 'linear', reason: certificate.reason };
+  if (endToEnd && endToEnd.status === 'failed') return { status: 'failed', kind: 'linear', code: 'engine', reason: endToEnd.reason };
+  if (certificate.status === 'certified') return { status: 'certified', kind: 'linear', bound: certificate.relBound, measure: 'errorBound' };
+  return { status: 'uncertified', kind: 'linear', code: 'engine', reason: certificate.reason };
 }
 
 export function peak(points: [number, number][]): [number, number] {
