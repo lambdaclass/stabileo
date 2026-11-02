@@ -139,6 +139,18 @@ const body: PostBody = {
           "0.3.0'da düzeltildi"
         ],
         [
+          "SA-2026-025",
+          "AISC 360 G2 kesme (yalnızca hesap motoru ve WASM): gövde alanı olmadan oran 0 ile geçiyordu ve sertifikalanıyordu",
+          "Orta",
+          "stabileo.com'da düzeltildi (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "EC3 6.2.6 kesme (yalnızca hesap motoru ve WASM): kesme alanı olmadan Av = 0,5·A alınıyordu, HEB 300'de Vpl,Rd %57 yüksek, ve sertifikalanıyordu",
+          "Orta",
+          "stabileo.com'da düzeltildi (#1234)"
+        ],
+        [
           "SA-2026-010",
           "Spektral sertifika sonlu olmayan sonuçları geçiriyordu",
           "Orta",
