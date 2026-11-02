@@ -35,7 +35,8 @@ of paths, including all ten E2E shards, slow E2E, Web Build and all unit/engine
 suites. Existing non-blocking visual/quarantine policy is unchanged. Only PR
 feedback is narrowed; the queue tests the combined candidate before it lands.
 `CI OK` rejects any failure or cancellation and accepts intentional job skips.
-The compatibility checks `rust` and `npm` mirror `CI OK` and always resolve.
+The required `rust` and `npm` checks are the Supply chain workflow's audits, which run on every
+pull request, merge group and push to main; nothing else may use those job names.
 PR research checks run through CI once; main and weekly standalone runs retain
 the online catalog audit.
 

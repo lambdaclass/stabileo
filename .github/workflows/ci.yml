@@ -58,7 +58,7 @@ env:
 # reach a persistent runner. Engine Gates, Web Unit and the research engine benchmarks time
 # themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
 # to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
-# On GitHub always: Detect Changes, CI OK and the rust/npm aggregates (no build work; a full host
+# On GitHub always: Detect Changes and CI OK (no build work; a full host
 # must not delay them), Determinism (Nix WebKit does not start on the host) and Docker build
 # smoke (no Docker for runner users). Self-hosted jobs skip the Nix installer, rust-cache,
 # magic-nix-cache and free-disk; each runner keeps its own CARGO_TARGET_DIR.
@@ -1182,7 +1182,12 @@ jobs:
         env:
           E2E_SPECS: ${{ needs.changes.outputs.e2e_specs }}
           CI_SCOPE: ${{ needs.changes.outputs.scope }}
-        run: nix develop --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
+        run: |
+          if [ "${{ runner.environment }}" = self-hosted ]; then
+            nix develop .#e2e --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
+          else
+            nix develop --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
+          fi
       - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
         if: needs.changes.outputs.scope == 'full'
         run: |
@@ -1375,25 +1380,3 @@ jobs:
           for r in $RESULTS; do
             case "$r" in success|skipped) ;; *) exit 1 ;; esac
           done
-
-  rust:
-    name: rust
-    needs: ci-ok
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - env:
-          RESULT: ${{ needs.ci-ok.result }}
-        run: test "$RESULT" = success
-
-  npm:
-    name: npm
-    needs: ci-ok
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - env:
-          RESULT: ${{ needs.ci-ok.result }}
-        run: test "$RESULT" = success
