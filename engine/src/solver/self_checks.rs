@@ -380,5 +380,4 @@ mod tests {
         checks.check(&[1.0,0.0], 1.0, &[1e308,0.0], &[1e308,0.0]).unwrap();
         assert!(checks.check(&[f64::NAN,1.0], 1.0, &[0.0,1.0], &[0.0,1.0]).is_err());
     }
-
 }

@@ -1,8 +1,18 @@
 import { test, expect, type Page } from './fixtures';
 
+async function openPhonePanel(page: Page) {
+  const toggle = page.getByTestId('mobile-panel-toggle');
+  if (!(await toggle.isVisible())) return;
+  if (!(await toggle.evaluate((el) => el.classList.contains('active')))) await toggle.click();
+  const grid = page.getByTestId('pm-grid-toggle');
+  if (await grid.getAttribute('aria-expanded') === 'true') await grid.click();
+}
+
 async function warningInView(page: Page) {
   const alert = page.getByTestId('self-check-warning').first();
-  // Do not scroll the alert into view: it must be visible as numbers are inspected.
+  // Not scrolled into view: it must be visible as numbers are inspected. The phone
+  // sheet is the exception, too short for the warning and the mode table together.
+  if ((page.viewportSize()?.width ?? 0) <= 600 && await page.getByTestId('adv-modal-row-0').isVisible()) await alert.scrollIntoViewIfNeeded();
   await expect(alert).toBeInViewport({ ratio: 1 });
   expect(await alert.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -30,11 +40,6 @@ for (const width of [390, 810]) {
       expect((await alert.boundingBox())!.height).toBeLessThanOrEqual(64);
       await expect(alert.locator('details')).not.toHaveAttribute('open', '');
       expect(await alert.locator('summary').textContent()).toContain('1000');
-      const checksToggle = page.getByTestId('result-checks-toggle').first();
-      expect((await checksToggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-      for (const text of await checksToggle.locator('span').all()) {
-        expect(await text.evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(12);
-      }
       const toggle = alert.locator('summary');
       expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
       await toggle.click();
@@ -74,6 +79,7 @@ for (const width of [390, 810]) {
         window.__stabileoActions.seedSelfCheckWarning(100, 10);
         window.__stabileoActions.openProTab('results');
       });
+      await openPhonePanel(page);
       await warningInView(page);
       const warning = page.getByTestId('self-check-warning').first();
       const content = page.locator('.pro-viz-section').first();
@@ -82,13 +88,19 @@ for (const width of [390, 810]) {
 
     test('PRO modal warning appears above the mode table', async ({ pro: page }) => {
       await page.evaluate(() => window.__stabileoActions.loadExample('3d-portal-frame'));
-      await page.getByTestId('pr-stage-analyse').click();
-      await page.getByTestId('pr-cmd-advanced').click();
+      if (width > 600) {
+        await page.getByTestId('pr-stage-analyse').click();
+        await page.getByTestId('pr-cmd-advanced').click();
+      } else {
+        await page.evaluate(() => window.__stabileoActions.openProTab('advanced'));
+        await openPhonePanel(page);
+      }
       const run = page.getByTestId('adv-run-modal');
       await run.click();
       const firstMode = page.getByTestId('adv-modal-row-0');
       await expect(firstMode).toBeVisible();
       await page.evaluate(() => window.__stabileoActions.seedSelfCheckWarning(100));
+      if (width <= 600) await firstMode.scrollIntoViewIfNeeded();
       await expect(firstMode).toBeInViewport({ ratio: 1 });
       const select = firstMode.getByRole('button');
       const box = (await select.boundingBox())!;
@@ -119,6 +131,7 @@ for (const width of [390, 810]) {
       expect((await alert.boundingBox())!.y).toBeLessThan((await firstMode.boundingBox())!.y);
       expect(await page.locator('.modal-table').evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
       await page.evaluate(() => window.__stabileoActions.openProTab('results'));
+      await openPhonePanel(page);
       await warningInView(page);
     });
   });

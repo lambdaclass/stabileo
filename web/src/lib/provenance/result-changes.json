@@ -9,12 +9,7 @@
       "date": "2026-10-29",
       "prs": [865],
       "area": "analysis",
-      "when": {
-        "any": [
-          "analysis:linear",
-          "analysis:modal"
-        ]
-      },
+      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:linear", "analysis:modal"]] },
       "title": {
         "en": "Static and modal results check themselves before publication",
         "es": "Los resultados estáticos y modales se verifican antes de mostrarse",

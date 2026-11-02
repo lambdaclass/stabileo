@@ -265,7 +265,7 @@ describe('edited projects with older provenance', () => {
 
   it('clears an empty notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot = frame();
+    const snapshot = { ...frame(), elements: [] };
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes).toEqual([]);

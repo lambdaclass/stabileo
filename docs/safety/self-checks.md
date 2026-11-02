@@ -90,6 +90,15 @@ prevents a change between force and moment units from hiding rotational errors.
   `||D phi|| = 5.5e3`, a backward error of about `3e-16`) divides rounding by
   rounding and was refused at `0.62`. For a mode with resolvable stiffness the
   bound is rounding-sized next to `||D^-1 K phi||`, so sensitivity is unchanged.
+* True positives the checks found in existing tests, kept as refusals: a Pratt
+  truss with a diagonal removed and a simply supported beam with an internal
+  hinge (both mechanisms whose old tests asserted non-equilibrium numbers); the
+  8x8 and 10x10 plates with one pinned corner (an in-plane rigid rotation that
+  leaves the physical modes unconverged, residual up to `6e-3`; the parity and
+  timing models now restrain it); and the 0.1 m beam of the natural-frequency
+  tool, whose 24-mode search gets modes 18 to 24 back with residuals from
+  `2.5e-3` to `0.11` (Lanczos returns unconverged high Ritz pairs, the subject of
+  #827).
 * A coordinate with no diagonal stiffness (an indefinite coupling, as in the
   shifted-stiffness gadget) has no energy scale; it takes the smallest positive
   scale of the system, so its equation is measured at the largest weight

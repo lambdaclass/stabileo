@@ -59,11 +59,11 @@ it('keeps 100 modal warnings and many cases in closed, bounded details', () => {
   expect(body.match(/WARN: self-check/g)).toHaveLength(1000);
 });
 
-import ResultChecks from '../../../components/ResultChecks.svelte';
+import ResultSelfChecks from '../../../components/ResultSelfChecks.svelte';
 import { resultsStore, uiStore } from '../../store';
 import type { ModalResult3D } from '../result-types';
 
-it('keeps a warned mode visible in ResultChecks after switching from Advanced to Results', () => {
+it('keeps a warned mode visible above the results after switching from Advanced to Results', () => {
   resultsStore.clear();
   const previousTab = uiStore.proActiveTab;
   const previousMode = uiStore.analysisMode;
@@ -73,7 +73,7 @@ it('keeps a warned mode visible in ResultChecks after switching from Advanced to
   uiStore.proActiveTab = 'advanced';
   uiStore.proActiveTab = 'results';
   expect(resultsStore.diagramType).toBe('modeShape');
-  const { body } = render(ResultChecks);
+  const { body } = render(ResultSelfChecks);
   expect(body).toContain('WARN: self-check modal_residual:1');
   expect(body).toContain('role="alert"');
   resultsStore.clear();
