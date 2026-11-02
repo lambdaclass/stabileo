@@ -4,14 +4,32 @@ import { gzipBase64, gunzipBase64 } from '../utils/gzip-base64';
 import { trackUsage } from '../telemetry/usage';
 import { modelStore, uiStore, tabManager } from '.';
 import { serializeProject, loadProject } from './file';
+import { authStore } from './auth.svelte';
+import { cloudLinks } from './cloud-link.svelte';
 
 let items = $state<CloudProject[]>([]);
 let total = $state(0);
+let accountTotal = $state(0);
 let maxProjects = $state(1);
 let loading = $state(false);
 let saving = $state(false);
-const linked = new Map<string, string>();
-let linkedVersion = $state(0);
+let owner = $state<string | null>(null);
+
+/** Everything held here belongs to one account: another sign-in starts from nothing. */
+function sameOwner(): boolean {
+  const me = authStore.account?.id ?? null;
+  if (me === owner) return true;
+  owner = me;
+  items = [];
+  total = 0;
+  accountTotal = 0;
+  cloudLinks.clear();
+  return false;
+}
+
+function mine(): boolean {
+  return (authStore.account?.id ?? null) === owner;
+}
 
 function tabKey(): string {
   return tabManager.activeTabId ?? 'default';
@@ -34,23 +52,24 @@ async function payload() {
 }
 
 export const cloudProjects = {
-  get items() { return items; },
-  get total() { return total; },
+  get items() { return mine() ? items : []; },
+  get total() { return mine() ? total : 0; },
   get maxProjects() { return maxProjects; },
   get loading() { return loading; },
   get saving() { return saving; },
-  get atLimit() { return total >= maxProjects; },
+  get atLimit() { return mine() && accountTotal >= maxProjects; },
   get linkedId(): string | null {
-    void linkedVersion;
-    return linked.get(tabKey()) ?? null;
+    return mine() ? cloudLinks.get(tabKey()) : null;
   },
 
   async refresh(search?: string): Promise<void> {
+    sameOwner();
     loading = true;
     try {
       const list = await projectsApi.list({ search });
       items = list.data;
       total = list.meta.total;
+      if (!search) accountTotal = list.meta.total;
       maxProjects = list.meta.max_projects;
     } finally {
       loading = false;
@@ -61,15 +80,18 @@ export const cloudProjects = {
   async saveCurrent(opts: { asNew?: boolean } = {}): Promise<CloudProject> {
     saving = true;
     try {
+      sameOwner();
       const tab = tabKey();
-      const id = opts.asNew ? null : linked.get(tab);
+      const id = opts.asNew ? null : cloudLinks.get(tab);
       const body = await payload();
       const saved = id ? await projectsApi.update(id, body) : await projectsApi.create(body);
-      linked.set(tab, saved.id);
-      linkedVersion += 1;
+      cloudLinks.set(tab, saved.id);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
-      if (!id) total += 1;
+      if (!id) {
+        total += 1;
+        accountTotal += 1;
+      }
       return saved;
     } finally {
       saving = false;
@@ -80,11 +102,11 @@ export const cloudProjects = {
   async replace(id: string): Promise<CloudProject> {
     saving = true;
     try {
+      sameOwner();
       const tab = tabKey();
       const body = await payload();
       const saved = await projectsApi.update(id, body);
-      linked.set(tab, saved.id);
-      linkedVersion += 1;
+      cloudLinks.set(tab, saved.id);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
@@ -97,8 +119,7 @@ export const cloudProjects = {
     const project = await projectsApi.get(id);
     const text = await gunzipBase64(project.content);
     await loadProject(new File([text], `${project.name}.ded`, { type: 'application/json' }));
-    linked.set(tabKey(), project.id);
-    linkedVersion += 1;
+    cloudLinks.set(tabKey(), project.id);
     trackUsage('project.cloud_open', { mode: project.app_mode });
   },
 
@@ -111,7 +132,7 @@ export const cloudProjects = {
     await projectsApi.remove(id);
     items = items.filter((p) => p.id !== id);
     total = Math.max(0, total - 1);
-    for (const [tab, linkedId] of linked) if (linkedId === id) linked.delete(tab);
-    linkedVersion += 1;
+    accountTotal = Math.max(0, accountTotal - 1);
+    cloudLinks.forgetProject(id);
   },
 };

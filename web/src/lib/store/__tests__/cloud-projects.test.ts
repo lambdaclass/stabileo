@@ -3,6 +3,7 @@ import { cloudProjects } from '../cloud-projects.svelte';
 import { modelStore, tabManager } from '..';
 import { gzipBase64, gunzipBase64 } from '../../utils/gzip-base64';
 import { serializeProject } from '../file';
+import { authStore } from '../auth.svelte';
 
 type Seen = { method: string; path: string; body: Record<string, unknown> | undefined };
 
@@ -134,5 +135,43 @@ describe('cloud projects', () => {
     expect(cloudProjects.linkedId).toBeNull();
     tabManager.switchTab(origin!);
     expect(cloudProjects.linkedId).toBe('p7');
+  });
+  it('a new document in the tab drops its cloud link, so the next save creates instead of overwriting', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p3') }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    expect(cloudProjects.linkedId).toBe('p3');
+
+    modelStore.clear();
+    expect(cloudProjects.linkedId).toBeNull();
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p4') }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)).toMatchObject({ method: 'POST', path: '/api/v1/projects' });
+  });
+
+  it('a search that matches nothing keeps the account at its limit', async () => {
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('p9')], meta: { total: 1, limit: 100, offset: 0, max_projects: 1, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    expect(cloudProjects.atLimit).toBe(true);
+    replies.set('GET /api/v1/projects', () => json(200, { data: [], meta: { total: 0, limit: 100, offset: 0, max_projects: 1, max_bytes: 1 } }));
+    await cloudProjects.refresh('zzz');
+    expect(cloudProjects.items).toEqual([]);
+    expect(cloudProjects.atLimit).toBe(true);
+  });
+
+  it("another account signing in sees none of the previous account's projects or links", async () => {
+    const who = vi.spyOn(authStore, 'account', 'get').mockReturnValue({ id: 'a1' } as never);
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('p5')], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p5') }));
+    await cloudProjects.refresh();
+    await cloudProjects.saveCurrent({ asNew: true });
+    expect(cloudProjects.linkedId).toBe('p5');
+
+    who.mockReturnValue({ id: 'b2' } as never);
+    expect(cloudProjects.items).toEqual([]);
+    expect(cloudProjects.linkedId).toBeNull();
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p6') }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)).toMatchObject({ method: 'POST', path: '/api/v1/projects' });
+    who.mockRestore();
   });
 });
