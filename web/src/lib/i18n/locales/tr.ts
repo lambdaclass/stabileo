@@ -10614,6 +10614,7 @@ const tr: Translations = {
   'ai.sum.addBayLeft': "Sola {width} m açıklık eklendi",
   'ai.sum.addBayRight': "Sağa {width} m açıklık eklendi",
   'ai.sum.addStory': "{height} m kat eklendi",
+  'ai.sum.newMembersUnloaded': "Yeni elemanlarda yük yok",
   'ai.sum.sectionAll': "Tüm elemanlar {section} yapıldı",
   'ai.sum.sectionBeams': "Kirişler {section} yapıldı",
   'ai.sum.sectionColumns': "Kolonlar {section} yapıldı",

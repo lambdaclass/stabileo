@@ -283,7 +283,7 @@ describe('outcomeFromToolCall', () => {
     const snap = generatePortalFrame({ width: 6, height: 4 });
     const o = outcomeFromToolCall('add_bay', { width: 5, interpretation: 'Adding a bay' }, snap);
     expect(arr(snapshotOf(o), 'nodes')).toHaveLength(6);
-    expect(o?.kind === 'snapshot' && o.changeSummary).toBe('Added a 5 m bay on the right');
+    expect(o?.kind === 'snapshot' && o.changeSummary).toBe('Added a 5 m bay on the right. The new members carry no loads');
   });
 
   it('assembles create_model into tuples with counters and validates it', () => {
@@ -364,8 +364,9 @@ describe('change summaries', () => {
     await ensureLocale('es');
     setLocale('es');
     try {
-      expect(actionSummary({ action: 'add_bay', params: { width: 5, side: 'left' } })).toBe('Se agregó un vano de 5 m a la izquierda');
-      expect(actionSummary({ action: 'add_bay', params: { width: 5, side: ' Left ' } })).toBe('Se agregó un vano de 5 m a la izquierda');
+      expect(actionSummary({ action: 'add_bay', params: { width: 5, side: 'left' } })).toBe('Se agregó un vano de 5 m a la izquierda. Los miembros nuevos no tienen cargas');
+      expect(actionSummary({ action: 'add_bay', params: { width: 5, side: ' Left ' } })).toBe('Se agregó un vano de 5 m a la izquierda. Los miembros nuevos no tienen cargas');
+      expect(actionSummary({ action: 'add_story', params: { height: 3 } })).toBe('Se agregó un piso de 3 m. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
     } finally {
       setLocale('en');

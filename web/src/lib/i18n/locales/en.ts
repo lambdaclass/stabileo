@@ -10773,6 +10773,7 @@ const en: Record<string, string> = {
   'ai.sum.addBayLeft': "Added a {width} m bay on the left",
   'ai.sum.addBayRight': "Added a {width} m bay on the right",
   'ai.sum.addStory': "Added a {height} m story",
+  'ai.sum.newMembersUnloaded': "The new members carry no loads",
   'ai.sum.sectionAll': "Changed every element to {section}",
   'ai.sum.sectionBeams': "Changed the beams to {section}",
   'ai.sum.sectionColumns': "Changed the columns to {section}",

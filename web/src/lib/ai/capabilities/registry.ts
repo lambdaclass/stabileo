@@ -44,7 +44,7 @@ const SUPPORT_TYPES: Record<AnalysisMode, string[]> = {
 const LOAD_TYPES: Record<AnalysisMode, Array<{ name: string; fields: string[]; description: string }>> = {
   '2d': [
     { name: 'nodal', fields: ['nodeId', 'fx', 'fz', 'my'], description: 'Point forces and moment at a node (kN, kN, kN·m)' },
-    { name: 'distributed', fields: ['elementId', 'qI', 'qJ'], description: 'Linearly varying load along element (kN/m). Negative = downward.' },
+    { name: 'distributed', fields: ['elementId', 'qI', 'qJ'], description: 'Linearly varying load along element (kN/m), perpendicular to the member in its local axes: negative pushes down on a member drawn left to right (node I left of node J) and up on one drawn right to left, and acts sideways on a column. Draw beams left to right so negative is downward.' },
   ],
   '3d': [
     { name: 'nodal3d', fields: ['nodeId', 'fx', 'fy', 'fz', 'mx', 'my', 'mz'], description: 'Forces and moments at a node in 3D (kN, kN·m)' },
@@ -125,13 +125,13 @@ export function generatorCatalog(): GeneratorDef[] {
 
 export function editToolCatalog(): GeneratorDef[] {
   return [
-    { action: 'add_bay', description: 'Add a bay to the right or left of an existing frame', params: [
+    { action: 'add_bay', description: 'Add a bay to the right or left of an existing frame. The new members carry no loads: add them with separate load actions if the user wants them loaded', params: [
       preq('width', 'f64', 'Bay width (m)'),
       pdef('side', 'string', 'right', 'left or right'),
       popt('beam_section', 'string', 'Beam section name'),
       popt('column_section', 'string', 'Column section name'),
     ] },
-    { action: 'add_story', description: 'Add a story on top of an existing frame', params: [
+    { action: 'add_story', description: 'Add a story on top of an existing frame. The new members carry no loads: add them with separate load actions if the user wants them loaded', params: [
       preq('height', 'f64', 'Story height (m)'),
       popt('beam_section', 'string', 'Beam section name'),
       popt('column_section', 'string', 'Column section name'),

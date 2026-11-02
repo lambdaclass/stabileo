@@ -10606,6 +10606,7 @@ const de: Translations = {
   'ai.sum.addBayLeft': "Feld von {width} m links hinzugefügt",
   'ai.sum.addBayRight': "Feld von {width} m rechts hinzugefügt",
   'ai.sum.addStory': "Geschoss von {height} m hinzugefügt",
+  'ai.sum.newMembersUnloaded': "Die neuen Stäbe tragen keine Lasten",
   'ai.sum.sectionAll': "Alle Elemente auf {section} geändert",
   'ai.sum.sectionBeams': "Träger auf {section} geändert",
   'ai.sum.sectionColumns': "Stützen auf {section} geändert",

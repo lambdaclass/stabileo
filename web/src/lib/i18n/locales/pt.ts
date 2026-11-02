@@ -10132,6 +10132,7 @@ const pt: Translations = {
   'ai.sum.addBayLeft': "Adicionado um vão de {width} m à esquerda",
   'ai.sum.addBayRight': "Adicionado um vão de {width} m à direita",
   'ai.sum.addStory': "Adicionado um pavimento de {height} m",
+  'ai.sum.newMembersUnloaded': "Os novos membros não têm cargas",
   'ai.sum.sectionAll': "Todos os elementos passaram a {section}",
   'ai.sum.sectionBeams': "As vigas passaram a {section}",
   'ai.sum.sectionColumns': "Os pilares passaram a {section}",

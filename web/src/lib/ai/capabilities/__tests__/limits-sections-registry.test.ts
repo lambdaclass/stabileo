@@ -65,6 +65,14 @@ describe('registry', () => {
     expect(text).not.toContain('create_portal_frame_3d');
     expect(text).toContain('support_left: string (default: "pinned")');
     expect(text).toContain('n_panels: u32 (default: 4)');
+    expect(text).not.toContain('Negative = downward');
+    expect(text).toContain('up on one drawn right to left');
+  });
+
+  it('tells the model that grown members carry no loads', () => {
+    const grow = toolDefinitions('2d', true).filter((d) => d.name === 'add_bay' || d.name === 'add_story');
+    expect(grow).toHaveLength(2);
+    for (const d of grow) expect(d.description).toContain('The new members carry no loads');
   });
 
   it('3D prompt includes 3D generators', () => {

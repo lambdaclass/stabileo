@@ -10762,6 +10762,7 @@ const es: Record<string, string> = {
   'ai.sum.addBayLeft': "Se agregó un vano de {width} m a la izquierda",
   'ai.sum.addBayRight': "Se agregó un vano de {width} m a la derecha",
   'ai.sum.addStory': "Se agregó un piso de {height} m",
+  'ai.sum.newMembersUnloaded': "Los miembros nuevos no tienen cargas",
   'ai.sum.sectionAll': "Todos los elementos pasaron a {section}",
   'ai.sum.sectionBeams': "Las vigas pasaron a {section}",
   'ai.sum.sectionColumns': "Las columnas pasaron a {section}",
