@@ -75,7 +75,30 @@ class RevertChanges(Repo):
         additions = {a['path']: base64.b64decode(a['contents']).decode() for a in changes['additions']}
         self.assertEqual(additions, {'keep.txt': 'a\n', 'gone.txt': 'old\n'})
         self.assertEqual(changes['deletions'], [{'path': 'new.txt'}])
+        self.assertEqual(changes['unsupported'], [])
         self.assertEqual(git(self.repo, 'worktree', 'list').count('\n'), 0)
+
+    def test_reverting_an_added_symlink_is_a_plain_deletion(self):
+        added = merge_pr(self.repo, 1, lambda: os.symlink('keep.txt', os.path.join(self.repo, 'link')))
+        changes = revert.revert_changes(self.repo, added, [added])
+        self.assertEqual(changes['deletions'], [{'path': 'link'}])
+        self.assertEqual(changes['unsupported'], [])
+
+    def test_restoring_a_symlink_needs_a_manual_revert(self):
+        merge_pr(self.repo, 1, lambda: os.symlink('keep.txt', os.path.join(self.repo, 'link')))
+        removed = merge_pr(self.repo, 2, lambda: os.remove(os.path.join(self.repo, 'link')))
+        self.assertEqual(revert.revert_changes(self.repo, removed, [removed])['unsupported'], ['link'])
+
+    def test_a_mode_change_needs_a_manual_revert(self):
+        path = os.path.join(self.repo, 'keep.txt')
+        changed = merge_pr(self.repo, 1, lambda: os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR))
+        self.assertEqual(revert.revert_changes(self.repo, changed, [changed])['unsupported'], ['keep.txt'])
+
+    def test_editing_an_executable_needs_a_manual_revert(self):
+        path = os.path.join(self.repo, 'keep.txt')
+        merge_pr(self.repo, 1, lambda: os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR))
+        edited = merge_pr(self.repo, 2, lambda: write(self.repo, 'keep.txt', 'b\n'))
+        self.assertEqual(revert.revert_changes(self.repo, edited, [edited])['unsupported'], ['keep.txt'])
 
     def test_a_conflicting_revert_gives_none(self):
         bad = merge_pr(self.repo, 1, lambda: write(self.repo, 'keep.txt', 'b\n'))

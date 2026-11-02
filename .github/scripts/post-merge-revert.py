@@ -76,17 +76,24 @@ def revert_changes(repo, base, merges):
                                     cwd=work, capture_output=True).returncode == 0
                 if not ok:
                     return None
-            additions, deletions = [], []
+            additions, deletions, unsupported = [], [], []
             for line in run('git', 'diff', '--no-renames', '--name-status', base, 'HEAD', cwd=work).splitlines():
                 status, path = line.split('\t', 1)
                 if status == 'D':
                     deletions.append({'path': path})
-                else:
-                    blob = subprocess.run(['git', 'show', f'HEAD:{path}'], cwd=work, check=True, capture_output=True).stdout
-                    additions.append({'path': path, 'contents': base64.b64encode(blob).decode()})
-            return {'additions': additions, 'deletions': deletions}
+                    continue
+                if {mode(work, rev, path) for rev in (base, 'HEAD')} - {None, '100644'}:
+                    unsupported.append(path)
+                blob = subprocess.run(['git', 'show', f'HEAD:{path}'], cwd=work, check=True, capture_output=True).stdout
+                additions.append({'path': path, 'contents': base64.b64encode(blob).decode()})
+            return {'additions': additions, 'deletions': deletions, 'unsupported': unsupported}
         finally:
             run('git', 'worktree', 'remove', '--force', work, cwd=repo, check=False)
+
+
+def mode(repo, rev, path):
+    entry = run('git', 'ls-tree', rev, '--', path, cwd=repo).split()
+    return entry[0] if entry else None
 
 
 def pr_numbers(repo, merges):
@@ -158,6 +165,9 @@ def main():
     changes = revert_changes(repo, main_head, merges)
     if changes is None:
         notify('urgent', 'main CI failed: revert conflicts', f'{url}\nReverting {" ".join(m[:12] for m in merges)} on {main_head[:12]} conflicts; revert by hand.')
+        return 1
+    if changes.pop('unsupported'):
+        notify('urgent', 'main CI failed: revert by hand', f'{url}\nThe revert of {" ".join(m[:12] for m in merges)} touches an executable, a symlink or a file mode, which a signed API commit cannot carry.')
         return 1
     prs = pr_numbers(repo, merges)
     title = f'{MARKER} Revert {", ".join("#" + n for n in prs) or ", ".join(m[:12] for m in merges)}: main CI failed on {bad[:12]}'
