@@ -91,7 +91,7 @@
               export SCCACHE_DIR="''${SCCACHE_DIR:-$HOME/.cache/sccache-$RUNNER_NAME}"
               mkdir -p -m 700 "$SCCACHE_DIR"
               export SCCACHE_SERVER_UDS="''${SCCACHE_SERVER_UDS:-$SCCACHE_DIR/server.sock}"
-              if [ "''${RUSTC_WRAPPER:-}" = sccache ] && ! { sccache --start-server && sccache --zero-stats; } >/dev/null 2>&1; then
+              if [ "''${RUSTC_WRAPPER:-}" = sccache ] && ! { sccache --zero-stats || { sccache --start-server && sccache --zero-stats; }; } >/dev/null 2>&1; then
                 echo "sccache did not answer at $SCCACHE_SERVER_UDS; building without it" >&2
                 unset RUSTC_WRAPPER
               fi
