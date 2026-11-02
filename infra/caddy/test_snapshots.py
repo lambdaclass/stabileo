@@ -40,6 +40,7 @@ class SnapshotHosting(unittest.TestCase):
                    'XDG_DATA_HOME': tmp, 'XDG_CONFIG_HOME': tmp}
             config = root / 'Caddyfile'
             config.write_text(Path(__file__).with_name('Caddyfile').read_text().replace('{\n', '{\n\tadmin off\n', 1).replace('https://snapshots.{$APP_DOMAIN}', f'http://127.0.0.1:{port}'))
+            self.assertNotIn('https://snapshots.', config.read_text())
             with (root / 'caddy.log').open('w+') as log:
                 server = subprocess.Popen(['caddy', 'run', '--config', str(config), '--adapter', 'caddyfile'], env=env, stdout=log, stderr=log)
                 try:
