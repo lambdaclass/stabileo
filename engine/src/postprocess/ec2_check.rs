@@ -207,10 +207,10 @@ fn compression_steel(m: &Ec2MemberData) -> Option<(f64, f64)> {
     }
 }
 
-/// (force residual C − T, moment about the tension steel) at neutral axis depth `x`. A bar in
-/// compression pushes with As'·max(0, σsc − η·fcd), net of the concrete it displaces, so the
-/// residual is continuous and strictly increasing in x and its root unique.
-fn flexure_at<T: Real>(m: &Ec2MemberData, k: &Ec2Block<T>, x: T) -> (T, T) {
+/// (force residual C − T, moment about the tension steel) at neutral axis depth `x`, with the
+/// top bars taken net of the concrete they displace (`in_block`, d' ≤ λx) or not (d' > λx).
+/// Either way the residual is continuous and strictly increasing in x, so each root is unique.
+fn flexure_at<T: Real>(m: &Ec2MemberData, k: &Ec2Block<T>, x: T, in_block: bool) -> (T, T) {
     let (one, zero) = (T::exact(1.0), T::exact(0.0));
     let (b, d) = (T::exact(m.b), T::exact(m.d));
     let sigma = |eps_es: T| eps_es.max(-k.fyd).min(k.fyd);
@@ -218,7 +218,8 @@ fn flexure_at<T: Real>(m: &Ec2MemberData, k: &Ec2Block<T>, x: T) -> (T, T) {
     let mc = cc * (d - (k.lambda * x).dv(T::exact(2.0)));
     let (cs, ms) = match compression_steel(m) {
         Some((a, d_p)) => {
-            let cs = T::exact(a) * (sigma(k.ecu_es * (one - T::exact(d_p).dv(x))) - k.k).max(zero);
+            let displaced = if in_block { k.k } else { zero };
+            let cs = T::exact(a) * (sigma(k.ecu_es * (one - T::exact(d_p).dv(x))) - displaced).max(zero);
             (cs, cs * (d - T::exact(d_p)))
         }
         None => (zero, zero),
@@ -227,9 +228,23 @@ fn flexure_at<T: Real>(m: &Ec2MemberData, k: &Ec2Block<T>, x: T) -> (T, T) {
     (cc + cs - t, mc + ms)
 }
 
+fn flexure_state<T: Real>(m: &Ec2MemberData, k64: &Ec2Block<f64>, k: &Ec2Block<T>, in_block: bool) -> (T, T) {
+    let x = T::increasing_root(
+        |x| flexure_at(m, k64, x, in_block).0,
+        |x| flexure_at(m, k, x, in_block).0,
+        1e-12 * m.d,
+        m.d,
+    );
+    (x, flexure_at(m, k, x, in_block).1)
+}
+
 /// Flexural resistance by strain compatibility. Generic over `Real` so the certified check
 /// (`certify::design`) evaluates the same formula in interval arithmetic. NaN when the inputs
 /// describe no section or the root is not certified; zero with no tension steel.
+///
+/// With top bars the displaced concrete makes the force balance jump down where λx reaches d', so
+/// it is solved on both sides: the root below d'/λ without the deduction and the root above it
+/// with it. Where both are consistent the smaller moment governs.
 pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
     if m.as_tension == 0.0 {
         let zero = T::exact(0.0);
@@ -243,8 +258,24 @@ pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
         return Ec2Flexure { m_rd: nan, z: nan, x_na: nan };
     }
     let (k64, k) = (ec2_block::<f64>(m), ec2_block::<T>(m));
-    let x_na = T::increasing_root(|x| flexure_at(m, &k64, x).0, |x| flexure_at(m, &k, x).0, 1e-12 * m.d, m.d);
-    let (_, m_rd) = flexure_at(m, &k, x_na);
+    let (x_na, m_rd) = match compression_steel(m) {
+        None => flexure_state(m, &k64, &k, true),
+        Some((_, d_p)) => {
+            let d_p = T::exact(d_p);
+            let outside = flexure_state(m, &k64, &k, false);
+            let inside = flexure_state(m, &k64, &k, true);
+            let outside_holds = (k.lambda * outside.0).lt(d_p);
+            let inside_holds = d_p.le(k.lambda * inside.0);
+            let pick = |f: fn((T, T)) -> T| {
+                branch(
+                    outside_holds,
+                    || branch(inside_holds, || branch(outside.1.le(inside.1), || f(outside), || f(inside)), || f(outside)),
+                    || f(inside),
+                )
+            };
+            (pick(|s| s.0), pick(|s| s.1))
+        }
+    };
     let z = T::exact(m.d) - (k.lambda * x_na).dv(T::exact(2.0));
     Ec2Flexure { m_rd, z, x_na }
 }

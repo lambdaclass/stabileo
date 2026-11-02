@@ -203,6 +203,7 @@ fn matches_cirsoc_201_strain_compatibility_on_a_sweep() {
         seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
         (seed >> 11) as f64 / (1u64 << 53) as f64
     };
+    let mut compared = 0;
     for i in 0..2000 {
         let b = 0.2 + 0.4 * unit();
         let h = 0.3 + 0.6 * unit();
@@ -210,8 +211,36 @@ fn matches_cirsoc_201_strain_compatibility_on_a_sweep() {
         let as_t = b * h * (0.002 + 0.038 * unit());
         let compression = if unit() < 0.6 { Some((as_t * unit(), 0.03 + 0.05 * unit())) } else { None };
         let m = section(FCK, b, h, d, as_t, compression);
-        close(run(&m, 0.0).m_rd, cirsoc_mn(&m), 1e-9, &format!("section {i}"));
+        let r = run(&m, 0.0);
+        if compression.is_some_and(|(_, d_p)| LAMBDA * r.x_na < d_p) {
+            continue;
+        }
+        compared += 1;
+        close(r.m_rd, cirsoc_mn(&m), 1e-9, &format!("section {i}"));
     }
+    assert!(compared > 1500, "{compared}");
+}
+
+#[test]
+fn top_bars_below_the_stress_block_displace_no_concrete() {
+    let (b, d, d_p, as_t, as_c) = (0.30, 0.45, 0.06, 0.7e-3, 1.2e-3);
+    let m = section(25e6, b, 0.50, d, as_t, Some((as_c, d_p)));
+    let fcd = 25e6 / 1.5;
+
+    let x = positive_root(fcd * LAMBDA * b, as_c * ES * ECU3 - as_t * FYD, -as_c * ES * ECU3 * d_p);
+    let sigma_sc = ES * ECU3 * (1.0 - d_p / x);
+    assert!(LAMBDA * x < d_p && d_p < x, "bars between the block and the neutral axis: x = {x}");
+    assert!(0.0 < sigma_sc && sigma_sc < FYD);
+    assert!(ECU3 * (d / x - 1.0) > EPS_YD);
+    let m_rd = fcd * LAMBDA * b * x * (d - LAMBDA * x / 2.0) + as_c * sigma_sc * (d - d_p);
+    close(x, 0.063_746_101_813, 1e-9, "hand x");
+    close(m_rd, 127_493.011_814_9, 1e-9, "hand MRd");
+
+    let r = run(&m, 0.0);
+    close(r.x_na, x, 1e-9, "x");
+    close(r.m_rd, m_rd, 1e-9, "MRd");
+    let c = certify(&m, 0.5 * (m_rd + 127_535.114_324_3));
+    assert!(c.certified && c.certified_fail, "{c:?}");
 }
 
 #[test]
@@ -268,4 +297,23 @@ fn inputs_without_a_monotone_force_balance_are_not_evaluated() {
         let c = certify(&m, 100e3);
         assert!(!c.certified && !c.certified_ok, "{c:?}");
     }
+}
+
+#[test]
+fn where_both_sides_of_the_displaced_concrete_balance_the_smaller_moment_governs() {
+    let (b, d, d_p, as_t, as_c) = (0.30, 0.45, 0.06, 1.0e-3, 1.0e-3);
+    let fcd = 25e6 / 1.5;
+    let e = ES * ECU3;
+    let state = |displaced: f64| {
+        let x = positive_root(fcd * LAMBDA * b, as_c * (e - displaced) - as_t * FYD, -as_c * e * d_p);
+        let sigma_sc = e * (1.0 - d_p / x);
+        assert!(displaced < sigma_sc && sigma_sc < FYD && ECU3 * (d / x - 1.0) > EPS_YD);
+        (x, fcd * LAMBDA * b * x * (d - LAMBDA * x / 2.0) + as_c * (sigma_sc - displaced) * (d - d_p))
+    };
+    let (outside, inside) = (state(0.0), state(fcd));
+    assert!(LAMBDA * outside.0 < d_p && d_p <= LAMBDA * inside.0, "{outside:?} {inside:?}");
+    let governing = if outside.1 <= inside.1 { outside } else { inside };
+    let r = run(&section(25e6, b, 0.50, d, as_t, Some((as_c, d_p))), 0.0);
+    close(r.x_na, governing.0, 1e-9, "x");
+    close(r.m_rd, governing.1, 1e-9, "MRd");
 }

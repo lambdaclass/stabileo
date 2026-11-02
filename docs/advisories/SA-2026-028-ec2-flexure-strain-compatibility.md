@@ -45,8 +45,10 @@ certified OK) on that capacity.
 | MEd = 220 kN·m | 1.08, fails | 0.92, passes (certified OK) |
 
 The correct value is the closed-form root of η·fcd·λ·b·x = As·Es·εcu3·(d/x − 1) (EN 1992-1-1
-3.1.7, 3.2.7), and the CIRSOC 201 strain-compatibility check gives the same MRd on the same
-physical section (`engine/tests/integration/ec2_strain_compatibility.rs`).
+3.1.7, 3.2.7). As an independent check, the CIRSOC 201 strain-compatibility code computes the same
+MRd on an equivalent constitutive model (f'c = 35 MPa so that 0,85·f'c = η·fcd, fy = fyd, Es scaled
+so that Es·0,003 = 200 GPa·0,0035), on the worked cases and on 2000 random sections
+(`engine/tests/integration/ec2_strain_compatibility.rs`).
 
 ## How to tell if your model is affected
 
@@ -60,13 +62,15 @@ concrete members, because the other-codes run is not saved with the project.
 Not yet released. PR #1236 solves the neutral axis as the unique root of the strain-compatible
 force balance with `Real::increasing_root`, in f64 and in the certified interval check, with
 εcu3, λ and η from Table 3.1 and 3.1.7. Top bars are taken net of the concrete they displace and
-add nothing in tension.
+add nothing in tension. Where λx reaches d' the displaced concrete makes the force balance jump, so it is
+solved on both sides and the consistent root with the smaller moment governs.
 
 ## Workaround
 
-Until you can upgrade, check heavily reinforced beams and beams with top bars by hand or with
-CIRSOC 201 / ACI 318, whose flexure is strain compatible, or keep x/d below 0.45 (EN 1992-1-1
-5.6.3) so the tension steel yields.
+Until you can upgrade, re-run the EN 1992-1-1 check after the fix, or check affected beams by hand
+by strain compatibility. For a beam without top bars, x/d ≤ 0.45 (EN 1992-1-1 5.6.3) keeps the
+tension steel yielding and the old MRd was then right; for a beam with top bars there is no
+workaround in the old version, because its top-bar stress was wrong whatever x/d.
 
 ## What to do with results you already have
 
