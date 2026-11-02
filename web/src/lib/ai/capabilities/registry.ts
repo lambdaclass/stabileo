@@ -44,11 +44,11 @@ const SUPPORT_TYPES: Record<AnalysisMode, string[]> = {
 const LOAD_TYPES: Record<AnalysisMode, Array<{ name: string; fields: string[]; description: string }>> = {
   '2d': [
     { name: 'nodal', fields: ['nodeId', 'fx', 'fz', 'my'], description: 'Point forces and moment at a node (kN, kN, kN·m)' },
-    { name: 'distributed', fields: ['elementId', 'qI', 'qJ'], description: 'Linearly varying load along element (kN/m), perpendicular to the member in its local axes: negative pushes down on a member drawn left to right (node I left of node J) and up on one drawn right to left, and acts sideways on a column. Draw beams left to right so negative is downward.' },
+    { name: 'distributed', fields: ['elementId', 'qI', 'qJ'], description: 'Linearly varying load along element (kN/m), perpendicular to the member in its local axes: negative pushes down on a member drawn left to right (node I left of node J) and up on one drawn right to left, and acts sideways on a column. Draw beams left to right so negative is downward. Frame members only, never a truss member.' },
   ],
   '3d': [
     { name: 'nodal3d', fields: ['nodeId', 'fx', 'fy', 'fz', 'mx', 'my', 'mz'], description: 'Forces and moments at a node in 3D (kN, kN·m)' },
-    { name: 'distributed3d', fields: ['elementId', 'qYI', 'qYJ', 'qZI', 'qZJ', 'frame'], description: 'Distributed load along element (kN/m). With frame "global", qZ is along global Z (up), so gravity is negative qZI/qZJ; without it the axes are the member local ones, where local z is up for a horizontal member and local y is horizontal.' },
+    { name: 'distributed3d', fields: ['elementId', 'qYI', 'qYJ', 'qZI', 'qZJ', 'frame'], description: 'Distributed load along element (kN/m). With frame "global", qZ is along global Z (up), so gravity is negative qZI/qZJ; without it the axes are the member local ones, where local z is up for a horizontal member and local y is horizontal. Frame members only, never a truss member.' },
   ],
 };
 
