@@ -33,6 +33,7 @@
   import { EDIT_TOOLS } from './lib/store/ui.svelte';
   import { syncModelTabWithResults } from './lib/store/view-mode';
   import { t, i18n, setLocale } from './lib/i18n';
+  import { LOCALE_NAMES } from './lib/i18n/offered';
   import { OFFERED_LOCALES } from './lib/i18n/store.svelte';
   import { deleteSelection } from './lib/actions/delete-selection';
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
@@ -1546,7 +1547,7 @@
         <LocaleSelect
           value={i18n.locale}
           options={OFFERED_LOCALES}
-          label={(c) => t(`lang.${c}`)}
+          label={(c) => LOCALE_NAMES[c as keyof typeof LOCALE_NAMES]}
           onChange={(c) => { setLocale(c); tabManager.updateDefaultNames(); }}
           ariaLabel={t('app.language')}
           testid="lang-select"
