@@ -105,6 +105,22 @@ const unsupportedSolidShell = {
   solve_staged_3d: /does not support solid shell elements/,
 };
 const reference = wasm.solve_3d(tiltedSolidShell());
+function pulled(angle) {
+  const s = tiltedSolidShell();
+  const c = Math.cos(angle), n = Math.sin(angle);
+  for (const node of Object.values(s.nodes)) [node.x, node.y] = [c * node.x - n * node.y, n * node.x + c * node.y];
+  for (const l of s.loads) Object.assign(l.data, { fx: 0.25 * c, fy: 0.25 * n, fz: 0 });
+  return s;
+}
+function assertPulled(stresses, label, tol = 1e-6) {
+  const q = stresses.find(q => q.elementId === 7);
+  assert.ok(Math.abs(q.sigmaXx - 10) <= 10 * tol && Math.abs(q.tauXy) <= 1e-6, `${label}: ${JSON.stringify(q)}`);
+}
+test('a tilted solid shell pulled along its edge reports the membrane stress F/A in its own frame however it is turned', () => {
+  for (const angle of [0, 0.7, Math.PI / 2, 2.3]) {
+    assertPulled(wasm.solve_3d(pulled(angle)).quadStresses, `turned ${angle}`);
+  }
+});
 const referenceTip = reference.displacements.find(d => d.nodeId === 2).uz;
 test('tilted solid-shell reference solve is finite and free of #757', () => {
   assert.ok(Number.isFinite(referenceTip) && referenceTip < 0, String(referenceTip));
@@ -134,6 +150,9 @@ for (const [name, solve] of Object.entries(solidEntries)) {
       assert.ok(displacements.every(d => ['ux', 'uy', 'uz'].every(k => Number.isFinite(d[k]))), name);
       const tip = displacements.find(d => d.nodeId === 2).uz;
       assert.ok(Math.abs(tip - referenceTip) <= 1e-4 * Math.abs(referenceTip), `${name}: ${tip} vs ${referenceTip}`);
+      let p = solve(pulled(0.7));
+      if (typeof p === 'string') p = JSON.parse(p);
+      assertPulled(p.quadStresses ?? p.results?.quadStresses, name, name === 'solve_cable_3d' || name === 'solve_pdelta_3d' ? 0.02 : 1e-6);
     }
   });
 }
