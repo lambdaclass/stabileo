@@ -603,6 +603,7 @@ const stepsDe: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Für diese Verschiebung ist das Weglassen des Normalkraftanteils keine gute Näherung: Die Normalkraft trägt {pct} % zur Gesamtverschiebung bei. Es empfiehlt sich, die Option einzuschalten.',
   'steps.m.castigliano.axialKept': 'Überzählige, die nur Normalkraft tragen: {list}. Ohne den Normalkraftanteil sagen ihre Gleichungen nichts aus, daher behalten ihre Zeilen und Spalten ihn; die übrigen Koeffizienten berücksichtigen nur die Biegung.',
+  'steps.m.castigliano.axialAll': 'Den Normalkraftanteil nur in einigen Zeilen zu behalten reicht hier nicht: Die gemischte Matrix wäre nicht positiv definit, also keine Nachgiebigkeit. Alle Koeffizienten behalten den Normalkraftanteil.',
   'steps.m.castigliano.axialFallback': 'Ohne den Normalkraftanteil hat das System keine eindeutige Lösung, daher wird es mit den vollständigen Koeffizienten einschließlich des Normalkraftanteils gelöst.',
   'steps.deformation.axialOff': 'Klassische Lösung: Der Normalkraftanteil wird weggelassen, nur die Biegung zählt.',
   'steps.deformation.axialLeftOut': 'Bei ausgeschalteter Option für den Normalkraftanteil geht Σ N·n·L/EA nicht in die Verschiebung ein. Er wird dennoch angezeigt, um zu sehen, wie viel er beitragen würde:',

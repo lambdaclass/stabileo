@@ -1,4 +1,4 @@
-import { generalizedEigen, symmetricEigen, negativeEigenvalues } from '../dense';
+import { generalizedEigen, symmetricEigen, negativeEigenvalues, ldltNegatives } from '../dense';
 import { describe, it, expect } from 'vitest';
 import { stabilityFunctions, memberStability, clampedModesBelow } from '../stability-functions';
 import { memberStiffness } from '../member-matrices';
@@ -109,6 +109,11 @@ describe('the generalized eigenproblem K·x = λ·G·x', () => {
     const modes = generalizedEigen([[1, 0], [0, 1]], [[-1e8, 0], [0, 1]]);
     expect(modes?.map((m) => m.lambda)).toEqual([expect.closeTo(1, 12)]);
   });
+
+  it('a mode far above the first is kept: K = I, G = diag(1, 1e-7) gives λ = 1 and 1e7', () => {
+    const modes = generalizedEigen([[1, 0], [0, 1]], [[1, 0], [0, 1e-7]]);
+    expect(modes?.map((m) => m.lambda)).toEqual([expect.closeTo(1, 12), expect.closeTo(1e7, 4)]);
+  });
 });
 
 describe('symmetric eigenvalues', () => {
@@ -124,6 +129,25 @@ describe('the inertia count', () => {
     expect(negativeEigenvalues([[0, 1e8], [1e8, 1e16]])).toBe(1);
     expect(negativeEigenvalues([[2, 1], [1, 2]])).toBe(0);
     expect(negativeEigenvalues([[1, 2], [2, 1]])).toBe(1);
+  });
+
+  it('a scale disparity does not hide a negative eigenvalue: [[0, 1], [1, 1e16]] has determinant −1, so one', () => {
+    expect(negativeEigenvalues([[0, 1], [1, 1e16]])).toBe(1);
+    expect(negativeEigenvalues([[1e16, 1], [1, 0]])).toBe(1);
+    expect(negativeEigenvalues([[0, 1, 0], [1, 1e16, 0], [0, 0, -3]])).toBe(2);
+  });
+
+  it('the LDLᵀ count agrees with the eigenvalues on well-separated matrices, with 1×1 and 2×2 pivots', () => {
+    const cases: Array<[number[][], number]> = [
+      [[[4, 1, 0], [1, 3, 1], [0, 1, 2]], 0],
+      [[[0, 2, 1], [2, 0, 1], [1, 1, 0]], 2],
+      [[[-4, 1, 0], [1, -3, 1], [0, 1, -2]], 3],
+      [[[1, 5, 0, 0], [5, 1, 0, 0], [0, 0, 2, 7], [0, 0, 7, -1]], 2],
+    ];
+    for (const [A, neg] of cases) {
+      expect(ldltNegatives(A)).toBe(neg);
+      expect(negativeEigenvalues(A)).toBe(neg);
+    }
   });
 });
 

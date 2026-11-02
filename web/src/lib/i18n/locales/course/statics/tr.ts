@@ -1,7 +1,7 @@
 import type { Translations } from '../../../types';
 
 const words: Translations = {
-  'course.statics.gh.what': 'Hiperstatiklik derecesi GH, kaç kuvvetin fazla olduğunu sayar: mesnet ve çubuk bilinmeyenlerinin sayısından kurulabilecek denge denklemlerinin sayısı çıkarılır. GH = 0 ise statik yeterlidir; GH > 0 ise GH adet süreklilik (uygunluk) denklemi gerekir.',
+  'course.statics.gh.what': 'Hiperstatiklik derecesi GH, kaç kuvvetin fazla olduğunu sayar: mesnet ve çubuk bilinmeyenlerinin sayısından kurulabilecek denge denklemlerinin sayısı çıkarılır. GH = 0 ve yapı kinematik olarak stabil ise statik yeterlidir; GH > 0 ise GH adet süreklilik (uygunluk) denklemi gerekir. Sayım tek başına stabiliteyi kanıtlamaz.',
   'course.statics.gh.legend.frame': 'm = {m} çubuk, r = {r} mesnet tepkisi (bir yay bir tepki sayılır), her birinde üç denklem (ΣFx, ΣFz, ΣM) bulunan n = {n} düğüm ve iç mafsalların serbest bıraktığı c = {c} koşul.',
   'course.statics.gh.legend.truss': 'm = {mb} çubuk, r = {r} mesnet tepkisi ve n = {nb} düğüm. Kafes kirişte her düğüm iki denklem verir (ΣFx, ΣFz), çünkü bütün kuvvetler düğümden geçer.',
   'course.statics.gh.legend.mixed': 'm = {m} çerçeve çubuğu ve m_b = {mb} pandül çubuk (pandül çubuğun tek bilinmeyeni eksenel kuvvetidir), r = {r} mesnet tepkisi, üç denklemli n = {n} düğüm, yalnızca pandül çubukların ulaştığı iki denklemli n_b = {nb} düğüm ve c = {c} mafsal koşulu.',
@@ -12,7 +12,7 @@ const words: Translations = {
   'course.statics.gh.hingeCaption': 'Mafsal koşulları, düğüm düğüm: c = {c}.',
   'course.statics.gh.splitLabel': 'Dış ve iç',
   'course.statics.gh.split': 'GH_e = {e} dış hiperstatikliktir: yapıyı bir bütün olarak yerinde tutmak için gerekenden fazla olan tepkiler (cisim başına r − 3, eksi bağların engellemesi gereken {mech} iç hareket; üç mafsallı kemerde veya Gerber kirişinde olduğu gibi). GH_i = {i} iç hiperstatikliktir: kapalı çevreler ve fazla çubuklar. Tepkiler bilinse bile statik bunları çözemez.',
-  'course.statics.gh.verdict.iso': 'Yapı izostatiktir (GH = 0): denge denklemleri bütün tepkileri ve iç kuvvetleri bulmaya yeter.',
+  'course.statics.gh.verdict.iso': 'Sayım GH = 0 verir: denge denklemi kadar bilinmeyen vardır. Yapı kinematik olarak stabil ise izostatiktir ve denge bütün tepkileri ve iç kuvvetleri verir; üç paralel kayıcı mesnet gibi mesnetler GH = 0 verir ama yine de bir mekanizmadır.',
   'course.statics.gh.verdict.hyper': 'Yapı {g}. dereceden hiperstatiktir: bilinmeyen sayısı denge denklemi sayısından {g} fazladır.',
   'course.statics.gh.verdict.hypo': 'Yapı labildir (GH = {g}): bağları eksik olduğu için bir mekanizmadır.',
   'course.statics.gh.redundants': 'Kuvvet yönteminde GH = {g}, X_i hiperstatik bilinmeyenlerinin sayısıdır: izostatik bir esas sistem elde etmek için tam olarak {g} bağ veya iç kuvvet serbest bırakılır.',
@@ -68,6 +68,7 @@ const words: Translations = {
   'course.statics.fm.terms.springRedundant': 'Serbest bırakılan yay bilinmeyendir: X onun kuvvetidir. Mesnet −X/k kadar hareket eder; bu yüzden δᵢᵢ terimine yayın esnekliği 1/k eklenir.',
   'course.statics.fm.s5.axialOff': 'Eksenel şekil değiştirme yok: çerçeve çubukları yalnızca eğilme katkısı yapar. Pandül çubuklar eksenel terimlerini korur.',
   'course.statics.fm.s5.axialKept': '{list} yalnızca eksenel çalışır: satırı ve sütunu eksenel terimi korur, çünkü bu terim olmadan denklemi bir şey söylemez.',
+  'course.statics.fm.s5.axialAll': 'Eksenel terimi yalnızca bazı satırlarda tutmak burada yetmez: karışık matris pozitif tanımlı olmaz, yani bir esneklik matrisi olmaz. Tüm katsayılar eksenel terimi korur.',
   'course.statics.fm.s9.axialOff': 'Eksenel şekil değiştirme olmadan yapı, bunu hesaba katan rijitlik yöntemindekinden daha rijittir. En büyük fark {d}, en büyük kuvvete oranı {pct}: dışarıda bıraktığınız eksenel terimin katkısı budur.',
   'course.statics.fm.s9.rigidOk': 'Eksenel olarak rijit çubuklarla çözülen rijitlik yöntemiyle, yani seçtiğiniz aynı varsayımla uyuşuyor.',
 

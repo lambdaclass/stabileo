@@ -34,10 +34,16 @@ function check(input: SolverInput): DSMStepData {
   const r = wasm.solve(rigidFrames(input));
   const scale = (xs: number[]) => Math.max(1e-9, ...xs.map(Math.abs));
   const uScale = scale(r.displacements.flatMap((x) => [x.ux, x.uz]));
-  const framed = new Set(d.nodeFrames.map((f) => f.nodeId));
+  const angles = new Map(d.nodeFrames.map((f) => [f.nodeId, f.angle]));
+  const toFrame = (nodeId: number, x: number, z: number): [number, number] => {
+    const a = angles.get(nodeId);
+    if (a === undefined) return [x, z];
+    const c = Math.cos(a), s = Math.sin(a);
+    return [c * x + s * z, -s * x + c * z];
+  };
   for (const x of r.displacements) {
-    if (framed.has(x.nodeId)) continue;
-    for (const [ld, v] of [[0, x.ux], [1, x.uz]] as const) {
+    const [ux, uz] = toFrame(x.nodeId, x.ux, x.uz);
+    for (const [ld, v] of [[0, ux], [1, uz]] as const) {
       const dof = d.dofNumbering.dofs.find((q) => q.nodeId === x.nodeId && q.localDof === ld)!;
       expect(Math.abs(d.uAll[dof.globalIndex] - v) / uScale, `u ${x.nodeId}:${ld}`).toBeLessThan(1e-4);
     }
@@ -53,9 +59,8 @@ function check(input: SolverInput): DSMStepData {
   const rScale = scale(reac);
   d.restrDofLabels.forEach((_, i) => {
     const dof = d.dofNumbering.dofs.find((q) => q.globalIndex === d.dofNumbering.nFree + i)!;
-    if (framed.has(dof.nodeId)) return;
     const e = r.reactions.find((x) => x.nodeId === dof.nodeId)!;
-    const v = [e.rx, e.rz, e.my][dof.localDof];
+    const v = [...toFrame(dof.nodeId, e.rx, e.rz), e.my][dof.localDof];
     expect(Math.abs(d.reactionsRaw[i] - v) / rScale, `R ${dof.nodeId}:${dof.localDof}`).toBeLessThan(1e-4);
   });
   return d;

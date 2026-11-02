@@ -25,10 +25,16 @@ describe('a small linear program', () => {
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '<=', b: -1 }] }).status).toBe('infeasible');
     expect(solveLp({ c: [-1], rows: [{ a: [-1], op: '<=', b: 1 }] }).status).toBe('unbounded');
   });
-  it('never returns a point that breaks a row whose coefficients are tiny beside another row\'s, and refuses a tiny infeasibility', () => {
+  it('solves rows of very different scale exactly, and refuses a tiny infeasibility', () => {
     const r = solveLp({ c: [-1], rows: [{ a: [1e10], op: '<=', b: 1e10 }, { a: [1], op: '<=', b: 0.5 }] });
+    expect(r.status).toBe('optimal');
     if (r.status === 'optimal') expect(r.x[0]).toBeCloseTo(0.5, 12);
-    else expect(r.status).toBe('inaccurate');
+    const s = solveLp({ c: [-1, -1], rows: [{ a: [1e10, 0], op: '<=', b: 2e10 }, { a: [1, 1], op: '<=', b: 3 }, { a: [0, 1e-6], op: '<=', b: 1e-6 }] });
+    expect(s.status).toBe('optimal');
+    if (s.status === 'optimal') { expect(s.x[0] + s.x[1]).toBeCloseTo(3, 12); expect(s.x[1]).toBeLessThanOrEqual(1 + 1e-12); }
+    const e = solveLp({ c: [-1], rows: [{ a: [1e10], op: '>=', b: 1e9 }, { a: [1], op: '<=', b: 0.5 }] });
+    expect(e.status).toBe('optimal');
+    if (e.status === 'optimal') expect(e.x[0]).toBeCloseTo(0.5, 12);
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '=', b: -1e-8 }] }).status).toBe('infeasible');
   });
   it('keeps the smaller ratio when two rows tie within the absolute noise of tiny right-hand sides', () => {

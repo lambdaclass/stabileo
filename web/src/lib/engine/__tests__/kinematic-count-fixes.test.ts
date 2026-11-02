@@ -303,8 +303,8 @@ describe('3D degree of static indeterminacy', () => {
     const rep = generateKinematicReport3D(input3D())!;
     expect(rep.hingeDetails).toHaveLength(1);
     expect(rep.hingeDetails[0].ci).toBe(2);
-    expect(rep.formula).toBe('g = 6·m + r − 6·n − c');
-    expect(rep.substitution).toBe('g = 6×2 + 12 − 6×3 − 2 = 4');
+    expect(rep.formula).toBe('GH = 6·m + r − 6·n − c');
+    expect(rep.substitution).toBe('GH = 6×2 + 12 − 6×3 − 2 = 4');
   });
 
   it('the stabiliser\'s vanishing rotational springs are not counted as supports', () => {

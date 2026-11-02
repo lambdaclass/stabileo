@@ -83,10 +83,12 @@ export function setInfluenceQuantity(q: InfluenceQuantity): void {
   const il = resultsStore.influenceLine;
   if (!il || il.quantity === q) return;
   const family = familyOf(q);
-  if (family === 'reaction' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
-  else if (family !== 'reaction' && il.targetElementId !== undefined) runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);
-  else if (family === 'displacement' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
-  else { resultsStore.setInfluenceLine(null); uiStore.toast(t('viewport.ilClickHint'), 'info'); }
+  let ok: boolean;
+  if (family === 'reaction' && il.targetNodeId !== undefined) ok = runInfluence(q, il.targetNodeId, undefined, 0.5, true);
+  else if (family !== 'reaction' && il.targetElementId !== undefined) ok = runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);
+  else if (family === 'displacement' && il.targetNodeId !== undefined) ok = runInfluence(q, il.targetNodeId, undefined, 0.5, true);
+  else { resultsStore.setInfluenceLine(null); uiStore.toast(t('viewport.ilClickHint'), 'info'); return; }
+  if (!ok) resultsStore.setInfluenceLine(null);
 }
 
 /**
@@ -100,7 +102,7 @@ export function setInfluenceDirection(dir: InfluenceDirection): void {
   const il = resultsStore.influenceLine;
   if (!il) return;
   const r = modelStore.computeInfluenceLine(il.quantity, il.targetNodeId, il.targetElementId, il.targetPosition ?? 0.5, 20, dir);
-  if (typeof r === 'string') { uiStore.toast(r, 'error'); return; }
+  if (typeof r === 'string') { resultsStore.setInfluenceLine(null); uiStore.toast(r, 'error'); return; }
   resultsStore.setInfluenceLine(r);
   if (r.points.every((p) => Math.abs(p.value) < 1e-9)) uiStore.toast(t('viewport.ilZeroThisWay').replace('{q}', r.quantity), 'info');
 }

@@ -4,10 +4,11 @@ import { solveModal, solveHarmonic2D, solveTimeHistory2D, guyanReduce2D, isSolve
 import { withBasicMass } from '../../basic-mass';
 import { densityRecord } from '../../requests';
 import { modelSystem } from '../mdof-system';
+import { shearBuilding } from '../shear-building';
 import { modalSolve } from '../modal-decomposition';
 import { sdofFromModel } from '../sdof-model';
 import { condense } from '../mass-model';
-import { convergenceTable, exactBeam } from '../convergence';
+import { convergenceTable, exactBeam, frequenciesOf } from '../convergence';
 import { subdivideForAnalysis } from '../../../../model/edit/analysis-subdivision';
 import { buildSolverInput2D } from '../../../solver-service';
 import { sdofProps, harmonic, forcedResponse } from '../sdof';
@@ -159,6 +160,55 @@ describe('ground excitation with a support in a turned frame', () => {
       if (typeof sx === 'string') throw new Error(sx);
       expect(sx.m / (mt / (tx * tx))).toBeCloseTo(1, 12);
       expect(sx.k / sx.m / sol.modes[0].omega ** 2).toBeCloseTo(1, 9);
+    });
+  }
+});
+
+describe('the shear building needs each floor joined', () => {
+  for (const beam of [true, false]) {
+    it(`two columns ${beam ? 'joined by a floor beam: one floor' : 'with nothing between their tops: refused'}`, () => {
+      build(() => {
+        const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+        modelStore.addElement(a, b); modelStore.addElement(d, c);
+        if (beam) modelStore.addElement(b, c);
+        modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+      });
+      const r = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: 7 }], false);
+      if (beam) {
+        if (typeof r === 'string') throw new Error(r);
+        expect(r.floors).toHaveLength(1);
+        expect(r.floors[0].m).toBe(12);
+      } else expect(r).toBe('floorSplit');
+    });
+  }
+});
+
+describe('the shear building takes columns of one section only', () => {
+  it('a tapered column is refused: one EI cannot give its storey stiffness', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      const col = modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+      const el = modelStore.elements.get(col)!;
+      const other = modelStore.addSection({ ...modelStore.sections.get(el.sectionId)!, name: 'big', iz: 2 * modelStore.sections.get(el.sectionId)!.iz } as never);
+      modelStore.updateElement(col, { variableSection: { sectionJ: other } } as never);
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('variableSection');
+  });
+});
+
+describe('truss mass at a support in a turned frame', () => {
+  for (const angle of [0, 35]) {
+    it(`a triangle truss on a roller at ${angle}°: consistent-mass frequencies equal the engine's`, () => {
+      build(() => {
+        const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(2, 3);
+        modelStore.addElement(a, b, 'truss'); modelStore.addElement(b, c, 'truss'); modelStore.addElement(a, c, 'truss');
+        modelStore.addSupport(a, 'pinned');
+        modelStore.addSupport(b, 'rollerX', undefined, { angle });
+      });
+      const mine = frequenciesOf(modelStore.model, [], { nPerMember: 1, massModel: 'consistent', barMass: true }, 3).f;
+      const eng = engineFrequencies(1);
+      mine.forEach((f, i) => expect(f / eng[i]).toBeCloseTo(1, 6));
     });
   }
 });

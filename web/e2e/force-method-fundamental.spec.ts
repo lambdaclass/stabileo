@@ -64,6 +64,39 @@ test.describe('@slow the primary structure, chosen by hand', () => {
     await shot(page, 'fm-step5-axial-off');
     expect(errors).toEqual([]);
   });
+
+  test('portal frame: three releases that leave a mechanism are refused, three that do not are solved', async ({ page }) => {
+    test.setTimeout(150_000);
+    const errors: string[] = [];
+    page.on('pageerror', (e) => errors.push(String(e)));
+    await openFlexibility(page, 'portal-frame');
+    await expect(page.getByTestId('fm-gh')).toContainText('3');
+
+    await page.getByTestId('fm-dot-2').click();
+    await page.getByTestId('fm-fund-manual').click();
+    for (const key of ['r:1:0', 'r:4:0', 'r:4:1']) await page.getByTestId(`fm-rel-${key}`).check();
+    await expect(page.getByTestId('fm-fund-count')).toContainText('3');
+    await page.getByTestId('fm-fund-solve').click();
+    await expect(page.getByTestId('fm-fund-error')).toBeVisible();
+    await expect(page.getByTestId('fm-fund-error')).toContainText(/mecanismo|mechanism/i);
+    await expect(page.getByTestId('fm-fund-ok')).toHaveCount(0);
+
+    await page.getByTestId('fm-rel-r:1:0').uncheck();
+    await page.getByTestId('fm-rel-r:4:2').check();
+    await expect(page.getByTestId('fm-fund-count')).toContainText('3');
+    await page.getByTestId('fm-fund-solve').click();
+    await expect(page.getByTestId('fm-fund-ok')).toBeVisible();
+    await expect(page.getByTestId('fm-fund-error')).toHaveCount(0);
+    await expect(page.getByTestId('fm-redundants').locator('li')).toHaveCount(3);
+    await expect(page.getByTestId('fm-redundants')).toContainText('4');
+    for (let step = 3; step <= 9; step++) {
+      await page.getByTestId('fm-next').click();
+      await expect(page.getByTestId('fm-step-name')).toContainText(String(step));
+    }
+    await expect(page.getByTestId('fm-verdict')).not.toHaveClass(/bad/);
+    await expect(page.getByTestId('fm-options')).toContainText(/elegiste|your choice/i);
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('@slow virtual work: what to compute', () => {

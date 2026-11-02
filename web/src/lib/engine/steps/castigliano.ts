@@ -136,7 +136,7 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
   const final: State = fm.final;
   const kept = new Set(fm.axialKept ?? []);
   const axialNotes: Block[] = kept.size
-    ? [{ kind: 'note', tone: 'warn', text: tx('steps.m.castigliano.axialKept', { list: [...kept].map((j) => `X${fm.redundants[j].index}`).join(', ') }) }]
+    ? [{ kind: 'note', tone: 'warn', text: kept.size === n ? tx('steps.m.castigliano.axialAll') : tx('steps.m.castigliano.axialKept', { list: [...kept].map((j) => `X${fm.redundants[j].index}`).join(', ') }) }]
     : [];
 
   steps.push({

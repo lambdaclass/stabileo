@@ -104,7 +104,7 @@ function principleStep(d: InfluenceDocData): Step {
       blocks: [
         { kind: 'p', text: tx(`${K}maxwell.principle`) },
         { kind: 'eq', tex: '\\delta_{ij} = \\delta_{ji} \\qquad \\eta(s) = \\delta_{s\\,t}', note: tx(`${K}maxwell.eqNote`) },
-        { kind: 'fig', sketch: { ...maxwellSketch(d.pm, c, d.target, d.points, d.dir), labels: peakLabels(d.pm, d.points, d.dir) }, caption: tx(`${K}maxwell.fig.${c === 'ry' ? 'couple' : 'force'}`) },
+        { kind: 'fig', sketch: { ...maxwellSketch(d.pm, c, d.target, d.points, d.dir), labels: peakLabels(d.pm, d.points, d.dir, true) }, caption: tx(`${K}maxwell.fig.${c === 'ry' ? 'couple' : 'force'}`) },
         { kind: 'p', text: tx(`${K}maxwell.check`, { m: m.name, x: numText(sample.t * m.L, 3) }) },
         { kind: 'compare', rows, caption: compareNoteFor(rows) },
       ],

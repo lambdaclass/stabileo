@@ -92,7 +92,7 @@ const words: Translations = {
   'course.plastic.st.eqCount': 'Il reste {unknowns} inconnues (les moments et λ) et {m} équations : il faut fixer {free} valeurs. On les fixe en supposant Mp dans les sections où se forme un mécanisme.',
   'course.plastic.st.elasticLead': 'La solution élastique, mise à l\'échelle jusqu\'à ce que la première section atteigne Mp, est en équilibre et ne dépasse Mp nulle part. D\'après le théorème statique, son λ est une borne inférieure.',
   'course.plastic.st.firstYield': 'Première plastification',
-  'course.plastic.st.elasticWhy': 'C\'est le premier pas du calcul incrémental. Ensuite, la structure porte encore davantage, parce que les moments se redistribuent.',
+  'course.plastic.st.elasticWhy': 'C\'est le premier pas du calcul incrémental. Dans une structure hyperstatique, la charge peut encore augmenter : après chaque rotule les moments se redistribuent et la distribution élastique ne vaut plus. Dans une structure isostatique, la première rotule forme déjà un mécanisme.',
   'course.plastic.st.trialLead': 'On suppose Mp, avec le signe qui convient, dans les sections d\'un mécanisme ; les équations d\'équilibre donnent λ et les autres moments. Puis on vérifie |M| ≤ Mp.',
   'course.plastic.st.trialWhy': 'Si la vérification échoue, la distribution divisée par le plus grand |M|/Mp reste en équilibre et ne dépasse plus Mp : elle donne une borne inférieure. L\'hypothèse suivante place une rotule là où Mp a été dépassé.',
   'course.plastic.st.trial': 'Essai {k}',
@@ -148,7 +148,7 @@ const words: Translations = {
   'course.plastic.mech.vwDiffer': 'Ils ne concordent pas : le mécanisme de la figure n’est pas celui du calcul pas à pas. Vérifiez le modèle avant d’utiliser λc.',
 
   'course.plastic.user.title': 'Proposer un mécanisme',
-  'course.plastic.user.help': 'Un mécanisme demande en général GH + 1 rotules. Avec exactement GH + 1, il est complet et les moments découlent de l\'équilibre seul. Avec moins, il est partiel : il concerne une partie de la structure et certaines inconnues restent libres. Avec plus, il est surabondant : il a plus d\'un degré de liberté. Par les travaux virtuels, chaque mécanisme donne un λ qui est une borne supérieure (théorème cinématique). Si, pour ce λ, les moments ne dépassent Mp nulle part, c\'est aussi une borne inférieure (théorème statique) et donc la charge de ruine (unicité).',
+  'course.plastic.user.help': 'GH + 1 rotules est le compte d\'un mécanisme complet, à condition que les rotules soient des libérations indépendantes : il ne reste alors aucune inconnue hyperstatique et les moments découlent de l\'équilibre seul. Un mécanisme peut aussi être partiel (local) : il met en mouvement une partie de la structure tandis que des inconnues hyperstatiques restent ailleurs, et l\'équilibre seul ne donne pas tous les moments. Qu\'un ensemble de rotules soit complet, partiel ou à plusieurs degrés de liberté dépend des libérations indépendantes, du nombre d\'inconnues hyperstatiques restantes et de la dimension du mécanisme, pas du seul compte. Par les travaux virtuels, chaque mécanisme donne un λ qui est une borne supérieure (théorème cinématique). Si, pour ce λ, les moments ne dépassent Mp nulle part, c\'est aussi une borne inférieure (théorème statique) et donc la charge de ruine (unicité).',
   'course.plastic.user.summaryEmpty': 'touchez les barres pour placer des rotules',
   'course.plastic.user.summaryCount': '{n} rotules',
   'course.plastic.user.summaryLambda': '{n} rotules, λ = {lambda}',

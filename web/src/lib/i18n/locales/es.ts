@@ -2083,7 +2083,7 @@ const es: Record<string, string> = {
   'kinematic.noMechanisms': '✓ No se detectaron mecanismos. La estructura es estable.',
   'kinematic.rankUnavailable': '⏳ No se pudo verificar todavía: el motor de cálculo aún no terminó de cargar. La estabilidad no está confirmada.',
   'kinematic.invalidInput': '✗ No se pudo verificar: el modelo tiene datos inválidos — {n}',
-  'kinematic.hiddenMechanism': '✗ Se detectaron {n} modo{s} de mecanismo a pesar de que g = {degree} ≥ 0.',
+  'kinematic.hiddenMechanism': '✗ Se detectaron {n} modo{s} de mecanismo a pesar de que GH = {degree} ≥ 0.',
   'kinematic.hiddenMechanismExplanation': 'La ecuación del Paso 2 cuenta restricciones de forma global, pero no verifica dónde están ubicadas. En este caso, una zona de la estructura tiene restricciones de sobra mientras otra no tiene las suficientes.',
   'kinematic.mechanismDetected': '✗ Se detectaron {n} modo{s} de mecanismo.',
   'kinematic.freeMovements': 'Movimientos libres detectados:',
@@ -3541,8 +3541,8 @@ const es: Record<string, string> = {
 
   // Classification text
   'kin.classHypostatic': 'Hipostática — le faltan restricciones: {n}. La estructura es un mecanismo.',
-  'kin.classHiddenMechZero': 'La fórmula da g = 0 (condición necesaria para isostática), pero NO suficiente. La verificación numérica (Paso 3) detectó {modes} modo(s) de mecanismo. Esto ocurre cuando las restricciones están mal distribuidas: una zona tiene restricciones de sobra y otra zona no tiene las suficientes.',
-  'kin.classHiddenMechPos': 'La fórmula da g = {degree} > 0 (aparenta ser hiperestática), pero la verificación numérica (Paso 3) detectó {modes} modo(s) de mecanismo. Esto ocurre cuando las restricciones están mal distribuidas: una zona es hiperestática (tiene restricciones de sobra) mientras otra es hipostática (le faltan restricciones). El exceso de una zona no compensa el déficit de otra.',
+  'kin.classHiddenMechZero': 'La fórmula da GH = 0 (condición necesaria para isostática), pero NO suficiente. La verificación numérica (Paso 3) detectó {modes} modo(s) de mecanismo. Esto ocurre cuando las restricciones están mal distribuidas: una zona tiene restricciones de sobra y otra zona no tiene las suficientes.',
+  'kin.classHiddenMechPos': 'La fórmula da GH = {degree} > 0 (aparenta ser hiperestática), pero la verificación numérica (Paso 3) detectó {modes} modo(s) de mecanismo. Esto ocurre cuando las restricciones están mal distribuidas: una zona es hiperestática (tiene restricciones de sobra) mientras otra es hipostática (le faltan restricciones). El exceso de una zona no compensa el déficit de otra.',
   'kin.classIsostatic': 'Isostática — la cantidad de restricciones es exactamente la necesaria. No hay redundancia.',
   'kin.classHyperstatic': 'Hiperestática de grado {degree} — hay {degree} restricción(es) más de las que las ecuaciones de equilibrio pueden resolver.',
   'kin.plural_s': 's',

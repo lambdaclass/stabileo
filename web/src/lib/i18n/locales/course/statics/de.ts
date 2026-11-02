@@ -1,7 +1,7 @@
 import type { Translations } from '../../../types';
 
 const words: Translations = {
-  'course.statics.gh.what': 'Der Grad der statischen Unbestimmtheit GH zählt, wie viele Kräfte überzählig sind: die unbekannten Auflager- und Stabkräfte abzüglich der verfügbaren Gleichgewichtsbedingungen. Bei GH = 0 genügt die Statik; bei GH > 0 sind GH Verträglichkeitsbedingungen nötig.',
+  'course.statics.gh.what': 'Der Grad der statischen Unbestimmtheit GH zählt, wie viele Kräfte überzählig sind: die unbekannten Auflager- und Stabkräfte abzüglich der verfügbaren Gleichgewichtsbedingungen. Bei GH = 0 und kinematisch stabilem Tragwerk genügt die Statik; bei GH > 0 sind GH Verträglichkeitsbedingungen nötig. Die Abzählung allein beweist keine Stabilität.',
   'course.statics.gh.legend.frame': 'm = {m} Stäbe, r = {r} Auflagerreaktionen (eine Feder zählt als eine Reaktion), n = {n} Knoten mit je drei Gleichungen (ΣFx, ΣFz, ΣM) und c = {c} Bedingungen, die von den inneren Gelenken gelöst werden.',
   'course.statics.gh.legend.truss': 'm = {mb} Stäbe, r = {r} Auflagerreaktionen und n = {nb} Knoten. Im Fachwerk liefert jeder Knoten zwei Gleichungen (ΣFx, ΣFz), weil alle Kräfte durch ihn gehen.',
   'course.statics.gh.legend.mixed': 'm = {m} Rahmenstäbe und m_b = {mb} Pendelstäbe (ein Pendelstab hat nur eine Unbekannte, seine Normalkraft), r = {r} Auflagerreaktionen, n = {n} Knoten mit drei Gleichungen, n_b = {nb} Knoten, an die nur Pendelstäbe anschließen, mit zwei, und c = {c} Gelenkbedingungen.',
@@ -12,7 +12,7 @@ const words: Translations = {
   'course.statics.gh.hingeCaption': 'Gelenkbedingungen, Knoten für Knoten: c = {c}.',
   'course.statics.gh.splitLabel': 'Äußere und innere',
   'course.statics.gh.split': 'GH_e = {e} ist die äußere statische Unbestimmtheit: die Auflagerreaktionen, die über das hinausgehen, was das Tragwerk als Ganzes festhält (r − 3 je Körper, abzüglich der {mech} inneren Bewegungen, die die Auflager verhindern müssen, wie beim Dreigelenkbogen oder beim Gerberträger). GH_i = {i} ist die innere: geschlossene Ringe und zusätzliche Stäbe, die die Statik auch bei bekannten Auflagerreaktionen nicht löst.',
-  'course.statics.gh.verdict.iso': 'Das Tragwerk ist statisch bestimmt (GH = 0): Die Gleichgewichtsbedingungen reichen aus, um alle Auflagerreaktionen und Schnittgrößen zu ermitteln.',
+  'course.statics.gh.verdict.iso': 'Die Abzählung ergibt GH = 0: so viele Unbekannte wie Gleichgewichtsbedingungen. Ist das Tragwerk kinematisch stabil, ist es statisch bestimmt, und das Gleichgewicht liefert alle Auflagerreaktionen und Schnittgrößen; Lager wie drei parallele Rollenlager ergeben GH = 0 und trotzdem einen Mechanismus.',
   'course.statics.gh.verdict.hyper': 'Das Tragwerk ist {g}-fach statisch unbestimmt: Es hat {g} Unbekannte mehr als Gleichgewichtsbedingungen.',
   'course.statics.gh.verdict.hypo': 'Das Tragwerk ist kinematisch verschieblich (GH = {g}): Ihm fehlen Bindungen, und es ist ein Mechanismus.',
   'course.statics.gh.redundants': 'Für das Kraftgrößenverfahren ist GH = {g} die Anzahl der Überzähligen X_i: Es werden genau {g} Bindungen oder Schnittgrößen gelöst, um ein statisch bestimmtes Grundsystem zu erhalten.',
@@ -66,6 +66,7 @@ const words: Translations = {
   'course.statics.fm.terms.springRedundant': 'Die gelöste Feder ist die Überzählige: X ist ihre Kraft. Das Auflager verschiebt sich um −X/k, deshalb kommt zu δᵢᵢ die Nachgiebigkeit der Feder hinzu, 1/k.',
   'course.statics.fm.s5.axialOff': 'Ohne Normalkraftverformung: Rahmenstäbe tragen nur mit Biegung bei. Pendelstäbe behalten ihren Normalkraftanteil.',
   'course.statics.fm.s5.axialKept': '{list} wirkt nur über die Normalkraft: Zeile und Spalte behalten den Normalkraftanteil, weil die Gleichung ohne ihn nichts aussagen würde.',
+  'course.statics.fm.s5.axialAll': 'Den Normalkraftanteil nur in einigen Zeilen zu behalten reicht hier nicht: Die gemischte Matrix wäre nicht positiv definit, also keine Nachgiebigkeit. Alle Koeffizienten behalten den Normalkraftanteil.',
   'course.statics.fm.s9.axialOff': 'Ohne Normalkraftverformung ist das Tragwerk steifer als beim Weggrößenverfahren, das sie berücksichtigt. Der größte Unterschied beträgt {d}, {pct} der größten Kraft: So viel trägt der weggelassene Normalkraftanteil bei.',
   'course.statics.fm.s9.rigidOk': 'Es stimmt mit dem Weggrößenverfahren überein, gelöst mit dehnstarren Stäben, derselben Annahme, die Sie gewählt haben.',
   'course.statics.vw.choose': 'Über dem Dokument wählen Sie unter Berechnungsziel die Größe (Verschiebung, Verdrehung, Relativverschiebung oder Relativverdrehung), den Knoten oder die Knoten und die Richtung. Sie können auch vor dem Öffnen des Schritt für Schritt einen Knoten im Modell auswählen.',

@@ -126,12 +126,12 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built
   const sys: SoSystem = { pm, members, dof, nTotal, free: [], prescribed, springs, F, Fnodal: F.slice(), memberLoads, idle: [], axialRigid: opts.axialRigid };
   addEquivalentLoads(sys);
 
-  const K0 = assemble(sys, new Map(), 'none', true);
+  const stiff = stiffenedDofs(sys);
   const free: number[] = [];
   const idle: number[] = [];
   for (let d = 0; d < nTotal; d++) {
     if (prescribed.has(d)) continue;
-    if (K0.K[d].every((v) => v === 0)) idle.push(d); else free.push(d);
+    if (stiff.has(d)) free.push(d); else idle.push(d);
   }
   sys.free = free;
   sys.idle = idle;
@@ -172,6 +172,26 @@ function addEquivalentLoads(sys: SoSystem): void {
     const ids = memberDofs(sys, m);
     ids.forEach((d, k) => { sys.F[d] += g[k]; });
   }
+}
+
+function stiffenedDofs(sys: SoSystem): Set<number> {
+  const rows = new Map<number, Map<number, number>>();
+  const add = (a: number, b: number, v: number) => {
+    let r = rows.get(a);
+    if (!r) rows.set(a, (r = new Map()));
+    r.set(b, (r.get(b) ?? 0) + v);
+  };
+  for (const m of sys.members) {
+    const ms = memberStiffness(m, 0, 'none', true);
+    const R = rotation(m.c, m.s);
+    const kg = matMul(transpose(R), matMul(ms.k, R));
+    const ids = memberDofs(sys, m);
+    for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) if (kg[a][b] !== 0) add(ids[a], ids[b], kg[a][b]);
+  }
+  for (const s of sys.springs) add(s.dof, s.dof, s.k);
+  const out = new Set<number>();
+  for (const [d, r] of rows) if ([...r.values()].some((v) => v !== 0)) out.add(d);
+  return out;
 }
 
 export const memberDofs = (sys: Pick<SoSystem, 'dof'>, m: PMember): number[] =>

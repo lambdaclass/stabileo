@@ -92,7 +92,7 @@ const words: Translations = {
   'course.plastic.st.eqCount': 'Es bleiben {unknowns} Unbekannte (die Momente und λ) und {m} Gleichungen: {free} Werte sind festzulegen. Man legt sie fest, indem man Mp in den Querschnitten eines Mechanismus ansetzt.',
   'course.plastic.st.elasticLead': 'Die elastische Lösung, skaliert bis der erste Querschnitt Mp erreicht, steht im Gleichgewicht und überschreitet Mp nirgends. Nach dem statischen Satz ist ihr λ eine untere Schranke.',
   'course.plastic.st.firstYield': 'Erstes Fließen',
-  'course.plastic.st.elasticWhy': 'Es ist der erste Schritt der inkrementellen Berechnung. Danach trägt das Tragwerk noch mehr Last, weil sich die Momente umlagern.',
+  'course.plastic.st.elasticWhy': 'Es ist der erste Schritt der inkrementellen Berechnung. In einem statisch unbestimmten Tragwerk kann die Last weiter steigen: Nach jedem Gelenk lagern sich die Momente um, und die elastische Verteilung gilt nicht mehr. In einem statisch bestimmten Tragwerk bildet schon das erste Gelenk einen Mechanismus.',
   'course.plastic.st.trialLead': 'In den Querschnitten eines Mechanismus wird Mp mit passendem Vorzeichen angesetzt; die Gleichgewichtsgleichungen liefern λ und die übrigen Momente. Dann wird |M| ≤ Mp geprüft.',
   'course.plastic.st.trialWhy': 'Scheitert der Nachweis, steht die durch das größte |M|/Mp geteilte Verteilung weiterhin im Gleichgewicht und überschreitet Mp nicht mehr: Sie liefert eine untere Schranke. Die nächste Annahme setzt ein Gelenk dorthin, wo Mp überschritten wurde.',
   'course.plastic.st.trial': 'Versuch {k}',
@@ -148,7 +148,7 @@ const words: Translations = {
   'course.plastic.mech.vwDiffer': 'Sie stimmen nicht überein: Der Mechanismus in der Abbildung ist nicht der der schrittweisen Berechnung. Prüfen Sie das Modell, bevor Sie λc verwenden.',
 
   'course.plastic.user.title': 'Mechanismus vorschlagen',
-  'course.plastic.user.help': 'Ein Mechanismus braucht im Allgemeinen GH + 1 Gelenke. Mit genau GH + 1 ist er vollständig, und die Momente folgen allein aus dem Gleichgewicht. Mit weniger ist er ein Teilmechanismus: Er betrifft einen Teil des Tragwerks, und einige Unbekannte bleiben frei. Mit mehr ist er überzählig: Er hat mehr als einen Freiheitsgrad. Über die virtuelle Arbeit liefert jeder Mechanismus ein λ, das eine obere Schranke ist (kinematischer Satz). Bleiben die Momente bei diesem λ überall unter Mp, ist es auch eine untere Schranke (statischer Satz) und damit die Traglast (Eindeutigkeit).',
+  'course.plastic.user.help': 'GH + 1 Gelenke ergeben einen vollständigen Mechanismus, sofern die Gelenke unabhängige Freigaben sind: Dann bleibt keine Überzählige, und die Momente folgen allein aus dem Gleichgewicht. Ein Mechanismus kann auch ein Teilmechanismus (lokal) sein: Er bewegt einen Teil des Tragwerks, während anderswo Überzählige bleiben, sodass das Gleichgewicht allein nicht alle Momente liefert. Ob eine Gelenkmenge vollständig, partiell oder mehrfach beweglich ist, hängt davon ab, welche Freigaben unabhängig sind, wie viele Überzählige bleiben und welche Dimension der Mechanismus hat, nicht von der Anzahl allein. Über die virtuelle Arbeit liefert jeder Mechanismus ein λ, das eine obere Schranke ist (kinematischer Satz). Bleiben die Momente bei diesem λ überall unter Mp, ist es auch eine untere Schranke (statischer Satz) und damit die Traglast (Eindeutigkeit).',
   'course.plastic.user.summaryEmpty': 'Stäbe antippen, um Gelenke zu setzen',
   'course.plastic.user.summaryCount': '{n} Gelenke',
   'course.plastic.user.summaryLambda': '{n} Gelenke, λ = {lambda}',

@@ -80,10 +80,11 @@ function nodalRoot(sys: SoSystem, N0: Map<number, number>, lambda: number): bool
   return s(1 + 1e-7) > s(1 - 1e-7);
 }
 
-/** λ_i with the stability functions: bisection on the count J(λ) ≥ i. `guess` is an upper estimate. */
-export function phiRoot(sys: SoSystem, N0: Map<number, number>, i: number, guess: number): number {
+/** λ_i with the stability functions: bisection on the count J(λ) ≥ i. `guess` is an upper estimate. Null when no λ reaches the count. */
+export function phiRoot(sys: SoSystem, N0: Map<number, number>, i: number, guess: number): number | null {
   let lo = 0, hi = Math.max(guess, 1e-6);
   for (let k = 0; k < 80 && criticalCount(sys, N0, hi) < i; k++) { lo = hi; hi *= 2; }
+  if (criticalCount(sys, N0, hi) < i) return null;
   for (let k = 0; k < 200 && hi - lo > 1e-11 * hi; k++) {
     const mid = (lo + hi) / 2;
     if (criticalCount(sys, N0, mid) >= i) hi = mid; else lo = mid;
@@ -109,6 +110,7 @@ export function phiBuckling(sys: SoSystem, nModes: number, N0: Map<number, numbe
   const out: TeachingMode[] = [];
   for (let i = 1; i <= nModes; i++) {
     const lambda = phiRoot(sys, N0, i, guesses[i - 1] ?? (out[out.length - 1]?.lambda ?? 1) * 2);
+    if (lambda === null) break;
     out.push(nodalRoot(sys, N0, lambda) ? { lambda, D: phiMode(sys, N0, lambda) } : { lambda, D: new Array(sys.nTotal).fill(0), internal: true });
   }
   return out;

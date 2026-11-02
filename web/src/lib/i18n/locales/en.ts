@@ -2090,7 +2090,7 @@ const en: Record<string, string> = {
   'kinematic.noMechanisms': '\u2713 No mechanisms detected. The structure is stable.',
   'kinematic.rankUnavailable': '⏳ Not verified yet: the calculation engine has not finished loading. Stability is not confirmed.',
   'kinematic.invalidInput': '✗ Not verified: the model has invalid data — {n}',
-  'kinematic.hiddenMechanism': '\u2717 Detected {n} mechanism mode{s} despite g = {degree} \u2265 0.',
+  'kinematic.hiddenMechanism': '\u2717 Detected {n} mechanism mode{s} despite GH = {degree} \u2265 0.',
   'kinematic.hiddenMechanismExplanation': 'The Step 2 equation counts constraints globally, but does not check where they are located. In this case, one zone of the structure has excess constraints while another does not have enough.',
   'kinematic.mechanismDetected': '\u2717 Detected {n} mechanism mode{s}.',
   'kinematic.freeMovements': 'Free movements detected:',
@@ -3548,8 +3548,8 @@ const en: Record<string, string> = {
 
   // Classification text
   'kin.classHypostatic': 'Unstable — missing {n} constraint{s}. The structure is a mechanism.',
-  'kin.classHiddenMechZero': 'The formula gives g = 0 (necessary condition for a statically determinate structure), but NOT sufficient. The numerical verification (Step 3) detected {modes} mechanism mode{s}. This occurs when the constraints are poorly distributed: one zone has excess constraints and another zone lacks them.',
-  'kin.classHiddenMechPos': 'The formula gives g = {degree} > 0 (appears statically indeterminate), but the numerical verification (Step 3) detected {modes} mechanism mode{s}. This occurs when the constraints are poorly distributed: one zone is statically indeterminate (has excess constraints) while another is unstable (lacks constraints). The excess in one zone does not compensate the deficit in another.',
+  'kin.classHiddenMechZero': 'The formula gives GH = 0 (necessary condition for a statically determinate structure), but NOT sufficient. The numerical verification (Step 3) detected {modes} mechanism mode{s}. This occurs when the constraints are poorly distributed: one zone has excess constraints and another zone lacks them.',
+  'kin.classHiddenMechPos': 'The formula gives GH = {degree} > 0 (appears statically indeterminate), but the numerical verification (Step 3) detected {modes} mechanism mode{s}. This occurs when the constraints are poorly distributed: one zone is statically indeterminate (has excess constraints) while another is unstable (lacks constraints). The excess in one zone does not compensate the deficit in another.',
   'kin.classIsostatic': 'Statically determinate — the number of constraints is exactly what is needed. No redundancy.',
   'kin.classHyperstatic': 'Statically indeterminate to degree {degree} — it has {degree} more constraint{s} than the equilibrium equations can resolve.',
   'kin.plural_s': 's',

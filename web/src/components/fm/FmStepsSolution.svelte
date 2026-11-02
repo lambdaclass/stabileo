@@ -88,7 +88,8 @@
   <p class="fm-note">{t('fm.s5.symmetry')}</p>
   {#if r.axial === false && !is3D}
     <p class="fm-note fm-iso" data-testid="fm-s5-axial-off">{t('course.statics.fm.s5.axialOff')}</p>
-    {#if keptNames}<p class="fm-note fm-iso">{t('course.statics.fm.s5.axialKept').replace('{list}', keptNames)}</p>{/if}
+    {#if keptNames && (r.axialKept ?? []).length === r.redundants.length}<p class="fm-note fm-iso" data-testid="fm-s5-axial-all">{t('course.statics.fm.s5.axialAll')}</p>
+    {:else if keptNames}<p class="fm-note fm-iso">{t('course.statics.fm.s5.axialKept').replace('{list}', keptNames)}</p>{/if}
   {/if}
   {#if r.original.elements.some((e) => e.type === 'frame' && (e.hingeStart || e.hingeEnd))}
     <p class="fm-note fm-iso" data-testid="fm-s5-hinges">{t('fm.mx.hinges')}</p>

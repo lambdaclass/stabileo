@@ -529,16 +529,16 @@ export function generateKinematicReport3D(input: SolverInput3D): KinematicReport
   let formula: string;
   let substitution: string;
   if (isPureTruss) {
-    formula = 'g = m + r − 3·n';
-    substitution = `g = ${nTrusses} + ${totalR} − 3×${nNodes} = ${degree}`;
+    formula = 'GH = m + r − 3·n';
+    substitution = `GH = ${nTrusses} + ${totalR} − 3×${nNodes} = ${degree}`;
   } else if (nTrusses > 0) {
     const nSym = nTrussNodes > 0 ? '6·n_p − 3·n_r' : '6·n';
     const nNum = nTrussNodes > 0 ? `6×${nFrameNodes} − 3×${nTrussNodes}` : `6×${nNodes}`;
-    formula = `g = 6·m_p + m_r + r − ${nSym}${cSym}`;
-    substitution = `g = 6×${nFrames} + ${nTrusses} + ${totalR} − ${nNum}${cTerm} = ${degree}`;
+    formula = `GH = 6·m_p + m_r + r − ${nSym}${cSym}`;
+    substitution = `GH = 6×${nFrames} + ${nTrusses} + ${totalR} − ${nNum}${cTerm} = ${degree}`;
   } else {
-    formula = `g = 6·m + r − 6·n${cSym}`;
-    substitution = `g = 6×${nFrames} + ${totalR} − 6×${nNodes}${cTerm} = ${degree}`;
+    formula = `GH = 6·m + r − 6·n${cSym}`;
+    substitution = `GH = 6×${nFrames} + ${totalR} − 6×${nNodes}${cTerm} = ${degree}`;
   }
 
   // Step 3: the engine's rank check

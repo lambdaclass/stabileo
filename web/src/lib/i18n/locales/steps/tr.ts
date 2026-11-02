@@ -603,6 +603,7 @@ const stepsTr: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Bu yer değiştirme için eksenel terimi dışarıda bırakmak iyi bir yaklaşım değil: eksenel kuvvet toplamın %{pct} kadarını oluşturuyor. Seçeneği açmanız önerilir.',
   'steps.m.castigliano.axialKept': 'Yalnızca eksenel kuvvet taşıyan hiperstatik bilinmeyenler: {list}. Eksenel terim olmadan denklemleri bir şey söylemez; bu yüzden satırları ve sütunları bu terimi korur, diğer katsayılar yalnızca eğilmeyi içerir.',
+  'steps.m.castigliano.axialAll': 'Eksenel terimi yalnızca bazı satırlarda tutmak burada yetmez: karışık matris pozitif tanımlı olmaz, yani bir esneklik matrisi olmaz. Tüm katsayılar eksenel terimi korur.',
   'steps.m.castigliano.axialFallback': 'Eksenel terim olmadan sistemin tek bir çözümü yok; bu yüzden eksenel terim dahil tam katsayılarla çözülür.',
   'steps.deformation.axialOff': 'Klasik çözüm: eksenel terim dışarıda bırakılır ve yalnızca eğilme hesaba katılır.',
   'steps.deformation.axialLeftOut': 'Eksenel terim seçeneği kapalıyken Σ N·n·L/EA yer değiştirmeye girmez. Ne kadar katkı yapacağını görmek için yine de gösterilir:',

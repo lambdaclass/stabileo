@@ -14,6 +14,9 @@ import { iteratePDelta, toAnalysisResults, PDELTA_MAX_ITER, PDELTA_TOL, type Tea
 import { teachingBuckling } from './buckling';
 import { collapseResults, refineInput, type Refined } from './refine';
 import { firstModeB2, teachingOptions, usesEngine, type SoSettings } from './settings';
+import { peakAlong } from '../governing-case';
+import { computeDiagramValueAt } from '../diagrams';
+import { planeModel } from '../steps/plane-model';
 
 export interface IterationRow {
   k: number;
@@ -62,12 +65,29 @@ export function displacementAmplification(linear: AnalysisResults, second: Analy
   return { nodeId: best.nodeId, ratio: dot > 0 ? translation(d2) / best.u : Infinity };
 }
 
-const maxEndMoment = (r: AnalysisResults) => Math.max(0, ...r.elementForces.map((f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd))));
+const maxMoment = (r: AnalysisResults) => Math.max(0, ...r.elementForces.map((f) => peakAlong('moment', f)));
+
+/**
+ * Midpoint deflection of a member from its chord, ∫ G(L/2, x)·M(x)/EI dx: a fixed physical point at every n. Not for φ
+ * with one element, whose drawn M inside the member has no P-δ.
+ */
+function midspanSag(r: AnalysisResults, id: number, EI: number): number | null {
+  const f = r.elementForces.find((e) => e.elementId === id);
+  if (!f || !(EI > 0)) return null;
+  const L = f.length, N = 400;
+  let sum = 0;
+  for (let k = 0; k <= N; k++) {
+    const x = (L * k) / N;
+    const g = x <= L / 2 ? x / 2 : (L - x) / 2;
+    sum += (k === 0 || k === N ? 1 : k % 2 ? 4 : 2) * g * computeDiagramValueAt('moment', k / N, f);
+  }
+  return Math.abs((sum * L) / (3 * N) / EI);
+}
 
 function comparison(linear: AnalysisResults, second: AnalysisResults, lambda1: number | null): Comparison {
   const amp = displacementAmplification(linear, second);
   const node = amp ? second.displacements.find((d) => d.nodeId === amp.nodeId) : undefined;
-  return { u: node ? translation(node) : 0, m: maxEndMoment(second), b2: firstModeB2(lambda1), lambda1 };
+  return { u: node ? translation(node) : 0, m: maxMoment(second), b2: firstModeB2(lambda1), lambda1 };
 }
 
 /** λ₁ of the engine on the refined model: Infinity with nothing compressed, null when it fails. */
@@ -103,7 +123,7 @@ function reportedB2(lambda1: number | null, b2: number, stable: boolean, fallbac
 }
 
 function teachingResults(r: Refined, input: SolverInput, run: TeachingPDelta): { results: AnalysisResults; linear: AnalysisResults } {
-  const results = toAnalysisResults(run.sys, r.input, run.final, run.method, run.final.N);
+  const results = toAnalysisResults(run.sys, r.input, run.final, run.method, run.finalSolvedWith);
   const linear = toAnalysisResults(run.sys, r.input, run.linear, 'none', new Map());
   return { results: collapseResults(r, input, results), linear: collapseResults(r, input, linear) };
 }
@@ -125,7 +145,7 @@ export function runPDelta2D(input: SolverInput, s: SoSettings): { ok: true; resu
     if (sys.ok && !res.notice) {
       const run = iteratePDelta(sys.sys, 'consistent');
       history = rows(run);
-      const mine = collapseResults(r, input, toAnalysisResults(run.sys, r.input, run.final, 'consistent', run.final.N));
+      const mine = collapseResults(r, input, toAnalysisResults(run.sys, r.input, run.final, 'consistent', run.finalSolvedWith));
       const a = mine.displacements, e = res.results.displacements;
       const scale = Math.max(1e-12, ...e.map((d) => Math.abs(d.ux) + Math.abs(d.uz)));
       matches = run.iterations === res.iterations && a.every((d, k) => Math.abs(d.ux - e[k].ux) + Math.abs(d.uz - e[k].uz) <= 1e-6 * scale);
@@ -169,24 +189,43 @@ export interface ConvergenceRow {
   u: number | null;
   m: number | null;
   lambda1: number | null;
+  uAt: { node: number } | { member: number } | null;
 }
 
 /** The same P-Δ with 1, 2, 4 and 8 elements per member, and with the stability functions. */
 export function pdeltaConvergence(input: SolverInput, s: SoSettings, counts: readonly number[] = [1, 2, 4, 8]): ConvergenceRow[] {
   const out: ConvergenceRow[] = [];
-  let refNode: number | null = null;
-  const read = (res: SoPDeltaResult): Pick<ConvergenceRow, 'u' | 'm'> => {
-    const amp = refNode ?? displacementAmplification(res.linearResults, res.results)?.nodeId ?? null;
-    refNode = amp;
-    const d = amp === null ? undefined : res.results.displacements.find((x) => x.nodeId === amp);
-    return res.converged && res.isStable ? { u: d ? translation(d) : null, m: maxEndMoment(res.results) } : { u: null, m: null };
+  let ref: { node: number } | { member: number } | null = null;
+  const pm = planeModel(input);
+  const pick = (res: SoPDeltaResult): typeof ref => {
+    const node = displacementAmplification(res.linearResults, res.results)?.nodeId;
+    if (node !== undefined) return { node };
+    let best = -1, member: number | null = null;
+    for (const f of res.results.elementForces) {
+      const v = peakAlong('moment', f);
+      if (v > best && !pm.members.get(f.elementId)?.truss) { best = v; member = f.elementId; }
+    }
+    return member === null ? null : { member };
+  };
+  const read = (res: SoPDeltaResult, interior = true): Pick<ConvergenceRow, 'u' | 'm' | 'uAt'> => {
+    if (!(res.converged && res.isStable)) return { u: null, m: null, uAt: ref };
+    ref ??= pick(res);
+    const m = maxMoment(res.results);
+    if (ref && 'node' in ref) {
+      const id = ref.node;
+      const d = res.results.displacements.find((x) => x.nodeId === id);
+      return { u: d ? translation(d) : null, m, uAt: ref };
+    }
+    if (!ref || !interior) return { u: null, m, uAt: ref };
+    const id = ref.member;
+    return { u: midspanSag(res.results, id, pm.members.get(id)?.EI ?? 0), m, uAt: ref };
   };
   for (const n of counts) {
     const got = runPDelta2D(input, { ...s, method: s.method === 'phi' ? 'consistent' : s.method, n });
-    if (!got.ok) { out.push({ label: 'n', n, u: null, m: null, lambda1: null }); continue; }
+    if (!got.ok) { out.push({ label: 'n', n, u: null, m: null, lambda1: null, uAt: ref }); continue; }
     out.push({ label: 'n', n, ...read(got.result), lambda1: got.result.secondOrder.lambda1 });
   }
   const phi = runPDelta2D(input, { ...s, method: 'phi', n: 1 });
-  if (phi.ok) out.push({ label: 'phi', n: 1, ...read(phi.result), lambda1: phi.result.secondOrder.lambda1 });
+  if (phi.ok) out.push({ label: 'phi', n: 1, ...read(phi.result, false), lambda1: phi.result.secondOrder.lambda1 });
   return out;
 }

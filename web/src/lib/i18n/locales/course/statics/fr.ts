@@ -1,7 +1,7 @@
 import type { Translations } from '../../../types';
 
 const words: Translations = {
-  'course.statics.gh.what': 'Le degré d\'hyperstaticité GH compte les efforts en trop : les inconnues de liaison et de barre moins les équations d\'équilibre disponibles. Avec GH = 0, la statique suffit ; avec GH > 0, il faut GH équations de compatibilité.',
+  'course.statics.gh.what': 'Le degré d\'hyperstaticité GH compte les efforts en trop : les inconnues de liaison et de barre moins les équations d\'équilibre disponibles. Avec GH = 0 et une structure cinématiquement stable, la statique suffit ; avec GH > 0, il faut GH équations de compatibilité. Le compte seul ne prouve pas la stabilité.',
   'course.statics.gh.legend.frame': 'm = {m} barres, r = {r} réactions (un ressort compte pour une réaction), n = {n} nœuds avec trois équations chacun (ΣFx, ΣFz, ΣM) et c = {c} conditions libérées par les rotules internes.',
   'course.statics.gh.legend.truss': 'm = {mb} barres, r = {r} réactions et n = {nb} nœuds. Dans un treillis, chaque nœud fournit deux équations (ΣFx, ΣFz), car toutes les forces passent par lui.',
   'course.statics.gh.legend.mixed': 'm = {m} barres de portique et m_b = {mb} bielles (une bielle n\'a qu\'une inconnue, son effort normal), r = {r} réactions, n = {n} nœuds avec trois équations, n_b = {nb} nœuds où n\'aboutissent que des bielles, avec deux, et c = {c} conditions de rotule.',
@@ -12,7 +12,7 @@ const words: Translations = {
   'course.statics.gh.hingeCaption': 'Conditions des rotules, nœud par nœud : c = {c}.',
   'course.statics.gh.splitLabel': 'Externe et interne',
   'course.statics.gh.split': 'GH_e = {e} est l\'hyperstaticité externe : les réactions en excès pour maintenir la structure dans son ensemble (r − 3 par corps, moins les {mech} mouvements internes que les liaisons doivent empêcher, comme dans un arc à trois rotules ou une poutre Gerber). GH_i = {i} est l\'hyperstaticité interne : contours fermés et barres en excès, que la statique ne résout pas même avec les réactions connues.',
-  'course.statics.gh.verdict.iso': 'La structure est isostatique (GH = 0) : les équations d\'équilibre suffisent pour trouver toutes les réactions et tous les efforts.',
+  'course.statics.gh.verdict.iso': 'Le compte donne GH = 0 : autant d\'inconnues que d\'équations d\'équilibre. Si la structure est cinématiquement stable, elle est isostatique et l\'équilibre donne toutes les réactions et tous les efforts ; des appuis comme trois appuis simples parallèles donnent GH = 0 et pourtant un mécanisme.',
   'course.statics.gh.verdict.hyper': 'La structure est hyperstatique de degré {g} : il y a {g} inconnues de plus que d\'équations d\'équilibre.',
   'course.statics.gh.verdict.hypo': 'La structure est hypostatique (GH = {g}) : il lui manque des liaisons et c\'est un mécanisme.',
   'course.statics.gh.redundants': 'Pour la méthode des forces, GH = {g} est le nombre d\'inconnues hyperstatiques X_i : il faut libérer exactement {g} liaisons ou efforts pour obtenir une structure de base isostatique.',
@@ -68,6 +68,7 @@ const words: Translations = {
   'course.statics.fm.terms.springRedundant': 'Le ressort libéré est l\'inconnue hyperstatique : X est son effort. L\'appui se déplace de −X/k ; c\'est pourquoi δᵢᵢ ajoute la flexibilité du ressort, 1/k.',
   'course.statics.fm.s5.axialOff': 'Sans déformation axiale : les barres de portique n\'apportent que la flexion. Les bielles conservent leur terme axial.',
   'course.statics.fm.s5.axialKept': '{list} ne travaille qu\'axialement : sa ligne et sa colonne conservent le terme axial, car sans lui son équation ne dirait rien.',
+  'course.statics.fm.s5.axialAll': 'Garder le terme axial dans quelques lignes seulement ne suffit pas ici : la matrice mélangée ne serait pas définie positive, donc pas une souplesse. Tous les coefficients gardent le terme axial.',
   'course.statics.fm.s9.axialOff': 'Sans déformation axiale, la structure est plus rigide que celle de la méthode des rigidités, qui l\'inclut. L\'écart maximal est de {d}, soit {pct} de l\'effort le plus grand : c\'est l\'apport du terme axial que vous avez laissé de côté.',
   'course.statics.fm.s9.rigidOk': 'Cela concorde avec la méthode des déplacements résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie.',
 

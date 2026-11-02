@@ -77,7 +77,8 @@ export function undetermined(A: number[][]): number[] {
  * horizontal reaction of a beam) would have no flexibility at all and its
  * equation would say nothing. Such redundants keep the axial term in their
  * row and column; the rest go without it. `droppable` marks the rows that the
- * option removes (frame members' axial terms; a biela's stays).
+ * option removes (frame members' axial terms; a biela's stays). When that mix is
+ * not positive definite it is no flexibility, and every coefficient keeps its axial term.
  */
 export function axialKept(terms: TermRow[][][], full: number[][], droppable: (row: TermRow) => boolean): Set<number> {
   const n = full.length;
@@ -94,5 +95,23 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
     for (const j of free) kept.add(j);
     D = reduced();
   }
+  if (kept.size && kept.size < n && !positiveDefinite(D)) return new Set(D.keys());
   return kept;
+}
+
+function positiveDefinite(A: number[][]): boolean {
+  const n = A.length;
+  const L = A.map(() => new Array(n).fill(0));
+  const big = Math.max(0, ...A.map((r, i) => Math.abs(r[i])));
+  for (let j = 0; j < n; j++) {
+    for (let i = j; i < n; i++) {
+      let v = A[i][j];
+      for (let k = 0; k < j; k++) v -= L[i][k] * L[j][k];
+      if (i === j) {
+        if (!(v > 1e-12 * big)) return false;
+        L[j][j] = Math.sqrt(v);
+      } else L[i][j] = v / L[j][j];
+    }
+  }
+  return true;
 }

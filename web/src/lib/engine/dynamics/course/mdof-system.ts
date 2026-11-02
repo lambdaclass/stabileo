@@ -69,10 +69,10 @@ export class SystemError extends Error {
   constructor(public code: 'empty' | 'noMass' | 'singular' | 'tooBig' | 'indefinite', public params: Record<string, number> = {}) { super(code); }
 }
 
-/** ω = √λ, refusing a λ below zero beyond round-off of the largest: K is then not positive semidefinite, an unstable structure. */
+/** ω = √λ, refusing a λ below zero beyond n ulps of the largest: K is then not positive semidefinite, an unstable structure. */
 export function circularFrequencies(lambda: readonly number[]): number[] {
   const scale = Math.max(0, ...lambda.map(Math.abs));
-  if (lambda.some((l) => l < -1e-13 * scale)) throw new SystemError('indefinite');
+  if (lambda.some((l) => l < -lambda.length * Number.EPSILON * scale)) throw new SystemError('indefinite');
   return lambda.map((l) => Math.sqrt(Math.max(l, 0)));
 }
 
@@ -106,7 +106,7 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
     if (!(rhoA > 0)) continue;
     const released = ed.type === 'frame' && (ed.hingeStart || ed.hingeEnd);
     let mg: Mat;
-    if (ed.type === 'truss') mg = trussMass(rhoA, ed.length, consistent);
+    if (ed.type === 'truss') mg = congruence(ed.T, trussMass(rhoA, ed.length, consistent));
     else if (!consistent || released) mg = congruence(ed.T, lumpedFrameMass(rhoA, ed.length));
     else mg = congruence(ed.T, consistentFrameMass(rhoA, ed.length));
     members.push({ elementId: ed.elementId, memberId: memberOf.get(ed.elementId) ?? ed.elementId, type: ed.type, rhoA, L: ed.length, kind: released && consistent ? 'released' : consistent ? 'consistent' : 'lumped' });

@@ -38,6 +38,8 @@ export interface TeachingPDelta {
   method: GeomMethod;
   linear: State;
   final: State;
+  /** The axial forces K(N) was built from for `final`: its forces are in equilibrium with the loads only with these. */
+  finalSolvedWith: Map<number, number>;
   history: IterationRecord[];
   iterations: number;
   converged: boolean;
@@ -98,7 +100,7 @@ const freeVector = (sys: SoSystem, D: number[]) => sys.free.map((d) => D[d]);
 export function iteratePDelta(sys: SoSystem, method: GeomMethod, maxIter = PDELTA_MAX_ITER, tol = PDELTA_TOL): TeachingPDelta {
   const linear = solveState(sys, new Map(), 'none');
   const empty = { D: new Array(sys.nTotal).fill(0), N: new Map<number, number>() };
-  if (!linear) return { sys, method, linear: empty, final: empty, history: [], iterations: 0, converged: false, stable: false, failed: true };
+  if (!linear) return { sys, method, linear: empty, final: empty, finalSolvedWith: new Map(), history: [], iterations: 0, converged: false, stable: false, failed: true };
   const history: IterationRecord[] = [];
   let state = linear;
   let converged = false, failed = false;
@@ -116,7 +118,7 @@ export function iteratePDelta(sys: SoSystem, method: GeomMethod, maxIter = PDELT
   const last = history[history.length - 1];
   const lastN = last?.N ?? new Map<number, number>();
   const stable = !failed && negativeEigenvalues(reducedStiffness(sys, lastN, method)) === 0 && (method !== 'phi' || clampedCount(sys, lastN, 1) === 0);
-  return { sys, method, linear, final: state, history, iterations: history.length, converged, stable, failed };
+  return { sys, method, linear, final: state, finalSolvedWith: lastN, history, iterations: history.length, converged, stable, failed };
 }
 
 export function teachingPDelta(input: SolverInput, opts: SecondOrderOptions): { ok: true; run: TeachingPDelta } | { ok: false; reason: Txt } {

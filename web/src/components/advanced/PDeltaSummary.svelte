@@ -38,6 +38,7 @@
   }
   const num = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
   const disp = (v: number | null) => (v === null ? '—' : sigQ(v, 'displacement'));
+  const uAt = $derived(conv?.find((r) => r.uAt)?.uAt ?? null);
 </script>
 
 <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
@@ -98,6 +99,7 @@
           {/each}
         </tbody>
       </table>
+      {#if uAt}<p class="pd-note" data-testid="pdelta-convergence-u">{'node' in uAt ? tp(`${K}.convergenceUNode`, { id: uAt.node }) : tp(`${K}.convergenceUMember`, { id: uAt.member })}</p>{/if}
     {:else}
       <button class="small-btn" disabled={busy} onclick={runConvergence} data-testid="pdelta-convergence-run">{busy ? t(`${K}.running`) : t(`${K}.runConvergence`)}</button>
     {/if}

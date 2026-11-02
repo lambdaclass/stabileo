@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { peakAlong } from '../governing-case';
+import { peakAlong, computeGoverning2D } from '../governing-case';
+import type { AnalysisResults } from '../types';
 import { computeDiagramValueAt } from '../diagrams';
 import type { ElementForces } from '../types';
 
@@ -32,5 +33,25 @@ describe('the governing case reads each diagram at its true peak', () => {
     expect(grid).toBeLessThan(scan * (1 - 1e-4));
     expect(peakAlong('moment', ef) / scan).toBeCloseTo(1, 7);
   });
-});
 
+  it('two stationary points of a cubic between one sample and a point load: the hidden peak governs', () => {
+    const k = 1000, x1 = 0.584, x2 = 0.5933, tp = 0.596, m0 = 1000;
+    const sum = x1 + x2, prod = x1 * x2;
+    const M = (t: number) => m0 + k * (t ** 3 / 3 - (sum * t * t) / 2 + prod * t);
+    const p = k * (tp - x1) * (tp - x2) + 1.3;
+    const ef: ElementForces = {
+      elementId: 1, nStart: 0, nEnd: 0, mStart: m0, mEnd: 0, length: 1,
+      vStart: -k * prod, vEnd: 0, qI: 0, qJ: 0, pointLoads: [{ a: tp, p }],
+      distributedLoads: [{ qI: k * sum, qJ: k * (sum - 2 * tp), a: 0, b: tp }], hingeStart: false, hingeEnd: false,
+    };
+    expect(computeDiagramValueAt('moment', x1, ef) / M(x1)).toBeCloseTo(1, 12);
+    const scan = Math.max(...Array.from({ length: 400001 }, (_, i) => Math.abs(computeDiagramValueAt('moment', i / 400000, ef))));
+    expect(scan / M(x1)).toBeCloseTo(1, 12);
+    expect(Math.abs(computeDiagramValueAt('moment', tp, ef))).toBeLessThan(M(x1) * (1 - 5e-8));
+    expect(peakAlong('moment', ef) / M(x1)).toBeCloseTo(1, 12);
+    const flat: ElementForces = { ...ef, mStart: M(x1) - 1e-6, mEnd: M(x1) - 1e-6, vStart: 0, vEnd: 0, pointLoads: [], distributedLoads: [] };
+    const res = (e: ElementForces) => ({ elementForces: [e] }) as unknown as AnalysisResults;
+    const gov = computeGoverning2D(new Map([[1, res(flat)], [2, res(ef)]]), new Map([[1, 'flat'], [2, 'cubic']]));
+    expect(gov.get(1)!.moment!.comboName).toBe('cubic');
+  });
+});

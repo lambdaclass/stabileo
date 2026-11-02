@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasm from '../../wasm-solver';
 import type { ElementForces, SolverInput } from '../../types';
-import { teachingPDelta, toAnalysisResults } from '../pdelta';
-import { teachingBuckling } from '../buckling';
+import { teachingPDelta, toAnalysisResults, iteratePDelta } from '../pdelta';
+import { teachingBuckling, phiBuckling, criticalCount, firstOrderAxial } from '../buckling';
 import { refineInput, collapseResults } from '../refine';
 import { computeDiagramValueAt } from '../../diagrams';
-import { buildSystem } from '../system';
+import { buildSystem, TEACHING_MAX_DOFS } from '../system';
+import { runPDelta2D } from '../run-pdelta';
+import { DEFAULT_SETTINGS } from '../settings';
 import { column, portal, scaleArea, EI } from './fixtures';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
@@ -169,7 +171,7 @@ describe('a load along a member', () => {
     input.loads.push({ type: 'axialDistributed', data: { elementId: 1, qI: qa, qJ: qa } });
     const t = teachingPDelta(input, { method: 'consistent', axialRigid: false });
     if (!t.ok) throw new Error(t.reason.key);
-    const mine = toAnalysisResults(t.run.sys, input, t.run.final, 'consistent', t.run.final.N).elementForces[0];
+    const mine = toAnalysisResults(t.run.sys, input, t.run.final, 'consistent', t.run.finalSolvedWith).elementForces[0];
     const engRes = wasm.solvePDelta(input).results;
     const eng = engRes.elementForces[0];
     const top = t.run.final.D[t.run.sys.dof(2, 1)];
@@ -178,6 +180,106 @@ describe('a load along a member', () => {
     expect(mine.nStart - mine.nEnd).toBeCloseTo(qa * L, 9);
     for (const key of ['nStart', 'nEnd', 'vStart', 'mStart', 'mEnd'] as const) expect(mine[key]).toBeCloseTo(eng[key], 6);
     expect(mine.distributedLoadsX).toEqual([{ qI: qa, qJ: qa, a: 0, b: L }]);
+  });
+});
+
+describe('an axial span load alone', () => {
+  it('a cantilever column loaded only along its axis is compressed by it: the teaching N and top displacement are the engine\'s', () => {
+    const L = 5, qa = -6;
+    const input = column('fixed', null, L, 0, 0);
+    input.loads = [{ type: 'axialDistributed', data: { elementId: 1, qI: qa, qJ: qa } }];
+    const b = buildSystem(input, { method: 'consistent', axialRigid: false });
+    if (!b.ok) throw new Error(b.reason.key);
+    const first = firstOrderAxial(b.sys);
+    if (!first.ok) throw new Error(first.reason.key);
+    expect(first.N0.get(1)!).toBeCloseTo((qa * L) / 2, 9);
+    const t = teachingPDelta(input, { method: 'consistent', axialRigid: false });
+    if (!t.ok) throw new Error(t.reason.key);
+    const engRes = wasm.solvePDelta(input).results;
+    const top = t.run.final.D[t.run.sys.dof(2, 1)];
+    expect(top).toBeLessThan(0);
+    expect(top).toBeCloseTo(engRes.displacements.find((d: { nodeId: number }) => d.nodeId === 2).uz, 12);
+    const f = toAnalysisResults(t.run.sys, input, t.run.final, 'consistent', t.run.finalSolvedWith).elementForces[0];
+    expect(f.nStart).toBeCloseTo(qa * L, 9);
+    expect(f.nEnd).toBeCloseTo(0, 9);
+  });
+});
+
+describe('forces recovered with the axial forces the last solve used', () => {
+  const balance = (sys: ReturnType<typeof iteratePDelta>['sys'], ends: Map<number, number[]>) => {
+    const nodal = new Array(sys.nTotal).fill(0);
+    for (const m of sys.members) {
+      const c = m.c, s = m.s, f = ends.get(m.id)!;
+      const ids = [sys.dof(m.i, 0), sys.dof(m.i, 1), sys.dof(m.i, 2), sys.dof(m.j, 0), sys.dof(m.j, 1), sys.dof(m.j, 2)];
+      const g = [c * f[0] - s * f[1], s * f[0] + c * f[1], f[2], c * f[3] - s * f[4], s * f[3] + c * f[4], f[5]];
+      ids.forEach((d, k) => { nodal[d] += g[k]; });
+    }
+    return Math.max(...sys.free.map((d) => Math.abs(nodal[d] - sys.Fnodal[d])));
+  };
+  for (const maxIter of [1, 100]) {
+    it(`${maxIter === 1 ? 'stopped after one iteration' : 'converged'}: every free joint balances its loads`, () => {
+      const b = buildSystem(portal(4, 6, 1500, 10), { method: 'consistent', axialRigid: false });
+      if (!b.ok) throw new Error(b.reason.key);
+      const run = iteratePDelta(b.sys, 'consistent', maxIter);
+      expect(run.converged).toBe(maxIter !== 1);
+      const res = toAnalysisResults(run.sys, portal(4, 6, 1500, 10), run.final, 'consistent', run.finalSolvedWith);
+      const ends = new Map(res.elementForces.map((e) => [e.elementId, [-e.nStart, e.vStart, e.mStart, e.nEnd, -e.vEnd, -e.mEnd]]));
+      expect(balance(run.sys, ends)).toBeLessThan(1e-8);
+    });
+  }
+
+  it('the panel\'s results: every free joint balances its loads', () => {
+    for (const method of ['phi', 'string'] as const) {
+      const pd = runPDelta2D(portal(4, 6, 1500, 10), { ...DEFAULT_SETTINGS, method, n: 1 });
+      if (!pd.ok) throw new Error(pd.reason.key);
+      const b = buildSystem(portal(4, 6, 1500, 10), { method, axialRigid: false });
+      if (!b.ok) throw new Error(b.reason.key);
+      const ends = new Map(pd.result.results.elementForces.map((e) => [e.elementId, [-e.nStart, e.vStart, e.mStart, e.nEnd, -e.vEnd, -e.mEnd]]));
+      expect(balance(b.sys, ends)).toBeLessThan(1e-8);
+    }
+  });
+});
+
+describe('the size limit', () => {
+  it('a chain of 5000 joints is refused with its exact count of unknowns, before any dense matrix', () => {
+    const n = 5000;
+    const input: SolverInput = {
+      nodes: new Map(Array.from({ length: n }, (_, k) => [k + 1, { id: k + 1, x: k, z: 0 }])),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+      elements: new Map(Array.from({ length: n - 1 }, (_, k) => [k + 1, { id: k + 1, type: 'frame' as const, nodeI: k + 1, nodeJ: k + 2, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }])),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' as const }]]),
+      loads: [{ type: 'nodal', data: { nodeId: n, fx: -1, fz: 0, my: 0 } }],
+    };
+    const b = buildSystem(input, { method: 'consistent', axialRigid: false });
+    expect(b.ok).toBe(false);
+    if (!b.ok) {
+      expect(b.reason.key).toBe('course.second-order.refuse.tooBig');
+      expect(b.reason.params).toEqual({ n: 3 * (n - 1), max: TEACHING_MAX_DOFS });
+    }
+  });
+});
+
+describe('φ buckling never invents a mode', () => {
+  it('a two-bar truss has at most as many critical loads as free DOFs: asking for more gives no fabricated λ', () => {
+    const input: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 2, z: 0 }], [3, { id: 3, x: 1, z: 1 }]]),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+      elements: new Map([[1, { id: 1, type: 'truss' as const, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }], [2, { id: 2, type: 'truss' as const, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' as const }], [2, { id: 2, nodeId: 2, type: 'pinned' as const }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -100, my: 0 } }],
+    };
+    const b = buildSystem(input, { method: 'phi', axialRigid: false });
+    if (!b.ok) throw new Error(b.reason.key);
+    const first = firstOrderAxial(b.sys);
+    if (!first.ok) throw new Error(first.reason.key);
+    const modes = phiBuckling(b.sys, 3, first.N0, []);
+    expect(modes.length).toBeLessThan(3);
+    for (const m of modes) {
+      expect(Number.isFinite(m.lambda)).toBe(true);
+      expect(criticalCount(b.sys, first.N0, m.lambda * (1 + 1e-6))).toBeGreaterThan(criticalCount(b.sys, first.N0, m.lambda * (1 - 1e-6)));
+    }
   });
 });
 

@@ -86,6 +86,25 @@ describe('Basic P-Δ', () => {
     expect(err[3]).toBeLessThan(1e-4);
   });
 
+  it('a member whose ends do not move: u is its midspan deflection at every n, the exact one with no axial force', () => {
+    const L = 5, w = 4;
+    const input = column('pinned', 'pinned', L, 0);
+    input.loads = [{ type: 'distributed', data: { elementId: 1, qI: w, qJ: w } }];
+    const rows = pdeltaConvergence(input, S());
+    const exact = (5 * w * L ** 4) / (384 * EI);
+    for (const r of rows.filter((x) => x.label === 'n')) {
+      expect(r.uAt).toEqual({ member: 1 });
+      expect(r.u! / exact).toBeCloseTo(1, 6);
+    }
+    expect(rows.find((r) => r.label === 'phi')!.u).toBeNull();
+  });
+
+  it('a column whose top node moves: u stays that node\'s translation', () => {
+    const rows = pdeltaConvergence(column('fixed', null, 4, 100, 5), S());
+    for (const r of rows) expect(r.uAt).toEqual({ node: 2 });
+    expect(rows[0].u).toBeGreaterThan(0);
+  });
+
   it('takes the axial force where it acts: a column loaded at mid-height is compressed below the load only', () => {
     const input = column('fixed', 'rollerZ', 6, 0);
     input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: 3, p: 0, px: -200 } }, { type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 1 } }];

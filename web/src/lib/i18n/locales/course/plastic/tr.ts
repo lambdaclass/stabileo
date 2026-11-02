@@ -92,7 +92,7 @@ const words: Translations = {
   'course.plastic.st.eqCount': '{unknowns} bilinmeyen (momentler ve λ) ve {m} denklem kalır: {free} değerin sabitlenmesi gerekir. Bunlar, bir mekanizmanın oluştuğu kesitlerde Mp kabul edilerek sabitlenir.',
   'course.plastic.st.elasticLead': 'İlk kesit Mp değerine ulaşana kadar ölçeklenen elastik çözüm dengededir ve hiçbir yerde Mp değerini aşmaz. Statik teoreme göre λ değeri bir alt sınırdır.',
   'course.plastic.st.firstYield': 'İlk akma',
-  'course.plastic.st.elasticWhy': 'Bu, artımsal hesabın ilk adımıdır. Momentler yeniden dağıldığı için yapı bundan sonra da daha fazla yük taşır.',
+  'course.plastic.st.elasticWhy': 'Bu, artımsal hesabın ilk adımıdır. Hiperstatik bir yapıda yük artmaya devam edebilir: her mafsaldan sonra momentler yeniden dağılır ve elastik dağılım artık geçerli olmaz. İzostatik bir yapıda ilk mafsal zaten bir mekanizma oluşturur.',
   'course.plastic.st.trialLead': 'Bir mekanizmanın kesitlerinde uygun işaretle Mp kabul edilir; denge denklemleri λ ve diğer momentleri verir. Sonra |M| ≤ Mp kontrol edilir.',
   'course.plastic.st.trialWhy': 'Kontrol sağlanmazsa, en büyük |M|/Mp oranına bölünen dağılım dengede kalır ve artık Mp değerini aşmaz: bir alt sınır verir. Bir sonraki kabul, Mp değerinin aşıldığı yere bir mafsal koyar.',
   'course.plastic.st.trial': 'Deneme {k}',
@@ -148,7 +148,7 @@ const words: Translations = {
   'course.plastic.mech.vwDiffer': 'Uyuşmuyorlar: şekildeki mekanizma adım adım hesabın ulaştığı mekanizma değil. λc değerini kullanmadan önce modeli kontrol edin.',
 
   'course.plastic.user.title': 'Bir mekanizma önerin',
-  'course.plastic.user.help': 'Bir mekanizma genel olarak GH + 1 mafsal gerektirir. Tam GH + 1 mafsalla tam mekanizmadır ve momentler yalnızca dengeden çıkar. Daha azıyla kısmi mekanizmadır: yapının bir bölümünü kapsar ve bazı bilinmeyenler serbest kalır. Daha fazlasıyla fazla mafsallı mekanizmadır: birden fazla serbestlik derecesi vardır. Virtüel işle her mekanizma bir üst sınır olan bir λ verir (kinematik teorem). Bu λ için momentler hiçbir yerde Mp değerini aşmıyorsa λ aynı zamanda bir alt sınırdır (statik teorem) ve dolayısıyla göçme yüküdür (teklik).',
+  'course.plastic.user.help': 'GH + 1 mafsal, mafsallar bağımsız serbestlikler olduğu sürece tam mekanizmanın sayısıdır: o zaman hiperstatik bilinmeyen kalmaz ve momentler yalnızca dengeden çıkar. Bir mekanizma kısmi (yerel) de olabilir: yapının bir bölümünü hareket ettirirken başka yerde hiperstatik bilinmeyenler kalır, bu yüzden denge tek başına bütün momentleri vermez. Bir mafsal kümesinin tam, kısmi ya da birden fazla serbestlik dereceli olması yalnızca sayıya değil, hangi serbestliklerin bağımsız olduğuna, kaç hiperstatik bilinmeyen kaldığına ve mekanizmanın boyutuna bağlıdır. Virtüel işle her mekanizma bir üst sınır olan bir λ verir (kinematik teorem). Bu λ için momentler hiçbir yerde Mp değerini aşmıyorsa λ aynı zamanda bir alt sınırdır (statik teorem) ve dolayısıyla göçme yüküdür (teklik).',
   'course.plastic.user.summaryEmpty': 'mafsal koymak için çubuklara dokunun',
   'course.plastic.user.summaryCount': '{n} mafsal',
   'course.plastic.user.summaryLambda': '{n} mafsal, λ = {lambda}',

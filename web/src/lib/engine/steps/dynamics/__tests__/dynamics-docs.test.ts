@@ -12,6 +12,7 @@ import { isTxt } from '../../doc';
 import { num } from '../../format';
 import katex from 'katex';
 import { shearMatrixTex } from '../mdof-system-blocks';
+import { freeVibrationTex } from '../mdof-doc';
 
 const quiet: Array<ReturnType<typeof vi.spyOn>> = [];
 beforeAll(async () => {
@@ -197,5 +198,18 @@ describe('the shear building stiffness matrix as written', () => {
     expect(shearMatrixTex(3)).toContain('-k_3 & k_3 \\end');
     expect(shearMatrixTex(5)).toContain('k_{5}');
     for (const n of [1, 2, 3, 5]) expect(() => katex.renderToString(shearMatrixTex(n), { throwOnError: true })).not.toThrow();
+  });
+});
+
+describe('a modal free vibration written in its damping regime', () => {
+  it('undamped, underdamped, critical and overdamped each get their own form', () => {
+    expect(freeVibrationTex(1, 1, 0, 0, 2)).not.toContain('e^');
+    expect(freeVibrationTex(1, 1, 0, 0.05, 2)).toContain('\\cos\\omega_{D1}');
+    const crit = freeVibrationTex(1, 1, 0, 1, 2);
+    expect(crit).toContain('e^{-\\omega_{1} t}');
+    expect(crit).not.toMatch(/cos|sin/);
+    const over = freeVibrationTex(1, 1, 0, 2, 2);
+    expect(over).toContain('\\cosh');
+    expect(over).toContain('\\sinh');
   });
 });

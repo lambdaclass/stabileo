@@ -93,7 +93,7 @@ export const es: Translations = {
   'course.dynamics.mdof.orth.lead': 'Los modos son ortogonales respecto de M y de K. Por eso, al pasar a coordenadas modales, las dos matrices quedan diagonales.',
   'course.dynamics.mdof.orth.check': 'El mayor término fuera de la diagonal vale {m} veces la diagonal en ΦᵀMΦ y {k} veces en ΦᵀKΦ: son diagonales salvo el redondeo.',
   'course.dynamics.mdof.orth.tableCaption': 'Masas y rigideces generalizadas; su cociente es ω_i².',
-  'course.dynamics.mdof.orth.why': 'La ortogonalidad viene de que M y K son simétricas y de que cada par de modos tiene frecuencias distintas.',
+  'course.dynamics.mdof.orth.why': 'La ortogonalidad viene de que M y K son simétricas y de que cada par de modos tiene frecuencias distintas. Con una frecuencia repetida cualquier combinación de sus modos también es un modo, así que no son ortogonales por sí solos: se eligen ortogonales.',
   'course.dynamics.mdof.part.lead': 'El factor de participación Γ_i mide cuánto se excita el modo i cuando todos los grados de libertad se mueven juntos en una dirección, como en un sismo. La masa efectiva M_ef,i es la parte de la masa total que vibra con ese modo.',
   'course.dynamics.mdof.part.r': 'r es el vector de influencia: vale 1 en las traslaciones de la dirección estudiada y 0 en el resto.',
   'course.dynamics.mdof.part.caption': 'Masa total que se traslada: {mx} t en X y {mz} t en Z. Las masas efectivas de todos los modos suman esa masa.',
@@ -130,6 +130,8 @@ export const es: Translations = {
   'course.dynamics.mdof.err.shear.base': 'El pórtico de corte necesita los apoyos empotrados o articulados, todos en un mismo nivel.',
   'course.dynamics.mdof.err.shear.shape': 'El pórtico de corte necesita columnas verticales entre pisos y vigas horizontales en cada piso, sin otras barras.',
   'course.dynamics.mdof.err.shear.noColumns': 'Algún piso no tiene columnas que tomen corte (están articuladas en sus dos extremos).',
+  'course.dynamics.mdof.err.shear.floorSplit': 'Algún piso tiene nudos que ninguna viga une: no se mueven juntos, así que no son un solo grado de libertad.',
+  'course.dynamics.mdof.err.shear.variableSection': 'Alguna barra tiene sección variable: un solo EI no da la rigidez de su piso.',
   'course.dynamics.mdof.err.shear.noMass': 'Algún piso no tiene masa. Agregá masas puntuales en los pisos.',
 };
 
@@ -226,7 +228,7 @@ export const en: Translations = {
   'course.dynamics.mdof.orth.lead': 'The modes are orthogonal with respect to M and to K. That is why both matrices become diagonal in modal coordinates.',
   'course.dynamics.mdof.orth.check': 'The largest off-diagonal term is {m} times the diagonal in ΦᵀMΦ and {k} times in ΦᵀKΦ: they are diagonal up to round-off.',
   'course.dynamics.mdof.orth.tableCaption': 'Generalized masses and stiffnesses; their ratio is ω_i².',
-  'course.dynamics.mdof.orth.why': 'Orthogonality follows from M and K being symmetric and from each pair of modes having different frequencies.',
+  'course.dynamics.mdof.orth.why': 'Orthogonality follows from M and K being symmetric and from each pair of modes having different frequencies. With a repeated frequency any combination of its modes is also a mode, so they are not orthogonal by themselves: they are chosen orthogonal.',
   'course.dynamics.mdof.part.lead': 'The participation factor Γ_i measures how much mode i is excited when every degree of freedom moves together in one direction, as in an earthquake. The effective mass M_ef,i is the part of the total mass that vibrates in that mode.',
   'course.dynamics.mdof.part.r': 'r is the influence vector: 1 on the translations in the direction studied and 0 elsewhere.',
   'course.dynamics.mdof.part.caption': 'Total translating mass: {mx} t in X and {mz} t in Z. The effective masses of all the modes add up to it.',
@@ -263,6 +265,8 @@ export const en: Translations = {
   'course.dynamics.mdof.err.shear.base': 'The shear building needs fixed or pinned supports, all at the same level.',
   'course.dynamics.mdof.err.shear.shape': 'The shear building needs vertical columns between floors and horizontal beams at each floor, with no other members.',
   'course.dynamics.mdof.err.shear.noColumns': 'A floor has no columns that carry shear (they are hinged at both ends).',
+  'course.dynamics.mdof.err.shear.floorSplit': 'A floor has nodes that no beam joins: they do not move together, so they are not one degree of freedom.',
+  'course.dynamics.mdof.err.shear.variableSection': 'A member has a variable section: one EI does not give the stiffness of its floor.',
   'course.dynamics.mdof.err.shear.noMass': 'A floor has no mass. Add point masses at the floors.',
 };
 
@@ -359,7 +363,7 @@ export const pt: Translations = {
   'course.dynamics.mdof.orth.lead': 'Os modos são ortogonais em relação a M e a K. Por isso, em coordenadas modais, as duas matrizes ficam diagonais.',
   'course.dynamics.mdof.orth.check': 'O maior termo fora da diagonal vale {m} vezes a diagonal em ΦᵀMΦ e {k} vezes em ΦᵀKΦ: são diagonais a menos do arredondamento.',
   'course.dynamics.mdof.orth.tableCaption': 'Massas e rigidezes generalizadas; seu quociente é ω_i².',
-  'course.dynamics.mdof.orth.why': 'A ortogonalidade vem de M e K serem simétricas e de cada par de modos ter frequências diferentes.',
+  'course.dynamics.mdof.orth.why': 'A ortogonalidade vem de M e K serem simétricas e de cada par de modos ter frequências diferentes. Com uma frequência repetida qualquer combinação dos seus modos também é um modo, então eles não são ortogonais por si sós: são escolhidos ortogonais.',
   'course.dynamics.mdof.part.lead': 'O fator de participação Γ_i mede quanto o modo i é excitado quando todos os graus de liberdade se movem juntos em uma direção, como em um sismo. A massa efetiva M_ef,i é a parte da massa total que vibra nesse modo.',
   'course.dynamics.mdof.part.r': 'r é o vetor de influência: vale 1 nas translações da direção estudada e 0 no resto.',
   'course.dynamics.mdof.part.caption': 'Massa total que se translada: {mx} t em X e {mz} t em Z. As massas efetivas de todos os modos somam essa massa.',
@@ -396,5 +400,7 @@ export const pt: Translations = {
   'course.dynamics.mdof.err.shear.base': 'O pórtico de cisalhamento precisa de apoios engastados ou articulados, todos no mesmo nível.',
   'course.dynamics.mdof.err.shear.shape': 'O pórtico de cisalhamento precisa de pilares verticais entre pavimentos e vigas horizontais em cada pavimento, sem outras barras.',
   'course.dynamics.mdof.err.shear.noColumns': 'Algum pavimento não tem pilares que resistam ao cisalhamento (estão articulados nas duas extremidades).',
+  'course.dynamics.mdof.err.shear.floorSplit': 'Algum pavimento tem nós que nenhuma viga une: não se movem juntos, então não são um único grau de liberdade.',
+  'course.dynamics.mdof.err.shear.variableSection': 'Alguma barra tem seção variável: um único EI não dá a rigidez do seu pavimento.',
   'course.dynamics.mdof.err.shear.noMass': 'Algum pavimento não tem massa. Adicione massas pontuais nos pavimentos.',
 };

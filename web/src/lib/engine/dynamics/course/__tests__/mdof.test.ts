@@ -106,8 +106,10 @@ describe('a stiffness that is not positive semidefinite', () => {
     const I = [[1, 0], [0, 1]];
     expect(() => modalSolve([[-1, 0], [0, 4]], I, dofs)).toThrow(SystemError);
     try { modalSolve([[-1, 0], [0, 4]], I, dofs); } catch (e) { expect((e as SystemError).code).toBe('indefinite'); }
-    expect(circularFrequencies([-1e-13, 4])).toEqual([0, 2]);
+    expect(circularFrequencies([-1e-15, 4])).toEqual([0, 2]);
+    expect(() => circularFrequencies([-1e-13, 4])).toThrow(SystemError);
     expect(() => circularFrequencies([-1, 1e12])).toThrow(SystemError);
+    expect(() => circularFrequencies([-0.05, 1e12])).toThrow(SystemError);
   });
 });
 

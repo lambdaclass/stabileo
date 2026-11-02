@@ -11,12 +11,15 @@ import { canonicalQuantity, familyOf, type IlTarget } from '../influence/quantit
 import type { InfluenceQuantity } from '../../store/model.svelte';
 import { numText } from './format';
 
-/** The line as deformed polylines over the members, its largest ordinate 12 % of the structure's size. */
-export function lineShape(pm: PlaneModel, points: IlPoint[], dir: Dir): NonNullable<Sketch['deformed']> {
+/**
+ * The line as deformed polylines over the members, its largest ordinate 12 % of the structure's size:
+ * positive against the unit load, or along it with `along` (Maxwell's deflection under the unit action).
+ */
+export function lineShape(pm: PlaneModel, points: IlPoint[], dir: Dir, along = false): NonNullable<Sketch['deformed']> {
   const xs = [...pm.nodes.values()].map((n) => n.x), zs = [...pm.nodes.values()].map((n) => n.z);
   const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1e-6);
   const peak = Math.max(...points.map((p) => Math.abs(p.value)), 1e-30);
-  const k = (0.12 * size) / peak;
+  const k = ((along ? -0.12 : 0.12) * size) / peak;
   const out: NonNullable<Sketch['deformed']> = [];
   let cur: { id: number; pts: Array<{ x: number; z: number }> } | null = null;
   for (const p of points) {
@@ -96,19 +99,20 @@ export function maxwellSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlTa
   const c = canonicalQuantity(q);
   const p = targetPoint(pm, target);
   const sk = sketchOf(pm);
-  const deformed = lineShape(pm, points, dir);
+  const deformed = lineShape(pm, points, dir, true);
   if (c === 'ry') return { ...sk, couples: [{ x: p.x, z: p.z, m: 1, label: '1', color: 'load' }], deformed };
   return { ...sk, forces: [{ x: p.x, z: p.z, fx: c === 'ux' ? 1 : 0, fz: c === 'uz' ? 1 : 0, label: '1', color: 'load' }], deformed };
 }
 
 /** Labels of the largest and smallest ordinates, on the line. */
-export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir): NonNullable<Sketch['labels']> {
-  const shape = lineShape(pm, points, dir).flatMap((d) => d.points);
+export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir, along = false): NonNullable<Sketch['labels']> {
+  const shape = lineShape(pm, points, dir, along).flatMap((d) => d.points);
+  const up = along ? 's' : 'n', down = along ? 'n' : 's';
   let iMax = 0, iMin = 0;
   points.forEach((p, k) => { if (p.value > points[iMax].value) iMax = k; if (p.value < points[iMin].value) iMin = k; });
   const out: NonNullable<Sketch['labels']> = [];
-  if (points[iMax].value > 1e-12) out.push({ ...shape[iMax], text: numText(points[iMax].value, 3), color: 'deformed', anchor: 'n' });
-  if (points[iMin].value < -1e-12) out.push({ ...shape[iMin], text: numText(points[iMin].value, 3), color: 'deformed', anchor: 's' });
+  if (points[iMax].value > 1e-12) out.push({ ...shape[iMax], text: numText(points[iMax].value, 3), color: 'deformed', anchor: up });
+  if (points[iMin].value < -1e-12) out.push({ ...shape[iMin], text: numText(points[iMin].value, 3), color: 'deformed', anchor: down });
   return out;
 }
 

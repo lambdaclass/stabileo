@@ -40,21 +40,24 @@ export function solveLp(p: LpProblem): LpResult {
   const basis: number[] = [];
   let si = nx, ai = nx + nSlack;
   const artCols: number[] = [];
+  const unitCol: Array<{ k: number; s: 1 | -1 }> = [];
   for (const r of rows) {
     const row = new Array(width).fill(0);
     cols.forEach((c, k) => { row[k] = c.s * (r.a[c.v] ?? 0); });
     row[width - 1] = r.b;
-    if (r.op === '<=') { row[si] = 1; basis.push(si++); }
-    else if (r.op === '>=') { row[si++] = -1; row[ai] = 1; artCols.push(ai); basis.push(ai++); }
-    else { row[ai] = 1; artCols.push(ai); basis.push(ai++); }
+    if (r.op === '<=') { unitCol.push({ k: si, s: 1 }); row[si] = 1; basis.push(si++); }
+    else if (r.op === '>=') { unitCol.push({ k: si, s: -1 }); row[si++] = -1; row[ai] = 1; artCols.push(ai); basis.push(ai++); }
+    else { unitCol.push({ k: ai, s: 1 }); row[ai] = 1; artCols.push(ai); basis.push(ai++); }
     T.push(row);
   }
-  let aScale = 0, bScale = 0;
-  for (const r of T) {
-    for (let k = 0; k < width - 1; k++) aScale = Math.max(aScale, Math.abs(r[k]));
-    bScale = Math.max(bScale, Math.abs(r[width - 1]));
-  }
-  const tol = EPS * Math.max(aScale, 1e-300);
+  const A0 = T.map((r) => r.slice(0, nx));
+  let bScale = 0;
+  for (const r of T) bScale = Math.max(bScale, Math.abs(r[width - 1]));
+  const rowTol = (row: number[]) => {
+    let m = 0;
+    for (let k = 0; k < width - 1; k++) m = Math.max(m, Math.abs(row[k]));
+    return EPS * Math.max(m, 1e-300);
+  };
 
   const pivot = (pr: number, pc: number) => {
     const pv = T[pr][pc];
@@ -71,19 +74,20 @@ export function solveLp(p: LpProblem): LpResult {
   };
 
   const run = (cost: number[], allowed: (col: number) => boolean): 'optimal' | 'unbounded' | 'iterationLimit' => {
-    const rcTol = EPS * Math.max(...cost.map(Math.abs), 1e-300);
     for (let iter = 0; iter < MAX_ITER; iter++) {
       let enter = -1;
       for (let col = 0; col < width - 1; col++) {
         if (!allowed(col) || basis.includes(col)) continue;
-        let rc = cost[col];
-        for (let r = 0; r < T.length; r++) rc -= cost[basis[r]] * T[r][col];
-        if (rc < -rcTol) { enter = col; break; }
+        let rc = cost[col], size = Math.abs(cost[col]);
+        for (let r = 0; r < T.length; r++) { const t = cost[basis[r]] * T[r][col]; rc -= t; size += Math.abs(t); }
+        if (rc < -EPS * Math.max(size, 1e-300)) { enter = col; break; }
       }
       if (enter < 0) return 'optimal';
       let leave = -1, best = Infinity;
+      let colMax = 0;
+      for (let r = 0; r < T.length; r++) colMax = Math.max(colMax, Math.abs(T[r][enter]));
       for (let r = 0; r < T.length; r++) {
-        if (T[r][enter] <= tol) continue;
+        if (T[r][enter] <= Math.min(rowTol(T[r]), EPS * colMax)) continue;
         const ratio = T[r][width - 1] / T[r][enter];
         const tie = EPS * Math.max(Math.abs(ratio), best === Infinity ? 0 : Math.abs(best));
         if (ratio < best - tie || (Math.abs(ratio - best) <= tie && basis[r] < basis[leave])) { best = ratio; leave = r; }
@@ -103,6 +107,7 @@ export function solveLp(p: LpProblem): LpResult {
     if (infeas > 1e-9 * Math.max(bScale, 1e-300)) return { status: 'infeasible' };
     for (let r = 0; r < T.length; r++) {
       if (!artCols.includes(basis[r])) continue;
+      const tol = rowTol(T[r]);
       const col = T[r].findIndex((v, k) => k < nx + nSlack && Math.abs(v) > tol);
       if (col >= 0) pivot(r, col);
     }
@@ -119,7 +124,32 @@ export function solveLp(p: LpProblem): LpResult {
   }
   if (!satisfies(p, x, free)) return { status: 'inaccurate' };
   const value = p.c.reduce((s, cj, j) => s + cj * x[j], 0);
+  const reduced = (k: number) => {
+    let rc = cost2[k];
+    for (let r = 0; r < T.length; r++) rc -= cost2[basis[r]] * T[r][k];
+    return rc;
+  };
+  const y = unitCol.map(({ k, s }) => -reduced(k) / s);
+  if (!optimalDual(rows, A0, cost2.slice(0, nx), y, value)) return { status: 'inaccurate' };
   return { status: 'optimal', x, value };
+}
+
+/** y certifies the vertex optimal for the rows as solved: the right sign per row, no negative reduced cost, no duality gap. */
+function optimalDual(rows: LpRow[], A: number[][], c: number[], y: number[], value: number): boolean {
+  const TOL = 1e-7;
+  const ys = Math.max(...y.map(Math.abs), 0);
+  for (let r = 0; r < rows.length; r++) {
+    if (rows[r].op === '<=' && y[r] > TOL * ys) return false;
+    if (rows[r].op === '>=' && y[r] < -TOL * ys) return false;
+  }
+  for (let k = 0; k < c.length; k++) {
+    let d = c[k], size = Math.abs(c[k]);
+    for (let r = 0; r < rows.length; r++) { const t = y[r] * A[r][k]; d -= t; size += Math.abs(t); }
+    if (d < -TOL * size - 1e-300) return false;
+  }
+  let dual = 0, size = Math.abs(value);
+  for (let r = 0; r < rows.length; r++) { dual += y[r] * rows[r].b; size += Math.abs(y[r] * rows[r].b); }
+  return Math.abs(value - dual) <= TOL * size + 1e-300;
 }
 
 /** The returned x checked against the problem as given: every row and every sign bound, to a tolerance scaled by its terms. */

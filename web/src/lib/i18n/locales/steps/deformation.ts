@@ -5,6 +5,7 @@ export const es: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Para este desplazamiento, dejar afuera el término axial no es una buena aproximación: el esfuerzo normal aporta el {pct} % del total. Conviene prender la opción.',
   'steps.m.castigliano.axialKept': 'Redundantes que trabajan sólo a esfuerzo normal: {list}. Sin el término axial su ecuación no dice nada, así que en sus filas y columnas se conserva; el resto de los coeficientes queda sólo con la flexión.',
+  'steps.m.castigliano.axialAll': 'Acá no alcanza con conservar el término axil solo en algunas filas: la matriz mezclada no sería definida positiva, es decir no sería una flexibilidad. Todos los coeficientes conservan el término axil.',
   'steps.m.castigliano.axialFallback': 'Sin el término axial el sistema no tiene solución única, así que se resuelve con los coeficientes completos, incluido el término axial.',
   'steps.deformation.axialOff': 'Resolución clásica: el término axial queda afuera y sólo cuenta la flexión.',
   'steps.deformation.axialLeftOut': 'Con la opción del término axial apagada, Σ N·n·L/EA no entra en el desplazamiento. Se muestra igual, para ver cuánto aportaría:',
@@ -230,6 +231,7 @@ export const en: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'For this displacement, leaving out the axial term is not a good approximation: the axial force contributes {pct} % of the total. Turning the option on is advisable.',
   'steps.m.castigliano.axialKept': 'Redundants that carry axial force only: {list}. Without the axial term their equations say nothing, so their rows and columns keep it; the other coefficients keep bending alone.',
+  'steps.m.castigliano.axialAll': 'Keeping the axial term in only some rows is not enough here: the mixed matrix would not be positive definite, so it would not be a flexibility. Every coefficient keeps the axial term.',
   'steps.m.castigliano.axialFallback': 'Without the axial term the system has no unique solution, so it is solved with the full coefficients, axial term included.',
   'steps.deformation.axialOff': 'Classical solution: the axial term is left out and only bending counts.',
   'steps.deformation.axialLeftOut': 'With the axial term option off, Σ N·n·L/EA does not enter the displacement. It is shown anyway, to see how much it would add:',
@@ -455,6 +457,7 @@ export const pt: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Para este deslocamento, deixar de fora o termo axial não é uma boa aproximação: o esforço normal contribui com {pct} % do total. Convém ligar a opção.',
   'steps.m.castigliano.axialKept': 'Hiperestáticos que trabalham só a esforço normal: {list}. Sem o termo axial a sua equação não diz nada, por isso as suas linhas e colunas o conservam; os demais coeficientes ficam só com a flexão.',
+  'steps.m.castigliano.axialAll': 'Aqui não basta conservar o termo axial só em algumas linhas: a matriz misturada não seria definida positiva, ou seja, não seria uma flexibilidade. Todos os coeficientes conservam o termo axial.',
   'steps.m.castigliano.axialFallback': 'Sem o termo axial o sistema não tem solução única, por isso é resolvido com os coeficientes completos, incluindo o termo axial.',
   'steps.deformation.axialOff': 'Solução clássica: o termo axial fica de fora e só conta a flexão.',
   'steps.deformation.axialLeftOut': 'Com a opção do termo axial desligada, Σ N·n·L/EA não entra no deslocamento. Ele é mostrado mesmo assim, para ver quanto acrescentaria:',

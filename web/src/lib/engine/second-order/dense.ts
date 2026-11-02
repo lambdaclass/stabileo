@@ -65,15 +65,70 @@ function triSolve(L: Mat, b: number[], upper: boolean): number[] {
 }
 
 /**
- * Number of negative eigenvalues of a symmetric matrix: those of D·A·D with D = |diag A|^(−1/2), which has the
- * same inertia (Sylvester) and no scale to hide a small one, beyond round-off.
+ * Number of negative eigenvalues of a symmetric matrix: the larger of two counts, the negative pivots of a
+ * Bunch–Kaufman LDLᵀ (Sylvester, exact up to the rounding of each pivot) and the negative eigenvalues of D·A·D
+ * with D = |diag A|^(−1/2) beyond round-off.
  */
 export function negativeEigenvalues(A: Mat): number {
   if (!A.length) return 0;
   const d = A.map((r, i) => (Math.abs(r[i]) > 0 && Number.isFinite(r[i]) ? 1 / Math.sqrt(Math.abs(r[i])) : 1));
   const { values } = symmetricEigen(A.map((r, i) => r.map((v, j) => d[i] * v * d[j])));
   const tol = 1e-14 * Math.max(0, ...values.map(Math.abs));
-  return values.filter((v) => v < -tol).length;
+  return Math.max(values.filter((v) => v < -tol).length, ldltNegatives(A));
+}
+
+/** Negative eigenvalues counted on the block-diagonal factor of a Bunch–Kaufman symmetric LDLᵀ. */
+export function ldltNegatives(S: Mat): number {
+  const n = S.length;
+  const A = S.map((r) => r.slice());
+  const alpha = (1 + Math.sqrt(17)) / 8;
+  const swap = (i: number, j: number) => {
+    if (i === j) return;
+    [A[i], A[j]] = [A[j], A[i]];
+    for (const r of A) [r[i], r[j]] = [r[j], r[i]];
+  };
+  let neg = 0;
+  let k = 0;
+  while (k < n) {
+    let lambda = 0, r = k;
+    for (let i = k + 1; i < n; i++) if (Math.abs(A[i][k]) > lambda) { lambda = Math.abs(A[i][k]); r = i; }
+    const akk = Math.abs(A[k][k]);
+    let size = 1;
+    if (lambda === 0) {
+      if (A[k][k] < 0) neg++;
+      k++;
+      continue;
+    }
+    if (akk < alpha * lambda) {
+      let sigma = 0;
+      for (let i = k; i < n; i++) if (i !== r) sigma = Math.max(sigma, Math.abs(A[i][r]));
+      if (akk * sigma >= alpha * lambda * lambda) size = 1;
+      else if (Math.abs(A[r][r]) >= alpha * sigma) { swap(k, r); size = 1; }
+      else { swap(k + 1, r); size = 2; }
+    }
+    if (size === 1) {
+      const p = A[k][k];
+      if (p < 0) neg++;
+      for (let i = k + 1; i < n; i++) {
+        const f = A[i][k] / p;
+        if (f === 0) continue;
+        for (let j = k + 1; j < n; j++) A[i][j] -= f * A[k][j];
+      }
+      k++;
+    } else {
+      const a = A[k][k], b = A[k + 1][k], c = A[k + 1][k + 1];
+      const det = a * c - b * b;
+      if (det < 0) neg++;
+      else if (a + c < 0) neg += 2;
+      for (let i = k + 2; i < n; i++) {
+        const u = A[i][k], v = A[i][k + 1];
+        const x = (c * u - b * v) / det, y = (a * v - b * u) / det;
+        for (let j = k + 2; j < n; j++) A[i][j] -= x * A[k][j] + y * A[k + 1][j];
+      }
+      k += 2;
+    }
+  }
+  return neg;
 }
 
 /** The determinant as sign and log₁₀ of its magnitude (LU with partial pivoting). */
@@ -161,8 +216,7 @@ export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const m = (C[i][j] + C[j][i]) / 2; C[i][j] = m; C[j][i] = m; }
   const { values, vectors } = symmetricEigen(C);
   const maxAbs = Math.max(0, ...values.map(Math.abs));
-  const maxPos = Math.max(0, ...values);
-  const floor = Math.max(1e-6 * maxPos, 1e-13 * maxAbs);
+  const floor = Math.max(1e-13, 64 * n * Number.EPSILON) * maxAbs;
   const out: Array<{ lambda: number; vector: number[] }> = [];
   values.forEach((mu, k) => {
     if (!(mu > floor)) return;

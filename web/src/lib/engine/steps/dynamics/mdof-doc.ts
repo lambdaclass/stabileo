@@ -171,7 +171,7 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
         ? note('warn', 'mdof.solve.resonant', { i: i + 1 })
         : { kind: 'calc', formula: '\\beta_i = \\Omega/\\omega_i, \\quad X_i = \\frac{P_i}{K_i}\\,D(\\beta_i, \\xi)', subst: `\\beta_{${i + 1}} = ${num(h.beta)}, \\quad D = ${num(h.D)}`, result: `X_{${i + 1}} = ${num(h.X)}` });
     } else {
-      blocks.push({ kind: 'eq', tex: `q_{${i + 1}}(t) = e^{-\\xi\\omega_{${i + 1}} t}\\big(${num(r.q0[i])}\\cos\\omega_{D${i + 1}} t + ${num((r.qd0[i] + c.xi * sp.omega * r.q0[i]) / (sp.omegaD || sp.omega))}\\sin\\omega_{D${i + 1}} t\\big)` });
+      blocks.push({ kind: 'eq', tex: freeVibrationTex(i + 1, r.q0[i], r.qd0[i], c.xi, sp.omega) });
     }
     return { kind: 'sub', title: dt('mdof.solve.modeTitle', { i: i + 1 }), blocks };
   });
@@ -212,4 +212,16 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
     intro,
     steps,
   };
+}
+
+export function freeVibrationTex(i: number, q0: number, v0: number, xi: number, w: number): string {
+  const q = `q_{${i}}(t)`;
+  if (Math.abs(xi - 1) < 1e-9) return `${q} = e^{-\\omega_{${i}} t}\\big(${num(q0)} + ${num(v0 + w * q0)}\\,t\\big)`;
+  if (xi > 1) {
+    const ws = w * Math.sqrt(xi * xi - 1);
+    return `${q} = e^{-\\xi\\omega_{${i}} t}\\big(${num(q0)}\\cosh ${num(ws)}\\,t + ${num((v0 + xi * w * q0) / ws)}\\sinh ${num(ws)}\\,t\\big)`;
+  }
+  const wd = w * Math.sqrt(1 - xi * xi);
+  const amp = `${num(q0)}\\cos\\omega_{D${i}} t + ${num((v0 + xi * w * q0) / wd)}\\sin\\omega_{D${i}} t`;
+  return xi === 0 ? `${q} = ${amp}` : `${q} = e^{-\\xi\\omega_{${i}} t}\\big(${amp}\\big)`;
 }

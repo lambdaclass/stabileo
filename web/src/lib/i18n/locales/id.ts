@@ -903,7 +903,7 @@ const id: Translations = {
   'kinematic.step3Title': 'Langkah 3 — Verifikasi dengan Matriks Kekakuan',
   'kinematic.matrixExplanation': 'Stabileo menyelesaikan struktur dengan merakit <strong style="color:#ddd">matriks kekakuan global</strong>. Di sini matriks tersebut ({n}×{n}) dianalisis untuk mendeteksi mekanisme yang tidak terdeteksi oleh persamaan Langkah 2 — misalnya, ketika tumpuan tidak terdistribusi dengan baik atau ada sendi yang menyebabkan ketidakstabilan lokal.',
   'kinematic.noMechanisms': '✓ Tidak terdeteksi mekanisme. Struktur stabil.',
-  'kinematic.hiddenMechanism': '✗ Terdeteksi {n} mode mekanisme meskipun g = {degree} ≥ 0.',
+  'kinematic.hiddenMechanism': '✗ Terdeteksi {n} mode mekanisme meskipun GH = {degree} ≥ 0.',
   'kinematic.hiddenMechanismExplanation': 'Persamaan Langkah 2 menghitung batasan secara global, tetapi tidak memverifikasi di mana lokasinya. Dalam kasus ini, satu zona struktur memiliki batasan berlebih sementara zona lain kekurangan.',
   'kinematic.mechanismDetected': '✗ Terdeteksi {n} mode mekanisme.',
   'kinematic.freeMovements': 'Gerakan bebas terdeteksi:',
@@ -1887,8 +1887,8 @@ const id: Translations = {
 
   // Classification text
   'kin.classHypostatic': 'Hipostatis — kurang {n} batasan. Struktur adalah mekanisme.',
-  'kin.classHiddenMechZero': 'Rumus memberikan g = 0 (syarat perlu untuk isostatis), tetapi BUKAN cukup. Verifikasi numerik (Langkah 3) mendeteksi {modes} mode mekanisme. Ini terjadi ketika batasan tidak terdistribusi dengan baik: satu zona memiliki batasan berlebih dan zona lain kekurangan.',
-  'kin.classHiddenMechPos': 'Rumus memberikan g = {degree} > 0 (tampak hiperstatis), tetapi verifikasi numerik (Langkah 3) mendeteksi {modes} mode mekanisme. Ini terjadi ketika batasan tidak terdistribusi dengan baik: satu zona hiperstatis (batasan berlebih) sementara yang lain hipostatis (kurang batasan). Kelebihan satu zona tidak mengkompensasi kekurangan zona lain.',
+  'kin.classHiddenMechZero': 'Rumus memberikan GH = 0 (syarat perlu untuk isostatis), tetapi BUKAN cukup. Verifikasi numerik (Langkah 3) mendeteksi {modes} mode mekanisme. Ini terjadi ketika batasan tidak terdistribusi dengan baik: satu zona memiliki batasan berlebih dan zona lain kekurangan.',
+  'kin.classHiddenMechPos': 'Rumus memberikan GH = {degree} > 0 (tampak hiperstatis), tetapi verifikasi numerik (Langkah 3) mendeteksi {modes} mode mekanisme. Ini terjadi ketika batasan tidak terdistribusi dengan baik: satu zona hiperstatis (batasan berlebih) sementara yang lain hipostatis (kurang batasan). Kelebihan satu zona tidak mengkompensasi kekurangan zona lain.',
   'kin.classIsostatic': 'Isostatis — jumlah batasan tepat yang diperlukan. Tidak ada redundansi.',
   'kin.classHyperstatic': 'Hiperstatis derajat {degree} — ada {degree} persamaan keseimbangan lebih dari yang diperlukan untuk menjamin stabilitas.',
   'kin.plural_s': '',

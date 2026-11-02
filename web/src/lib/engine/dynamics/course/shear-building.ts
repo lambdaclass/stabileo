@@ -38,7 +38,7 @@ export interface ShearBuilding {
   dofs: DofRef[];
 }
 
-export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass';
+export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection';
 
 const TOL = 1e-6;
 
@@ -62,7 +62,11 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     if (l < 0) return 'shape';
     if (l > 0) floors[l - 1].nodes.push(n.id);
   }
+  const parent = new Map<number, number>();
+  const root = (id: number): number => { let r = id; while (parent.has(r)) r = parent.get(r)!; return r; };
+  const join = (i: number, j: number) => { const a = root(i), b = root(j); if (a !== b) parent.set(a, b); };
   for (const e of els) {
+    if (e.variableSection) return 'variableSection';
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const la = levelOf(a.y), lb = levelOf(b.y);
     const s = model.sections.get(e.sectionId)!;
@@ -73,6 +77,7 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     if (Math.abs(a.y - b.y) <= TOL) {
       if (la === 0) return 'shape';
       floors[la - 1].mBars += mass;
+      join(e.nodeI, e.nodeJ);
       continue;
     }
     if (Math.abs(a.x - b.x) > TOL || Math.abs(la - lb) !== 1) return 'shape';
@@ -89,6 +94,7 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     f.mBars += mass / 2;
     if (lo > 0) floors[lo - 1].mBars += mass / 2;
   }
+  if (floors.some((f) => new Set(f.nodes.map(root)).size > 1)) return 'floorSplit';
   for (const p of points) {
     const n = model.nodes.get(p.nodeId);
     const l = n ? levelOf(n.y) : -1;

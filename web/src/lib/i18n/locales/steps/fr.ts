@@ -603,6 +603,7 @@ const stepsFr: Translations = {
   // ── The axial term option
   'steps.deformation.axialBigShare': 'Pour ce déplacement, négliger le terme axial n\'est pas une bonne approximation : l\'effort normal contribue à {pct} % du total. Il est conseillé d\'activer l\'option.',
   'steps.m.castigliano.axialKept': 'Inconnues hyperstatiques qui ne reprennent qu\'un effort normal : {list}. Sans le terme axial, leurs équations ne disent rien ; leurs lignes et colonnes le conservent donc, et les autres coefficients ne gardent que la flexion.',
+  'steps.m.castigliano.axialAll': 'Garder le terme axial dans quelques lignes seulement ne suffit pas ici : la matrice mélangée ne serait pas définie positive, donc pas une souplesse. Tous les coefficients gardent le terme axial.',
   'steps.m.castigliano.axialFallback': 'Sans le terme axial, le système n\'a pas de solution unique ; il est donc résolu avec les coefficients complets, terme axial inclus.',
   'steps.deformation.axialOff': 'Solution classique : le terme axial est négligé et seule la flexion compte.',
   'steps.deformation.axialLeftOut': 'Avec l\'option du terme axial désactivée, Σ N·n·L/EA n\'entre pas dans le déplacement. Il est tout de même affiché, pour voir ce qu\'il ajouterait :',
