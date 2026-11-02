@@ -189,7 +189,7 @@ npx vitest run --project unit --maxWorkers 1 \
   src/lib/export/__tests__/rc-cad-handoff-golden.test.ts \
   src/lib/export/__tests__/rc-cad-handoff-manifest.test.ts
 npx vitest run --project results --maxWorkers 1 \
-  src/lib/results-snapshot/__tests__/snapshot-self-checks.test.ts
+  src/lib/results-snapshot/__tests__/self-checks-preserve-snapshots.test.ts
 ```
 
 Commands run inside Nix with the pinned Rust 1.99.1 and Node 22 toolchains.

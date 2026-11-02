@@ -171,7 +171,9 @@ describe('against real corpus files', () => {
   it('NEGATIVE: v0.4.0 deep-beam-shell: the solid-shell stress change explains its stresses, not a wrong displacement', async () => {
     const entry = readManifest('v0.4.0').examples.find((e) => e.example === 'deep-beam-shell')!;
     const opened = await openAndSolve(readCorpusText(`v0.4.0/${entry.file}`));
-    expect(opened.changes.map((c) => c.id)).toEqual(['solid-shell-local-stress-axes']);
+    expect(opened.changes.map((c) => c.id)).toEqual([
+      'solid-shell-local-stress-axes', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks',
+    ]);
     const then = readResults(`v0.4.0/${entry.results}`);
     const stress = Object.keys(then).find((k) => /^base\.quadStresses\[[^\]]+\]\.sigmaXx$/.test(k))!;
     const disp = Object.keys(then).find((k) => /^base\.displacements\[[^\]]+\]\.uz$/.test(k) && then[k] !== 0)!;
