@@ -4,7 +4,7 @@ const fr: Translations = {
   "advanced.finiteSpectrum": "Il existe seulement {n} modes finis. Les directions sans masse n’ont pas de fréquence finie.",
   "advanced.finiteSpectrumOne": "Il n’existe qu’un seul mode fini. Les directions sans masse n’ont pas de fréquence finie.",
   "advanced.modalIncomplete": "Analyse modale refusée : seuls {n} des {m} modes calculés ont une fréquence positive (ω² > 1e-10). Aucun ensemble incomplet de modes n’a été renvoyé. Vérifiez le conditionnement de la rigidité et de la masse ainsi que les appuis.",
-  "advanced.eigenFailure": "Analyse modale refusée : la convergence et la complétude de Sturm n’ont pas pu être établies pour {n} degrés de liberté libres. Aucun ensemble incomplet de modes n’a été renvoyé. Vérifiez les appuis et les relâchements (mécanismes), le conditionnement de la rigidité et de la masse, ou demandez moins de modes.",
+  "advanced.eigenFailure": "Analyse aux valeurs propres refusée : la convergence et la complétude de Sturm n’ont pas pu être établies pour {n} degrés de liberté libres. Aucun ensemble incomplet de résultats n’a été renvoyé. Vérifiez les appuis et les relâchements (mécanismes), le conditionnement de la rigidité et de la masse, ou demandez moins de modes.",
   "landing.navTools": "Outils",
 
   // ─── Shared scalar-field viewer ───

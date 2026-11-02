@@ -13,8 +13,8 @@ export function finiteSpectrumWarning(
 const BELOW_THRESHOLD = /Modal completeness could not be established: only (\d+) of (\d+) computed modes passed the positive-frequency threshold/;
 const NOT_CERTIFIED = /could not establish convergence and Sturm completeness for (\d+) free DOFs/;
 
-/** The engine's modal refusals, in the user's language; any other text is returned unchanged. */
-export function modalFailureText(message: string, translate: (key: string) => string): string {
+/** The engine's modal and eigensolver refusals (modal and buckling), in the user's language; any other text is returned unchanged. */
+export function eigenRefusalText(message: string, translate: (key: string) => string): string {
   const below = BELOW_THRESHOLD.exec(message);
   if (below) return translate('advanced.modalIncomplete').replace('{n}', below[1]).replace('{m}', below[2]);
   const failed = NOT_CERTIFIED.exec(message);

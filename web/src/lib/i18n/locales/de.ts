@@ -4,7 +4,7 @@ const de: Translations = {
   "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
   "advanced.finiteSpectrumOne": "Es existiert nur 1 endliche Eigenmode. Masselose Richtungen haben keine endliche Eigenfrequenz.",
   "advanced.modalIncomplete": "Modalanalyse abgelehnt: nur {n} von {m} berechneten Moden haben eine positive Frequenz (ω² > 1e-10). Es wurde kein unvollständiger Satz von Moden zurückgegeben. Prüfen Sie die Konditionierung von Steifigkeit und Masse sowie die Lager.",
-  "advanced.eigenFailure": "Modalanalyse abgelehnt: Konvergenz und Sturm-Vollständigkeit konnten für {n} freie Freiheitsgrade nicht nachgewiesen werden. Es wurde kein unvollständiger Satz von Moden zurückgegeben. Prüfen Sie Lager und Gelenke auf Mechanismen, die Konditionierung von Steifigkeit und Masse, oder fordern Sie weniger Moden an.",
+  "advanced.eigenFailure": "Eigenwertanalyse abgelehnt: Konvergenz und Sturm-Vollständigkeit konnten für {n} freie Freiheitsgrade nicht nachgewiesen werden. Es wurde kein unvollständiger Ergebnissatz zurückgegeben. Prüfen Sie Lager und Gelenke auf Mechanismen, die Konditionierung von Steifigkeit und Masse, oder fordern Sie weniger Moden an.",
   "landing.navTools": "Werkzeuge",
 
   // ─── Shared scalar-field viewer ───

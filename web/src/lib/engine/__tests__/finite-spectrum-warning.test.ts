@@ -7,7 +7,7 @@ import { setLocale, t } from '../../i18n';
 import { solveModal3D } from '../wasm-solver';
 import type { ModalResult3D } from '../result-types';
 import type { SolverInput3D } from '../types-3d';
-import { finiteSpectrumWarning, modalFailureText } from '../finite-spectrum-warning';
+import { finiteSpectrumWarning, eigenRefusalText } from '../finite-spectrum-warning';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -73,12 +73,13 @@ describe('modal refusals in the user language', () => {
     const modal = engine('solver/modal.rs');
     expect(modal.split(belowThreshold.replace('only 5 of 7', 'only {} of {}')).length - 1).toBe(2);
     expect(engine('linalg/lanczos.rs')).toContain(notCertified.replace('42', '{n}'));
+    expect(engine('solver/buckling.rs').split('eigen_failure_message(').length - 1).toBeGreaterThan(0);
   });
 
   it.each(['en', 'es', 'pt', 'de', 'fr', 'tr'])('translates both refusals in %s', (locale) => {
     setLocale(locale);
-    const below = modalFailureText(belowThreshold, t);
-    const failed = modalFailureText(notCertified, t);
+    const below = eigenRefusalText(belowThreshold, t);
+    const failed = eigenRefusalText(notCertified, t);
     for (const text of [below, failed]) {
       expect(text).not.toMatch(/advanced\.|\{n\}|\{m\}/);
       if (locale !== 'en') expect(text).not.toContain('Eigenvalue decomposition');
@@ -86,6 +87,7 @@ describe('modal refusals in the user language', () => {
     expect(below).toContain('5');
     expect(below).toContain('7');
     expect(failed).toContain('42');
-    expect(modalFailureText('No valid modes found', t)).toBe('No valid modes found');
+    expect(failed).not.toMatch(/modal|Modal/);
+    expect(eigenRefusalText('No valid modes found', t)).toBe('No valid modes found');
   });
 });

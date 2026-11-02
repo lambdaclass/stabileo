@@ -60,7 +60,7 @@
   // `.message`. Reading it with `e.message` reported "Error" for every engine
   // refusal and discarded the sentence the solver wrote.
   import { errorText } from '../../lib/utils/error-text';
-  import { modalFailureText } from '../../lib/engine/finite-spectrum-warning';
+  import { eigenRefusalText } from '../../lib/engine/finite-spectrum-warning';
   import type { DesignSpectrum } from '../../lib/engine/result-types';
   import {
     isBlocked, spectrumPoints, spectralOrdinate, RISK_FACTOR,
@@ -266,7 +266,7 @@
         if (modalAuto) modalAutoNote = t('pro.modalAutoConstrained');
       }
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: modalFailureText(String(res), t) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       modalElapsed = elapsed;
       modalResult = res;
       // Published, so the viewport can draw and animate the mode picked in the table below.
@@ -288,7 +288,7 @@
         advancedResults = { ...advancedResults, modal: { modes, totalMass: res.totalMass, finiteSpectrumDiagnostic: res.finiteSpectrumDiagnostic, ratiosWithheld: modalConstrained } };
       }
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: modalFailureText(errorText(e, 'Error'), t) });
+      solveError = tp('adv.failed', { analysis: t('adv.name.modal'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
@@ -382,14 +382,14 @@
       const t0 = performance.now();
       res = wasmBuckling3D(input, numBucklingModes);
       const elapsed = performance.now() - t0;
-      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: String(res) }); solving = false; return; }
+      if (typeof res === 'string') { solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(String(res), t) }); solving = false; return; }
       bucklingElapsed = elapsed;
       bucklingResult = res;
       resultsStore.setBucklingResult3D(res);
       const factors = res.factors ?? res.eigenvalues ?? (res.modes?.map((m: any) => m.loadFactor ?? m.factor ?? m.eigenvalue) ?? []);
       advancedResults = { ...advancedResults, buckling: { factors } };
     } catch (e: any) {
-      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: errorText(e, 'Error') });
+      solveError = tp('adv.failed', { analysis: t('adv.name.buckling'), error: eigenRefusalText(errorText(e, 'Error'), t) });
     }
     solving = false;
   }
