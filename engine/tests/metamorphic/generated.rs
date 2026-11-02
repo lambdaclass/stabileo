@@ -1579,11 +1579,12 @@ fn refusals_must_be_registered_and_in_scope() {
     use crate::response::{outcome, scoped};
     use dedaliano_engine::known_issues;
     let plastic = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err())).unwrap();
-    assert!(scoped("plastic collapse", false, plastic()).is_ok());
-    assert!(scoped("linear", false, plastic()).is_err(), "an ordinary linear model that always refuses must fail");
+    assert!(scoped("plastic collapse", true, false, plastic()).is_ok());
+    assert!(scoped("plastic collapse", false, false, plastic()).is_err(), "the 2D issue never withholds a 3D result");
+    assert!(scoped("linear", true, false, plastic()).is_err(), "an ordinary linear model that always refuses must fail");
     let distortion = || outcome(Err(known_issues::refuse(&[known_issues::diagnostic("SH-MITC4-DISTORTION")]).unwrap_err())).unwrap();
-    assert!(scoped("linear", true, distortion()).is_ok());
-    assert!(scoped("linear", false, distortion()).is_err());
+    assert!(scoped("linear", false, true, distortion()).is_ok());
+    assert!(scoped("linear", false, false, distortion()).is_err());
     let mut promoted = known_issues::diagnostic("NUM-INVARIANCE");
     promoted.severity = dedaliano_engine::types::Severity::Error;
     assert!(outcome(Err(known_issues::refuse(&[promoted]).unwrap_err())).is_err(), "a warning-only issue is not a registered refusal");
@@ -1613,11 +1614,14 @@ fn refusal_changes_under_units_fail_in_both_directions() {
             .run)(c)
     }
     fn always2(_: &Case2) -> Result<crate::response::Resp, String> { refusal() }
-    fn always3(_: &Case3) -> Result<crate::response::Resp, String> { refusal() }
+    fn refusal3() -> Result<crate::response::Resp, String> {
+        Err(dedaliano_engine::known_issues::refuse(&[dedaliano_engine::known_issues::diagnostic("BU-BOUND")]).unwrap_err())
+    }
+    fn always3(_: &Case3) -> Result<crate::response::Resp, String> { refusal3() }
     fn faulty3<const BASE_REFUSED: bool>(c: &Case3) -> Result<crate::response::Resp, String> {
         let base_e = model(1, true)["materials"]["1"]["e"].as_f64().unwrap();
         if (c.s.materials["1"].e == base_e) == BASE_REFUSED {
-            return refusal();
+            return refusal3();
         }
         (ana3::rows()
             .into_iter()
@@ -1637,7 +1641,7 @@ fn refusal_changes_under_units_fail_in_both_directions() {
         .into_iter()
         .find(|a| a.name == "linear")
         .unwrap();
-    a3.name = "plastic collapse";
+    a3.name = "buckling";
     for (run, expected) in [(faulty2::<false> as fn(&Case2) -> _, "✗"), (faulty2::<true>, "✗"), (always2, "✓")] {
         a2.run = run;
         let t = Tally::default();
@@ -1664,6 +1668,6 @@ fn refusal_changes_under_units_fail_in_both_directions() {
             std::slice::from_ref(&a3),
             &["units"],
         );
-        assert_eq!(t.symbol("plastic collapse", "units"), expected, "{}", t.report());
+        assert_eq!(t.symbol("buckling", "units"), expected, "{}", t.report());
     }
 }

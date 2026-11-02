@@ -95,10 +95,10 @@ pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
 }
 
 /// A registered refusal is a pass only where its known issue applies; anywhere else it is a regression.
-pub fn scoped(analysis: &str, distorted_quads: bool, r: Resp) -> Result<Resp, String> {
+pub fn scoped(analysis: &str, planar: bool, distorted_quads: bool, r: Resp) -> Result<Resp, String> {
     for (id, issue) in &r.1 {
         let expected = match id.as_str() {
-            "PL-2D-INVARIANCE" => analysis == "plastic collapse",
+            "PL-2D-INVARIANCE" => planar && analysis == "plastic collapse",
             "SH-MITC4-DISTORTION" => distorted_quads,
             "BU-BOUND" => analysis.contains("buckling"),
             _ => false,

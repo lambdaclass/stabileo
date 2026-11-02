@@ -254,6 +254,7 @@
     const { modal: _modal, spectral: _spectral, ...rest } = advancedResults;
     advancedResults = rest;
     if (resultsStore.modalResult3D) resultsStore.clearModal3D();
+    resultsStore.clearSpectral3D();
   }
 
   function handleModal() {

@@ -35,12 +35,27 @@ function setup() {
     store[`set${name}Result3D`] = (r: any) => store[key] = r;
     store[`clear${name}3D`] = () => store[key] = null;
   }
+  store.spectralResult3D = null;
+  store.clearSpectral3D = () => store.spectralResult3D = null;
   scope.resultsStore = store;
   for (const name of ['forgetPDelta', 'forgetModal', 'forgetBuckling']) scope[name] = handler(name, scope);
   return scope;
 }
 
 describe('advanced reruns retire panel, viewport and report results', () => {
+  it('a modal rerun retires spectral results built on the previous modes', () => {
+    for (const second of [{ modes: [{ frequency: 3, period: 1 / 3 }] }, refusal]) {
+      const scope = setup();
+      scope.wasmModal3D = vi.fn().mockReturnValueOnce({ modes: [{ frequency: 2, period: 0.5 }] }).mockReturnValueOnce(second);
+      const run = handler('handleModal', scope);
+      run();
+      scope.resultsStore.spectralResult3D = { baseShearX: 13579 };
+      scope.spectralResult = { baseShearX: 13579 };
+      run();
+      expect(scope.resultsStore.spectralResult3D).toBeNull();
+      expect(scope.spectralResult).toBeNull();
+    }
+  });
   it.each(['Modal', 'Buckling'] as const)('%s success then thrown/string refusal cannot retain factors or modes', name => {
     for (const throws of [true, false]) {
       const scope = setup();
