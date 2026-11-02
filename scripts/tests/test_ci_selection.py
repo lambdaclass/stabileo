@@ -176,11 +176,9 @@ class Selection(unittest.TestCase):
         self.assertIn("if: github.event_name != 'pull_request' || contains", text)
         for key in selection.select('push', []):
             self.assertIn('${{ steps.select.outputs.' + key + ' }}', text)
-        for name in ['rust', 'npm']:
-            block = re.split(r'\n  [a-z][\w-]*:', text.split('\n  ' + name + ':', 1)[1])[0]
-            self.assertIn('needs: ci-ok', block)
-            self.assertIn('if: always()', block)
-        aggregate = text.split('  ci-ok:', 1)[1].split('\n  rust:', 1)[0]
+        self.assertNotIn('\n  rust:', text)
+        self.assertNotIn('\n  npm:', text)
+        aggregate = text.split('  ci-ok:', 1)[1]
         script = aggregate.split('        run: |\n', 1)[1]
         script = '\n'.join(line[10:] for line in script.splitlines())
         for result, code in [('success skipped', 0), ('failure skipped', 1), ('cancelled success', 1)]:

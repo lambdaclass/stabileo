@@ -1369,23 +1369,3 @@ jobs:
           for r in $RESULTS; do
             case "$r" in success|skipped) ;; *) exit 1 ;; esac
           done
-
-  rust:
-    name: rust
-    needs: ci-ok
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          RESULT: ${{ needs.ci-ok.result }}
-        run: test "$RESULT" = success
-
-  npm:
-    name: npm
-    needs: ci-ok
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - env:
-          RESULT: ${{ needs.ci-ok.result }}
-        run: test "$RESULT" = success
