@@ -75,10 +75,9 @@ checks pass against their existing baselines. The changelog check passes.
 
 ## Column design axes (PR #1233, issue #532)
 
-Results version 6 registers `cirsoc201-column-design-axes` (SA-2026-029): the CIRSOC 201 column
-check bends each moment over its own depth. It is provisional until merge: #817, #827 and #865
-(integration #1225) and other open PRs hold the numbers after 5, and the merge captain gives this
-change its final number, moving the pinned version sets, the fixture stamp and its hashes with it.
+Results version 7 registers `cirsoc201-column-design-axes` (SA-2026-029): the CIRSOC 201 column
+check bends each moment over its own depth. Version 6 is #817's buckling certificate, which lands
+first.
 
 ## Results snapshot gate
 
