@@ -338,7 +338,8 @@ export function generateReportHtml(data: ReportData): string {
   if (showSection('storyDrift') && data.storyDrifts && data.storyDrifts.length > 0) tocEntries.push({ label: (tr('report.storyDrift') || 'Story Drift'), anchor: 'sec-drift' });
   const dispositions = [knownIssueResultDisposition([data.results, data.resultSets]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
   if (dispositions.some(d => d?.refused)) throw new ContainmentExportError(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
-  for (const message of new Set(dispositions.flatMap(d => d?.messages ?? []))) html.push(`<p role="alert">${escHtml(message)}</p>`);
+  const reportWarnings = [...new Set(dispositions.flatMap(d => d?.messages ?? []))];
+  if (reportWarnings.length) html.push(`<section id="stabileo-warnings">${reportWarnings.map(message => `<p role="alert">${escHtml(message)}</p>`).join('')}</section>`);
   if (showSection('diagnostics') && data.diagnostics && data.diagnostics.length > 0) tocEntries.push({ label: (tr('report.diagnostics') || 'Diagnostics'), anchor: 'sec-diagnostics' });
   if (showSection('quantities') && quantities) tocEntries.push({ label: (tr('report.quantities') || 'Quantities'), anchor: 'sec-quantities' });
   if (showSection('figures') && cfg?.figures?.length) tocEntries.push({ label: tr('report.figures'), anchor: 'sec-figures' });

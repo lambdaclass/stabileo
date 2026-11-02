@@ -207,12 +207,12 @@ class SingularVerdict(unittest.TestCase):
     `silent_singular` only when stabileo gave no conditioning warning; every
     such result carries `why`, and the summary never needs one."""
 
-    def finish(self, diags, issues=()):
+    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),)):
         import json as J
         import tempfile
         from unittest import mock
         import run as R
-        bad = [("disp", 5, "rz", 0.0, 1.04e13, 1.0)]
+        bad = list(bad)
         with tempfile.TemporaryDirectory() as job, \
                 mock.patch.object(R.to_aster, "postprocess", lambda meta, raw: {"skip_reac": [], "reac": {}, "forces": {}}), \
                 mock.patch.object(R.C, "compare", lambda model, s, a, tol: (bad, {"disp_r": 1.0})):
@@ -230,6 +230,11 @@ class SingularVerdict(unittest.TestCase):
         r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"])
         self.assertEqual(r["status"], "warned_singular")
         self.assertIn("stabileo warned: high_diagonal_ratio", r["why"])
+
+    def test_a_warned_disagreement_in_forces_or_at_a_loaded_node_is_silent(self):
+        for bad in [("reac", 1, "fz", 1.0, 2.0, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0), ("disp", 2, "uz", 0.0, 1.0, 1.0)]:
+            r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"], [("disp", 5, "rz", 0.0, 1.04e13, 1.0), bad])
+            self.assertEqual(r["status"], "silent_singular", bad)
 
     def test_a_conditioning_warning_without_the_known_issue_is_silent(self):
         r = self.finish(["high_diagonal_ratio"])

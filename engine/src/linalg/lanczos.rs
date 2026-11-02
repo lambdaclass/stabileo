@@ -1532,6 +1532,8 @@ mod factor_observation_tests {
             let mut values = observed.values.clone();
             values.sort_by(|a, b| a.total_cmp(b));
             let exact: Vec<f64> = if buckling { vec![1.0 / 3.0, 0.5, 1.0] } else { vec![1.0, 2.0, 3.0] };
+            assert_eq!(values.len(), 3, "buckling={buckling}: {values:?}");
+            assert_eq!(observed.vectors.len(), 3 * n, "buckling={buckling}");
             for (v, e) in values.iter().zip(&exact) { assert!((v - e).abs() < 1e-9 * e, "buckling={buckling}: {values:?}"); }
             assert_eq!(bits(plain.unwrap()), bits(observed));
         }
@@ -1546,6 +1548,8 @@ mod factor_observation_tests {
         let observed = observed.unwrap();
         let mut values = observed.values.clone();
         values.sort_by(|a, b| a.total_cmp(b));
+        assert_eq!(values.len(), 3, "{values:?}");
+        assert_eq!(observed.vectors.len(), 3 * n);
         for (v, e) in values.iter().zip([1.0, 2.0, 3.0]) { assert!((v - e).abs() < 1e-9 * e, "{values:?}"); }
         assert_eq!(bits(lanczos_generalized_eigen(&kd, &md, n, 3, 0.0).unwrap()), bits(observed));
     }

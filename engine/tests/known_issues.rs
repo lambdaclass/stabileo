@@ -1015,3 +1015,29 @@ fn a_direct_constrained_3d_solve_checks_the_constraints_it_solves_with() {
         assert!((a.uz - b.uz).abs() <= 1e-12 * (1.0 + b.uz.abs()), "{} vs {}", a.uz, b.uz);
     }
 }
+
+#[test]
+fn round_off_compression_beside_a_compressed_column_adds_no_buckling_mode() {
+    use common::make_input;
+    use dedaliano_engine::solver::buckling::solve_buckling_2d;
+    let column_nodes = vec![(1, 0.0, 0.0), (2, 0.0, 1.0), (3, 0.0, 2.0), (4, 0.0, 3.0), (5, 0.0, 4.0)];
+    let column_elems = vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false), (3, "frame", 3, 4, 1, 1, false, false), (4, "frame", 4, 5, 1, 1, false, false)];
+    let push = SolverLoad::Nodal(SolverNodalLoad { node_id: 5, fx: 0.0, fz: -100.0, my: 0.0 });
+    let column = make_input(column_nodes.clone(), vec![(1, E, 0.3)], vec![(1, 0.01, 1e-5)], column_elems.clone(), vec![(1, 1, "fixed")], vec![push.clone()]);
+    let mut nodes = column_nodes;
+    let (c, sn) = (0.3f64.cos(), 0.3f64.sin());
+    nodes.extend([0.0, 1.3, 2.7, 4.0].iter().enumerate().map(|(i, &t)| (11 + i, 10.0 + t * c, t * sn)));
+    let mut elems = column_elems;
+    elems.extend([(11, "frame", 11, 12, 1, 1, false, false), (12, "frame", 12, 13, 1, 1, false, false), (13, "frame", 13, 14, 1, 1, false, false)]);
+    let loads = vec![push, SolverLoad::Nodal(SolverNodalLoad { node_id: 12, fx: -37.3 * sn, fz: 37.3 * c, my: 0.0 }), SolverLoad::Nodal(SolverNodalLoad { node_id: 13, fx: -51.9 * sn, fz: 51.9 * c, my: 0.0 })];
+    let mixed = make_input(nodes, vec![(1, E, 0.3)], vec![(1, 0.01, 1e-5)], elems, vec![(1, 1, "fixed"), (2, 11, "pinned"), (3, 14, "pinned")], loads);
+    let n = dedaliano_engine::solver::buckling::buckling_system_2d(&mixed).unwrap().mean_n;
+    assert!([11, 12, 13].iter().any(|id| n[id] < 0.0 && n[id] > -1e-9), "{n:?}");
+    let alone = solve_buckling_2d(&column, 3).unwrap();
+    let both = solve_buckling_2d(&mixed, 3).unwrap();
+    assert_eq!(alone.modes.len(), 3);
+    assert_eq!(both.modes.len(), 3);
+    for (a, b) in alone.modes.iter().zip(&both.modes) {
+        assert!((a.load_factor - b.load_factor).abs() <= 1e-9 * a.load_factor, "{} vs {}", a.load_factor, b.load_factor);
+    }
+}

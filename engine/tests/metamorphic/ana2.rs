@@ -269,7 +269,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&round_off_converged(|tol| pdelta::solve_pdelta_2d(&c.s, 100, tol).map(|r| (r.converged, r.results)))?)),
+            run: |c| Ok(static_2d(&round_off_converged(|steps, tol| pdelta::solve_pdelta_2d(&c.s, steps, tol).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
             name: "corotational",
@@ -601,16 +601,19 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
     assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8).unwrap_err().contains("not resolved"));
 }
 
-/// An iteration solved to 1e-12, or, when it stagnates there, one that converges at 1e-11 to the same
-/// answer: every number (displacements, reactions, member forces) within 1e-11 of the largest value
-/// of its own quantity. That is stagnation at round-off, not slow convergence.
-pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(f64) -> Result<(bool, T), String>) -> Result<T, String> {
-    let (converged, tight) = solve(1e-12)?;
+/// An iteration solved to 1e-12 in 100 steps, or, when it stops short there, one proven stagnant at
+/// round-off: 900 further steps at 1e-12 change no reported number (displacements, reactions, member
+/// forces) by more than 1e-11 of the largest value of its quantity, so the iterate is a fixed point,
+/// and a 1e-11 solve converges to that same answer. Slow convergence still moves and is rejected.
+pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>) -> Result<T, String> {
+    let (converged, tight) = solve(100, 1e-12)?;
     if converged {
         return Ok(tight);
     }
-    let (converged, loose) = solve(1e-11)?;
-    if converged && same_to_round_off(&serde_json::to_value(&tight).unwrap(), &serde_json::to_value(&loose).unwrap()) {
+    let (_, longer) = solve(1000, 1e-12)?;
+    let (converged, loose) = solve(100, 1e-11)?;
+    let value = |r: &T| serde_json::to_value(r).unwrap();
+    if converged && same_to_round_off(&value(&tight), &value(&longer)) && same_to_round_off(&value(&tight), &value(&loose)) {
         Ok(tight)
     } else {
         Err("did not converge".into())
@@ -642,12 +645,14 @@ fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
 
 #[test]
 fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
-    let stagnant = |tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0 + 1e-13], "n": [5.0e3]})));
+    let stagnant = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0 + 1e-13], "n": [5.0e3]})));
     assert!(round_off_converged(stagnant).is_ok());
-    let slow = |tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if tol < 1e-11 { 2.0 } else { 2.001 }]})));
+    let slow = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps > 100 { 2.0 } else { 2.0 + 1e-9 }]})));
     assert!(round_off_converged(slow).is_err());
-    let forces_differ = |tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0], "n": [if tol < 1e-11 { 5.0e3 } else { 5.0e3 + 1e-6 }]})));
+    let loose_differs = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if tol < 1e-11 { 2.0 } else { 2.001 }]})));
+    assert!(round_off_converged(loose_differs).is_err());
+    let forces_differ = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0], "n": [if tol < 1e-11 { 5.0e3 } else { 5.0e3 + 1e-6 }]})));
     assert!(round_off_converged(forces_differ).is_err());
-    let never = |_: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
+    let never = |_: usize, _: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
     assert!(round_off_converged(never).is_err());
 }

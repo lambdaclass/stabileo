@@ -223,14 +223,21 @@ it.each([
       creepTimeSteps: [{ time: 100 }], solve3D: () => ({}),
       harmResult: null, winklerResult: null, ssiResult: null, stagedResult: null, creepResult: null,
     });
-    scope.resultsStore.setResults3D = vi.fn();
+    scope.resultsStore.results3D = null;
+    scope.resultsStore.setResults3D = vi.fn((r: any) => { scope.resultsStore.results3D = r; });
+    scope.resultsStore.clear3D = vi.fn(() => { scope.resultsStore.results3D = null; });
+    scope.winklerPublished = null;
+    scope.ssiPublished = null;
     const clean = { peakAmplitude: 12345, displacements: [{ ux: 12345 }], results: { displacements: [{ ux: 12345 }] }, stages: [{ maxDisp: 12345 }] };
     scope[solver] = vi.fn().mockReturnValueOnce(solver === 'creepSteps' ? [clean] : clean).mockImplementationOnce(() => { throw failure; });
     const run = handler(name, scope);
     run();
     expect(JSON.stringify(scope[field])).toContain('12345');
+    const published = scope.resultsStore.results3D;
+    if (name === 'handleWinkler' || name === 'handleSSI') expect(JSON.stringify(published)).toContain('12345');
     run();
     expect(scope[field]).toBeNull();
+    expect(JSON.stringify(scope.resultsStore.results3D ?? null)).not.toContain('12345');
     expect(scope.solveError).toContain('#741');
     expect(scope.solveError).not.toContain('structuredDiagnostics');
     expect(scope.solving).toBe(false);

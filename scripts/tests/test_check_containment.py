@@ -49,7 +49,7 @@ class ContainmentTests(unittest.TestCase):
                 text = path.read_text()
             except (UnicodeDecodeError, OSError):
                 continue
-            uses += [(str(path.relative_to(root)), line.strip()) for line in text.splitlines() if 'unrefused-for-tests' in line]
+            uses += [(str(path.relative_to(root)), line.strip()) for line in text.splitlines() if 'unrefused-for-tests' in line or 'all-features' in line]
         self.assertEqual(sorted(uses), [
             ('engine/Cargo.toml', 'dedaliano-engine = { path = ".", features = ["unrefused-for-tests"] }'),
             ('engine/Cargo.toml', 'unrefused-for-tests = []'),
