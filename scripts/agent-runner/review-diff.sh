@@ -7,7 +7,7 @@ set -uo pipefail
 pr=$1; focus=${2:-}; R=$ST/reviews; mkdir -p "$R"
 head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid -q '.headRefName+" "+.headRefOid')
 branch=${head% *}; want=${head#* }
-for i in $(seq 1 12); do head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid -q '.headRefName+" "+.headRefOid'); branch=${head% *}; want=${head#* }; git -C "$REPO" fetch origin main "+refs/heads/$branch:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
+for i in $(seq 1 12); do head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid -q '.headRefName+" "+.headRefOid'); branch=${head% *}; want=${head#* }; git -C "$REPO" fetch origin main "+refs/pull/$pr/head:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
 sha=$(git -C "$REPO" rev-parse --short=10 "refs/rv/pr-$pr" 2>/dev/null) || sha=
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || sha=
 [ -n "$sha" ] || { echo "review-diff: could not fetch PR #$pr" >&2; exit 1; }
@@ -22,7 +22,7 @@ p=$T/$pr-$sha-prompt.md
   echo "Do NOT run commands or tools: the full diff against origin/main is below, except generated files (package-lock.json, research/papers.json, web/public/research-wasm/**, web/legacy-projects/**), whose sources are in the diff. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, i18n gaps, phone/tablet layout risks, research isolation breaks, production engine numeric changes, security. Then Nits (one line each). If clean, say so. Be concise. End with one line: \"VERDICT: clean\", \"VERDICT: should-fix\" or \"VERDICT: blocker\"."
   [ -n "$focus" ] && cat "$focus"
   echo; echo '```diff'; git -C "$REPO" diff "$base...$want" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**'; echo '```'; } > "$p"
-size=$(wc -c < "$p"); [ "$size" -gt 900000 ] && { echo "review-diff: #$pr prompt is $size bytes, switching to review-chunked.sh" >&2; rm -rf "$T"; trap - EXIT; exec "$(dirname "$0")/review-chunked.sh" "$pr"; }; [ "$size" -gt 3000 ] || { echo "review-diff: diff for #$pr is empty ($size bytes), not reviewing" >&2; exit 1; }; [ "$size" -gt 400000 ] && echo "warning: prompt is $size bytes" >&2
+size=$(wc -c < "$p"); [ "$size" -gt 900000 ] && { echo "review-diff: #$pr prompt is $size bytes, switching to review-chunked.sh" >&2; rm -rf "$T"; trap - EXIT; exec "$(dirname "$0")/review-chunked.sh" "$pr"; }; ! git -C "$REPO" diff --quiet "$base...$want" -- || { echo "review-diff: #$pr has no changes against main, not reviewing" >&2; exit 1; }; [ "$size" -gt 400000 ] && echo "warning: prompt is $size bytes" >&2
 AUTHOR=${AUTHOR_ENGINE:-claude}
 first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_engine review "$AUTHOR" "$first")
 [ "$first" != "$AUTHOR" ] || { log "$(basename "$0"): reviewer $first is the author"; exit 2; }

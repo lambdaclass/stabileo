@@ -8,7 +8,16 @@ import sys
 import tempfile
 
 
-def sandbox_command(paths, command, platform=sys.platform):
+SECRET_ENV = ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'SSH_AUTH_SOCK',
+              'GIT_ASKPASS', 'SSH_ASKPASS')
+
+
+def hidden_credentials(home):
+    return [path for path in (home / '.config/gh', home / '.ssh', home / '.git-credentials', home / '.netrc')
+            if path.exists()]
+
+
+def sandbox_command(paths, command, platform=sys.platform, hide=()):
     # These are writable exceptions, never repository or artifact paths.
     paths = sorted({str(Path(path).resolve()) for path in paths})
     if platform == 'darwin':
@@ -18,6 +27,7 @@ def sandbox_command(paths, command, platform=sys.platform):
                 f'(allow file-write* {rules})', *command]
     return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev',
             *[arg for path in paths for arg in ('--bind', path, path)],
+            *[arg for path in map(str, hide) for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],
             '--unshare-pid', '--proc', '/proc', '--', *command]
 
 
@@ -36,16 +46,17 @@ def main(command):
         config = home / '.config'
         source = Path(os.environ.get('XDG_CONFIG_HOME', original_home / '.config'))
         if source.is_dir():
-            shutil.copytree(source, config)
+            shutil.copytree(source, config, ignore=shutil.ignore_patterns('gh'))
         else:
             config.mkdir()
-        env = dict(os.environ, HOME=str(home), XDG_CONFIG_HOME=str(config),
+        env = {k: v for k, v in os.environ.items() if k not in SECRET_ENV}
+        env.update(HOME=str(home), XDG_CONFIG_HOME=str(config),
                    XDG_CACHE_HOME=str(scratch / 'cache'),
                    XDG_DATA_HOME=str(scratch / 'data'),
                    XDG_STATE_HOME=str(scratch / 'state'),
                    TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
         # stdout/stderr stay on the descriptors opened by the parent runner.
-        return subprocess.call(sandbox_command([scratch], command), env=env)
+        return subprocess.call(sandbox_command([scratch], command, hide=hidden_credentials(original_home)), env=env)
 
 
 if __name__ == '__main__':

@@ -71,6 +71,20 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
         self.assertEqual(linux[5:7], ['--dev', '/dev'])
         self.assertIn('--proc', linux)
 
+    def test_credentials_are_hidden_from_the_reviewer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            (home / '.config/gh').mkdir(parents=True)
+            (home / '.git-credentials').write_text('https://user:token@github.com')
+            hidden = readonly.hidden_credentials(home)
+            self.assertEqual(sorted(map(str, hidden)), sorted([str(home / '.config/gh'), str(home / '.git-credentials')]))
+            linux = readonly.sandbox_command(['/tmp/s'], ['reviewer'], 'linux', hide=hidden)
+            joined = ' '.join(linux)
+            self.assertIn(f'--tmpfs {home}/.config/gh', joined)
+            self.assertIn(f'--ro-bind /dev/null {home}/.git-credentials', joined)
+        self.assertIn('GH_TOKEN', readonly.SECRET_ENV)
+        self.assertIn('GITHUB_TOKEN', readonly.SECRET_ENV)
+
     def test_private_config_and_scratch_are_cleaned_up(self):
         with tempfile.TemporaryDirectory() as tmp:
             original = Path(tmp)

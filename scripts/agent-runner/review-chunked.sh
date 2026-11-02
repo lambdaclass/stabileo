@@ -12,7 +12,7 @@ first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_eng
 pr=$1; max=${2:-150000}; R=$ST/reviews; mkdir -p "$R"
 head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid,title -q '.headRefName+" "+.headRefOid+" "+.title')
 branch=$(echo "$head" | cut -d' ' -f1); want=$(echo "$head" | cut -d' ' -f2); title=$(echo "$head" | cut -d' ' -f3-)
-for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/heads/$branch:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
+for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/pull/$pr/head:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
 sha=${want:0:10}
 exec 9>"$R/.lock-$pr-$sha"
