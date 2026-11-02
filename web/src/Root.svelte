@@ -32,13 +32,14 @@
   let loading: Promise<void> | null = null;
 
   /** Each feature keeps its dependency graph behind a two-stage lazy boundary. */
-  let pages = $state<Partial<Record<'research' | 'tools', import('svelte').Component<{ path: string }>>>>({});
+  let pages = $state<Partial<Record<'research' | 'tools' | 'examples', import('svelte').Component<{ path: string }>>>>({});
   $effect(() => {
     const kind = current.kind;
-    if ((kind === 'research' || kind === 'tools') && !pages[kind]) {
+    if ((kind === 'research' || kind === 'tools' || kind === 'examples') && !pages[kind]) {
       const loading = kind === 'research'
         ? import('./components/research/load-page').then(m => m.loadResearchPage())
-        : import('./components/tools/load-page').then(m => m.loadToolsPage());
+        : kind === 'tools' ? import('./components/tools/load-page').then(m => m.loadToolsPage())
+        : import('./components/examples/load-page').then(m => m.loadExamplesPage());
       void loading.then(page => { pages[kind] = page; });
     }
   });
@@ -109,7 +110,7 @@
   <App />
 {:else if current.kind === 'blog'}
   <BlogPage path={current.path} />
-{:else if current.kind === 'research' || current.kind === 'tools'}
+{:else if current.kind === 'research' || current.kind === 'tools' || current.kind === 'examples'}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{/if}
 {:else if current.kind === 'paper'}

@@ -5,7 +5,7 @@
  */
 export type NavItem =
   | { kind: 'section'; id: string; key: string }
-  | { kind: 'page'; id: 'blog' | 'changelog' | 'research' | 'paper' | 'tools'; to: string; key: string };
+  | { kind: 'page'; id: 'blog' | 'changelog' | 'research' | 'paper' | 'tools' | 'examples'; to: string; key: string };
 
 export const SITE_NAV: NavItem[] = [
   { kind: 'section', id: 'basic', key: 'landing.navBasic' },
@@ -13,6 +13,7 @@ export const SITE_NAV: NavItem[] = [
   { kind: 'section', id: 'ai', key: 'landing.navAi' },
   { kind: 'section', id: 'education', key: 'landing.navEducation' },
   { kind: 'section', id: 'pricing', key: 'landing.navPricing' },
+  { kind: 'page', id: 'examples', to: '/examples', key: 'landing.navExamples' },
   { kind: 'page', id: 'tools', to: '/tools', key: 'landing.navTools' },
   { kind: 'page', id: 'blog', to: '/blog', key: 'landing.navBlog' },
   { kind: 'page', id: 'changelog', to: '/changelog', key: 'landing.navChangelog' },
@@ -20,4 +21,4 @@ export const SITE_NAV: NavItem[] = [
   { kind: 'page', id: 'research', to: '/research', key: 'landing.navResearch' },
 ];
 
-export type NavCurrent = 'blog' | 'changelog' | 'research' | 'paper' | 'tools' | null;
+export type NavCurrent = 'blog' | 'changelog' | 'research' | 'paper' | 'tools' | 'examples' | null;

@@ -584,7 +584,7 @@
   }
 
   let showLanding = $state(shouldShowLanding());
-  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
+  let showExperiment = $state(['research', 'tools', 'examples'].includes(routeKind().kind));
   let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
   $effect(() => {
     if (showExperiment && !experiment) {
@@ -629,7 +629,7 @@
   }
 
   function syncRouteState() {
-    showExperiment = ['research', 'tools'].includes(routeKind().kind);
+    showExperiment = ['research', 'tools', 'examples'].includes(routeKind().kind);
     showPaper = routeKind().kind === 'paper';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);

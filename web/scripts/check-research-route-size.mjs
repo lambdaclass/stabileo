@@ -32,7 +32,7 @@ try {
       if (id === '\0route-size-engine') return 'export function initSync() {} export function solve_3d() { return "{}"; }';
     }, generateBundle(_options, bundle) {
       for (const output of Object.values(bundle)) {
-        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/'))) toolsChunks.add(output.fileName);
+        if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/tools/') || id.includes('/components/examples/'))) toolsChunks.add(output.fileName);
         if (output.type === 'chunk' && Object.keys(output.modules).some((id) => id.includes('/components/research/') || /\/research\/.*\.json$/.test(id))) {
           researchChunks.add(output.fileName);
         }
@@ -52,14 +52,14 @@ try {
       seen.add(visitKey);
       const chunk = manifest[key];
       if (!chunk) throw new Error(`missing manifest entry ${key}`);
-      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
+      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools or examples: ${key}`);
       if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
       files.add(chunk.file);
       for (const file of [...(chunk.css ?? []), ...(chunk.assets ?? [])]) files.add(file);
       for (const dep of chunk.imports ?? []) visit(dep, lazy);
       if (lazy) for (const dep of chunk.dynamicImports ?? []) {
         // Explicit lazy route boundaries are not product dependencies.
-        if (!/components\/research\//.test(dep) && !/components\/tools\//.test(dep)) visit(dep, true);
+        if (!/components\/research\//.test(dep) && !/components\/(tools|examples)\//.test(dep)) visit(dep, true);
       }
     }
     visit('index.html');

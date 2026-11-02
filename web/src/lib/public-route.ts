@@ -12,7 +12,7 @@ import { findStandingPage } from './blog/pages';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'examples' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -44,6 +44,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   if (SHARED_MODEL.test(loc.hash)) return { kind: 'app', path };
   if (path === '/blog' || path.startsWith('/blog/') || findStandingPage(path)) return { kind: 'blog', path };
   if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
+  if (path === '/examples' || path.startsWith('/examples/')) return { kind: 'examples', path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
   return { kind: 'landing', path };

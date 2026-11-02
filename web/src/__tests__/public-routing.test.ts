@@ -10,6 +10,7 @@ const routes = [
   ['/paper', 'paper'], ['/research', 'research'],
   ['/research/fracture/shauer-2025', 'research'], ['/tools', 'tools'],
   ['/tools/simply-supported-beam', 'tools'],
+  ['/examples', 'examples'], ['/examples/beam-frame', 'examples'],
 ] as const;
 
 describe('merged public routes', () => {
@@ -28,7 +29,7 @@ describe('merged public routes', () => {
   });
   it('keeps the combined navigation order and resolves every page destination', () => {
     expect(SITE_NAV.map(item => item.id)).toEqual([
-      'basic', 'pro', 'ai', 'education', 'pricing', 'tools', 'blog', 'changelog', 'paper', 'research',
+      'basic', 'pro', 'ai', 'education', 'pricing', 'examples', 'tools', 'blog', 'changelog', 'paper', 'research',
     ]);
     for (const item of SITE_NAV) {
       if (item.kind === 'page') {
@@ -38,7 +39,7 @@ describe('merged public routes', () => {
   });
   it('prerenders paper, research, tools and the changelog standing page', () => {
     const prerender = source('../../scripts/prerender.ts');
-    for (const path of ['/paper', '/research', '/tools']) expect(prerender).toContain(`'${path}'`);
+    for (const path of ['/paper', '/research', '/tools', '/examples', '/examples/beam-frame', '/examples/slab-on-columns', '/examples/earthquake-frame']) expect(prerender).toContain(`'${path}'`);
     expect(prerender).toContain('...pages');
     expect(STANDING_PAGES.some(page => page.path === '/changelog')).toBe(true);
   });
@@ -46,11 +47,12 @@ describe('merged public routes', () => {
     const root = source('../Root.svelte');
     const app = source('../App.svelte');
     for (const text of [root, app]) {
-      expect(text).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]*(?:ResearchPage|ToolsPage|PaperPage)\.svelte/);
+      expect(text).not.toMatch(/import\s+\w+\s+from\s+['"][^'"]*(?:ResearchPage|ToolsPage|ExamplesPage|PaperPage)\.svelte/);
       expect(text).toContain("import('./components/paper/PaperPage.svelte')");
     }
     expect(root).toContain("import('./components/research/load-page')");
     expect(root).toContain("import('./components/tools/load-page')");
+    expect(root).toContain("import('./components/examples/load-page')");
     expect(root).toContain("import('./load-app')");
     expect(app).toContain("import('./components/research/load-experiment')");
     expect(app).toContain('const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper)');

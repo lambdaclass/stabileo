@@ -130,7 +130,7 @@ const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
 
 /** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
 function writtenIn(path: string): Locale[] {
-  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
+  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/') || path === '/examples' || path.startsWith('/examples/')) return [...LOCALES];
   const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
   return LOCALES.filter(
     (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
@@ -248,7 +248,7 @@ async function publicPaths(): Promise<string[]> {
   }
   // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
   const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
+  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency', '/examples', '/examples/beam-frame', '/examples/slab-on-columns', '/examples/earthquake-frame'];
 }
 
 /**

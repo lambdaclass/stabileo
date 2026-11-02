@@ -1,5 +1,7 @@
 const es: Record<string, string> = {
   "landing.navTools": "Herramientas",
+  "landing.navExamples": "Ejemplos",
+  "landing.heroCtaExamples": "Probar ejemplos en vivo",
 
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
