@@ -25,7 +25,7 @@ use crate::solver::load_cases::{MultiCaseInput, MultiCaseInput3D};
 use super::interval::Interval;
 use super::real::{branch, Real, Tri};
 use crate::postprocess::diagrams::{compute_diagram_value_at_sorted, sorted_point_loads};
-use crate::postprocess::diagrams_3d::evaluate_diagram_3d_at;
+use crate::postprocess::design_axes::AxisDemand;
 use crate::postprocess::ec2_check::{ec2_flexure, ec2_shear, Ec2DesignForces, Ec2Flexure, Ec2MemberData, Ec2Shear};
 use crate::postprocess::ec3_check::{
     ec3_capacities, ec3_cm_inputs_valid, ec3_interaction, Ec3Capacities, Ec3DesignForces, Ec3MemberData,
@@ -54,7 +54,7 @@ use crate::postprocess::timber_check::{
 };
 use crate::postprocess::steel_check::{
     compression_capacity, flexural_capacity_y, flexural_capacity_z, interaction_h1, shear_capacity,
-    tension_capacity, ElementDesignForces, SteelMemberData,
+    shear_capacity_weak, tension_capacity, ElementDesignForces, SteelMemberData, SHEAR_WEAK,
 };
 
 /// Absolute bounds |exact − computed| on one set of design forces.
@@ -65,8 +65,10 @@ pub struct DemandBound {
     pub my: f64,
     #[serde(default)]
     pub mz: f64,
+    #[serde(default, rename = "vy")]
+    pub v_strong: f64,
     #[serde(default)]
-    pub vy: f64,
+    pub v_weak: f64,
 }
 
 /// Design forces with their certified error bounds.
@@ -159,7 +161,8 @@ pub fn steel_ratio_enclosures(
     let n = around(f.n, b.n, "axial")?;
     let my = around(f.my, b.my, "My")?.abs();
     let mz = around(f.mz.unwrap_or(0.0), b.mz, "Mz")?.abs();
-    let vy = around(f.vy.unwrap_or(0.0), b.vy, "Vy")?.abs();
+    let v_strong = around(f.v_strong.unwrap_or(0.0), b.v_strong, "strong-axis shear")?.abs();
+    let v_weak = around(f.v_weak.unwrap_or(0.0), b.v_weak, "weak-axis shear")?.abs();
     let zero = Interval::ZERO;
 
     let phi_pn_t: Interval = tension_capacity(m);
@@ -172,8 +175,13 @@ pub fn steel_ratio_enclosures(
     let compression = loaded_ratio(CHECK_NAMES[1], (-n).max(zero), phi_pn_c)?;
     let flex_y = loaded_ratio(CHECK_NAMES[2], my, phi_mn_y)?;
     let flex_z = loaded_ratio(CHECK_NAMES[3], mz, phi_mn_z)?;
-    // Shear: `if phi_vn > 0 { vy / phi_vn } else { 0 }`.
-    let shear = branch(zero.lt(phi_vn), || vy.div(phi_vn), || zero);
+    let strong_shear = branch(zero.lt(phi_vn), || v_strong.div(phi_vn), || zero);
+    let weak_shear = match m.aw_weak {
+        Some(_) => loaded_ratio(SHEAR_WEAK, v_weak, shear_capacity_weak(m))?,
+        None if v_weak.lo == 0.0 && v_weak.hi == 0.0 => zero,
+        None => return Err(format!("{SHEAR_WEAK}: weak-axis shear without awWeak")),
+    };
+    let shear = strong_shear.max(weak_shear);
     let axial = branch(n.lt(zero), || compression, || tension);
     let interaction = interaction_h1(axial, flex_y, flex_z);
     let out = [tension, compression, flex_y, flex_z, shear, interaction];
@@ -312,7 +320,7 @@ pub fn ec3_ratio_enclosures(
     let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
     let my = around(f.my_ed.unwrap_or(0.0), b.my, "My,Ed")?.abs();
     let mz = around(f.mz_ed.unwrap_or(0.0), b.mz, "Mz,Ed")?.abs();
-    let v = around(f.v_ed.unwrap_or(0.0), b.vy, "VEd")?.abs();
+    let v = around(f.v_ed.unwrap_or(0.0), b.v_strong, "VEd")?.abs();
     let zero = Interval::ZERO;
     let caps: Ec3Capacities<Interval> = ec3_capacities(m);
     for (x, name) in [(caps.chi_y, "chi_y"), (caps.chi_z, "chi_z"), (caps.chi_lt, "chi_LT")] {
@@ -362,20 +370,57 @@ pub fn certify_ec3_members(input: &CertifiedEc3CheckInput) -> Vec<CertifiedMembe
 }
 
 /// The same demand sets in EC3 form.
-pub fn ec3_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedEc3Demand> {
+pub fn ec3_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedEc3Demand>, String> {
     demands
         .iter()
-        .map(|d| BoundedEc3Demand {
-            forces: Ec3DesignForces {
-                element_id: d.forces.element_id,
-                n_ed: Some(d.forces.n),
-                my_ed: Some(d.forces.my),
-                mz_ed: d.forces.mz,
-                v_ed: d.forces.vy,
-            },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "EC3", true)?;
+            Ok(BoundedEc3Demand {
+                forces: Ec3DesignForces {
+                    element_id: d.forces.element_id,
+                    n_ed: Some(d.forces.n),
+                    my_ed: Some(d.forces.my),
+                    mz_ed: d.forces.mz,
+                    v_ed: d.forces.v_strong,
+                },
+                bound: d.bound,
+            })
         })
         .collect()
+}
+
+const NAN_BOUND: DemandBound = DemandBound { n: f64::NAN, my: f64::NAN, mz: f64::NAN, v_strong: f64::NAN, v_weak: f64::NAN };
+
+fn demand_bound(a: AxisDemand) -> DemandBound {
+    DemandBound { n: a.n, my: a.m_strong, mz: a.m_weak, v_strong: a.v_strong, v_weak: a.v_weak }
+}
+
+fn steel_forces_2d(element_id: usize, a: AxisDemand) -> ElementDesignForces {
+    ElementDesignForces { element_id, n: a.n, my: a.m_strong, mz: None, v_strong: Some(a.v_strong), v_weak: None }
+}
+
+fn steel_forces_3d(element_id: usize, a: AxisDemand) -> ElementDesignForces {
+    ElementDesignForces {
+        element_id,
+        n: a.n,
+        my: a.m_strong,
+        mz: Some(a.m_weak),
+        v_strong: Some(a.v_strong),
+        v_weak: Some(a.v_weak),
+    }
+}
+
+/// Err when the demand carries a component a check covering only the strong
+/// axis (or, with `biaxial`, only one shear) would drop.
+fn strong_axis_only(d: &BoundedSteelDemand, code: &str, biaxial: bool) -> Result<(), String> {
+    let present = |x: f64, b: f64| !(x == 0.0 && b == 0.0);
+    let weak_shear = present(d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak);
+    let weak_moment = !biaxial && present(d.forces.mz.unwrap_or(0.0), d.bound.mz);
+    if weak_shear || weak_moment {
+        let what = if weak_moment { "weak-axis moment Mz" } else { "weak-axis shear Vy" };
+        return Err(format!("element {}: {code} demands carry a {what} that {code} does not check", d.forces.element_id));
+    }
+    Ok(())
 }
 
 /// Most stations per element for the demand sets: the count comes from the
@@ -405,27 +450,23 @@ pub fn steel_demands_from_combinations_2d(
             let pl = sorted_point_loads(ef);
             let bound = sb
                 .get(&ef.element_id)
-                .map(|s| DemandBound { n: s.axial, my: s.moment, mz: 0.0, vy: s.shear })
-                .unwrap_or(DemandBound { n: f64::NAN, my: f64::NAN, mz: f64::NAN, vy: f64::NAN });
+                .map(|s| demand_bound(AxisDemand::plane_2d(s.axial, s.moment, s.shear)))
+                .unwrap_or(NAN_BOUND);
             for j in 0..stations {
                 let t = j as f64 / (stations - 1) as f64;
-                demands.push(BoundedSteelDemand {
-                    forces: ElementDesignForces {
-                        element_id: ef.element_id,
-                        n: compute_diagram_value_at_sorted("axial", t, ef, &pl),
-                        my: compute_diagram_value_at_sorted("moment", t, ef, &pl),
-                        mz: None,
-                        vy: Some(compute_diagram_value_at_sorted("shear", t, ef, &pl)),
-                    },
-                    bound,
-                });
+                let a = AxisDemand::plane_2d(
+                    compute_diagram_value_at_sorted("axial", t, ef, &pl),
+                    compute_diagram_value_at_sorted("moment", t, ef, &pl),
+                    compute_diagram_value_at_sorted("shear", t, ef, &pl),
+                );
+                demands.push(BoundedSteelDemand { forces: steel_forces_2d(ef.element_id, a), bound });
             }
         }
     }
     Ok(demands)
 }
 
-/// 3D version of `steel_demands_from_combinations_2d` (N, My, Mz, Vy).
+/// 3D version of `steel_demands_from_combinations_2d`, through `AxisDemand`.
 pub fn steel_demands_from_combinations_3d(
     out: &CertifiedMultiCase3D,
     stations: usize,
@@ -443,20 +484,12 @@ pub fn steel_demands_from_combinations_3d(
         for ef in &cr.results.element_forces {
             let bound = sb
                 .get(&ef.element_id)
-                .map(|s| DemandBound { n: s.axial, my: s.moment_y, mz: s.moment_z, vy: s.shear_y })
-                .unwrap_or(DemandBound { n: f64::NAN, my: f64::NAN, mz: f64::NAN, vy: f64::NAN });
+                .map(|s| demand_bound(AxisDemand::bound_3d(s)))
+                .unwrap_or(NAN_BOUND);
             for j in 0..stations {
                 let t = j as f64 / (stations - 1) as f64;
-                demands.push(BoundedSteelDemand {
-                    forces: ElementDesignForces {
-                        element_id: ef.element_id,
-                        n: evaluate_diagram_3d_at(ef, "axial", t),
-                        my: evaluate_diagram_3d_at(ef, "momentY", t),
-                        mz: Some(evaluate_diagram_3d_at(ef, "momentZ", t)),
-                        vy: Some(evaluate_diagram_3d_at(ef, "shearY", t)),
-                    },
-                    bound,
-                });
+                let a = AxisDemand::diagram_3d(ef, t);
+                demands.push(BoundedSteelDemand { forces: steel_forces_3d(ef.element_id, a), bound });
             }
         }
     }
@@ -492,7 +525,7 @@ pub fn ec2_ratio_enclosures(
     b: &DemandBound,
 ) -> Result<[Interval; 2], String> {
     let mm = around(f.m_ed.unwrap_or(0.0), b.my, "MEd")?.abs();
-    let v = around(f.v_ed.unwrap_or(0.0), b.vy, "VEd")?.abs();
+    let v = around(f.v_ed.unwrap_or(0.0), b.v_strong, "VEd")?.abs();
     let n = around(f.n_ed.unwrap_or(0.0), b.n, "NEd")?;
     let flex: Ec2Flexure<Interval> = ec2_flexure(m);
     // `CheckLedger::ratio` (not `_if_loaded`): the flexural resistance must be
@@ -572,7 +605,7 @@ pub fn cirsoc201_ratio_enclosures(
     b: &DemandBound,
 ) -> Result<[Interval; 4], String> {
     let mu = around(f.mu.unwrap_or(0.0), b.my, "Mu")?.abs();
-    let vu = around(f.vu.unwrap_or(0.0), b.vy, "Vu")?.abs();
+    let vu = around(f.vu.unwrap_or(0.0), b.v_strong, "Vu")?.abs();
     let nu = around(f.axial_compression.unwrap_or(0.0), if f.axial_compression.is_some() { b.n } else { 0.0 }, "Nu")?;
     let es = m.es.unwrap_or(200e9);
     let flex = cirsoc201_nominal_flexure::<Interval>(m, nu, f.axial_compression.unwrap_or(0.0))
@@ -621,18 +654,21 @@ pub fn certify_cirsoc201_members(input: &CertifiedCirsoc201CheckInput) -> Vec<Ce
 }
 
 /// The same demand sets in CIRSOC 201 form (major-axis moment, shear).
-pub fn cirsoc201_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCirsoc201Demand> {
+pub fn cirsoc201_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedCirsoc201Demand>, String> {
     demands
         .iter()
-        .map(|d| BoundedCirsoc201Demand {
-            // `n` is tension-positive; CIRSOC 201 takes compression positive.
-            forces: Cirsoc201DesignForces {
-                element_id: d.forces.element_id,
-                mu: Some(d.forces.my),
-                vu: d.forces.vy,
-                axial_compression: Some(-d.forces.n),
-            },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "CIRSOC 201", false)?;
+            Ok(BoundedCirsoc201Demand {
+                // `n` is tension-positive; CIRSOC 201 takes compression positive.
+                forces: Cirsoc201DesignForces {
+                    element_id: d.forces.element_id,
+                    mu: Some(d.forces.my),
+                    vu: d.forces.v_strong,
+                    axial_compression: Some(-d.forces.n),
+                },
+                bound: d.bound,
+            })
         })
         .collect()
 }
@@ -696,7 +732,7 @@ pub fn cirsoc301_ratio_enclosures(
     let n = around(f.nu, b.n, "Nu")?;
     let mx = around(f.mu_strong, b.my, "Mux")?.abs();
     let my = around(f.mu_weak, b.mz, "Muy")?.abs();
-    let v = around(f.vu, b.vy, "Vu")?.abs();
+    let v = around(f.vu, b.v_strong, "Vu")?.abs();
     let zero = Interval::ZERO;
     let tiny = Interval::point(1e-6);
     let mut off = c3::Steps::new(false);
@@ -770,18 +806,21 @@ pub fn certify_cirsoc301_members(input: &CertifiedCirsoc301CheckInput) -> Vec<Ce
 
 /// The same demand sets in CIRSOC 301 form (`n` tension-positive there,
 /// compression-positive here).
-pub fn cirsoc301_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCirsoc301Demand> {
+pub fn cirsoc301_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedCirsoc301Demand>, String> {
     demands
         .iter()
-        .map(|d| BoundedCirsoc301Demand {
-            forces: Cirsoc301DesignForces {
-                element_id: d.forces.element_id,
-                nu: -d.forces.n,
-                mu_strong: d.forces.my,
-                mu_weak: d.forces.mz.unwrap_or(0.0),
-                vu: d.forces.vy.unwrap_or(0.0),
-            },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "CIRSOC 301", true)?;
+            Ok(BoundedCirsoc301Demand {
+                forces: Cirsoc301DesignForces {
+                    element_id: d.forces.element_id,
+                    nu: -d.forces.n,
+                    mu_strong: d.forces.my,
+                    mu_weak: d.forces.mz.unwrap_or(0.0),
+                    vu: d.forces.v_strong.unwrap_or(0.0),
+                },
+                bound: d.bound,
+            })
         })
         .collect()
 }
@@ -868,7 +907,7 @@ fn interaction_moment_enclosure(m: &RCMemberData, es: f64, pu: Interval) -> Resu
 /// check flags it incomplete).
 pub fn rc_ratio_enclosures(m: &RCMemberData, f: &RCDesignForces, b: &DemandBound) -> Result<[Interval; 3], String> {
     let mu = around(f.mu, b.my, "Mu")?.abs();
-    let vu = around(f.vu.unwrap_or(0.0), b.vy, "Vu")?.abs();
+    let vu = around(f.vu.unwrap_or(0.0), b.v_strong, "Vu")?.abs();
     let nu = around(f.nu.unwrap_or(0.0), b.n, "Nu")?;
     let es = m.es.unwrap_or(200e9);
     let zero_possible = nu.contains_zero();
@@ -932,12 +971,15 @@ pub fn certify_rc_members(input: &CertifiedRcCheckInput) -> Vec<CertifiedMemberR
 }
 
 /// The same demand sets in ACI RC form (major-axis moment, shear, axial).
-pub fn rc_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedRcDemand> {
+pub fn rc_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedRcDemand>, String> {
     demands
         .iter()
-        .map(|d| BoundedRcDemand {
-            forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.vy, nu: Some(d.forces.n) },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "ACI 318", false)?;
+            Ok(BoundedRcDemand {
+                forces: RCDesignForces { element_id: d.forces.element_id, mu: d.forces.my, vu: d.forces.v_strong, nu: Some(d.forces.n) },
+                bound: d.bound,
+            })
         })
         .collect()
 }
@@ -971,7 +1013,7 @@ pub fn timber_ratio_enclosures(
     let names = TIMBER_CHECK_NAMES;
     let mm = around(f.m, b.my, "M")?.abs();
     let n = around(f.n.unwrap_or(0.0), b.n, "N")?;
-    let v = around(f.v.unwrap_or(0.0), b.vy, "V")?.abs();
+    let v = around(f.v.unwrap_or(0.0), b.v_strong, "V")?.abs();
     if !(m.b > 0.0 && m.d > 0.0 && m.b.is_finite() && m.d.is_finite()) {
         return Err(format!("section b = {}, d = {} not positive", m.b, m.d));
     }
@@ -1007,12 +1049,15 @@ pub fn certify_timber_members(input: &CertifiedTimberCheckInput) -> Vec<Certifie
 }
 
 /// The same demand sets in NDS timber form (major-axis moment, axial, shear).
-pub fn timber_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedTimberDemand> {
+pub fn timber_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedTimberDemand>, String> {
     demands
         .iter()
-        .map(|d| BoundedTimberDemand {
-            forces: TimberDesignForces { element_id: d.forces.element_id, m: d.forces.my, n: Some(d.forces.n), v: d.forces.vy },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "NDS", false)?;
+            Ok(BoundedTimberDemand {
+                forces: TimberDesignForces { element_id: d.forces.element_id, m: d.forces.my, n: Some(d.forces.n), v: d.forces.v_strong },
+                bound: d.bound,
+            })
         })
         .collect()
 }
@@ -1043,7 +1088,7 @@ pub fn cfs_ratio_enclosures(m: &CfsMemberData, f: &CfsDesignForces, b: &DemandBo
     let n = around(f.axial.unwrap_or(0.0), b.n, "axial")?;
     let mx = around(f.mx.unwrap_or(0.0), b.my, "Mx")?.abs();
     let my = around(f.my.unwrap_or(0.0), b.mz, "My")?.abs();
-    let v = around(f.shear.unwrap_or(0.0), b.vy, "shear")?.abs();
+    let v = around(f.shear.unwrap_or(0.0), b.v_strong, "shear")?.abs();
     let zero = Interval::ZERO;
     let caps: CfsCapacities<Interval> = cfs_capacities(m);
     let phi = |x: f64, c: Interval| Interval::lit(x) * c;
@@ -1082,18 +1127,21 @@ pub fn certify_cfs_members(input: &CertifiedCfsCheckInput) -> Vec<CertifiedMembe
 }
 
 /// The same demand sets in AISI S100 form.
-pub fn cfs_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedCfsDemand> {
+pub fn cfs_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedCfsDemand>, String> {
     demands
         .iter()
-        .map(|d| BoundedCfsDemand {
-            forces: CfsDesignForces {
-                element_id: d.forces.element_id,
-                axial: Some(d.forces.n),
-                mx: Some(d.forces.my),
-                my: d.forces.mz,
-                shear: d.forces.vy,
-            },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "AISI S100", true)?;
+            Ok(BoundedCfsDemand {
+                forces: CfsDesignForces {
+                    element_id: d.forces.element_id,
+                    axial: Some(d.forces.n),
+                    mx: Some(d.forces.my),
+                    my: d.forces.mz,
+                    shear: d.forces.v_strong,
+                },
+                bound: d.bound,
+            })
         })
         .collect()
 }
@@ -1113,33 +1161,38 @@ pub fn scale_demands(demands: &[BoundedSteelDemand], s: f64) -> Vec<BoundedSteel
             let (n, bn) = sc(d.forces.n, d.bound.n);
             let (my, bmy) = sc(d.forces.my, d.bound.my);
             let (mz, bmz) = sc(d.forces.mz.unwrap_or(0.0), d.bound.mz);
-            let (vy, bvy) = sc(d.forces.vy.unwrap_or(0.0), d.bound.vy);
+            let (vs, bvs) = sc(d.forces.v_strong.unwrap_or(0.0), d.bound.v_strong);
+            let (vw, bvw) = sc(d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak);
             BoundedSteelDemand {
                 forces: ElementDesignForces {
                     element_id: d.forces.element_id,
                     n,
                     my,
                     mz: d.forces.mz.map(|_| mz),
-                    vy: d.forces.vy.map(|_| vy),
+                    v_strong: d.forces.v_strong.map(|_| vs),
+                    v_weak: d.forces.v_weak.map(|_| vw),
                 },
-                bound: DemandBound { n: bn, my: bmy, mz: bmz, vy: bvy },
+                bound: DemandBound { n: bn, my: bmy, mz: bmz, v_strong: bvs, v_weak: bvw },
             }
         })
         .collect()
 }
 
 /// The same demand sets in EC2 form (major-axis moment, shear, axial).
-pub fn ec2_demands(demands: &[BoundedSteelDemand]) -> Vec<BoundedEc2Demand> {
+pub fn ec2_demands(demands: &[BoundedSteelDemand]) -> Result<Vec<BoundedEc2Demand>, String> {
     demands
         .iter()
-        .map(|d| BoundedEc2Demand {
-            forces: Ec2DesignForces {
-                element_id: d.forces.element_id,
-                m_ed: Some(d.forces.my),
-                v_ed: d.forces.vy,
-                n_ed: Some(d.forces.n),
-            },
-            bound: d.bound,
+        .map(|d| {
+            strong_axis_only(d, "EC2", false)?;
+            Ok(BoundedEc2Demand {
+                forces: Ec2DesignForces {
+                    element_id: d.forces.element_id,
+                    m_ed: Some(d.forces.my),
+                    v_ed: d.forces.v_strong,
+                    n_ed: Some(d.forces.n),
+                },
+                bound: d.bound,
+            })
         })
         .collect()
 }
@@ -1219,6 +1272,7 @@ mod tests {
             u_factor: Some(0.9),
             aw: Some(3.08e-3),
             cv1: None,
+            aw_weak: None,
             lby: lb,
             lbz: lb,
             ky: None,
@@ -1286,7 +1340,7 @@ mod tests {
             n: g.range(-4e6, 4e6),
             my: g.range(-6e5, 6e5),
             mz: Some(g.range(-2e5, 2e5)),
-            vy: Some(g.range(-8e5, 8e5)),
+            v_weak: None, v_strong: Some(g.range(-8e5, 8e5)),
         }
     }
 
@@ -1295,7 +1349,7 @@ mod tests {
         [r.tension_ratio, r.compression_ratio, r.flexure_y_ratio, r.flexure_z_ratio, r.shear_ratio, r.interaction_ratio]
     }
 
-    const ZERO_BOUND: DemandBound = DemandBound { n: 0.0, my: 0.0, mz: 0.0, vy: 0.0 };
+    const ZERO_BOUND: DemandBound = DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_weak: 0.0, v_strong: 0.0 };
 
     /// The f64 check and the interval twin agree on point inputs: the
     /// enclosure contains the f64 value and is ulp-tight.
@@ -1326,7 +1380,7 @@ mod tests {
                 n: f.n.abs() * g.range(0.0, 0.3) + 1.0,
                 my: f.my.abs() * g.range(0.0, 0.3),
                 mz: f.mz.unwrap().abs() * g.range(0.0, 0.3),
-                vy: f.vy.unwrap().abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.v_strong.unwrap().abs() * g.range(0.0, 0.3),
             };
             let r = steel_ratio_enclosures(&m, &f, &b).unwrap();
             for _ in 0..50 {
@@ -1335,7 +1389,7 @@ mod tests {
                     n: f.n + b.n * g.range(-1.0, 1.0),
                     my: f.my + b.my * g.range(-1.0, 1.0),
                     mz: Some(f.mz.unwrap() + b.mz * g.range(-1.0, 1.0)),
-                    vy: Some(f.vy.unwrap() + b.vy * g.range(-1.0, 1.0)),
+                    v_weak: None, v_strong: Some(f.v_strong.unwrap() + b.v_strong * g.range(-1.0, 1.0)),
                 };
                 let p = f64_ratios(&m, &s);
                 for k in 0..6 {
@@ -1354,8 +1408,8 @@ mod tests {
         let pc: f64 = compression_capacity(&m);
         let mcy: f64 = flexural_capacity_y(&m);
         let my = 0.3 * mcy;
-        let f = ElementDesignForces { element_id: 1, n: -0.2 * pc, my, mz: Some(0.0), vy: Some(0.0) };
-        let b = DemandBound { n: 0.01 * pc, my: 0.0, mz: 0.0, vy: 0.0 };
+        let f = ElementDesignForces { element_id: 1, n: -0.2 * pc, my, mz: Some(0.0), v_weak: None, v_strong: Some(0.0) };
+        let b = DemandBound { n: 0.01 * pc, my: 0.0, mz: 0.0, v_weak: 0.0, v_strong: 0.0 };
         let r = steel_ratio_enclosures(&m, &f, &b).unwrap()[5];
         let a = 0.195 / 2.0 + 0.3; // H1-1b just below the switch
         let c = 0.205 + 8.0 / 9.0 * 0.3; // H1-1a just above
@@ -1368,11 +1422,11 @@ mod tests {
     #[test]
     fn refuses_invalid_bounds_and_capacities() {
         let m = w_member(1, 3.0);
-        let f = ElementDesignForces { element_id: 1, n: -1e5, my: 1e5, mz: None, vy: Some(1e4) };
+        let f = ElementDesignForces { element_id: 1, n: -1e5, my: 1e5, mz: None, v_weak: None, v_strong: Some(1e4) };
         for b in [
             DemandBound { n: f64::NAN, ..ZERO_BOUND },
             DemandBound { my: -1.0, ..ZERO_BOUND },
-            DemandBound { vy: f64::INFINITY, ..ZERO_BOUND },
+            DemandBound { v_weak: 0.0, v_strong: f64::INFINITY, ..ZERO_BOUND },
         ] {
             assert!(steel_ratio_enclosures(&m, &f, &b).is_err(), "{b:?}");
         }
@@ -1398,8 +1452,8 @@ mod tests {
         let m = w_member(1, 3.0);
         let mcy: f64 = flexural_capacity_y(&m);
         let mk = |my: f64| BoundedSteelDemand {
-            forces: ElementDesignForces { element_id: 1, n: 0.0, my, mz: None, vy: None },
-            bound: DemandBound { n: 0.0, my: 0.01 * mcy, mz: 0.0, vy: 0.0 },
+            forces: ElementDesignForces { element_id: 1, n: 0.0, my, mz: None, v_weak: None, v_strong: None },
+            bound: DemandBound { n: 0.0, my: 0.01 * mcy, mz: 0.0, v_weak: 0.0, v_strong: 0.0 },
         };
         let res = certify_steel_members(&CertifiedSteelCheckInput {
             members: vec![m.clone()],
@@ -1517,7 +1571,7 @@ mod tests {
                 n: f.n_ed.unwrap_or(0.0).abs() * g.range(0.0, 0.4) + 10.0,
                 my: f.my_ed.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
                 mz: f.mz_ed.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
-                vy: f.v_ed.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.v_ed.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
             };
             let r = ec3_ratio_enclosures(&m, &f, &b).unwrap();
             for _ in 0..40 {
@@ -1527,7 +1581,7 @@ mod tests {
                     n_ed: jit(&mut g, f.n_ed, b.n),
                     my_ed: jit(&mut g, f.my_ed, b.my),
                     mz_ed: jit(&mut g, f.mz_ed, b.mz),
-                    v_ed: jit(&mut g, f.v_ed, b.vy),
+                    v_ed: jit(&mut g, f.v_ed, b.v_strong),
                 };
                 let p = ec3_f64(&m, &s);
                 for k in 0..6 {
@@ -1648,14 +1702,14 @@ mod tests {
                 n: f.n_ed.unwrap_or(0.0).abs() * g.range(0.0, 0.5) + 1e3,
                 my: f.m_ed.unwrap().abs() * g.range(0.0, 0.3),
                 mz: 0.0,
-                vy: f.v_ed.unwrap().abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.v_ed.unwrap().abs() * g.range(0.0, 0.3),
             };
             let Ok(r) = ec2_ratio_enclosures(&m, &f, &b) else { continue };
             for _ in 0..40 {
                 let s = Ec2DesignForces {
                     element_id: i,
                     m_ed: Some(f.m_ed.unwrap() + b.my * g.range(-1.0, 1.0)),
-                    v_ed: Some(f.v_ed.unwrap() + b.vy * g.range(-1.0, 1.0)),
+                    v_ed: Some(f.v_ed.unwrap() + b.v_strong * g.range(-1.0, 1.0)),
                     n_ed: Some(f.n_ed.unwrap_or(0.0) + b.n * g.range(-1.0, 1.0)),
                 };
                 let p = ec2_f64(&m, &s);
@@ -1672,7 +1726,7 @@ mod tests {
         let mut g = Lcg(1);
         let mut m = rc_beam(&mut g, 1);
         let f = rc_forces(&mut g, 1);
-        assert!(ec2_ratio_enclosures(&m, &f, &DemandBound { vy: -1.0, ..ZERO_BOUND }).is_err());
+        assert!(ec2_ratio_enclosures(&m, &f, &DemandBound { v_weak: 0.0, v_strong: -1.0, ..ZERO_BOUND }).is_err());
         m.as_tension = 0.0;
         m.as_compression = None;
         m.d_prime = None;
@@ -1772,14 +1826,14 @@ mod tests {
                 n: 0.0,
                 my: f.mu.unwrap_or(0.0).abs() * g.range(0.0, 0.3) + 1.0,
                 mz: 0.0,
-                vy: f.vu.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.vu.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
             };
             let Ok(r) = cirsoc201_ratio_enclosures(&m, &f, &b) else { continue };
             for _ in 0..40 {
                 let s = Cirsoc201DesignForces {
                     element_id: i,
                     mu: Some(f.mu.unwrap_or(0.0) + b.my * g.range(-1.0, 1.0)),
-                    vu: Some(f.vu.unwrap_or(0.0) + b.vy * g.range(-1.0, 1.0)),
+                    vu: Some(f.vu.unwrap_or(0.0) + b.v_strong * g.range(-1.0, 1.0)),
                     axial_compression: f.axial_compression,
                 };
                 let p = cirsoc_f64(&m, &s);
@@ -1957,7 +2011,7 @@ mod tests {
                 n: if rect { f.nu.unwrap_or(0.0).abs() * g.range(0.0, 0.2) + 1e3 } else { 0.0 },
                 my: f.mu.abs() * g.range(0.0, 0.3),
                 mz: 0.0,
-                vy: f.vu.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.vu.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
             };
             let Ok(r) = rc_ratio_enclosures(&m, &f, &b) else { continue };
             checked += 1;
@@ -1969,7 +2023,7 @@ mod tests {
                 let s = RCDesignForces {
                     element_id: i,
                     mu: f.mu + b.my * g.range(-1.0, 1.0),
-                    vu: Some(f.vu.unwrap_or(0.0) + b.vy * g.range(-1.0, 1.0)),
+                    vu: Some(f.vu.unwrap_or(0.0) + b.v_strong * g.range(-1.0, 1.0)),
                     nu: Some(nu),
                 };
                 let p = aci_f64(&m, &s).unwrap_or_else(|| panic!("{i}: certified box contains an unevaluable point"));
@@ -2137,7 +2191,7 @@ mod tests {
                 n: f.n.unwrap_or(0.0).abs() * g.range(0.0, 0.3) + 1.0,
                 my: f.m.abs() * g.range(0.0, 0.3),
                 mz: 0.0,
-                vy: f.v.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.v.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
             };
             // Refused only where the box reaches a buckled member with a moment
             // box containing 0 (the saturated term jumps 0 → 99 there).
@@ -2149,7 +2203,7 @@ mod tests {
                     element_id: i,
                     m: f.m + b.my * t(&mut g),
                     n: Some(f.n.unwrap_or(0.0) + b.n * t(&mut g)),
-                    v: Some(f.v.unwrap_or(0.0) + b.vy * t(&mut g)),
+                    v: Some(f.v.unwrap_or(0.0) + b.v_strong * t(&mut g)),
                 };
                 let p = timber_f64(&m, &s);
                 for k in 0..5 {
@@ -2195,7 +2249,7 @@ mod tests {
         let mut g = Lcg(9);
         let m = timber_member(&mut g, 1);
         let f = timber_forces(&mut g, &m);
-        assert!(timber_ratio_enclosures(&m, &f, &DemandBound { vy: f64::NAN, ..ZERO_BOUND }).is_err());
+        assert!(timber_ratio_enclosures(&m, &f, &DemandBound { v_weak: 0.0, v_strong: f64::NAN, ..ZERO_BOUND }).is_err());
         assert!(timber_ratio_enclosures(&TimberMemberData { b: 0.0, ..m.clone() }, &f, &ZERO_BOUND).is_err());
         let res = certify_timber_members(&CertifiedTimberCheckInput {
             members: vec![TimberMemberData { fb: 0.0, ..m }],
@@ -2285,7 +2339,7 @@ mod tests {
                 n: f.axial.unwrap_or(0.0).abs() * g.range(0.0, 0.3) + 1.0,
                 my: f.mx.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
                 mz: f.my.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
-                vy: f.shear.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
+                v_weak: 0.0, v_strong: f.shear.unwrap_or(0.0).abs() * g.range(0.0, 0.3),
             };
             let r = cfs_ratio_enclosures(&m, &f, &b).unwrap();
             for j in 0..40 {
@@ -2295,7 +2349,7 @@ mod tests {
                     axial: Some(f.axial.unwrap_or(0.0) + b.n * t(&mut g)),
                     mx: Some(f.mx.unwrap_or(0.0) + b.my * t(&mut g)),
                     my: Some(f.my.unwrap_or(0.0) + b.mz * t(&mut g)),
-                    shear: if m.h.is_some() { Some(f.shear.unwrap_or(0.0) + b.vy * t(&mut g)) } else { None },
+                    shear: if m.h.is_some() { Some(f.shear.unwrap_or(0.0) + b.v_strong * t(&mut g)) } else { None },
                 };
                 let p = cfs_f64(&m, &s);
                 for k in 0..6 {
@@ -2361,8 +2415,8 @@ mod tests {
             let b = if g.unit() < 0.3 { 0.0 } else { g.range(0.0, 1e-6) };
             let s = [1000.0, 1e-3, 0.1, 3.7][(g.unit() * 4.0) as usize % 4];
             let d = BoundedSteelDemand {
-                forces: ElementDesignForces { element_id: 0, n: x, my: x, mz: Some(x), vy: None },
-                bound: DemandBound { n: b, my: b, mz: b, vy: b },
+                forces: ElementDesignForces { element_id: 0, n: x, my: x, mz: Some(x), v_weak: None, v_strong: None },
+                bound: DemandBound { n: b, my: b, mz: b, v_weak: 0.0, v_strong: b },
             };
             let o = &scale_demands(&[d], s)[0];
             // exact s·x = p + e; every point of s·[x − b, x + b] within the new bound
@@ -2370,7 +2424,7 @@ mod tests {
             let e = s.mul_add(x, -p);
             let dev = ((p - o.forces.n) + e).abs() + s * b;
             assert!(dev <= o.bound.n * (1.0 - 1e-15) || dev <= o.bound.n, "{x} {b} {s}");
-            assert!(o.forces.vy.is_none());
+            assert!(o.forces.v_strong.is_none() && o.forces.v_weak.is_none());
         }
     }
 }

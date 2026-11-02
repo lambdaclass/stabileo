@@ -404,7 +404,7 @@ fn certified_ec3_utilization_end_to_end_2d() {
     use dedaliano_engine::postprocess::ec3_check::{check_ec3_members, Ec3CheckInput, Ec3MemberData};
     let mc = building_2d();
     let analysis = certify_multi_case_2d(&mc).unwrap();
-    let demands = ec3_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap());
+    let demands = ec3_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap()).unwrap();
     let mut ids: Vec<usize> = mc.solver.elements.values().map(|e| e.id).collect();
     ids.sort();
     // IPE 300-like, kN and m.
@@ -446,7 +446,7 @@ fn certified_ec2_utilization_end_to_end_2d() {
     use dedaliano_engine::postprocess::ec2_check::{check_ec2_members, Ec2CheckInput, Ec2MemberData};
     let mc = building_2d();
     let analysis = certify_multi_case_2d(&mc).unwrap();
-    let demands = ec2_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0));
+    let demands = ec2_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0)).unwrap();
     let mut ids: Vec<usize> = mc.solver.elements.values().map(|e| e.id).collect();
     ids.sort();
     let members: Vec<Ec2MemberData> = ids
@@ -483,7 +483,7 @@ fn certified_cirsoc201_utilization_end_to_end_2d() {
     use dedaliano_engine::postprocess::cirsoc201_check::{check_cirsoc201_members, Cirsoc201CheckInput, Cirsoc201MemberData};
     let mc = building_2d();
     let analysis = certify_multi_case_2d(&mc).unwrap();
-    let demands = cirsoc201_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0));
+    let demands = cirsoc201_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0)).unwrap();
     let mut ids: Vec<usize> = mc.solver.elements.values().map(|e| e.id).collect();
     ids.sort();
     let members: Vec<Cirsoc201MemberData> = ids
@@ -522,7 +522,7 @@ fn certified_aci_rc_utilization_end_to_end_2d() {
     use dedaliano_engine::postprocess::rc_check::{check_rc_members, RCCheckInput, RCMemberData};
     let mc = building_2d();
     let analysis = certify_multi_case_2d(&mc).unwrap();
-    let demands = rc_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0));
+    let demands = rc_demands(&scale_demands(&steel_demands_from_combinations_2d(&analysis, 21).unwrap(), 1000.0)).unwrap();
     let mut ids: Vec<usize> = mc.solver.elements.values().map(|e| e.id).collect();
     ids.sort();
     let members: Vec<RCMemberData> = ids

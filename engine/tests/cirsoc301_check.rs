@@ -533,7 +533,7 @@ fn certified_enclosures_contain_the_f64_check() {
             vu: rng.range(0.0, 400.0),
         };
         let r = check_member(&m, &f);
-        let zero = DemandBound { n: 0.0, my: 0.0, mz: 0.0, vy: 0.0 };
+        let zero = DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_weak: 0.0, v_strong: 0.0 };
         match cirsoc301_ratio_enclosures(&m, &f, &zero) {
             Ok(enc) => {
                 certified += 1;
@@ -565,7 +565,7 @@ fn certify_members_over_demand_boxes() {
     let m = ipn180(json!({"tensionConnection": {"allElementsConnected": true}}));
     let d = |nu: f64, mx: f64| BoundedCirsoc301Demand {
         forces: Cirsoc301DesignForces { element_id: 0, nu, mu_strong: mx, mu_weak: 0.0, vu: 10.0 },
-        bound: DemandBound { n: 1.0, my: 0.1, mz: 0.0, vy: 0.1 },
+        bound: DemandBound { n: 1.0, my: 0.1, mz: 0.0, v_weak: 0.0, v_strong: 0.1 },
     };
     let res = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput { members: vec![m.clone()], demands: vec![d(-100.0, 10.0), d(-150.0, 5.0)] });
     assert_eq!(res.len(), 1);

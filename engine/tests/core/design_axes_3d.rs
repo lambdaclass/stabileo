@@ -45,7 +45,7 @@ fn ipe300(id: usize) -> SteelMemberData {
         "lby": L, "lbz": L, "iy": IY, "iz": IZ,
         "ry": (IY / A).sqrt(), "rz": (IZ / A).sqrt(),
         "zy": ZY, "zz": ZZ, "sy": 557e-6, "sz": 80.5e-6,
-        "j": J, "cw": 126e-9, "lb": 0.0, "e": E * 1000.0,
+        "awWeak": AW_WEAK, "j": J, "cw": 126e-9, "lb": 0.0, "e": E * 1000.0,
         "compressionElements": []
     }))
     .unwrap()
@@ -124,8 +124,9 @@ fn steel_member_3d(input: &SolverInput3D) -> ElementDesignForces {
 fn governing_steel(demands: &[ElementDesignForces]) -> ElementDesignForces {
     let my = demands.iter().map(|d| d.my.abs()).fold(0.0, f64::max);
     let mz = demands.iter().map(|d| d.mz.unwrap_or(0.0).abs()).fold(0.0, f64::max);
-    let vy = demands.iter().map(|d| d.vy.unwrap_or(0.0).abs()).fold(0.0, f64::max);
-    ElementDesignForces { element_id: 1, n: 0.0, my, mz: Some(mz), vy: Some(vy) }
+    let v_strong = demands.iter().map(|d| d.v_strong.unwrap_or(0.0).abs()).fold(0.0, f64::max);
+    let v_weak = demands.iter().map(|d| d.v_weak.unwrap_or(0.0).abs()).fold(0.0, f64::max);
+    ElementDesignForces { element_id: 1, n: 0.0, my, mz: Some(mz), v_strong: Some(v_strong), v_weak: Some(v_weak) }
 }
 
 fn close(a: f64, b: f64, what: &str) {
@@ -156,14 +157,14 @@ fn gravity_beam_alpha0_reports_strong_axis_moment_and_web_shear() {
     let d = steel_member_3d(&simply_supported_3d(None, midspan_gravity()));
     close(d.my, P * L / 4.0, "My = PL/4");
     close(d.mz.unwrap(), 0.0, "Mz");
-    close(d.vy.unwrap(), P / 2.0, "web shear = P/2");
+    close(d.v_strong.unwrap(), P / 2.0, "web shear = P/2");
 }
 
 #[test]
 fn gravity_udl_alpha0_reports_wl2_over_8_and_wl_over_2() {
     let d = steel_member_3d(&simply_supported_3d(None, udl_gravity_alpha0()));
     close(d.my, W * L * L / 8.0, "My = wL²/8");
-    close(d.vy.unwrap(), W * L / 2.0, "web shear = wL/2");
+    close(d.v_strong.unwrap(), W * L / 2.0, "web shear = wL/2");
 }
 
 #[test]
@@ -171,8 +172,8 @@ fn gravity_beam_matches_the_2d_solve() {
     let d3 = steel_member_3d(&simply_supported_3d(None, midspan_gravity()));
     let d2 = governing_steel(&extract_steel_demands_2d(&simply_supported_2d(), DemandStrategy::MaxAbsMoment));
     close(d3.my, d2.my, "3D strong-axis moment vs 2D moment");
-    close(d3.vy.unwrap(), d2.vy.unwrap(), "3D web shear vs 2D shear");
-    close(d2.vy.unwrap(), P / 2.0, "2D shear = P/2");
+    close(d3.v_strong.unwrap(), d2.v_strong.unwrap(), "3D web shear vs 2D shear");
+    close(d2.v_strong.unwrap(), P / 2.0, "2D shear = P/2");
 }
 
 #[test]
@@ -188,29 +189,7 @@ fn gravity_beam_alpha0_check_ratios_use_strong_axis_demands() {
 fn certified_gravity_beam_alpha0_fails_on_web_shear() {
     let span = 1.0;
     let w = 900.0;
-    let mut solver = make_3d_input(
-        vec![(1, 0.0, 0.0, 0.0), (2, span, 0.0, 0.0)],
-        vec![(1, E, NU)],
-        vec![(1, A, IY, IZ, J)],
-        vec![(1, "frame", 1, 2, 1, 1)],
-        vec![(1, vec![true, true, true, true, false, false]), (2, vec![false, true, true, false, false, false])],
-        vec![],
-    );
-    solver.loads.clear();
-    let mc = MultiCaseInput3D {
-        solver,
-        load_cases: vec![LoadCase3D {
-            name: "G".into(),
-            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
-                q_xi: 0.0, q_xj: 0.0, element_id: 1,
-                q_yi: 0.0, q_yj: 0.0, q_zi: -w, q_zj: -w, a: None, b: None,
-            })],
-        }],
-        combinations: vec![CombinationDef { name: "1.0G".into(), factors: [("G".to_string(), 1.0)].into_iter().collect() }],
-    };
-    let out = certify_steel_multi_case_3d(&SteelMultiCaseInput3D { multi_case: mc, members: vec![ipe300(1)], stations: Some(21) })
-        .unwrap();
-    let r = &out.steel[0];
+    let r = &certified_beam(None, w, span, ipe300(1));
     assert!(r.certified, "{r:?}");
     let shear = r.checks.iter().find(|c| c.name == "Shear G2").unwrap();
     let flex = r.checks.iter().find(|c| c.name == "Flexure-Y F2").unwrap();
@@ -228,7 +207,23 @@ fn rolled_beam_alpha90_bends_about_the_weak_axis() {
     let d = steel_member_3d(&simply_supported_3d(Some(90.0), midspan_gravity()));
     close(d.my, 0.0, "My");
     close(d.mz.unwrap(), P * L / 4.0, "Mz = PL/4");
-    close(d.vy.unwrap(), 0.0, "web shear");
+    close(d.v_strong.unwrap(), 0.0, "web shear");
+    close(d.v_weak.unwrap(), P / 2.0, "weak-axis shear = P/2");
+    let r = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: vec![d] })[0];
+    close(r.flexure_y_ratio, 0.0, "Flexure-Y ratio");
+    close(r.flexure_z_ratio, P * L / 4.0 / phi_mn_z(), "Flexure-Z ratio");
+    close(r.shear_ratio, P / 2.0 / phi_vn_weak(), "weak-axis shear ratio");
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
+}
+
+#[test]
+fn weak_axis_shear_without_aw_weak_is_not_evaluated() {
+    let d = steel_member_3d(&simply_supported_3d(Some(90.0), midspan_gravity()));
+    let mut m = ipe300(1);
+    m.aw_weak = None;
+    let r = &check_steel_members(&SteelCheckInput { members: vec![m], forces: vec![d] })[0];
+    assert!(r.governing_check.ends_with("(incomplete)"), "{r:?}");
+    assert!(r.unevaluated.iter().any(|u| u.contains("weak axis")), "{:?}", r.unevaluated);
 }
 
 #[test]
@@ -236,7 +231,8 @@ fn column_lateral_x_is_strong_axis() {
     let d = steel_member_3d(&cantilever_column(10.0, 0.0));
     close(d.my, 30.0, "My = PH");
     close(d.mz.unwrap(), 0.0, "Mz");
-    close(d.vy.unwrap(), 10.0, "web shear = P");
+    close(d.v_strong.unwrap(), 10.0, "web shear = P");
+    close(d.v_weak.unwrap(), 0.0, "weak-axis shear");
 }
 
 #[test]
@@ -244,7 +240,8 @@ fn column_lateral_y_is_weak_axis() {
     let d = steel_member_3d(&cantilever_column(0.0, 10.0));
     close(d.my, 0.0, "My");
     close(d.mz.unwrap(), 30.0, "Mz = PH");
-    close(d.vy.unwrap(), 0.0, "web shear");
+    close(d.v_strong.unwrap(), 0.0, "web shear");
+    close(d.v_weak.unwrap(), 10.0, "weak-axis shear = P");
 }
 
 fn rc_beam(id: usize) -> RCMemberData {
@@ -257,7 +254,8 @@ fn rc_beam(id: usize) -> RCMemberData {
 
 #[test]
 fn rc_gravity_beam_alpha0_uses_strong_axis_moment_and_shear() {
-    let demands = extract_rc_demands_3d(&stations_3d(&simply_supported_3d(None, udl_gravity_alpha0())), DemandStrategy::MaxAbsMoment);
+    let demands = extract_rc_demands_3d(&stations_3d(&simply_supported_3d(None, udl_gravity_alpha0())), DemandStrategy::MaxAbsMoment)
+        .unwrap();
     let mu = demands.iter().map(|d| d.mu.abs()).fold(0.0, f64::max);
     let vu = demands.iter().map(|d| d.vu.unwrap_or(0.0).abs()).fold(0.0, f64::max);
     close(mu, W * L * L / 8.0, "Mu = wL²/8");
@@ -272,4 +270,97 @@ fn rc_gravity_beam_alpha0_uses_strong_axis_moment_and_shear() {
     let ratio = checks.iter().map(|c| c.flexure_ratio).fold(0.0, f64::max);
     assert!((checks[0].phi_mn - phi_mn).abs() <= 1e-3 * phi_mn, "φMn {} vs {phi_mn}", checks[0].phi_mn);
     close(ratio, W * L * L / 8.0 * 1e3 / phi_mn, "flexure ratio");
+}
+
+#[test]
+fn rc_member_bent_about_the_weak_axis_is_refused() {
+    let grouped = stations_3d(&simply_supported_3d(Some(90.0), midspan_gravity()));
+    assert!(extract_rc_demands_3d(&grouped, DemandStrategy::MaxAbsMoment).is_err());
+}
+
+fn certified_beam(roll: Option<f64>, w: f64, span: f64, member: SteelMemberData) -> CertifiedMemberResult {
+    let mut solver = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, span, 0.0, 0.0)],
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true, true, true, true, false, false]), (2, vec![false, true, true, false, false, false])],
+        vec![],
+    );
+    for e in solver.elements.values_mut() {
+        e.roll_angle = roll;
+    }
+    let (qy, qz) = if roll.is_some() { (-w, 0.0) } else { (0.0, -w) };
+    let mc = MultiCaseInput3D {
+        solver,
+        load_cases: vec![LoadCase3D {
+            name: "G".into(),
+            loads: vec![SolverLoad3D::Distributed(SolverDistributedLoad3D {
+                q_xi: 0.0, q_xj: 0.0, element_id: 1,
+                q_yi: qy, q_yj: qy, q_zi: qz, q_zj: qz, a: None, b: None,
+            })],
+        }],
+        combinations: vec![CombinationDef { name: "1.0G".into(), factors: [("G".to_string(), 1.0)].into_iter().collect() }],
+    };
+    certify_steel_multi_case_3d(&SteelMultiCaseInput3D { multi_case: mc, members: vec![member], stations: Some(21) })
+        .unwrap()
+        .steel
+        .remove(0)
+}
+
+#[test]
+fn certified_rolled_beam_checks_weak_axis_shear() {
+    let w = 200.0;
+    let r = certified_beam(Some(90.0), w, 1.0, ipe300(1));
+    assert!(r.certified, "{r:?}");
+    let shear = r.checks.iter().find(|c| c.name == "Shear G2").unwrap();
+    let expect = w / 2.0 / phi_vn_weak();
+    assert!((shear.upper - expect).abs() <= 1e-6 * expect, "{shear:?} vs {expect}");
+    let flex = r.checks.iter().find(|c| c.name == "Flexure-Z F6").unwrap();
+    let expect = w / 8.0 / phi_mn_z();
+    assert!((flex.upper - expect).abs() <= 1e-6 * expect, "{flex:?} vs {expect}");
+    let mut m = ipe300(1);
+    m.aw_weak = None;
+    let r = certified_beam(Some(90.0), w, 1.0, m);
+    assert!(!r.certified && !r.certified_ok, "{r:?}");
+}
+
+#[test]
+fn certified_3d_demands_refuse_single_plane_converters() {
+    let mut solver = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, 0.0, 0.0, 3.0)],
+        vec![(1, E, NU)],
+        vec![(1, A, IY, IZ, J)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true; 6])],
+        vec![],
+    );
+    solver.loads.clear();
+    let mc = MultiCaseInput3D {
+        solver,
+        load_cases: vec![LoadCase3D {
+            name: "W".into(),
+            loads: vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 0.0, fy: 10.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        }],
+        combinations: vec![CombinationDef { name: "1.0W".into(), factors: [("W".to_string(), 1.0)].into_iter().collect() }],
+    };
+    let analysis = dedaliano_engine::certify::combinations::certify_multi_case_3d(&mc).unwrap();
+    let demands = scale_demands(&steel_demands_from_combinations_3d(&analysis, 11).unwrap(), 1000.0);
+    assert!(rc_demands(&demands).is_err());
+    assert!(ec2_demands(&demands).is_err());
+    assert!(cirsoc201_demands(&demands).is_err());
+    assert!(timber_demands(&demands).is_err());
+    assert!(ec3_demands(&demands).is_err());
+    assert!(cirsoc301_demands(&demands).is_err());
+    assert!(cfs_demands(&demands).is_err());
+    let base = demands.iter().find(|d| d.forces.my.abs() + d.forces.mz.unwrap_or(0.0).abs() > 0.0).unwrap();
+    let mz = demands.iter().map(|d| d.forces.mz.unwrap().abs()).fold(0.0, f64::max);
+    let v_weak = demands.iter().map(|d| d.forces.v_weak.unwrap().abs()).fold(0.0, f64::max);
+    let my = demands.iter().map(|d| d.forces.my.abs()).fold(0.0, f64::max);
+    let v_strong = demands.iter().map(|d| d.forces.v_strong.unwrap().abs()).fold(0.0, f64::max);
+    assert!(base.forces.element_id == 1);
+    close(mz, 30_000.0, "Mz = PH");
+    close(v_weak, 10_000.0, "weak-axis shear = P");
+    close(my, 0.0, "My");
+    close(v_strong, 0.0, "web shear");
 }
