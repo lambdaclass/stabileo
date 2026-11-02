@@ -11,7 +11,7 @@
   import { toQ, unitQ, fmtQ } from '../../../lib/store/display-units.svelte';
   import { downloadText, downloadDataUrlPNG } from '../../../lib/store/file';
   import PlasticSection from './PlasticSection.svelte';
-  import { verifiedCollapse } from './user-compare';
+  import { plateauSign } from './user-compare';
 
   let { r }: { r: PlasticCollapseResult } = $props();
 
@@ -38,8 +38,8 @@
     if (pts.length < 2) return null;
     const xs = pts.map((p) => p.x);
     const span = Math.max(...xs) - Math.min(...xs) || 1;
-    const lastDx = xs[xs.length - 1] - xs[xs.length - 2];
-    const plateau = verifiedCollapse(r) ? xs[xs.length - 1] + (lastDx < 0 ? -1 : 1) * 0.2 * span : null;
+    const dir = axis ? plateauSign(r, plasticCourse.collapse, axis) : null;
+    const plateau = dir ? xs[xs.length - 1] + dir * 0.2 * span : null;
     const lo = Math.min(0, ...xs, plateau ?? 0), hi = Math.max(0, ...xs, plateau ?? 0);
     const xt = niceTicks(lo, hi), yt = niceTicks(0, Math.max(...pts.map((p) => p.lambda)) * 1.08);
     const x0 = Math.min(lo, xt[0]), x1 = Math.max(hi, xt[xt.length - 1]) || 1;

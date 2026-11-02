@@ -219,6 +219,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.shape': 'Der Schubrahmen braucht lotrechte Stützen zwischen den Geschossen und waagerechte Riegel in jedem Geschoss, ohne weitere Stäbe.',
   'course.dynamics.mdof.err.shear.noColumns': 'Ein Geschoss hat keine Stützen, die Querkraft aufnehmen: Jede dreht sich an beiden Enden frei (Gelenk, gelenkiges Lager oder ein Knoten, an dem alle Riegelenden gelöst sind).',
   'course.dynamics.mdof.err.shear.floorSplit': 'Ein Geschoss hat Knoten, die kein Riegel verbindet: Sie bewegen sich nicht gemeinsam und sind daher nicht ein einziger Freiheitsgrad.',
+  'course.dynamics.mdof.err.shear.otherParts': 'Das Schubrahmenmodell ist nur der Stabrahmen: Platten, Vierecke, Kopplungen oder Verbinder gingen nicht in die Geschosssteifigkeit ein.',
   'course.dynamics.mdof.err.xi': 'ξ muss eine endliche, nicht negative Zahl sein.',
   'course.dynamics.mdof.err.ratio': 'Die harmonische Anregung braucht Ω/ω₁ zwischen {min} und {max}.',
   'course.dynamics.mdof.err.notFinite': 'Die Antwort ergibt mit diesen Eingaben keine endlichen Zahlen.',

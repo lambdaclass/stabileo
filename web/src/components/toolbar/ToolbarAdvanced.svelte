@@ -75,7 +75,7 @@
   import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
   import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
   import BucklingDetails from '../advanced/BucklingDetails.svelte';
-  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2 } from '../../lib/actions/second-order';
+  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2, rerunSecondOrder } from '../../lib/actions/second-order';
   import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
   import { amplification } from '../../lib/engine/pdelta-amplification';
@@ -760,7 +760,7 @@
     {@render helpPanel('buckling')}
     {/if}
     {#if !is3D && (shown('pdelta') || shown('buckling'))}
-      <SecondOrderOptions onchange={() => { if (resultsStore.pdeltaResult) handlePDelta(); else if (resultsStore.bucklingResult) handleBuckling(); }} />
+      <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
     {/if}
     {#if !(flat && active) && (shown('modal') || shown('plastic'))}
     <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->

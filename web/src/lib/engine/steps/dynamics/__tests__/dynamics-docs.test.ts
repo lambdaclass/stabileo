@@ -5,7 +5,7 @@ import { methodContext } from '../../../../store/explained-steps.svelte';
 import { methodById } from '../../methods';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
 import { resolveMdof, MIN_HARMONIC_RATIO, MAX_HARMONIC_RATIO } from '../mdof-build';
-import { solveSdof, resolveSdof } from '../sdof-doc';
+import { solveSdof, resolveSdof, finiteSdof } from '../sdof-doc';
 import { stepsEs, stepsEn, stepsPt } from '../../../../i18n/locales/steps';
 import type { Block, StepDoc, Txt } from '../../doc';
 import { isTxt } from '../../doc';
@@ -120,6 +120,21 @@ describe('the single degree of freedom document', () => {
     }
     setDynamicsSettings({ sdof: base });
     expect(methodById('sdof')!.applies(methodContext('sdof')!).ok).toBe(true);
+  });
+
+  it('refuses finite m and k whose ω or response overflows', async () => {
+    await load('cantilever');
+    const base = { source: 'manual' as const, m: 2, k: 800, xi: 0.05, F0: 10, u0: 0.01, v0: 0.05, Omega: null };
+    for (const bad of [{ m: 1e-300, k: 1e300 }, { m: 1e300, k: 1e-300, v0: 1e300 }]) {
+      setDynamicsSettings({ sdof: { ...base, ...bad } });
+      const v = methodById('sdof')!.applies(methodContext('sdof')!);
+      expect(v.ok, JSON.stringify(bad)).toBe(false);
+      if (!v.ok) expect(v.reason.key).toBe('course.dynamics.mdof.err.notFinite');
+    }
+    setDynamicsSettings({ sdof: base });
+    const ok = methodById('sdof')!.applies(methodContext('sdof')!);
+    expect(ok.ok).toBe(true);
+    expect(finiteSdof(solveSdof(2, 800, { ...base, dir: 'ux', nodeId: null } as never))).toBe(true);
   });
 });
 

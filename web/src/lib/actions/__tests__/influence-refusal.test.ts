@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { modelStore, resultsStore, uiStore } from '../../store';
 import type { InfluenceLineResult } from '../../store/model.svelte';
+import { influenceTool } from '../../store/influence-tool.svelte';
+import type { AlongEnvelope } from '../../engine/influence/envelope-along';
 import { moveInfluenceSection, pickInfluenceTarget, runInfluence, setInfluenceDirection, setInfluenceQuantity } from '../influence-line';
 
 const line = (): InfluenceLineResult => ({
@@ -79,5 +81,17 @@ describe('a zero line in the chosen direction', () => {
     setInfluenceQuantity('V');
     expect(uiStore.ilDirection).toBe('horizontal');
     expect(resultsStore.influenceLine?.points.every((p) => p.value === 0)).toBe(true);
+  });
+});
+
+describe('the envelope follows the quantity', () => {
+  it('a quantity the line on screen cannot carry clears the line and the old envelope', () => {
+    resultsStore.setInfluenceLine(line());
+    influenceTool.envelope = { members: [] } as unknown as AlongEnvelope;
+    const solve = vi.spyOn(modelStore, 'computeInfluenceLine');
+    setInfluenceQuantity('Rz');
+    expect(solve).not.toHaveBeenCalled();
+    expect(resultsStore.influenceLine).toBeNull();
+    expect(influenceTool.envelope).toBeNull();
   });
 });

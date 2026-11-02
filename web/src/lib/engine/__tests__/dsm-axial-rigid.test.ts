@@ -122,6 +122,22 @@ describe('stiffness wizard with axially rigid members', () => {
     expect(solveDetailed(modelStore.buildSolverInput(false)!, { axialRigid: true }).rigidStatus).toBe('imposed');
   });
 
+  it('restraints between free DOFs: free DOFs are numbered first, so the reduced indices read the same labels in both lists', () => {
+    const n = [0, 6, 12, 18].map((x) => modelStore.addNode(x, 0));
+    const e = modelStore.addElement(n[0], n[1]); modelStore.addElement(n[1], n[2]); modelStore.addElement(n[2], n[3]);
+    modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[1], 'rollerX'); modelStore.addSupport(n[2], 'rollerX');
+    modelStore.addDistributedLoad(e, -10, -10);
+    const d = check(modelStore.buildSolverInput(false)!);
+    const nF = d.dofNumbering.nFree;
+    expect(d.dofNumbering.dofs.filter((q) => q.isFree).every((q) => q.globalIndex < nF)).toBe(true);
+    expect(d.dofLabels.slice(0, nF)).toEqual(d.freeDofLabels);
+    const restrainedInside = d.dofNumbering.dofs.filter((q) => !q.isFree && q.nodeId === n[1]);
+    expect(restrainedInside.length).toBeGreaterThan(0);
+    const step6 = rigidStep6(d);
+    const T = step6.find((b) => b.kind === 'matrix' && b.name === '\\mathbf{T}') as Extract<Block, { kind: 'matrix' }>;
+    expect(T.colLabels).toEqual(d.rigid!.indep.map((k) => d.freeDofLabels[k]));
+  });
+
   it('a beam between two fixed ends: its axial force is the least-energy one (zero), flagged as such', () => {
     const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
     const e = modelStore.addElement(a, b);

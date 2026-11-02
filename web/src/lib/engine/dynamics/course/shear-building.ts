@@ -41,13 +41,14 @@ export interface ShearBuilding {
   dofs: DofRef[];
 }
 
-export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad';
+export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad' | 'otherParts';
 
 const TOL = 1e-6;
 
 export function shearBuilding(model: ModelData, points: readonly PointMass[], barMass: boolean): ShearBuilding | ShearRefusal {
   const els = [...model.elements.values()];
   if (!els.length || els.some((e) => e.type !== 'frame')) return 'notFrames';
+  if ((model.plates?.size ?? 0) || (model.quads?.size ?? 0) || (model.constraints?.length ?? 0) || (model.connectors?.size ?? 0)) return 'otherParts';
   const supported = new Set([...model.supports.values()].map((s) => s.nodeId));
   const base = [...supported].map((id) => model.nodes.get(id)?.y).filter((y): y is number => y !== undefined);
   if (!base.length || base.some((y) => Math.abs(y - base[0]) > TOL)) return 'base';

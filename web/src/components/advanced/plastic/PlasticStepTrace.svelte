@@ -8,6 +8,7 @@
   import type { PlasticCollapseResult } from '../../../lib/engine/plastic-collapse';
   import { fmtQ, fmtCoord, unitQ } from '../../../lib/store/display-units.svelte';
   import PlasticSection from './PlasticSection.svelte';
+  import { verifiedCollapse } from './user-compare';
 
   let { r, step }: { r: PlasticCollapseResult; step: number } = $props();
 
@@ -59,7 +60,7 @@
       {#each events as e (e.i)}
         <li>{e.axial ? tp('course.plastic.trace.yield', { member: e.h.elementId, i: e.i }) : tp('course.plastic.trace.hinge', { member: e.h.elementId, x: at(e.h.x), i: e.i })}</li>
       {/each}
-      <li class="tr-end">{last && r.isMechanism ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
+      <li class="tr-end">{last && verifiedCollapse(r) ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last && r.isMechanism ? t('course.plastic.unresolved') : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
     </ol>
   </PlasticSection>
 {/if}

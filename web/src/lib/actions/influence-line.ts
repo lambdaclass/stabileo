@@ -89,6 +89,7 @@ export function setInfluenceQuantity(q: InfluenceQuantity): void {
   uiStore.ilQuantity = q;
   const il = resultsStore.influenceLine;
   if (!il || il.quantity === q) return;
+  influenceTool.envelope = null;
   const family = familyOf(q);
   if (family === 'reaction' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
   else if (family !== 'reaction' && il.targetElementId !== undefined) runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);

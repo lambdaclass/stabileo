@@ -381,3 +381,24 @@ describe('the single degree of freedom against the engine', () => {
     for (const i of [100, 250, 400, 650, 800]) expect(Math.abs(ux[i] - exact(i * dt))).toBeLessThan(0.01 * peak);
   });
 });
+
+describe('the shear building is the frame alone', () => {
+  const parts: Array<[string, object]> = [
+    ['a plate', { plates: new Map([[1, { id: 1, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]]) }],
+    ['a quad', { quads: new Map([[1, { id: 1, nodes: [1, 2, 3, 4], materialId: 1, thickness: 0.1 }]]) }],
+    ['a constraint', { constraints: [{ type: 'rigidLink', master: 2, slave: 3 }] }],
+    ['a connector', { connectors: new Map([[1, { id: 1, nodeI: 2, nodeJ: 3 }]]) }],
+  ];
+  for (const [name, extra] of parts) {
+    it(`a portal with ${name} is refused: its stiffness would not enter the storeys`, () => {
+      build(() => {
+        const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+        modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, c);
+        modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+      });
+      const plain = { ...modelStore.model, plates: new Map(), quads: new Map(), constraints: [], connectors: new Map() };
+      expect(typeof shearBuilding(plain, [{ nodeId: 2, m: 5 }], false)).toBe('object');
+      expect(shearBuilding({ ...plain, ...extra } as never, [{ nodeId: 2, m: 5 }], false)).toBe('otherParts');
+    });
+  }
+});

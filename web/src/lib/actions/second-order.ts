@@ -9,6 +9,7 @@ import { runBuckling2D, type SoBucklingResult } from '../engine/second-order/run
 import { firstModeB2, type SoSettings } from '../engine/second-order/settings';
 import { solveBuckling3D } from '../engine/wasm-solver';
 import { secondOrderSettings } from '../store/second-order.svelte';
+import { resultsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
 import { openExplainedCatalog } from './step-wizards';
 import { tp } from '../i18n';
@@ -44,4 +45,12 @@ export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'meth
   explainedSteps.openMethod(methodId);
   explainedSteps.setOption('axialRigid', s.axialRigid);
   if (methodId.endsWith('-kg')) explainedSteps.setOption('chord', s.method === 'string');
+}
+
+export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void): void {
+  const pd = !!resultsStore.pdeltaResult, bk = !!resultsStore.bucklingResult;
+  if (!pd && !bk) return;
+  resultsStore.clearAdvanced();
+  if (pd) runPDelta();
+  if (bk) runBuckling();
 }

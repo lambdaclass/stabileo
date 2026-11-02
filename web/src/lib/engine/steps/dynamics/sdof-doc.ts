@@ -24,6 +24,7 @@ export function resolveSdof(ctx: MethodContext, s: SdofSettings = dynamicsSettin
   if (!finite) return { refusal: 'sdof.err.inputs' };
   if (s.source === 'manual') {
     if (!(s.m > 0 && Number.isFinite(s.m)) || !(s.k > 0 && Number.isFinite(s.k))) return { refusal: 'sdof.err.mk' };
+    if (!finiteSdof(solveSdof(s.m, s.k, s))) return { refusal: 'mdof.err.notFinite' };
     return { m: s.m, k: s.k, fromModel: null, s };
   }
   if (!ctx.model) return { refusal: 'sdof.err.noModel' };
@@ -31,6 +32,7 @@ export function resolveSdof(ctx: MethodContext, s: SdofSettings = dynamicsSettin
   const node = s.nodeId ?? defaultSdofNode(ctx.model, pts);
   const r = sdofFromModel(ctx.model, pts, node, s.dir);
   if (typeof r === 'string') return { refusal: `sdof.err.${r}` };
+  if (!finiteSdof(solveSdof(r.m, r.k, s))) return { refusal: 'mdof.err.notFinite' };
   return { m: r.m, k: r.k, fromModel: r, s };
 }
 
@@ -62,6 +64,13 @@ export function solveSdof(m: number, k: number, s: SdofSettings): SdofSolution {
   if (!h) return { props, h, Omega, tEnd, free, total: null, steady: null, transient: null };
   const r = forcedResponse(props, h, s.u0, s.v0);
   return { props, h, Omega, tEnd, free, total: sample(r.total, tEnd), steady: sample(r.steady, tEnd), transient: sample(r.transient, tEnd) };
+}
+
+export function finiteSdof(sol: SdofSolution): boolean {
+  const P = sol.props;
+  const pos = [P.omega, P.f, P.T, sol.tEnd, sol.Omega].every((v) => Number.isFinite(v)) && P.omega > 0 && P.T > 0 && sol.tEnd > 0;
+  const curves = [sol.free, sol.total, sol.steady, sol.transient].every((c) => !c || c.every(([t, u]) => Number.isFinite(t) && Number.isFinite(u)));
+  return pos && Number.isFinite(P.omegaD) && curves;
 }
 
 /** D(β) for the reader's ξ, with three reference ratios and the case marked. */

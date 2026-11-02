@@ -219,6 +219,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.shape': 'Kayma çerçevesi, katlar arasında düşey kolonlar ve her katta yatay kirişler ister; başka çubuk olmamalıdır.',
   'course.dynamics.mdof.err.shear.noColumns': 'Bir katta kesme kuvveti taşıyan kolon yok: her kolon iki ucunda serbestçe döner (mafsal, mafsallı mesnet veya tüm kiriş uçlarının serbest bırakıldığı bir düğüm).',
   'course.dynamics.mdof.err.shear.floorSplit': 'Bir katta hiçbir kirişin birleştirmediği düğümler var: birlikte hareket etmezler, bu yüzden tek bir serbestlik derecesi değildirler.',
+  'course.dynamics.mdof.err.shear.otherParts': 'Kayma binası yalnızca çubuk çerçevedir: plaklar, dörtgenler, bağlar veya bağlayıcılar kat rijitliğine girmez.',
   'course.dynamics.mdof.err.xi': 'ξ negatif olmayan sonlu bir sayı olmalı.',
   'course.dynamics.mdof.err.ratio': 'Harmonik uyarı, {min} ile {max} arasında bir Ω/ω₁ ister.',
   'course.dynamics.mdof.err.notFinite': 'Yanıt bu girdilerle sonlu sayılar vermiyor.',

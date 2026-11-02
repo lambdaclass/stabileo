@@ -219,6 +219,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.shear.shape': 'Le portique de cisaillement demande des poteaux verticaux entre niveaux et des poutres horizontales à chaque niveau, sans autres barres.',
   'course.dynamics.mdof.err.shear.noColumns': 'Un niveau n\'a pas de poteaux qui reprennent l\'effort tranchant : chacun tourne librement à ses deux extrémités (rotule, appui articulé ou nœud où toutes les extrémités de poutre sont libérées).',
   'course.dynamics.mdof.err.shear.floorSplit': 'Un niveau a des nœuds qu\'aucune poutre ne relie : ils ne bougent pas ensemble et ne forment donc pas un seul degré de liberté.',
+  'course.dynamics.mdof.err.shear.otherParts': 'Le modèle en cisaillement est le seul portique de barres : plaques, quadrangles, liaisons ou connecteurs n\'entreraient pas dans la rigidité des niveaux.',
   'course.dynamics.mdof.err.xi': 'ξ doit être un nombre fini non négatif.',
   'course.dynamics.mdof.err.ratio': 'L\'excitation harmonique demande un Ω/ω₁ entre {min} et {max}.',
   'course.dynamics.mdof.err.notFinite': 'La réponse ne donne pas de nombres finis avec ces données.',
