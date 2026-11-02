@@ -23,6 +23,9 @@
   import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { buildLinkedReference, swapLinked } from '../lib/three/linked-3d';
+  import { linkedGeometry } from '../lib/store/linked-geometry';
+  import { federation } from '../lib/store/federation.svelte';
   import { toneObject } from '../lib/viewport3d/category-tone';
   import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
@@ -1337,6 +1340,7 @@
     toneObject(loadsParent, s('loads'));
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
+    toneObject(linkedGroup, s('linked'));
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -1947,6 +1951,25 @@
     underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
     toneDirty = true;
     invalidate();
+  });
+
+  // The linked models of other disciplines, in 3D, as a reference (PRO).
+  let linkedGroup: THREE.Group | null = null;
+  $effect(() => {
+    const links = uiStore.analysisMode === 'pro' ? federation().links.filter((l) => l.visible && l.reference) : [];
+    const hashes = links.map((l) => l.reference!.hash);
+    if (!scene) return;
+    let stale = false;
+    void Promise.all(hashes.map((h) => linkedGeometry(h))).then((refs) => {
+      if (stale || !scene) return;
+      const got = refs.filter((r): r is NonNullable<typeof r> => !!r);
+      let next: THREE.Group | null = null;
+      if (got.length) { next = new THREE.Group(); next.name = 'linkedModels'; for (const r of got) next.add(buildLinkedReference(r)); }
+      linkedGroup = swapLinked(scene, linkedGroup, next);
+      toneDirty = true;
+      invalidate();
+    });
+    return () => { stale = true; };
   });
 
   // The use zones over their floors, coloured by use, state or intensity (PRO).

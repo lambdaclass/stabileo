@@ -16,6 +16,7 @@
   import { unitQ } from '../../lib/store/display-units.svelte';
   import QuantityInput from './loads/QuantityInput.svelte';
   import UnderlayCard from './building/UnderlayCard.svelte';
+  import LinkedModelsCard from './building/LinkedModelsCard.svelte';
   import { buildingUi } from '../../lib/store/building-ui.svelte';
 
   /** Inside the Building panel, its first tool: the way on is that panel's columns, not the panel itself. */
@@ -185,6 +186,7 @@
   </section>
 
   <UnderlayCard />
+  <LinkedModelsCard />
 
   {#if xs.length > 0 && ys.length > 0 && levels.length > 0}
     <section class="pk-card">

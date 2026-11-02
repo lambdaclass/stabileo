@@ -13,10 +13,11 @@ export const CATEGORY_STATES: readonly CategoryState[] = ['visible', 'halftone',
 /** Opacity of what is drawn in halftone, relative to its own. */
 export const HALFTONE_OPACITY = 0.22;
 
-const allVisible = (): Record<ViewCategory, CategoryState> =>
-  Object.fromEntries(VIEW_CATEGORIES.map((c) => [c, 'visible'])) as Record<ViewCategory, CategoryState>;
+/** As a view starts: everything drawn, the linked models of other disciplines in halftone. */
+const defaults = (): Record<ViewCategory, CategoryState> =>
+  Object.fromEntries(VIEW_CATEGORIES.map((c) => [c, c === 'linked' ? 'halftone' : 'visible'])) as Record<ViewCategory, CategoryState>;
 
-let states = $state(allVisible());
+let states = $state(defaults());
 let version = $state(0);
 
 export const viewCategories = {
@@ -31,20 +32,21 @@ export const viewCategories = {
   isHidden(c: ViewCategory) { return this.state(c) === 'hidden'; },
   /** The hidden categories, as one key a scene rebuild can follow. */
   get hiddenKey() { return VIEW_CATEGORIES.filter((c) => this.state(c) === 'hidden').join(','); },
-  get anyChanged() { return VIEW_CATEGORIES.some((c) => states[c] !== 'visible'); },
-  /** The states that differ from "visible", as a named view stores them. */
+  get anyChanged() { const d = defaults(); return VIEW_CATEGORIES.some((c) => states[c] !== d[c]); },
+  /** The states that differ from how a view starts, as a named view stores them. */
   snapshot(): Partial<Record<ViewCategory, CategoryState>> {
-    return Object.fromEntries(VIEW_CATEGORIES.filter((c) => states[c] !== 'visible').map((c) => [c, states[c]]));
+    const d = defaults();
+    return Object.fromEntries(VIEW_CATEGORIES.filter((c) => states[c] !== d[c]).map((c) => [c, states[c]]));
   },
-  /** A named view's states; what it does not name is drawn. */
+  /** A named view's states; what it does not name is as a view starts. */
   restore(saved: Partial<Record<string, string>> | undefined) {
-    const next = allVisible();
+    const next = defaults();
     for (const c of VIEW_CATEGORIES) {
       const s = saved?.[c];
-      if (s === 'halftone' || s === 'hidden') next[c] = s;
+      if (s === 'visible' || s === 'halftone' || s === 'hidden') next[c] = s;
     }
     states = next;
     version++;
   },
-  reset() { states = allVisible(); version++; },
+  reset() { states = defaults(); version++; },
 };
