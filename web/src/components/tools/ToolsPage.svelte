@@ -2,6 +2,7 @@
   import './register-i18n';
   import SiteHeader from '../site/SiteHeader.svelte';
   import LandingFooter from '../landing/LandingFooter.svelte';
+  import RelatedLinks from '../research/RelatedLinks.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
@@ -165,6 +166,7 @@
     {/if}
     </div>
   </main>
+  <RelatedLinks {path} />
   <LandingFooter />
 </div>
 

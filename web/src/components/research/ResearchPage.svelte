@@ -15,6 +15,7 @@
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import Gallery from './Gallery.svelte';
+  import RelatedLinks from './RelatedLinks.svelte';
   import TopoptPage from './andreassen2011/TopoptPage.svelte';
   import MattiassonPage from './mattiasson1981/MattiassonPage.svelte';
   import ShellPage from './shell1985/ShellPage.svelte';
@@ -100,6 +101,7 @@
       </div>
     </section>
   {/if}
+  {#if route !== '/research' && EXPERIMENTS.some((e) => e.path === route)}<RelatedLinks path={route} />{/if}
   <LandingFooter />
 </div>
 
