@@ -16,7 +16,8 @@ trap 'rm -f "$log"' EXIT
 limit=${RETRY_INFRA_TIMEOUT_SECONDS:-900}
 for attempt in 1 2 3; do
   # A daemon the command starts (sccache) inherits its output; through a pipe, tee would wait for that daemon to exit.
-  timeout --kill-after=30 "$limit" "$@" > "$log" 2>&1 &
+  : > "$log"
+  timeout --kill-after=30 "$limit" "$@" >> "$log" 2>&1 &
   pid=$!
   tail -n +1 -f --pid="$pid" "$log" &
   follow=$!
