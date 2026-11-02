@@ -30,7 +30,7 @@ permissions:
 jobs:
   forced-failure:
     if: inputs.force_failure
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - run: |
