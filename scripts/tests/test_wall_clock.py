@@ -16,13 +16,26 @@ def step(workflow, name):
 
 
 class WallClockOutsideTheQueue(unittest.TestCase):
-    def test_the_slow_suite_drops_only_the_wall_clock_specs_when_asked(self):
-        excluded = re.search(r'^WALL_CLOCK_E2E := (.+)$', (ROOT / 'Makefile').read_text(), re.M).group(1).split('|')
-        for spec in excluded:
-            self.assertTrue((ROOT / 'web/e2e' / spec.replace('\\.', '.').replace('.spec', '.spec.ts')).exists(), spec)
-        self.assertIn('--grep-invert "visual baselines|@flaky|' + '|'.join(excluded) + '"',
+    def test_the_slow_suite_runs_every_spec_and_passes_the_switch(self):
+        self.assertIn('NO_WALL_CLOCK=1 npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
                       dry_run('e2e.web.slow', 'NO_WALL_CLOCK=1'))
-        self.assertIn('--grep-invert "visual baselines|@flaky" ', dry_run('e2e.web.slow'))
+        self.assertIn('NO_WALL_CLOCK= npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" ',
+                      dry_run('e2e.web.slow'))
+
+    def test_only_the_wall_clock_asserts_of_the_e2e_specs_are_gated(self):
+        gated = {'rebar-workspace-open.spec.ts': 3, 'model-fluidity.spec.ts': 1}
+        for name, count in gated.items():
+            spec = (ROOT / 'web/e2e' / name).read_text()
+            self.assertIn("const WALL_CLOCK = process.env.NO_WALL_CLOCK !== '1';", spec)
+            lines = [line for line in spec.splitlines() if 'WALL_CLOCK' in line and 'const WALL_CLOCK' not in line]
+            self.assertEqual(len(lines), count, name)
+            for line in lines:
+                self.assertRegex(line, r'^\s*if \(WALL_CLOCK\) expect\(', name)
+            gated_asserts = spec.count('if (WALL_CLOCK) expect(')
+            self.assertGreater(len(re.findall(r'\bexpect(?:\.poll)?\(', spec)) - gated_asserts, gated_asserts, name)
+        for spec in (ROOT / 'web/e2e').glob('*.spec.ts'):
+            if spec.name not in gated:
+                self.assertNotIn('NO_WALL_CLOCK', spec.read_text(), spec.name)
 
     def test_the_build_pass_passes_the_switch_to_the_scale_budgets(self):
         self.assertIn('NO_WALL_CLOCK=1 npx vitest run --project build', dry_run('test.web.build', 'NO_WALL_CLOCK=1'))
