@@ -472,6 +472,26 @@ without a second implementation of anything that computes a result.
 identical to the web on the snapshot corpus (#716); every code check and limit state has one
 authoritative implementation in the ownership map; `.ded` files from every release open (#718).
 
+### CI and feedback loop (2026-11-02)
+
+Every fix waits on CI; on 2026-11-01 about 40 PRs were in CI at once, and the merge queue stalled for
+hours on hung self-hosted runners, a shared sccache server and GitHub cache rate limits. A fast,
+reliable queue is a safety item: a fix that cannot land leaves the wrong result live. Owner: the CI
+workstream (W2-ci).
+
+| # | Item | Why | PR | State |
+|---|---|---|---|---|
+| 1 | **14 runners in pools on stabileo-ci-1, with a watchdog:** label pools (queue/main, same-repo PRs, timing-sensitive jobs pinned, nightly), and a watchdog that restarts a runner GitHub shows busy with no live job | Six runners hung "busy" with no job blocked the queue for hours twice on 2026-11-02 | (dotfiles `servers/`, with #1221) | sgha7-14 not registered yet: **waits on the user** (remote registration command in the ledger) |
+| 2 | **One sccache server per runner user:** private Unix socket per runner; build without sccache when it cannot start | Runners sharing one sccache port failed merge-group WASM builds with "Permission denied" | [#1075](https://github.com/lambdaclass/stabileo/pull/1075) | green, Codex clean; in the merge queue |
+| 3 | **Build WASM once and retry only infrastructure errors,** with a stall timeout (a hung `cargo fetch` is killed and retried) | Each WASM rebuild costs minutes per job; infra reds were rerun by hand | [#866](https://github.com/lambdaclass/stabileo/pull/866) | Codex clean; lands after #863 |
+| 4 | **Path-filtered PR checks:** a PR runs what its change touches; the merge queue still runs everything | Docs and web-only PRs waited on the whole engine suite | [#863](https://github.com/lambdaclass/stabileo/pull/863) | Codex clean; removed from the queue for a fix, re-queue when green |
+| 5 | **Every job on stabileo-ci-1,** pools by label, superseded merge-group runs cancelled, timeouts on every job | Hosted runners moved to Ubuntu 26.04 and broke Playwright on every PR; stale merge-group runs took runner slots ahead of live ones | [#1221](https://github.com/lambdaclass/stabileo/pull/1221) | Codex clean; after #866 |
+| 6 | **Lighter merge-queue checks,** with the full suite on main after merge, a rerun on failure, then an automatic signed revert PR and an urgent alert | The queue should only block on what catches most breakage; the rest still runs on every main commit and reverts fast | [#1226](https://github.com/lambdaclass/stabileo/pull/1226) (stacked on #1221) | **waits on the user:** repo secrets `REVERT_BOT_TOKEN` and `NTFY_TOPIC`; each revert PR needs a human approval |
+| 7 | **Move sgha1-6 into the runner pools,** plus the pending system upgrade on stabileo-ci-1 | The first six runners still run outside the pool slice and its limits | (dotfiles `servers/`) | **waits on the user**, once the queue is empty (restarts each runner) |
+
+**Exit criteria.** A docs PR gets its checks in under 10 minutes; the merge queue has no hung runner
+for a week; every infra red is retried automatically, and a broken main is reverted within an hour.
+
 ### Stabileo Research (2026-11-01)
 
 Published computational-mechanics papers turned into experiments anyone can run, change and check,
