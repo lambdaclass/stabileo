@@ -538,6 +538,10 @@ impl Tangent3D {
         };
         let r: Vec<f64> = f[..nf].iter().zip(&ku).map(|(f, ku)| f - ku).collect();
         let r = cs.as_ref().map_or(r.clone(), |c| c.reduce_vector(&r));
+        let finite = |v: &[f64]| v.iter().all(|x| x.is_finite());
+        if !(finite(u) && finite(f) && finite(&ku) && finite(&r) && norm.is_finite()) {
+            return f64::INFINITY;
+        }
         let inf = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
         inf(&r) / (norm * inf(u) + inf(&f[..nf])).max(f64::MIN_POSITIVE)
     }
@@ -876,6 +880,14 @@ mod tests {
                 assert!(error(&done.results) < 1e-14);
                 assert!(error(&first.results) > 1e-10);
                 assert!(error(&done.linear_results) > 1e-6);
+                for bad in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+                    let mut broken = done.results.clone();
+                    broken.displacements[5].uy = bad;
+                    assert_eq!(error(&broken), f64::INFINITY);
+                    let mut all = done.results.clone();
+                    for d in &mut all.displacements { (d.ux, d.uy, d.uz, d.rx, d.ry, d.rz) = (bad, bad, bad, bad, bad, bad); }
+                    assert_eq!(error(&all), f64::INFINITY);
+                }
             }
         }
     }
