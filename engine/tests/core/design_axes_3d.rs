@@ -212,7 +212,9 @@ fn rolled_beam_alpha90_bends_about_the_weak_axis() {
     let r = &check_steel_members(&SteelCheckInput { members: vec![ipe300(1)], forces: vec![d] })[0];
     close(r.flexure_y_ratio, 0.0, "Flexure-Y ratio");
     close(r.flexure_z_ratio, P * L / 4.0 / phi_mn_z(), "Flexure-Z ratio");
-    close(r.shear_ratio, P / 2.0 / phi_vn_weak(), "weak-axis shear ratio");
+    close(r.shear_ratio, 0.0, "Shear G2 ratio");
+    close(r.shear_weak_ratio, P / 2.0 / phi_vn_weak(), "Shear G6 ratio");
+    close(r.phi_vn_weak, phi_vn_weak(), "Shear G6 capacity");
     assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
 }
 
@@ -223,7 +225,7 @@ fn weak_axis_shear_without_aw_weak_is_not_evaluated() {
     m.aw_weak = None;
     let r = &check_steel_members(&SteelCheckInput { members: vec![m], forces: vec![d] })[0];
     assert!(r.governing_check.ends_with("(incomplete)"), "{r:?}");
-    assert!(r.unevaluated.iter().any(|u| u.contains("weak axis")), "{:?}", r.unevaluated);
+    assert!(r.unevaluated.iter().any(|u| u == "Shear G6"), "{:?}", r.unevaluated);
 }
 
 #[test]
@@ -313,7 +315,9 @@ fn certified_rolled_beam_checks_weak_axis_shear() {
     let w = 200.0;
     let r = certified_beam(Some(90.0), w, 1.0, ipe300(1));
     assert!(r.certified, "{r:?}");
-    let shear = r.checks.iter().find(|c| c.name == "Shear G2").unwrap();
+    let strong = r.checks.iter().find(|c| c.name == "Shear G2").unwrap();
+    assert!(strong.upper < 1e-9, "{strong:?}");
+    let shear = r.checks.iter().find(|c| c.name == "Shear G6").unwrap();
     let expect = w / 2.0 / phi_vn_weak();
     assert!((shear.upper - expect).abs() <= 1e-6 * expect, "{shear:?} vs {expect}");
     let flex = r.checks.iter().find(|c| c.name == "Flexure-Z F6").unwrap();

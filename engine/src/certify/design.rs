@@ -122,8 +122,8 @@ pub struct CertifiedMemberResult {
 /// AISC result (same shape for every code).
 pub type CertifiedSteelResult = CertifiedMemberResult;
 
-const CHECK_NAMES: [&str; 6] =
-    ["Tension D2", "Compression E3", "Flexure-Y F2", "Flexure-Z F6", "Shear G2", "Interaction H1"];
+const CHECK_NAMES: [&str; 7] =
+    ["Tension D2", "Compression E3", "Flexure-Y F2", "Flexure-Z F6", "Shear G2", SHEAR_WEAK, "Interaction H1"];
 
 /// `[x − d, x + d]`, exact when `d = 0`; Err on non-finite or negative input.
 fn around(x: f64, d: f64, what: &str) -> Result<Interval, String> {
@@ -157,7 +157,7 @@ pub fn steel_ratio_enclosures(
     m: &SteelMemberData,
     f: &ElementDesignForces,
     b: &DemandBound,
-) -> Result<[Interval; 6], String> {
+) -> Result<[Interval; 7], String> {
     let n = around(f.n, b.n, "axial")?;
     let my = around(f.my, b.my, "My")?.abs();
     let mz = around(f.mz.unwrap_or(0.0), b.mz, "Mz")?.abs();
@@ -181,10 +181,9 @@ pub fn steel_ratio_enclosures(
         None if v_weak.lo == 0.0 && v_weak.hi == 0.0 => zero,
         None => return Err(format!("{SHEAR_WEAK}: weak-axis shear without awWeak")),
     };
-    let shear = strong_shear.max(weak_shear);
     let axial = branch(n.lt(zero), || compression, || tension);
     let interaction = interaction_h1(axial, flex_y, flex_z);
-    let out = [tension, compression, flex_y, flex_z, shear, interaction];
+    let out = [tension, compression, flex_y, flex_z, strong_shear, weak_shear, interaction];
     for (r, name) in out.iter().zip(CHECK_NAMES) {
         if !r.is_finite() {
             return Err(format!("{name}: enclosure not finite"));
@@ -1352,9 +1351,9 @@ mod tests {
         }
     }
 
-    fn f64_ratios(m: &SteelMemberData, f: &ElementDesignForces) -> [f64; 6] {
+    fn f64_ratios(m: &SteelMemberData, f: &ElementDesignForces) -> [f64; 7] {
         let r = &check_steel_members(&SteelCheckInput { members: vec![m.clone()], forces: vec![f.clone()] })[0];
-        [r.tension_ratio, r.compression_ratio, r.flexure_y_ratio, r.flexure_z_ratio, r.shear_ratio, r.interaction_ratio]
+        [r.tension_ratio, r.compression_ratio, r.flexure_y_ratio, r.flexure_z_ratio, r.shear_ratio, r.shear_weak_ratio, r.interaction_ratio]
     }
 
     const ZERO_BOUND: DemandBound = DemandBound { n: 0.0, my: 0.0, mz: 0.0, v_weak: 0.0, v_strong: 0.0 };
@@ -1418,7 +1417,7 @@ mod tests {
         let my = 0.3 * mcy;
         let f = ElementDesignForces { element_id: 1, n: -0.2 * pc, my, mz: Some(0.0), v_weak: None, v_strong: Some(0.0) };
         let b = DemandBound { n: 0.01 * pc, my: 0.0, mz: 0.0, v_weak: 0.0, v_strong: 0.0 };
-        let r = steel_ratio_enclosures(&m, &f, &b).unwrap()[5];
+        let r = steel_ratio_enclosures(&m, &f, &b).unwrap()[6];
         let a = 0.195 / 2.0 + 0.3; // H1-1b just below the switch
         let c = 0.205 + 8.0 / 9.0 * 0.3; // H1-1a just above
         assert!(r.lo <= a && a <= r.hi && r.lo <= c && c <= r.hi, "{r:?}");

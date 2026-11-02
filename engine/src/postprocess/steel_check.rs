@@ -215,10 +215,15 @@ pub struct SteelCheckResult {
     /// Shear capacity check (Vr / phi*Vn), 0.0 when Aw was not supplied
     pub shear_ratio: f64,
     /// Combined interaction ratio (AISC H1-1)
+    /// Weak-axis shear ratio, AISC G4/G6 against `aw_weak`.
+    #[serde(default)]
+    pub shear_weak_ratio: f64,
     pub interaction_ratio: f64,
     /// Available shear strength (phi*Vn), 0.0 when Aw was not supplied
     pub phi_vn: f64,
     /// Available axial compression strength (phi*Pn)
+    #[serde(default)]
+    pub phi_vn_weak: f64,
     pub phi_pn_compression: f64,
     /// Available axial tension strength (phi*Pn)
     pub phi_pn_tension: f64,
@@ -329,7 +334,8 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         }
         None => 0.0,
     };
-    let shear_ratio = strong_shear_ratio.max(weak_shear_ratio);
+    let shear_ratio = strong_shear_ratio;
+    let phi_vn_weak: f64 = shear_capacity_weak(member);
 
     // AISC H1 interaction (using appropriate axial capacity)
     let axial_ratio = if n < 0.0 { compression_ratio } else { tension_ratio };
@@ -345,6 +351,7 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         (flexure_y_ratio, "Flexure-Y F2"),
         (flexure_z_ratio, "Flexure-Z F6"),
         (shear_ratio, "Shear G2"),
+        (weak_shear_ratio, SHEAR_WEAK),
         (interaction_ratio, "Interaction H1"),
     ];
 
@@ -364,8 +371,10 @@ fn check_single_member(member: &SteelMemberData, forces: &ElementDesignForces) -
         flexure_y_ratio,
         flexure_z_ratio,
         shear_ratio,
+        shear_weak_ratio: weak_shear_ratio,
         interaction_ratio,
         phi_vn,
+        phi_vn_weak,
         phi_pn_compression,
         phi_pn_tension,
         phi_mn_y,
@@ -413,7 +422,7 @@ pub(crate) fn shear_capacity<T: Real>(m: &SteelMemberData) -> T {
     }
 }
 
-pub(crate) const SHEAR_WEAK: &str = "Shear G6 (weak axis)";
+pub(crate) const SHEAR_WEAK: &str = "Shear G6";
 
 /// AISC G4/G6: φ·0.6·Fy·aw_weak, 0.0 when `aw_weak` is absent.
 pub(crate) fn shear_capacity_weak<T: Real>(m: &SteelMemberData) -> T {
