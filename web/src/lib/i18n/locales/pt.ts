@@ -2083,6 +2083,7 @@ const pt: Translations = {
   "knownIssue.NL-17": "A análise de fibras pode devolver uma iteração não convergida sem seu fator de carga. Não use resultados não convergidos para projeto.",
   "knownIssue.MD-ORTHOGONALITY": "A análise modal 3D pode duplicar modos ou retornar modos não ortogonais. Verifique a base modal, massas efetivas e combinação espectral.",
   "knownIssue.TH-RECIPROCITY": "O histórico temporal linear falhou em verificações de reciprocidade por um fator de até 33. Ainda não se isolou quais entradas são afetadas; verifique independentemente esta resposta antes do projeto.",
+  "knownIssue.CUT-SECTION-AXIS": "Algumas barras fletem neste plano em torno de outro eixo da seção do que o solver 2D usaria, então os resultados 2D estariam errados (um pilar em I cortado por Y–Z flete em 3D em torno do eixo fraco). Resolva em 3D ou corte por um plano em que as barras fletem em torno do eixo forte.",
   "knownIssue.NL-DYNAMIC-GAPS": "A análise não linear de material pode continuar sem convergir; a dinâmica de barras omite a inércia rotativa de flexão. Verifique a convergência e a resposta de barras profundas.",
   "knownIssue.PL-3D-INVARIANCE": "O colapso plástico 3D com barras curvas pode depender da numeração. Verifique o colapso independentemente.",
   'knownIssue.NL-5': 'Os resultados não lineares de material são aproximados: o modelo é uma secante de barra inteira e não plasticidade, então a resposta salta no primeiro escoamento. Confira o fator de colapso com colapso plástico',

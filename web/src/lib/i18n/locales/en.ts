@@ -3942,6 +3942,7 @@ const en: Record<string, string> = {
   "knownIssue.NL-17": "Fiber analysis can return an unconverged iterate without its load factor. Do not use a non-converged result for design",
   "knownIssue.MD-ORTHOGONALITY": "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses and response-spectrum combinations may be wrong; independently verify the modal basis",
   "knownIssue.TH-RECIPROCITY": "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design",
+  "knownIssue.CUT-SECTION-AXIS": "Some members bend in this plane about another section axis than the 2D solver would use, so the 2D results would be wrong (an I column cut along Y–Z bends about its weak axis in 3D). Solve in 3D, or cut a plane where the members bend about their strong axis.",
   "knownIssue.NL-DYNAMIC-GAPS": "Material nonlinear analysis may continue after an unconverged increment; beam dynamics omit bending rotary inertia. Independently verify convergence and deep-member response.",
   "knownIssue.PL-3D-INVARIANCE": "Curved-beam 3D plastic collapse factors can depend on numbering. Verify collapse independently.",
   'knownIssue.NL-5': 'Material-nonlinear results are approximate: the model is a whole-member secant rather than plasticity, so the response jumps at first yield. Check the collapse load factor with plastic collapse',

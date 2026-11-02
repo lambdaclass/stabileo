@@ -62,6 +62,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "NL-17", issue: 433, mode: Mode::Warn, message: "Fiber analysis can return an unconverged iterate without its load factor. Do not use a non-converged result for design" },
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses and response-spectrum combinations may be wrong; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
+    Entry { id: "CUT-SECTION-AXIS", issue: 1238, mode: Mode::Refuse, message: "Results withheld: a 2D cut of this 3D model would bend some members about another section axis than the 3D model does, or could not represent their coupled bending. Solve in 3D, or cut a plane where the members bend about the same axis" },
 ];
 
 pub fn diagnostic(id: &str) -> StructuredDiagnostic {

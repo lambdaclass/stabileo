@@ -14137,6 +14137,7 @@ const tr: Translations = {
   "knownIssue.NL-17": "Lif analizi, yakınsamamış bir iterasyon sonucunu yük katsayısı olmadan döndürebilir. Yakınsamamış bir sonucu tasarım için kullanmayın",
   "knownIssue.MD-ORTHOGONALITY": "3B modal analiz, ortogonal olmayan veya yinelenen modlar üretebilir. Etkin kütleler ve tepki spektrumu birleşimleri yanlış olabilir; modal bazı bağımsız olarak doğrulayın",
   "knownIssue.TH-RECIPROCITY": "Doğrusal zaman tanım alanı analizi, karşılıklılık kontrollerinde 33 kata varan sapmalar göstermiştir. Etkilenen girdi sınıfı henüz belirlenmemiştir; tasarımdan önce bu tepkiyi bağımsız olarak doğrulayın",
+  "knownIssue.CUT-SECTION-AXIS": "Bazı çubuklar bu düzlemde, 2B çözücünün kullanacağından farklı bir kesit ekseni etrafında eğiliyor; bu yüzden 2B sonuçlar yanlış olur (Y–Z boyunca kesilen bir I kolon 3B'de zayıf ekseni etrafında eğilir). 3B olarak çözün veya çubukların güçlü eksenleri etrafında eğildiği bir düzlem kesin.",
   "knownIssue.NL-DYNAMIC-GAPS": "Malzeme bakımından doğrusal olmayan analiz, yakınsamamış bir artımdan sonra devam edebilir; kiriş dinamiği, eğilmedeki dönme ataletini ihmal eder. Yakınsamayı ve yüksek kesitli elemanların tepkisini bağımsız olarak doğrulayın.",
   "knownIssue.PL-3D-INVARIANCE": "Eğri kirişlerin 3B plastik göçme yük katsayıları numaralandırmaya bağlı olabilir. Göçmeyi bağımsız olarak doğrulayın.",
   'clipboard.spaceInPlane': 'Kopya bir 3B modelden geliyor: buraya yapıştırmak için 2B\'de yeniden kopyalayın.',
