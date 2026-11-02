@@ -250,11 +250,12 @@
   @media (max-width: 30rem) { .readouts { grid-template-columns: minmax(0, 1fr); } .examples :global(.rs-param) { grid-template-columns: minmax(0, 1fr); } }
   @media (min-width: 52rem) { .ex-card { grid-template-columns: 1fr 1.1fr; } }
   @media (max-height: 450px) and (max-width: 69.99rem) { .examples main.sec { padding-top: .75rem; } h1 { margin: .5rem 0; font-size: 2rem; } .ex-layout { gap: 1rem; } }
-  @media (min-width: 70rem) {
-    .ex-layout { grid-template-columns: minmax(25rem, 36rem) minmax(0, 1fr); column-gap: 3rem; align-items: start; }
+  @media (min-width: 70rem), (min-width: 44rem) and (max-height: 450px) {
+    .ex-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); column-gap: 1.5rem; align-items: start; }
     .ex-intro { grid-column: 1; grid-row: 1; }
     .ex-inputs { grid-column: 1; grid-row: 2; }
     .ex-results { grid-column: 1; grid-row: 3; }
     .ex-viewer { grid-column: 2; grid-row: 1 / 4; position: sticky; top: calc(var(--lp-nav-h, 3.6rem) + .75rem); }
   }
+  @media (min-width: 70rem) { .ex-layout { grid-template-columns: minmax(25rem, 36rem) minmax(0, 1fr); column-gap: 3rem; } }
 </style>

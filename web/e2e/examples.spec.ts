@@ -39,8 +39,8 @@ test('@smoke examples gallery: a slider re-solves, and the share link and editor
   await page.getByTestId('open-editor').click();
   await expect(page).toHaveURL(/\/app\/basic\?e2e=1#data=2\./);
   await expect.poll(() => page.evaluate(() => (window as any).__stabileo?.memberAxialForces()?.length ?? 0), { timeout: 60000 }).toBe(2); // slow-ok: The editor initializes WASM and solves the shared example model before publishing member forces.
-  const nodes = await page.evaluate(() => (window as any).__stabileo.entityData('node', 3));
-  expect(nodes.x).toBe(8);
+  const nodes: [number, { x: number }][] = await page.evaluate(() => (window as any).__stabileo.entityData('setting', 'nodes'));
+  expect(nodes.map(([, n]) => n.x).sort((a, b) => a - b)).toEqual([0, 4, 8]);
 });
 
 test('@smoke examples report the engine refusing a model with no load', async ({ page }) => {
