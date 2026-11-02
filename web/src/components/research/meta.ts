@@ -5,10 +5,8 @@ import { cardTitle } from './card-title';
 import { RESEARCH_GALLERY, researchLastReview, researchLocales } from './locales';
 import { publicUrl } from '../../lib/i18n/public-routes';
 import { publishedLocale } from '../../lib/i18n/published';
-import { STABILEO_ORGANIZATION } from '../../lib/page-meta';
+import { ORGANIZATION_ID, PUBLISHER } from '../../lib/page-meta';
 import type { PublicLocale } from '../../lib/i18n/store.svelte';
-
-const ORG_ID = STABILEO_ORGANIZATION['@id'];
 
 type Labels = { research: string; researchTitle: string };
 
@@ -79,8 +77,8 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
       inLanguage: own,
       ...(modified ? { dateModified: modified } : {}),
       ...(p.keywords.length ? { keywords: p.keywords.join(', ') } : {}),
-      author: { '@id': ORG_ID },
-      publisher: { '@id': ORG_ID },
+      author: { '@id': ORGANIZATION_ID },
+      publisher: PUBLISHER,
       isPartOf: { '@type': 'CollectionPage', '@id': publicUrl(RESEARCH_GALLERY, own), name: labels.researchTitle },
       isBasedOn: { '@id': doiUrl },
       citation: original,
@@ -93,7 +91,6 @@ export function paperMeta(head: { paperId: string; name: string; lead: string },
         { '@type': 'ListItem', position: 3, name: head.name, item: url },
       ],
     },
-    STABILEO_ORGANIZATION,
   ];
   return {
     title: paperTitle(head.name, head.paperId, own),
@@ -114,7 +111,7 @@ export function galleryGraph(locale: PublicLocale, labels: Labels) {
       url,
       name: labels.researchTitle,
       inLanguage: locale,
-      publisher: { '@id': ORG_ID },
+      publisher: PUBLISHER,
       mainEntity: {
         '@type': 'ItemList',
         itemListElement: EXPERIMENTS.map((e, i) => ({
@@ -125,6 +122,5 @@ export function galleryGraph(locale: PublicLocale, labels: Labels) {
         })),
       },
     },
-    STABILEO_ORGANIZATION,
   ];
 }

@@ -130,3 +130,12 @@ it('links each gallery card to a URL the paper is published under', () => {
     }
   }
 });
+
+it('credits research to Stabileo and names Ergodic Group as its publisher, as every other page does', () => {
+  const nodes = [...paperMeta({ paperId: 'andreassen-2011', name: 'MBB beam', lead: 'x' }, 'en', labels).graph, ...galleryGraph('en', labels)] as Array<Record<string, unknown>>;
+  const publishers = nodes.filter((n) => n.publisher).map((n) => (n.publisher as { '@id': string })['@id']);
+  expect(publishers.length).toBeGreaterThan(1);
+  expect(new Set(publishers)).toEqual(new Set(['https://ergodicgroup.com/#organization']));
+  expect(nodes.filter((n) => n.author).map((n) => (n.author as { '@id': string })['@id'])).toEqual(['https://stabileo.com/#organization']);
+  expect(nodes.some((n) => n['@type'] === 'Organization')).toBe(false);
+});
