@@ -33,6 +33,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CARGO_HTTP_MULTIPLEXING: false
+
 jobs:
   isolation:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}

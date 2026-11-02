@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -96,6 +97,33 @@ sys.exit(0 if lines[min(n, len(lines)-1)] == 'success' else ''' + str(status) + 
     def test_unrealisable_path_after_a_cache_transport_failure_retries(self):
         lines = ["error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': HTTP error 416\nerror: some references of path '/nix/store/0123-postgresql-18.3-dev' could not be realised", 'success']
         self.assertEqual(self.run_attempts(lines)[:2], (0, 2))
+
+    def test_stalled_download_is_killed_and_retried(self):
+        with tempfile.TemporaryDirectory() as directory:
+            count = Path(directory) / 'count'
+            command = Path(directory) / 'command.py'
+            command.write_text('''import pathlib, sys, time
+p = pathlib.Path(sys.argv[1])
+n = int(p.read_text()) if p.exists() else 0
+p.write_text(str(n + 1))
+print('Downloaded web-sys v0.3.106', flush=True)
+if n == 0:
+    time.sleep(60)
+''')
+            started = time.monotonic()
+            result = subprocess.run([str(WRAPPER), 'python3', str(command), str(count)],
+                                    env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0', 'RETRY_INFRA_TIMEOUT_SECONDS': '2'},
+                                    capture_output=True, text=True)
+            self.assertLess(time.monotonic() - started, 30)
+            self.assertEqual((result.returncode, int(count.read_text())), (0, 2))
+            self.assertIn('Download stalled for 2s', result.stderr)
+
+    def test_every_attempt_stalling_fails_with_the_timeout_status(self):
+        result = subprocess.run([str(WRAPPER), 'sleep', '60'],
+                                env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0', 'RETRY_INFRA_TIMEOUT_SECONDS': '1'},
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 124)
+        self.assertEqual(result.stderr.count('Download stalled for 1s'), 3)
 
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))

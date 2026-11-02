@@ -13,11 +13,18 @@ if [[ $# == 0 ]]; then
 fi
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
+limit=${RETRY_INFRA_TIMEOUT_SECONDS:-900}
 for attempt in 1 2 3; do
-  "$@" 2>&1 | tee "$log"
+  timeout --kill-after=30 "$limit" "$@" 2>&1 | tee "$log"
   status=${PIPESTATUS[0]}
   if (( status == 0 )); then exit 0; fi
-  if (( attempt == 3 )) || ! is_infra "$log"; then exit "$status"; fi
+  if (( status == 124 || status == 137 )); then
+    echo "Download stalled for ${limit}s" >&2
+    stalled=1
+  else
+    stalled=0
+  fi
+  if (( attempt == 3 )) || { (( ! stalled )) && ! is_infra "$log"; }; then exit "$status"; fi
   echo "Known infrastructure failure; retry $attempt/2" >&2
   sleep "${RETRY_INFRA_DELAY_SECONDS:-$((attempt * 10))}"
 done

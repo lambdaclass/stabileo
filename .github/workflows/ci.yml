@@ -43,6 +43,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_HTTP_MULTIPLEXING: false
   MIX_ENV: test
 
 # Every job installs the toolchain from flake.nix and runs a make target, so a
