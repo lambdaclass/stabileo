@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
 const workflow = readFileSync(new URL('../../../.github/workflows/ci.yml', import.meta.url), 'utf8');
-// ci-ok is followed by compatibility jobs (rust/npm); never execute their YAML.
 const gate = workflow.split('\n  ci-ok:')[1].split(/\n  [\w-]+:/)[0];
 const needs = gate.split('    needs:\n')[1].split('    steps:')[0].match(/(?<=      - )\S+/g)!;
 const script = gate.match(/^        run: \|\n((?:          .*\n|\n)+)/m)![1]
