@@ -224,32 +224,89 @@ const overlaps = (a: Obstacle, b: Obstacle): boolean =>
  */
 export class ObstacleGrid {
   private readonly all: Obstacle[] = [];
-  private readonly cells = new Map<string, number[]>();
+  private readonly fine = new Map<string, number[]>();
+  /** Obstacles too large for the fine cells (an area load across a slab at print resolution). */
+  private readonly coarse = new Map<string, number[]>();
   private readonly loose: number[] = [];
-  constructor(initial: Iterable<Obstacle> = [], private readonly size = 64) { for (const o of initial) this.push(o); }
+  /** Per obstacle, the last query that visited it: each is visited once per query without a set. */
+  private stamp = new Int32Array(64);
+  private query = 0;
+  constructor(initial: Iterable<Obstacle> = [], private readonly size = 64, private readonly coarseSize = 1024) { for (const o of initial) this.push(o); }
   push(o: Obstacle): void {
     const i = this.all.push(o) - 1;
-    const r = this.range(o);
-    if (!r) { this.loose.push(i); return; }
-    for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) {
-      const k = `${cx},${cy}`;
-      const list = this.cells.get(k);
-      if (list) list.push(i); else this.cells.set(k, [i]);
+    if (i >= this.stamp.length) { const grown = new Int32Array(this.stamp.length * 2); grown.set(this.stamp); this.stamp = grown; }
+    const f = range(o, this.size);
+    if (f) { add(this.fine, f, i); return; }
+    const c = range(o, this.coarseSize);
+    if (c) { add(this.coarse, c, i); return; }
+    this.loose.push(i);
+  }
+  /**
+   * Call `fn` once for each obstacle that may overlap `b`, in no particular order; `fn` returning
+   * true stops the visit. What `near` gives, without building and sorting a list per query.
+   */
+  visit(b: Obstacle, fn: (o: Obstacle) => boolean | void): void {
+    const f = range(b, this.size);
+    if (!f) { for (const o of this.all) if (fn(o) === true) return; return; }
+    const q = ++this.query;
+    const stamp = this.stamp, all = this.all;
+    const each = (i: number) => { if (stamp[i] === q) return false; stamp[i] = q; return fn(all[i]!) === true; };
+    for (const i of this.loose) if (each(i)) return;
+    for (let cx = f.x0; cx <= f.x1; cx++) for (let cy = f.y0; cy <= f.y1; cy++) {
+      const list = this.fine.get(`${cx},${cy}`);
+      if (list) for (const i of list) if (each(i)) return;
     }
+    if (!this.coarse.size) return;
+    const c = range(b, this.coarseSize);
+    if (c) {
+      for (let cx = c.x0; cx <= c.x1; cx++) for (let cy = c.y0; cy <= c.y1; cy++) {
+        const list = this.coarse.get(`${cx},${cy}`);
+        if (list) for (const i of list) if (each(i)) return;
+      }
+    } else for (const list of this.coarse.values()) for (const i of list) if (each(i)) return;
+  }
+  /** Whether anything overlaps `b`. */
+  blocked(b: Obstacle): boolean {
+    let hit = false;
+    this.visit(b, (o) => (hit = overlaps(b, o)));
+    return hit;
   }
   near(b: Obstacle): Obstacle[] {
-    const r = this.range(b);
-    if (!r) return [...this.all];
+    const f = range(b, this.size);
+    if (!f) return [...this.all];
+    if (f.x0 === f.x1 && f.y0 === f.y1 && !this.loose.length && !this.coarse.size) {
+      return (this.fine.get(`${f.x0},${f.y0}`) ?? []).map((i) => this.all[i]!);
+    }
     const hit = new Set<number>(this.loose);
-    for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) for (const i of this.cells.get(`${cx},${cy}`) ?? []) hit.add(i);
+    collect(this.fine, f, hit);
+    if (this.coarse.size) {
+      const c = range(b, this.coarseSize);
+      if (c) collect(this.coarse, c, hit);
+      else for (const list of this.coarse.values()) for (const i of list) hit.add(i);
+    }
     return [...hit].sort((a, b) => a - b).map((i) => this.all[i]!);
   }
-  private range(o: Obstacle): { x0: number; x1: number; y0: number; y1: number } | null {
-    const x0 = Math.floor(o.x / this.size), x1 = Math.floor((o.x + o.width) / this.size);
-    const y0 = Math.floor(o.y / this.size), y1 = Math.floor((o.y + o.height) / this.size);
-    if (![x0, x1, y0, y1].every(Number.isFinite) || (x1 - x0 + 1) * (y1 - y0 + 1) > 4096) return null;
-    return { x0, x1, y0, y1 };
+}
+
+type CellRange = { x0: number; x1: number; y0: number; y1: number };
+
+function range(o: Obstacle, size: number): CellRange | null {
+  const x0 = Math.floor(o.x / size), x1 = Math.floor((o.x + o.width) / size);
+  const y0 = Math.floor(o.y / size), y1 = Math.floor((o.y + o.height) / size);
+  if (![x0, x1, y0, y1].every(Number.isFinite) || (x1 - x0 + 1) * (y1 - y0 + 1) > 4096) return null;
+  return { x0, x1, y0, y1 };
+}
+
+function add(cells: Map<string, number[]>, r: CellRange, i: number): void {
+  for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) {
+    const k = `${cx},${cy}`;
+    const list = cells.get(k);
+    if (list) list.push(i); else cells.set(k, [i]);
   }
+}
+
+function collect(cells: Map<string, number[]>, r: CellRange, into: Set<number>): void {
+  for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) for (const i of cells.get(`${cx},${cy}`) ?? []) into.add(i);
 }
 
 export function segmentToBox(s: SegmentObstacle, pad = 3): Obstacle {
@@ -342,7 +399,7 @@ export function placeLabels(
     const clearOf = (grid: ObstacleGrid) => {
       for (const cand of candidates) {
         const moved = { ...bounds, x: bounds.x + cand[0], y: bounds.y + cand[1] };
-        if (!grid.near(moved).some((o) => overlaps(moved, o))) { shift = cand; return true; }
+        if (!grid.blocked(moved)) { shift = cand; return true; }
       }
       return false;
     };
