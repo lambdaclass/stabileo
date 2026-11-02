@@ -14296,7 +14296,7 @@ const fr: Translations = {
   "admin.settings.secAccounts": "Comptes utilisateurs",
   "admin.settings.secUsage": "Données d’utilisation anonymes",
   "admin.settings.secLegal": "Textes juridiques",
-  "admin.settings.depsIdle": "Lorsque la connexion est désactivée, ces options n’ont aucun effet. Vous pouvez les laisser prêtes pour le moment où vous l’activerez.",
+  "admin.settings.depsIdle": "Lorsque la connexion est désactivée, personne de nouveau ne peut se connecter ni s’inscrire, et l’enregistrement ne demande jamais de compte. Les personnes déjà connectées gardent les projets dans le cloud tels qu’ils sont réglés ici.",
   "admin.settings.projectLimit": "Projets par compte",
   "admin.settings.projectLimitHelp": "Actuellement, chaque compte conserve jusqu’à {n} projets. Toute personne ayant atteint la limite peut remplacer l’un de ses projets par celui qui est ouvert. La réduire ne supprime rien : ceux qui en avaient davantage les conservent mais ne peuvent pas en ajouter d’autre.",
   "admin.settings.saveLimit": "Enregistrer",

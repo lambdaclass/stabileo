@@ -12,19 +12,28 @@ function storage(): Storage | null {
   }
 }
 
+let acknowledgedThisVisit = false;
+
+/** Without storage it still shows, once per visit: a safety notice is never skipped because the browser keeps nothing. */
 export function shouldShowDisclaimer(store: Storage | null = storage()): boolean {
-  if (!store) return false;
+  if (acknowledgedThisVisit) return false;
+  if (!store) return true;
   try {
     return store.getItem(DISCLAIMER_STORAGE_KEY) !== LEGAL_VERSION;
   } catch {
-    return false;
+    return true;
   }
 }
 
 export function acknowledgeDisclaimer(store: Storage | null = storage()): void {
+  acknowledgedThisVisit = true;
   try {
     store?.setItem(DISCLAIMER_STORAGE_KEY, LEGAL_VERSION);
   } catch {
-    /* private mode */
+    /* private mode: remembered for this visit */
   }
+}
+
+export function forgetDisclaimerVisit(): void {
+  acknowledgedThisVisit = false;
 }

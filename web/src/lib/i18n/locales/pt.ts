@@ -240,7 +240,7 @@ const pt: Translations = {
   'admin.settings.secAccounts': 'Contas de usuário',
   'admin.settings.secUsage': 'Dados de uso anônimos',
   'admin.settings.secLegal': 'Textos legais',
-  'admin.settings.depsIdle': 'Com o login desativado, estas opções não têm efeito. Dá para deixá-las prontas para quando ativar.',
+  'admin.settings.depsIdle': 'Com o login desativado, ninguém novo pode entrar nem se cadastrar, e salvar nunca pede conta. Quem já entrou continua com os projetos na nuvem como estiverem aqui.',
   'admin.settings.projectLimit': 'Projetos por conta',
   'admin.settings.projectLimitHelp': 'Hoje cada conta guarda até {n}. Quem chega ao limite pode substituir um dos projetos pelo que está aberto. Baixar o número não apaga nada: quem já tinha mais os mantém, mas não pode somar outro.',
   'admin.settings.saveLimit': 'Salvar',

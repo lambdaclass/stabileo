@@ -240,7 +240,7 @@ const es: Record<string, string> = {
   'admin.settings.secAccounts': 'Cuentas de usuario',
   'admin.settings.secUsage': 'Datos de uso anónimos',
   'admin.settings.secLegal': 'Textos legales',
-  'admin.settings.depsIdle': 'Con el inicio de sesión apagado, estas opciones no tienen efecto. Podés dejarlas listas para cuando lo prendas.',
+  'admin.settings.depsIdle': 'Con el inicio de sesión apagado, nadie nuevo puede ingresar ni registrarse, y guardar nunca pide cuenta. Quien ya ingresó sigue teniendo los proyectos en la nube como estén acá.',
   'admin.settings.projectLimit': 'Proyectos por cuenta',
   'admin.settings.projectLimitHelp': 'Hoy cada cuenta guarda hasta {n}. Quien llega al límite puede reemplazar uno de sus proyectos con el que tiene abierto. Bajarlo no borra nada: quien ya tenía más los conserva, pero no puede sumar otro.',
   'admin.settings.saveLimit': 'Guardar',

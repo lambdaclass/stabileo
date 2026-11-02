@@ -203,14 +203,20 @@ export const cloudProjects = {
     items = items.map((p) => (p.id === id ? updated : p));
   },
 
-  async remove(id: string): Promise<void> {
+  /** Waits for saves already asked for, so a late save answer cannot bring the project back. */
+  remove(id: string): Promise<void> {
     sameOwner();
     const who = owner;
-    await projectsApi.remove(id);
-    if (!stillFor(who)) return;
-    items = items.filter((p) => p.id !== id);
-    total = Math.max(0, total - 1);
-    accountTotal = Math.max(0, accountTotal - 1);
-    cloudLinks.forgetProject(id);
+    return queued(() => removeNow(id, who));
   },
 };
+
+async function removeNow(id: string, who: string | null): Promise<void> {
+  guard(who);
+  await projectsApi.remove(id);
+  if (!stillFor(who)) return;
+  items = items.filter((p) => p.id !== id);
+  total = Math.max(0, total - 1);
+  accountTotal = Math.max(0, accountTotal - 1);
+  cloudLinks.forgetProject(id);
+}

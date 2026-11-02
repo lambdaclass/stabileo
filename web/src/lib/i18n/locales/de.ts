@@ -14296,7 +14296,7 @@ const de: Translations = {
   "admin.settings.secAccounts": "Benutzerkonten",
   "admin.settings.secUsage": "Anonyme Nutzungsdaten",
   "admin.settings.secLegal": "Rechtstexte",
-  "admin.settings.depsIdle": "Bei deaktivierter Anmeldung haben diese Optionen keine Wirkung. Sie können sie für den Zeitpunkt vorbereiten, an dem Sie sie aktivieren.",
+  "admin.settings.depsIdle": "Bei deaktivierter Anmeldung kann sich niemand Neues anmelden oder registrieren, und Speichern verlangt nie ein Konto. Wer bereits angemeldet ist, erhält Cloud-Projekte weiterhin so, wie sie hier eingestellt sind.",
   "admin.settings.projectLimit": "Projekte pro Konto",
   "admin.settings.projectLimitHelp": "Derzeit speichert jedes Konto bis zu {n}. Wer das Limit erreicht hat, kann eines seiner Projekte durch das geöffnete ersetzen. Eine Senkung löscht nichts: Wer mehr hatte, behält sie, kann aber kein weiteres hinzufügen.",
   "admin.settings.saveLimit": "Speichern",

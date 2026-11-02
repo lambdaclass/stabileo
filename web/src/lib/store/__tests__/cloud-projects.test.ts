@@ -330,6 +330,22 @@ describe('cloud projects', () => {
     expect(seen.filter((r) => r.method === 'PUT')).toHaveLength(2);
   });
 
+  it('deleting a project while its save is out waits for the save, so the late answer cannot bring it back', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('d1', 'Frame', 1) }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    replies.set('PUT /api/v1/projects/d1', async () => {
+      await new Promise((done) => setTimeout(done, 20));
+      return json(200, { data: meta('d1', 'Frame', 2) });
+    });
+    replies.set('DELETE /api/v1/projects/d1', () => new Response(null, { status: 204 }));
+    const save = cloudProjects.saveCurrent();
+    const removal = cloudProjects.remove('d1');
+    await Promise.all([save, removal]);
+    expect(seen.slice(-2).map((r) => r.method)).toEqual(['PUT', 'DELETE']);
+    expect(cloudProjects.items.map((p) => p.id)).not.toContain('d1');
+    expect(cloudProjects.linkedId).toBeNull();
+  });
+
   it('two tabs holding the same project each keep the revision they last saw', async () => {
     if (!tabManager.activeTabId) tabManager.init();
     const first = tabManager.activeTabId!;

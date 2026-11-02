@@ -240,7 +240,7 @@ const en: Record<string, string> = {
   'admin.settings.secAccounts': 'User accounts',
   'admin.settings.secUsage': 'Anonymous usage data',
   'admin.settings.secLegal': 'Legal texts',
-  'admin.settings.depsIdle': 'With sign-in off these options have no effect. You can leave them ready for when you turn it on.',
+  'admin.settings.depsIdle': 'With sign-in off, nobody new can sign in or sign up, and saving never asks for an account. People already signed in still get cloud projects as set here.',
   'admin.settings.projectLimit': 'Projects per account',
   'admin.settings.projectLimitHelp': 'Today each account keeps up to {n}. Anyone at the limit can replace one of their projects with the open one. Lowering it deletes nothing: whoever had more keeps them but cannot add another.',
   'admin.settings.saveLimit': 'Save',

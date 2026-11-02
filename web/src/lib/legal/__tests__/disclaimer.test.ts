@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { shouldShowDisclaimer, acknowledgeDisclaimer, DISCLAIMER_STORAGE_KEY } from '../disclaimer';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { shouldShowDisclaimer, acknowledgeDisclaimer, forgetDisclaimerVisit, DISCLAIMER_STORAGE_KEY } from '../disclaimer';
 import { LEGAL_VERSION, legalHref, TERMS_PATH } from '../legal';
 
 function memory(seed: Record<string, string> = {}) {
@@ -8,6 +8,8 @@ function memory(seed: Record<string, string> = {}) {
 }
 
 describe('the results disclaimer', () => {
+  beforeEach(() => forgetDisclaimerVisit());
+
   it('shows until acknowledged for the version in force', () => {
     const store = memory();
     expect(shouldShowDisclaimer(store)).toBe(true);
@@ -20,7 +22,12 @@ describe('the results disclaimer', () => {
     expect(shouldShowDisclaimer(memory({ [DISCLAIMER_STORAGE_KEY]: '2020-01-01' }))).toBe(true);
   });
 
-  it('never shows without storage, where it would come back on every open', () => {
+  it('shows without storage or when storage refuses, and once acknowledged stays away for the visit', () => {
+    const refusing = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); } };
+    expect(shouldShowDisclaimer(null)).toBe(true);
+    expect(shouldShowDisclaimer(refusing)).toBe(true);
+    acknowledgeDisclaimer(refusing);
+    expect(shouldShowDisclaimer(refusing)).toBe(false);
     expect(shouldShowDisclaimer(null)).toBe(false);
   });
 });

@@ -14296,7 +14296,7 @@ const tr: Translations = {
   "admin.settings.secAccounts": "Kullanıcı hesapları",
   "admin.settings.secUsage": "Anonim kullanım verileri",
   "admin.settings.secLegal": "Yasal metinler",
-  "admin.settings.depsIdle": "Oturum açma kapalıyken bu seçeneklerin etkisi yoktur. Açacağınız zamana hazır olarak bırakabilirsiniz.",
+  "admin.settings.depsIdle": "Oturum açma kapalıyken yeni kimse oturum açamaz veya kaydolamaz ve kaydetmek hiçbir zaman hesap istemez. Zaten oturum açmış kişiler bulut projelerini burada ayarlandığı gibi kullanmaya devam eder.",
   "admin.settings.projectLimit": "Hesap başına proje",
   "admin.settings.projectLimitHelp": "Şu anda her hesap en fazla {n} proje saklar. Sınıra ulaşan herkes projelerinden birini açık olanla değiştirebilir. Sınırı düşürmek hiçbir şeyi silmez: daha fazlasına sahip olanlar onları korur ancak yenisini ekleyemez.",
   "admin.settings.saveLimit": "Kaydet",
