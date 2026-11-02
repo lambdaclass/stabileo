@@ -97,7 +97,7 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
         self.assertIn('GITHUB_TOKEN', readonly.SECRET_ENV)
 
     def test_host_sockets_are_masked_before_the_scratch_is_bound(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             root = Path(tmp).resolve()
             agent = root / 'agent.sock'
             with socket.socket(socket.AF_UNIX) as server:
@@ -112,6 +112,14 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
                 self.assertIn('--unshare-ipc', linux)
                 if root.is_relative_to(Path('/tmp').resolve()):
                     self.assertIn(f'--ro-bind {root} {root}', joined)
+                    rebind = next(i for i in range(len(linux) - 2) if linux[i:i + 3] == ['--ro-bind', str(root), str(root)])
+                    self.assertGreater(linux.index(str(agent)), rebind)
+                    tools = root / 'bin'
+                    tools.mkdir()
+                    with patch.dict(os.environ, {'PATH': f'{tools}{os.pathsep}/usr/bin'}):
+                        command = readonly.sandbox_command([root / 'scratch'], ['reviewer'], 'linux', sockets=sockets)
+                    self.assertIn(f'--ro-bind {tools} {tools}', ' '.join(command))
+                    self.assertNotIn('--ro-bind /usr/bin /usr/bin', ' '.join(command))
                 mac = readonly.sandbox_command([root / 'scratch'], ['reviewer'], 'darwin', sockets=sockets)
                 self.assertIn(f'(deny network-outbound (remote unix-socket (path-literal "{agent}")))', mac[2])
 

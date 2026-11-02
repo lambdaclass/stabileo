@@ -42,13 +42,16 @@ def sandbox_command(paths, command, platform=sys.platform, hide=(), sockets=(), 
                 f'(version 1)(allow default)(deny file-write*)'
                 f'(allow file-write* {rules})' + (f'(deny file-read* {hidden})' if hidden else '')
                 + (f'(deny network-outbound {unix})' if unix else ''), *command]
-    masked = [str(path) for path in sockets]
-    keep = Path(cwd).resolve() if cwd else None
-    visible_cwd = [str(keep)] if keep and any(keep.is_relative_to(path) for path in masked) else []
+    masked = [str(path) for path in sockets if Path(path).is_dir()]
+    exposed = [Path(cwd)] if cwd else []
+    exposed += [Path(entry) for entry in os.environ.get('PATH', '').split(os.pathsep) if entry]
+    visible = sorted({str(path.resolve()) for path in exposed
+                      if path.is_dir() and any(path.resolve().is_relative_to(dir) for dir in masked)})
     return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev',
-            *[arg for path in masked for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],
-            *[arg for path in visible_cwd for arg in ('--ro-bind', path, path)],
+            *[arg for path in masked for arg in ('--tmpfs', path)],
+            *[arg for path in visible for arg in ('--ro-bind', path, path)],
             *[arg for path in paths for arg in ('--bind', path, path)],
+            *[arg for path in map(str, sockets) if path not in masked for arg in ('--ro-bind', '/dev/null', path)],
             *[arg for path in map(str, hide) for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],
             '--unshare-pid', '--unshare-ipc', '--proc', '/proc', '--', *command]
 
