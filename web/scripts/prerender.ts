@@ -281,20 +281,6 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
-  // The landing reveals sections on scroll; a capture of the top of the page
-  // would ship most of the copy inside elements that are still transparent.
-  await page.evaluate(() => {
-    const el = document.querySelector('.landing');
-    if (el) el.scrollTo(0, el.scrollHeight);
-  });
-  await page.waitForTimeout(600);
-  await page.evaluate(() => {
-    for (const el of document.querySelectorAll('.reveal:not(.visible)')) el.classList.add('visible');
-    const scroller = document.querySelector('.landing');
-    if (scroller) scroller.scrollTo(0, 0);
-  });
-  await page.waitForTimeout(200);
-
   const { head, body } = await page.evaluate(() => ({
     head: document.head.innerHTML,
     body: document.querySelector('#app')?.innerHTML ?? '',
