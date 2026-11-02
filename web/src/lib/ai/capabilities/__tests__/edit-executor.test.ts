@@ -174,6 +174,15 @@ describe('edit executor', () => {
     expect(loadsOf(r).filter((l) => l.type === 'distributed').length).toBeGreaterThan(0);
   });
 
+  it('NEGATIVE: a new bay beside an unsupported base node adds no support', () => {
+    const snap = makeFrame();
+    const right = Math.max(...arr(snap, 'nodes').map((n) => n[1].x as number));
+    const base = arr(snap, 'nodes').find(([, n]) => n.x === right && n.y === 0)![0];
+    snap.supports = arr(snap, 'supports').filter(([, sup]) => sup.nodeId !== base);
+    const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, snap);
+    expect(arr(r, 'supports')).toEqual(arr(snap, 'supports'));
+  });
+
   it('a new bay keeps the base support of the frame it extends', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
     expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);

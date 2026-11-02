@@ -10619,6 +10619,7 @@ const fr: Translations = {
   'ai.sum.deleteElement': "Élément {id} supprimé",
   'ai.sum.deleteLoad': "Charge {id} supprimée",
   'ai.sum.custom': "Modèle personnalisé ({nodes} nœuds, {elements} éléments)",
+  'ai.sum.customSections': "{names} : valeurs de section hors catalogue, vérifiez-les avant d'appliquer",
   'ai.err.oneChange': "L’assistant a proposé plusieurs modifications à la fois ; demandez une modification à la fois.",
   'ai.key.done': "Terminé",
   'ai.key.savedAs': "Clé {provider} enregistrée (se termine par {last})",

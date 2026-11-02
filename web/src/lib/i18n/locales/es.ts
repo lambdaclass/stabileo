@@ -10775,6 +10775,7 @@ const es: Record<string, string> = {
   'ai.sum.deleteElement': "Se eliminó el elemento {id}",
   'ai.sum.deleteLoad': "Se eliminó la carga {id}",
   'ai.sum.custom': "Modelo propio ({nodes} nudos, {elements} elementos)",
+  'ai.sum.customSections': "{names}: valores de sección que no son del catálogo, revíselos antes de aplicar",
   'ai.err.oneChange': "El asistente propuso varios cambios a la vez; pedí un cambio por vez.",
   'ai.key.done': "Listo",
   'ai.key.savedAs': "Clave de {provider} guardada (termina en {last})",

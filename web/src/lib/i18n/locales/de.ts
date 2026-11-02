@@ -10619,6 +10619,7 @@ const de: Translations = {
   'ai.sum.deleteElement': "Element {id} gelöscht",
   'ai.sum.deleteLoad': "Last {id} gelöscht",
   'ai.sum.custom': "Eigenes Modell ({nodes} Knoten, {elements} Elemente)",
+  'ai.sum.customSections': "{names}: Querschnittswerte nicht aus dem Katalog, vor dem Anwenden prüfen",
   'ai.err.oneChange': "Der Assistent hat mehrere Änderungen auf einmal vorgeschlagen; bitten Sie um eine Änderung nach der anderen.",
   'ai.key.done': "Fertig",
   'ai.key.savedAs': "Schlüssel für {provider} gespeichert (endet auf {last})",

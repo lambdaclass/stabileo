@@ -51,7 +51,7 @@ function elementBetween(snap: Json, a: number | undefined, b: number | undefined
 
 type Props = { matId: number; secId: number; from?: Json };
 
-function addSupportLike(snap: Json, nodeId: number, from: number | undefined, fallback: string): void {
+function addSupportLike(snap: Json, nodeId: number, from: number | undefined): void {
   for (const entry of asArray(snap.supports) ?? []) {
     const data = at(entry, 1);
     if (from !== undefined && isPlainObject(data) && asU64(data.nodeId) === from && typeof data.type === 'string') {
@@ -61,7 +61,6 @@ function addSupportLike(snap: Json, nodeId: number, from: number | undefined, fa
       return;
     }
   }
-  addSupportToSnap(snap, nodeId, fallback);
 }
 
 function inherit(snap: Json, from: Json | undefined, override: number | undefined, what: string): Props {
@@ -116,7 +115,7 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
     const nodeId = addNodeToSnap(snap, newX, y);
     if (prev !== undefined && column) place(snap, column, prev, nodeId);
     if (adj !== undefined && beam) place(snap, beam, adj, nodeId);
-    if (i === 0) addSupportLike(snap, nodeId, adj, 'fixed');
+    if (i === 0) addSupportLike(snap, nodeId, adj);
     prev = nodeId;
   });
   const shift = (id: number): number => {
@@ -145,7 +144,7 @@ function addBay3d(snap: Json, width: number, side?: string, beamSection?: string
   const nodeMap = new Map<number, number>();
   for (const [oldId, c] of outerFace) {
     const newId = addNodeToSnap(snap, newX, c.y, c.z);
-    if (c.z !== undefined && near(c.z, baseZ)) addSupportLike(snap, newId, oldId, 'fixed3d');
+    if (c.z !== undefined && near(c.z, baseZ)) addSupportLike(snap, newId, oldId);
     nodeMap.set(oldId, newId);
   }
 

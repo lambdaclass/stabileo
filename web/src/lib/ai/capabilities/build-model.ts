@@ -6,7 +6,7 @@ import {
   AiActionError, MAX_LIST_LEN, MAX_MESSAGES, checkListLen, checkText, promptLabel, promptLine, sanitizeLocale,
 } from './limits';
 import { type AnalysisMode, promptText } from './registry';
-import { validateSnapshot } from './validate-snapshot';
+import { CUSTOM_SECTION, validateSnapshot } from './validate-snapshot';
 import { asU64 } from './snapshot-json';
 import { t, tp } from '../../i18n';
 
@@ -234,7 +234,12 @@ export function actionSummary(a: BuildAction): string {
     case 'add_nodal_load': return tp('ai.sum.nodalLoad', { id: a.params.node_id });
     case 'delete_element': return tp('ai.sum.deleteElement', { id: a.params.element_id });
     case 'delete_load': return tp('ai.sum.deleteLoad', { id: a.params.load_id });
-    case 'create_model': return tp('ai.sum.custom', { nodes: a.params.nodes.length, elements: a.params.elements.length });
+    case 'create_model': {
+      const summary = tp('ai.sum.custom', { nodes: a.params.nodes.length, elements: a.params.elements.length });
+      const custom = a.params.sections.map((sec) => (isPlainObject(sec) && typeof sec.name === 'string' ? sec.name.trim() : ''))
+        .filter((name) => name.startsWith(CUSTOM_SECTION));
+      return custom.length > 0 ? `${summary}. ${tp('ai.sum.customSections', { names: custom.join(', ') })}` : summary;
+    }
     case 'unsupported': return '';
   }
 }

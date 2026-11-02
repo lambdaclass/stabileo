@@ -389,6 +389,10 @@ describe('change summaries', () => {
     try {
       expect(actionSummary({ action: 'add_bay', params: { width: 5, side: 'left' } })).toBe('Se agregó un vano de 5 m a la izquierda. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'add_bay', params: { width: 5, side: ' Left ' } })).toBe('Se agregó un vano de 5 m a la izquierda. Los miembros nuevos no tienen cargas');
+      const model = (names: string[]) => ({ action: 'create_model', params: { nodes: [1, 2], elements: [1], materials: [], supports: [], sections: names.map((name, i) => ({ id: i + 1, name })) } }) as never;
+      expect(actionSummary(model(['IPE 300', 'Custom (user values)', 'Custom (user values) 2'])))
+        .toBe('Modelo propio (2 nudos, 1 elementos). Custom (user values), Custom (user values) 2: valores de sección que no son del catálogo, revíselos antes de aplicar');
+      expect(actionSummary(model(['IPE 300']))).toBe('Modelo propio (2 nudos, 1 elementos)');
       expect(actionSummary({ action: 'add_story', params: { height: 3 } })).toBe('Se agregó un piso de 3 m. Los miembros nuevos no tienen cargas');
       expect(actionSummary({ action: 'change_section', params: { section: 'HEB 300', element_filter: 'column' } })).toBe('Las columnas pasaron a HEB 300');
     } finally {

@@ -10786,6 +10786,7 @@ const en: Record<string, string> = {
   'ai.sum.deleteElement': "Deleted element {id}",
   'ai.sum.deleteLoad': "Deleted load {id}",
   'ai.sum.custom': "Custom model ({nodes} nodes, {elements} elements)",
+  'ai.sum.customSections': "{names}: section values not from the catalog, check them before applying",
   'ai.err.oneChange': "The assistant proposed several changes at once; ask for one change at a time.",
   'ai.key.done': "Done",
   'ai.key.savedAs': "{provider} key saved (ends in {last})",

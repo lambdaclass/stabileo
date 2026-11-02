@@ -10145,6 +10145,7 @@ const pt: Translations = {
   'ai.sum.deleteElement': "Elemento {id} excluído",
   'ai.sum.deleteLoad': "Carga {id} excluída",
   'ai.sum.custom': "Modelo próprio ({nodes} nós, {elements} elementos)",
+  'ai.sum.customSections': "{names}: valores de seção fora do catálogo, confira-os antes de aplicar",
   'ai.err.oneChange': "O assistente propôs várias alterações de uma vez; peça uma alteração por vez.",
   'ai.key.done': "Concluído",
   'ai.key.savedAs': "Chave da {provider} salva (termina em {last})",
