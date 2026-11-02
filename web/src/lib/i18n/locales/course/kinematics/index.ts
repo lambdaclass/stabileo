@@ -59,7 +59,7 @@ export const es: Translations = {
   'course.kinematics.dm.introRigid': 'Las barras se consideran axialmente rígidas: conservan su longitud. Las bielas, en cambio, se alargan como resortes axiales EA/L.',
   'course.kinematics.dm.introAxial': 'Las barras tienen rigidez axil EA/L: pueden alargarse, y cada traslación libre de cada nudo es una incógnita. Así el resultado coincide con el cálculo matricial.',
   'course.kinematics.dm.membersCaption': 'Barras: longitud y rigideces.',
-  'course.kinematics.dm.unitTranslations': 'Cada traslación incógnita mueve un solo nudo en una dirección, con los demás nudos quietos.',
+  'course.kinematics.dm.unitTranslations': "Como las barras se alargan, cada traslación incógnita mueve un solo nudo en una dirección, con los demás nudos quietos. Con barras axialmente rígidas no sería así: una traslación independiente puede llevar varios nudos juntos, en un movimiento compatible con las longitudes.",
 
   'course.kinematics.dm.stiff.title': 'Rigideces de las barras',
   'course.kinematics.dm.stiff.intro': 'Los coeficientes de rigidez de cada barra dicen qué momentos y fuerzas aparecen en sus extremos cuando a uno de ellos se le impone un giro o una traslación unitaria con todo lo demás trabado.',
@@ -201,7 +201,7 @@ export const en: Translations = {
   'course.kinematics.dm.introRigid': 'Members are taken as axially rigid: they keep their length. Two-force members, instead, stretch like axial springs EA/L.',
   'course.kinematics.dm.introAxial': 'Members have axial stiffness EA/L: they can stretch, and every free translation of every joint is an unknown. The result then matches the matrix solve.',
   'course.kinematics.dm.membersCaption': 'Members: length and stiffnesses.',
-  'course.kinematics.dm.unitTranslations': 'Each unknown translation moves a single joint in one direction, with every other joint held.',
+  'course.kinematics.dm.unitTranslations': "Because the members stretch, each unknown translation moves a single joint in one direction, with every other joint held. With axially rigid members it would not: an independent translation can carry several joints together, in a movement compatible with the lengths.",
 
   'course.kinematics.dm.stiff.title': 'Member stiffnesses',
   'course.kinematics.dm.stiff.intro': 'A member\'s stiffness coefficients give the moments and forces at its ends when one end is given a unit rotation or translation with everything else locked.',
@@ -343,7 +343,7 @@ export const pt: Translations = {
   'course.kinematics.dm.introRigid': 'As barras são consideradas axialmente rígidas: conservam o comprimento. As bielas, ao contrário, se alongam como molas axiais EA/L.',
   'course.kinematics.dm.introAxial': 'As barras têm rigidez axial EA/L: podem se alongar, e cada translação livre de cada nó é uma incógnita. Assim o resultado coincide com o cálculo matricial.',
   'course.kinematics.dm.membersCaption': 'Barras: comprimento e rigidezes.',
-  'course.kinematics.dm.unitTranslations': 'Cada translação incógnita move um único nó numa direção, com os demais nós parados.',
+  'course.kinematics.dm.unitTranslations': "Como as barras se alongam, cada translação incógnita move um único nó numa direção, com os demais nós parados. Com barras axialmente rígidas não seria assim: uma translação independente pode levar vários nós juntos, num movimento compatível com os comprimentos.",
 
   'course.kinematics.dm.stiff.title': 'Rigidezes das barras',
   'course.kinematics.dm.stiff.intro': 'Os coeficientes de rigidez de cada barra dizem que momentos e forças aparecem em seus extremos quando se impõe a um deles uma rotação ou translação unitária com todo o resto travado.',

@@ -16,6 +16,7 @@ import type { ModelData } from '../engine/solver-service';
 import type { SolverInput3D } from '../engine/types-3d';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import { selfWeightFor } from '../engine/self-weight';
+import type { PointMass } from '../engine/dynamics/mass-source';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
 export interface WorkbookModel extends ModelData {
@@ -25,6 +26,7 @@ export interface WorkbookModel extends ModelData {
   includeSelfWeight?: boolean;
   /** Full groups, with names and kinds; `ModelData.groups` carries only the members. */
   namedGroups?: ReadonlyArray<{ id: number; name: string; kind: string; members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] } }>;
+  pointMasses?: readonly PointMass[];
 }
 
 const b = (v: boolean | undefined) => (v ? 1 : 0);
@@ -130,6 +132,13 @@ function constraintsSheet(m: WorkbookModel): WorkbookSheet | null {
   return { name: 'Constraints', rows };
 }
 
+function pointMassesSheet(m: WorkbookModel): WorkbookSheet | null {
+  if (!m.pointMasses?.length) return null;
+  const rows: WorkbookSheet['rows'] = [['node', 'm [t]', 'horizontalOnly', 'izz [t·m²]']];
+  for (const p of [...m.pointMasses].sort((a, c) => a.nodeId - c.nodeId)) rows.push([p.nodeId, p.m, b(p.horizontalOnly), opt(p.izz)]);
+  return { name: 'PointMasses', rows };
+}
+
 /** The unit of a load field, by the model's naming. Empty where the field has none. */
 function loadFieldUnit(type: string, field: string): string {
   const f = field.toLowerCase();
@@ -196,7 +205,7 @@ function selfWeightSheet(m: WorkbookModel): WorkbookSheet {
 
 /** The model's sheets' names, in the order `modelSheets` writes them (`Shells` stands for the shell sheets). */
 export const MODEL_SHEET_NAMES = [
-  'Nodes', 'Members', 'Materials', 'Sections', 'Supports', 'Shells', 'LoadCases', 'LoadData', 'SelfWeight', 'Combinations', 'Constraints', 'Groups',
+  'Nodes', 'Members', 'Materials', 'Sections', 'Supports', 'Shells', 'LoadCases', 'LoadData', 'SelfWeight', 'Combinations', 'Constraints', 'PointMasses', 'Groups',
 ] as const;
 
 /** The model's sheets, in the order a reader looks for them; `want` leaves sheets out by name. */
@@ -206,7 +215,7 @@ export function modelSheets(m: WorkbookModel, solved: SolverInput3D | null, want
     ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, solved)],
     ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m)], ['LoadData', () => loadsSheet(m)],
     ['SelfWeight', () => selfWeightSheet(m)], ['Combinations', () => combinationsSheet(m)],
-    ['Constraints', () => constraintsSheet(m)], ['Groups', () => groupsSheet(m)],
+    ['Constraints', () => constraintsSheet(m)], ['PointMasses', () => pointMassesSheet(m)], ['Groups', () => groupsSheet(m)],
   ];
   return all.filter(([name]) => want(name)).flatMap(([, build]) => build() ?? []);
 }

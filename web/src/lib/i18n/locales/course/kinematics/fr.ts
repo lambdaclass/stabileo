@@ -59,7 +59,7 @@ const words: Translations = {
   'course.kinematics.dm.introRigid': 'Les barres sont supposées axialement rigides : elles gardent leur longueur. Les bielles, elles, s’allongent comme des ressorts axiaux EA/L.',
   'course.kinematics.dm.introAxial': 'Les barres ont une rigidité axiale EA/L : elles peuvent s’allonger et chaque translation libre de chaque nœud est une inconnue. Le résultat coïncide alors avec le calcul matriciel.',
   'course.kinematics.dm.membersCaption': 'Barres : longueur et rigidités.',
-  'course.kinematics.dm.unitTranslations': 'Chaque translation inconnue déplace un seul nœud dans une direction, les autres nœuds restant bloqués.',
+  'course.kinematics.dm.unitTranslations': "Comme les barres s'allongent, chaque translation inconnue déplace un seul nœud dans une direction, les autres nœuds restant bloqués. Avec des barres axialement rigides, ce ne serait pas le cas : une translation indépendante peut entraîner plusieurs nœuds ensemble, dans un mouvement compatible avec les longueurs.",
 
   'course.kinematics.dm.stiff.title': 'Rigidités des barres',
   'course.kinematics.dm.stiff.intro': 'Les coefficients de rigidité d’une barre donnent les moments et les forces à ses extrémités quand on impose à l’une d’elles une rotation ou une translation unité, tout le reste étant bloqué.',

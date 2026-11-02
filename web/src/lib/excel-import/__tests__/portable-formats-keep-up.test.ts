@@ -58,9 +58,9 @@ function jsonModelCollections(): string[] {
  * Short on purpose. A long list here means the workbook has quietly stopped
  * being able to describe a structure.
  */
-const NO_SHEET_NEEDED: Record<string, string> = {
-  pointMasses: 'loads the point masses of the dynamics examples into model.massSource, which neither the workbook nor the share link carries yet, for PRO or Basic',
-};
+const NO_SHEET_NEEDED: Record<string, string> = {};
+
+const SNAPSHOT_FIELD: Record<string, string> = { pointMasses: 'massSource' };
 
 describe('the Excel importer keeps up with the model', () => {
   it('every collection the loader accepts has a sheet, or a stated reason', () => {
@@ -68,7 +68,7 @@ describe('the Excel importer keeps up with the model', () => {
       nodes: 'Nodes', elements: 'Members', materials: 'Materials',
       sections: 'Sections', supports: 'Supports', loads: 'Loads',
       loadCases: 'LoadCases', combinations: 'Combinations',
-      plates: 'Plates', quads: 'Quads', constraints: 'Constraints',
+      plates: 'Plates', quads: 'Quads', constraints: 'Constraints', pointMasses: 'PointMasses',
     };
     const have = new Set(SHEETS.map((s) => s.name));
 
@@ -120,7 +120,7 @@ describe('the share link keeps up with the model', () => {
     const missing = jsonModelCollections().filter((c) => {
       if (c in NO_SHEET_NEEDED) return false;
       /* `snapshot.plates`, `snapshot.loadCases?.length` — any mention counts. */
-      return !packed.includes(`snapshot.${c}`);
+      return !packed.includes(`snapshot.${SNAPSHOT_FIELD[c] ?? c}`);
     });
 
     expect(

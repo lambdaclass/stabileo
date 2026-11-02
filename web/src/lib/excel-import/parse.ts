@@ -76,6 +76,8 @@ const UNIT_FACTORS: Record<string, Record<string, number>> = {
   '°': { '°': 1, deg: 1, grados: 1, grado: 1, graus: 1, grau: 1, degrees: 1, rad: 180 / Math.PI },
   // A temperature difference: a kelvin and a degree Celsius are the same step.
   '°c': { '°c': 1, c: 1, k: 1 },
+  't': { t: 1, kg: 0.001, 'kn·s2/m': 1 },
+  't·m2': { 't·m2': 1, 'kg·m2': 0.001, 'kn·s2·m': 1 },
 };
 
 function unitKey(u: string): string {
@@ -712,6 +714,32 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     }
   }
   counts.Constraints = model.constraints.length;
+
+  const firstMass = idGuard('PointMasses', problems);
+  const pointMasses: NonNullable<JSONModel['pointMasses']> = [];
+  for (const row of readSheet(grab('PointMasses'), 'PointMasses', problems)) {
+    const nodeId = reqNum(row, 'node', 'PointMasses', problems);
+    const m = reqNum(row, 'm', 'PointMasses', problems);
+    if (nodeId === null || m === null) continue;
+    if (!nodeIds.has(nodeId)) {
+      problems.push({ sheet: 'PointMasses', row: row.n, column: 'node', message: tp('xls.err.nodeMissing', { id: nodeId }) });
+      continue;
+    }
+    const izzCell = row.cells.izz;
+    const izz = izzCell === undefined || str(izzCell) === '' ? null : num(izzCell);
+    if (izzCell !== undefined && str(izzCell) !== '' && izz === null) {
+      problems.push({ sheet: 'PointMasses', row: row.n, column: 'izz', message: t('xls.err.notANumber') });
+      continue;
+    }
+    if (m < 0 || (izz !== null && izz < 0)) {
+      problems.push({ sheet: 'PointMasses', row: row.n, column: m < 0 ? 'm' : 'izz', message: t('xls.err.massNegative') });
+      continue;
+    }
+    if (!firstMass(nodeId, row, 'xls.err.massDuplicate')) continue;
+    pointMasses.push({ nodeId, m, ...(truthy(row.cells.horizontalonly) ? { horizontalOnly: true } : {}), ...(izz !== null ? { izz } : {}) });
+  }
+  if (pointMasses.length) model.pointMasses = pointMasses;
+  counts.PointMasses = pointMasses.length;
 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));

@@ -353,6 +353,18 @@ export const SHEETS: SheetSpec[] = [
   },
 
   {
+    name: 'PointMasses',
+    titleKey: 'xls.sheet.pointMasses',
+    columns: [
+      { key: 'node', required: true, helpKey: 'xls.col.massNode', example: 2 },
+      { key: 'm', unit: 't', required: true, helpKey: 'xls.col.mass', example: 1.5 },
+      { key: 'horizontalOnly', helpKey: 'xls.col.massHorizontalOnly', example: 'no' },
+      { key: 'izz', unit: 't·m²', helpKey: 'xls.col.massIzz', example: '' },
+    ],
+    examples: [[2, 1.5, 'no', '']],
+  },
+
+  {
     name: 'Loads',
     titleKey: 'xls.sheet.loads',
     columns: [

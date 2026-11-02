@@ -59,7 +59,7 @@ const words: Translations = {
   'course.kinematics.dm.introRigid': 'Çubuklar eksenel rijit kabul edilir: boylarını korurlar. Pandül çubuklar ise EA/L eksenel yayları gibi uzar.',
   'course.kinematics.dm.introAxial': 'Çubukların EA/L eksenel rijitliği vardır: uzayabilirler ve her düğümün her serbest ötelemesi bir bilinmeyendir. Böylece sonuç matris çözümüyle örtüşür.',
   'course.kinematics.dm.membersCaption': 'Çubuklar: boy ve rijitlikler.',
-  'course.kinematics.dm.unitTranslations': 'Her bilinmeyen öteleme yalnızca bir düğümü bir doğrultuda hareket ettirir, diğer düğümler tutulur.',
+  'course.kinematics.dm.unitTranslations': "Çubuklar uzayabildiği için her bilinmeyen öteleme yalnızca bir düğümü bir doğrultuda hareket ettirir, diğer düğümler tutulur. Eksenel rijit çubuklarda böyle olmazdı: bağımsız bir öteleme, boylarla uyumlu bir hareketle birkaç düğümü birlikte taşıyabilir.",
 
   'course.kinematics.dm.stiff.title': 'Çubuk rijitlikleri',
   'course.kinematics.dm.stiff.intro': 'Bir çubuğun rijitlik katsayıları, geri kalan her şey kilitliyken uçlarından birine birim dönme veya birim öteleme verildiğinde uçlarında oluşan momentleri ve kuvvetleri verir.',

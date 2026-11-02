@@ -33,7 +33,7 @@
   const MODEL_GROUPS: Array<{ key: string; sheets: string[] }> = [
     { key: 'geometry', sheets: ['Nodes', 'Members', 'Shells', 'Supports', 'Constraints', 'Groups'] },
     { key: 'properties', sheets: ['Materials', 'Sections', 'Specifications'] },
-    { key: 'loads', sheets: ['LoadCases', 'LoadData', 'SelfWeight', 'Combinations'] },
+    { key: 'loads', sheets: ['LoadCases', 'LoadData', 'SelfWeight', 'Combinations', 'PointMasses'] },
     { key: 'design', sheets: DESIGN_SHEETS },
   ];
   const RESULT_GROUPS: Array<{ key: string; sheets: string[] }> = [

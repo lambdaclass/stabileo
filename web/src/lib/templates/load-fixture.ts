@@ -55,7 +55,7 @@ export interface JSONModel {
    *  DXF, assumptions, and review status). Passed through to the model. */
   provenance?: Record<string, unknown>;
   /** Point masses at nodes (t), for the dynamic analyses (`MassSource.points`). */
-  pointMasses?: Array<{ nodeId: number; m: number; horizontalOnly?: boolean }>;
+  pointMasses?: Array<{ nodeId: number; m: number; horizontalOnly?: boolean; izz?: number }>;
   /** The project's analysis rules (self-weight as case loads, combination method). */
   analysis?: import('../engine/analysis-settings').AnalysisSettings;
 }

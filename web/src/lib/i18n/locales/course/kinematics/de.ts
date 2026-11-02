@@ -59,7 +59,7 @@ const words: Translations = {
   'course.kinematics.dm.introRigid': 'Die Stäbe gelten als dehnstarr: Sie behalten ihre Länge. Pendelstäbe dagegen längen sich wie Längsfedern EA/L.',
   'course.kinematics.dm.introAxial': 'Die Stäbe haben die Dehnsteifigkeit EA/L: Sie können sich längen, und jede freie Verschiebung jedes Knotens ist eine Unbekannte. So stimmt das Ergebnis mit der Matrizenrechnung überein.',
   'course.kinematics.dm.membersCaption': 'Stäbe: Länge und Steifigkeiten.',
-  'course.kinematics.dm.unitTranslations': 'Jede unbekannte Verschiebung bewegt nur einen Knoten in eine Richtung, alle anderen Knoten bleiben festgehalten.',
+  'course.kinematics.dm.unitTranslations': "Da sich die Stäbe dehnen, bewegt jede unbekannte Verschiebung nur einen Knoten in eine Richtung, alle anderen Knoten bleiben festgehalten. Bei dehnstarren Stäben wäre das nicht so: Eine unabhängige Verschiebung kann mehrere Knoten gemeinsam mitnehmen, in einer Bewegung, die mit den Stablängen verträglich ist.",
 
   'course.kinematics.dm.stiff.title': 'Stabsteifigkeiten',
   'course.kinematics.dm.stiff.intro': 'Die Steifigkeitskoeffizienten eines Stabes geben die Momente und Kräfte an seinen Enden an, wenn einem Ende eine Einheitsverdrehung oder -verschiebung aufgezwungen wird und alles andere blockiert ist.',
