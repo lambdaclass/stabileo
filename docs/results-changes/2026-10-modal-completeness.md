@@ -71,22 +71,18 @@ the pencil backward error ‖μKv − Mv‖∞ ≤ 1e-10·(μ‖K‖∞ + ‖M�
 both, v is M-orthogonally projected against the already locked, M-normalized
 eigenvectors φⱼ, so ⟨φⱼ, v⟩_M = 0.
 
-A is self-adjoint in the M inner product: ⟨φⱼ, Av⟩_M = φⱼᵀMK⁻¹Mv =
-⟨Aφⱼ, v⟩_M = μⱼ⟨φⱼ, v⟩_M = 0. With μ real, ⟨φⱼ, Av − μv⟩_M = 0 too, so the exact
-residual has no component along any locked eigenvector. Any component the
-computed residual carries there is the rounding of the K⁻¹ solve, which is of
-order ε·μ₁ in the locked direction of the largest μ, not of order ε·μ. The
-operator residual is therefore now computed after projecting Av − μv against the
-locked eigenvectors with the same twice-applied M-orthogonal projection used for
-the Lanczos basis. The projection only removes components the exact residual
-does not have; it cannot hide an error in μ or in v's unlocked components,
-because those lie in the M-orthogonal complement it leaves untouched. A wrong
-eigenvalue μ(1+δ) still leaves a residual of |δ|μ along v itself, which is
-M-orthogonal to the locked vectors; the regression perturbs μ by ±1e-7, 1e-6
-and 1e-3 on a 201-coordinate chain with three locked modes and requires each
-to fail the unchanged 1e-8·μ bound, with the residual equal to |δ|μ to 1%. The
-pencil backward-error check is unchanged and is computed on the unprojected
-equation, so the projection does not weaken it.
+A is self-adjoint in the M inner product, so for an exact locked eigenvector
+⟨φⱼ, Av − μv⟩_M = 0: the residual's component along it is only the rounding of
+the K⁻¹ solve, of order ε·μ₁ in the direction of the largest μ, not ε·μ. The
+locked vectors are not exact, though, and the component is then the coupling
+cⱼ = rⱼᵀMv to the locked pair's own residual. The acceptance residual is
+therefore the projected residual plus a bound on these couplings (next section
+but one): first order for locked values near μ, second order across a gap.
+A wrong eigenvalue μ(1+δ) still leaves a residual of |δ|μ along v itself; the
+regression perturbs μ by ±1e-7, 1e-6 and 1e-3 on a 201-coordinate chain with
+three locked modes and requires each to fail the 1e-8·μ bound, with the
+residual equal to |δ|μ to 1%. The pencil backward-error check is computed on
+the unprojected equation.
 
 The stock 8×8 simply supported MITC4 plate shows why this matters. Its in-plane
 rotation about the pinned corner is held only by drilling stiffness
@@ -115,30 +111,27 @@ found the projection changing a lock decision only on this plate (the gate and
 the harmonic test) and on that refused fuzz model; every other eigensolve locks
 the same vectors in the same order, so its results are bit-identical.
 
-The acceptance test is a residual of the operator deflated against the locked
-vectors, not of the original operator. Projecting removes, along each locked
-vector v_i, the coefficient c_i = (M v_i)ᵀ(Opv − μv). Op = K⁻¹M is self-adjoint
-in the M inner product and v is M-orthogonal to v_i, so c_i = r_iᵀ M v, where
-r_i = Op v_i − μ_i v_i is the locked pair's own residual: |c_i| ≤ ‖r_i‖_M.
-The removed part depends only on the locked pairs' inexactness, not on the
-candidate's error. It is not small, though: the original-operator residual is
-bounded only by ‖projected residual‖ + (Σ‖r_i‖²_M)^½, and when a locked μ_i is
-much larger than μ that bound can exceed the 10⁻⁸·μ acceptance tolerance, so
-the projected test alone does not certify 10⁻⁸ accuracy against the original
-operator. Two separate checks cover each accepted pair: the backward error on
-the original pencil (max|μKv − Mv| ≤ 10⁻¹⁰·(|μ|‖K‖∞ + ‖M‖∞)·‖v‖∞), which makes
-(1/μ, v) an exact eigenpair of a pencil within that relative perturbation of
-K and M but, on a strongly scaled pencil, does not bound the forward error of
-a small eigenvalue; and the Sturm count at the boundary, which proves no
-eigenvalue below it was skipped but not the accuracy of each one.
-`projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
+The acceptance residual is measured against the original operator, with the
+part removed by projection bounded rather than dropped. Projecting removes,
+along each locked vector v_i, the coupling c_i = (M v_i)ᵀ(Opv − μv). Op = K⁻¹M
+is self-adjoint in the M inner product and v is M-orthogonal to v_i, so
+c_i = r_iᵀ M v, where r_i = Op v_i − μ_i v_i is the locked pair's own residual;
+with inexact locked vectors it is not zero. Acceptance requires
+‖projected residual‖ + min over splits of the locked set into near (N) and far
+(F) values of ‖c_N‖ + ‖c_F‖²/(η_F − ‖c_F‖) ≤ 10⁻⁸·μ, where η_F is the smallest
+|μ_i − μ| in F (and must exceed 2‖c_F‖): a coupling to a nearby locked value,
+as in a repeated cluster, counts at first order; a coupling across a gap
+counts by the quadratic residual bound. Couplings to a near-mechanism mode,
+whose K⁻¹ rounding exceeded 10⁻⁸·μ when counted at first order, are divided by
+their very large gap. `coupling_removed_by_an_inexact_locked_vector_counts_against_acceptance`
+checks the bound term by term and that a coupling above the tolerance is
+rejected; `projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
 locks a near-mechanism mode (μ = 10⁶) and two frame modes, each carrying 10⁻⁹
-of the candidate mode, on a pencil scaled by 10⁻³…10³, so the removed part
-exceeds the acceptance tolerance. It checks the per-vector bound, that the
-accepted pair's Rayleigh quotient on the original operator is within 10⁻⁸ of
-the exact eigenvalue (the error is second order in the locked vectors' error),
-and that eigenvalue errors of ±10⁻⁷ and an eigenvector carrying 10⁻⁵ of another
-mode are still rejected.
+of the candidate, on a pencil scaled by 10⁻³…10³, and checks that the accepted
+pair's Rayleigh quotient is within 10⁻⁸ of the exact eigenvalue and that
+eigenvalue errors of ±10⁻⁷ and an eigenvector carrying 10⁻⁵ of another mode are
+rejected. The pencil backward-error check on the original K and M and the Sturm
+count at the boundary (no eigenvalue below it skipped) remain as separate checks.
 
 A negative mass pivot in the dense semidefinite path still refuses the model,
 even at rounding level: a mass that is semidefinite but loses a pivot to

@@ -795,14 +795,33 @@ fn positive_spectrum_upper_bound(b: &CscMatrix) -> usize {
 
 const MAX_STALLED_ROUNDS: usize = 5;
 
-fn operator_residual(op: &dyn MatVecOp, v: &[f64], mu: f64, locked: &[(Vec<f64>, Vec<f64>)]) -> f64 {
+fn operator_residual(op: &dyn MatVecOp, v: &[f64], mu: f64, locked: &[(Vec<f64>, Vec<f64>)], locked_mu: &[f64]) -> f64 {
     let n = v.len();
     let mut av = vec![0.0;n]; op.mul_vec(v,&mut av);
     for i in 0..n { av[i] -= mu*v[i]; }
-    // Exactly zero along locked eigenvectors; unprojected, K⁻¹ rounding there from a near-mechanism mode exceeds 1e-8·μ.
+    let mut coupling: Vec<(f64, f64)> = locked.iter().zip(locked_mu)
+        .map(|((_, bvi), &mui)| ((mui - mu).abs(), dot(&av, bvi))).collect();
     project_locked(&mut av, locked);
     let mut bav = vec![0.0;n]; op.b_mul(&av,&mut bav);
-    dot(&av,&bav)
+    let projected = dot(&av,&bav).max(0.0).sqrt();
+    // Removed couplings count at first order near mu and at second order (quadratic residual bound) across a gap.
+    coupling.sort_by(|a,b| a.0.total_cmp(&b.0));
+    let mut far2: f64 = coupling.iter().map(|(_, c)| c*c).sum();
+    let mut near2 = 0.0f64;
+    let mut removed = f64::INFINITY;
+    for split in 0..=coupling.len() {
+        let far = far2.max(0.0).sqrt();
+        let second_order = if split == coupling.len() { 0.0 }
+            else if coupling[split].0 > 2.0*far { far2 / (coupling[split].0 - far) }
+            else { f64::INFINITY };
+        removed = removed.min(near2.sqrt() + second_order);
+        if split < coupling.len() {
+            let c2 = coupling[split].1 * coupling[split].1;
+            near2 += c2; far2 -= c2;
+        }
+    }
+    let total = projected + removed;
+    total * total
 }
 
 fn sturm_complete_with_params(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usize, params: &LanczosParams) -> Option<EigenResult> {
@@ -834,6 +853,7 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
     let k = k.min(positive_spectrum_upper_bound(b));
     if k == 0 { return Some(EigenResult { values: vec![], vectors: vec![] }); }
     let mut locked = Vec::new();
+    let mut locked_mu = Vec::new();
     let mut values = Vec::new();
     let mut seed = 12345u64;
     let mut stalled = 0;
@@ -853,7 +873,7 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
             if !norm.is_finite() || norm < 1e-8 { continue; }
             for x in &mut v { *x /= norm; }
             for x in &mut bv { *x /= norm; }
-            let residual2 = operator_residual(op, &v, mu, &locked);
+            let residual2 = operator_residual(op, &v, mu, &locked, &locked_mu);
             if !residual2.is_finite() || residual2.max(0.0).sqrt() > 1e-8*mu.abs() { continue; }
             // Also check the original pencil: a semidefinite mass norm alone
             // cannot detect an erroneous displacement in a massless direction.
@@ -868,7 +888,7 @@ fn sturm_complete_rounds(op: &dyn MatVecOp, a: &CscMatrix, b: &CscMatrix, k: usi
                 residual = residual.max((left-mv[i]).abs());
             }
             if !scale.is_finite() || residual > 1e-10 * scale { continue; }
-            locked.push((v,bv)); values.push(1.0/mu);
+            locked.push((v,bv)); locked_mu.push(mu); values.push(1.0/mu);
         }
         if locked.len() == locked_before {
             stalled += 1;
@@ -1662,15 +1682,62 @@ mod completeness_tests {
             (v.clone(), v, 1.0/(2.0-2.0*(j as f64*h).cos()))
         };
         let locked: Vec<_> = (1..=3).map(|j| { let (v,bv,_) = mode(j); (v,bv) }).collect();
+        let locked_mu: Vec<_> = (1..=3).map(|j| mode(j).2).collect();
         let (v, _, mu) = mode(4);
         let bound = 1e-8*mu;
-        assert!(operator_residual(&op,&v,mu,&locked).sqrt() < 1e-3*bound);
+        assert!(operator_residual(&op,&v,mu,&locked,&locked_mu).sqrt() < 1e-3*bound);
         for relative in [1e-7, -1e-7, 1e-6, 1e-3] {
             let wrong = mu*(1.0+relative);
-            let residual2 = operator_residual(&op,&v,wrong,&locked);
+            let residual2 = operator_residual(&op,&v,wrong,&locked,&locked_mu);
             assert!(residual2.sqrt() > bound, "relative error {relative} accepted");
             assert!((residual2.sqrt() - relative.abs()*mu).abs() < 1e-2*relative.abs()*mu);
         }
+    }
+
+    #[test]
+    fn coupling_removed_by_an_inexact_locked_vector_counts_against_acceptance() {
+        let n = 201;
+        let h = std::f64::consts::PI / (n+1) as f64;
+        let (mut rows, mut cols, mut vals) = (Vec::new(), Vec::new(), Vec::new());
+        for i in 0..n {
+            rows.push(i); cols.push(i); vals.push(2.0);
+            if i+1 < n { rows.push(i+1); cols.push(i); vals.push(-1.0); }
+        }
+        let k = CscMatrix::from_triplets(n,&rows,&cols,&vals);
+        let ids: Vec<_> = (0..n).collect();
+        let m = CscMatrix::from_triplets(n,&ids,&ids,&vec![1.0;n]);
+        let op = SparseShiftInvertOp::new(&k,&m).unwrap();
+        let mode = |j: usize| -> (Vec<f64>, f64) {
+            let v: Vec<f64> = (0..n).map(|i| ((i+1) as f64*j as f64*h).sin()).collect();
+            let norm = dot(&v,&v).sqrt();
+            (v.into_iter().map(|x| x/norm).collect(), 1.0/(2.0-2.0*(j as f64*h).cos()))
+        };
+        let normalized = |v: Vec<f64>| { let norm = dot(&v,&v).sqrt(); v.into_iter().map(|x| x/norm).collect::<Vec<f64>>() };
+        let (x3, mu3) = mode(3);
+        let (x4, mu4) = mode(4);
+        let bound = 1e-8*mu3;
+        let exact_locked = vec![(x4.clone(), x4.clone())];
+        let mut v = x3.clone();
+        project_locked(&mut v, &exact_locked);
+        assert!(operator_residual(&op,&v,mu3,&exact_locked,&[mu4]).sqrt() < 1e-3*bound);
+        let delta = 1e-3;
+        let inexact = normalized(x4.iter().zip(&x3).map(|(a,b)| a+delta*b).collect());
+        let inexact_locked = vec![(inexact.clone(), inexact)];
+        let mut v = x3.clone();
+        project_locked(&mut v, &inexact_locked);
+        let v = normalized(v);
+        let mut r = vec![0.0;n]; op.mul_vec(&v,&mut r);
+        for i in 0..n { r[i] -= mu3*v[i]; }
+        let c = dot(&r,&inexact_locked[0].1);
+        project_locked(&mut r, &inexact_locked);
+        let projected = dot(&r,&r).sqrt();
+        let gap = mu3 - mu4;
+        let expected = projected + c.abs().min(c*c/(gap - c.abs()));
+        let residual = operator_residual(&op,&v,mu3,&inexact_locked,&[mu4]).sqrt();
+        assert!(c.abs() > bound, "the scenario must remove a coupling above the tolerance");
+        assert!((residual - expected).abs() <= 1e-12*expected, "{residual} against {expected}");
+        assert!(residual > projected);
+        assert!(residual > bound);
     }
 
     #[test]
@@ -1715,14 +1782,16 @@ mod completeness_tests {
         let (x3, mu3) = exact(3);
         let mut locked: Vec<(Vec<f64>,Vec<f64>)> = Vec::new();
         let mut locked_residuals = Vec::new();
+        let mut locked_mu = Vec::new();
         for j in 0..3 {
             let (x, mu) = exact(j);
             let noise: Vec<f64> = (0..n).map(|i| 1e-10*((1.7*(i+1) as f64*(j+1) as f64).sin())/d[i] + 1e-9*x3[i]).collect();
             let v: Vec<f64> = x.iter().zip(&noise).map(|(a,b)| a+b).collect();
             let (v,bv) = lock(&locked, v);
-            assert!(operator_residual(&op,&v,mu,&locked).sqrt() <= 1e-8*mu, "locked pair {j} would not have been accepted");
+            assert!(operator_residual(&op,&v,mu,&locked,&locked_mu).sqrt() <= 1e-8*mu, "locked pair {j} would not have been accepted");
             locked_residuals.push(m_norm(&unprojected(&v,mu)));
             locked.push((v,bv));
+            locked_mu.push(mu);
         }
         let (v,_) = lock(&locked, x3.clone());
         let bound = 1e-8*mu3;
@@ -1734,20 +1803,20 @@ mod completeness_tests {
             removed2 += c*c;
         }
         assert!(removed2.sqrt() > bound, "the scenario must remove more than the acceptance tolerance");
-        let accepted = operator_residual(&op,&v,mu3,&locked).sqrt();
+        let accepted = operator_residual(&op,&v,mu3,&locked,&locked_mu).sqrt();
         assert!(accepted <= bound);
         let mut opv = vec![0.0;n]; op.mul_vec(&v,&mut opv);
         let mut bv = vec![0.0;n]; op.b_mul(&v,&mut bv);
         assert!((dot(&opv,&bv) - mu3).abs() <= bound, "Rayleigh quotient {} against {mu3}", dot(&opv,&bv));
         for relative in [1e-7, -1e-7, 1e-6, -1e-6, 1e-3] {
-            let residual = operator_residual(&op,&v,mu3*(1.0+relative),&locked).sqrt();
+            let residual = operator_residual(&op,&v,mu3*(1.0+relative),&locked,&locked_mu).sqrt();
             assert!(residual > bound, "relative eigenvalue error {relative} accepted");
         }
         let (x5, _) = exact(5);
         let contaminated: Vec<f64> = x3.iter().zip(&x5).map(|(a,b)| a+1e-5*b).collect();
         let (v,_) = lock(&locked, contaminated);
         for relative in [0.0, 1e-9, -1e-9] {
-            let residual = operator_residual(&op,&v,mu3*(1.0+relative),&locked).sqrt();
+            let residual = operator_residual(&op,&v,mu3*(1.0+relative),&locked,&locked_mu).sqrt();
             assert!(residual > bound, "eigenvector contaminated by 1e-5 of mode 5 accepted");
         }
     }
