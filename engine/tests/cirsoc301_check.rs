@@ -579,3 +579,75 @@ fn certify_members_over_demand_boxes() {
     let res = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput { members: vec![bad], demands: vec![d(-100.0, 10.0)] });
     assert!(!res[0].certified && !res[0].certified_ok);
 }
+
+fn issue_467_box() -> Cirsoc301MemberData {
+    member(json!({
+        "Fy": 235.0, "Fu": 352.5, "A": 0.004154258317613479, "Iz": 0.00018670605799131143,
+        "Iy": 0.00018670373863284803, "h": 0.52128444, "b": 0.5212801394033699, "tw": 0.002,
+        "tf": 0.00417027552, "L": 0.5, "Lb": 0.0, "shape": "box", "builtUp": false, "elementId": 1
+    }))
+}
+
+#[test]
+fn issue_467_qa_not_positive_is_refused_never_above_squash() {
+    let m = issue_467_box();
+    let squash = m.a * m.fy * 1000.0;
+    let c = check_compression(&m, 0.003);
+    assert_eq!(c.not_evaluated.as_ref().map(|r| r.key.as_str()), Some("c301.refuse.qNonPositive"));
+    assert!(!c.pass);
+    assert!(c.capacity <= squash, "φPn {} above the squash load {}", c.capacity, squash);
+    let r = check_member(&m, &Cirsoc301DesignForces { element_id: 1, nu: 0.003, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 });
+    assert!(!r.pass);
+    assert!(r.unevaluated.contains(&"compression".to_string()));
+    let over = check_member(&m, &Cirsoc301DesignForces { element_id: 1, nu: 1.01 * squash, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 });
+    assert!(!over.pass);
+}
+
+#[test]
+fn issue_467_certificate_also_refuses() {
+    let m = issue_467_box();
+    let out = certify_cirsoc301_members(&CertifiedCirsoc301CheckInput {
+        members: vec![m],
+        demands: vec![BoundedCirsoc301Demand {
+            forces: Cirsoc301DesignForces { element_id: 1, nu: 0.003, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 },
+            bound: DemandBound { n: 0.0, my: 0.0, mz: 0.0, vy: 0.0 },
+        }],
+    });
+    assert!(!out[0].certified && !out[0].certified_ok);
+}
+
+#[test]
+fn compact_box_column_matches_hand_e32_and_demand_above_squash_fails() {
+    let a = 0.2f64.powi(2) - 0.18f64.powi(2);
+    let i = (0.2f64.powi(4) - 0.18f64.powi(4)) / 12.0;
+    let m = member(json!({"A": a, "Iz": i, "Iy": i, "L": 3.0, "shape": "box", "h": 0.2, "b": 0.2, "tw": 0.01, "tf": 0.01}));
+    let squash = a * 235.0 * 1000.0;
+    let r = check_compression(&m, 1000.0);
+    assert!(r.not_evaluated.is_none());
+    assert_eq!(val(&r, "Q"), 1.0);
+    published(val(&r, "KLr"), 38.62, 0.001);
+    published(val(&r, "Fe"), 1323.26, 0.001);
+    published(val(&r, "Fcr"), 218.17, 0.001);
+    published(r.capacity, 1409.35, 0.001);
+    assert!(r.capacity < squash);
+    for nu in [squash, 1.0001 * squash, 2.0 * squash] {
+        let o = check_member(&m, &Cirsoc301DesignForces { element_id: 0, nu, mu_strong: 0.0, mu_weak: 0.0, vu: 0.0 });
+        assert!(!o.pass, "Nu = {nu} kN ≥ A·Fy = {squash} kN passed");
+    }
+}
+
+#[test]
+fn every_compression_capacity_stays_below_phi_squash() {
+    let base = |l: f64| {
+        member(json!({
+            "A": 17.75e-4, "Iy": 932.24e-8, "Iz": 932.24e-8, "L": l, "shape": "box",
+            "h": 0.18, "b": 0.18, "tw": 0.0025, "tf": 0.0025, "builtUp": true
+        }))
+    };
+    for l in [1e-3, 0.05, 0.5, 2.0, 6.5, 20.0] {
+        let m = base(l);
+        let r = check_compression(&m, 1.0);
+        let cap = PHI_C * m.a * m.fy * 1000.0;
+        assert!(r.not_evaluated.is_some() || r.capacity <= cap * (1.0 + 1e-12), "L = {l}: φPn {} > φ·A·Fy {}", r.capacity, cap);
+    }
+}
