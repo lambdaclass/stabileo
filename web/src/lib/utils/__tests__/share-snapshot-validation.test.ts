@@ -93,6 +93,8 @@ describe('shared-link importer', () => {
       nullLoadComponent: p => { p.loads[0].data.qI = null; },
       stringLoadComponent: p => { p.loads[0].data.qJ = '-5'; },
       unknownLoadType: p => { p.loads[0].type = 'distributed '; },
+      miscasedShellTarget: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'Plate', q: 1 } }); },
+      nullShellTarget: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: null, q: 1 } }); },
       danglingPlateLoad: p => { p.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } }); },
       danglingPlateMaterial: p => { p.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]); p.plates = [[1, { id: 1, nodes: [1, 2, 3], materialId: 9, thickness: 0.1 }]]; },
       danglingPlateNode: p => { p.plates = [[1, { id: 1, nodes: [1, 2, 9], materialId: 1, thickness: 0.1 }]]; },
@@ -175,6 +177,14 @@ describe('shared-link importer', () => {
     payload.nodes.push([3, { id: 3, x: 0, y: 4 }]);
     payload.plates = [[1, { id: 1, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]];
     payload.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, on: 'plate', q: 1 } });
+    expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'surface3d']);
+  });
+
+  it('accepts a load on a quad that exists when the target is omitted', () => {
+    const payload = legacy();
+    payload.nodes.push([3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]);
+    payload.quads = [[1, { id: 1, nodes: [1, 2, 4, 3], materialId: 1, thickness: 0.1 }]]; 
+    payload.loads.push({ type: 'surface3d', data: { id: 2, caseId: 1, quadId: 1, q: 1 } });
     expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'surface3d']);
   });
 

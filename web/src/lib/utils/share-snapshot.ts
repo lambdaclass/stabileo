@@ -125,7 +125,8 @@ function referencesResolve(value: RecordValue): boolean {
       const target = LOAD_TARGET[type as Load['type']];
       return target === 'node' ? nodes.has(d.nodeId as number)
         : target === 'member' ? elements.has(d.elementId as number)
-          : (d.on === 'plate' ? plates : quads).has(d.quadId as number);
+          : d.on === 'plate' ? plates.has(d.quadId as number)
+            : d.on === undefined && quads.has(d.quadId as number);
     });
 }
 
