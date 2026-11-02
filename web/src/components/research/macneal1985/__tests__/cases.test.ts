@@ -86,3 +86,15 @@ describe('engine benchmark evidence', () => {
     expect(viewerData(c).displacement).toBeNull();
   });
 });
+
+describe('containment explanation is localized', () => {
+  it('translates which results are withheld and why', () => {
+    for (const loc of ['es', 'pt'] as const) {
+      for (const key of ['accuracyDescription', 'limitationsBeforeRegistry', 'limitationsAfterLedger'] as const) {
+        expect(strings[loc][key], `${loc} ${key}`).not.toBe(strings.en[key]);
+      }
+      expect(strings[loc].limitationsBeforeRegistry).toMatch(/#798/);
+      expect(strings[loc].limitationsAfterLedger).toMatch(/#798/);
+    }
+  });
+});

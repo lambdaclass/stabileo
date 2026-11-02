@@ -207,7 +207,7 @@ class SingularVerdict(unittest.TestCase):
     `silent_singular` only when stabileo gave no conditioning warning; every
     such result carries `why`, and the summary never needs one."""
 
-    def finish(self, diags):
+    def finish(self, diags, issues=()):
         import json as J
         import tempfile
         from unittest import mock
@@ -218,7 +218,7 @@ class SingularVerdict(unittest.TestCase):
                 mock.patch.object(R.C, "compare", lambda model, s, a, tol: (bad, {"disp_r": 1.0})):
             with open(os.path.join(job, "result.json"), "w") as f:
                 J.dump({}, f)
-            r = {"name": "m", "job": job, "sres": {"diags": diags, "forces": {}}, "meta": {"elements": []}, "near_singular": True}
+            r = {"name": "m", "job": job, "sres": {"diags": diags, "issues": list(issues), "forces": {}}, "meta": {"elements": []}, "near_singular": True}
             return R.finish(r, 1e-6, None, _beam({f: True for f in T.FLAGS}))
 
     def test_unwarned_singular_solve_is_silent(self):
@@ -227,9 +227,13 @@ class SingularVerdict(unittest.TestCase):
         self.assertTrue(r["why"])
 
     def test_warned_singular_solve_is_not_silent(self):
-        r = self.finish(["high_diagonal_ratio"])
+        r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"])
         self.assertEqual(r["status"], "warned_singular")
         self.assertIn("stabileo warned: high_diagonal_ratio", r["why"])
+
+    def test_a_conditioning_warning_without_the_known_issue_is_silent(self):
+        r = self.finish(["high_diagonal_ratio"])
+        self.assertEqual(r["status"], "silent_singular")
 
     def test_summary_survives_a_result_without_why(self):
         import contextlib

@@ -56,14 +56,14 @@ export interface Snapshot {
 
 type Values = Snapshot['values'];
 export const containmentFindings = new Set<string>();
-function collectContainment(value: unknown): void {
+export function collectContainment(value: unknown): void {
   if (typeof value === 'string') {
     try { collectContainment(JSON.parse(value)); } catch { /* Ordinary error text. */ }
   } else if (Array.isArray(value)) value.forEach(collectContainment);
   else if (value && typeof value === 'object') {
     const record = value as Record<string, unknown>;
     if (record.code === 'known_issue') containmentFindings.add(`${record.severity}:${record.phase}`);
-    for (const child of Object.values(record)) if (child && typeof child === 'object') collectContainment(child);
+    for (const child of Object.values(record)) if (child && (typeof child === 'object' || typeof child === 'string')) collectContainment(child);
   }
 }
 

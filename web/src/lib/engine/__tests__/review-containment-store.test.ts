@@ -108,3 +108,19 @@ it.each([false, true])('a refused single solve reaches no viewport getter (3D: %
   expect(resultsStore.diagramType).toBe('none');
   expect(JSON.stringify(read())).not.toContain(String(v));
 });
+it('an envelope carrying its own refusal is withheld with clean constituents', () => {
+  const env2D = { maxAbsResults: { ...refused, displacements: [{ nodeId: 1, ux: 987654, uz: 0, ry: 0 }] } };
+  const env3D = { maxAbsResults3D: { ...refused, displacements: [{ nodeId: 1, ux: 987654, uy: 0, uz: 0, rx: 0, ry: 0, rz: 0 }] } };
+  resultsStore.setResults(clean as never);
+  resultsStore.setCombinationResults(new Map([[1, clean]]) as never, new Map([[2, clean]]) as never, env2D as never);
+  resultsStore.setResults3D(clean as never);
+  resultsStore.setCombinationResults3D(new Map([[1, clean]]) as never, new Map([[2, clean]]) as never, env3D as never);
+  expect(resultsStore.envelope).toBeNull();
+  expect(resultsStore.fullEnvelope).toBeNull();
+  expect(resultsStore.envelope3D).toBeNull();
+  expect(resultsStore.fullEnvelope3D).toBeNull();
+  expect(resultsStore.knownIssues.refused).toBe(true);
+  expect(resultsStore.knownIssues3D.refused).toBe(true);
+  resultsStore.activeView = 'envelope';
+  expect(JSON.stringify(resultsStore.results ?? null)).not.toContain('987654');
+});

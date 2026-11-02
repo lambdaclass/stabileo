@@ -18,6 +18,7 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 parallel = ["rayon"]
 manual-bench-phases = []
+unrefused-for-tests = []
 
 [dependencies]
 wasm-bindgen = "0.2"
@@ -50,6 +51,7 @@ web-sys = { version = "0.3", features = ["console"] }
 rayon = { version = "1.10", optional = true }
 
 [dev-dependencies]
+dedaliano-engine = { path = ".", features = ["unrefused-for-tests"] }
 wasm-bindgen-test = "0.3"
 criterion = { version = "0.5", features = ["html_reports"] }
 rand = "0.8"

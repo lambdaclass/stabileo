@@ -39,3 +39,16 @@ describe('spectral diagnostic propagation preserves numerical results', () => {
     });
   }
 });
+
+describe('superposition takes diagnostics only from contributing parts', () => {
+  it('drops a refusal carried by a zero-factor first part', () => {
+    const refusal = { code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' } as const;
+    const excluded: AnalysisResults3D = { ...clean, structuredDiagnostics: [refusal], solverDiagnostics: [], diagnostics: [] };
+    const summed = superposed([{ r: excluded, f: 0 }, { r: clean, f: 1.5 }]);
+    expect(summed.structuredDiagnostics).toBeUndefined();
+    expect(summed.solverDiagnostics).toBeUndefined();
+    expect(summed.displacements[0]!.uy).toBeCloseTo(-1.2, 12);
+    const kept = superposed([{ r: excluded, f: 0 }, { r: { ...clean, structuredDiagnostics: [warning] }, f: 1 }]);
+    expect(kept.structuredDiagnostics).toEqual([warning]);
+  });
+});

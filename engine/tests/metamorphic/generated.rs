@@ -1612,6 +1612,8 @@ fn refusal_changes_under_units_fail_in_both_directions() {
             .unwrap()
             .run)(c)
     }
+    fn always2(_: &Case2) -> Result<crate::response::Resp, String> { refusal() }
+    fn always3(_: &Case3) -> Result<crate::response::Resp, String> { refusal() }
     fn faulty3<const BASE_REFUSED: bool>(c: &Case3) -> Result<crate::response::Resp, String> {
         let base_e = model(1, true)["materials"]["1"]["e"].as_f64().unwrap();
         if (c.s.materials["1"].e == base_e) == BASE_REFUSED {
@@ -1630,11 +1632,13 @@ fn refusal_changes_under_units_fail_in_both_directions() {
         .into_iter()
         .find(|a| a.name == "linear")
         .unwrap();
+    a2.name = "plastic collapse";
     let mut a3 = ana3::rows()
         .into_iter()
         .find(|a| a.name == "linear")
         .unwrap();
-    for run in [faulty2::<false>, faulty2::<true>] {
+    a3.name = "plastic collapse";
+    for (run, expected) in [(faulty2::<false> as fn(&Case2) -> _, "✗"), (faulty2::<true>, "✗"), (always2, "✓")] {
         a2.run = run;
         let t = Tally::default();
         checks2::check_case(
@@ -1646,9 +1650,9 @@ fn refusal_changes_under_units_fail_in_both_directions() {
             std::slice::from_ref(&a2),
             &["units"],
         );
-        assert_eq!(t.symbol("linear", "units"), "✗", "{}", t.report());
+        assert_eq!(t.symbol("plastic collapse", "units"), expected, "{}", t.report());
     }
-    for run in [faulty3::<false>, faulty3::<true>] {
+    for (run, expected) in [(faulty3::<false> as fn(&Case3) -> _, "✗"), (faulty3::<true>, "✗"), (always3, "✓")] {
         a3.run = run;
         let t = Tally::default();
         checks3::check_case(
@@ -1660,6 +1664,6 @@ fn refusal_changes_under_units_fail_in_both_directions() {
             std::slice::from_ref(&a3),
             &["units"],
         );
-        assert_eq!(t.symbol("linear", "units"), "✗", "{}", t.report());
+        assert_eq!(t.symbol("plastic collapse", "units"), expected, "{}", t.report());
     }
 }
