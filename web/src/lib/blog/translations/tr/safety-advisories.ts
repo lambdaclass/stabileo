@@ -55,6 +55,12 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-027",
+          "Kabuk zarfı: her bileşenin uç değeri yerine en büyük Von Mises gerilmesine sahip kombinasyonu alıyordu (bir örnekte mx %14 düşük)",
+          "Yüksek",
+          "Düzeltme incelemede"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

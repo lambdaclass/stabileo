@@ -55,6 +55,12 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-027",
+          "Enveloppe des coques : retenait la combinaison de plus grande contrainte de Von Mises, et non l'extrême de chaque composante (mx inférieur de 14 % dans un exemple)",
+          "Élevée",
+          "Correction en cours de revue"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",

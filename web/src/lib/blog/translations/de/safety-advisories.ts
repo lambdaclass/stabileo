@@ -55,6 +55,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-027",
+          "Schalen-Umhüllende: übernahm die Kombination mit der größten Von-Mises-Spannung statt des Extremwerts jeder Komponente (mx in einem Beispiel 14 % zu niedrig)",
+          "Hoch",
+          "Korrektur in Prüfung"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",
