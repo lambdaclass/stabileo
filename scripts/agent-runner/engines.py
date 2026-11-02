@@ -16,7 +16,7 @@ Policy:
 - Kimi and Grok are probed with a one-line prompt; the result is cached for 30 minutes.
 - STABILEO_FORCE_ENGINE=<name> overrides everything (dry runs and tests).
 """
-import glob, json, os, re, subprocess, sys, time
+import glob, json, os, re, subprocess, sys, tempfile, time
 
 ST = os.path.expanduser("~/projects/stabileo-state")
 CACHE = os.path.join(ST, "state")
@@ -73,13 +73,15 @@ def probed(name, cmd, ok_pattern):
     except Exception:
         pass
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL,
-                           cwd=os.path.expanduser("~/projects/stabileo-wt/base"))
+        with tempfile.TemporaryDirectory(prefix=f"probe-{name}-") as scratch:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=180, stdin=subprocess.DEVNULL, cwd=scratch)
         text = r.stdout + r.stderr
-        if re.search(r"429|usage limit|quota|rate limit", text, re.I):
+        if re.search(r"402|balance exhausted|payment required", text, re.I):
+            ok, why = False, "out of credit (402)"
+        elif re.search(r"429|usage limit|quota|rate limit", text, re.I):
             ok, why = False, "quota exhausted (429)"
         else:
-            ok = bool(re.search(ok_pattern, r.stdout))
+            ok = r.returncode == 0 and bool(re.search(ok_pattern, r.stdout))
             why = "answered the probe" if ok else f"no answer to the probe (exit {r.returncode})"
     except Exception as e:
         ok, why = False, f"probe failed: {e}"
@@ -96,7 +98,8 @@ def status(name, mode):
     if name == "codex":
         return codex_status(mode)
     if name == "kimi":
-        return probed("kimi", ["kimi", "-p", "Reply with the single word OK."], r"\bOK\b")
+        return probed("kimi", ["python3", "-I", os.path.expanduser("~/projects/stabileo/scripts/review/readonly.py"), "--",
+                               "kimi", "-p", "Reply with the single word OK."], r"\bOK\b")
     if name == "grok":
         return probed("grok", ["grok", "-p", "Reply with the single word OK.", "--permission-mode", "plan"], r"\bOK\b")
     return False, "unknown engine"
