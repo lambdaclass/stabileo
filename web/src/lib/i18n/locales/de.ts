@@ -14180,6 +14180,16 @@ const de: Translations = {
   "resultChecks.notCertified": "nicht zertifiziert",
   "resultChecks.pending": "wird berechnet…",
   "resultChecks.discretizationHigh": "hoher Diskretisierungsfehler",
+  'save.saving': "Wird gespeichert…",
+  'save.savedAgo': "Gespeichert {when}",
+  'save.justNow': "gerade eben",
+  'save.changed': "Ungespeicherte Änderungen",
+  'save.degraded': "In begrenztem Speicher gesichert",
+  'save.failed': "Speichern nicht möglich",
+  'save.where.browser': "Nur in diesem Browser gespeichert (Revision {n}). Um es auf einem anderen Computer zu öffnen, speichern Sie die .ded-Datei unter Projekt.",
+  'save.where.browserNone': "Nur in diesem Browser gespeichert, alle 30 Sekunden und nach jeder Berechnung.",
+  'save.clickToSave': "Klicken, um jetzt zu speichern",
+  'save.clickToOpen': "Klicken, um die automatische Sicherung unter Projekt zu sehen.",
 };
 
 export default de;

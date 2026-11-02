@@ -13981,5 +13981,15 @@ const pt: Translations = {
   "resultChecks.notCertified": "não certificado",
   "resultChecks.pending": "calculando…",
   "resultChecks.discretizationHigh": "erro de discretização alto",
+  'save.saving': "Salvando…",
+  'save.savedAgo': "Salvo {when}",
+  'save.justNow': "agora há pouco",
+  'save.changed': "Alterações não salvas",
+  'save.degraded': "Salvo em armazenamento limitado",
+  'save.failed': "Não foi possível salvar",
+  'save.where.browser': "Fica salvo só neste navegador (revisão {n}). Para abri-lo em outro computador, salve o arquivo .ded em Projeto.",
+  'save.where.browserNone': "Fica salvo só neste navegador, a cada 30 segundos e depois de cada cálculo.",
+  'save.clickToSave': "Clique para salvar agora",
+  'save.clickToOpen': "Clique para ver o salvamento automático em Projeto.",
 };
 export default pt;

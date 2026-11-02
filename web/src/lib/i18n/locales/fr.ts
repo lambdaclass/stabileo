@@ -14180,6 +14180,16 @@ const fr: Translations = {
   'resultChecks.notCertified': 'non certifié',
   'resultChecks.pending': 'calcul en cours…',
   'resultChecks.discretizationHigh': 'erreur de discrétisation élevée',
+  'save.saving': "Enregistrement…",
+  'save.savedAgo': "Enregistré {when}",
+  'save.justNow': "à l'instant",
+  'save.changed': "Modifications non enregistrées",
+  'save.degraded': "Enregistré dans un stockage limité",
+  'save.failed': "Impossible d'enregistrer",
+  'save.where.browser': "Enregistré seulement dans ce navigateur (révision {n}). Pour l'ouvrir sur un autre ordinateur, enregistrez le fichier .ded depuis Projet.",
+  'save.where.browserNone': "Enregistré seulement dans ce navigateur, toutes les 30 secondes et après chaque calcul.",
+  'save.clickToSave': "Cliquez pour enregistrer maintenant",
+  'save.clickToOpen': "Cliquez pour voir l'enregistrement automatique dans Projet.",
 };
 
 export default fr;

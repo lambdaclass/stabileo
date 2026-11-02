@@ -14341,5 +14341,15 @@ const en: Record<string, string> = {
   "resultChecks.notCertified": "not certified",
   "resultChecks.pending": "computing…",
   "resultChecks.discretizationHigh": "high discretization error",
+  'save.saving': "Saving…",
+  'save.savedAgo': "Saved {when}",
+  'save.justNow': "just now",
+  'save.changed': "Unsaved changes",
+  'save.degraded': "Saved to limited storage",
+  'save.failed': "Could not save",
+  'save.where.browser': "Saved in this browser only (revision {n}). To open it on another computer, save the .ded file from Project.",
+  'save.where.browserNone': "Saved in this browser only, every 30 seconds and after each analysis.",
+  'save.clickToSave': "Click to save now",
+  'save.clickToOpen': "Click to see the autosave in Project.",
 };
 export default en;

@@ -14180,6 +14180,16 @@ const tr: Translations = {
   'resultChecks.notCertified': 'sertifikasız',
   'resultChecks.pending': 'hesaplanıyor…',
   'resultChecks.discretizationHigh': 'yüksek ayrıklaştırma hatası',
+  'save.saving': "Kaydediliyor…",
+  'save.savedAgo': "{when} kaydedildi",
+  'save.justNow': "az önce",
+  'save.changed': "Kaydedilmemiş değişiklikler",
+  'save.degraded': "Sınırlı depolamaya kaydedildi",
+  'save.failed': "Kaydedilemedi",
+  'save.where.browser': "Yalnızca bu tarayıcıya kaydedilir (revizyon {n}). Başka bir bilgisayarda açmak için Proje'den .ded dosyasını kaydedin.",
+  'save.where.browserNone': "Yalnızca bu tarayıcıya, 30 saniyede bir ve her hesaptan sonra kaydedilir.",
+  'save.clickToSave': "Şimdi kaydetmek için tıklayın",
+  'save.clickToOpen': "Otomatik kaydı Proje'de görmek için tıklayın.",
 };
 
 export default tr;

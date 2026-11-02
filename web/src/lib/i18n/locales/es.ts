@@ -14330,5 +14330,15 @@ const es: Record<string, string> = {
   "resultChecks.notCertified": "sin certificar",
   "resultChecks.pending": "calculando…",
   "resultChecks.discretizationHigh": "error de discretización alto",
+  'save.saving': "Guardando…",
+  'save.savedAgo': "Guardado {when}",
+  'save.justNow': "recién",
+  'save.changed': "Cambios sin guardar",
+  'save.degraded': "Guardado con almacenamiento limitado",
+  'save.failed': "No se pudo guardar",
+  'save.where.browser': "Se guarda solo en este navegador (revisión {n}). Para abrirlo en otra computadora, guardá el archivo .ded desde Proyecto.",
+  'save.where.browserNone': "Se guarda solo en este navegador, cada 30 segundos y después de cada cálculo.",
+  'save.clickToSave': "Clic para guardar ahora",
+  'save.clickToOpen': "Clic para ver el autoguardado en Proyecto.",
 };
 export default es;
