@@ -2040,7 +2040,7 @@ const zh: Translations = {
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
   'switch2d.constraintsPlane': "该模型含有约束，2D 求解器在此平面上会以另一种含义读取它们：它把所有约束都当作框架位于 X–Z 平面来读取。请沿 X–Z 切割，或在 3D 中求解（已知问题 #466，AC-PLANE-MAPPING）。",
-  'switch2d.sectionAxis': "部分杆件在此平面内绕截面的另一根轴弯曲，与 2D 求解器所用的轴不同，因此 2D 结果将是错误的（沿 Y–Z 切割的工字形柱在 3D 中绕弱轴弯曲）。请在 3D 中求解，或切割杆件绕强轴弯曲的平面（已知问题 #1238）。",
+  'switch2d.sectionAxis': "部分杆件在此平面内弯曲时所用的截面惯性矩与 3D 中不同，或其弯曲使平面内与平面外相互耦合，而 2D 模型无法表示这一点，因此 2D 结果将是错误的（在默认轴向下，沿 Y–Z 切割的工字形柱在 3D 中绕弱轴弯曲）。请在 3D 中求解，或切割每根杆件的截面轴都与该平面对齐的平面 (已知问题 #1238).",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': '下方还有更多工具：预设视图（平面、正面、侧面）、透视/正交、剖切面和测量。',
