@@ -8,5 +8,5 @@ top bars, and a failing beam could be certified OK. The neutral axis is now the 
 strain-compatible force balance (3.1.7 block, εcu3 from Table 3.1, steel 3.2.7 horizontal top
 branch), in the f64 and the certified interval checks. Top bars inside the stress block are
 taken net of the concrete they displace, and add nothing when in tension. Re-run the EN 1992-1-1 check on concrete
-beams. Issue #534; PR #1236; results version 12; advisory
+beams. Issue #534; PR #1236; results version 7; advisory
 [SA-2026-028](../docs/advisories/SA-2026-028-ec2-flexure-strain-compatibility.md).

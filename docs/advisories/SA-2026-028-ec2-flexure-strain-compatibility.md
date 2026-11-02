@@ -7,7 +7,7 @@
 | Issue | [#534](https://github.com/lambdaclass/stabileo/issues/534) |
 | Fix | PR [#1236](https://github.com/lambdaclass/stabileo/pull/1236) (not yet merged) |
 | Affected versions | the engine check from 2026-03-08 (ba0e683db, by source history; not bisected by running); in the app from 2026-09-25 (69f9f34b1, PRO other codes), certified from 2026-10-15 (f6f9ea3b7); 0.2.0, 0.3.0 and 0.4.0; `main` until the fix |
-| Re-check registry | `ec2-flexure-strain-compatibility`, results version 12 (models with concrete members) |
+| Re-check registry | `ec2-flexure-strain-compatibility`, results version 7 (models with concrete members) |
 
 ## Affected features
 

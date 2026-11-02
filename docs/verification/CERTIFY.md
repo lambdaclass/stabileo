@@ -600,6 +600,11 @@ definiteness is first lost:
   `φᵀKφ ∈ Inum`, `φᵀNφ ∈ Iden`, `Iden.lo > 0` and `λ̄ ≥ max(0, Inum.hi / Iden.lo)`
   (rounded up), then `φᵀA(λ̄)φ ≤ 0`, so `A(λ̄)` is not positive definite and `λ_cr ≤ λ̄`.
 
+A reported factor above the established upper bound is refused as `Uncertified`,
+even if the excess is only round-off. The checker does not widen the enclosure to
+include an inconsistent estimate. This consistency check does not change the
+mathematical enclosure theorem.
+
 The enclosure `λ̲ ≤ λ_cr ≤ λ̄` is about the f64 `K` and `K_G` as assembled (with `K_G`
 built from the computed linear axial forces), not about rounding-free versions of them.
 

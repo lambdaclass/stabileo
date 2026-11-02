@@ -12098,6 +12098,7 @@ const pt: Translations = {
   'discretization.refuse.other': "o motor não conseguiu refinar ou resolver de novo este modelo (detalhes na dica de ferramenta)",
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certificado)',
   'certificate.bucklingNotCertified': 'λ_cr não certificado: {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'o fator de carga calculado {computed} excede o limite superior certificado {upper}',
   'certificate.bucklingTooltip': 'Intervalo rigoroso, demonstrado em Lean: a estrutura é certificadamente estável para todo fator de carga até o valor inferior e certificadamente instável no superior.',
   'float.loadFrameGlobalTip': 'Os valores seguem os eixos globais (Z é a vertical).',
   'float.loadFrameLocalTip': 'Os valores seguem os eixos locais da barra.',
