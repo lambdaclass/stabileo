@@ -275,7 +275,7 @@ const tr: Translations = {
   'landing.basicPt2': 'Adım adım rijitlik yöntemi: eleman matrisleri, birleştirme, çözüm.',
   'landing.basicPt3': 'Kinematik analiz (2B), sayma formülünün kaçırdıkları dahil mekanizmaları bulur.',
   'landing.basicPt4': 'Kesit analizi hangi burulma teorisinin geçerli olduğunu söyler: dolu, Bredt veya Saint-Venant.',
-  'landing.basicPt5': '2B ve 3B’de P-Δ, burkulma ve modal; 2B’de plastik göçme ve tesir çizgileri. Ücretsiz.',
+  'landing.basicPt5': '2B ve 3B’de P-Δ, burkulma ve modal; 2B’de plastik göçme ve tesir çizgileri.',
   'landing.ebProCalc': 'PRO · ANALİZ',
   'landing.badgeDevFree': 'GELİŞTİRME AŞAMASINDA · ÜCRETSİZ',
   'landing.proCalcH': 'Sonlu elemanlar ve karmaşık modeller.',

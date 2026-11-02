@@ -267,7 +267,7 @@ const de: Translations = {
   'landing.basicPt2': 'Das Steifigkeitsverfahren Schritt für Schritt: Elementmatrizen, Assemblierung, Lösung.',
   'landing.basicPt3': 'Die kinematische Analyse (2D) findet Mechanismen, auch solche, die die Abzählformel übersieht.',
   'landing.basicPt4': 'Die Querschnittsanalyse sagt, welche Torsionstheorie gilt: Vollquerschnitt, Bredt oder Saint-Venant.',
-  'landing.basicPt5': 'P-Δ, Knicken und Modalanalyse in 2D und 3D; plastischer Kollaps und Einflusslinien in 2D. Kostenlos.',
+  'landing.basicPt5': 'P-Δ, Knicken und Modalanalyse in 2D und 3D; plastischer Kollaps und Einflusslinien in 2D.',
   'landing.ebProCalc': 'PRO · BERECHNUNG',
   'landing.badgeDevFree': 'IN ENTWICKLUNG · KOSTENLOS',
   'landing.proCalcH': 'Finite Elemente und komplexe Modelle.',

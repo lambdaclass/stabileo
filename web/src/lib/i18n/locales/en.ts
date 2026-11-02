@@ -267,7 +267,7 @@ const en: Record<string, string> = {
   'landing.basicPt2': 'The stiffness method step by step: element matrices, assembly, solution.',
   'landing.basicPt3': 'Kinematic analysis (2D) finds mechanisms, even those the counting formula misses.',
   'landing.basicPt4': 'Section analysis says which torsion theory applies: solid, Bredt or Saint-Venant.',
-  'landing.basicPt5': 'P-Δ, buckling and modal in 2D and 3D; plastic collapse and influence lines in 2D. Free.',
+  'landing.basicPt5': 'P-Δ, buckling and modal in 2D and 3D; plastic collapse and influence lines in 2D.',
   'landing.ebProCalc': 'PRO · ANALYSIS',
   'landing.badgeDevFree': 'IN DEVELOPMENT · FREE',
   'landing.proCalcH': 'Finite elements and complex models.',

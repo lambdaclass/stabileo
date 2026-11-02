@@ -267,7 +267,7 @@ const es: Record<string, string> = {
   'landing.basicPt2': 'El método de rigidez paso a paso: matrices de barra, ensamblaje, solución.',
   'landing.basicPt3': 'El análisis cinemático (2D) encuentra mecanismos, aun los que la fórmula de conteo no ve.',
   'landing.basicPt4': 'El análisis de sección dice qué teoría de torsión corresponde: maciza, Bredt o Saint-Venant.',
-  'landing.basicPt5': 'P-Δ, pandeo y modal en 2D y 3D; colapso plástico y líneas de influencia en 2D. Gratis.',
+  'landing.basicPt5': 'P-Δ, pandeo y modal en 2D y 3D; colapso plástico y líneas de influencia en 2D.',
   'landing.ebProCalc': 'PRO · CÁLCULO',
   'landing.badgeDevFree': 'EN DESARROLLO · GRATIS',
   'landing.proCalcH': 'Elementos finitos y modelos complejos.',

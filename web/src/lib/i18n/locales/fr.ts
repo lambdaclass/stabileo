@@ -267,7 +267,7 @@ const fr: Translations = {
   'landing.basicPt2': 'La méthode des rigidités pas à pas : matrices élémentaires, assemblage, résolution.',
   'landing.basicPt3': 'L’analyse cinématique (2D) trouve les mécanismes, même ceux que la formule de comptage manque.',
   'landing.basicPt4': 'L’analyse de section dit quelle théorie de torsion s’applique : pleine, Bredt ou Saint-Venant.',
-  'landing.basicPt5': 'P-Δ, flambement et analyse modale en 2D et 3D ; ruine plastique et lignes d’influence en 2D. Gratuit.',
+  'landing.basicPt5': 'P-Δ, flambement et analyse modale en 2D et 3D ; ruine plastique et lignes d’influence en 2D.',
   'landing.ebProCalc': 'PRO · CALCUL',
   'landing.badgeDevFree': 'EN DÉVELOPPEMENT · GRATUIT',
   'landing.proCalcH': 'Éléments finis et modèles complexes.',

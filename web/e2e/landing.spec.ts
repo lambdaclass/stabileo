@@ -53,6 +53,7 @@ const ogAlternates = (locale: Locale) => PUBLIC_LOCALES.filter((l) => l !== loca
  */
 const SECTIONS = [
   'hero',
+  'fit',
   'basic',
   'pro-calc',
   'pro-design',
@@ -147,6 +148,20 @@ test.describe('@landing landing page', () => {
     await expect(page.locator('.landing footer.lp-footer')).toHaveCount(1);
   });
 
+
+  test('the positioning block links to reliability and the SAP2000 page, and PRO Design names #532', async ({ page }) => {
+    await bootLanding(page);
+
+    const fit = page.locator('section[data-section="fit"]');
+    await expect(fit.locator('.card h3')).toHaveText(['Commercial desktop packages', 'Open-source solvers', 'Teaching software']);
+    await expect(fit.locator('.card').nth(1)).toContainText('OpenSees, Code_Aster, CalculiX');
+    await expect(fit.locator('a[href$="/sap2000-alternative"]')).toBeVisible();
+    await expect(page.locator('section[data-section="basic"] .tick-list li')).toHaveCount(5);
+    await expect(page.locator('section[data-section="pro-design"]')).toContainText('#532');
+
+    await fit.locator('a[href$="/reliability"]').click();
+    await expect(page).toHaveURL(/\/en\/reliability\/?$/);
+  });
 
   test('every section is an accessibly-named landmark', async ({ page }) => {
     await bootLanding(page);
@@ -965,7 +980,7 @@ test.describe('@landing every language gets the whole deck', () => {
   };
 
   for (const locale of PUBLIC_LOCALES) {
-    test(`${locale}: nine sections, no raw keys, and a priced table`, async ({ page }) => {
+    test(`${locale}: ten sections, no raw keys, and a priced table`, async ({ page }) => {
       await bootLanding(page, { locale });
 
       const order = await page

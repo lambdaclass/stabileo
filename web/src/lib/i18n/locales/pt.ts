@@ -265,7 +265,7 @@ const pt: Translations = {
   'landing.basicPt2': 'O método da rigidez passo a passo: matrizes de barra, montagem, solução.',
   'landing.basicPt3': 'A análise cinemática (2D) encontra mecanismos, até os que a fórmula de contagem não vê.',
   'landing.basicPt4': 'A análise de seção diz qual teoria de torção se aplica: maciça, Bredt ou Saint-Venant.',
-  'landing.basicPt5': 'P-Δ, flambagem e modal em 2D e 3D; colapso plástico e linhas de influência em 2D. Grátis.',
+  'landing.basicPt5': 'P-Δ, flambagem e modal em 2D e 3D; colapso plástico e linhas de influência em 2D.',
   'landing.ebProCalc': 'PRO · CÁLCULO',
   'landing.badgeDevFree': 'EM DESENVOLVIMENTO · GRÁTIS',
   'landing.proCalcH': 'Elementos finitos e modelos complexos.',
