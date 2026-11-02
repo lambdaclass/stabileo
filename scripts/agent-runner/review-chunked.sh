@@ -26,7 +26,7 @@ echo "review-chunked #$pr $sha: $chunk chunks"
 for c in $(seq 1 "$chunk"); do
   p=$R/$pr-$sha-c$c-prompt.md
   { echo "Review part $c of $chunk of Stabileo PR #$pr ($title) at $sha. Stabileo is safety-critical structural-engineering software."
-    echo "Do NOT run commands or tools. Below: the complete list of changed files (for context), then the full diff of THIS PART's files only. Review this part; use the file list only to understand context, and don't report 'unseen file' issues. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, refusals/containment that can be bypassed or that refuse correct inputs, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, missing negative cases, i18n gaps, security. Then Nits (one line each). If clean, say so. Be concise."
+    echo "Do NOT run commands or tools. Below: the complete list of changed files (for context), then the full diff of THIS PART's files only. Review this part; use the file list only to understand context, and don't report 'unseen file' issues. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, refusals/containment that can be bypassed or that refuse correct inputs, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, missing negative cases, i18n gaps, security. Then Nits (one line each). If clean, say so. Be concise. End with one line: \"VERDICT: clean\", \"VERDICT: should-fix\" or \"VERDICT: blocker\"."
     echo; echo "Changed files:"; echo "$filelist"; echo; echo '```diff'; git -C "$REPO" diff "$range" -- $(cat "$R/$pr-$sha-c$c.files"); echo '```'; } > "$p"
   ( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-c$c-codex.md" ) & p1=$!
   ( if [ "$second" != none ]; then "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-c$c-second.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second" "$R/$pr-$sha-c$c-second.md"; exit $rc; else echo "SECOND REVIEWER: none available" > "$R/$pr-$sha-c$c-second.md"; fi ) & p2=$!
@@ -34,7 +34,7 @@ for c in $(seq 1 "$chunk"); do
   [ "$rc1" = 0 ] && [ "$rc2" = 0 ] || { log "review-chunked #$pr chunk $c: reviewer exit codes $rc1/$rc2"; exit 1; }
   for f in "$R/$pr-$sha-c$c-codex.md" "$R/$pr-$sha-c$c-second.md"; do
     case "$(head -1 "$f")" in *"none available"*) continue;; esac
-    grep -qiE 'blocker|should-fix|should fix|clean|nits?\b' "$f" || { log "review-chunked #$pr chunk $c: incomplete review in $f"; exit 1; }
+    grep -qiE '^[*_ ]*VERDICT:[*_ ]*(clean|should-fix|blocker)' "$f" || { log "review-chunked #$pr chunk $c: incomplete review in $f"; exit 1; }
   done
 done
 [ "$second" != none ] || { log "review-chunked #$pr: only one reviewer available"; exit 75; }

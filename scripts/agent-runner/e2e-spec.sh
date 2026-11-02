@@ -3,5 +3,6 @@
 . "$(dirname "$0")/common.sh"
 dir=$1; shift; name=$(basename "$dir"); out=$LOGS/e2e-$name.log
 cd "$dir/web" || exit 1
-nix develop ..#e2e -c bash -c "npx playwright test $* --reporter=line" > "$out" 2>&1
-echo "$name e2e exit=$? $(grep -E '[0-9]+ (passed|failed|flaky)' "$out" | tr '\n' ' ')"
+nix develop ..#e2e -c bash -c "npx playwright test $* --reporter=line" > "$out" 2>&1; rc=$?
+echo "$name e2e exit=$rc $(grep -E '[0-9]+ (passed|failed|flaky)' "$out" | tr '\n' ' ')"
+exit "$rc"
