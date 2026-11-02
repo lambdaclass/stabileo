@@ -114,6 +114,7 @@ export function pickTarget(ctx: MethodContext): Target {
 /** A relative displacement along the line between two distinct nodes at one point has no direction. */
 export function targetApplies(ctx: MethodContext): Applicability {
   const tg = pickTarget(ctx);
+  if (tg.dir === 'angle' && !tg.rotation && !Number.isFinite(tg.angle)) return { ok: false, reason: tx('course.statics.vw.err.angle') };
   if (tg.quantity !== 'relDisp' || tg.dir !== 'line' || tg.node2 === null || tg.node2 === tg.node) return { ok: true };
   const a = ctx.pm.nodes.get(tg.node)!, b = ctx.pm.nodes.get(tg.node2)!;
   return Math.hypot(b.x - a.x, b.z - a.z) > 0 ? { ok: true } : { ok: false, reason: tx('course.statics.vw.err.coincident', { n: tg.name, m: tg.name2 }) };

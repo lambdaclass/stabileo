@@ -7,7 +7,7 @@ const words: Translations = {
   'steps.m.displacement.opt.axial.label': 'Inclure la rigidité axiale',
   'steps.m.displacement.opt.axial.help': 'Désactivé, les barres gardent leur longueur : les translations des nœuds sont liées et seules les indépendantes comptent (modes de déplacement). Activé, chaque barre apporte EA/L, chaque translation libre de chaque nœud est une inconnue et le résultat coïncide avec le calcul matriciel. La différence compte pour les structures hautes ou élancées, les arcs et les treillis, et avec des bielles ou des tirants.',
   'steps.m.displacement.opt.releasedUnknown.label': 'Rotations des extrémités articulées comme inconnues',
-  'steps.m.displacement.opt.releasedUnknown.help': 'Désactivé, une barre qui arrive articulée (une rotule, ou un appui articulé que seule cette barre atteint) est prise avec la rigidité modifiée 3EI/L et cette rotation reste hors du système. Activé, cette rotation devient une inconnue de plus, la barre garde 4EI/L et 2EI/L, et l’équation de cette extrémité dit que son moment est nul. Les résultats sont les mêmes, avec plus d’inconnues.',
+  'steps.m.displacement.opt.releasedUnknown.help': 'Désactivé, une barre qui arrive articulée (une rotule, ou un appui articulé que seule cette barre atteint) est prise avec la rigidité modifiée 3EI/L à son autre extrémité (sans rigidité en flexion si les deux sont articulées) et cette rotation reste hors du système. Activé, cette rotation devient une inconnue de plus, la barre garde 4EI/L et 2EI/L, et l’équation de cette extrémité dit que son moment est nul. Les résultats sont les mêmes, avec plus d’inconnues.',
 
   'course.kinematics.req.coupleAtPin': 'Au nœud {n}, toutes les barres arrivent articulées et un couple y est appliqué : rien ne l’équilibre. Retirez le couple ou rendez rigide l’une des liaisons.',
   'course.kinematics.req.imposedRigid': 'Avec des barres axialement rigides, les tassements ou la dilatation thermique exigeraient qu’une barre change de longueur. Activez Inclure la rigidité axiale pour le résoudre.',
@@ -23,7 +23,7 @@ const words: Translations = {
   'course.kinematics.gic.rotNone': 'Aucun nœud n’a de rotation inconnue.',
   'course.kinematics.gic.rotHeld': 'Nœuds dont un encastrement empêche la rotation : {nodes}.',
   'course.kinematics.gic.rotPin': 'Nœuds où toutes les barres arrivent articulées : {nodes}. Il n’y a pas de rotation commune à calculer.',
-  'course.kinematics.gic.rotReleased': 'Extrémités articulées : {ends}. Leur moment est connu (nul, ou le couple appliqué), donc ces barres sont prises avec la rigidité modifiée 3EI/L et ces rotations ne sont pas comptées.',
+  'course.kinematics.gic.rotReleased': 'Extrémités articulées : {ends}. Leur moment est connu (nul, ou le couple appliqué), donc ces rotations ne sont pas comptées : une barre articulée à une seule extrémité est prise avec la rigidité modifiée 3EI/L à l’autre, et une barre articulée aux deux n’a aucune rigidité en flexion entre ses nœuds.',
   'course.kinematics.gic.rotReleasedCounted': 'Extrémités articulées : {ends}. Vous avez choisi de compter leurs rotations comme inconnues : chacune ajoute une équation qui dit que le moment de cette extrémité est connu.',
   'course.kinematics.gic.rotSpring': 'Un ressort en rotation n’empêche pas la rotation : il s’y oppose avec un moment k_θ·θ, qui entre dans l’équation du nœud.',
   'course.kinematics.gic.thetaCount': 'Rotations inconnues',
@@ -41,7 +41,7 @@ const words: Translations = {
   'course.kinematics.gic.figCaption': 'Les inconnues cinématiques : arcs pour les rotations, flèches pour les translations.',
   'course.kinematics.gic.switchToAxial': 'Si vous activez Inclure la rigidité axiale, chaque nœud libre ajoute ses deux translations et n_Δ devient 2n − r_t.',
   'course.kinematics.gic.switchToRigid': 'Si vous désactivez Inclure la rigidité axiale, les barres gardent leur longueur et n_Δ descend aux translations indépendantes.',
-  'course.kinematics.gic.summaryWhy': 'n_θ sont les nœuds qui tournent et n_Δ les déplacements indépendants comptés plus haut. Les extrémités articulées sont prises avec 3EI/L et n’ajoutent pas d’inconnue.',
+  'course.kinematics.gic.summaryWhy': 'n_θ sont les nœuds qui tournent et n_Δ les déplacements indépendants comptés plus haut. Les extrémités articulées n’ajoutent pas d’inconnue : 3EI/L à l’extrémité rigide d’une barre articulée à l’autre, aucune rigidité en flexion si elle l’est aux deux.',
   'course.kinematics.gic.cmpMethod': 'Méthode',
   'course.kinematics.gic.cmpUnknowns': 'Inconnues',
   'course.kinematics.gic.cmpCount': 'Nombre',
@@ -137,8 +137,8 @@ const words: Translations = {
   'course.kinematics.dsm.rigid.selfStress': 'Certaines barres rigides forment un ensemble que l’équilibre seul ne résout pas (une barre entre deux appuis fixes, par exemple) ; leur effort normal est réparti avec l’énergie minimale, selon leurs souplesses L/EA.',
   'course.kinematics.dsm.rigid.reactions': 'Les réactions incluent les efforts normaux des barres rigides qui arrivent à chaque appui.',
   'course.kinematics.dsm.gic.title': 'Inconnues cinématiques',
-  'course.kinematics.dsm.gic.vsDofs': 'La méthode matricielle prend comme inconnues les {f} degrés de liberté libres. Le degré d’indétermination cinématique du calcul à la main est {gic} : il ne compte pas les rotations des extrémités articulées, qu’il prend avec 3EI/L.',
-  'course.kinematics.dsm.gic.vsDofsRigid': 'La méthode matricielle prend comme inconnues les {f} degrés de liberté libres. Le degré d’indétermination cinématique du calcul à la main est {gic} : il ne compte pas les rotations des extrémités articulées, qu’il prend avec 3EI/L, et il lie les translations par les barres axialement rigides.',
+  'course.kinematics.dsm.gic.vsDofs': 'La méthode matricielle prend comme inconnues les {f} degrés de liberté libres. Le degré d’indétermination cinématique du calcul à la main est {gic} : il ne compte pas les rotations des extrémités articulées, qu’il traite avec la rigidité modifiée.',
+  'course.kinematics.dsm.gic.vsDofsRigid': 'La méthode matricielle prend comme inconnues les {f} degrés de liberté libres. Le degré d’indétermination cinématique du calcul à la main est {gic} : il ne compte pas les rotations des extrémités articulées, qu’il traite avec la rigidité modifiée, et il lie les translations par les barres axialement rigides.',
   'course.kinematics.dsm.gic.same': 'Ici le degré d’indétermination cinématique du calcul à la main coïncide avec les {f} degrés de liberté libres de la méthode matricielle.',
 };
 

@@ -102,6 +102,24 @@ describe('the single degree of freedom document', () => {
     expect(v.ok).toBe(false);
     if (!v.ok) expect(v.reason.key).toBe('course.dynamics.sdof.err.noNode');
   });
+
+  it('refuses a mass, stiffness or dynamic input that is not a finite number', async () => {
+    await load('cantilever');
+    const base = { source: 'manual' as const, m: 2, k: 800, xi: 0.05, F0: 10, u0: 0.01, v0: 0.05, Omega: null };
+    const cases: Array<[Record<string, number>, string]> = [
+      [{ m: Infinity }, 'mk'], [{ k: Infinity }, 'mk'], [{ m: NaN }, 'mk'],
+      [{ xi: Infinity }, 'inputs'], [{ xi: -0.1 }, 'inputs'], [{ F0: Infinity }, 'inputs'],
+      [{ u0: NaN }, 'inputs'], [{ v0: -Infinity }, 'inputs'], [{ Omega: Infinity }, 'inputs'], [{ Omega: -1 }, 'inputs'],
+    ];
+    for (const [bad, code] of cases) {
+      setDynamicsSettings({ sdof: { ...base, ...bad } });
+      const v = methodById('sdof')!.applies(methodContext('sdof')!);
+      expect(v.ok, JSON.stringify(bad)).toBe(false);
+      if (!v.ok) expect(v.reason.key).toBe(`course.dynamics.sdof.err.${code}`);
+    }
+    setDynamicsSettings({ sdof: base });
+    expect(methodById('sdof')!.applies(methodContext('sdof')!).ok).toBe(true);
+  });
 });
 
 function resetAndGet() { return { source: 'model' as const, nodeId: null, dir: 'ux' as const, m: 2, k: 800, xi: 0.05, u0: 0.01, v0: 0, F0: 10, Omega: null }; }

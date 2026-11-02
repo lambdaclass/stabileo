@@ -75,6 +75,7 @@ const words: Translations = {
   'course.statics.vw.target.rot': 'Verdrehung des Knotens {n}, gegen den Uhrzeigersinn positiv.',
   'course.statics.vw.target.relDispLine': 'Relativverschiebung zwischen {n} und {m} entlang ihrer Verbindungslinie: positiv, wenn sie sich voneinander entfernen.',
   'course.statics.vw.err.coincident': '{n} und {m} liegen im selben Punkt: Es gibt keine Gerade zwischen ihnen. Wähle eine Richtung (x, z oder einen Winkel).',
+  'course.statics.vw.err.angle': 'Der Richtungswinkel muss eine Zahl sein.',
   'course.statics.vw.target.relDispX': 'Horizontale Relativverschiebung zwischen {n} und {m}: die von {m} abzüglich der von {n}, nach rechts positiv.',
   'course.statics.vw.target.relDispZ': 'Vertikale Relativverschiebung zwischen {n} und {m}: die von {m} abzüglich der von {n}, nach unten positiv.',
   'course.statics.vw.target.relDispAngle': 'Relativverschiebung zwischen {n} und {m} in der Richtung unter {a}° zur Horizontalen: die von {m} abzüglich der von {n}.',

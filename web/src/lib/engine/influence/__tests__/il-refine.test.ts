@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { refinedPoints } from '../analysis';
+import { ilAreas } from '../areas';
 import type { IlPoint } from '../unit-sweep';
 
 const right = (t: number) => 1 - t;
@@ -30,5 +31,29 @@ describe('refining a line up to a jump at its target', () => {
     const peak = line(left).find((p) => p.t > 0.4 && p.t < 0.5 && !p.side);
     expect(peak?.t).toBeCloseTo(0.48, 5);
     expect(peak!.value).toBeCloseTo(0, 9);
+  });
+});
+
+describe('a narrow pocket of the other sign that only peak refinement finds', () => {
+  const f = (t: number) => (t - 0.431) * (t - 0.439);
+  const exactArea = (t0: number, t1: number) => {
+    const F = (t: number) => t ** 3 / 3 - (0.431 + 0.439) * t ** 2 / 2 + 0.431 * 0.439 * t;
+    return F(t1) - F(t0);
+  };
+  const out = refinedPoints([0.4, 0.44, 0.48].map((t) => pt(t, f(t))), (_, t) => f(t), () => true);
+
+  it('gets both of its roots once the peak is in', () => {
+    const zeros = out.filter((p) => p.value === 0).map((p) => p.t);
+    expect(zeros).toHaveLength(2);
+    expect(zeros[0]).toBeCloseTo(0.431, 8);
+    expect(zeros[1]).toBeCloseTo(0.439, 8);
+  });
+
+  it('gives the negative zone and its area of the optimal loading, the pocket alone', () => {
+    const a = ilAreas(out, () => 1, () => true, (z) => exactArea(z.t0, z.t1));
+    expect(a.negZones).toHaveLength(1);
+    expect(a.negZones[0].t0).toBeCloseTo(0.431, 8);
+    expect(a.negZones[0].t1).toBeCloseTo(0.439, 8);
+    expect(a.neg / -(0.008 ** 3 / 6)).toBeCloseTo(1, 6);
   });
 });

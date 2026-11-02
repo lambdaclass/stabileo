@@ -114,6 +114,21 @@ describe('the mechanism the step-by-step analysis ends in', () => {
     expect(v.d[2 * v.km.nodePoint.get(2)!]).toBeCloseTo(4, 9);
   });
 
+  it('a spring support: the collapse mechanism is drawn, the spring node still (its spring takes no motion of a mechanism)', () => {
+    const m = portal(1, 1);
+    const first = [...m.supports.values()][0];
+    m.supports.set(first.id, { id: first.id, nodeId: first.nodeId, type: 'spring', kx: 1e9, ky: 1e9, kz: 1e9 } as never);
+    const r = plasticCollapse2D(m, { mp: uniformMp, np: () => Infinity });
+    expect(r.isMechanism).toBe(true);
+    expect(r.unresolved).toBeFalsy();
+    const v = collapseMechanism(m, r)!;
+    expect(v).not.toBeNull();
+    expect(v.dof).toBe(1);
+    const p = v.km.nodePoint.get(first.nodeId)!;
+    expect(Math.abs(v.d[2 * p])).toBeLessThan(1e-12);
+    expect(Math.abs(v.d[2 * p + 1])).toBeLessThan(1e-12);
+  });
+
   it('an analysis that stopped unresolved shows no collapse mechanism', () => {
     const m = portal(1, 1);
     const r = plasticCollapse2D(m, { mp: uniformMp, np: () => Infinity });

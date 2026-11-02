@@ -7,7 +7,7 @@ const words: Translations = {
   'steps.m.displacement.opt.axial.label': 'Eksenel rijitliği dahil et',
   'steps.m.displacement.opt.axial.help': 'Kapalıyken çubuklar boylarını korur: düğüm ötelemeleri birbirine bağlanır ve yalnızca bağımsız olanlar sayılır (öteleme modları). Açıkken her çubuk EA/L katkısı yapar, her düğümün her serbest ötelemesi bir bilinmeyendir ve sonuç matris çözümüyle örtüşür. Fark yüksek veya narin yapılarda, kemerlerde ve kafes sistemlerde, pandül çubuk veya gergi bulunduğunda önemlidir.',
   'steps.m.displacement.opt.releasedUnknown.label': 'Mafsallı uçların dönmeleri bilinmeyen olsun',
-  'steps.m.displacement.opt.releasedUnknown.help': 'Kapalıyken mafsallı bağlanan bir çubuk (bir mafsal veya yalnızca o çubuğun ulaştığı mafsallı bir mesnet) azaltılmış 3EI/L rijitliğiyle alınır ve o dönme sisteme girmez. Açıkken o dönme bir bilinmeyen daha olur, çubuk 4EI/L ve 2EI/L değerlerini korur ve o ucun denklemi momentinin sıfır olduğunu söyler. Sonuçlar aynıdır, yalnızca bilinmeyen sayısı artar.',
+  'steps.m.displacement.opt.releasedUnknown.help': 'Kapalıyken mafsallı bağlanan bir çubuk (bir mafsal veya yalnızca o çubuğun ulaştığı mafsallı bir mesnet) diğer ucunda azaltılmış 3EI/L rijitliğiyle alınır (iki ucu da mafsallıysa eğilme rijitliği yoktur) ve o dönme sisteme girmez. Açıkken o dönme bir bilinmeyen daha olur, çubuk 4EI/L ve 2EI/L değerlerini korur ve o ucun denklemi momentinin sıfır olduğunu söyler. Sonuçlar aynıdır, yalnızca bilinmeyen sayısı artar.',
 
   'course.kinematics.req.coupleAtPin': '{n} düğümüne bütün çubuklar mafsallı bağlanıyor ve orada bir moment etkiyor: onu hiçbir şey dengelemiyor. Momenti kaldırın veya bağlantılardan birini rijit yapın.',
   'course.kinematics.req.imposedRigid': 'Eksenel rijit çubuklarla mesnet çökmeleri veya ısıl uzama bir çubuğun boyunun değişmesini gerektirirdi. Çözmek için Eksenel rijitliği dahil et seçeneğini açın.',
@@ -23,7 +23,7 @@ const words: Translations = {
   'course.kinematics.gic.rotNone': 'Hiçbir düğümün dönmesi bilinmeyen değil.',
   'course.kinematics.gic.rotHeld': 'Dönmesini ankastre bir mesnedin engellediği düğümler: {nodes}.',
   'course.kinematics.gic.rotPin': 'Bütün çubukların mafsallı bağlandığı düğümler: {nodes}. Orada hesaplanacak ortak bir dönme yoktur.',
-  'course.kinematics.gic.rotReleased': 'Mafsallı uçlar: {ends}. Momentleri bilinir (sıfır veya etkiyen moment), bu yüzden bu çubuklar azaltılmış 3EI/L rijitliğiyle alınır ve bu dönmeler sayılmaz.',
+  'course.kinematics.gic.rotReleased': 'Mafsallı uçlar: {ends}. Momentleri bilinir (sıfır veya etkiyen moment), bu yüzden bu dönmeler sayılmaz: yalnızca bir ucu mafsallı çubuk diğer ucunda azaltılmış 3EI/L rijitliğiyle alınır, iki ucu mafsallı çubuğun ise düğümleri arasında eğilme rijitliği yoktur.',
   'course.kinematics.gic.rotReleasedCounted': 'Mafsallı uçlar: {ends}. Dönmelerini bilinmeyen olarak saymayı seçtiniz: her biri o ucun momentinin bilindiğini söyleyen bir denklem ekler.',
   'course.kinematics.gic.rotSpring': 'Bir dönme yayı dönmeyi engellemez: ona k_θ·θ momentiyle karşı koyar ve bu moment düğüm denklemine girer.',
   'course.kinematics.gic.thetaCount': 'Bilinmeyen dönmeler',
@@ -41,7 +41,7 @@ const words: Translations = {
   'course.kinematics.gic.figCaption': 'Kinematik bilinmeyenler: dönmeler için yaylar, ötelemeler için oklar.',
   'course.kinematics.gic.switchToAxial': 'Eksenel rijitliği dahil et seçeneğini açarsanız her serbest düğüm iki ötelemesini ekler ve n_Δ, 2n − r_t olur.',
   'course.kinematics.gic.switchToRigid': 'Eksenel rijitliği dahil et seçeneğini kapatırsanız çubuklar boylarını korur ve n_Δ bağımsız ötelemelere iner.',
-  'course.kinematics.gic.summaryWhy': 'n_θ dönen düğümler, n_Δ yukarıda sayılan bağımsız ötelemelerdir. Mafsallı uçlar 3EI/L ile alınır ve bilinmeyen eklemez.',
+  'course.kinematics.gic.summaryWhy': 'n_θ dönen düğümler, n_Δ yukarıda sayılan bağımsız ötelemelerdir. Mafsallı uçlar bilinmeyen eklemez: diğer ucu mafsallı bir çubuğun rijit ucunda 3EI/L, iki ucu da mafsallıysa eğilme rijitliği yoktur.',
   'course.kinematics.gic.cmpMethod': 'Yöntem',
   'course.kinematics.gic.cmpUnknowns': 'Bilinmeyenler',
   'course.kinematics.gic.cmpCount': 'Sayı',
@@ -137,8 +137,8 @@ const words: Translations = {
   'course.kinematics.dsm.rigid.selfStress': 'Bazı rijit çubuklar, dengenin tek başına çözemediği bir küme oluşturur (örneğin iki sabit mesnet arasındaki bir çubuk); normal kuvvetleri L/EA esnekliklerine göre en küçük enerjiyle paylaştırılır.',
   'course.kinematics.dsm.rigid.reactions': 'Mesnet tepkileri, her mesnede ulaşan rijit çubukların normal kuvvetlerini içerir.',
   'course.kinematics.dsm.gic.title': 'Kinematik bilinmeyenler',
-  'course.kinematics.dsm.gic.vsDofs': 'Matris yöntemi {f} serbest serbestlik derecesini bilinmeyen olarak alır. Elle hesabın kinematik belirsizlik derecesi ise {gic}: mafsallı uçların dönmelerini saymaz, onları 3EI/L ile alır.',
-  'course.kinematics.dsm.gic.vsDofsRigid': 'Matris yöntemi {f} serbest serbestlik derecesini bilinmeyen olarak alır. Elle hesabın kinematik belirsizlik derecesi ise {gic}: mafsallı uçların dönmelerini saymaz, onları 3EI/L ile alır ve ötelemeleri eksenel rijit çubuklarla birbirine bağlar.',
+  'course.kinematics.dsm.gic.vsDofs': 'Matris yöntemi {f} serbest serbestlik derecesini bilinmeyen olarak alır. Elle hesabın kinematik belirsizlik derecesi ise {gic}: mafsallı uçların dönmelerini saymaz, onları azaltılmış rijitlikle ele alır.',
+  'course.kinematics.dsm.gic.vsDofsRigid': 'Matris yöntemi {f} serbest serbestlik derecesini bilinmeyen olarak alır. Elle hesabın kinematik belirsizlik derecesi ise {gic}: mafsallı uçların dönmelerini saymaz, onları azaltılmış rijitlikle ele alır ve ötelemeleri eksenel rijit çubuklarla birbirine bağlar.',
   'course.kinematics.dsm.gic.same': 'Burada elle hesabın kinematik belirsizlik derecesi, matris yönteminin aldığı {f} serbest serbestlik derecesiyle aynıdır.',
 };
 

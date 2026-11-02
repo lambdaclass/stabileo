@@ -1,4 +1,4 @@
-import { generalizedEigen, symmetricEigen, negativeEigenvalues, ldltNegatives } from '../dense';
+import { generalizedEigen, eigenErrorBound, symmetricEigen, negativeEigenvalues, ldltNegatives } from '../dense';
 import { describe, it, expect } from 'vitest';
 import { stabilityFunctions, memberStability, clampedModesBelow } from '../stability-functions';
 import { memberStiffness } from '../member-matrices';
@@ -108,6 +108,21 @@ describe('the generalized eigenproblem K·x = λ·G·x', () => {
   it('a strongly tensioned DOF does not hide a compressed one: K = I, G = diag(−1e8, 1) keeps λ = 1', () => {
     const modes = generalizedEigen([[1, 0], [0, 1]], [[-1e8, 0], [0, 1]]);
     expect(modes?.map((m) => m.lambda)).toEqual([expect.closeTo(1, 12)]);
+  });
+
+  it('a far stronger tension does not hide it either: G = diag(−1e14, 1), also turned 30° with K = I', () => {
+    expect(generalizedEigen([[1, 0], [0, 1]], [[-1e14, 0], [0, 1]])?.map((m) => m.lambda)).toEqual([expect.closeTo(1, 12)]);
+    const c = Math.cos(Math.PI / 6), s = Math.sin(Math.PI / 6);
+    const G = [[c * c * -1e14 + s * s, c * s * (-1e14 - 1)], [c * s * (-1e14 - 1), s * s * -1e14 + c * c]];
+    const turned = generalizedEigen([[1, 0], [0, 1]], G)!;
+    expect(turned).toHaveLength(1);
+    expect(turned[0].lambda).toBeGreaterThan(0.9);
+    expect(turned[0].lambda).toBeLessThan(1.1);
+  });
+
+  it('a positive μ within its own error bound is not a mode', () => {
+    expect(eigenErrorBound([[1e14, 0], [0, 0]], 1e-3, [1, 1e-9])).toBeGreaterThan(1e-3);
+    expect(eigenErrorBound([[2, 0], [0, 1]], 1, [0, 1])).toBeLessThan(1e-14);
   });
 
   it('a mode far above the first is kept: K = I, G = diag(1, 1e-7) gives λ = 1 and 1e7', () => {

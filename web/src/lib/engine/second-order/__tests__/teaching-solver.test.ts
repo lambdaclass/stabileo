@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasm from '../../wasm-solver';
 import type { ElementForces, SolverInput } from '../../types';
-import { teachingPDelta, toAnalysisResults, iteratePDelta } from '../pdelta';
+import { teachingPDelta, toAnalysisResults, iteratePDelta, reducedStiffness } from '../pdelta';
 import { teachingBuckling, phiBuckling, criticalCount, firstOrderAxial } from '../buckling';
 import { refineInput, collapseResults } from '../refine';
 import { computeDiagramValueAt } from '../../diagrams';
@@ -302,6 +302,34 @@ describe('φ buckling never invents a mode', () => {
       expect(criticalCount(b.sys, first.N0, m.lambda * (1 + 1e-6))).toBeGreaterThan(criticalCount(b.sys, first.N0, m.lambda * (1 - 1e-6)));
     }
   });
+
+  it('the double root gets two independent shapes, each nearly annihilated by K(λ)', () => {
+    const input: SolverInput = {
+      nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 2, z: 0 }], [3, { id: 3, x: 1, z: 1 }]]),
+      materials: new Map([[1, { id: 1, e: 200000, nu: 0.3 }]]),
+      sections: new Map([[1, { id: 1, a: 0.01, iz: 1e-4 }]]),
+      elements: new Map([[1, { id: 1, type: 'truss' as const, nodeI: 1, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }], [2, { id: 2, type: 'truss' as const, nodeI: 2, nodeJ: 3, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false }]]),
+      supports: new Map([[1, { id: 1, nodeId: 1, type: 'pinned' as const }], [2, { id: 2, nodeId: 2, type: 'pinned' as const }]]),
+      loads: [{ type: 'nodal', data: { nodeId: 3, fx: 0, fz: -100, my: 0 } }],
+    };
+    const b = buildSystem(input, { method: 'phi', axialRigid: false });
+    if (!b.ok) throw new Error(b.reason.key);
+    const first = firstOrderAxial(b.sys);
+    if (!first.ok) throw new Error(first.reason.key);
+    const modes = phiBuckling(b.sys, 2, first.N0, []);
+    expect(modes).toHaveLength(2);
+    const [u, v] = modes.map((m) => b.sys.free.map((d) => m.D[d]));
+    const dotp = u.reduce((s, x, i) => s + x * v[i], 0);
+    const nrm = (w: number[]) => Math.hypot(...w);
+    expect(Math.abs(dotp) / (nrm(u) * nrm(v))).toBeLessThan(1e-6);
+    for (const [k, m] of modes.entries()) {
+      const K = reducedStiffness(b.sys, new Map([...first.N0].map(([id, n]) => [id, n * m.lambda])), 'phi');
+      const w = k === 0 ? u : v;
+      const r = K.map((row) => row.reduce((s, x, j) => s + x * w[j], 0));
+      const kn = Math.max(...reducedStiffness(b.sys, new Map(), 'phi').flat().map(Math.abs));
+      expect(nrm(r) / (kn * nrm(w))).toBeLessThan(1e-6);
+    }
+  });
 });
 
 describe('a refined member read back as one', () => {
@@ -382,5 +410,30 @@ describe('axially rigid members', () => {
   it('refuse a structure whose axial forces equilibrium alone does not give', () => {
     const b = buildSystem(column('fixed', 'fixed', 5, 100), { method: 'phi', axialRigid: true });
     expect(b.ok).toBe(false);
+  });
+});
+
+describe('φ buckling of a member with every end held', () => {
+  const held = (): SolverInput => {
+    const input = column('fixed', 'fixed', 5, 0);
+    input.loads = [];
+    const top = [...input.supports.values()].find((s) => s.nodeId === 2)!;
+    input.supports.set(top.id, { ...top, dz: -1e-3 });
+    return input;
+  };
+
+  it('a fixed–fixed column shortened by its support: its internal modes, the first at 4π²EI/L²', () => {
+    const b = teachingBuckling(held(), { method: 'phi', axialRigid: false }, 2);
+    if (!b.ok) throw new Error(String(b.reason));
+    const N = -[...b.run.N0.values()][0];
+    expect(N).toBeGreaterThan(0);
+    expect(b.run.modes.length).toBeGreaterThanOrEqual(1);
+    expect(b.run.modes[0].internal).toBe(true);
+    expect((b.run.modes[0].lambda * N) / ((4 * Math.PI ** 2 * EI) / 25)).toBeCloseTo(1, 8);
+  });
+
+  it('the methods that need a nodal unknown still refuse it', () => {
+    expect(teachingBuckling(held(), { method: 'consistent', axialRigid: false }, 1).ok).toBe(false);
+    expect(teachingPDelta(held(), { method: 'phi', axialRigid: false }).ok).toBe(false);
   });
 });

@@ -10,7 +10,7 @@ export function sectionAt(
   if (L < 1e-12) return 0;
   const x = Math.max(0, Math.min(L, ((click.x - ni.x) * dx + (click.y - ni.y) * dy) / L));
   for (const snap of [0, L, L / 2]) if (Math.abs(x - snap) <= tol) return snap / L;
-  return Math.round(x * 100) / 100 / L;
+  return Math.min(L, Math.max(0, Math.round(x * 100) / 100)) / L;
 }
 
 /** A typed position x (m) as t ∈ [0, 1], or null when it is outside the member. */

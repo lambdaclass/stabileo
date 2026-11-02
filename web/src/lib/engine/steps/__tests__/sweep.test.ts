@@ -20,6 +20,11 @@ import { allMethods } from '../methods';
 import type { ExplainedMethod, MethodContext } from '../registry';
 import type { Block, Cell, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
+import { teachingPDelta } from '../../second-order/pdelta';
+import { teachingBuckling } from '../../second-order/buckling';
+import { generalizedEigen } from '../../second-order/dense';
+import { solveDense } from '../sway-modes';
+import type { SolverInput, SolverLoad } from '../../types';
 import { fixtureNames2D, INTENTIONALLY_UNSOLVABLE } from '../../../templates/fixture-index';
 import { stepsEs, stepsEn, stepsPt } from '../../../i18n/locales/steps';
 import es from '../../../i18n/locales/es';
@@ -138,6 +143,76 @@ function compareProblems(rows: CompareRow[], tol: number, floor?: Map<string, nu
   return out;
 }
 
+/**
+ * The chord (P/L) answer checked against the engine's elastic solve with the same approximation:
+ * P-Δ's final D must be what the engine gives under the loads plus −K_G(N)·D as nodal forces, N the
+ * forces it was solved with; λ₁ must be the first root of (F⁻¹ + λK_G(N₀))·x = 0, F the engine's
+ * flexibility on the free DOFs and N₀ the engine's first-order forces. Both to 1e-8 / 1e-6.
+ */
+function chordProblems(input: SolverInput, buckling: boolean): string[] {
+  if ([...input.supports.values()].some((s) => s.angle !== undefined && s.angle !== 0)) return [];
+  const chordForces = (sysN: Map<number, number>, D: (node: number, k: number) => number, members: Array<{ id: number; i: number; j: number; c: number; s: number; L: number }>) => {
+    const f = new Map<number, [number, number]>();
+    const add = (node: number, fx: number, fz: number) => { const o = f.get(node) ?? [0, 0]; f.set(node, [o[0] + fx, o[1] + fz]); };
+    for (const m of members) {
+      const N = sysN.get(m.id) ?? 0;
+      const nx = -m.s, nz = m.c;
+      const delta = (D(m.j, 0) * nx + D(m.j, 1) * nz) - (D(m.i, 0) * nx + D(m.i, 1) * nz);
+      const q = (N / m.L) * delta;
+      add(m.i, q * nx, q * nz);
+      add(m.j, -q * nx, -q * nz);
+    }
+    return [...f].map(([nodeId, [fx, fz]]) => ({ type: 'nodal', data: { nodeId, fx, fz, my: 0 } }) as SolverLoad);
+  };
+  if (!buckling) {
+    const r = teachingPDelta(input, { method: 'string', axialRigid: false });
+    if (!r.ok || !r.run.converged || !r.run.stable) return [];
+    const { sys, final, finalSolvedWith } = r.run;
+    const Dof = (node: number, k: number) => final.D[sys.dof(node, k)];
+    const eng = wasm.solve({ ...input, loads: [...input.loads, ...chordForces(finalSolvedWith, Dof, sys.members)] });
+    const scale = Math.max(1e-12, ...final.D.map(Math.abs));
+    const out: string[] = [];
+    for (const d of eng.displacements) {
+      const got = [d.ux, d.uz, d.ry], mine = [0, 1, 2].map((k) => Dof(d.nodeId, k));
+      for (let k = 0; k < 3; k++) if (Math.abs(got[k] - mine[k]) > 1e-8 * scale) out.push(`chord P-Δ node ${d.nodeId} dof ${k}: ${mine[k]} vs engine ${got[k]}`);
+    }
+    return out;
+  }
+  const b = teachingBuckling(input, { method: 'string', axialRigid: false }, 1);
+  if (!b.ok || !b.run.modes.length) return [];
+  const sys = b.run.sys;
+  const free = sys.free;
+  const where = new Map<number, [number, number]>();
+  sys.pm.nodeOrder.forEach((node) => { for (let k = 0; k < 3; k++) where.set(sys.dof(node, k), [node, k]); });
+  const lin = wasm.solve(input);
+  const N0 = new Map(lin.elementForces.map((f) => [f.elementId, (f.nStart + f.nEnd) / 2]));
+  const F = free.map(() => new Array(free.length).fill(0));
+  free.forEach((dj, j) => {
+    const [node, k] = where.get(dj)!;
+    const res = wasm.solve({ ...input, loads: [{ type: 'nodal', data: { nodeId: node, fx: k === 0 ? 1 : 0, fz: k === 1 ? 1 : 0, my: k === 2 ? 1 : 0 } } as SolverLoad] });
+    free.forEach((di, i) => { const [n2, k2] = where.get(di)!; const d = res.displacements.find((x) => x.nodeId === n2)!; F[i][j] = [d.ux, d.uz, d.ry][k2]; });
+  });
+  const K = free.map((_, j) => solveDense(F, free.map((__, i) => (i === j ? 1 : 0))));
+  if (K.some((c) => !c)) return ['chord buckling: the engine flexibility is singular'];
+  const Ks = free.map((_, i) => free.map((__, j) => (K[j]![i] + K[i]![j]) / 2));
+  const idx = new Map(free.map((d, i) => [d, i]));
+  const G = free.map(() => new Array(free.length).fill(0));
+  for (const m of sys.members) {
+    const q = (N0.get(m.id) ?? 0) / m.L;
+    const n = [-m.s, m.c];
+    const ends = [[m.i, 1], [m.j, -1]] as const;
+    for (const [a, sa] of ends) for (const [bn, sb] of ends) for (let ka = 0; ka < 2; ka++) for (let kb = 0; kb < 2; kb++) {
+      const ia = idx.get(sys.dof(a, ka)), ib = idx.get(sys.dof(bn, kb));
+      if (ia === undefined || ib === undefined) continue;
+      G[ia][ib] -= q * sa * sb * n[ka] * n[kb];
+    }
+  }
+  const pairs = generalizedEigen(Ks, G);
+  const mine = b.run.modes[0].lambda;
+  if (!pairs || !pairs.length) return [`chord buckling: no independent root, the method gives ${mine}`];
+  return Math.abs(pairs[0].lambda - mine) > 1e-6 * Math.abs(mine) ? [`chord buckling λ₁ ${mine} vs independent ${pairs[0].lambda}`] : [];
+}
+
 /** The classical frame methods keep members at their length: with axially rigid members they must match the matrix solve. */
 const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection', 'displacement']);
 
@@ -172,6 +247,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
       let doc: StepDoc;
       try { doc = m.build(ctx); } catch (e) { failures.push(`${label} ${m.id} ${JSON.stringify(opts)}: build threw ${String((e as Error)?.stack ?? e).slice(0, 300)}`); continue; }
       let found = problems(m, doc, opts);
+      if (m.id.endsWith('-kg') && opts.chord && !opts.axialRigid) found.push(...chordProblems(ctx.input, m.id.startsWith('so-buckling')));
       // A classical frame method that differs from the matrix solve must be
       // exact once members cannot change length: then the difference was axial
       // deformation and nothing else.

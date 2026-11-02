@@ -79,6 +79,7 @@ const words: Translations = {
   'course.statics.vw.target.rot': 'Rotation du nœud {n}, positive dans le sens antihoraire.',
   'course.statics.vw.target.relDispLine': 'Déplacement relatif entre {n} et {m} selon la droite qui les relie : positif quand ils s\'éloignent.',
   'course.statics.vw.err.coincident': '{n} et {m} sont au même point : aucune droite ne les relie. Choisissez une direction (x, z ou un angle).',
+  'course.statics.vw.err.angle': 'L\'angle de la direction doit être un nombre.',
   'course.statics.vw.target.relDispX': 'Déplacement relatif horizontal entre {n} et {m} : celui de {m} moins celui de {n}, positif vers la droite.',
   'course.statics.vw.target.relDispZ': 'Déplacement relatif vertical entre {n} et {m} : celui de {m} moins celui de {n}, positif vers le bas.',
   'course.statics.vw.target.relDispAngle': 'Déplacement relatif entre {n} et {m} dans la direction à {a}° de l\'horizontale : celui de {m} moins celui de {n}.',

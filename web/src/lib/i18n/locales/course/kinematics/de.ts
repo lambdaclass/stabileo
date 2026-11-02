@@ -7,7 +7,7 @@ const words: Translations = {
   'steps.m.displacement.opt.axial.label': 'Dehnsteifigkeit berücksichtigen',
   'steps.m.displacement.opt.axial.help': 'Aus: Die Stäbe behalten ihre Länge, die Knotenverschiebungen hängen zusammen und nur die unabhängigen zählen (Verschiebungsfiguren). Ein: Jeder Stab trägt EA/L bei, jede freie Verschiebung jedes Knotens ist eine Unbekannte, und das Ergebnis stimmt mit der Matrizenrechnung überein. Der Unterschied zählt bei hohen oder schlanken Tragwerken, Bögen und Fachwerken sowie mit Pendelstäben oder Zugbändern.',
   'steps.m.displacement.opt.releasedUnknown.label': 'Verdrehungen gelenkiger Stabenden als Unbekannte',
-  'steps.m.displacement.opt.releasedUnknown.help': 'Aus: Ein Stab, der gelenkig anschließt (ein Gelenk oder ein gelenkiges Lager, an das nur dieser Stab führt), wird mit der reduzierten Steifigkeit 3EI/L angesetzt, und diese Verdrehung bleibt außerhalb des Systems. Ein: Diese Verdrehung wird zu einer weiteren Unbekannten, der Stab behält 4EI/L und 2EI/L, und die Gleichung dieses Endes besagt, dass sein Moment null ist. Die Ergebnisse sind gleich, nur mit mehr Unbekannten.',
+  'steps.m.displacement.opt.releasedUnknown.help': 'Aus: Ein Stab, der gelenkig anschließt (ein Gelenk oder ein gelenkiges Lager, an das nur dieser Stab führt), wird an seinem anderen Ende mit der reduzierten Steifigkeit 3EI/L angesetzt (ohne Biegesteifigkeit, wenn beide Enden gelenkig sind), und diese Verdrehung bleibt außerhalb des Systems. Ein: Diese Verdrehung wird zu einer weiteren Unbekannten, der Stab behält 4EI/L und 2EI/L, und die Gleichung dieses Endes besagt, dass sein Moment null ist. Die Ergebnisse sind gleich, nur mit mehr Unbekannten.',
 
   'course.kinematics.req.coupleAtPin': 'Am Knoten {n} schließen alle Stäbe gelenkig an, und dort wirkt ein Moment: Nichts hält es im Gleichgewicht. Entfernen Sie das Moment oder machen Sie einen der Anschlüsse biegesteif.',
   'course.kinematics.req.imposedRigid': 'Mit dehnstarren Stäben würden die Stützensenkungen oder die Wärmedehnung verlangen, dass ein Stab seine Länge ändert. Schalten Sie Dehnsteifigkeit berücksichtigen ein, um es zu lösen.',
@@ -23,7 +23,7 @@ const words: Translations = {
   'course.kinematics.gic.rotNone': 'Kein Knoten hat eine unbekannte Verdrehung.',
   'course.kinematics.gic.rotHeld': 'Knoten, deren Verdrehung eine Einspannung verhindert: {nodes}.',
   'course.kinematics.gic.rotPin': 'Knoten, an denen alle Stäbe gelenkig anschließen: {nodes}. Dort gibt es keine gemeinsame Verdrehung zu bestimmen.',
-  'course.kinematics.gic.rotReleased': 'Gelenkige Stabenden: {ends}. Ihr Moment ist bekannt (null oder das angreifende Moment), daher werden diese Stäbe mit der reduzierten Steifigkeit 3EI/L angesetzt und diese Verdrehungen nicht gezählt.',
+  'course.kinematics.gic.rotReleased': 'Gelenkige Stabenden: {ends}. Ihr Moment ist bekannt (null oder das angreifende Moment), daher werden diese Verdrehungen nicht gezählt: Ein nur an einem Ende gelenkiger Stab wird am anderen mit der reduzierten Steifigkeit 3EI/L angesetzt, ein an beiden Enden gelenkiger hat zwischen seinen Knoten keine Biegesteifigkeit.',
   'course.kinematics.gic.rotReleasedCounted': 'Gelenkige Stabenden: {ends}. Sie haben gewählt, ihre Verdrehungen als Unbekannte zu zählen: Jede fügt eine Gleichung hinzu, nach der das Moment dieses Endes bekannt ist.',
   'course.kinematics.gic.rotSpring': 'Eine Drehfeder verhindert die Verdrehung nicht: Sie widersteht ihr mit einem Moment k_θ·θ, das in die Knotengleichung eingeht.',
   'course.kinematics.gic.thetaCount': 'Unbekannte Verdrehungen',
@@ -41,7 +41,7 @@ const words: Translations = {
   'course.kinematics.gic.figCaption': 'Die kinematischen Unbekannten: Bögen für Verdrehungen, Pfeile für Verschiebungen.',
   'course.kinematics.gic.switchToAxial': 'Wenn Sie Dehnsteifigkeit berücksichtigen einschalten, kommen bei jedem freien Knoten beide Verschiebungen hinzu, und n_Δ wird 2n − r_t.',
   'course.kinematics.gic.switchToRigid': 'Wenn Sie Dehnsteifigkeit berücksichtigen ausschalten, behalten die Stäbe ihre Länge, und n_Δ sinkt auf die unabhängigen Verschiebungen.',
-  'course.kinematics.gic.summaryWhy': 'n_θ sind die sich verdrehenden Knoten und n_Δ die oben gezählten unabhängigen Verschiebungen. Gelenkige Stabenden werden mit 3EI/L angesetzt und bringen keine Unbekannten.',
+  'course.kinematics.gic.summaryWhy': 'n_θ sind die sich verdrehenden Knoten und n_Δ die oben gezählten unabhängigen Verschiebungen. Gelenkige Stabenden bringen keine Unbekannten: 3EI/L am starren Ende eines am anderen Ende gelenkigen Stabs, keine Biegesteifigkeit bei Gelenken an beiden Enden.',
   'course.kinematics.gic.cmpMethod': 'Verfahren',
   'course.kinematics.gic.cmpUnknowns': 'Unbekannte',
   'course.kinematics.gic.cmpCount': 'Anzahl',
@@ -137,8 +137,8 @@ const words: Translations = {
   'course.kinematics.dsm.rigid.selfStress': 'Einige dehnstarre Stäbe bilden eine Gruppe, die das Gleichgewicht allein nicht auflöst (zum Beispiel ein Stab zwischen zwei festen Lagern); ihre Normalkraft wird mit der kleinsten Energie nach ihren Nachgiebigkeiten L/EA verteilt.',
   'course.kinematics.dsm.rigid.reactions': 'Die Auflagerkräfte enthalten die Normalkräfte der dehnstarren Stäbe, die an jedes Lager anschließen.',
   'course.kinematics.dsm.gic.title': 'Kinematische Unbekannte',
-  'course.kinematics.dsm.gic.vsDofs': 'Das Matrizenverfahren nimmt die {f} freien Freiheitsgrade als Unbekannte. Der Grad der kinematischen Unbestimmtheit der Handrechnung ist {gic}: Er zählt die Verdrehungen gelenkiger Stabenden nicht mit, die er mit 3EI/L ansetzt.',
-  'course.kinematics.dsm.gic.vsDofsRigid': 'Das Matrizenverfahren nimmt die {f} freien Freiheitsgrade als Unbekannte. Der Grad der kinematischen Unbestimmtheit der Handrechnung ist {gic}: Er zählt die Verdrehungen gelenkiger Stabenden nicht mit, die er mit 3EI/L ansetzt, und koppelt die Verschiebungen über die dehnstarren Stäbe.',
+  'course.kinematics.dsm.gic.vsDofs': 'Das Matrizenverfahren nimmt die {f} freien Freiheitsgrade als Unbekannte. Der Grad der kinematischen Unbestimmtheit der Handrechnung ist {gic}: Er zählt die Verdrehungen gelenkiger Stabenden nicht mit, die er mit der reduzierten Steifigkeit erfasst.',
+  'course.kinematics.dsm.gic.vsDofsRigid': 'Das Matrizenverfahren nimmt die {f} freien Freiheitsgrade als Unbekannte. Der Grad der kinematischen Unbestimmtheit der Handrechnung ist {gic}: Er zählt die Verdrehungen gelenkiger Stabenden nicht mit, die er mit der reduzierten Steifigkeit erfasst, und koppelt die Verschiebungen über die dehnstarren Stäbe.',
   'course.kinematics.dsm.gic.same': 'Hier stimmt der Grad der kinematischen Unbestimmtheit der Handrechnung mit den {f} freien Freiheitsgraden des Matrizenverfahrens überein.',
 };
 

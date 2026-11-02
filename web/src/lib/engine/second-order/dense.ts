@@ -199,6 +199,23 @@ export function symmetricEigen(S: Mat): { values: number[]; vectors: Mat } {
  * The positive λ of K·x = λ·G·x with K symmetric positive definite and G symmetric (any sign),
  * ascending, each with its vector. Null when K is not positive definite.
  */
+/**
+ * How far μ can be from an eigenvalue of the symmetric C, for its computed vector v: the residual
+ * ‖Cv − μv‖/‖v‖ plus the rounding of that product, 2(n + 1)·ε·‖|C||v| + |μv|‖/‖v‖.
+ */
+export function eigenErrorBound(C: Mat, mu: number, v: number[]): number {
+  const n = v.length;
+  const nv = norm2(v);
+  if (!(nv > 0)) return Infinity;
+  let r2 = 0, a2 = 0;
+  for (let i = 0; i < n; i++) {
+    let r = -mu * v[i], a = Math.abs(mu * v[i]);
+    for (let j = 0; j < n; j++) { r += C[i][j] * v[j]; a += Math.abs(C[i][j] * v[j]); }
+    r2 += r * r; a2 += a * a;
+  }
+  return (Math.sqrt(r2) + 2 * (n + 1) * Number.EPSILON * Math.sqrt(a2)) / nv;
+}
+
 export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector: number[] }> | null {
   const L = cholesky(K);
   if (!L) return null;
@@ -215,11 +232,9 @@ export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector
   }
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const m = (C[i][j] + C[j][i]) / 2; C[i][j] = m; C[j][i] = m; }
   const { values, vectors } = symmetricEigen(C);
-  const maxAbs = Math.max(0, ...values.map(Math.abs));
-  const floor = Math.max(1e-13, 64 * n * Number.EPSILON) * maxAbs;
   const out: Array<{ lambda: number; vector: number[] }> = [];
   values.forEach((mu, k) => {
-    if (!(mu > floor)) return;
+    if (!(mu > eigenErrorBound(C, mu, vectors.map((r) => r[k])))) return;
     out.push({ lambda: 1 / mu, vector: triSolve(L, vectors.map((r) => r[k]), true) });
   });
   return out.sort((a, b) => a.lambda - b.lambda);

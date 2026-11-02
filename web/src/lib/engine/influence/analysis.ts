@@ -50,19 +50,6 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
       const u = (t - a.t) / Math.max(b.t - a.t, 1e-300);
       return { x: a.x + u * (b.x - a.x), y: a.y + u * (b.y - a.y), elementId: id, t, value };
     };
-    for (let k = 0; k + 1 < pts.length; k++) {
-      const a = pts[k], b = pts[k + 1];
-      if (b.t - a.t < 1e-12 || !(a.value * b.value < 0)) continue;
-      let t0 = a.t, v0 = a.value, t1 = b.t, v1 = b.value, t = t0, v = v0;
-      for (let it = 0; it < 30 && t1 - t0 > 1e-9; it++) {
-        t = Math.min(t1, Math.max(t0, t0 + (t1 - t0) * (v0 / (v0 - v1))));
-        if (t - t0 < 1e-3 * (t1 - t0) || t1 - t < 1e-3 * (t1 - t0)) t = 0.5 * (t0 + t1);
-        v = ordinateAt(id, t);
-        if (v === 0) break;
-        if (v * v0 < 0) { t1 = t; v1 = v; } else { t0 = t; v0 = v; }
-      }
-      extra.push(at(a, b, t, 0));
-    }
     for (let k = 1; k + 1 < pts.length; k++) {
       const a = pts[k - 1], m = pts[k], b = pts[k + 1];
       if (m.side) continue;
@@ -93,7 +80,22 @@ export function refinedPoints(points: IlPoint[], ordinateAt: (id: number, t: num
         if (fb > Math.max(sg * a.value, sg * b.value) * (1 + 1e-9) + 1e-15) extra.push(at(a, b, tb, sg * fb));
       }
     }
-    out.push(...[...pts, ...extra].sort((p, q) => p.t - q.t));
+    const merged = [...pts, ...extra].sort((p, q) => p.t - q.t);
+    const zeros: IlPoint[] = [];
+    for (let k = 0; k + 1 < merged.length; k++) {
+      const a = merged[k], b = merged[k + 1];
+      if (b.t - a.t < 1e-12 || !(a.value * b.value < 0)) continue;
+      let t0 = a.t, v0 = a.value, t1 = b.t, v1 = b.value, t = t0, v = v0, kept = 0;
+      for (let it = 0; it < 100 && t1 - t0 > 1e-12; it++) {
+        t = Math.min(t1, Math.max(t0, t0 + (t1 - t0) * (v0 / (v0 - v1))));
+        if (t - t0 < 1e-3 * (t1 - t0) || t1 - t < 1e-3 * (t1 - t0)) t = 0.5 * (t0 + t1);
+        v = ordinateAt(id, t);
+        if (v === 0) break;
+        if (v * v0 < 0) { t1 = t; v1 = v; if (kept === -1) v0 /= 2; kept = -1; } else { t0 = t; v0 = v; if (kept === 1) v1 /= 2; kept = 1; }
+      }
+      zeros.push(at(a, b, t, 0));
+    }
+    out.push(...[...merged, ...zeros].sort((p, q) => p.t - q.t));
   }
   return out;
 }

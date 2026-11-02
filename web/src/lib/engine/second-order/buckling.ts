@@ -92,26 +92,47 @@ export function phiRoot(sys: SoSystem, N0: Map<number, number>, i: number, guess
   return (lo + hi) / 2;
 }
 
-/** The mode at a root of det K(λ): the vector K(λ) nearly annihilates, by inverse iteration. */
-export function phiMode(sys: SoSystem, N0: Map<number, number>, lambda: number): number[] {
+/**
+ * The mode at a root of det K(λ): the vector K(λ) nearly annihilates, by inverse iteration. At a
+ * repeated root, `others` are the modes already found there (reduced coordinates), projected out.
+ */
+export function phiModeReduced(sys: SoSystem, N0: Map<number, number>, lambda: number, others: number[][] = []): number[] {
   const K = reducedStiffness(sys, scaled(N0, lambda * (1 - 1e-8)), 'phi');
-  let x = K.map((_, i) => 1 + 0.1 * Math.sin(i + 1));
-  for (let k = 0; k < 4; k++) {
+  const deflate = (v: number[]) => {
+    let w = v;
+    for (let pass = 0; pass < 2; pass++) for (const o of others) {
+      const c = w.reduce((s, x, i) => s + x * o[i], 0) / o.reduce((s, x) => s + x * x, 0);
+      w = w.map((x, i) => x - c * o[i]);
+    }
+    return w;
+  };
+  let x = deflate(K.map((_, i) => 1 + 0.1 * Math.sin(i + 1)));
+  for (let k = 0; k < 6; k++) {
     const y = solveDense(K, x);
     if (!y || y.some((v) => !Number.isFinite(v))) break;
-    const n = norm2(y);
+    const z = deflate(y);
+    const n = norm2(z);
     if (!(n > 0)) break;
-    x = y.map((v) => v / n);
+    x = z.map((v) => v / n);
   }
-  return expand(sys, x);
+  return x;
+}
+
+export function phiMode(sys: SoSystem, N0: Map<number, number>, lambda: number): number[] {
+  return expand(sys, phiModeReduced(sys, N0, lambda));
 }
 
 export function phiBuckling(sys: SoSystem, nModes: number, N0: Map<number, number>, guesses: number[]): TeachingMode[] {
   const out: TeachingMode[] = [];
+  const found: Array<{ lambda: number; x: number[] }> = [];
   for (let i = 1; i <= nModes; i++) {
     const lambda = phiRoot(sys, N0, i, guesses[i - 1] ?? (out[out.length - 1]?.lambda ?? 1) * 2);
     if (lambda === null) break;
-    out.push(nodalRoot(sys, N0, lambda) ? { lambda, D: phiMode(sys, N0, lambda) } : { lambda, D: new Array(sys.nTotal).fill(0), internal: true });
+    if (!nodalRoot(sys, N0, lambda)) { out.push({ lambda, D: new Array(sys.nTotal).fill(0), internal: true }); continue; }
+    const same = found.filter((f) => Math.abs(f.lambda - lambda) <= 1e-7 * lambda).map((f) => f.x);
+    const x = phiModeReduced(sys, N0, lambda, same);
+    found.push({ lambda, x });
+    out.push({ lambda, D: expand(sys, x) });
   }
   return out;
 }
@@ -127,7 +148,7 @@ export function determinantCurve(sys: SoSystem, N0: Map<number, number>, top: nu
 }
 
 export function teachingBuckling(input: SolverInput, opts: SecondOrderOptions, nModes: number): { ok: true; run: TeachingBuckling } | { ok: false; reason: Txt } {
-  const b = buildSystem(input, opts);
+  const b = buildSystem(input, opts, opts.method === 'phi' && !opts.axialRigid);
   if (!b.ok) return b;
   const first = firstOrderAxial(b.sys);
   if (!first.ok) return first;

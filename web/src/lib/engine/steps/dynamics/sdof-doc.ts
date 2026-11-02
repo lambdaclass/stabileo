@@ -20,8 +20,10 @@ export interface ResolvedSdof { m: number; k: number; fromModel: SdofFromModel |
 
 /** The system the reader set: typed, or taken from the model; or why it cannot be built. */
 export function resolveSdof(ctx: MethodContext, s: SdofSettings = dynamicsSettings().sdof): ResolvedSdof | { refusal: string } {
+  const finite = [s.u0, s.v0, s.F0].every(Number.isFinite) && Number.isFinite(s.xi) && s.xi >= 0 && (s.Omega === null || (Number.isFinite(s.Omega) && s.Omega >= 0));
+  if (!finite) return { refusal: 'sdof.err.inputs' };
   if (s.source === 'manual' || !ctx.model) {
-    if (!(s.m > 0) || !(s.k > 0)) return { refusal: 'sdof.err.mk' };
+    if (!(s.m > 0 && Number.isFinite(s.m)) || !(s.k > 0 && Number.isFinite(s.k))) return { refusal: 'sdof.err.mk' };
     return { m: s.m, k: s.k, fromModel: null, s };
   }
   const pts = ctx.model.massSource?.points ?? [];

@@ -47,7 +47,7 @@ const key = (m: number, t: number) => `${m}:${t.toFixed(9)}`;
 
 /**
  * `springs`: 'refuse' throws on an elastic spring support, which a rigid-plastic mechanism cannot
- * represent; 'rigid' holds it as a restraint (the incremental analysis' closing check only).
+ * represent; 'rigid' holds it as a restraint, exact for the incremental analysis' own mechanism, whose zero-stiffness mode cannot stretch an elastic spring.
  */
 export function buildKinematics(input: SolverInput, sections: KinSection[], removed: ReadonlySet<number> = new Set(), springs: 'refuse' | 'rigid' = 'refuse'): KinModel {
   const points: Array<{ x: number; z: number }> = [];

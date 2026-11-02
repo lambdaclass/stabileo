@@ -119,6 +119,18 @@ describe('virtual work: springs, settlements, temperature', () => {
     agrees(build('virtualWork', { quantity: 'rot', node: '1' }), 'rad');
   });
 
+  it('a cantilever on a vertical and a rotational spring: each spring works in its own component', () => {
+    const P = 10, L = 4, ky = 3000, kz = 800;
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(L, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'spring', { kx: 1e6, ky, kz });
+    modelStore.addNodalLoad(b, 0, -P, 0);
+    const EI = planeModel(modelStore.buildSolverInput(false)!).members.values().next().value!.EI;
+    const doc = build('virtualWork', { quantity: 'disp', node: String(b), dir: 'z' });
+    expect(agrees(doc, 'mm') / 1000).toBeCloseTo(P * (L ** 3 / (3 * EI) + L ** 2 / kz + 1 / ky), 12);
+    expect(agrees(build('virtualWork', { quantity: 'rot', node: String(b) }), 'rad')).toBeCloseTo(-P * (L ** 2 / (2 * EI) + L / kz), 12);
+  });
+
   it('a settled support: − Σ r·c', async () => {
     await modelStore.loadExample('settlement');
     for (const id of planeModel(modelStore.buildSolverInput(false)!).nodeOrder) {
@@ -205,6 +217,35 @@ describe('a relative quantity between the nodes the reader chose', () => {
       const rows = rowsOf(m.build!(ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'z' })));
       expect(Math.abs(rows[0].method - rows[0].matrix)).toBeLessThan(1e-9 * Math.max(Math.abs(rows[0].matrix), 1e-3));
       expect(Math.abs(rows[0].matrix)).toBeGreaterThan(1e-6);
+    }
+  });
+
+  it('a hyperstatic structure: Castigliano solves its redundants and ignores the target, so a target it cannot use does not refuse it', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    const c = modelStore.addNode(8, 0), d = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b); modelStore.addElement(c, d);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'fixed'); modelStore.addSupport(b, 'pinned');
+    modelStore.addNodalLoad(d, 0, -10, 0);
+    const m = methods.find((x) => x.id === 'castigliano')!;
+    const ctx = ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'auto' });
+    expect(m.applies(ctx).ok).toBe(true);
+    expect(m.build!(ctx).noParams).toBe(true);
+  });
+
+  it('a direction angle that is not a finite number is refused', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(4, 3);
+    modelStore.addElement(a, b); modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addNodalLoad(c, 5, -10, 0);
+    for (const id of ['virtualWork', 'castigliano']) {
+      const m = methods.find((x) => x.id === id)!;
+      for (const angle of ['abc', 'Infinity', '-Infinity', '']) {
+        const v = m.applies(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle }));
+        if (angle === '') { expect(v.ok).toBe(true); continue; }
+        expect(v.ok, `${id} ${angle}`).toBe(false);
+        if (!v.ok) expect(v.reason.key).toBe('course.statics.vw.err.angle');
+      }
+      expect(m.applies(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle: '45' })).ok).toBe(true);
     }
   });
 });

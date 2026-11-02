@@ -224,6 +224,47 @@ describe('a column end turns freely where every floor beam end is released', () 
   });
 });
 
+describe('a pin-ended column adds mass but no storey stiffness', () => {
+  const rel = { my: false, mz: true, t: false };
+  const portal = (base: 'fixed' | 'pinned', pinEnded: boolean) => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b);
+      const pin = modelStore.addElement(d, c);
+      modelStore.addElement(b, c);
+      modelStore.addSupport(a, base); modelStore.addSupport(d, 'pinned');
+      if (pinEnded) modelStore.updateElement(pin, { releaseI: rel, releaseJ: rel } as never);
+    });
+    const r = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], true);
+    if (typeof r === 'string') throw new Error(r);
+    return r;
+  };
+  for (const [base, factor] of [['fixed', 12], ['pinned', 3]] as const) {
+    it(`a ${base} column beside a pin-ended one: k = ${factor}EI/h³ of the first only, the mass of both`, () => {
+      const r = portal(base, true);
+      const EI = 200e6 * RECT.iz;
+      expect(r.floors[0].columns.map((c) => c.factor).sort((x, y) => x - y)).toEqual([0, factor]);
+      expect(r.floors[0].k).toBeCloseTo((factor * EI) / 27, 3);
+      expect(r.floors[0].mBars).toBeGreaterThan(0);
+      expect(r.floors[0].mBars).toBe(portal(base, false).floors[0].mBars);
+    });
+  }
+});
+
+describe('a column held at a floor only by the column above couples the storeys', () => {
+  it('two storeys, continuous columns, floor beams released at both ends: refused', () => {
+    const rel = { my: false, mz: true, t: false };
+    build(() => {
+      const n = [[0, 0], [0, 3], [0, 6], [4, 0], [4, 3], [4, 6]].map(([x, y]) => modelStore.addNode(x, y));
+      modelStore.addElement(n[0], n[1]); modelStore.addElement(n[1], n[2]);
+      modelStore.addElement(n[3], n[4]); modelStore.addElement(n[4], n[5]);
+      for (const [i, j] of [[1, 4], [2, 5]]) modelStore.updateElement(modelStore.addElement(n[i], n[j]), { releaseI: rel, releaseJ: rel } as never);
+      modelStore.addSupport(n[0], 'fixed'); modelStore.addSupport(n[3], 'fixed');
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: 5 }], false)).toBe('continuousColumn');
+  });
+});
+
 describe('the shear building takes columns of one section only', () => {
   it('a tapered column is refused: one EI cannot give its storey stiffness', () => {
     build(() => {

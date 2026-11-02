@@ -66,7 +66,7 @@ export function unsupported(input: SolverInput): Txt | null {
   return null;
 }
 
-export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built {
+export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowNoFree = false): Built {
   const refusal = unsupported(input);
   if (refusal) return { ok: false, reason: refusal };
   const pm = planeModel(input);
@@ -138,7 +138,7 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built
   sys.idle = idle;
   const loadScale = Math.max(0, ...sys.F.map(Math.abs));
   if (idle.some((d) => Math.abs(sys.F[d]) > 1e-9 * loadScale)) return { ok: false, reason: tx('course.second-order.refuse.idleLoad') };
-  if (free.length === 0) return { ok: false, reason: tx('course.second-order.refuse.noFree') };
+  if (free.length === 0 && !allowNoFree) return { ok: false, reason: tx('course.second-order.refuse.noFree') };
   if (free.length > TEACHING_MAX_DOFS) return { ok: false, reason: tx('course.second-order.refuse.tooBig', { n: free.length, max: TEACHING_MAX_DOFS }) };
 
   if (opts.axialRigid) {

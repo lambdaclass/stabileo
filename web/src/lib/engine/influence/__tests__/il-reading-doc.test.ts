@@ -87,6 +87,7 @@ describe('picking the section', () => {
     expect(sectionAt({ x: 9.85, y: -0.2 }, a, b, 0.3)).toBe(1);
     expect(sectionAt({ x: 5.1, y: 0 }, a, b, 0.3)).toBe(0.5);
     expect(sectionAt({ x: 2.5432, y: 0.4 }, a, b, 0.3)).toBeCloseTo(0.254, 12);
+    expect(sectionAt({ x: 1.0058, y: 0 }, { x: 0, y: 0 }, { x: 1.006, y: 0 }, 0)).toBe(1);
     expect(sectionAt({ x: -3, y: 0 }, a, b, 0.3)).toBe(0);
   });
   it('a typed x outside [0, L] is refused', () => {

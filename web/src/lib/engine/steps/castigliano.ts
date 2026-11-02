@@ -44,6 +44,7 @@ export function castiglianoApplies(ctx: MethodContext): Applicability {
     const r = forceMethodOf(ctx.input, { ...releasesOf(ctx), axial: axialOn(ctx) });
     if (r instanceof ForceMethodError) return no(r.key in LEGACY_ERRORS ? `fm.err.${r.key}` : `course.statics.err.${r.key}`, { gh: r.gh, max: FM_MAX_GH, chosen: r.detail.chosen ?? 0 });
     if (r instanceof Error) return no('steps.req.unstable');
+    return { ok: true };
   }
   return targetApplies(ctx);
 }

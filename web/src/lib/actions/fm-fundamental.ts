@@ -6,6 +6,7 @@
 import { modelStore, uiStore, fmStepsStore } from '../store';
 import { fmChoice, type FmChoiceError } from '../store/fm-choice.svelte';
 import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
+import { blocked, refused } from './wizard-guard';
 
 const xName = (i: number) => `X${String(i).split('').map((d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]).join('')}`;
 
@@ -23,8 +24,9 @@ export function choiceError(e: unknown): FmChoiceError {
 
 /** Solve again with `releases` (null: the method chooses) and `axial`, each kept as it is when not given. */
 export function resolveFlexibility(next: { releases?: string[] | null; axial?: boolean }): boolean {
+  if (blocked()) return false;
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-  if (!input) return false;
+  if (!input || refused(input, false)) return false;
   const releases = next.releases !== undefined ? next.releases : fmChoice.applied;
   const axial = next.axial ?? fmChoice.axial;
   try {

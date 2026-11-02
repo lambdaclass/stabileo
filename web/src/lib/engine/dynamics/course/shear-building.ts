@@ -3,8 +3,10 @@
  * one horizontal displacement per floor, beams infinitely stiff, columns
  * axially rigid, the mass concentrated at the floors. Each storey is a spring
  * of stiffness Σ 12EI/h³ over its columns (3EI/h³ for a column with one end
- * free to rotate: its own hinge, a pinned support, or a floor joint where every
- * beam end is released), and the floors are masses joined by those springs in series.
+ * free to rotate: its own hinge, a pinned support, or a joint where every other
+ * member end is released; none for a column free at both ends), and the floors
+ * are masses joined by those springs in series. A column held at a joint only by
+ * another column, with no rigid floor beam there, couples storeys and is refused.
  */
 import type { ModelData } from '../../solver-service';
 import type { PointMass } from '../mass-source';
@@ -14,7 +16,7 @@ import { effectiveBendingInertia } from '../../solver-service';
 import { type Mat, zeros } from './dense';
 import type { DofRef } from './mdof-system';
 
-export interface StoreyColumn { elementId: number; E: number; I: number; h: number; factor: 12 | 3; k: number }
+export interface StoreyColumn { elementId: number; E: number; I: number; h: number; factor: 12 | 3 | 0; k: number }
 export interface Floor {
   level: number;
   z: number;
@@ -39,7 +41,7 @@ export interface ShearBuilding {
   dofs: DofRef[];
 }
 
-export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase';
+export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn';
 
 const TOL = 1e-6;
 
@@ -68,12 +70,19 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
   const root = (id: number): number => { let r = id; while (parent.has(r)) r = parent.get(r)!; return r; };
   const join = (i: number, j: number) => { const a = root(i), b = root(j); if (a !== b) parent.set(a, b); };
   const beamHolds = new Set<number>();
+  const rigidEnds = new Map<number, number>();
   for (const e of els) {
+    for (const [node, rel] of [[e.nodeI, e.releaseI?.mz], [e.nodeJ, e.releaseJ?.mz]] as const) if (rel !== true) rigidEnds.set(node, (rigidEnds.get(node) ?? 0) + 1);
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     if (Math.abs(a.y - b.y) > TOL) continue;
     if (e.releaseI?.mz !== true) beamHolds.add(e.nodeI);
     if (e.releaseJ?.mz !== true) beamHolds.add(e.nodeJ);
   }
+  const jointFree = (node: number, released: boolean): boolean | 'coupled' => {
+    if (released) return true;
+    if (beamHolds.has(node)) return false;
+    return (rigidEnds.get(node) ?? 0) > 1 ? 'coupled' : true;
+  };
   for (const e of els) {
     if (e.variableSection) return 'variableSection';
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
@@ -94,10 +103,10 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
     const [loEnd, hiEnd] = la < lb ? [e.releaseI?.mz === true, e.releaseJ?.mz === true] : [e.releaseJ?.mz === true, e.releaseI?.mz === true];
     const [loNode, hiNode] = la < lb ? [e.nodeI, e.nodeJ] : [e.nodeJ, e.nodeI];
     const pinnedBase = lo === 0 && [...model.supports.values()].some((sp) => sp.type === 'pinned' && sp.nodeId === loNode);
-    const freeLo = loEnd || pinnedBase || (lo > 0 && !beamHolds.has(loNode));
-    const freeHi = hiEnd || !beamHolds.has(hiNode);
-    if (freeLo && freeHi) return 'noColumns';
-    const factor: 12 | 3 = freeLo || freeHi ? 3 : 12;
+    const freeLo = lo === 0 ? loEnd || pinnedBase : jointFree(loNode, loEnd);
+    const freeHi = jointFree(hiNode, hiEnd);
+    if (freeLo === 'coupled' || freeHi === 'coupled') return 'continuousColumn';
+    const factor: 12 | 3 | 0 = freeLo && freeHi ? 0 : freeLo || freeHi ? 3 : 12;
     const E = mat.e * 1000, I = effectiveBendingInertia(s, props);
     const h = Math.abs(b.y - a.y);
     const f = floors[hi - 1];
