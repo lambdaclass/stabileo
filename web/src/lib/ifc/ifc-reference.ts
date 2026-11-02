@@ -121,7 +121,6 @@ function placementOrigin(api: any, model: number, expressID: number, scale: numb
   const line: any = api.GetLine(model, expressID);
   let ref = line?.ObjectPlacement?.value as number | undefined;
   if (ref === undefined) return null;
-  // Compose up the chain: each level's location and axes, outermost last.
   const chain: any[] = [];
   for (let guard = 0; ref !== undefined && guard < 64; guard++) {
     const lp: any = api.GetLine(model, ref);
