@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { run, portal, checks, type Result } from './case';
+import { run, portal, checks, cumulativeStep, viewer, type Result } from './case';
 import replayFile from '../../../../../research/benchmarks/plastic-collapse/results/stabileo_results.json';
 
 const replay = replayFile.result as Result;
@@ -24,4 +24,7 @@ it('recomputes the replay with the production WASM wrapper', async () => {
       expect(Math.abs(d.uz - r.uz), `event ${i} node ${d.nodeId} uz`).toBeLessThan(METRES);
     });
   });
+  const frame = viewer(cumulativeStep(result.steps, result.steps.length - 1));
+  expect(frame.displacement?.every(Number.isFinite)).toBe(true);
+  expect(frame.range.max).toBeGreaterThan(0);
 });

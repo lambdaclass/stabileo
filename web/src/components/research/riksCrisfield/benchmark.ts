@@ -131,7 +131,9 @@ export function inputFor(c: BenchmarkCase, parameters: RunParameters): ArcInput 
 }
 
 export function measuredLimitFrame(frames: BenchmarkFrame[]): BenchmarkFrame | null {
-  const firstLimit = frames.findIndex((frame, index) => index + 1 < frames.length && frame.converged && frames[index + 1].converged && frame.load > 0 && frames[index + 1].load < frame.load);
+  const firstLimit = frames.findIndex((frame, index) => index > 0 && index + 1 < frames.length
+    && frames[index - 1].converged && frame.converged && frames[index + 1].converged
+    && frame.load > 0 && frames[index - 1].load <= frame.load && frames[index + 1].load < frame.load);
   return firstLimit >= 0
     ? frames[firstLimit]
     : null;
@@ -142,7 +144,6 @@ export function interpolatedLimit(frames: BenchmarkFrame[]): LimitPoint | null {
   if (!peak) return null;
   const i = frames.indexOf(peak);
   const left = frames[i - 1], right = frames[i + 1];
-  if (!left?.converged || !right?.converged) return { displacement: peak.displacement, load: peak.load, loadFactor: peak.loadFactor };
   const x = peak.displacement, h0 = left.displacement - x, h1 = right.displacement - x;
   const d0 = (left.load - peak.load) / h0, d1 = (right.load - peak.load) / h1;
   const a = (d1 - d0) / (h1 - h0), b = d0 - a * h0;

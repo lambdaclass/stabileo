@@ -63,12 +63,14 @@ describe('Riks–Crisfield closed-form benchmark', () => {
     const run: BenchmarkRun = {
       caseId: toggle.id,
       parameters: DEFAULT_PARAMETERS(toggle),
-      frames: [frame(1, limit.displacement, limit.load), frame(2, limit.displacement * 1.2, 0), frame(3, limit.displacement * 1.4, limit.load * 2)],
+      frames: [frame(1, limit.displacement * 0.95, limit.load * 0.995), frame(2, limit.displacement, limit.load), frame(3, limit.displacement * 1.2, 0), frame(4, limit.displacement * 1.4, limit.load * 2)],
       converged: true,
-      totalIterations: 9,
+      totalIterations: 12,
       finalLoadFactor: limit.loadFactor * 2,
     };
-    expect(compareRun(toggle, run)[0].observed).toBe(limit.load);
+    const observed = compareRun(toggle, run)[0].observed;
+    expect(observed).toBeGreaterThanOrEqual(limit.load);
+    expect(observed).toBeLessThan(limit.load * 1.05);
   });
 
   it('reports an unreached limit instead of passing it', () => {
@@ -93,6 +95,10 @@ it('requires a converged reversal for truncated and failed paths', () => {
     expect(checks[1].error).toBeNaN();
     expect(comparisonHeadline(checks)).not.toContain('100.0%');
   }
+  const descending = replay.frames.slice(i, i + 2);
+  expect(measuredLimitFrame(descending)).toBeNull();
+  expect(compareRun(c, { ...replay, frames: descending })[0].reached).toBe(false);
+  expect(measuredLimitFrame(replay.frames.slice(i))).not.toBe(peak);
   expect(compareRun(c, replay).every(c => c.passed)).toBe(true);
 });
 

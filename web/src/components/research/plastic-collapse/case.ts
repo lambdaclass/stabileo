@@ -93,7 +93,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
     return h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance;
   });
   const ends = [...moments.values()].flatMap(m => [m.myStart, m.myEnd]);
-  const corner = Math.abs(moments.get(1)?.myEnd ?? NaN);
+  const corner = moments.get(1)?.myEnd ?? NaN;
   const r = residual(result);
   return [
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
