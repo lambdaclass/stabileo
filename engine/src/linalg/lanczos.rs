@@ -804,21 +804,17 @@ fn operator_residual(op: &dyn MatVecOp, v: &[f64], mu: f64, locked: &[(Vec<f64>,
     project_locked(&mut av, locked);
     let mut bav = vec![0.0;n]; op.b_mul(&av,&mut bav);
     let projected = dot(&av,&bav).max(0.0).sqrt();
-    // Removed couplings count at first order near mu and at second order (quadratic residual bound) across a gap.
+    // Toward a well-separated locked eigenvector the coupling c is the eigenvector error c/gap, held to the same 1e-8 as mu·(c/gap).
     coupling.sort_by(|a,b| a.0.total_cmp(&b.0));
-    let mut far2: f64 = coupling.iter().map(|(_, c)| c*c).sum();
+    let mut far2 = vec![0.0f64; coupling.len()+1];
+    for (i, &(gap, c)) in coupling.iter().enumerate().rev() {
+        far2[i] = far2[i+1] + if gap > 0.0 { (mu*c/gap).powi(2) } else { f64::INFINITY };
+    }
     let mut near2 = 0.0f64;
     let mut removed = f64::INFINITY;
-    for split in 0..=coupling.len() {
-        let far = far2.max(0.0).sqrt();
-        let second_order = if split == coupling.len() { 0.0 }
-            else if coupling[split].0 > 2.0*far { far2 / (coupling[split].0 - far) }
-            else { f64::INFINITY };
-        removed = removed.min(near2.sqrt() + second_order);
-        if split < coupling.len() {
-            let c2 = coupling[split].1 * coupling[split].1;
-            near2 += c2; far2 -= c2;
-        }
+    for (split, far) in far2.iter().enumerate() {
+        removed = removed.min(near2.sqrt() + far.sqrt());
+        if let Some(&(_, c)) = coupling.get(split) { near2 += c*c; }
     }
     let total = projected + removed;
     total * total
@@ -1732,7 +1728,7 @@ mod completeness_tests {
         project_locked(&mut r, &inexact_locked);
         let projected = dot(&r,&r).sqrt();
         let gap = mu3 - mu4;
-        let expected = projected + c.abs().min(c*c/(gap - c.abs()));
+        let expected = projected + c.abs().min(mu3*c.abs()/gap);
         let residual = operator_residual(&op,&v,mu3,&inexact_locked,&[mu4]).sqrt();
         assert!(c.abs() > bound, "the scenario must remove a coupling above the tolerance");
         assert!((residual - expected).abs() <= 1e-12*expected, "{residual} against {expected}");
@@ -1805,6 +1801,10 @@ mod completeness_tests {
         assert!(removed2.sqrt() > bound, "the scenario must remove more than the acceptance tolerance");
         let accepted = operator_residual(&op,&v,mu3,&locked,&locked_mu).sqrt();
         assert!(accepted <= bound);
+        let mut mx3 = vec![0.0;n]; op.b_mul(&x3,&mut mx3);
+        let along = dot(&v,&mx3);
+        let error: Vec<f64> = v.iter().zip(&x3).map(|(a,b)| a - along*b).collect();
+        assert!(m_norm(&error) <= 1e-8, "accepted eigenvector is {} away from the exact one", m_norm(&error));
         let mut opv = vec![0.0;n]; op.mul_vec(&v,&mut opv);
         let mut bv = vec![0.0;n]; op.b_mul(&v,&mut bv);
         assert!((dot(&opv,&bv) - mu3).abs() <= bound, "Rayleigh quotient {} against {mu3}", dot(&opv,&bv));

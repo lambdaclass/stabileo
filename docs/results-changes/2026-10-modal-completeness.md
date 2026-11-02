@@ -66,23 +66,46 @@ remain unchanged: duplicated or missing vectors cannot establish completeness.
 ## Locking near a near-mechanism
 
 Each converged Ritz pair (μ, v) of the zero-shift operator A = K⁻¹M is locked
-only if it passes two checks: the operator residual ‖Av − μv‖_M ≤ 1e-8·μ and
-the pencil backward error ‖μKv − Mv‖∞ ≤ 1e-10·(μ‖K‖∞ + ‖M‖∞)‖v‖∞. Before
-both, v is M-orthogonally projected against the already locked, M-normalized
-eigenvectors φⱼ, so ⟨φⱼ, v⟩_M = 0.
+only if it passes two checks: an accuracy check against A (below) and the pencil
+backward error ‖μKv − Mv‖∞ ≤ 1e-10·(μ‖K‖∞ + ‖M‖∞)‖v‖∞, computed on the
+unprojected equation. Before both, v is M-orthogonally projected against the
+already locked, M-normalized vectors vⱼ, so ⟨vⱼ, v⟩_M = 0.
 
-A is self-adjoint in the M inner product, so for an exact locked eigenvector
-⟨φⱼ, Av − μv⟩_M = 0: the residual's component along it is only the rounding of
-the K⁻¹ solve, of order ε·μ₁ in the direction of the largest μ, not ε·μ. The
-locked vectors are not exact, though, and the component is then the coupling
-cⱼ = rⱼᵀMv to the locked pair's own residual. The acceptance residual is
-therefore the projected residual plus a bound on these couplings (next section
-but one): first order for locked values near μ, second order across a gap.
-A wrong eigenvalue μ(1+δ) still leaves a residual of |δ|μ along v itself; the
-regression perturbs μ by ±1e-7, 1e-6 and 1e-3 on a 201-coordinate chain with
-three locked modes and requires each to fail the 1e-8·μ bound, with the
-residual equal to |δ|μ to 1%. The pencil backward-error check is computed on
-the unprojected equation.
+The accuracy check is not the full residual ‖Av − μv‖_M ≤ 1e-8·μ. Along a
+locked vector the residual carries cⱼ = ⟨vⱼ, Av − μv⟩_M. A is self-adjoint in
+the M inner product, so cⱼ = rⱼᵀMv with rⱼ = Avⱼ − μⱼvⱼ: for an exact locked
+eigenvector it is zero up to the rounding of the K⁻¹ solve, which is of order
+ε·μ₁ along the direction of the largest μ, not ε·μ, and for an inexact one it
+is the coupling through that pair's own residual. Writing v in exact
+eigenvectors, v = Σ aₖφₖ, its component along a locked eigenvector with value
+μⱼ ≠ μ is aⱼ ≈ cⱼ/(μⱼ − μ) to first order. The check therefore accepts when
+
+  ‖P(Av − μv)‖_M + min over splits N ∪ F of the locked set
+      ( ‖c_N‖ + μ·‖(cⱼ/|μⱼ − μ|)_F‖ ) ≤ 1e-8·μ,
+
+where P projects out the locked vectors. Couplings in N (locked values near μ,
+as in a repeated cluster, where the eigenvector is not unique) count at full
+residual weight; couplings in F count as the eigenvector error they imply,
+held to 1e-8 in M-norm. The certified contract per mode is thus: residual at
+most 1e-8·μ in the unlocked complement and toward nearby locked values, and an
+eigenvector error of at most 1e-8 (first order in the locked vectors' own
+accuracy) toward well-separated locked eigenvectors; the eigenvalue error is
+second order in that. Near-mechanism rounding passes because its gap is the
+near-mechanism μ itself. The Sturm count at the boundary separately proves no
+eigenvalue below it was skipped.
+
+`coupling_removed_by_an_inexact_locked_vector_counts_against_acceptance`
+checks the expression term by term and rejects a pair whose eigenvector carries
+10⁻³ of a locked mode the locked vector got wrong.
+`projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
+locks a near-mechanism mode (μ = 10⁶) and two frame modes, each carrying 10⁻⁹
+of the candidate, on a pencil scaled by 10⁻³…10³: the accepted pair's
+eigenvector is within 10⁻⁸ (M-norm) of the exact one and its Rayleigh quotient
+within 10⁻⁸ of the exact eigenvalue, and eigenvalue errors of ±10⁻⁷ and an
+eigenvector carrying 10⁻⁵ of another mode are rejected. A wrong eigenvalue
+μ(1+δ) leaves a residual of |δ|μ along v itself; the 201-coordinate chain
+regression perturbs μ by ±1e-7, 1e-6 and 1e-3 with three locked modes and
+requires each to fail, with the residual equal to |δ|μ to 1%.
 
 The stock 8×8 simply supported MITC4 plate shows why this matters. Its in-plane
 rotation about the pinned corner is held only by drilling stiffness
@@ -110,28 +133,6 @@ Replaying every engine test's old eigensolver path with both checks evaluated
 found the projection changing a lock decision only on this plate (the gate and
 the harmonic test) and on that refused fuzz model; every other eigensolve locks
 the same vectors in the same order, so its results are bit-identical.
-
-The acceptance residual is measured against the original operator, with the
-part removed by projection bounded rather than dropped. Projecting removes,
-along each locked vector v_i, the coupling c_i = (M v_i)ᵀ(Opv − μv). Op = K⁻¹M
-is self-adjoint in the M inner product and v is M-orthogonal to v_i, so
-c_i = r_iᵀ M v, where r_i = Op v_i − μ_i v_i is the locked pair's own residual;
-with inexact locked vectors it is not zero. Acceptance requires
-‖projected residual‖ + min over splits of the locked set into near (N) and far
-(F) values of ‖c_N‖ + ‖c_F‖²/(η_F − ‖c_F‖) ≤ 10⁻⁸·μ, where η_F is the smallest
-|μ_i − μ| in F (and must exceed 2‖c_F‖): a coupling to a nearby locked value,
-as in a repeated cluster, counts at first order; a coupling across a gap
-counts by the quadratic residual bound. Couplings to a near-mechanism mode,
-whose K⁻¹ rounding exceeded 10⁻⁸·μ when counted at first order, are divided by
-their very large gap. `coupling_removed_by_an_inexact_locked_vector_counts_against_acceptance`
-checks the bound term by term and that a coupling above the tolerance is
-rejected; `projected_residual_with_inexact_locked_vectors_on_a_scaled_pencil_still_rejects_wrong_pairs`
-locks a near-mechanism mode (μ = 10⁶) and two frame modes, each carrying 10⁻⁹
-of the candidate, on a pencil scaled by 10⁻³…10³, and checks that the accepted
-pair's Rayleigh quotient is within 10⁻⁸ of the exact eigenvalue and that
-eigenvalue errors of ±10⁻⁷ and an eigenvector carrying 10⁻⁵ of another mode are
-rejected. The pencil backward-error check on the original K and M and the Sturm
-count at the boundary (no eigenvalue below it skipped) remain as separate checks.
 
 A negative mass pivot in the dense semidefinite path still refuses the model,
 even at rounding level: a mass that is semidefinite but loses a pivot to
