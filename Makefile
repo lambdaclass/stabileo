@@ -370,6 +370,7 @@ test.nightly-scripts:
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_cancel_superseded.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
 test.infra.caddy.redirects:
