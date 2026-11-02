@@ -20,6 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      checks: read
     outputs:
       make: ${{ steps.select.outputs.make }}
       commit: ${{ steps.select.outputs.commit }}
@@ -47,6 +48,12 @@ jobs:
           fi
           echo "make=$make" >> "$GITHUB_OUTPUT"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - name: Require CI OK on the commit
+        if: steps.select.outputs.make == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT: ${{ steps.select.outputs.commit }}
+        run: python3 -I research/tools/snapshot_validated.py "$GITHUB_REPOSITORY" "$COMMIT"
   snapshot:
     needs: select
     if: needs.select.outputs.make == 'true'

@@ -189,6 +189,7 @@ jobs:
         run: |
           pip install --require-hashes -r research/tools/requirements.txt
           python3 -I research/tools/test_snapshot_trigger.py
+          python3 -I research/tools/test_snapshot_validated.py
           python3 -I infra/ansible/scripts/test_snapshot_store.py
           python3 -I infra/ansible/scripts/test_snapshot_dns.py
       - name: Snapshot pruning never offers a released or still-linked snapshot
