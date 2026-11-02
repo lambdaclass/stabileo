@@ -1160,7 +1160,7 @@ pub fn scale_demands(demands: &[BoundedSteelDemand], s: f64) -> Vec<BoundedSteel
     let up = |x: f64| x.next_up();
     let sc = |x: f64, b: f64| -> (f64, f64) {
         let v = s * x;
-        if v == 0.0 && b == 0.0 {
+        if b == 0.0 && (x == 0.0 || s == 0.0) && x.is_finite() && s.is_finite() {
             return (v, 0.0);
         }
         (v, up(up(s.abs() * b) + up(v.abs() * f64::EPSILON)))
@@ -2435,6 +2435,14 @@ mod tests {
         let scaled = scale_demands(std::slice::from_ref(&plane), 1000.0);
         assert_eq!((scaled[0].bound.v_weak, scaled[0].bound.mz), (0.0, 0.0));
         assert!(rc_demands(&scaled).is_ok() && ec2_demands(&scaled).is_ok());
+        let tiny = BoundedSteelDemand {
+            forces: steel_forces_3d(7, AxisDemand { v_weak: f64::MIN_POSITIVE * f64::EPSILON, ..AxisDemand::default() }),
+            bound: demand_bound(AxisDemand::default()),
+        };
+        let under = scale_demands(std::slice::from_ref(&tiny), 0.1);
+        assert_eq!(under[0].forces.v_weak, Some(0.0));
+        assert!(under[0].bound.v_weak > 0.0);
+        assert!(rc_demands(&under).is_err());
         assert!(ec3_demands(&[weak]).is_err());
         let zero = demand_bound(AxisDemand::default());
         for (bound, biaxial_ok) in [
