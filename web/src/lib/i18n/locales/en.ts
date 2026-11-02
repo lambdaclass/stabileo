@@ -408,7 +408,7 @@ const en: Record<string, string> = {
   'admin.settings.userLogin': 'Allow user sign-in',
   'admin.settings.on': 'On',
   'admin.settings.off': 'Off',
-  'admin.settings.userLoginHelp': 'Opens sign-up and sign-in on stabileo.com. When off, the app shows nothing about accounts: no sign-in button, no “My projects”, no account request to save. Sessions already open keep working until they expire.',
+  'admin.settings.userLoginHelp': 'Opens sign-up and sign-in on stabileo.com. When off, visitors see nothing about accounts: no sign-in button and no account request to save. People already signed in keep their account menu and “My projects” until their session expires.',
   'admin.settings.saving': 'Saving…',
   'admin.settings.saved': 'Saved.',
   'admin.allowlist.title': 'Admin access',

@@ -23,16 +23,17 @@ export const cloudLinks = {
   synced(tab: string, edit: number): boolean {
     return links.get(tab)?.edit === edit;
   },
-  set(tab: string, id: string, revision: number, name: string, edit: number): void {
-    links.set(tab, { id, revision, base: name, cloud: name, edit });
+  /** `base` is the name the tab's document had, `cloud` the name the project has there. */
+  set(tab: string, id: string, revision: number, base: string, cloud: string, edit: number): void {
+    links.set(tab, { id, revision, base, cloud, edit });
     version += 1;
   },
   /** Moves on each time the tab gets another document; a link answered for an older one is dropped. */
   generation(tab: string): number {
     return generations.get(tab) ?? 0;
   },
-  setIf(tab: string, generation: number, id: string, revision: number, name: string, edit: number): void {
-    if ((generations.get(tab) ?? 0) === generation) this.set(tab, id, revision, name, edit);
+  setIf(tab: string, generation: number, id: string, revision: number, base: string, cloud: string, edit: number): void {
+    if ((generations.get(tab) ?? 0) === generation) this.set(tab, id, revision, base, cloud, edit);
   },
   /** Whether `current` is still the name the tab's document had from the cloud, not one given here. */
   keepsCloudName(tab: string, current: string): boolean {

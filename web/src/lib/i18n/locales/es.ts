@@ -408,7 +408,7 @@ const es: Record<string, string> = {
   'admin.settings.userLogin': 'Permitir el inicio de sesión de usuarios',
   'admin.settings.on': 'Activado',
   'admin.settings.off': 'Desactivado',
-  'admin.settings.userLoginHelp': 'Abre el registro y el ingreso en stabileo.com. Apagado, la app no muestra nada de cuentas: ni el botón de ingresar, ni «Mis proyectos», ni el pedido de cuenta para guardar. Las sesiones ya abiertas siguen funcionando hasta que vencen.',
+  'admin.settings.userLoginHelp': 'Abre el registro y el ingreso en stabileo.com. Apagado, quien no ingresó no ve nada de cuentas: ni el botón de ingresar ni el pedido de cuenta para guardar. Quien ya ingresó conserva su menú de cuenta y «Mis proyectos» hasta que vence su sesión.',
   'admin.settings.saving': 'Guardando…',
   'admin.settings.saved': 'Guardado.',
   'admin.allowlist.title': 'Acceso al admin',

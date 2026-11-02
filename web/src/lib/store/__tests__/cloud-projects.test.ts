@@ -258,11 +258,14 @@ describe('cloud projects', () => {
     replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Beam', 3) }));
     await cloudProjects.saveCurrent();
     expect(seen.at(-1)!.body).toMatchObject({ name: 'Beam', revision: 2 });
+    replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Beam', 4) }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ name: 'Beam', revision: 3 });
 
     modelStore.model.name = 'Local name';
-    replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Local name', 4) }));
+    replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Local name', 5) }));
     await cloudProjects.saveCurrent();
-    expect(seen.at(-1)!.body).toMatchObject({ name: 'Local name', revision: 3 });
+    expect(seen.at(-1)!.body).toMatchObject({ name: 'Local name', revision: 4 });
   });
 
   it('a list rename leaves a name given to the open document here, and an edit made while a project downloads keeps it from loading', async () => {

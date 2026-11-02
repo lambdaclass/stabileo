@@ -2,7 +2,7 @@ defmodule StabileoProjects.Content do
   @moduledoc """
   A project's document travels gzipped and base64-encoded, and is stored as
   the gzip. Decoding inflates at most `max_bytes`, so a small upload cannot
-  expand into a huge one, and requires a JSON object.
+  expand into a huge one, and requires a whole gzip stream holding a JSON object.
   """
 
   def decode(encoded, max_compressed, max_bytes) when is_binary(encoded) do
@@ -46,9 +46,14 @@ defmodule StabileoProjects.Content do
 
     cond do
       size > max -> {:error, :too_large}
-      state == :finished -> {:ok, IO.iodata_to_binary(Enum.reverse([chunk | acc]))}
+      state == :finished -> complete(z, Enum.reverse([chunk | acc]))
       true -> collect(z, :zlib.safeInflate(z, []), [chunk | acc], size, max)
     end
+  end
+
+  defp complete(z, chunks) do
+    :ok = :zlib.inflateEnd(z)
+    {:ok, IO.iodata_to_binary(chunks)}
   end
 
   defp json_object(json) do

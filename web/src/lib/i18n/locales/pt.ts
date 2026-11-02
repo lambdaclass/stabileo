@@ -408,7 +408,7 @@ const pt: Translations = {
   'admin.settings.userLogin': 'Permitir o login de usuários',
   'admin.settings.on': 'Ativado',
   'admin.settings.off': 'Desativado',
-  'admin.settings.userLoginHelp': 'Abre o cadastro e o login no stabileo.com. Desativado, o app não mostra nada de contas: nem o botão de entrar, nem “Meus projetos”, nem o pedido de conta para salvar. As sessões já abertas continuam até vencer.',
+  'admin.settings.userLoginHelp': 'Abre o cadastro e o login no stabileo.com. Desativado, quem não entrou não vê nada de contas: nem o botão de entrar, nem o pedido de conta para salvar. Quem já entrou mantém o menu da conta e “Meus projetos” até a sessão vencer.',
   'admin.settings.saving': 'Salvando…',
   'admin.settings.saved': 'Salvo.',
   'admin.allowlist.title': 'Acesso ao admin',

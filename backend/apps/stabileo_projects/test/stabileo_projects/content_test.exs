@@ -21,6 +21,14 @@ defmodule StabileoProjects.ContentTest do
     assert {:error, :invalid} = Content.decode(nil, 1_000, 1_000)
   end
 
+  test "rejects a gzip cut short, even when the JSON inside is whole" do
+    json = ~s({"version":"2.0","nodes":[1,2,3]})
+    gzip = :zlib.gzip(json)
+    cut = binary_part(gzip, 0, byte_size(gzip) - 8)
+    assert {:error, :invalid} = Content.decode(Base.encode64(cut), 1_000, 1_000)
+    assert {:ok, _gzip, _size} = Content.decode(Base.encode64(gzip), 1_000, 1_000)
+  end
+
   test "stops inflating past the limit, so a small upload cannot expand into a huge one" do
     bomb = ~s({"pad":") <> String.duplicate("0", 5_000_000) <> ~s("})
     packed = pack(bomb)

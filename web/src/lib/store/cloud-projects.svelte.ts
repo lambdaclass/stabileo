@@ -97,7 +97,7 @@ async function saveNow(r: SaveRequest, asNew: boolean): Promise<CloudProject> {
     stillValid(r);
     const saved = id ? await projectsApi.update(id, { ...body, revision }) : await projectsApi.create(body);
     if (!stillFor(r.who)) return saved;
-    cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, saved.name, r.edit);
+    cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, r.meta.name, saved.name, r.edit);
     trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
     items = [saved, ...items.filter((p) => p.id !== saved.id)];
     if (!id) {
@@ -119,7 +119,7 @@ async function replaceNow(r: SaveRequest, id: string): Promise<CloudProject> {
     stillValid(r);
     const saved = await projectsApi.update(id, { ...body, revision: listed });
     if (!stillFor(r.who)) return saved;
-    cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, saved.name, r.edit);
+    cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, r.meta.name, saved.name, r.edit);
     trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
     items = [saved, ...items.filter((p) => p.id !== saved.id)];
     return saved;
@@ -185,7 +185,7 @@ export const cloudProjects = {
     if (!stillFor(who) || tabKey() !== tab || cloudLinks.generation(tab) !== generation || modelStore.modelVersion !== edit) return false;
     loadProjectText(text);
     modelStore.model.name = project.name;
-    cloudLinks.set(tab, project.id, project.revision, project.name, modelStore.modelVersion);
+    cloudLinks.set(tab, project.id, project.revision, project.name, project.name, modelStore.modelVersion);
     trackUsage('project.cloud_open', { mode: project.app_mode });
     return true;
   },
