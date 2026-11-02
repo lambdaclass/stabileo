@@ -174,7 +174,6 @@ export function autoVerifyFromResults(
     // The signed axial forces the member sees, + = compression: the column is checked under
     // each (a member in tension is not checked as if compressed).
     let axialLoads: number[];
-    // Station-based governing combo refs (richer than endpoint-only governing-case.ts)
     let stationGovCombos: ElementVerification['governingCombos'] | undefined;
 
     const demands = stationDemands?.get(ef.elementId);

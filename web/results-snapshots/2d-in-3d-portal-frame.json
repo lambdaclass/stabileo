@@ -1,7 +1,7 @@
 {
   "case": "2d-in-3d-portal-frame",
   "covers": "a 2D example solved in the 3D workspace",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "",
