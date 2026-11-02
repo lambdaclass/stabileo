@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues, flatten, storeNumber, serialiseSnapshot, parseSnapshot, RTOL, ATOL } from '../results-snapshot/compare.mjs';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
-import { decide, isBreakingResultsFragment, newRegistryEntries } from '../results-snapshot/gate.mjs';
+import { decide, isBreakingResultsFragment, newRegistryEntries, newlyRecorded } from '../results-snapshot/gate.mjs';
 
 describe('the tolerance', () => {
   const ref = { 'r.m[e1].my': 100, 'r.m[e2].my': -40, 'r.m[e3].my': 0, 'r.d[n1].ux': 0.0123 };
@@ -108,6 +108,22 @@ describe('the gate', () => {
     expect(decide({ snapshots: moved, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(false);
     const dropped = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1, u: 2 }), head: v2({ v: 1 }) }];
     expect(decide({ snapshots: dropped, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(false);
+  });
+  it('NEGATIVE: a format bump excuses only what that format began recording', () => {
+    const v2 = (values: Record<string, unknown>) => ({ ...snap(values), format: 2 });
+    const solverAdded = [{ file: 'web/results-snapshots/c.json', base: snap({ v: 1 }), head: v2({ v: 1, 'envelope.m[e1].posValues[0]': 3, 'combo[9].v': 2 }) }];
+    const r = decide({ snapshots: solverAdded, baseRegistry: registry, headRegistry: registry, fragments: [] });
+    expect(r.ok).toBe(false);
+    expect(r.report).toContain('combo[9].v: newly produced');
+    expect(r.report).not.toContain('envelope.m[e1]');
+  });
+  it('NEGATIVE: a format field edited in the snapshot alone, not in the harness, excuses nothing', () => {
+    const v3 = { ...snap({ v: 1, 'envelope.m[e1].posValues[0]': 3 }), format: 3 };
+    const forged = [{ file: 'web/results-snapshots/c.json', base: { ...snap({ v: 1 }), format: 2 }, head: v3 }];
+    expect(decide({ snapshots: forged, baseRegistry: registry, headRegistry: registry, fragments: [] }).ok).toBe(false);
+    expect(newlyRecorded('envelope.m[e1].posValues[0]', 1, 3, 2, { 2: /^envelope\./ })).toBe(false);
+    expect(newlyRecorded('envelope.m[e1].posValues[0]', 1, 3, 3, { 2: /^envelope\./ })).toBe(true);
+    expect(newlyRecorded('combo[1].v', 1, 3, 3, { 2: /^envelope\./ })).toBe(false);
   });
   it('rejects a second PR reusing a released version even without snapshot changes', () => {
     const baseRegistry = { currentResultsVersion: 5, changes: [{ id: 'containment', resultsVersion: 5 }, ...registry.changes] };

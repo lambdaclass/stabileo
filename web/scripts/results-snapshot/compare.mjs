@@ -46,6 +46,8 @@
  * moved or disappeared is a change whatever the format.
  */
 export const FORMAT = 2;
+/** What each format began recording: the only paths its bump lets a pull request add unregistered. */
+export const FORMAT_ADDITIONS = { 2: /^envelope\./ };
 export const RTOL = 1e-6;
 export const ATOL = 1e-7;
 export const STORED_DIGITS = 10;

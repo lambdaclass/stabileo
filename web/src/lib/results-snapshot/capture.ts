@@ -46,6 +46,7 @@ import { errorText } from '../utils/error-text';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { flatten, FORMAT } from '../../../scripts/results-snapshot/compare.mjs';
 import type { SnapshotCase } from './corpus';
+import { governingCombos } from './governing-ties';
 
 export interface Snapshot {
   case: string;
@@ -130,39 +131,9 @@ function captureEnvelope(env: unknown, governing: Map<number, unknown>, perCombo
       if (!ref) continue;
       const p = `envelope.governing[e${id}].${component}`;
       flatten(ref.value, `${p}.value`, out);
-      // Which combination governs, or every one that ties with it: on a tie (a lateral moment
-      // the dead and live loads do not touch, so 1.2D + L + E and 0.9D + E give it exactly) the
-      // app names whichever it met first, and that depends on the order the session built the
-      // combinations in, not on the model.
-      const tied = governingTies(perCombo, id, component, ref.value);
-      out[`${p}.combos`] = (tied.length > 0 ? tied : [ref.comboId]).join(',');
+      out[`${p}.combos`] = governingCombos(perCombo, id, component, ref).join(',');
     }
   }
-}
-
-/** The member-end magnitude each governing component is the maximum of (`governing-case.ts`). */
-const GOVERNING_METRIC: Record<string, (f: Record<string, number>) => number> = {
-  momentZ: (f) => Math.max(Math.abs(f.mzStart), Math.abs(f.mzEnd)),
-  shearY: (f) => Math.max(Math.abs(f.vyStart), Math.abs(f.vyEnd)),
-  momentY: (f) => Math.max(Math.abs(f.myStart), Math.abs(f.myEnd)),
-  shearZ: (f) => Math.max(Math.abs(f.vzStart), Math.abs(f.vzEnd)),
-  torsion: (f) => Math.max(Math.abs(f.mxStart), Math.abs(f.mxEnd)),
-  axial: (f) => Math.max(Math.abs(f.nStart), Math.abs(f.nEnd)),
-  // 2D
-  moment: (f) => Math.max(Math.abs(f.mStart), Math.abs(f.mEnd)),
-  shear: (f) => Math.max(Math.abs(f.vStart), Math.abs(f.vEnd)),
-};
-
-/** Every combination whose value for this member and component equals the governing one, sorted. */
-function governingTies(perCombo: Map<number, { elementForces: unknown[] }>, elementId: number, component: string, value: number): number[] {
-  const metric = GOVERNING_METRIC[component];
-  if (!metric) return [];
-  const out: number[] = [];
-  for (const [comboId, r] of perCombo) {
-    const f = (r.elementForces as Array<Record<string, number>>).find((x) => x.elementId === elementId);
-    if (f && Math.abs(metric(f) - value) <= 1e-9 * Math.max(Math.abs(value), 1e-12)) out.push(comboId);
-  }
-  return out.sort((a, b) => a - b);
 }
 
 /** The station positions are each member's geometry, not a result. */
