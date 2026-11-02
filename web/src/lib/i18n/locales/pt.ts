@@ -5187,6 +5187,7 @@ const pt: Translations = {
   'pro.th.recordSummary': '{points} pontos, {duration} s, PGA {pga} g',
   'pro.th.fitSteps': 'Rodar o registro completo',
   'pro.th.stale': 'O modelo mudou depois desta execução: rode de novo para percorrer a resposta.',
+  'pro.th.refusal.nonFinite': 'a resposta não é finita (NaN ou infinita) a partir do passo {step} (t = {time} s), então nenhum resultado é mostrado. Verifique se o modelo tem uma barra ou um apoio que deixe um movimento sem rigidez, e a escala das cargas',
   'pro.th.showInModel': 'Ver no modelo',
   'pro.th.play': 'Reproduzir',
   'pro.th.pause': 'Pausa',

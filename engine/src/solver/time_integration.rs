@@ -309,6 +309,11 @@ fn solve_time_history_2d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let first_bad = node_histories.iter().filter_map(|h| {
+        first_non_finite(&[&h.ux, &h.uz, &h.ry, &h.vx, &h.vz, &h.ax, &h.az])
+    }).min();
+    refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.rx, r.rz, r.my]))?;
+
     Ok(TimeHistoryResult {
         time_steps,
         node_histories,
@@ -322,6 +327,30 @@ fn solve_time_history_2d_inner(
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+pub const NON_FINITE_RESPONSE: &str = "TH-NONFINITE";
+
+fn first_non_finite(series: &[&Vec<f64>]) -> Option<usize> {
+    series.iter().filter_map(|s| s.iter().position(|v| !v.is_finite())).min()
+}
+
+fn refuse_non_finite_response(
+    first_bad_step: Option<usize>,
+    time_steps: &[f64],
+    peak_reactions: impl Iterator<Item = f64>,
+) -> Result<(), String> {
+    let step = first_bad_step.or_else(|| {
+        let mut reactions = peak_reactions;
+        reactions.any(|v| !v.is_finite()).then_some(time_steps.len().saturating_sub(1))
+    });
+    match step {
+        None => Ok(()),
+        Some(k) => Err(format!(
+            "{NON_FINITE_RESPONSE}: Time history: the response is not finite (NaN or infinite) from step {k} (t = {} s); no result is returned",
+            time_steps.get(k).copied().unwrap_or(f64::NAN)
+        )),
+    }
+}
 
 /// Reject integration parameters that make the scheme amplify.
 ///
@@ -1328,6 +1357,11 @@ fn solve_time_history_3d_inner(
     } else {
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
+
+    let first_bad = node_histories.iter().filter_map(|h| {
+        first_non_finite(&[&h.ux, &h.uy, &h.uz, &h.rx, &h.ry, &h.rz, &h.vx, &h.vy, &h.vz, &h.ax, &h.ay, &h.az])
+    }).min();
+    refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.fx, r.fy, r.fz, r.mx, r.my, r.mz]))?;
 
     Ok(TimeHistoryResult3D {
         time_steps,

@@ -5658,6 +5658,7 @@ const tr: Translations = {
   'pro.th.recordSummary': '{points} nokta, {duration} s, PGA {pga} g',
   'pro.th.fitSteps': 'Kaydın tamamını çalıştır',
   'pro.th.stale': 'Bu çalıştırmadan sonra model değişti: tepkiyi adım adım izlemek için yeniden çalıştırın.',
+  'pro.th.refusal.nonFinite': 'yanıt {step}. adımdan (t = {time} s) itibaren sonlu değil (NaN veya sonsuz), bu yüzden sonuç gösterilmiyor. Modelde bir hareketi rijitliksiz bırakan bir eleman veya mesnet olup olmadığını ve yüklerin büyüklüğünü kontrol edin',
   'pro.th.showInModel': 'Modelde göster',
   'pro.th.play': 'Oynat',
   'pro.th.pause': 'Duraklat',

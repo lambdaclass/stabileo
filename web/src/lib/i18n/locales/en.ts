@@ -5728,6 +5728,7 @@ const en: Record<string, string> = {
   'pro.th.recordSummary': '{points} points, {duration} s, PGA {pga} g',
   'pro.th.fitSteps': 'Run the whole record',
   'pro.th.stale': 'The model changed after this run: run it again to step through the response.',
+  'pro.th.refusal.nonFinite': 'the response is not finite (NaN or infinite) from step {step} (t = {time} s), so no result is shown. Check the model for a member or support that leaves a motion without stiffness, and the scale of the loads',
   'pro.th.showInModel': 'Show in the model',
   'pro.th.play': 'Play',
   'pro.th.pause': 'Pause',

@@ -5650,6 +5650,7 @@ const fr: Translations = {
   'pro.th.recordSummary': '{points} points, {duration} s, PGA {pga} g',
   'pro.th.fitSteps': 'Lancer tout l\'enregistrement',
   'pro.th.stale': 'Le modèle a changé après ce calcul : relancez-le pour parcourir la réponse.',
+  'pro.th.refusal.nonFinite': "la réponse n'est pas finie (NaN ou infinie) à partir du pas {step} (t = {time} s), aucun résultat n'est donc affiché. Vérifiez si le modèle contient une barre ou un appui qui laisse un mouvement sans rigidité, ainsi que l'ordre de grandeur des charges",
   'pro.th.showInModel': 'Afficher dans le modèle',
   'pro.th.play': 'Lire',
   'pro.th.pause': 'Pause',
