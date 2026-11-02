@@ -460,7 +460,7 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
 pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<Option<FullEnvelope3D>, String> {
     for result in results {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
-        if results.len() > 1 && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+        if result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }

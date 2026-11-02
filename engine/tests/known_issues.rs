@@ -313,20 +313,10 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                 assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
-                let single = dedaliano_engine::postprocess::combinations::compute_envelope_3d(std::slice::from_ref(&result)).unwrap().unwrap().max_abs_results_3d;
-                let signs = |v: Vec<f64>| v.iter().any(|x| *x > 0.0) && v.iter().any(|x| *x < 0.0);
-                assert!(shape == "regular" || signs(result.displacements.iter().flat_map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]).collect()), "{shape}: a field with both signs");
-                for (enveloped, solved) in [
-                    (serde_json::to_value(&single.displacements), serde_json::to_value(&result.displacements)),
-                    (serde_json::to_value(&single.reactions), serde_json::to_value(&result.reactions)),
-                    (serde_json::to_value(&single.element_forces), serde_json::to_value(&result.element_forces)),
-                ] {
-                    assert_eq!(enveloped.unwrap(), solved.unwrap(), "{shape}: one result's envelope is that result, signs kept");
+                for results in [std::slice::from_ref(&result).to_vec(), vec![result.clone(), result.clone()]] {
+                    let envelope = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&results);
+                    if shape == "regular" { assert!(envelope.is_ok()); } else { common::assert_containment(envelope, "SH-MITC4-DISTORTION"); }
                 }
-                assert!(single.quad_stresses.is_empty() && single.plate_stresses.is_empty(), "no shell field is enveloped");
-                assert_eq!(ids(&single.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
-                let pair = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&[result.clone(), result.clone()]);
-                if shape == "regular" { assert!(pair.is_ok()); } else { common::assert_containment(pair, "SH-MITC4-DISTORTION"); }
                 assert_warning(&result.structured_diagnostics, "SH-MITC4-CONVERGENCE", 810.0);
                 let tip = result.displacements.iter().find(|d| d.node_id == 13).unwrap();
                 let (published, reference) = [(tip.ux, 3.0e-5), (tip.uy, 0.1081), (tip.uz, 0.4321)][direction];
@@ -376,9 +366,7 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
     let mut distorted = dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION");
     distorted.severity = Severity::Warning;
     r.structured_diagnostics.push(distorted);
-    let single = compute_envelope_3d(&[r.clone()]).unwrap().unwrap().max_abs_results_3d;
-    assert!(single.displacements.iter().zip(&r.displacements).all(|(e, d)| e.uz == d.uz));
-    assert!(single.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
+    common::assert_containment(compute_envelope_3d(&[r.clone()]), "SH-MITC4-DISTORTION");
     common::assert_containment(compute_envelope_3d(&[r.clone(), r.clone()]), "SH-MITC4-DISTORTION");
     let same = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]).unwrap().unwrap();
     assert!(same.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));

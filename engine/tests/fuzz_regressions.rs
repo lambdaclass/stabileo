@@ -144,33 +144,41 @@ fn plastic_3d_certificate_nightly_inputs_finish() {
 
 /// Certifies one fixture in a fresh copy of this test binary under a virtual memory limit (KiB),
 /// killed at `timeout`, so a hang or a runaway allocation fails the test instead of stalling or
-/// killing the whole run. True only when the copy ran that one test and it passed.
+/// killing the whole run. True only when the copy ran that one test and it passed in time.
 fn within_limits(fixture: &std::path::Path, timeout: std::time::Duration, kib: u64) -> bool {
-    use std::io::Read;
     let test = format!("{}::plastic_3d_certificate_of_one_nightly_input", module_path!().split_once("::").map_or("", |m| m.1));
     let exe = std::env::current_exe().unwrap();
-    let mut child = std::process::Command::new("sh")
-        .args(["-c", &format!("ulimit -v {kib} && exec \"$0\" \"$@\""), exe.to_str().unwrap(), "--exact", &test, "--ignored", "--test-threads=1"])
-        .env("FUZZ_PLASTIC_FIXTURE", fixture)
-        .stdout(std::process::Stdio::piped())
-        .spawn().unwrap();
+    let mut command = std::process::Command::new("sh");
+    command.args(["-c", &format!("ulimit -v {kib} && exec \"$0\" \"$@\""), exe.to_str().unwrap(), "--exact", &test, "--ignored", "--test-threads=1"])
+        .env("FUZZ_PLASTIC_FIXTURE", fixture);
+    let passed = run_limited(command, timeout);
+    eprintln!("{}: {passed:?}", fixture.display());
+    passed.is_some_and(|out| out.contains("test result: ok. 1 passed"))
+}
+
+/// The standard output of `command` when it exits successfully before `timeout`; `None` when it
+/// fails, or is still running or finishes only after `timeout` (then it is killed).
+fn run_limited(mut command: std::process::Command, timeout: std::time::Duration) -> Option<String> {
+    use std::io::Read;
+    let start = std::time::Instant::now();
+    let mut child = command.stdout(std::process::Stdio::piped()).spawn().unwrap();
     let mut stdout = child.stdout.take().unwrap();
     let reader = std::thread::spawn(move || { let mut out = String::new(); let _ = stdout.read_to_string(&mut out); out });
-    let start = std::time::Instant::now();
     let status = loop {
-        if let Some(status) = child.try_wait().unwrap() {
-            break Some(status);
-        }
+        let status = child.try_wait().unwrap();
         if start.elapsed() > timeout {
-            child.kill().unwrap();
-            child.wait().unwrap();
+            if status.is_none() {
+                child.kill().unwrap();
+                child.wait().unwrap();
+            }
             break None;
         }
-        std::thread::sleep(std::time::Duration::from_millis(50));
+        if status.is_some() {
+            break status;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
     };
-    let out = reader.join().unwrap();
-    eprintln!("{}: {status:?} after {:?}", fixture.display(), start.elapsed());
-    status.is_some_and(|s| s.success()) && out.contains("test result: ok. 1 passed")
+    status.filter(|s| s.success()).map(|_| reader.join().unwrap())
 }
 
 /// The 10.125 is the z-sway mechanism: four column-base hinges (Mp_y =
@@ -195,8 +203,15 @@ fn plastic_3d_certificate_of_one_nightly_input() {
 
 #[test]
 fn a_fixture_past_its_limits_fails() {
+    let shell = |script: &str| { let mut c = std::process::Command::new("sh"); c.args(["-c", script]); c };
+    let second = std::time::Duration::from_secs(1);
+    assert_eq!(run_limited(shell("echo done"), second).as_deref(), Some("done\n"));
+    let start = std::time::Instant::now();
+    assert_eq!(run_limited(shell("exec sleep 30"), second), None, "a blocking child is killed at its timeout");
+    assert!(start.elapsed() < std::time::Duration::from_secs(10));
+    assert_eq!(run_limited(shell("exec sleep 0.2"), std::time::Duration::from_millis(100)), None, "finishing after the timeout fails");
+    assert_eq!(run_limited(shell("exit 3"), second), None);
     let f = std::path::Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/fuzz-json-plastic")).read_dir().unwrap().next().unwrap().unwrap().path();
-    assert!(!within_limits(&f, std::time::Duration::from_millis(1), 4 << 20), "killed at its timeout");
     assert!(!within_limits(&f, std::time::Duration::from_secs(300), 1 << 10), "out of memory");
     assert!(!within_limits(std::path::Path::new("/nonexistent"), std::time::Duration::from_secs(300), 4 << 20), "a missing fixture");
 }

@@ -526,24 +526,44 @@ impl Tangent3D {
     }
 
     fn backward_error(&self, n: usize, nf: usize, f: &[f64], u: &[f64], cs: &Option<FreeConstraintSystem>) -> f64 {
-        let (ku, norm) = match self {
-            Self::Dense(k) => (
-                (0..nf).map(|i| k[i * n..(i + 1) * n].iter().zip(u).map(|(a, b)| a * b).sum::<f64>()).collect::<Vec<_>>(),
-                (0..nf).map(|i| k[i * n..(i + 1) * n].iter().map(|a| a.abs()).sum::<f64>()).fold(0.0, f64::max),
-            ),
-            Self::Sparse(k) => {
-                let abs = CscMatrix { values: k.values.iter().map(|v| v.abs()).collect(), ..k.clone() };
-                (k.sym_mat_vec(u)[..nf].to_vec(), abs.sym_mat_vec(&vec![1.0; n])[..nf].iter().fold(0.0, |m: f64, v| m.max(*v)))
-            }
+        let rhs = self.rhs(n, nf, f, u);
+        let block = self.free_block(n, nf);
+        let ku = block.mat_vec(&u[..nf]);
+        let (rhs, ku, block, u_norm) = match cs {
+            Some(c) => (c.reduce_vector(&rhs), c.reduce_vector(&ku), match &block {
+                Self::Dense(k) => Self::Dense(c.reduce_matrix(k)),
+                Self::Sparse(k) => Self::Sparse(c.reduce_matrix_sparse(k)),
+            }, c.independent_norm(&u[..nf])),
+            None => (rhs, ku, block, u[..nf].iter().fold(0.0f64, |m, x| m.max(x.abs()))),
         };
-        let r: Vec<f64> = f[..nf].iter().zip(&ku).map(|(f, ku)| f - ku).collect();
-        let r = cs.as_ref().map_or(r.clone(), |c| c.reduce_vector(&r));
+        let norm = block.row_norm();
+        let r: Vec<f64> = rhs.iter().zip(&ku).map(|(f, ku)| f - ku).collect();
         let finite = |v: &[f64]| v.iter().all(|x| x.is_finite());
-        if !(finite(u) && finite(f) && finite(&ku) && finite(&r) && norm.is_finite()) {
+        if !(finite(u) && finite(f) && finite(&rhs) && finite(&ku) && finite(&r) && norm.is_finite() && u_norm.is_finite()) {
             return f64::INFINITY;
         }
         let inf = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
-        inf(&r) / (norm * inf(u) + inf(&f[..nf])).max(f64::MIN_POSITIVE)
+        inf(&r) / (norm * u_norm + inf(&rhs)).max(f64::MIN_POSITIVE)
+    }
+
+    fn mat_vec(&self, x: &[f64]) -> Vec<f64> {
+        match self {
+            Self::Dense(k) => k.chunks(x.len()).map(|row| row.iter().zip(x).map(|(a, b)| a * b).sum()).collect(),
+            Self::Sparse(k) => k.sym_mat_vec(x),
+        }
+    }
+
+    fn row_norm(&self) -> f64 {
+        match self {
+            Self::Dense(k) => {
+                let m = (k.len() as f64).sqrt().round() as usize;
+                k.chunks(m.max(1)).map(|row| row.iter().map(|a| a.abs()).sum::<f64>()).fold(0.0, f64::max)
+            }
+            Self::Sparse(k) => {
+                let abs = CscMatrix { values: k.values.iter().map(|v| v.abs()).collect(), ..k.clone() };
+                abs.sym_mat_vec(&vec![1.0; k.n]).into_iter().fold(0.0, f64::max)
+            }
+        }
     }
 
     fn solve(self, rhs: &[f64], nf: usize, cs: &Option<FreeConstraintSystem>, cache: &mut Option<SparseSymbolicCache>) -> Option<(Vec<f64>, bool)> {
@@ -890,6 +910,38 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn backward_error_with_diaphragms_is_that_of_the_explicitly_reduced_system() {
+        let input = building(2, 3, true);
+        let dof_num = DofNumbering::build_3d(&input);
+        let (n, nf) = (dof_num.n_total, dof_num.n_free);
+        let cs = FreeConstraintSystem::build_3d(&input, &dof_num).unwrap();
+        let state = solve_pdelta_3d_on(&input, &dof_num, FreeConstraintSystem::build_3d(&input, &dof_num).unwrap(), false, 1, 1e-13).unwrap();
+        let system = PDeltaSystem3D::build(&input, &dof_num, false);
+        let (f, its) = system.data();
+        let u = assembly_frame_3d(&dof_num, &state.results.displacements, its);
+        let tangent = system.tangent(&input, &dof_num, &u);
+        let Tangent3D::Dense(k) = &tangent else { panic!("dense") };
+        let c = cs.as_ref().unwrap();
+        let ns = c.n_free_indep;
+        let columns: Vec<Vec<f64>> = (0..ns).map(|j| { let mut e = vec![0.0; ns]; e[j] = 1.0; c.expand_solution(&e) }).collect();
+        assert!(columns.iter().flatten().any(|v| *v != 0.0 && v.abs() != 1.0), "lever arms make coefficients other than 0 and 1");
+        let rhs: Vec<f64> = (0..nf).map(|i| f[i] - (nf..n).map(|j| k[i * n + j] * u[j]).sum::<f64>()).collect();
+        let ku: Vec<f64> = (0..nf).map(|i| (0..nf).map(|j| k[i * n + j] * u[j]).sum::<f64>()).collect();
+        let dot = |a: &[f64], b: &[f64]| a.iter().zip(b).map(|(x, y)| x * y).sum::<f64>();
+        let residual: Vec<f64> = columns.iter().map(|cj| dot(cj, &rhs) - dot(cj, &ku)).collect();
+        let k_red: Vec<Vec<f64>> = columns.iter().map(|ci| columns.iter().map(|cj| (0..nf).map(|r| ci[r] * (0..nf).map(|q| k[r * n + q] * cj[q]).sum::<f64>()).sum()).collect()).collect();
+        let u_ind = (0..ns).map(|j| {
+            let i = (0..nf).find(|&i| columns[j][i] == 1.0 && (0..ns).all(|m| m == j || columns[m][i] == 0.0)).unwrap();
+            u[i].abs()
+        }).fold(0.0f64, f64::max);
+        let inf = |v: &[f64]| v.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+        let norm = k_red.iter().map(|row| row.iter().map(|a| a.abs()).sum::<f64>()).fold(0.0, f64::max);
+        let reference = inf(&residual) / (norm * u_ind + inf(&columns.iter().map(|cj| dot(cj, &rhs)).collect::<Vec<_>>()));
+        let computed = backward_error_3d(&input, &state.results).unwrap();
+        assert!(reference > 1e-10 && (computed / reference - 1.0).abs() < 1e-9, "{computed} vs {reference}");
     }
 
     #[test]

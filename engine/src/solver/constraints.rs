@@ -2601,6 +2601,10 @@ impl FreeConstraintSystem {
     }
 
     /// Expand solution: u_f = C_ff * u_indep
+    pub(crate) fn independent_norm(&self, u_f: &[f64]) -> f64 {
+        u_f.iter().zip(&self.dependent).filter(|(_, &d)| !d).fold(0.0f64, |m, (x, _)| m.max(x.abs()))
+    }
+
     pub fn expand_solution(&self, u_indep: &[f64]) -> Vec<f64> {
         self.c_ff.mul_vec(u_indep)
     }

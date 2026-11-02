@@ -63,3 +63,13 @@ it.each([false, true])('spectral case modal refusal is localized at the store bo
   const result = spectralCaseResults();
   expect(result).toContain('#741'); expect(result).not.toContain('structuredDiagnostics');
 });
+it('one refused case withholds every per-case result, since consumers sum over the cases (fire, footings, drift)', () => {
+  uiStore.analysisMode = 'pro';
+  const refused = { ...clean, ...JSON.parse(refusal) };
+  resultsStore.setResults3D(clean as never);
+  resultsStore.setCombinationResults3D(new Map([[1, clean], [2, refused]]) as never, new Map() as never, null as never);
+  expect(resultsStore.perCase3D.size).toBe(0);
+  expect(resultsStore.caseDisposition3D([1]).refused).toBe(false);
+  expect(resultsStore.caseDisposition3D([2]).refused).toBe(true);
+  expect(resultsStore.caseDisposition3D([1, 2]).messages.join(' ')).toContain('#741');
+});

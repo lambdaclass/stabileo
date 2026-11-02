@@ -138,10 +138,7 @@ for (const [name, solve] of Object.entries(solidEntries)) {
   });
 }
 
-test('model-less envelope of several warning-only distorted MITC4 results refuses; of one, returns it warned', () => {
+test('model-less envelope refuses warning-only distorted MITC4 results', () => {
   const result = wasm.solve_3d(shell('fz'));
-  assert.throws(() => wasm.compute_envelope_3d([result, result]), /SH-MITC4-DISTORTION/);
-  const single = wasm.compute_envelope_3d([result]).maxAbsResults3D;
-  assert.deepEqual(single.displacements, result.displacements);
-  assert.ok(single.structuredDiagnostics.some((d) => d.phase === 'SH-MITC4-DISTORTION' && d.severity === 'warning'));
+  assert.throws(() => wasm.compute_envelope_3d([result]), /SH-MITC4-DISTORTION/);
 });
