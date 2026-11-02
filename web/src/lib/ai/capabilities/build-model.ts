@@ -124,7 +124,7 @@ When no predefined generator matches the user's request, use the create_model to
 Rules for create_model:
 - Use unique sequential IDs starting from 1 for each entity type
 - Every element must reference valid node, section, and material IDs
-- At least one support is required for stability
+- At least one support is required, but that alone does not make a model stable: restrain every rigid-body motion (in 2D a single pin still lets the frame rotate) and connect members, with their releases, so that no part is a mechanism
 - Default material: Steel A36 (E=200000, nu=0.3, rho=78.5, fy=250)
 - Section properties: use a section from the available sections list with its listed name. Use other values only when the user gives them (a in m², iz in m⁴; in 3D also iy and j in m⁴, all positive), name that section "Custom (user values)", and never invent properties or label invented ones with a real profile name
 - For 2D: nodes have x, y where y = vertical (up). Nodal loads use fx/fz/my (Z-up convention). Gravity = negative fz. Downward loads use negative fz.

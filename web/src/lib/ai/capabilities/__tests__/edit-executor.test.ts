@@ -281,6 +281,21 @@ describe('edit executor', () => {
     expect(arr(again, 'sections')).toHaveLength(arr(r, 'sections').length);
   });
 
+  it('a new 2D bay repeats the bracing of the bay beside it', () => {
+    const snap = makeMultiStory();
+    const xy = (r: Snap, id: unknown) => arr(r, 'nodes').find((n) => n[0] === id)![1] as { x: number; y: number };
+    const at = (x: number, y: number) => arr(snap, 'nodes').find((n) => n[1].x === x && n[1].y === y)![0];
+    const lastId = Math.max(...arr(snap, 'elements').map((e) => e[0]));
+    arr(snap, 'elements').push([lastId + 1, { id: lastId + 1, type: 'truss', nodeI: at(6, 0), nodeJ: at(12, 3), materialId: 1, sectionId: 1, hingeStart: true, hingeEnd: true }]);
+    const r = applyEdit({ action: 'add_bay', params: { width: 6 } }, snap);
+    const diagonals = arr(r, 'elements').filter(([, e]) => xy(r, e.nodeI).x !== xy(r, e.nodeJ).x && xy(r, e.nodeI).y !== xy(r, e.nodeJ).y);
+    expect(diagonals.map(([, e]) => [xy(r, e.nodeI), xy(r, e.nodeJ)].map(({ x, y }) => [x, y]))).toEqual([
+      [[6, 0], [12, 3]],
+      [[12, 0], [18, 3]],
+    ]);
+    expect(diagonals[1][1]).toMatchObject({ type: 'truss', hingeStart: true, hingeEnd: true });
+  });
+
   it('takes side as left or right only, in any case', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 4, side: ' Left ' } }, makeFrame());
     expect(Math.min(...arr(r, 'nodes').map((n) => n[1].x as number))).toBe(-4);

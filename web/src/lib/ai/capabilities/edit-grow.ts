@@ -98,6 +98,11 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
   const colOverride = columnSection !== undefined ? ensureSection(snap, columnSection) : undefined;
   const adjX = s === 'left' ? cols[0] : cols[cols.length - 1];
   const innerX = cols.length > 1 ? (s === 'left' ? cols[1] : cols[cols.length - 2]) : undefined;
+  const inBays = (x: number): boolean => near(x, adjX) || (innerX !== undefined && near(x, innerX));
+  const braces = elements(snap).map(entryData).filter((data) => {
+    const [ci, cj] = nodeRefs(data).map((id) => coordsOf(snap, id));
+    return inBays(ci.x) && inBays(cj.x) && !near(ci.x, cj.x) && !near(ci.y, cj.y);
+  });
   const plan = floors.map((y, i) => {
     const adj = findNodeAt(snap, adjX, y);
     const column = i > 0 ? inherit(snap, elementBetween(snap, findNodeAt(snap, adjX, floors[i - 1]), adj), colOverride, 'column') : undefined;
@@ -114,6 +119,16 @@ export function addBay(snap: Json, width: number, side?: string, beamSection?: s
     if (i === 0) addSupportLike(snap, nodeId, adj, 'fixed');
     prev = nodeId;
   });
+  const shift = (id: number): number => {
+    const c = coordsOf(snap, id);
+    const to = findNodeAt(snap, near(c.x, adjX) ? newX : adjX, c.y);
+    if (to === undefined) throw new AiActionError(`Cannot repeat the bracing: no node beside node ${id}`);
+    return to;
+  };
+  for (const brace of braces) {
+    const [ni, nj] = nodeRefs(brace);
+    cloneElementToSnap(snap, brace, shift(ni), shift(nj));
+  }
 }
 
 function addBay3d(snap: Json, width: number, side?: string, beamSection?: string, columnSection?: string): void {
