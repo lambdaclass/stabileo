@@ -20,7 +20,7 @@
  *
  * Pure.
  */
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, ShellEnvelope } from './types-3d';
 import { faceStresses, principalStresses, trescaPlane, vonMisesPlane, type PlaneStress } from './shell-stress';
 
 type Vec = [number, number, number];
@@ -52,6 +52,8 @@ export interface ShellCentreRow {
   membrane?: FaceResult;
   /** Faces need recovered moments and a valid thickness; unavailable is never membrane-only. */
   top?: FaceResult; bottom?: FaceResult;
+  /** An envelope's extremes, as its record holds them. */
+  envelope?: ShellEnvelope;
   /** Global axes; absent where the element's local axes are not known here (a curved quad). */
   global?: { stress: Tensor6; moment: Tensor6; shear?: Vec };
 }
@@ -105,7 +107,7 @@ export function shellCentreRows(r: AnalysisResults3D, m: ShellModel): ShellCentr
         kind, id: s.elementId, thickness: t,
         sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy,
         ...(!curved ? { mx: s.mx, my: s.my, mxy: s.mxy } : {}), ...q,
-        ...(single ? { membrane: face({ sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy }) } : {}),
+        ...(single ? { membrane: face({ sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy }) } : { envelope: s.envelope }),
         ...(faces ? { top: face(faces.top), bottom: face(faces.bottom) } : {}),
         ...(axes ? {
           global: {

@@ -6,6 +6,7 @@ import { shellCentreRows, type ShellModel } from '../../engine/shell-results';
 import { initSolver, computeEnvelope3D } from '../../engine/wasm-solver';
 import { SETTLEMENT_CASE_ID } from '../../engine/settlement-case';
 import { resultSheets, shellCentreTable } from '../workbook-results';
+import { envelopeShellStresses } from '../../engine/shell-combos';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import type { WorkbookSheet } from '../workbook-cells';
 import { t } from '../../i18n';
@@ -119,4 +120,23 @@ it('the Envelope sheet lists each shell component\'s extremes with the combinati
   const sxx = rows.find((r) => r.component === 'sigmaXx')!;
   expect(sxx).toMatchObject({ unit: 'kN/m²', max: 100, maxSourceId: 1, min: 40, minSourceId: 2 });
   expect(rows.find((r) => r.component === 'qx')).toBeUndefined();
+});
+
+it('an exported envelope keeps the extremes and combinations it holds instead of being enveloped again', () => {
+  const combos = [
+    { kind: 'combination' as const, id: 1, name: '1.2D', results: result(20, 100) },
+    { kind: 'combination' as const, id: 2, name: '1.4D', results: result(-5, 40) },
+  ];
+  const envelope = { ...result(0), ...envelopeShellStresses(combos.map((c) => ({ source: { kind: 'combination' as const, id: c.id }, results: c.results }))) } as AnalysisResults3D;
+  const sheets = resultSheets({
+    sources: [{ kind: 'envelope', id: 0, name: 'Envelope', results: envelope }],
+    stations: 5, statics: null, shells: model,
+  });
+  const env = records(sheets.find((s) => s.name === 'Envelope')!).filter((r) => r.table === 'shells');
+  expect(env.find((r) => r.component === 'mx')).toMatchObject({ max: 20, maxSourceId: 1, maxSourceName: 'combination 1', min: -5, minSourceId: 2, minSourceName: 'combination 2' });
+  const maxima = records(sheets.find((s) => s.name === 'Maxima')!).filter((r) => r.table === 'shells' && r.component === 'mx');
+  expect(maxima.map((r) => [r.extreme, r.value])).toEqual([['max', 20], ['min', -5]]);
+  const centre = records(sheets.find((s) => s.name === 'ShellCentres')!)[0]!;
+  expect(centre['mx [kN·m/m]']).toBe(20);
+  expect(centre['topVonMises [kN/m²]']).toBe('');
 });

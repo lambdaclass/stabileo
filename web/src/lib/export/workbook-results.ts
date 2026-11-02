@@ -20,7 +20,7 @@ import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, t
 import { safeText, type WorkbookSheet } from './workbook-cells';
 import { getShellEnvelopeKernel, SHELL_ENVELOPE_KEYS } from '../engine/shell-combination-kernel';
 import { EngineUnavailableError } from '../engine/engine-unavailable';
-import type { ShellEnvelopeKey } from '../engine/types-3d';
+import type { ShellEnvelopeKey, ShellEnvelopeSource } from '../engine/types-3d';
 
 /** A result source; standalone solves and envelope views use id 0, not a load-case id. */
 /**
@@ -176,12 +176,13 @@ function shellMaximaRows(input: ResultSheetsInput): WorkbookSheet['rows'] {
   const best = SHELL_MAXIMA.map(() => ({ max: null as null | { v: number; r: ShellCentreRow; s: WorkbookSource }, min: null as null | { v: number; r: ShellCentreRow; s: WorkbookSource } }));
   for (const s of governing(input.sources)) {
     for (const r of shellCentreRows(s.results, input.shells!)) {
-      SHELL_MAXIMA.forEach(([, , get], i) => {
-        const v = get(r);
-        if (v === undefined || !Number.isFinite(v)) return;
+      SHELL_MAXIMA.forEach(([key, , get], i) => {
+        const stored = r.envelope?.[key as ShellEnvelopeKey];
+        const hi = stored ? stored.max : get(r), lo = stored ? stored.min : get(r);
+        if (hi === undefined || lo === undefined || !Number.isFinite(hi) || !Number.isFinite(lo)) return;
         const b = best[i]!;
-        if (beatsExtreme(1, v, r.id, 0, b.max && { value: b.max.v, entity: b.max.r.id })) b.max = { v, r, s };
-        if (beatsExtreme(-1, v, r.id, 0, b.min && { value: b.min.v, entity: b.min.r.id })) b.min = { v, r, s };
+        if (beatsExtreme(1, hi, r.id, 0, b.max && { value: b.max.v, entity: b.max.r.id })) b.max = { v: hi, r, s };
+        if (beatsExtreme(-1, lo, r.id, 0, b.min && { value: b.min.v, entity: b.min.r.id })) b.min = { v: lo, r, s };
       });
     }
   }
@@ -231,25 +232,44 @@ function envelopeSheet(input: ResultSheetsInput): WorkbookSheet {
       });
     }
   }
-  if (input.shells && hasShells(input)) rows.push(...shellEnvelopeRows(governing(input.sources)));
+  if (input.shells && hasShells(input)) rows.push(...shellEnvelopeRows(governing(input.sources), input.sources));
   return { name: 'Envelope', rows };
 }
 
 const SHELL_ENVELOPE_UNIT = (key: ShellEnvelopeKey) =>
   key === 'qx' || key === 'qy' ? 'kN/m' : key.startsWith('m') || key.startsWith('woodArmer') ? 'kN·m/m' : 'kN/m²';
 
-/** Each shell component's extremes over the sources, by the engine's envelope kernel, each with its source. */
-function shellEnvelopeRows(sources: readonly WorkbookSource[]): WorkbookSheet['rows'] {
+const isShellEnvelope = (r: AnalysisResults3D) => [...(r.plateStresses ?? []), ...(r.quadStresses ?? [])].some((s) => s.envelope);
+
+/**
+ * Each shell component's extremes over the sources, each with its source: by the engine's envelope
+ * kernel, or as an envelope source holds them (its record mixes sets, so it is never enveloped again).
+ */
+function shellEnvelopeRows(sources: readonly WorkbookSource[], all: readonly WorkbookSource[]): WorkbookSheet['rows'] {
+  const out: WorkbookSheet['rows'] = [];
+  const nameOf = (ref: ShellEnvelopeSource) =>
+    all.find((s) => s.id === ref.id && s.kind === ref.kind)?.name ?? `${ref.kind} ${ref.id}`;
+  for (const s of sources.filter((x) => isShellEnvelope(x.results))) {
+    for (const [kind, list] of [['plate', s.results.plateStresses ?? []], ['quad', s.results.quadStresses ?? []]] as const) {
+      for (const r of [...list].sort((a, b) => a.elementId - b.elementId)) {
+        for (const key of SHELL_ENVELOPE_KEYS) {
+          const e = r.envelope?.[key];
+          if (e) out.push(['shells', `${kind} ${r.elementId}`, '', '', key, SHELL_ENVELOPE_UNIT(key), e.max, e.maxSource.id, safeText(nameOf(e.maxSource)), e.min, e.minSource.id, safeText(nameOf(e.minSource))]);
+        }
+      }
+    }
+  }
+  const plain = sources.filter((x) => !isShellEnvelope(x.results));
+  if (!plain.some((x) => x.results.plateStresses?.length || x.results.quadStresses?.length)) return out;
   const kernel = getShellEnvelopeKernel();
   if (!kernel) throw new EngineUnavailableError('the shell envelope');
-  const env = kernel(sources.map((s) => ({ id: s.id, plateStresses: s.results.plateStresses ?? [], quadStresses: s.results.quadStresses ?? [] })));
-  const out: WorkbookSheet['rows'] = [];
+  const env = kernel(plain.map((x) => ({ id: x.id, plateStresses: x.results.plateStresses ?? [], quadStresses: x.results.quadStresses ?? [] })));
   for (const [kind, list] of [['plate', env.plates], ['quad', env.quads]] as const) {
     for (const row of [...list].sort((a, b) => a.elementId - b.elementId)) {
       for (const key of SHELL_ENVELOPE_KEYS) {
         const e = row.extremes[key];
         if (!e) continue;
-        const mx = sources[e.maxSource]!, mn = sources[e.minSource]!;
+        const mx = plain[e.maxSource]!, mn = plain[e.minSource]!;
         out.push(['shells', `${kind} ${row.elementId}`, '', '', key, SHELL_ENVELOPE_UNIT(key), e.max, mx.id, safeText(mx.name), e.min, mn.id, safeText(mn.name)]);
       }
     }
