@@ -16,7 +16,7 @@ export interface LpProblem {
 }
 export type LpResult =
   | { status: 'optimal'; x: number[]; value: number }
-  | { status: 'infeasible' | 'unbounded' | 'iterationLimit' };
+  | { status: 'infeasible' | 'unbounded' | 'iterationLimit' | 'inaccurate' };
 
 const EPS = 1e-9;
 const MAX_ITER = 5000;
@@ -30,9 +30,11 @@ export function solveLp(p: LpProblem): LpResult {
     if (free[j]) cols.push({ v: j, s: -1 });
   }
   const nx = cols.length;
-  const rows = p.rows.map((r) => (r.b < 0
-    ? { a: r.a.map((v) => -v), op: (r.op === '<=' ? '>=' : r.op === '>=' ? '<=' : '=') as LpOp, b: -r.b }
-    : r));
+  const rows = p.rows.map((r) => {
+    const w = Math.max(...r.a.map(Math.abs), 0) || 1;
+    const a = r.a.map((v) => v / w), b = r.b / w;
+    return b < 0 ? { a: a.map((v) => -v), op: (r.op === '<=' ? '>=' : r.op === '>=' ? '<=' : '=') as LpOp, b: -b } : { a, op: r.op, b };
+  });
   const nSlack = rows.filter((r) => r.op !== '=').length;
   const nArt = rows.filter((r) => r.op !== '<=').length;
   const width = nx + nSlack + nArt + 1;
@@ -100,7 +102,7 @@ export function solveLp(p: LpProblem): LpResult {
     if (run(cost1, () => true) === 'iterationLimit') return { status: 'iterationLimit' };
     let infeas = 0;
     for (let r = 0; r < T.length; r++) if (artCols.includes(basis[r])) infeas += T[r][width - 1];
-    if (infeas > 1e-7 * Math.max(bScale, 1)) return { status: 'infeasible' };
+    if (infeas > 1e-9 * Math.max(bScale, 1e-300)) return { status: 'infeasible' };
     for (let r = 0; r < T.length; r++) {
       if (!artCols.includes(basis[r])) continue;
       const col = T[r].findIndex((v, k) => k < nx + nSlack && Math.abs(v) > tol);
@@ -117,6 +119,19 @@ export function solveLp(p: LpProblem): LpResult {
     const k = basis[r];
     if (k < nx) x[cols[k].v] += cols[k].s * T[r][width - 1];
   }
+  if (!satisfies(p, x, free)) return { status: 'inaccurate' };
   const value = p.c.reduce((s, cj, j) => s + cj * x[j], 0);
   return { status: 'optimal', x, value };
 }
+
+/** The returned x checked against the problem as given: every row and every sign bound, to a tolerance scaled by its terms. */
+function satisfies(p: LpProblem, x: number[], free: boolean[]): boolean {
+  const xs = Math.max(...x.map(Math.abs), 0);
+  if (x.some((v, j) => !free[j] && v < -1e-9 * Math.max(xs, 1e-300))) return false;
+  return p.rows.every((r) => {
+    const ax = r.a.reduce((s, a, j) => s + a * (x[j] ?? 0), 0);
+    const tol = 1e-7 * (Math.abs(r.b) + r.a.reduce((s, a, j) => s + Math.abs(a * (x[j] ?? 0)), 0)) + 1e-12 * Math.max(...r.a.map(Math.abs), 0) * xs + 1e-300;
+    return r.op === '<=' ? ax <= r.b + tol : r.op === '>=' ? ax >= r.b - tol : Math.abs(ax - r.b) <= tol;
+  });
+}
+

@@ -340,7 +340,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       free: space.map(() => true),
     });
     if (consistent.status === 'optimal') return false;
-    if (consistent.status === 'iterationLimit') { unresolved = true; return false; }
+    if (consistent.status === 'iterationLimit' || consistent.status === 'inaccurate') { unresolved = true; return false; }
     const norm = Math.hypot(...loadWork) || 1;
     const theta = open.map((_, k) => space.reduce((acc, _d, j) => acc + (loadWork[j] / norm) * th[j][k], 0));
     const big = Math.max(...theta.map(Math.abs));

@@ -1,3 +1,4 @@
+import { generalizedEigen } from '../dense';
 import { describe, it, expect } from 'vitest';
 import { stabilityFunctions, memberStability, clampedModesBelow } from '../stability-functions';
 import { memberStiffness } from '../member-matrices';
@@ -102,3 +103,11 @@ describe('stability functions s, c and φ₁…φ₄', () => {
     expect(clampedModesBelow(2 * Math.PI + 1e-6, true, true)).toBe(2);
   });
 });
+
+describe('the generalized eigenproblem K·x = λ·G·x', () => {
+  it('a strongly tensioned DOF does not hide a compressed one: K = I, G = diag(−1e8, 1) keeps λ = 1', () => {
+    const modes = generalizedEigen([[1, 0], [0, 1]], [[-1e8, 0], [0, 1]]);
+    expect(modes?.map((m) => m.lambda)).toEqual([expect.closeTo(1, 12)]);
+  });
+});
+

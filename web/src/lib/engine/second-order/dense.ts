@@ -168,10 +168,12 @@ export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector
   }
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const m = (C[i][j] + C[j][i]) / 2; C[i][j] = m; C[j][i] = m; }
   const { values, vectors } = symmetricEigen(C);
-  const maxMu = Math.max(0, ...values.map(Math.abs));
+  const maxAbs = Math.max(0, ...values.map(Math.abs));
+  const maxPos = Math.max(0, ...values);
+  const floor = Math.max(1e-6 * maxPos, 1e-13 * maxAbs);
   const out: Array<{ lambda: number; vector: number[] }> = [];
   values.forEach((mu, k) => {
-    if (!(mu > 1e-6 * maxMu)) return;
+    if (!(mu > floor)) return;
     out.push({ lambda: 1 / mu, vector: triSolve(L, vectors.map((r) => r[k]), true) });
   });
   return out.sort((a, b) => a.lambda - b.lambda);
