@@ -91,7 +91,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const hingesMatch = formed.length === portal.events.length && formed.every((h, i) => {
     const want = portal.events[i];
     return h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance;
-  });
+  }) && result.steps.length === portal.events.length && result.steps.every((s, i) => Math.abs(s.loadFactor - portal.events[i].loadFactor) < tolerance);
   const ends = [...moments.values()].flatMap(m => [m.myStart, m.myEnd]);
   const corner = moments.get(1)?.myEnd ?? NaN;
   const r = residual(result);

@@ -109,6 +109,7 @@
                       {#if !v}{s.computing}
                       {:else if v === 'pass'}{s.pass}
                       {:else if v === 'marginal'}<span title={s.marginalTitle}>{s.marginal}</span>
+                      {:else if v === 'marginalFail'}<span title={s.marginalFailTitle}>{s.marginalFail}</span>
                       {:else if v === 'documented' && 'knownIssue' in c}<a class="mh-link" href={c.knownIssue}>{s.documented}</a>
                       {:else if v === 'mismatch'}<strong>{s.mismatch}</strong>
                       {:else}<strong>{s.engineError}</strong><span class="mh-failure">{r?.failure}</span>{/if}

@@ -64,11 +64,23 @@ describe('engine benchmark evidence', () => {
     const k = byId('frame-shear-1-uz');
     expect(k.referenceRounding).toBe(0);
     expect(compare(k, tip(k, k.reference * 1.0199)).marginal).toBe(false);
+    const justOutside = compare(out, tip(out, out.reference * (1 - tolerance) - 1e-6));
+    expect(justOutside.pass).toBe(false);
+    expect(justOutside.marginal).toBe(true);
+    expect(verdict(out, justOutside)).toBe('marginalFail');
+    expect(verdict(out, atBoundary)).toBe('marginal');
+    expect(verdict(out, compare(out, tip(out, out.reference * 0.97)))).toBe('mismatch');
   });
   it('separates documented limitations, unexpected mismatches and engine errors', () => {
     const distorted = byId('mitc4-trapezoidal-in');
     const fail = (k: Case): Result => ({ ...compare(k, tip(k, k.reference * 0.5)) });
-    expect(verdict(distorted, fail(distorted))).toBe('documented');
+    const pinnedValue = (k: Case) => (k.nativeBounds as { pinnedValue?: number }).pinnedValue ?? NaN;
+    const pinned = (k: Case) => compare(k, tip(k, pinnedValue(k)));
+    expect(verdict(distorted, pinned(distorted))).toBe('documented');
+    expect(verdict(distorted, fail(distorted))).toBe('mismatch');
+    expect(verdict(distorted, compare(distorted, tip(distorted, distorted.reference * 1e-6)))).toBe('mismatch');
+    expect(verdict(distorted, compare(distorted, tip(distorted, pinnedValue(distorted) * (1 + 1e-6))))).toBe('mismatch');
+    for (const k of cases.filter(k => !k.expectedPass)) expect(verdict(k, pinned(k)), k.id).toBe('documented');
     expect(verdict(distorted, compare(distorted, tip(distorted, -distorted.reference * 0.5)))).toBe('mismatch');
     expect(verdict(distorted, compare(distorted, tip(distorted, distorted.reference * 1.5)))).toBe('mismatch');
     expect(verdict(byId('mitc4-regular-in'), fail(byId('mitc4-regular-in')))).toBe('mismatch');

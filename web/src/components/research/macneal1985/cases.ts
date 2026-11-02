@@ -6,7 +6,7 @@ export type Case = typeof data.cases[number];
 export const cases = data.cases;
 export const nativeOnly = data.nativeOnly;
 export const tolerance = data.accuracyTolerance;
-export type Verdict = 'pass' | 'marginal' | 'documented' | 'mismatch' | 'error';
+export type Verdict = 'pass' | 'marginal' | 'marginalFail' | 'documented' | 'mismatch' | 'error';
 export type Result = { id: string; value: number | null; error: number | null; pass: boolean; marginal?: boolean; failure?: string; displacement?: Record<string, number>[] };
 
 export const category = (c: Case): 'shell' | 'frame' => (c.element === 'frame' ? 'frame' : 'shell');
@@ -36,8 +36,10 @@ export function compare(c: Case, displacements: Record<string, number>[]): Resul
 
 export function verdict(c: Case, r: Result): Verdict {
   if (r.failure) return 'error';
-  if (r.pass) return r.marginal ? 'marginal' : 'pass';
-  const locked = r.value !== null && Math.sign(r.value) === Math.sign(c.reference) && Math.abs(r.value) < Math.abs(c.reference);
+  if (r.marginal) return r.pass ? 'marginal' : 'marginalFail';
+  if (r.pass) return 'pass';
+  const { pinnedValue, relativeTolerance } = c.nativeBounds as { pinnedValue?: number; relativeTolerance?: number };
+  const locked = r.value !== null && pinnedValue !== undefined && relativeTolerance !== undefined && Math.abs(r.value / pinnedValue - 1) <= relativeTolerance;
   return !c.expectedPass && 'knownIssue' in c && c.knownIssue && locked ? 'documented' : 'mismatch';
 }
 

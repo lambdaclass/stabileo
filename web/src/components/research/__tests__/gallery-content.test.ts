@@ -69,3 +69,15 @@ it('shows no first-version or review-round note on any card, while the catalogue
     expect(body.replace(/<[^>]*>/g, ' ')).not.toMatch(REVIEW_NOTE);
   }
 });
+
+it('titles the Riks card in the language its article is written in', async () => {
+  const { cardTitle } = await import('../card-title');
+  const { articleStrings } = await import('../riksCrisfield/article');
+  const riks = EXPERIMENTS.find((e) => e.paperId === 'riks-1979')!;
+  for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+    setLocale(locale);
+    expect(cardTitle(riks)).toBe(articleStrings(locale).arcLengthSnapThroughRiksAndCrisfield);
+    const { body } = render(Gallery);
+    expect(body).toContain(articleStrings(locale).arcLengthSnapThroughRiksAndCrisfield);
+  }
+});

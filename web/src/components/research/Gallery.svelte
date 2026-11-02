@@ -22,6 +22,7 @@
   import { isHttpUrl } from './urls';
   import { cardTitle } from './card-title';
   import { englishOnlyCard } from './english-only-cards';
+  import { articleStrings as riksStrings } from './riksCrisfield/article';
   import { summaryIn } from './summaries';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
@@ -58,7 +59,10 @@
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
     }
     if (e.paperId === 'shell-obstacle-course') return { title: shellStrings(publicI18n.locale).shellObstacleCourseBelytschkoEtAl, hook: e.hook };
-    if (e.paperId === 'riks-1979') return { title: e.name, hook: e.hook };
+    if (e.paperId === 'riks-1979') {
+      const riks = riksStrings(publicI18n.locale);
+      return { title: riks.arcLengthSnapThroughRiksAndCrisfield, hook: publicI18n.locale === 'en' ? e.hook : riks.lead };
+    }
     if (e.paperId === 'ferrari-2025') return { title: s.ferrariTitle, hook: s.ferrariLead };
     return e.paperId === 'grossman-2026' ? { title: s.springsTitle, hook: s.springsHook } : { title: s.shauerTitle, hook: s.shauerHook };
   }

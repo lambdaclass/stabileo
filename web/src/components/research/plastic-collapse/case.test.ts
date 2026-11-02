@@ -101,6 +101,8 @@ describe('the recorded replay', () => {
     const overYield = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 2 ? { ...f, myStart: f.myStart - 200 } : f)) } } : s)) };
     expect(checks(overYield).find(c => c.id === 'yield')!.passed).toBe(false);
     expect(checks({ ...replay, warnings: ['x'] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
+    const zeroLoads = { ...replay, steps: replay.steps.map(s => ({ ...s, loadFactor: 0 })) };
+    expect(checks(zeroLoads).filter(c => !c.passed).map(c => c.id)).toEqual(['hinges']);
     const reversedCorner = { ...replay, steps: replay.steps.map(s => ({ ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 1 ? { ...f, myEnd: -f.myEnd } : f)) } })) };
     expect(checks(reversedCorner).filter(c => !c.passed).map(c => c.id)).toEqual(['corner']);
   });

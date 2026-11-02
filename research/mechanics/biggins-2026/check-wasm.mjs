@@ -8,12 +8,18 @@ const { default: init, simulation_run } = await import(pathToFileURL(path.join(b
 await init({ module_or_path: fs.readFileSync(path.join(bundle, 'arches_bg.wasm')) });
 const replay = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, 'reference-results/replay.json')));
 const run = JSON.parse(simulation_run(.7, .012));
-assert.ok(Math.abs(run.threshold - replay.threshold) < 1e-8);
-assert.equal(run.frames.length, replay.frames.length);
-for (let i = 0; i < run.frames.length; i++) {
-  for (const key of ['alpha', 'force']) assert.ok(Math.abs(run.frames[i][key] - replay.frames[i][key]) < 1e-8);
-  for (let j = 0; j < run.frames[i].y.length; j++) assert.ok(Math.abs(run.frames[i].y[j] - replay.frames[i].y[j]) < 1e-8);
+function matchesReplay(run) {
+  assert.ok(Math.abs(run.threshold - replay.threshold) < 1e-8);
+  assert.equal(run.frames.length, replay.frames.length);
+  for (let i = 0; i < run.frames.length; i++) {
+    for (const key of ['alpha', 'force']) assert.ok(Math.abs(run.frames[i][key] - replay.frames[i][key]) < 1e-8);
+    assert.equal(run.frames[i].y.length, replay.frames[i].y.length);
+    for (let j = 0; j < run.frames[i].y.length; j++) assert.ok(Math.abs(run.frames[i].y[j] - replay.frames[i].y[j]) < 1e-8);
+  }
 }
+matchesReplay(run);
+assert.throws(() => matchesReplay({ ...run, frames: run.frames.map((f, i) => (i === 0 ? { ...f, y: f.y.slice(0, -1) } : f)) }));
+assert.throws(() => matchesReplay({ ...run, frames: run.frames.map((f) => ({ ...f, y: [] })) }));
 assert.throws(() => simulation_run(NaN, .012));
 assert.ok(JSON.parse(simulation_run(.9, .012)).threshold > 4.8);
 console.log('production-mode WASM: replay agrees at every node, parameter/domain checks pass');

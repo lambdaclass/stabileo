@@ -1,6 +1,6 @@
 <script lang="ts">
   import { publicI18n } from '../../../lib/i18n/store.svelte';
-  import { axis } from './plot-axis';
+  import { axis, tableValue } from './plot-axis';
   /**
    * A small SVG chart: lines, bands, points with optional vertical error bars, a highlighted
    * current point and reference rules. Axes fit every series and end on a tick. Encoding: hue is
@@ -122,7 +122,7 @@
   <div class="sr-only">
     {#each series as s (s.name)}
       <table><caption>{s.name}</caption><thead><tr><th>{xLabel}</th><th>{yLabel}</th></tr></thead>
-        <tbody>{#each s.points as p, i (i)}<tr><td>{fmt(p.x, 4)}</td><td>{fmt(p.y, 4)}{#if p.lo !== undefined && p.hi !== undefined} ({fmt(p.lo, 4)} – {fmt(p.hi, 4)}){/if}</td></tr>{/each}</tbody>
+        <tbody>{#each s.points as p, i (i)}<tr><td>{tableValue(p.x, publicI18n.locale)}</td><td>{tableValue(p.y, publicI18n.locale)}{#if p.lo !== undefined && p.hi !== undefined} ({tableValue(p.lo, publicI18n.locale)} – {tableValue(p.hi, publicI18n.locale)}){/if}</td></tr>{/each}</tbody>
       </table>
     {/each}
   </div>

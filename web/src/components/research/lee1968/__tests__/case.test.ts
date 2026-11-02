@@ -89,6 +89,7 @@ it('runs the shared case through the production WASM wrapper', async () => {
   const frame = frameFrom(result, benchmark.input.maxSteps);
   expect(frame.load).toBeCloseTo(replay.frames.at(-1)!.load, 8);
   expect(point(frame)[0]).toBeCloseTo(point(replay.frames.at(-1)!)[0], 7);
+  expect(Math.max(...result.steps.map((s: { loadFactor: number }) => s.loadFactor))).toBeCloseTo(benchmark.regression.firstLimitLoad, 8);
   const peakRun = solveArcLength({ ...benchmark.input, maxSteps: benchmark.regression.firstPeakStep });
   const peak = firstPeak([frameFrom(solveArcLength({ ...benchmark.input, maxSteps: 46 }), 46), frameFrom(peakRun, 47), frameFrom(solveArcLength({ ...benchmark.input, maxSteps: 48 }), 48)])!;
   expect(peak.step).toBe(47);
