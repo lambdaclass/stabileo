@@ -269,7 +269,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&round_off_converged(|tol| pdelta::solve_pdelta_2d(&c.s, 100, tol).map(|r| (r.converged, r.results)), |r| r.displacements.iter().flat_map(|d| [d.ux, d.uz, d.ry]).collect())?)),
+            run: |c| Ok(static_2d(&round_off_converged(|tol| pdelta::solve_pdelta_2d(&c.s, 100, tol).map(|r| (r.converged, r.results)))?)),
         },
         Ana2 {
             name: "corotational",
@@ -602,29 +602,52 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
 }
 
 /// An iteration solved to 1e-12, or, when it stagnates there, one that converges at 1e-11 to the same
-/// answer within 1e-11 of its largest component: stagnation at round-off, not slow convergence.
-pub(crate) fn round_off_converged<T>(solve: impl Fn(f64) -> Result<(bool, T), String>, values: impl Fn(&T) -> Vec<f64>) -> Result<T, String> {
+/// answer: every number (displacements, reactions, member forces) within 1e-11 of the largest value
+/// of its own quantity. That is stagnation at round-off, not slow convergence.
+pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(f64) -> Result<(bool, T), String>) -> Result<T, String> {
     let (converged, tight) = solve(1e-12)?;
     if converged {
         return Ok(tight);
     }
     let (converged, loose) = solve(1e-11)?;
-    let (a, b) = (values(&tight), values(&loose));
-    let scale = b.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
-    if converged && a.len() == b.len() && a.iter().zip(&b).all(|(x, y)| (x - y).abs() <= 1e-11 * scale) {
+    if converged && same_to_round_off(&serde_json::to_value(&tight).unwrap(), &serde_json::to_value(&loose).unwrap()) {
         Ok(tight)
     } else {
         Err("did not converge".into())
     }
 }
 
-#[test]
-fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
-    let stagnant = |tol: f64| Ok::<_, String>((tol >= 1e-11, vec![1.0, 2.0 + 1e-13]));
-    assert_eq!(round_off_converged(stagnant, |v| v.clone()).unwrap(), vec![1.0, 2.0 + 1e-13]);
-    let slow = |tol: f64| Ok::<_, String>((tol >= 1e-11, if tol < 1e-11 { vec![1.0, 2.0] } else { vec![1.0, 2.001] }));
-    assert!(round_off_converged(slow, |v| v.clone()).is_err());
-    let never = |_: f64| Ok::<_, String>((false, vec![1.0]));
-    assert!(round_off_converged(never, |v| v.clone()).is_err());
+fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
+    fn numbers(v: &serde_json::Value, key: &str, out: &mut Vec<(String, f64)>) {
+        match v {
+            serde_json::Value::Number(n) => out.push((key.to_string(), n.as_f64().unwrap())),
+            serde_json::Value::Array(items) => items.iter().for_each(|x| numbers(x, key, out)),
+            serde_json::Value::Object(map) => map.iter().for_each(|(k, x)| numbers(x, k, out)),
+            _ => {}
+        }
+    }
+    let (mut x, mut y) = (Vec::new(), Vec::new());
+    numbers(a, "", &mut x);
+    numbers(b, "", &mut y);
+    if x.len() != y.len() || x.iter().zip(&y).any(|(p, q)| p.0 != q.0) {
+        return false;
+    }
+    let mut scale = std::collections::HashMap::<&str, f64>::new();
+    for (k, v) in x.iter().chain(&y) {
+        let s = scale.entry(k.as_str()).or_insert(0.0);
+        *s = s.max(v.abs());
+    }
+    x.iter().zip(&y).all(|((k, p), (_, q))| (p - q).abs() <= 1e-11 * scale[k.as_str()])
 }
 
+#[test]
+fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
+    let stagnant = |tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0 + 1e-13], "n": [5.0e3]})));
+    assert!(round_off_converged(stagnant).is_ok());
+    let slow = |tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if tol < 1e-11 { 2.0 } else { 2.001 }]})));
+    assert!(round_off_converged(slow).is_err());
+    let forces_differ = |tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0], "n": [if tol < 1e-11 { 5.0e3 } else { 5.0e3 + 1e-6 }]})));
+    assert!(round_off_converged(forces_differ).is_err());
+    let never = |_: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
+    assert!(round_off_converged(never).is_err());
+}

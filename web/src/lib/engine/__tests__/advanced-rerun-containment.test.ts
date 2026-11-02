@@ -201,3 +201,38 @@ it.each([
   const s = readFileSync(new URL(`../../../components/${path}`, import.meta.url), 'utf8');
   expect(() => compile(s, { filename: path, generate: 'server' })).not.toThrow();
 });
+
+it.each([
+  ['handleHarmonic', 'harmResult', 'solveHarmonic3D'],
+  ['handleWinkler', 'winklerResult', 'solveWinkler3D'],
+  ['handleSSI', 'ssiResult', 'solveSSI3D'],
+  ['handleStaged', 'stagedResult', 'solveStaged3D'],
+  ['handleCreep', 'creepResult', 'creepSteps'],
+] as const)('%s success then a thrown refusal leaves no previous numbers', (name, field, solver) => {
+  for (const failure of [new Error(refusal), refusal]) {
+    const scope = setup();
+    Object.assign(scope, {
+      harmNPoints: 2, harmFMin: 1, harmFMax: 2, harmNodeId: 1, harmDamping: 0.05, harmDir: 'X', harmonicElapsed: null,
+      densityRecord: () => ({}), defaultFreeNode: () => 1, performance: { now: () => 0 },
+      winklerSprings: [], ssiSprings: [], ssiMaxIter: 10, ssiTolerance: 1e-6, finishSolve3D: () => {}, asModel: (r: any) => r,
+      hasPieces: () => false, stagedRefusal: () => null, stages: [], uiStore: { includeSelfWeight: false, axisConvention3D: 'rightHand' },
+      modelStore: { modelVersion: 1, nodes: new Map(), elements: new Map(), supports: new Map(), loads: [], materials: new Map([[1, { fy: 25 }]]),
+        sections: new Map(), quads: new Map(), plates: new Map(), constraints: [], connectors: [], analysis: {}, model: { groups: [], loadCases: [] } },
+      caseSolverLoads3D: () => [], stagedLoadsByCase: () => ({ loads: [], indicesOf: new Map() }), stagedStagesPayload: () => [],
+      concreteMaterials: () => new Map([[1, { fy: 25 }]]), creepFc: 25, creepRH: 70, creepH0: 200, creepAge: 28, creepCementClass: 'N',
+      creepTimeSteps: [{ time: 100 }], solve3D: () => ({}),
+      harmResult: null, winklerResult: null, ssiResult: null, stagedResult: null, creepResult: null,
+    });
+    scope.resultsStore.setResults3D = vi.fn();
+    const clean = { peakAmplitude: 12345, displacements: [{ ux: 12345 }], results: { displacements: [{ ux: 12345 }] }, stages: [{ maxDisp: 12345 }] };
+    scope[solver] = vi.fn().mockReturnValueOnce(solver === 'creepSteps' ? [clean] : clean).mockImplementationOnce(() => { throw failure; });
+    const run = handler(name, scope);
+    run();
+    expect(JSON.stringify(scope[field])).toContain('12345');
+    run();
+    expect(scope[field]).toBeNull();
+    expect(scope.solveError).toContain('#741');
+    expect(scope.solveError).not.toContain('structuredDiagnostics');
+    expect(scope.solving).toBe(false);
+  }
+});

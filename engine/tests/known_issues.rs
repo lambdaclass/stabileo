@@ -998,3 +998,20 @@ fn an_influence_line_of_a_mechanism_is_an_error_not_zeros() {
     let error = compute_influence_line(&serde_json::from_value(influence).unwrap()).expect_err("no influence line for a mechanism");
     assert!(error.starts_with("Influence line: the unit load on element 1 at t = 0 could not be solved: "), "{error}");
 }
+
+#[test]
+fn a_direct_constrained_3d_solve_checks_the_constraints_it_solves_with() {
+    let mut solver = beam3d();
+    solver.loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }));
+    let tie = Constraint::EqualDOF(EqualDOFConstraint { master_node: 3, slave_node: 4, dofs: vec![2] });
+    solver.constraints = vec![Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 999, dofs: vec![0] })];
+    let ci = dedaliano_engine::solver::constraints::ConstrainedInput3D { solver: solver.clone(), constraints: vec![tie.clone()] };
+    let direct = dedaliano_engine::solver::constraints::solve_constrained_3d(&ci).unwrap();
+    solver.constraints = vec![tie];
+    let through = dedaliano_engine::solver::linear::solve_3d(&solver).unwrap();
+    assert_eq!(ids(&direct.structured_diagnostics), ids(&through.structured_diagnostics));
+    assert_eq!(direct.displacements.len(), through.displacements.len());
+    for (a, b) in direct.displacements.iter().zip(&through.displacements) {
+        assert!((a.uz - b.uz).abs() <= 1e-12 * (1.0 + b.uz.abs()), "{} vs {}", a.uz, b.uz);
+    }
+}

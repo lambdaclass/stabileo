@@ -30,7 +30,13 @@ export function requiredExportMessages(): string[] {
 }
 const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const WARNING_SECTION = /<section\b[^>]*\bid\s*=\s*(["']?)stabileo-warnings\1[^>]*>[\s\S]*?<\/section>/gi;
+const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+/** The warnings a report's HTML already carries, so re-exporting it from another workspace keeps them. */
+export function carriedWarnings(html: string): string[] {
+  return [...html.matchAll(WARNING_SECTION)].flatMap(([section]) => [...section.matchAll(/<p>([\s\S]*?)<\/p>/g)].map(m => unescape(m[1]!)));
+}
 export function warningHtml(html: string, warnings = requiredExportMessages()): string {
+  warnings = [...new Set([...warnings, ...carriedWarnings(html)])];
   html = html.replace(WARNING_SECTION, '');
   if (!warnings.length) return html;
   const block = `<section id="stabileo-warnings" style="border:2px solid #9b3b00;padding:12px;color:#742d00;background:white;font:14px sans-serif"><h2>⚠ ${escape(t('knownIssue.exportHeading'))}</h2>${warnings.map(w => `<p>${escape(w)}</p>`).join('')}</section>`;

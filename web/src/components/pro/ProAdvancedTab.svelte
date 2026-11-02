@@ -435,6 +435,7 @@
 
   function handleHarmonic() {
     solveError = null;
+    harmResult = null;
     solving = true;
     harmonicElapsed = null;
     try {
@@ -633,6 +634,7 @@
 
   function handleWinkler() {
     solveError = null;
+    winklerResult = null;
     solving = true;
     try {
       const input = buildInput({ caseDisplacements: true });
@@ -712,6 +714,7 @@
 
   function handleSSI() {
     solveError = null;
+    ssiResult = null;
     solving = true;
     try {
       const input = buildInput({ caseDisplacements: true });
@@ -787,6 +790,7 @@
 
   function handleStaged() {
     solveError = null;
+    stagedResult = null;
     if (hasPieces()) { solveError = t('advanced.variableUnsupported'); return; }
     solving = true;
     try {
@@ -848,6 +852,7 @@
 
   function handleCreep() {
     solveError = null;
+    creepResult = null;
     solving = true;
     try {
       /*

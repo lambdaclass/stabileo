@@ -244,7 +244,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_3d(&crate::ana2::round_off_converged(|tol| pdelta::solve_pdelta_3d(&c.s, 100, tol).map(|r| (r.converged, r.results)), |r| r.displacements.iter().flat_map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]).collect())?)),
+            run: |c| Ok(static_3d(&crate::ana2::round_off_converged(|tol| pdelta::solve_pdelta_3d(&c.s, 100, tol).map(|r| (r.converged, r.results)))?)),
         },
         Ana3 {
             name: "corotational",

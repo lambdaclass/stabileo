@@ -164,18 +164,39 @@ it('a caller sheet named Warnings cannot replace the mandatory warning sheet', a
   expect(XLSX.utils.sheet_to_csv(clean!.Sheets.Warnings!)).toBe('caller note');
 });
 
-it('an existing, empty, hidden or stale warning section in HTML is replaced by the current warnings', async () => {
+it('an existing, empty, hidden or earlier warning section in HTML is replaced by one visible section carrying both', async () => {
   publish('warning');
   const { warningHtml } = await import('../containment');
   for (const stale of ['<section id="stabileo-warnings"></section>', '<section id="stabileo-warnings" style="display:none"><p>#741</p></section>', "<section class=x id='stabileo-warnings'><p>old #1</p></section>"]) {
     const html = warningHtml(`<html><body>${stale}<p>987654</p></body></html>`);
     expect(html.match(/stabileo-warnings/g)).toHaveLength(1);
     expect(html).not.toContain('display:none');
-    expect(html).not.toContain('old #1');
+    if (stale.includes('old #1')) expect(html).toContain('old #1');
     expect(html).toContain('#741');
     expect(html).toContain('Advertencias de seguridad');
     expect(html).toContain('987654');
   }
   expect(warningHtml(warningHtml('<html><body><p>1</p></body></html>'))).toBe(warningHtml('<html><body><p>1</p></body></html>'));
-  expect(warningHtml('<html><body><section id="stabileo-warnings"><p>old</p></section></body></html>', [])).not.toContain('stabileo-warnings');
+  expect(warningHtml('<html><body><section id="stabileo-warnings"><p>old</p></section></body></html>', [])).toContain('<p>old</p>');
+  expect(warningHtml('<html><body><section id="stabileo-warnings"></section></body></html>', [])).not.toContain('stabileo-warnings');
+});
+
+it.each(['html', 'docx', 'csv'] as const)('a warned %s report exported from a clean workspace keeps its warnings', async format => {
+  const { downloadReport } = await import('../report-download');
+  const { warningHtml } = await import('../containment');
+  const blobs: Blob[] = [];
+  vi.stubGlobal('document', { createElement: () => ({ click() {} }) });
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(b => { blobs.push(b as Blob); return 'blob:test'; });
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  try {
+    publish('warning');
+    const html = warningHtml('<html><body><p>987654</p></body></html>');
+    modelStore.clear(); resultsStore.clear();
+    const report = { title: 'Report', stem: 'report', html, blocks: [{ kind: 'table' as const, head: ['Value'], rows: [['987654']] }] };
+    expect(await downloadReport(format, report)).toBeTruthy();
+    const bytes = new Uint8Array(await blobs[0]!.arrayBuffer());
+    const text = format === 'docx' ? strFromU8(unzipSync(bytes)['word/document.xml']!) : new TextDecoder().decode(bytes);
+    expect(text).toContain('#741');
+    expect(text).toContain('987654');
+  } finally { vi.unstubAllGlobals(); }
 });

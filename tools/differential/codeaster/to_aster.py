@@ -280,10 +280,11 @@ def check_supported(d):
 
 def unimposed_settlements(d):
     """(support key, DOF name) of every nonzero prescribed displacement that no
-    rigid restraint carries: an unflagged DOF, a DOF a positive spring frees, a
-    translation of an inclined support (only its normal part acts) or a
-    rotation an inclined support leaves free. `translate` drops these, so
-    Code_Aster solves the model without them; the engine refuses them (AC-10)."""
+    rigid restraint carries: an unflagged DOF, a DOF a positive spring frees, or
+    a rotation an inclined support leaves free. `translate` drops these, so
+    Code_Aster solves the model without them; the engine refuses them (AC-10).
+    Translations of an inclined support are not listed: `translate` raises
+    Unsupported for a settlement there."""
     out = []
     for key, s in d["supports"].items():
         normal = [s.get(k) for k in ("normalX", "normalY", "normalZ")]

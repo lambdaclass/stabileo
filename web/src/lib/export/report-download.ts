@@ -1,4 +1,4 @@
-import { exportMessages, warningHtml } from './containment';
+import { carriedWarnings, exportMessages, warningHtml } from './containment';
 /**
  * A report written to a file in one of the five formats every report offers (`report-formats.ts`):
  * the PDF is printed by the browser from the report's HTML (a blocked window falls back to the
@@ -37,7 +37,8 @@ export function docxLayout(title: string, date = new Date().toISOString().slice(
 }
 
 export async function downloadReport(format: ReportFormat, r: { title: string; html: string; stem: string; blocks?: DocBlock[]; provenance?: ReportProvenance; docx?: DocxOptions }): Promise<string | null> {
-  const warnings = exportMessages(); if (warnings === null) return null;
+  const current = exportMessages(); if (current === null) return null;
+  const warnings = [...new Set([...current, ...carriedWarnings(r.html)])];
   r = {
     ...r,
     html: warningHtml(r.html, warnings),
