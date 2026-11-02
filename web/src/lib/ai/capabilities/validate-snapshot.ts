@@ -154,8 +154,8 @@ export function validateSnapshot(snapshot: unknown, { existingModel = false } = 
   if (!Array.isArray(loads)) throw new AiActionError("invalid 'loads': must be an array");
   const loadIds = new Set<number>();
   for (const load of loads) {
-    const outer = Array.isArray(load) ? load[1] : load;
-    if (!isPlainObject(outer) || !isPlainObject(outer.data)) throw new AiActionError(`invalid load: ${JSON.stringify(load)}`);
+    const outer = load;
+    if (!isPlainObject(outer) || !isPlainObject(outer.data)) throw new AiActionError(`invalid load: ${JSON.stringify(load)}; a load is an object {type, data}`);
     const loadId = asU64(outer.data.id);
     if (loadId === undefined) throw new AiActionError(`load has no valid id: ${JSON.stringify(outer.data.id)}`);
     if (loadIds.has(loadId)) throw new AiActionError(`duplicate load id: ${loadId}`);

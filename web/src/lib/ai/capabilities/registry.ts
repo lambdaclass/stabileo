@@ -144,7 +144,7 @@ export function editToolCatalog(): GeneratorDef[] {
     { action: 'set_all_supports', description: 'Change all support types (e.g. fixed to pinned)', params: [
       preq('support_type', 'string', 'New support type (fixed, pinned, rollerX, etc.)'),
     ] },
-    { action: 'set_all_beam_loads', description: 'Set uniform distributed load on all beams (horizontal elements), replacing their distributed loads; columns keep theirs', params: [
+    { action: 'set_all_beam_loads', description: 'Set uniform distributed load on all beams (horizontal frame elements), replacing their distributed loads; columns and truss members keep theirs', params: [
       preq('q', 'f64', 'Distributed load (kN/m, negative = downward)'),
     ] },
     { action: 'add_lateral_loads', description: 'Add horizontal force at each floor level (left column)', params: [

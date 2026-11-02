@@ -42,6 +42,11 @@ describe('validate snapshot', () => {
   });
 
   it('passes a valid snapshot', () => expect(() => validateSnapshot(minimal())).not.toThrow());
+  it('NEGATIVE: refuses a load wrapped as an [id, load] pair, which edits could not find again', () => {
+    const snap = { ...minimal(), loads: [[1, { type: 'nodal', data: { id: 1, nodeId: 1, fx: 0, fz: -10, my: 0 } }]] };
+    expect(() => validateSnapshot(snap)).toThrow('a load is an object {type, data}');
+    expect(() => validateSnapshot({ ...minimal(), loads: [snap.loads[0][1]] })).not.toThrow();
+  });
   it('takes collection entries only as [id, data] pairs, on the snapshot path too', () => {
     const plain = { ...minimal(), nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: 6, y: 0 }] };
     expect(() => validateSnapshot(plain)).toThrow('invalid entry format, expected [id, data]');

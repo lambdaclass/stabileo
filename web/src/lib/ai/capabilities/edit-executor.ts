@@ -113,9 +113,9 @@ function setAllSupports(snap: Json, type: string): void {
 
 function setAllBeamLoads(snap: Json, q: number): void {
   const beams = new Set(
-    elements(snap).filter((e) => isHorizontalElement(snap, at(e, 1))).map((e) => asU64(at(e, 0)) ?? 0),
+    elements(snap).filter((e) => isHorizontalElement(snap, at(e, 1)) && at(at(e, 1), 'type') !== 'truss').map((e) => asU64(at(e, 0)) ?? 0),
   );
-  if (beams.size === 0) throw new AiActionError('No beams in model');
+  if (beams.size === 0) throw new AiActionError('No beams in model: horizontal truss members carry axial force only, so they take no distributed load');
   const loads = asArray(snap.loads);
   if (loads) {
     snap.loads = loads.filter((l) => {
@@ -158,9 +158,9 @@ function addLateralLoads(snap: Json, h: number): void {
 }
 
 function addDistributedLoad(snap: Json, elementId: number, q: number): void {
-  if (!elements(snap).some((e) => asU64(at(e, 0)) === elementId)) {
-    throw new AiActionError(`Element ${elementId} not found`);
-  }
+  const element = elements(snap).find((e) => asU64(at(e, 0)) === elementId);
+  if (!element) throw new AiActionError(`Element ${elementId} not found`);
+  if (at(at(element, 1), 'type') === 'truss') throw new AiActionError(`Element ${elementId} is a truss member: it carries axial force only, so it takes no distributed load`);
   addDistributedLoadToSnap(snap, elementId, q);
 }
 

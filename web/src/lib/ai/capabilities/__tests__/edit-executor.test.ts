@@ -159,6 +159,21 @@ describe('edit executor', () => {
     expect(braces).toEqual(['IPE 300', 'IPE 300', 'IPE 300', 'IPE 300', 'IPE 300', 'IPE 300', 'L 80x80x8']);
   });
 
+  it('NEGATIVE: truss members take no distributed load from an edit', () => {
+    const snap = makeFrame();
+    const beam = arr(snap, 'elements').find(([, e]) => e.nodeI !== undefined && (arr(snap, 'nodes').find((n) => n[0] === e.nodeI)![1].y === arr(snap, 'nodes').find((n) => n[0] === e.nodeJ)![1].y))!;
+    beam[1].type = 'truss';
+    expect(() => applyEdit({ action: 'set_all_beam_loads', params: { q: -8 } }, snap)).toThrow('No beams in model');
+    expect(() => applyEdit({ action: 'add_distributed_load', params: { element_id: beam[0], q: -8 } }, snap)).toThrow(`Element ${beam[0]} is a truss member`);
+    const multi = makeMultiStory();
+    const [first] = arr(multi, 'elements').filter(([, e]) => arr(multi, 'nodes').find((n) => n[0] === e.nodeI)![1].y === arr(multi, 'nodes').find((n) => n[0] === e.nodeJ)![1].y);
+    first[1].type = 'truss';
+    const before = loadsOf(multi).filter((l) => l.data.elementId === first[0]);
+    const r = applyEdit({ action: 'set_all_beam_loads', params: { q: -8 } }, multi);
+    expect(loadsOf(r).filter((l) => l.data.elementId === first[0])).toEqual(before);
+    expect(loadsOf(r).filter((l) => l.type === 'distributed').length).toBeGreaterThan(0);
+  });
+
   it('a new bay keeps the base support of the frame it extends', () => {
     const r = applyEdit({ action: 'add_bay', params: { width: 5 } }, generatePortalFrame({ width: 6, height: 4, base_support: 'pinned' }));
     expect(arr(r, 'supports').map((s) => s[1].type)).toEqual(['pinned', 'pinned', 'pinned']);
