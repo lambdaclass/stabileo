@@ -137,7 +137,9 @@ it('PNG canvas capture burns complete warning text into an extended image', asyn
   publish('warning');
   const { warningCanvas } = await import('../containment');
   const text: string[] = [];
-  const ctx = { font: '', fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn(), measureText: (s: string) => ({ width: s.length * 8 }), fillText: (s: string) => text.push(s) };
+  const tops: number[] = [];
+  const ctx = { font: '', fillStyle: '', textBaseline: 'alphabetic', fillRect: vi.fn(), drawImage: vi.fn(), measureText: (s: string) => ({ width: s.length * 8 }),
+    fillText: (s: string, _x: number, y: number) => { text.push(s); tops.push(ctx.textBaseline === 'top' ? y : y - parseFloat(ctx.font)); } };
   const canvas = { width: 0, height: 0, getContext: () => ctx };
   vi.stubGlobal('document', { createElement: () => canvas });
   try {
@@ -255,7 +257,9 @@ it('a canvas near the browser limit is scaled so image and warnings fit together
   publish('warning');
   const { warningCanvas } = await import('../containment');
   const text: string[] = [];
-  const ctx = { font: '', fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn(), measureText: (s: string) => ({ width: s.length * 8 }), fillText: (s: string) => text.push(s) };
+  const tops: number[] = [];
+  const ctx = { font: '', fillStyle: '', textBaseline: 'alphabetic', fillRect: vi.fn(), drawImage: vi.fn(), measureText: (s: string) => ({ width: s.length * 8 }),
+    fillText: (s: string, _x: number, y: number) => { text.push(s); tops.push(ctx.textBaseline === 'top' ? y : y - parseFloat(ctx.font)); } };
   const canvas = { width: 0, height: 0, getContext: () => ctx };
   vi.stubGlobal('document', { createElement: () => canvas });
   try {
@@ -267,6 +271,10 @@ it('a canvas near the browser limit is scaled so image and warnings fit together
     const [, , , w, h] = ctx.drawImage.mock.calls[0]!;
     expect(w / 16384).toBeCloseTo(h / 16384, 3);
     expect(h).toBeLessThan(16384);
+    const font = parseFloat(ctx.font);
+    expect(font).toBeGreaterThan(200);
+    expect(Math.min(...tops)).toBeGreaterThanOrEqual(h);
+    expect(Math.max(...tops) + 1.5 * font).toBeLessThanOrEqual(canvas.height);
     expect(text.join('')).toContain('#741');
   } finally { vi.unstubAllGlobals(); }
 });

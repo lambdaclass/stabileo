@@ -609,11 +609,11 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
 /// A slow or cycling iteration still moves between them and is rejected, and so is a non-finite one.
 pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>, finite: impl Fn(&T) -> bool) -> Result<T, String> {
     let (converged, tight) = solve(100, 1e-12)?;
-    if converged {
-        return Ok(tight);
-    }
     if !finite(&tight) {
         return Err("did not converge: non-finite result".into());
+    }
+    if converged {
+        return Ok(tight);
     }
     let value = |r: &T| serde_json::to_value(r).unwrap();
     let (_, longer) = solve(1000, 1e-12)?;
@@ -679,6 +679,9 @@ fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
     let never = |_: usize, _: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
     assert!(round_off_converged(never, |_| true).is_err());
     assert!(round_off_converged(stagnant, |_| false).is_err(), "matching non-finite outputs are not round-off");
+    let converged = |_: usize, _: f64| Ok::<_, String>((true, serde_json::json!({"u": [1.0]})));
+    assert!(round_off_converged(converged, |_| true).is_ok());
+    assert!(round_off_converged(converged, |_| false).is_err(), "a converged flag does not make a non-finite result usable");
     let cycling = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps % 2 == 1 { 2.0 + 1e-9 } else { 2.0 }]})));
     assert!(round_off_converged(cycling, |_| true).is_err(), "endpoints 100 and 1000 agree, the next step moves");
 }

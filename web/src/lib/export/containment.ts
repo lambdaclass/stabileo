@@ -74,8 +74,8 @@ export function warningCanvas(source: HTMLCanvasElement, warnings = requiredExpo
   ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
   if (scale === 1) ctx.drawImage(source, 0, 0);
   else ctx.drawImage(source, 0, 0, Math.floor(source.width * scale), shown);
-  ctx.font = `${font}px sans-serif`; ctx.fillStyle = '#742d00';
-  lines.forEach((line, i) => ctx.fillText(line, 16, shown + 20 + i * font * 1.5));
+  ctx.font = `${font}px sans-serif`; ctx.fillStyle = '#742d00'; ctx.textBaseline = 'top';
+  lines.forEach((line, i) => ctx.fillText(line, 16, shown + 16 + i * font * 1.5));
   return canvas;
 }
 export async function warningImage(dataUrl: string, warnings = requiredExportMessages()): Promise<string> {
