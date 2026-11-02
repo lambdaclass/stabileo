@@ -52,21 +52,11 @@ import /etc/caddy/sites.d/*.caddy
 		~^(/[^.]*[^./])/?$ "${1}"
 		default ""
 	}
-	map {header.Accept-Language} {reader_locale} {
-		~^\s*(?:[^,]*,\s*)*?(en|es|pt|de|fr|tr)(?:[-;,\s]|$) "${1}"
-		default "en"
-	}
 	@unprefixed {
 		not vars {unprefixed} ""
 		file /en{unprefixed}/index.html
 	}
-	handle @unprefixed {
-		header Vary Accept-Language
-		header Cache-Control "no-cache"
-		@inReaderLanguage file /{reader_locale}{unprefixed}/index.html
-		redir @inReaderLanguage /{reader_locale}{unprefixed}/{?query} 302
-		redir * /en{unprefixed}/{?query} 302
-	}
+	redir @unprefixed /en{unprefixed}/{?query} 301
 
 	@static path_regexp \.
 	handle @static {

@@ -4,7 +4,6 @@
 
 An address without a language prefix (`/research`, `/tools`, `/changelog`, an old `/blog/<post>`
 link) used to be answered with the landing's HTML, an English landing canonical and no content,
-and was drawn only once the application had loaded. The server now answers it with a 302 to the
-same page in the reader's language (the first of the browser's languages the page is published
-in, English otherwise, `Vary: Accept-Language`), keeping the query string. Search engines, which
-send no language, land on the English page.
+and was drawn only once the application had loaded. When the page has an English version the
+server now answers 301 to it, keeping the query string, as it already does for a page missing in
+one language. The page's language switcher leads to the other languages.
