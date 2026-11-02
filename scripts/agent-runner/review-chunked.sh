@@ -15,20 +15,20 @@ branch=$(echo "$head" | cut -d' ' -f1); want=$(echo "$head" | cut -d' ' -f2); ti
 for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/heads/$branch:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
 [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
 sha=${want:0:10}; range="$(git -C "$REPO" rev-parse origin/main)...$want"
-files=$(git -C "$REPO" diff --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**')
+mapfile -d '' -t files < <(git -C "$REPO" diff -z --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**')
 filelist=$(git -C "$REPO" diff --stat=200 "$range" -- . ':!**/package-lock.json' ':!research/papers.json' | tail -400)
 chunk=1; cur=0; : > "$R/$pr-$sha-c$chunk.files"
-for f in $files; do
+for f in "${files[@]}"; do
   n=$(git -C "$REPO" diff "$range" -- "$f" | wc -c)
   if [ $((cur + n)) -gt "$max" ] && [ "$cur" -gt 0 ]; then chunk=$((chunk + 1)); cur=0; : > "$R/$pr-$sha-c$chunk.files"; fi
-  echo "$f" >> "$R/$pr-$sha-c$chunk.files"; cur=$((cur + n))
+  printf '%s\0' "$f" >> "$R/$pr-$sha-c$chunk.files"; cur=$((cur + n))
 done
 echo "review-chunked #$pr $sha: $chunk chunks"
 for c in $(seq 1 "$chunk"); do
   p=$R/$pr-$sha-c$c-prompt.md
   { echo "Review part $c of $chunk of Stabileo PR #$pr ($title) at $sha. Stabileo is safety-critical structural-engineering software."
     echo "Do NOT run commands or tools. Below: the complete list of changed files (for context), then the full diff of THIS PART's files only. Review this part; use the file list only to understand context, and don't report 'unseen file' issues. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, refusals/containment that can be bypassed or that refuse correct inputs, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, missing negative cases, i18n gaps, security. Then Nits (one line each). If clean, say so. Be concise. End with one line: \"VERDICT: clean\", \"VERDICT: should-fix\" or \"VERDICT: blocker\"."
-    echo; echo "Changed files:"; echo "$filelist"; echo; echo '```diff'; git -C "$REPO" diff "$range" -- $(cat "$R/$pr-$sha-c$c.files"); echo '```'; } > "$p"
+    echo; echo "Changed files:"; echo "$filelist"; echo; echo '```diff'; mapfile -d '' -t part < "$R/$pr-$sha-c$c.files"; git -C "$REPO" diff "$range" -- "${part[@]}"; echo '```'; } > "$p"
   ( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$R/$pr-$sha-c$c-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first at $want" "$R/$pr-$sha-c$c-codex.md"; exit $rc ) & p1=$!
   ( if [ "$second" != none ]; then "$(dirname "$0")/run-engine.sh" "$second" review "$REPO" "$p" "$R/$pr-$sha-c$c-second.md"; rc=$?; sed -i "1i SECOND REVIEWER: $second at $want" "$R/$pr-$sha-c$c-second.md"; exit $rc; else echo "SECOND REVIEWER: none available" > "$R/$pr-$sha-c$c-second.md"; fi ) & p2=$!
   wait "$p1"; rc1=$?; wait "$p2"; rc2=$?

@@ -13,8 +13,10 @@ sha=$(git -C "$REPO" rev-parse --short=10 "refs/rv/pr-$pr" 2>/dev/null) || sha=
 [ -n "$sha" ] || { echo "review-diff: could not fetch PR #$pr" >&2; exit 1; }
 base=$(git -C "$REPO" rev-parse origin/main)
 title=$(gh pr view "$pr" -R lambdaclass/stabileo --json title -q .title)
+exec 9>"$R/.lock-$pr-$sha"
+flock -n 9 || { echo "review-diff: a review of #$pr at $sha is already running" >&2; exit 75; }
 T=$(mktemp -d "$R/.run-$pr-$sha.XXXXXX")
-trap 'for f in "$T"/*; do [ -e "$f" ] && mv -f "$f" "$R/"; done; rmdir "$T" 2>/dev/null' EXIT
+trap 'rc=$?; for f in "$T"/*; do [ -e "$f" ] || continue; case $rc in 0|75) mv -f "$f" "$R/";; *) mv -f "$f" "$R/$(basename "$f").failed";; esac; done; rmdir "$T" 2>/dev/null' EXIT
 p=$T/$pr-$sha-prompt.md
 { echo "Review Stabileo PR #$pr ($title) at $sha. Stabileo is safety-critical structural-engineering software."
   echo "Do NOT run commands or tools: the full diff against origin/main is below, except generated files (package-lock.json, research/papers.json, web/public/research-wasm/**, web/legacy-projects/**), whose sources are in the diff. Report only real problems as Blockers and Should-fix (file:line, why, fix): wrong results or claims, tests that cannot fail, loosened tolerances/budgets, removed or weakened tests or assertions, i18n gaps, phone/tablet layout risks, research isolation breaks, production engine numeric changes, security. Then Nits (one line each). If clean, say so. Be concise. End with one line: \"VERDICT: clean\", \"VERDICT: should-fix\" or \"VERDICT: blocker\"."

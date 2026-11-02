@@ -11,8 +11,10 @@ first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_eng
 name=$1; instr=$2; shift 2; R=$ST/reviews; mkdir -p "$R"
 cd "$WT/base" || exit 1
 full=$(git rev-parse HEAD); sha=${full:0:10}; p=$R/$name-$sha-prompt.md
+mapfile -d '' -t paths < <(git ls-tree -r -z --name-only "$full" -- "$@")
+[ "${#paths[@]}" -gt 0 ] || { echo "review-files $name: no files at $full match $*" >&2; exit 1; }
 { cat "$instr"; echo; echo 'End with one line: "VERDICT: clean", "VERDICT: should-fix" or "VERDICT: blocker".'; echo; echo "Repository: lambdaclass/stabileo at $sha. The files under review follow, each fenced with its path."
-  for f in $(git ls-tree -r --name-only "$full" -- "$@"); do echo; echo "===== $f"; echo '```'; git show "$full:$f"; echo '```'; done; } > "$p"
+  for f in "${paths[@]}"; do echo; echo "===== $f"; echo '```'; git show "$full:$f" || exit 1; echo '```'; done; } > "$p" || { echo "review-files $name: could not read the files at $full" >&2; exit 1; }
 size=$(wc -c < "$p"); echo "review-files $name: $size bytes"
 [ "$size" -lt 950000 ] || { echo "too large for one prompt" >&2; exit 1; }
 ( "$(dirname "$0")/run-engine.sh" "$first" review "$WT/base" "$p" "$R/$name-$sha-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first at $full" "$R/$name-$sha-codex.md"; exit $rc ) & p1=$!
