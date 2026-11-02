@@ -88,7 +88,7 @@ export interface CertifiedResult {
   demandCount: number;
 }
 
-export interface DemandBound { n: number; my: number; mz: number; vy: number }
+export interface DemandBound { n: number; my: number; mz: number; vStrong: number }
 
 /** Certify members over demand sets with bounds (0 = the exact given forces). Null when unavailable. */
 export function engineCertifyMembers(
@@ -99,7 +99,7 @@ export function engineCertifyMembers(
   try {
     return JSON.parse(certify(JSON.stringify({
       members,
-      demands: demands.map((d) => ({ forces: d.forces, bound: d.bound ?? { n: 0, my: 0, mz: 0, vy: 0 } })),
+      demands: demands.map((d) => ({ forces: d.forces, bound: d.bound ?? { n: 0, my: 0, mz: 0, vStrong: 0 } })),
     })));
   } catch {
     return null;

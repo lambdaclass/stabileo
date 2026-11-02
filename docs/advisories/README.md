@@ -38,6 +38,7 @@ section and re-check registry entry in the same way.
 | [SA-2026-023](SA-2026-023-column-moment-sign.md) | RC column check read one sign of the moment: uneven bar layouts (6, 10, 14… bars) passed on the stronger sign (φMn up to 38 % high) | Critical | — (D4-01) | #590 (via #629) | 0.4.0 | Published 2026-10-28 |
 | [SA-2026-024](SA-2026-024-design-on-unfactored-results.md) | Footings, joints, slabs, walls and the steel optimiser designed for the unfactored loads when combinations were defined but not solved (live calc, a failed combination solve, or an empty active list): 15 % low in an example, 29–38 % for D + L | High | — (W2-01) | #588 (via #629), #649 | 0.4.0 | Published 2026-10-28 |
 | [SA-2026-028](SA-2026-028-ec2-flexure-strain-compatibility.md) | EN 1992-1-1 flexure (PRO other codes, certified) assumed the tension steel yields and did not iterate the top bars: MRd up to 22 % high | High | [#534](https://github.com/lambdaclass/stabileo/issues/534) | #1236 | — | Draft |
+| [SA-2026-029](SA-2026-029-3d-design-axes.md) | 3D design checks read the lateral moment or shear: CIRSOC 201 rectangular columns bent about Mz checked over their depth (36 % too little steel in an example); engine 3D certified steel and RC demand extraction (API) used Vy / Mz | Critical | [#532](https://github.com/lambdaclass/stabileo/issues/532) | #1233 | — | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #338, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

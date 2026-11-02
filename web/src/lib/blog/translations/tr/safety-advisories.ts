@@ -61,6 +61,12 @@ const body: PostBody = {
           "0.4.0 sonrasında düzeltildi"
         ],
         [
+          "SA-2026-029",
+          "3B: uygulamadaki CIRSOC 201 kolonları Mz kesit yüksekliği üzerinden tasarlanıyordu (bir örnekte %36 eksik donatı); motorun sertifikalı 3B kontrolleri yanal kesme Vy'yi gövde kesmesi olarak okuyordu",
+          "Kritik",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

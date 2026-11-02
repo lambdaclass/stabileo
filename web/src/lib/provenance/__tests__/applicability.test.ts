@@ -124,8 +124,8 @@ describe('which registered changes concern a model', () => {
         ...(concrete ? { regulations: { roles: { concrete: { adapterId: concrete } } } } : {}),
       });
       expect(ids(beam, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).toContain(change);
-      expect(ids(beam, { resultsVersion: 6, analyses: ['linear'] } as SolveStamp)).toContain(change);
-      expect(ids(beam, { resultsVersion: 7, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+      expect(ids(beam, { resultsVersion: 7, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 8, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
     }
     expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
   });
