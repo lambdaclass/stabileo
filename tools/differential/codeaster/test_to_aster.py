@@ -151,13 +151,18 @@ class HeldMechanism(unittest.TestCase):
     """A singular disagreement is excused only when stabileo itself shows it is a mechanism: moving
     the disagreeing DOF changes nothing else and needs no force."""
 
-    def held(self, original, moved, bad, binary="bin"):
+    def held(self, original, moved, bad, binary="bin", apply=True):
         from unittest import mock
         import run as R
         sres = R.C.normalize_stabileo(original, 3)
         seen = []
         def solve(model, b):
             seen.append(model)
+            if apply:
+                imposed = next(s for s in model["supports"].values() if s.get("nodeId") == 5)["drz"]
+                for d in moved["displacements"]:
+                    if d["nodeId"] == 5:
+                        d["rz"] = imposed
             return moved
         with mock.patch.object(R.C, "stabileo", solve):
             ok = R.held_mechanism(_mechanism_beam(), sres, bad, binary, 1e-6)
@@ -174,6 +179,11 @@ class HeldMechanism(unittest.TestCase):
         self.assertFalse(self.held(_raw(rz5=0.0), _raw(rz5=1e-3, reac5=0.5), bad), "moving it needs a moment")
         self.assertFalse(self.held(_raw(rz5=0.0), _raw(rz5=1e-3, uz2=-2e-3, reac5=0.0), bad), "moving it moved node 2")
         self.assertFalse(self.held(_raw(rz5=0.0), _raw(rz5=1e-3, reac5=0.0, m12=4.0), bad), "a member force changed")
+
+    def test_the_rerun_must_apply_the_motion_and_report_its_reaction(self):
+        bad = [("disp", 5, "rz", 1e13, 0.0, 1.0)]
+        self.assertFalse(self.held(_raw(rz5=1e13), _raw(rz5=1e13, reac5=0.0), bad, apply=False), "the prescription was ignored")
+        self.assertFalse(self.held(_raw(rz5=1e13), _raw(rz5=1e13), bad), "no reaction reported at the moved DOF")
 
     def test_only_displacements_of_known_free_nodes_with_a_binary_qualify(self):
         moved = _raw(reac5=0.0)

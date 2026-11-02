@@ -346,7 +346,8 @@ pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &
     let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
     for (_, result) in &contributing {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
-        let identity = contributing.len() == 1 && factors.iter().filter(|f| f.factor != 0.0).all(|f| f.factor == 1.0);
+        let nonzero: Vec<_> = factors.iter().filter(|f| f.factor != 0.0).collect();
+        let identity = contributing.len() == 1 && nonzero.len() == 1 && nonzero[0].factor == 1.0;
         if !identity && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }

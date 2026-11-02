@@ -330,7 +330,8 @@ def held_mechanism(model, sres, bad, binary, tol):
         if sup.get(to_aster.FLAGS[k]) or sup.get(to_aster.PRESC[k]) is not None or (sup.get(to_aster.SPRINGS[k]) or 0.0) != 0.0:
             return False
         sup[to_aster.FLAGS[k]] = True
-        sup[to_aster.PRESC[k]] = original + max(same + [1e-3])
+        imposed = original + max(same + [1e-3])
+        sup[to_aster.PRESC[k]] = imposed
         try:
             mres = dict(C.normalize_stabileo(C.stabileo(moved, binary), 3), dim=3)
         except RuntimeError:
@@ -342,9 +343,15 @@ def held_mechanism(model, sres, bad, binary, tol):
             if b[0] == "reac" and b[2] == "missing" and str(b[1]) == nid:
                 continue
             return False
+        applied = mres["disp"].get(int(nid)) or mres["disp"].get(nid)
+        if applied is None or not math.isfinite(applied[k]) or abs(applied[k] - imposed) > tol * abs(imposed):
+            return False
+        reaction = mres["reac"].get(int(nid)) or mres["reac"].get(nid)
+        if reaction is None or not math.isfinite(reaction[k]):
+            return False
         scale = max([abs(v) for r in sres["reac"].values() for v in r]
                     + [abs(v) for f in sres["forces"].values() for v in f.values()] + [1e-300])
-        if abs((mres["reac"].get(int(nid)) or mres["reac"].get(nid) or [0.0] * 6)[k]) > tol * scale:
+        if abs(reaction[k]) > tol * scale:
             return False
     return True
 

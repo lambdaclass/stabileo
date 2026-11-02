@@ -350,6 +350,7 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
     assert!(same.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
     assert!(same.displacements.iter().zip(&r.displacements).all(|(s, d)| s.uz == d.uz));
     common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.2 }], &[(1, &r)]), "SH-MITC4-DISTORTION");
+    common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]), "SH-MITC4-DISTORTION");
     common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }, CombinationFactor { case_id: 2, factor: 1.0 }], &[(1, &r), (2, &r)]), "SH-MITC4-DISTORTION");
     r.structured_diagnostics.last_mut().unwrap().severity = Severity::Error;
     common::assert_containment(compute_envelope_3d(&[r.clone()]), "SH-MITC4-DISTORTION");
