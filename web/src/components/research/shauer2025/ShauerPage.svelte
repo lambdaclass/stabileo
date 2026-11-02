@@ -10,6 +10,7 @@
   import refCsv from '../../../../../research/fracture/shauer-2025/reference-results/ex2_steps.csv?raw';
   import validation from '../../../../../research/fracture/shauer-2025/VALIDATION.json';
   import { rs, researchLocale } from '../i18n';
+  import { checkName } from './check-names';
   import { solverStepCount } from './steps';
   import { compareReference, deepLinkStep } from './comparison';
   import LineChart from './LineChart.svelte';
@@ -367,7 +368,7 @@
       <thead><tr><th scope="col">{strings.check}</th><th scope="col" class="num">{strings.observed}</th><th scope="col" class="num">{strings.tolerance}</th><th scope="col">{strings.result}</th></tr></thead>
       <tbody>
         {#each validation.checks as c (c.name)}
-          <tr><td>{c.name}</td><td class="num">{#if c.metric === 'exact'}{c.passed ? strings.equal : strings.differs}{:else}<Sci value={c.observed} />{/if}</td><td class="num">{#if c.metric === 'exact'}—{:else}<Sci value={c.tolerance} sig={1} />{/if}</td><td class={c.passed ? 'pass' : 'fail'}>{c.passed ? strings.pass : strings.fail}</td></tr>
+          <tr><td>{checkName(c.name, researchLocale())}</td><td class="num">{#if c.metric === 'exact'}{c.passed ? strings.equal : strings.differs}{:else}<Sci value={c.observed} />{/if}</td><td class="num">{#if c.metric === 'exact'}—{:else}<Sci value={c.tolerance} sig={1} />{/if}</td><td class={c.passed ? 'pass' : 'fail'}>{c.passed ? strings.pass : strings.fail}</td></tr>
         {/each}
       </tbody>
     </table>
