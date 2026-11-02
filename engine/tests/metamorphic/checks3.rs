@@ -70,8 +70,41 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     }
 }
 
-/// Magnitude of the applied loads (force units), see `load_floor_2d`.
+/// Magnitude of the applied actions (force units), see `load_floor_2d`; a
+/// bimoment B counts as B/L².
 pub fn load_floor_3d(s: &SolverInput3D, lchar: f64) -> f64 {
+    let member = |id: usize| -> Option<(f64, f64, f64, f64, f64)> {
+        let e = s.elements.get(&id.to_string())?;
+        let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
+        let m = s.materials.get(&e.material_id.to_string())?;
+        let x = s.sections.get(&e.section_id.to_string())?;
+        Some((m.e * 1000.0, x.a, x.iy, x.iz, ((b.x - a.x).powi(2) + (b.y - a.y).powi(2) + (b.z - a.z).powi(2)).sqrt()))
+    };
+    let (mut k_axial, mut k_rot) = (0.0f64, 0.0f64);
+    for e in s.elements.values() {
+        if let Some((em, a, iy, iz, l)) = member(e.id).filter(|m| m.4 > 0.0) {
+            k_axial = k_axial.max(em * a / l);
+            k_rot = k_rot.max(em * iy.max(iz) / (l * l));
+        }
+    }
+    let abs = |v: Option<f64>| v.unwrap_or(0.0).abs();
+    let imposed: f64 = s.supports.values().map(|x| {
+        (abs(x.dx) + abs(x.dy) + abs(x.dz)) * k_axial + (abs(x.drx) + abs(x.dry) + abs(x.drz)) * k_rot
+    }).sum();
+    let other: f64 = s.loads.iter().map(|l| match l {
+        SolverLoad3D::Thermal(t) => member(t.element_id).map_or(0.0, |(em, a, iy, iz, _)| {
+            let alpha = t.alpha.unwrap_or(1.2e-5);
+            let hy = t.depth_y.unwrap_or((12.0 * iz / a).sqrt());
+            let hz = t.depth_z.unwrap_or((12.0 * iy / a).sqrt());
+            em * alpha * (a * t.dt_uniform.abs() + (iz * t.dt_gradient_y.abs() / hy + iy * t.dt_gradient_z.abs() / hz) / lchar)
+        }),
+        SolverLoad3D::Bimoment(b) => b.bimoment.abs() / (lchar * lchar),
+        _ => 0.0,
+    }).sum();
+    imposed + other + applied_3d(s, lchar)
+}
+
+fn applied_3d(s: &SolverInput3D, lchar: f64) -> f64 {
     let len = |id: usize| -> f64 {
         s.elements.get(&id.to_string()).and_then(|e| {
             let (a, b) = (s.nodes.get(&e.node_i.to_string())?, s.nodes.get(&e.node_j.to_string())?);
