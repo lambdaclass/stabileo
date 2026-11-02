@@ -119,23 +119,26 @@
     return at ? new Date(at).toLocaleDateString(i18n.locale, { dateStyle: 'long' }) : null;
   });
 
-  function setUsage(granted: boolean) {
-    usageConsent.set(granted ? 'granted' : 'denied');
-    void authStore.recordConsent('usage_analytics', granted).catch((e) => (consentMsg = errorText(e)));
+  async function setUsage(input: HTMLInputElement) {
+    consentMsg = null;
+    usageConsent.set(input.checked ? 'granted' : 'denied');
+    try {
+      await authStore.recordConsent('usage_analytics', input.checked);
+    } catch (e) {
+      consentMsg = errorText(e);
+    } finally {
+      if (!authStore.consentSaving) input.checked = usageConsent.sharing;
+    }
   }
-
-  let researchSaving = $state(false);
 
   async function setResearch(input: HTMLInputElement) {
     consentMsg = null;
-    researchSaving = true;
     try {
       await authStore.recordConsent('model_research', input.checked);
     } catch (e) {
       consentMsg = errorText(e);
     } finally {
-      researchSaving = false;
-      input.checked = authStore.account?.consents?.model_research === true;
+      if (!authStore.consentSaving) input.checked = authStore.account?.consents?.model_research === true;
     }
   }
 
@@ -275,11 +278,11 @@
           <a href={legalHref(USAGE_DATA_PATH, i18n.locale)} target="_blank" rel="noopener noreferrer">{t('usage.whatIsSent')}</a>
         </p>
         <label class="acc-check">
-          <input type="checkbox" checked={usageConsent.sharing} onchange={(e) => setUsage(e.currentTarget.checked)} data-testid="profile-usage" />
+          <input type="checkbox" checked={usageConsent.sharing} onchange={(e) => setUsage(e.currentTarget)} data-testid="profile-usage" />
           <span>{t('usage.registerOptIn')}</span>
         </label>
         <label class="acc-check">
-          <input type="checkbox" checked={authStore.account.consents?.model_research === true} disabled={researchSaving} onchange={(e) => setResearch(e.currentTarget)} data-testid="profile-research" />
+          <input type="checkbox" checked={authStore.account.consents?.model_research === true} onchange={(e) => setResearch(e.currentTarget)} data-testid="profile-research" />
           <span>{t('account.researchToggle')}<br /><span class="acc-hint">{t('account.researchHint')}</span></span>
         </label>
         {#if consentMsg}<p class="acc-msg bad" role="status">{consentMsg}</p>{/if}

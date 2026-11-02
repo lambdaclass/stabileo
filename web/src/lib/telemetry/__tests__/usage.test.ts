@@ -61,12 +61,16 @@ describe('anonymous usage', () => {
     expect(sent).toEqual([]);
   });
 
-  it('sends nothing while the server has not switched usage on', async () => {
-    const { trackUsage, flushUsage, setUsageContext } = await load();
-    setUsageContext({ ...ON, enabled: () => false });
+  it('sends nothing while the server has not switched usage on, not even once it does', async () => {
+    const { trackUsage, flushUsage, setUsageContext, pendingUsage } = await load();
+    let on = false;
+    setUsageContext({ ...ON, enabled: () => on });
     trackUsage('solve');
+    expect(pendingUsage()).toEqual([]);
+    on = true;
+    trackUsage('mode.open');
     await flushUsage();
-    expect(sent).toEqual([]);
+    expect(sent.flatMap((s) => (s.body.events as { name: string }[]).map((e) => e.name))).toEqual(['mode.open']);
   });
 
   it('after "Got it", sends a stable random id kept in the browser', async () => {
@@ -130,7 +134,8 @@ describe('anonymous usage', () => {
   });
 
   it('ignores malformed event names', async () => {
-    const { trackUsage, pendingUsage } = await load();
+    const { trackUsage, pendingUsage, setUsageContext } = await load();
+    setUsageContext(ON);
     trackUsage('Not A Name');
     trackUsage('ok.name');
     expect(pendingUsage().map((e) => e.name)).toEqual(['ok.name']);

@@ -47,7 +47,7 @@ export function installUsageTracking(): () => void {
     });
     $effect(() => {
       const recorded = authStore.account?.consents?.usage_analytics;
-      untrack(() => usageConsent.adoptAccount(recorded));
+      if (!authStore.consentSaving) untrack(() => usageConsent.adoptAccount(recorded));
     });
     $effect(() => {
       const mode = appModeLabel();

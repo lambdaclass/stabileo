@@ -239,6 +239,32 @@ describe('cloud projects', () => {
     expect(seen.at(-1)!.body).toMatchObject({ revision: 5 });
   });
 
+  it('a rename from the list is kept by the next save, unless the document was renamed here', async () => {
+    if (!tabManager.activeTabId) tabManager.init();
+    const first = tabManager.activeTabId!;
+    const doc = serializeProject();
+    replies.set('GET /api/v1/projects/m1', async () => json(200, { data: { ...meta('m1', 'Frame', 1), content: await gzipBase64(doc) } }));
+    await cloudProjects.open('m1');
+    tabManager.createTab();
+    await cloudProjects.open('m1');
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('m1', 'Frame', 1)], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Beam', 2) }));
+    await cloudProjects.rename('m1', 'Beam');
+    expect(modelStore.model.name).toBe('Beam');
+
+    tabManager.switchTab(first);
+    expect(modelStore.model.name).toBe('Frame');
+    replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Beam', 3) }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ name: 'Beam', revision: 2 });
+
+    modelStore.model.name = 'Local name';
+    replies.set('PUT /api/v1/projects/m1', () => json(200, { data: meta('m1', 'Local name', 4) }));
+    await cloudProjects.saveCurrent();
+    expect(seen.at(-1)!.body).toMatchObject({ name: 'Local name', revision: 3 });
+  });
+
   it('two tabs holding the same project each keep the revision they last saw', async () => {
     if (!tabManager.activeTabId) tabManager.init();
     const first = tabManager.activeTabId!;

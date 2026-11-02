@@ -31,6 +31,8 @@ let accessToken: string | null = null;
 // The refresh token this tab last stored. Other tabs share the stored key and may replace it.
 let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
+let consentWrites = $state(0);
+let consentQueue: Promise<unknown> = Promise.resolve();
 
 function applySession(session: Session): Account {
   accessToken = session.access_token;
@@ -116,6 +118,7 @@ export const authStore = {
   get saveRequiresAccount() { return userLoginEnabled && serverConfig?.save_requires_account === true; },
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
+  get consentSaving() { return consentWrites > 0; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 
   async init(): Promise<void> {
@@ -158,10 +161,19 @@ export const authStore = {
     return next;
   },
 
-  async recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
-    const next = await authenticated(() => authApi.recordConsent(kind, granted));
-    account = next;
-    return next;
+  /** Consent writes go one at a time, so the server keeps the last choice and each answer is the newest account. */
+  recordConsent(kind: ConsentKind, granted: boolean): Promise<Account> {
+    consentWrites += 1;
+    const write = consentQueue.then(() => authenticated(() => authApi.recordConsent(kind, granted)));
+    consentQueue = write.catch(() => {});
+    return write
+      .then((next) => {
+        account = next;
+        return next;
+      })
+      .finally(() => {
+        consentWrites -= 1;
+      });
   },
 
   changePassword(currentPassword: string, password: string): Promise<void> {

@@ -50,10 +50,11 @@ function mode(): 'basic' | 'pro' {
   return uiStore.appMode === 'pro' ? 'pro' : 'basic';
 }
 
-async function payload() {
+async function payload(linkedTab?: string) {
   const text = serializeProject();
+  const own = modelStore.model.name.trim() || 'Stabileo';
   const meta = {
-    name: modelStore.model.name.trim() || 'Stabileo',
+    name: linkedTab ? cloudLinks.name(linkedTab, own) : own,
     app_mode: mode(),
     node_count: modelStore.nodes.size,
     element_count: modelStore.elements.size,
@@ -99,11 +100,11 @@ export const cloudProjects = {
       const tab = tabKey();
       const generation = cloudLinks.generation(tab);
       const id = opts.asNew ? null : cloudLinks.get(tab);
-      const body = await payload();
+      const body = await payload(id ? tab : undefined);
       guard(who);
       const saved = id ? await projectsApi.update(id, { ...body, revision: cloudLinks.revision(tab) }) : await projectsApi.create(body);
       if (!stillFor(who)) return saved;
-      cloudLinks.setIf(tab, generation, saved.id, saved.revision);
+      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       if (!id) {
@@ -129,7 +130,7 @@ export const cloudProjects = {
       guard(who);
       const saved = await projectsApi.update(id, { ...body, revision: listed });
       if (!stillFor(who)) return saved;
-      cloudLinks.setIf(tab, generation, saved.id, saved.revision);
+      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
@@ -149,7 +150,7 @@ export const cloudProjects = {
     await loadProject(new File([text], `${project.name}.ded`, { type: 'application/json' }));
     if (tabKey() !== tab) return;
     modelStore.model.name = project.name;
-    cloudLinks.set(tab, project.id, project.revision);
+    cloudLinks.set(tab, project.id, project.revision, project.name);
     trackUsage('project.cloud_open', { mode: project.app_mode });
   },
 
@@ -159,7 +160,8 @@ export const cloudProjects = {
     const before = items.find((p) => p.id === id)?.revision;
     const updated = await projectsApi.update(id, { name });
     if (!stillFor(who)) return;
-    if (before !== undefined && updated.revision === before + 1) cloudLinks.advance(id, before, updated.revision);
+    if (cloudLinks.get(tabKey()) === id) modelStore.model.name = updated.name;
+    cloudLinks.renamed(id, updated.name, before, updated.revision);
     items = items.map((p) => (p.id === id ? updated : p));
   },
 

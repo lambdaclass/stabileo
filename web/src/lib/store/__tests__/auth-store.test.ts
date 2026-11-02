@@ -543,6 +543,37 @@ describe('consents and server switches', () => {
     expect(authStore.account?.consents?.terms_current).toBe(true);
   });
 
+  it('sends consent changes one at a time, so the last choice is the one stored and shown', async () => {
+    const { authStore } = await load();
+    on('POST /login', () => json(200, session(1, { ...ADA, consents: CONSENTS })));
+    await authStore.login({ email: 'ada@example.com', password: 'pw' });
+    let release!: () => void;
+    const held = new Promise<void>((done) => (release = done));
+    on(
+      'POST /consents',
+      async () => {
+        await held;
+        return json(201, { data: { ...ADA, consents: { ...CONSENTS, model_research: true } } });
+      },
+      () => json(201, { data: { ...ADA, consents: { ...CONSENTS, model_research: false } } }),
+    );
+
+    const first = authStore.recordConsent('model_research', true);
+    const second = authStore.recordConsent('model_research', false);
+    await new Promise((done) => setTimeout(done, 0));
+    expect(authStore.consentSaving).toBe(true);
+    expect(seen.filter((s) => s.route === 'POST /consents')).toHaveLength(1);
+
+    release();
+    await Promise.all([first, second]);
+    expect(seen.filter((s) => s.route === 'POST /consents').map((s) => s.body)).toEqual([
+      { kind: 'model_research', granted: true },
+      { kind: 'model_research', granted: false },
+    ]);
+    expect(authStore.account?.consents?.model_research).toBe(false);
+    expect(authStore.consentSaving).toBe(false);
+  });
+
   it('sends the terms acceptance and the optional usage choice with a sign-up', async () => {
     const { authStore } = await load();
     on('POST /register', () => json(201, session(1, { ...ADA, consents: CONSENTS })));

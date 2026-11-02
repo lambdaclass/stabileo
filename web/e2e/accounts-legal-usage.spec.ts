@@ -88,7 +88,7 @@ async function boot(
     const b = body(r);
     backend.consents.push(b);
     if (b.kind === 'model_research' && opts.researchFails?.(b.granted)) return json(r, 500, { error: 'internal', message: 'down' });
-    if (b.kind === 'model_research') await new Promise((done) => setTimeout(done, 400));
+    if (b.kind !== 'terms') await new Promise((done) => setTimeout(done, 400));
     if (b.kind === 'usage_analytics') usage = b.granted;
     if (b.kind === 'model_research') research = b.granted;
     return json(r, 201, { data: { ...ACCOUNT, consents: consents(true, usage, research) } });
@@ -224,23 +224,35 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.events).toEqual([]);
   });
 
-  test('the research choice waits for the server before it can change again, and shows what was stored', async ({ page }) => {
+  test('quick research choices reach the server in order, and the box shows what was stored', async ({ page }) => {
     const backend = await boot(page, { signedIn: true, researchFails: (granted) => !granted });
     await page.getByTestId('account-button').click();
     const research = page.getByTestId('profile-research');
-    await research.check();
-    await expect(research).toBeDisabled();
-    await expect(research).toBeEnabled();
-    await expect(research).toBeChecked();
-
     await research.click();
-    await expect(research).toBeEnabled();
-    await expect(research).toBeChecked();
+    await research.click();
     await expect(page.getByTestId('profile-dialog').getByRole('status')).toBeVisible();
+    await expect(research).toBeChecked();
     expect(backend.consents).toEqual([
       { kind: 'model_research', granted: true },
       { kind: 'model_research', granted: false },
     ]);
+  });
+
+  test('turning usage sharing off and back on quickly leaves it on, here and on the server', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, usageAnalytics: true });
+    await page.getByTestId('account-button').click();
+    const usage = page.getByTestId('profile-usage');
+    await expect(usage).toBeChecked();
+    await usage.click();
+    await usage.click();
+    await expect.poll(() => backend.consents.length).toBe(2);
+    await page.waitForTimeout(600);
+    expect(backend.consents).toEqual([
+      { kind: 'usage_analytics', granted: false },
+      { kind: 'usage_analytics', granted: true },
+    ]);
+    await expect(usage).toBeChecked();
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('stabileo-usage-consent') ?? '{}').choice)).toBe('granted');
   });
 
   test("an account that refused usage sharing elsewhere stops this browser sharing, without a notice", async ({ page }) => {

@@ -75,7 +75,7 @@ export function setUsageContext(next: UsageContext): void {
 }
 
 export function trackUsage(name: string, props: Record<string, unknown> = {}): void {
-  if (!usageConsent.sharing || serverOff || automated() || !EVENT_NAME.test(name)) return;
+  if (!usageConsent.sharing || serverOff || !context.enabled() || automated() || !EVENT_NAME.test(name)) return;
   queue.push({ name, at: new Date().toISOString(), props: cleanProps(props), mode: context.appMode(), locale: context.locale() });
   if (queue.length >= MAX_QUEUE) void flushUsage();
   else if (!timer) timer = setTimeout(() => void flushUsage(), FLUSH_MS);
