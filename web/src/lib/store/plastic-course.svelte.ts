@@ -5,21 +5,20 @@
  * curve's choice of abscissa.
  *
  * The model and the plastic moments of the last run are kept with a stamp of
- * its result and the model version, so a mechanism is never checked against a model that has changed
+ * its result, so a mechanism is never checked against a model that has changed
  * since (the panel then asks for a new run).
  */
 import type { SolverInput } from '../engine/types';
 import type { PlasticCollapseResult } from '../engine/plastic-collapse';
 import { evaluateUserMechanism, collapseMechanism, type UserHinge, type UserMechanism, type MechanismView } from '../engine/plastic/mechanism';
 import { resultsStore } from './results.svelte';
-import { modelStore } from './model.svelte';
 import type { CurveAxis } from '../engine/plastic/curve';
 
 export type PlasticView = 'steps' | 'mechanism' | 'user';
 
-/** What ties a run to its result and to the model it ran on. */
-export const stampOf = (r: { collapseFactor: number; hinges: unknown[]; steps: Array<{ loadFactor: number }> }, modelVersion: number) =>
-  `${modelVersion}|${r.collapseFactor}|${r.steps.map((s) => s.loadFactor).join(',')}|${JSON.stringify(r.hinges)}`;
+/** What ties a run to its own result: every event's λ and every hinge, not only their counts. */
+export const stampOf = (r: { collapseFactor: number; hinges: unknown[]; steps: Array<{ loadFactor: number }> }) =>
+  `${r.collapseFactor}|${r.steps.map((s) => s.loadFactor).join(',')}|${JSON.stringify(r.hinges)}`;
 
 function createPlasticCourse() {
   let run = $state.raw<{ input: SolverInput; mp: Map<number, number>; stamp: string } | null>(null);
@@ -32,7 +31,7 @@ function createPlasticCourse() {
 
   const fresh = () => {
     const r = resultsStore.plasticResult;
-    return run && r && stampOf(r, modelStore.modelVersion) === run.stamp ? run : null;
+    return run && r && stampOf(r) === run.stamp ? run : null;
   };
   const mpOf = (id: number) => fresh()?.mp.get(id) ?? Infinity;
 
@@ -51,7 +50,7 @@ function createPlasticCourse() {
   return {
     /** Called by the plastic action with what it ran. */
     remember(input: SolverInput, mp: Map<number, number>, result: PlasticCollapseResult) {
-      run = { input, mp, stamp: stampOf(result, modelStore.modelVersion) };
+      run = { input, mp, stamp: stampOf(result) };
       view = 'steps'; picking = false; hinges = []; combine = false; axis = null;
     },
     get ready() { return fresh() !== null; },
