@@ -503,7 +503,7 @@ export function checkFlexure(
 
 export function checkShear(
   params: ConcreteDesignParams, Vu: number, Nu: number = 0,
-  opts: { edition?: RegulationEdition; AsTensionCm2?: number } = {},
+  opts: { edition?: RegulationEdition; AsTensionCm2?: number; spacing?: number } = {},
 ): ShearResult {
   const { fc, fy, cover, b, h, stirrupDia } = params;
   const edition = opts.edition ?? '2025';
@@ -539,9 +539,9 @@ export function checkShear(
   const legs = table.requiredLegs;
 
   // The widest spacing (multiples of 2,5 cm, 5 cm at least) the engine passes.
-  let spacing = 0.05;
+  let spacing = opts.spacing ?? 0.05;
   let chosen = ask(legs, spacing);
-  for (let s = Math.floor(table.alongMax * 40) / 40; s >= 0.05 - 1e-9; s -= 0.025) {
+  for (let s = Math.floor(table.alongMax * 40) / 40; opts.spacing === undefined && s >= 0.05 - 1e-9; s -= 0.025) {
     const r = ask(legs, s);
     if (r.shearValid && !r.avBelowMin && r.phiVn / 1e3 >= VuAbs) { spacing = s; chosen = r; break; }
   }
@@ -1262,10 +1262,15 @@ export function verifyElement(input: VerificationInput): ElementVerification {
    */
   const flexureNu = isVertical ? 0 : (input.NuShear ?? 0);
   const flexure = checkFlexure(params, designMu, flexureNu, { edition });
-  const shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv });
-  const shearSecondary = isVertical && input.VuSecondary !== undefined
+  let shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv });
+  let shearSecondary = isVertical && input.VuSecondary !== undefined
     ? checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary, input.NuShear ?? input.Nu, { edition })
     : undefined;
+  if (shearSecondary && shearSecondary.spacing !== shear.spacing) {
+    const spacing = Math.min(shear.spacing, shearSecondary.spacing);
+    shear = checkShear(params, input.Vu, input.NuShear ?? input.Nu, { edition, AsTensionCm2: flexure.AsProv, spacing });
+    shearSecondary = checkShear({ ...params, b: params.h, h: params.b }, input.VuSecondary!, input.NuShear ?? input.Nu, { edition, spacing });
+  }
   let column: ColumnResult | undefined;
   let biaxial: BiaxialResult | undefined;
   let torsionResult: TorsionResult | undefined;

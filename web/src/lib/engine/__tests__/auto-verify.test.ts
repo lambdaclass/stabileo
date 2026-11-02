@@ -202,7 +202,24 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
   it('the secondary shear is checked over the rotated section', () => {
     const [v] = autoVerifyFromResults(column({ myStart: 120, myEnd: -120, vzStart: 80, vzEnd: 80, vyStart: 150, vyEnd: 150 }), columnModel(0.3, 0.6), null).concrete;
     expect(v!.shearSecondary?.Vu).toBe(150);
+    expect(v!.shearSecondary?.spacing).toBe(reference(0.6, 0.3, 120, 150).shear.spacing);
     expect(v!.shearSecondary?.ratio).toBeCloseTo(reference(0.6, 0.3, 120, 150).shear.ratio, 9);
+  });
+
+  it('both shear axes are checked with the one stirrup spacing the tighter axis needs', () => {
+    const input = {
+      elementId: 1, elementType: 'column' as const, Mu: 120, Vu: 20, Nu: 800, axialLoads: [800], NuShear: 800,
+      b: 0.3, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8,
+    };
+    const alone = verifyElement(input);
+    const secondaryAlone = reference(0.6, 0.3, 120, 150).shear;
+    expect(secondaryAlone.spacing).toBeLessThan(alone.shear.spacing);
+    const v = verifyElement({ ...input, VuSecondary: 150 });
+    expect(v.shear.spacing).toBe(secondaryAlone.spacing);
+    expect(v.shearSecondary!.spacing).toBe(secondaryAlone.spacing);
+    expect(v.shearSecondary!.ratio).toBeCloseTo(secondaryAlone.ratio, 9);
+    expect(v.shear.phiVn).toBeGreaterThan(alone.shear.phiVn);
+    expect(v.shear.steps).toContain(`Estribos: ${v.shear.stirrupLegs} ramas Ø8 c/${(secondaryAlone.spacing * 100).toFixed(0)} cm`);
   });
 
   it('the secondary axis is magnified with its own slenderness, and the magnified moment is the biaxial partner', () => {
