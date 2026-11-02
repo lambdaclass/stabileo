@@ -135,19 +135,17 @@ fn validation_pushover_ext_single_story_capacity_curve() {
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver, 10);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Must have at least 2 steps (progressive hinge formation)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.steps.len() >= 2,
         "Should have multiple steps; got {}",
         result.steps.len()
     );
-*/
 
     // Load factors must be strictly increasing
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for i in 1..result.steps.len() {
+    for i in 1..result.steps.len() {
         assert!(
             result.steps[i].load_factor > result.steps[i - 1].load_factor,
             "Load factor should increase: step {} (lf={:.4}) vs step {} (lf={:.4})",
@@ -157,47 +155,36 @@ for i in 1..result.steps.len() {
             result.steps[i - 1].load_factor
         );
     }
-*/
 
     // Collapse factor times unit load gives ultimate base shear
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let v_collapse = result.collapse_factor * unit_load;
-*/
+    let v_collapse = result.collapse_factor * unit_load;
 
     // Upper bound: sway mechanism => 4*Mp/h
     let v_upper = 4.0 * mp_value() / h;
 
     // Collapse base shear should not exceed upper bound (with tolerance)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         v_collapse <= v_upper * 1.05,
         "Collapse shear {:.1} kN should not exceed upper bound {:.1} kN",
         v_collapse,
         v_upper
     );
-*/
 
     // It should be a meaningful fraction of the upper bound
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         v_collapse > v_upper * 0.3,
         "Collapse shear {:.1} kN should be a significant fraction of upper bound {:.1} kN",
         v_collapse,
         v_upper
     );
-*/
 
     // Total roof drift should be positive (pushing in +x direction)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let drift = cumulative_roof_drift(&result, 2);
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let drift = cumulative_roof_drift(&result, 2);
+    assert!(
         drift > 0.0,
         "Roof drift should be positive (in push direction); got {:.6e}",
         drift
     );
-*/
 }
 
 // ================================================================
@@ -271,50 +258,39 @@ fn validation_pushover_ext_two_story_hinge_sequence() {
 
     let input = wrap_plastic(solver, 15);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Should form at least 2 hinges
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "Two-story frame should form at least 2 hinges; got {}",
         result.hinges.len()
     );
-*/
 
     // Collapse factor should be positive
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.collapse_factor > 0.0,
         "Collapse factor should be positive"
     );
-*/
 
     // First hinge should form at a lower load factor than last hinge
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let first_lf = result.hinges.first().unwrap().load_factor;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let last_lf = result.hinges.last().unwrap().load_factor;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let first_lf = result.hinges.first().unwrap().load_factor;
+    let last_lf = result.hinges.last().unwrap().load_factor;
+    assert!(
         last_lf >= first_lf - 1e-6,
         "Last hinge lf={:.4} should be >= first hinge lf={:.4}",
         last_lf,
         first_lf
     );
-*/
 
     // Hinges should form in columns (elements 1-4) or at beam ends (elements 5-6)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for hinge in &result.hinges {
+    for hinge in &result.hinges {
         assert!(
             hinge.element_id >= 1 && hinge.element_id <= 6,
             "Hinge element_id={} should be 1..6",
             hinge.element_id
         );
     }
-*/
 }
 
 // ================================================================
@@ -407,22 +383,22 @@ fn validation_pushover_ext_push_pattern_comparison() {
         loads_triangular,
     );
 
-    crate::common::assert_containment(plastic::solve_plastic_2d(&wrap_plastic(solver_uniform, 15)), "PL-2D-INVARIANCE");
-    crate::common::assert_containment(plastic::solve_plastic_2d(&wrap_plastic(solver_tri, 15)), "PL-2D-INVARIANCE");
+    let input_uniform = wrap_plastic(solver_uniform, 15);
+    let input_tri = wrap_plastic(solver_tri, 15);
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_uniform), "PL-2D-INVARIANCE");
+    let result_uniform = plastic::solve_plastic_2d_unrefused(&input_uniform).unwrap();
+    crate::common::assert_containment(plastic::solve_plastic_2d(&input_tri), "PL-2D-INVARIANCE");
+    let result_tri = plastic::solve_plastic_2d_unrefused(&input_tri).unwrap();
 
     // Both should find collapse
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result_uniform.collapse_factor > 0.0,
         "Uniform pattern should find collapse"
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result_tri.collapse_factor > 0.0,
         "Triangular pattern should find collapse"
     );
-*/
 
     // The two patterns apply different force distributions, so their
     // collapse factors (load multipliers) will differ. The absolute base
@@ -436,68 +412,48 @@ assert!(
     // Key check: both patterns find valid collapse, and the collapse
     // factors are different (proving the load pattern matters).
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let cf_uniform = result_uniform.collapse_factor;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let cf_tri = result_tri.collapse_factor;
-*/
+    let cf_uniform = result_uniform.collapse_factor;
+    let cf_tri = result_tri.collapse_factor;
 
     // Both should give reasonable, finite collapse factors
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         cf_uniform.is_finite() && cf_uniform > 0.0,
         "Uniform collapse factor should be positive finite; got {:.4}",
         cf_uniform
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         cf_tri.is_finite() && cf_tri > 0.0,
         "Triangular collapse factor should be positive finite; got {:.4}",
         cf_tri
     );
-*/
 
     // The collapse factors should be different because the load patterns
     // produce different moment distributions
     // (if they happen to be equal, that is also acceptable — the structure
     //  has a unique plastic capacity regardless of load pattern)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let _cf_diff = (cf_uniform - cf_tri).abs();
-*/
+    let _cf_diff = (cf_uniform - cf_tri).abs();
 
     // Both patterns should form at least one hinge
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result_uniform.hinges.is_empty(),
         "Uniform pattern should form hinges"
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result_tri.hinges.is_empty(),
         "Triangular pattern should form hinges"
     );
-*/
 
     // The triangular pattern applies more load to the upper story
     // relative to lower story, so its collapse factor should differ
     // from the uniform pattern. We just check both are meaningful.
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let v_uniform = cf_uniform * 2.0;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let v_tri = cf_tri * (f1_tri + f2_tri);
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let v_uniform = cf_uniform * 2.0;
+    let v_tri = cf_tri * (f1_tri + f2_tri);
+    assert!(
         v_uniform > 0.0 && v_tri > 0.0,
         "Base shears should be positive: V_uniform={:.2}, V_tri={:.2}",
         v_uniform,
         v_tri
     );
-*/
 }
 
 // ================================================================
@@ -522,110 +478,81 @@ fn validation_pushover_ext_target_displacement() {
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver.clone(), 10);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result.steps.is_empty(),
         "Should have at least one plastic step"
     );
-*/
 
     // Step 1: Get first-step elastic response
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let first_step = &result.steps[0];
-*/
+    let first_step = &result.steps[0];
     let roof_node = 2; // top-left of portal
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_1 = first_step
+    let delta_1 = first_step
         .results
         .displacements
         .iter()
         .find(|d| d.node_id == roof_node)
         .unwrap()
         .ux;
-*/
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let v_1 = first_step
+    let v_1 = first_step
         .results
         .reactions
         .iter()
         .map(|r| r.rx)
         .sum::<f64>()
         .abs();
-*/
 
     // Step 2: Effective stiffness k* = V / delta
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         delta_1.abs() > 1e-15,
         "First step displacement should be nonzero"
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let k_eff = v_1 / delta_1.abs();
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let k_eff = v_1 / delta_1.abs();
+    assert!(
         k_eff > 0.0,
         "Effective stiffness should be positive; got {:.4e}",
         k_eff
     );
-*/
 
     // Step 3: Equivalent SDOF mass (assume total seismic mass = 100 tonnes = 100 kN*s^2/m)
     let m_star = 100.0; // kN*s^2/m (conceptual)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let omega_sq = k_eff / m_star;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let t_star = 2.0 * std::f64::consts::PI / omega_sq.sqrt();
-*/
+    let omega_sq = k_eff / m_star;
+    let t_star = 2.0 * std::f64::consts::PI / omega_sq.sqrt();
 
     // T* should be a reasonable period for a single-story frame (0.05s to 5s)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         t_star > 0.01 && t_star < 10.0,
         "Equivalent SDOF period T*={:.4}s should be reasonable",
         t_star
     );
-*/
 
     // Step 4: Target displacement from elastic spectrum
     // Assume spectral acceleration Sa = 0.3g at T*
     let sa = 0.3 * 9.81; // m/s^2 -> kN/kN (dimensionless in kN units)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let sd = sa * (t_star / (2.0 * std::f64::consts::PI)).powi(2);
-*/
+    let sd = sa * (t_star / (2.0 * std::f64::consts::PI)).powi(2);
 
     // Target displacement should be a positive, finite value
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         sd > 0.0 && sd.is_finite(),
         "Target displacement Sd={:.6e} should be positive and finite",
         sd
     );
-*/
 
     // Step 5: Compare target displacement to yield displacement
     // Yield displacement = first hinge load factor * first step drift
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_yield = delta_1.abs();
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let total_drift = cumulative_roof_drift(&result, roof_node).abs();
-*/
+    let delta_yield = delta_1.abs();
+    let total_drift = cumulative_roof_drift(&result, roof_node).abs();
 
     // Total drift at collapse should exceed initial yield drift
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         total_drift >= delta_yield * 0.99,
         "Total collapse drift {:.6e} should be >= yield drift {:.6e}",
         total_drift,
         delta_yield
     );
-*/
 }
 
 // ================================================================
@@ -651,18 +578,16 @@ fn validation_pushover_ext_ductility_ratio() {
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver, 10);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let roof_node = 2;
 
     // delta_yield = drift at first hinge formation (first step)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result.steps.is_empty(),
         "Should have at least one plastic step"
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_yield = result.steps[0]
+    let delta_yield = result.steps[0]
         .results
         .displacements
         .iter()
@@ -670,37 +595,27 @@ let delta_yield = result.steps[0]
         .unwrap()
         .ux
         .abs();
-*/
 
     // delta_max = total cumulative drift at collapse
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_max = cumulative_roof_drift(&result, roof_node).abs();
-*/
+    let delta_max = cumulative_roof_drift(&result, roof_node).abs();
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         delta_yield > 1e-15,
         "Yield displacement should be nonzero"
     );
-*/
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let mu = delta_max / delta_yield;
-*/
+    let mu = delta_max / delta_yield;
 
     // Ductility should be >= 1.0 (at least elastic)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         mu >= 1.0 - 1e-6,
         "Ductility ratio mu={:.3} should be >= 1.0",
         mu
     );
-*/
 
     // For a portal frame with multiple hinge locations, mu is typically > 1
     // If multiple steps exist, ductility should show inelastic deformation
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-if result.steps.len() >= 2 {
+    if result.steps.len() >= 2 {
         assert!(
             mu > 1.0,
             "With {} steps, ductility mu={:.3} should exceed 1.0",
@@ -708,16 +623,13 @@ if result.steps.len() >= 2 {
             mu
         );
     }
-*/
 
     // Sanity: ductility should not be absurdly high for a real frame
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         mu < 100.0,
         "Ductility mu={:.3} should be reasonable (< 100)",
         mu
     );
-*/
 }
 
 // ================================================================
@@ -743,6 +655,7 @@ fn validation_pushover_ext_hinge_rotation_capacity() {
     let solver = make_portal_frame(h, bay, E, A_SEC, IZ_SEC, unit_load, 0.0);
     let input = wrap_plastic(solver.clone(), 10);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let roof_node = 2;
 
@@ -756,46 +669,32 @@ fn validation_pushover_ext_hinge_rotation_capacity() {
         .ux;
 
     // First hinge load factor gives yield displacement
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result.steps.is_empty(),
         "Should have at least one step"
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let lf_yield = result.steps[0].load_factor;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_yield = (lf_yield * delta_unit).abs();
-*/
+    let lf_yield = result.steps[0].load_factor;
+    let delta_yield = (lf_yield * delta_unit).abs();
 
     // Total displacement at collapse
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_total = cumulative_roof_drift(&result, roof_node).abs();
-*/
+    let delta_total = cumulative_roof_drift(&result, roof_node).abs();
 
     // Plastic displacement beyond yield
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let delta_plastic = if delta_total > delta_yield {
+    let delta_plastic = if delta_total > delta_yield {
         delta_total - delta_yield
     } else {
         0.0
     };
-*/
 
     // Approximate plastic rotation at column base hinge
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let theta_plastic = delta_plastic / h;
-*/
+    let theta_plastic = delta_plastic / h;
 
     // Plastic rotation should be non-negative
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         theta_plastic >= -1e-10,
         "Plastic rotation theta_p={:.6e} should be non-negative",
         theta_plastic
     );
-*/
 
     // Yield rotation for the column: theta_y = Mp*L / (3EI)
     let ei = E * 1000.0 * IZ_SEC;
@@ -803,8 +702,7 @@ assert!(
 
     // Plastic rotation should be bounded relative to yield rotation
     // (not excessively large — physical structures have limits)
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-if theta_plastic > 0.0 && theta_yield > 1e-15 {
+    if theta_plastic > 0.0 && theta_yield > 1e-15 {
         let rotation_ratio = theta_plastic / theta_yield;
         assert!(
             rotation_ratio < 50.0,
@@ -812,11 +710,9 @@ if theta_plastic > 0.0 && theta_yield > 1e-15 {
             rotation_ratio
         );
     }
-*/
 
     // All hinges should have finite, positive moment values
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for hinge in &result.hinges {
+    for hinge in &result.hinges {
         assert!(
             hinge.moment > 0.0 && hinge.moment.is_finite(),
             "Hinge moment={:.4} should be positive and finite (elem={}, end={})",
@@ -835,7 +731,6 @@ for hinge in &result.hinges {
             ),
         );
     }
-*/
 }
 
 // ================================================================
@@ -995,29 +890,23 @@ fn validation_pushover_ext_weak_story_mechanism() {
     );
 
     crate::common::assert_containment(plastic::solve_plastic_2d(&plastic_input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&plastic_input).unwrap();
 
     // Should form hinges
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result.hinges.is_empty(),
         "Weak story frame should form hinges"
     );
-*/
 
     // First hinges should be in story 1 columns (elements 1 or 2)
     // because they have lower Mp
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let first_step_hinges = &result.steps[0].hinges_formed;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let story1_hinge_count = first_step_hinges
+    let first_step_hinges = &result.steps[0].hinges_formed;
+    let story1_hinge_count = first_step_hinges
         .iter()
         .filter(|h| h.element_id == 1 || h.element_id == 2)
         .count();
-*/
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         story1_hinge_count > 0,
         "First hinges should form in weak story-1 columns (elems 1,2); \
          got hinges in elements: {:?}",
@@ -1026,14 +915,12 @@ assert!(
             .map(|h| h.element_id)
             .collect::<Vec<_>>()
     );
-*/
 
     // Mp for weak columns
     let mp_weak = FY * 1000.0 * b_weak * h_weak * h_weak / 4.0;
 
     // First hinge moment should match the weak section's Mp
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for h in first_step_hinges
+    for h in first_step_hinges
         .iter()
         .filter(|h| h.element_id == 1 || h.element_id == 2)
     {
@@ -1047,7 +934,6 @@ for h in first_step_hinges
             ),
         );
     }
-*/
 }
 
 // ================================================================
@@ -1101,20 +987,18 @@ fn validation_pushover_ext_symmetric_frame_response() {
     // Now run plastic analysis
     let input = wrap_plastic(solver, 10);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         !result.hinges.is_empty(),
         "Should form hinges in symmetric frame"
     );
-*/
 
     // In a perfectly symmetric portal frame under single lateral load,
     // both column bases may yield simultaneously or sequentially.
     // Check that column base hinges (in elements 1 and 3) form
     // at very similar load factors.
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let col_base_hinges: Vec<_> = result
+    let col_base_hinges: Vec<_> = result
         .hinges
         .iter()
         .filter(|h| {
@@ -1122,10 +1006,8 @@ let col_base_hinges: Vec<_> = result
                 || (h.element_id == 3 && h.end == "end")
         })
         .collect();
-*/
 
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-if col_base_hinges.len() >= 2 {
+    if col_base_hinges.len() >= 2 {
         let lf_a = col_base_hinges[0].load_factor;
         let lf_b = col_base_hinges[1].load_factor;
 
@@ -1146,12 +1028,10 @@ if col_base_hinges.len() >= 2 {
             ratio
         );
     }
-*/
 
     // All hinge moments should equal Mp (single section used)
     let mp = mp_value();
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-for hinge in &result.hinges {
+    for hinge in &result.hinges {
         assert_close(
             hinge.moment,
             mp,
@@ -1162,14 +1042,11 @@ for hinge in &result.hinges {
             ),
         );
     }
-*/
 
     // Collapse factor should be positive and finite
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.collapse_factor > 0.0 && result.collapse_factor.is_finite(),
         "Collapse factor={:.4} should be positive and finite",
         result.collapse_factor
     );
-*/
 }

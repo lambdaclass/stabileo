@@ -106,7 +106,14 @@ describe('production containment', () => {
     modelStore.clear();
     uiStore.analysisMode = '2d';
     await modelStore.loadExample('cantilever-point');
+    resultsStore.clear();
+    const certify = vi.spyOn(wasm, 'callCertify');
     expect(() => runPlasticCollapse()).toThrow(/#758/);
+    expect(resultsStore.plasticResult).toBeNull();
+    expect(resultsStore.hasAnyResults).toBe(false);
+    expect(resultsStore.knownIssues.refused).toBe(false);
+    expect(certify).not.toHaveBeenCalled();
+    certify.mockRestore();
   });
 });
 

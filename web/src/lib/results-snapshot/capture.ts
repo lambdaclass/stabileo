@@ -214,7 +214,7 @@ function captureAdvanced(c: SnapshotCase, out: Values): void {
       for (const direction of HORIZONTAL_DIRECTIONS) {
         const res = solveSpectral3D({ solver: input, modes, densities, spectrum, direction, rule: 'CQC', importanceFactor: RISK_FACTOR[group as keyof typeof RISK_FACTOR], reductionFactor: settingsR ?? 1, xi: 0.05 } as never);
         collectContainment(res);
-      if (typeof res === 'string') { out[`spectral.${direction}.refusal`] = res; continue; }
+        if (typeof res === 'string') { out[`spectral.${direction}.refusal`] = res; continue; }
         analysis(`spectral.${direction}`, res, out);
       }
     });

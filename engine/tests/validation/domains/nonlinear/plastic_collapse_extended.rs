@@ -104,25 +104,20 @@ fn validation_plastic_ext_ss_midspan_point() {
             element_id: 1, a: l / 2.0, p: -1.0, px: None, my: None,
         })]);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 4.0 * MP / l;
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.10,
         "SS midspan point: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
     // Determinate beam: exactly 1 hinge
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 1,
         "SS midspan: should form at least 1 hinge, got {}", result.hinges.len()
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -144,25 +139,20 @@ fn validation_plastic_ext_ff_udl() {
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("fixed"), loads);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 16.0 * MP / (l * l);
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.10,
         "FF UDL: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
     // Should form hinges at supports and midspan
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "FF UDL: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -181,25 +171,20 @@ fn validation_plastic_ext_ff_midspan_point() {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 8.0 * MP / l;
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.10,
         "FF midspan point: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
     // Should form hinges at both supports and at midspan
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "FF midspan: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -218,25 +203,20 @@ fn validation_plastic_ext_propped_cantilever_midspan() {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0,
         })]);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 6.0 * MP / l;
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.15,
         "Propped cantilever midspan: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
     // Propped cantilever: 1 degree indeterminate, needs 2 hinges
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "Propped cantilever: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -255,31 +235,24 @@ fn validation_plastic_ext_portal_lateral() {
     let w: f64 = 6.0;
     let input = make_plastic_portal(h, w, 1.0, 0.0);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 4.0 * MP / h;
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.15,
         "Portal lateral: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
     // Portal sway mechanism forms hinges
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "Portal: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.collapse_factor > 0.0,
         "Portal: collapse factor must be positive"
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -306,26 +279,21 @@ fn validation_plastic_ext_two_span_udl() {
     }
     let input = make_plastic_continuous(&[l, l], n_per_span, loads);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     // Two-span continuous with UDL: each span collapses like a propped
     // cantilever. The governing mechanism gives lambda ~ 11.66*Mp/(q*L^2).
     let expected_lambda: f64 = 11.66 * MP / (l * l);
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.30,
         "Two-span UDL: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "Two-span: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -358,24 +326,19 @@ fn validation_plastic_ext_ff_third_point() {
             node_id: 2, fx: 0.0, fz: -1.0, my: 0.0, // node at L/3
         })]);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 9.0 * MP / l;
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.10,
         "FF third-point: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "FF third-point: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -399,29 +362,22 @@ fn validation_plastic_ext_propped_cantilever_udl() {
     }
     let input = make_plastic_beam_multi(n, l, "fixed", Some("rollerX"), loads);
     crate::common::assert_containment(plastic::solve_plastic_2d(&input), "PL-2D-INVARIANCE");
+    let result = plastic::solve_plastic_2d_unrefused(&input).unwrap();
 
     let expected_lambda: f64 = 11.66 * MP / (l * l);
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    let rel_err: f64 = (result.collapse_factor - expected_lambda).abs() / expected_lambda;
+    assert!(
         rel_err < 0.30,
         "Propped cantilever UDL: lambda={:.2}, expected={:.2}, rel_err={:.2}%",
         result.collapse_factor, expected_lambda, rel_err * 100.0
     );
-*/
     // Should form 2 hinges for this 1-degree indeterminate structure
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.hinges.len() >= 2,
         "Propped cantilever UDL: expected at least 2 hinges, got {}", result.hinges.len()
     );
-*/
-    /* Numerical expectations retained for the #758 fix (no result while refused):
-assert!(
+    assert!(
         result.is_mechanism,
         "Propped cantilever UDL: should reach mechanism state"
     );
-*/
 }

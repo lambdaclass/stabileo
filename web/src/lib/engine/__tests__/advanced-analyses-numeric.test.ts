@@ -167,7 +167,7 @@ describe('p-delta', () => {
 // ─── Plastic collapse ──────────────────────────────────────────────
 
 describe('plastic collapse', () => {
-  it('a fixed-fixed beam under UDL collapses at 16 Mp/L²', () => {
+  const fixedFixedUdl = () => {
     const L = 8, n = 4, w = 10;
     const nodes = new Map<number, unknown>(), elements = new Map<number, unknown>();
     for (let i = 0; i <= n; i++) nodes.set(i + 1, { id: i + 1, x: (L * i) / n, y: 0 });
@@ -180,50 +180,32 @@ describe('plastic collapse', () => {
       loads: Array.from({ length: n }, (_, i) => ({ type: 'distributed', data: { id: i + 1, elementId: i + 1, qI: -w, qJ: -w } })),
     } as never;
     const Mp = 147.58; // kN·m
-    expectPlasticRefusal(() => solvePlastic({
+    return { L, w, Mp, args: {
       solver,
       sections: new Map([[1, { a: A, iz: I, materialId: 1 }]]) as never,
       materials: new Map([[1, { fy: 235e3 }]]) as never,
       mpOverrides: new Map([[1, Mp]]) as never,
-    }));
-    /* Numerical expectations for the #758 fix (no result while refused):
-expect(r.collapseFactor / ((16 * Mp) / L ** 2 / w)).toBeCloseTo(1, 2);
-*/
+    } };
+  };
+
+  it('a fixed-fixed beam under UDL is withheld while PL-2D-INVARIANCE (#758) is open', () => {
+    expectPlasticRefusal(() => solvePlastic(fixedFixedUdl().args));
   });
 
-  it('hinges form at the fixed ends first, then in the span', () => {
+  it.skip('a fixed-fixed beam under UDL collapses at 16 Mp/L² (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
+    const { L, w, Mp, args } = fixedFixedUdl();
+    const r = solvePlastic(args);
+    expect(r.collapseFactor / ((16 * Mp) / L ** 2 / w)).toBeCloseTo(1, 2);
+  });
+
+  it.skip('hinges form at the fixed ends first, then in the span (skipped: #758 PL-2D-INVARIANCE withholds the 2D plastic result)', () => {
     // The mechanism's ORDER is the part a teaching tool shows, and a solver
     // that got the collapse load right by luck would get this wrong.
-    const L = 8, n = 4, w = 10;
-    const nodes = new Map<number, unknown>(), elements = new Map<number, unknown>();
-    for (let i = 0; i <= n; i++) nodes.set(i + 1, { id: i + 1, x: (L * i) / n, y: 0 });
-    for (let i = 0; i < n; i++) elements.set(i + 1, { id: i + 1, nodeI: i + 1, nodeJ: i + 2, materialId: 1, sectionId: 1, type: 'frame' });
-    expectPlasticRefusal(() => solvePlastic({
-      solver: {
-        nodes, elements,
-        materials: new Map([[1, { id: 1, e: E, nu: 0.3 }]]),
-        sections: new Map([[1, { id: 1, a: A, iz: I }]]),
-        supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: n + 1, type: 'fixed' }]]),
-        loads: Array.from({ length: n }, (_, i) => ({ type: 'distributed', data: { id: i + 1, elementId: i + 1, qI: -w, qJ: -w } })),
-      } as never,
-      sections: new Map([[1, { a: A, iz: I, materialId: 1 }]]) as never,
-      materials: new Map([[1, { fy: 235e3 }]]) as never,
-      mpOverrides: new Map([[1, 147.58]]) as never,
-    }));
-    /* Numerical expectations for the #758 fix (no result while refused):
-const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
-*/
-    /* Numerical expectations for the #758 fix (no result while refused):
-const ids = first.map((h) => `${h.elementId}${h.end}`);
-*/
-    /* Numerical expectations for the #758 fix (no result while refused):
-expect(ids).toContain('1start');
-*/
-    /* Numerical expectations for the #758 fix (no result while refused):
-expect(ids).toContain('4end');
-*/
-    /* Numerical expectations for the #758 fix (no result while refused):
-expect(r.isMechanism).toBe(true);
-*/
+    const r = solvePlastic(fixedFixedUdl().args);
+    const first = r.steps[0].hingesFormed as Array<{ elementId: number; end: string }>;
+    const ids = first.map((h) => `${h.elementId}${h.end}`);
+    expect(ids).toContain('1start');
+    expect(ids).toContain('4end');
+    expect(r.isMechanism).toBe(true);
   });
 });

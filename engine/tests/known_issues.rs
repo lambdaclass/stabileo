@@ -931,6 +931,7 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
         }
         let solver = macneal_strip(distorted, 1);
         let modes = solve_modal_3d(&solver, &densities, 4).unwrap();
+        assert_eq!(ids(&modes.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), distorted, "modal: {:?}", ids(&modes.structured_diagnostics));
         let spectral: SpectralInput3D = serde_json::from_value(serde_json::json!({
             "solver": solver, "densities": densities, "modes": modes.modes,
             "spectrum": {"name": "constant", "inG": false, "points": [{"period": 0.0, "sa": 1.0}, {"period": 1e9, "sa": 1.0}]},

@@ -587,6 +587,13 @@ fn span_candidates(
 /// to move, the event limit, a final state that is not statically admissible.
 pub fn solve_plastic_2d(input: &PlasticInput) -> Result<PlasticResult, String> {
     crate::known_issues::refuse(&crate::known_issues::for_2d(&input.solver, crate::known_issues::Analysis::Plastic))?;
+    solve_plastic_2d_unrefused(input)
+}
+
+/// `solve_plastic_2d` without the known-issue refusal, for tests only: its
+/// results are the ones issue #758 withholds from every production path.
+#[doc(hidden)]
+pub fn solve_plastic_2d_unrefused(input: &PlasticInput) -> Result<PlasticResult, String> {
     let solver_input = &input.solver;
 
     // Validated up front so that the `Err` from `solve_2d` inside the step

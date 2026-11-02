@@ -95,11 +95,11 @@ pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
 }
 
 /// A registered refusal is a pass only where its known issue applies; anywhere else it is a regression.
-pub fn scoped(analysis: &str, has_quads: bool, r: Resp) -> Result<Resp, String> {
+pub fn scoped(analysis: &str, distorted_quads: bool, r: Resp) -> Result<Resp, String> {
     for (id, issue) in &r.1 {
         let expected = match id.as_str() {
             "PL-2D-INVARIANCE" => analysis == "plastic collapse",
-            "SH-MITC4-DISTORTION" => has_quads,
+            "SH-MITC4-DISTORTION" => distorted_quads,
             "BU-BOUND" => analysis.contains("buckling"),
             _ => false,
         };
@@ -150,10 +150,11 @@ impl Resp {
             .chain(values(&s.curved_shells).map(|q| ("vm_curved_shell", q.id)))
             .collect();
         let items: Vec<usize> = (0..self.0.len()).filter(|&k| self.0[k].tag == "vm_quad").collect();
-        if items.len() == families.len() && items.iter().zip(&families).all(|(&k, f)| self.0[k].elem == Some(f.1)) {
-            for (&k, f) in items.iter().zip(&families) {
-                self.0[k].tag = f.0.into();
-            }
+        if items.is_empty() { return self; }
+        assert!(items.len() == families.len() && items.iter().zip(&families).all(|(&k, f)| self.0[k].elem == Some(f.1)),
+            "shell stresses do not follow the model's shell order: {:?} vs {families:?}", items.iter().map(|&k| self.0[k].elem).collect::<Vec<_>>());
+        for (&k, f) in items.iter().zip(&families) {
+            self.0[k].tag = f.0.into();
         }
         self
     }

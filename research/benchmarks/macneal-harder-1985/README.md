@@ -29,8 +29,6 @@ snapshot for this benchmark.
 After dependency installation and `make wasm`, its MacNeal–Harder commands are:
 
 ```sh
-export CARGO_TARGET_DIR=/private/tmp/claude-501/codex-807mh-target
-export CARGO_BUILD_JOBS=4
 MACNEAL_HARDER_RESULTS=/tmp/macneal-native.json nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases
 nix develop -c node research/benchmarks/macneal-harder-1985/wasm/check.mjs /tmp/macneal-native.json
 nix develop -c sh -c 'cd web && npx vitest run src/components/research/macneal1985/__tests__/cases.test.ts'

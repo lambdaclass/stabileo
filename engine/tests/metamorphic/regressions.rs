@@ -216,7 +216,7 @@ fn corotational_far_from_origin() {
     close(a.max_displacement, b.max_displacement, 1e-7, "max displacement");
 }
 
-fn plastic_2d(s: &SolverInput) -> Result<plastic::PlasticResult, String> {
+fn plastic_2d_input(s: &SolverInput) -> PlasticInput {
     let c = Case2::new("p", s.clone());
     let sections = c
         .s
@@ -229,7 +229,15 @@ fn plastic_2d(s: &SolverInput) -> Result<plastic::PlasticResult, String> {
         })
         .collect();
     let materials = c.s.materials.values().map(|x| (x.id.to_string(), PlasticMaterialData { fy: Some(250.0) })).collect();
-    plastic::solve_plastic_2d(&PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })
+    PlasticInput { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None }
+}
+
+fn plastic_2d(s: &SolverInput) -> Result<plastic::PlasticResult, String> {
+    plastic::solve_plastic_2d(&plastic_2d_input(s))
+}
+
+fn plastic_2d_unrefused(s: &SolverInput) -> Result<plastic::PlasticResult, String> {
+    plastic::solve_plastic_2d_unrefused(&plastic_2d_input(s))
 }
 
 /// A symmetric fixed portal under a beam UDL collapses by the beam mechanism
@@ -242,14 +250,12 @@ fn plastic_symmetric_portal_collapses_by_its_mechanism() {
     let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-frame-cirsoc-dl-case2-input.json")).unwrap();
     let s: SolverInput = serde_json::from_str(&text).unwrap();
     crate::common::assert_containment(plastic_2d(&s), "PL-2D-INVARIANCE");
-    /* Numerical expectations retained for the #758 fix:
-    let r = plastic_2d(&s).unwrap();
+    let r = plastic_2d_unrefused(&s).unwrap();
     // Mp = fy·b·h²/4: beam 0.2×0.5, columns 0.3×0.3, fy = 250 MPa; q = 5, L = 6.
     let (mp_b, mp_c) = (250e3 * 0.2 * 0.25 / 4.0, 250e3 * 0.3 * 0.09 / 4.0);
     let expected = (mp_b + mp_c) / (5.0 * 36.0 / 8.0);
     close(r.collapse_factor, expected, 1e-3, "collapse factor");
     assert!(r.warnings.is_empty(), "{:?}", r.warnings);
-    */
 }
 
 /// Plastic collapse refuses a model loaded only by imposed deformations, and
@@ -260,11 +266,12 @@ fn plastic_refuses_what_it_cannot_scale_to_collapse() {
     let mut s = settlement_beam();
     s.loads.clear();
     crate::common::assert_containment(plastic_2d(&s), "PL-2D-INVARIANCE");
-    // After #758: refusal names "mechanical load".
+    assert!(plastic_2d_unrefused(&s).is_err_and(|e| e.contains("mechanical load")));
     let arch = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/ex-three-hinge-arch-input.json")).unwrap();
     let a: SolverInput = serde_json::from_str(&arch).unwrap();
     crate::common::assert_containment(plastic_2d(&a), "PL-2D-INVARIANCE");
-    // After #758: refusal names "without bending".
+    let r = plastic_2d_unrefused(&a);
+    assert!(r.as_ref().is_err_and(|e| e.contains("without bending")), "{:?}", r.map(|r| r.collapse_factor));
 }
 
 /// A combination 1·A + 1·B equals the single solve of A + B: the model's
@@ -463,7 +470,7 @@ fn shell_rotary_inertia_follows_the_shell() {
 fn probe_plastic_file() {
     let f = std::env::var("PFILE").unwrap();
     let s: SolverInput = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
-    match plastic_2d(&s) {
+    match plastic_2d_unrefused(&s) {
         Ok(r) => { println!("factor {} mech {} warn {:?}", r.collapse_factor, r.is_mechanism, r.warnings); for h in &r.hinges { println!("  {h:?}"); } }
         Err(e) => println!("err {e}"),
     }

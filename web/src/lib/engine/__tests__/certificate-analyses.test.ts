@@ -318,7 +318,14 @@ describe('analyses certified from the job their solve noted', () => {
     modelStore.addSupport(n1, 'fixed');
     modelStore.addSupport(n3, 'fixed');
     modelStore.addNodalLoad(n2, 0, -100);
+    const { resultsStore } = await import('../../store');
+    resultsStore.clear();
+    const wasm = await import('../wasm-solver');
+    const certify = vi.spyOn(wasm, 'callCertify');
     expect(() => runPlasticCollapse()).toThrow(/#758/);
+    expect(resultsStore.plasticResult).toBeNull();
+    expect(resultsStore.hasAnyResults).toBe(false);
+    expect(certify).not.toHaveBeenCalled();
   });
 
   it('the background certificate of a result: after it is shown, only for the one still shown', async () => {
