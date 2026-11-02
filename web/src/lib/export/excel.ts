@@ -55,6 +55,8 @@ interface ExcelExportOptions {
   /** The model's own sheets — members, nodes, materials, sections, shells. Default true. */
   includeModel?: boolean;
   includeResults?: boolean;
+  /** No results or design anywhere in the workbook, extra sheets included: workspace containment does not apply. */
+  modelOnly?: boolean;
   /**
    * Extra sheets to append, as arrays of arrays.
    *
@@ -650,7 +652,7 @@ export async function buildExcelWorkbook(options: ExcelExportOptions = {}): Prom
   const is3D = uiStore.is3DWorkspace;
   const hasResults = is3D ? !!resultsStore.results3D : !!resultsStore.results;
 
-  const warnings = exportMessages();
+  const warnings = options.modelOnly && (onlyExtras || !includeResults) ? [] : exportMessages();
   if (warnings === null) return null;
   const wb = XLSX.utils.book_new();
   const callerWarnings = extraSheets.filter(s => s.name.slice(0, 31) === 'Warnings').flatMap(s => s.rows as (string | number)[][]);

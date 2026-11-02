@@ -602,19 +602,22 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
 }
 
 /// An iteration solved to 1e-12 in 100 steps, or, when it stops short there, one proven stagnant at
-/// round-off: 900 further steps at 1e-12 change no reported number (displacements, reactions, member
-/// forces) by more than 1e-11 of the largest value of its quantity, so the iterate is a fixed point
-/// of u ← (K + Kg(u))⁻¹ f, whose residual is bounded by ‖K + Kg‖ times that change, and a 1e-11 solve
-/// converges to that same answer. Slow convergence still moves and is rejected.
+/// round-off: the iterates after 100, 1000 and 1001 steps at 1e-12 agree in every reported number
+/// (displacements, reactions, member forces) to 1e-11 of the largest value of its quantity, and a
+/// 1e-11 solve converges to the same answer. Iterates 1000 and 1001 are consecutive, so one more step
+/// of u <- (K + Kg(u))^-1 f does not move u: its residual is at most ||K + Kg|| times that change.
+/// A slow or cycling iteration still moves between them and is rejected.
 pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>) -> Result<T, String> {
     let (converged, tight) = solve(100, 1e-12)?;
     if converged {
         return Ok(tight);
     }
-    let (_, longer) = solve(1000, 1e-12)?;
-    let (converged, loose) = solve(100, 1e-11)?;
     let value = |r: &T| serde_json::to_value(r).unwrap();
-    if converged && same_to_round_off(&value(&tight), &value(&longer)) && same_to_round_off(&value(&tight), &value(&loose)) {
+    let (_, longer) = solve(1000, 1e-12)?;
+    let (_, next) = solve(1001, 1e-12)?;
+    let (converged, loose) = solve(100, 1e-11)?;
+    let reference = value(&tight);
+    if converged && [value(&longer), value(&next), value(&loose)].iter().all(|other| same_to_round_off(&reference, other)) {
         Ok(tight)
     } else {
         Err("did not converge".into())
@@ -656,4 +659,6 @@ fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
     assert!(round_off_converged(forces_differ).is_err());
     let never = |_: usize, _: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
     assert!(round_off_converged(never).is_err());
+    let cycling = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps % 2 == 1 { 2.0 + 1e-9 } else { 2.0 }]})));
+    assert!(round_off_converged(cycling).is_err(), "endpoints 100 and 1000 agree, the next step moves");
 }

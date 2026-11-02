@@ -223,3 +223,30 @@ it.each(['csv', 'docx'] as const)('a generated report re-exported as %s from a c
     expect(text).toContain('#741');
   } finally { vi.unstubAllGlobals(); }
 });
+
+it('a model-only project workbook exports from a refused workspace; one with results does not', async () => {
+  publish('error');
+  const toast = vi.spyOn(uiStore, 'toast');
+  vi.mocked(XLSX.writeFile).mockClear();
+  await downloadProjectWorkbook(2, { results: false, design: false });
+  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(toast.mock.calls.filter(([, kind]) => kind === 'error')).toEqual([]);
+  await downloadProjectWorkbook(2);
+  expect(XLSX.writeFile).toHaveBeenCalledTimes(1);
+  expect(toast.mock.calls.at(-1)![0]).toContain('#741');
+});
+
+it('an independent result with its own record and sources ignores the workspace disposition', async () => {
+  const { captureAnalysisProvenance } = await import('../../store/result-provenance');
+  publish('error');
+  output.texts.length = 0;
+  const clean = { positions: 3, structuredDiagnostics: [] };
+  const record = captureAnalysisProvenance('moving-load envelope', { step: 1 })(clean);
+  expect(await downloadResultText('id,value\n1,42', 'moving.csv', 'text/csv', record, clean)).toBe(true);
+  expect(output.texts.join()).toContain('42');
+  expect(output.texts.join()).not.toContain('#741');
+  const refused = { positions: 3, structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }] };
+  output.texts.length = 0;
+  expect(await downloadResultText('id,value\n1,987654', 'moving.csv', 'text/csv', record, refused)).toBe(false);
+  expect(output.texts).toEqual([]);
+});

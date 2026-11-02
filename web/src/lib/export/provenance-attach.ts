@@ -16,6 +16,7 @@
  *   reports (DOCX, XLSX, CSV of a report) as `report-formats.ts` carries `reportProvenanceLines`
  */
 import { exportMessages, requiredExportMessages, warningHtml } from './containment';
+import { knownIssueResultDisposition } from '../engine/known-issues';
 import { uiStore } from '../store/ui.svelte';
 import { downloadText } from '../store/file';
 import {
@@ -44,8 +45,7 @@ export function provenanceLines(p: ResultProvenance): Array<[string, string]> {
   return provenanceTextLines(p, provenanceLabels());
 }
 
-export function csvWithProvenance(csv: string, p: ResultProvenance): string {
-  const warnings = requiredExportMessages();
+export function csvWithProvenance(csv: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   csv = warnings.map(w => `# ${w.replace(/[\r\n]+/g, ' ')}`).join('\n') + (warnings.length ? '\n' : '') + csv;
   const head = provenanceLines(p).map(([k, v]) => `# ${k}: ${v.replace(/[\r\n]+/g, ' ')}`).join('\n');
   return `${head}\n${csv}`;
@@ -56,15 +56,14 @@ export function reportProvenanceLines(p: ResultProvenance): { title: string; lin
   return { title: provenanceLabels().title, lines: [...requiredExportMessages().map(w => ['⚠', w] as [string, string]), ...provenanceLines(p)] };
 }
 
-export function htmlWithProvenance(html: string, p: ResultProvenance): string {
-  html = warningHtml(html);
+export function htmlWithProvenance(html: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
+  html = warningHtml(html, warnings);
   const block = provenanceBlockHtml(p, provenanceLabels());
   const i = html.lastIndexOf('</body>');
   return i >= 0 ? html.slice(0, i) + block + html.slice(i) : html + block;
 }
 
-export function dxfWithProvenance(dxf: string, p: ResultProvenance): string {
-  const warnings = requiredExportMessages();
+export function dxfWithProvenance(dxf: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   // TEXT entities are visible in CAD; comments alone are not a warning.
   const ys = [...dxf.matchAll(/(?:^|\n)20\r?\n([^\r\n]+)/g)].map(m => Number(m[1])).filter(Number.isFinite);
   const minY = ys.reduce((a, y) => Math.min(a, y), 0), span = ys.reduce((a, y) => Math.max(a, y), 0) - minY;
@@ -84,8 +83,7 @@ export function dxfWithProvenance(dxf: string, p: ResultProvenance): string {
 const xmlComment = (s: string) => s.replace(/--/g, '- -');
 const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-export function svgWithProvenance(svg: string, p: ResultProvenance): string {
-  const warnings = requiredExportMessages();
+export function svgWithProvenance(svg: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   const m = /<svg\b[^>]*>/.exec(svg);
   if (!m) return svg;
   const comment = `<!--\n${xmlComment(provenanceLines(p).map(([k, v]) => `${k}: ${v}`).join('\n'))}\n-->`;
@@ -187,18 +185,19 @@ export function provenanceFromPng(png: Uint8Array): string | null {
  * `downloadText` for a file of results: the record attached in the file's own format (by its
  * extension: .csv, .html, .dxf, .svg), or nothing written when the project moved meanwhile.
  * Call it in the same tick as the content is built. An independent analysis must supply the
- * record captured with its own inputs and results, rather than borrowing the viewport's record.
+ * record captured with its own inputs and results, rather than borrowing the viewport's record,
+ * and its results as `sources`, which then decide its warnings and refusal instead of the workspace.
  */
-export async function downloadResultText(content: string, filename: string, mime: string, record?: ResultProvenance): Promise<boolean> {
-  const warnings = exportMessages();
+export async function downloadResultText(content: string, filename: string, mime: string, record?: ResultProvenance, sources?: unknown): Promise<boolean> {
+  const warnings = exportMessages(record && sources !== undefined ? knownIssueResultDisposition(sources) : undefined);
   if (warnings === null) return false;
   const p = record ? analysisProvenanceForExport(record) : await prepareExportProvenance();
   if (!p) return false;
   const ext = filename.toLowerCase().split('.').pop();
-  const out = ext === 'csv' ? csvWithProvenance(content, p)
-    : ext === 'html' || ext === 'htm' ? htmlWithProvenance(content, p)
-    : ext === 'dxf' ? dxfWithProvenance(content, p)
-    : ext === 'svg' ? svgWithProvenance(content, p)
+  const out = ext === 'csv' ? csvWithProvenance(content, p, warnings)
+    : ext === 'html' || ext === 'htm' ? htmlWithProvenance(content, p, warnings)
+    : ext === 'dxf' ? dxfWithProvenance(content, p, warnings)
+    : ext === 'svg' ? svgWithProvenance(content, p, warnings)
     : content;
   downloadText(out, filename, mime);
   return true;

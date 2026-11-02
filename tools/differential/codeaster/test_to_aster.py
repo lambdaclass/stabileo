@@ -135,6 +135,46 @@ def _mechanism_beam():
     return model
 
 
+def _raw(rz5=0.0, uz2=-1e-3, reac5=None, m12=3.0):
+    disp = [{"nodeId": 1, **{k: 0.0 for k in ("ux", "uy", "uz", "rx", "ry", "rz")}},
+            {"nodeId": 2, "ux": 0.0, "uy": 0.0, "uz": uz2, "rx": 0.0, "ry": 0.0, "rz": 0.0},
+            {"nodeId": 5, "ux": 0.0, "uy": 0.0, "uz": uz2, "rx": 0.0, "ry": 0.0, "rz": rz5}]
+    reac = [{"nodeId": 1, "fx": 0.0, "fy": 0.0, "fz": 1.0, "mx": 0.0, "my": m12, "mz": 0.0}]
+    if reac5 is not None:
+        reac.append({"nodeId": 5, "fx": 0.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 0.0, "mz": reac5})
+    keys = [f"{n}{e}" for n in ("n", "vy", "vz", "mx", "my", "mz") for e in ("Start", "End")]
+    forces = [{"elementId": 1, **{k: 0.0 for k in keys}, "myStart": m12}, {"elementId": 2, **{k: 0.0 for k in keys}}]
+    return {"displacements": disp, "reactions": reac, "elementForces": forces, "structuredDiagnostics": []}
+
+
+class HeldMechanism(unittest.TestCase):
+    """A singular disagreement is excused only when stabileo itself shows it is a mechanism:
+    restraining the disagreeing DOFs changes nothing else and the restraint carries nothing."""
+
+    def held(self, original, held, bad, binary="bin"):
+        from unittest import mock
+        import run as R
+        sres = R.C.normalize_stabileo(original, 3)
+        with mock.patch.object(R.C, "stabileo", lambda model, b: held):
+            return R.held_mechanism(_mechanism_beam(), sres, bad, binary, 1e-6)
+
+    def test_a_free_unloaded_rotation_that_moves_nothing_is_a_mechanism(self):
+        self.assertTrue(self.held(_raw(rz5=1e13), _raw(rz5=0.0, reac5=0.0), [("disp", 5, "rz", 1e13, 0.0, 1.0)]))
+
+    def test_a_stiff_dof_is_not(self):
+        bad = [("disp", 5, "rz", 1e-3, 0.0, 1.0)]
+        self.assertFalse(self.held(_raw(rz5=1e-3), _raw(rz5=0.0, uz2=-2e-3, reac5=0.0), bad), "holding it moved node 2")
+        self.assertFalse(self.held(_raw(rz5=1e-3), _raw(rz5=0.0, reac5=0.5), bad), "the restraint carries a moment")
+        self.assertFalse(self.held(_raw(rz5=1e-3), _raw(rz5=0.0, reac5=0.0, m12=4.0), bad), "a member force changed")
+
+    def test_only_displacements_of_known_nodes_with_a_binary_qualify(self):
+        held = _raw(reac5=0.0)
+        self.assertFalse(self.held(_raw(), held, [("reac", 1, "fz", 1.0, 2.0, 1.0)]))
+        self.assertFalse(self.held(_raw(), held, [("force", 1, "mz", 1.0, 2.0, 1.0)]))
+        self.assertFalse(self.held(_raw(), held, [("disp", 9, "rz", 0.0, 1.0, 1.0)]))
+        self.assertFalse(self.held(_raw(), held, [("disp", 5, "rz", 0.0, 1.0, 1.0)], binary=None))
+
+
 class UnimposedSettlements(unittest.TestCase):
     """A settlement no rigid restraint carries: the translator drops it, the
     engine refuses it (AC-10). The harness must not call that refusal false."""
@@ -214,7 +254,7 @@ class SingularVerdict(unittest.TestCase):
     `silent_singular` only when stabileo gave no conditioning warning; every
     such result carries `why`, and the summary never needs one."""
 
-    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),)):
+    def finish(self, diags, issues=(), bad=(("disp", 5, "rz", 0.0, 1.04e13, 1.0),), held=lambda bad: all(b[0] == "disp" for b in bad)):
         import json as J
         import tempfile
         from unittest import mock
@@ -226,7 +266,8 @@ class SingularVerdict(unittest.TestCase):
             with open(os.path.join(job, "result.json"), "w") as f:
                 J.dump({}, f)
             r = {"name": "m", "job": job, "sres": {"diags": diags, "issues": list(issues), "forces": {}}, "meta": {"elements": []}, "near_singular": True}
-            return R.finish(r, 1e-6, None, _mechanism_beam())
+            with mock.patch.object(R, "held_mechanism", lambda model, sres, bad, binary, tol: held(bad)):
+                return R.finish(r, 1e-6, None, _mechanism_beam(), "bin")
 
     def test_unwarned_singular_solve_is_silent(self):
         r = self.finish(["dense_lu", "residual_ok"])
@@ -238,26 +279,14 @@ class SingularVerdict(unittest.TestCase):
         self.assertEqual(r["status"], "warned_singular")
         self.assertIn("stabileo warned: high_diagonal_ratio", r["why"])
 
-    def test_a_warned_disagreement_in_forces_or_at_a_loaded_node_is_silent(self):
-        for bad in [("reac", 1, "fz", 1.0, 2.0, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0), ("disp", 2, "uz", 0.0, 1.0, 1.0)]:
+    def test_a_warned_disagreement_in_forces_is_silent(self):
+        for bad in [("reac", 1, "fz", 1.0, 2.0, 1.0), ("force", 1, "mz", 1.0, 2.0, 1.0)]:
             r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"], [("disp", 5, "rz", 0.0, 1.04e13, 1.0), bad])
             self.assertEqual(r["status"], "silent_singular", bad)
 
-    def test_a_warned_disagreement_at_a_restrained_or_prescribed_dof_is_silent(self):
-        import run as R
-        model = _mechanism_beam()
-        model["supports"]["5"] = {"nodeId": 5, "rrz": True}
-        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
-        model["supports"]["5"] = {"nodeId": 5, "drz": 0.001}
-        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
-        model["supports"]["5"] = {"nodeId": 5, "krz": 10.0}
-        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
-        del model["supports"]["5"]
-        self.assertTrue(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
-        self.assertFalse(R.unloaded_mechanism(model, ("disp", 1, "rz", 0.0, 1.0, 1.0)))
-        self.assertFalse(R.unloaded_mechanism(model, ("disp", 9, "rz", 0.0, 1.0, 1.0)))
-        model["constraints"] = [{"type": "equalDOF", "masterNode": 2, "slaveNode": 5, "dofs": [5]}]
-        self.assertFalse(R.unloaded_mechanism(model, ("disp", 5, "rz", 0.0, 1.0, 1.0)))
+    def test_a_warned_disagreement_that_is_not_a_proven_mechanism_is_silent(self):
+        r = self.finish(["high_diagonal_ratio", "known_issue"], ["NUM-INVARIANCE"], held=lambda bad: False)
+        self.assertEqual(r["status"], "silent_singular")
 
     def test_a_conditioning_warning_without_the_known_issue_is_silent(self):
         r = self.finish(["high_diagonal_ratio"])
