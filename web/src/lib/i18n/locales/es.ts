@@ -69,6 +69,8 @@ const es: Record<string, string> = {
   'account.err.project_limit_reached': 'Llegaste al máximo de proyectos en la nube. Borrá alguno para guardar otro.',
   'account.err.project_changed': 'Este proyecto cambió en otra computadora desde que lo abriste. Abrilo de nuevo o guardalo como un proyecto nuevo.',
   'account.err.rate_limited': 'Demasiados pedidos en poco tiempo. Esperá un minuto y probá de nuevo.',
+  'account.err.account_changed': 'Ingresaste con otra cuenta antes de que esto terminara, así que no se hizo.',
+  'account.err.document_changed': 'Esta pestaña abrió otro documento antes de que empezara el guardado, así que no se guardó nada. Guardá de nuevo.',
   'cloud.confirmOpen': 'Abrir «{name}» reemplaza el modelo de esta pestaña, y sus cambios no están guardados en la nube. ¿Continuar?',
   'account.field.mustAccept': 'Para crear la cuenta tenés que aceptar los términos.',
   'account.field.tooLarge': 'Es demasiado grande.',

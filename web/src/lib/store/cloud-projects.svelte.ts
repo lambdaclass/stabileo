@@ -1,4 +1,5 @@
 import { projectsApi, type CloudProject } from '../api/projects';
+import { ApiError } from '../api/client';
 import { APP_VERSION } from '../build-info';
 import { gzipBase64, gunzipBase64 } from '../utils/gzip-base64';
 import { trackUsage } from '../telemetry/usage';
@@ -39,7 +40,7 @@ function stillFor(who: string | null): boolean {
 let listRequest = 0;
 
 function guard(who: string | null): void {
-  if (!stillFor(who)) throw new Error('signed-in account changed');
+  if (!stillFor(who)) throw new ApiError(409, 'account_changed', 'signed-in account changed');
 }
 
 function tabKey(): string {
@@ -83,7 +84,7 @@ type SaveRequest = ReturnType<typeof request>;
 
 function stillValid(r: SaveRequest): void {
   guard(r.who);
-  if (cloudLinks.generation(r.tab) !== r.generation) throw new Error('the document changed before it could be saved');
+  if (cloudLinks.generation(r.tab) !== r.generation) throw new ApiError(409, 'document_changed', 'the document changed before it could be saved');
 }
 
 async function saveNow(r: SaveRequest, asNew: boolean): Promise<CloudProject> {
@@ -99,6 +100,7 @@ async function saveNow(r: SaveRequest, asNew: boolean): Promise<CloudProject> {
     if (!stillFor(r.who)) return saved;
     cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, r.meta.name, saved.name, r.edit);
     trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
+    listRequest += 1;
     items = [saved, ...items.filter((p) => p.id !== saved.id)];
     if (!id) {
       total += 1;
@@ -121,6 +123,7 @@ async function replaceNow(r: SaveRequest, id: string): Promise<CloudProject> {
     if (!stillFor(r.who)) return saved;
     cloudLinks.setIf(r.tab, r.generation, saved.id, saved.revision, r.meta.name, saved.name, r.edit);
     trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
+    listRequest += 1;
     items = [saved, ...items.filter((p) => p.id !== saved.id)];
     return saved;
   } finally {
@@ -200,6 +203,7 @@ export const cloudProjects = {
     const renameHere = cloudLinks.get(tab) === id && cloudLinks.keepsCloudName(tab, modelStore.model.name.trim());
     if (renameHere) modelStore.model.name = updated.name;
     cloudLinks.renamed(id, updated.name, before, updated.revision, renameHere ? tab : '');
+    listRequest += 1;
     items = items.map((p) => (p.id === id ? updated : p));
   },
 
@@ -215,6 +219,7 @@ async function removeNow(id: string, who: string | null): Promise<void> {
   guard(who);
   await projectsApi.remove(id);
   if (!stillFor(who)) return;
+  listRequest += 1;
   items = items.filter((p) => p.id !== id);
   total = Math.max(0, total - 1);
   accountTotal = Math.max(0, accountTotal - 1);

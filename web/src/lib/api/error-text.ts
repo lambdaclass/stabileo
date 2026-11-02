@@ -13,6 +13,8 @@ const KNOWN_CODES = new Set([
   'project_limit_reached',
   'project_changed',
   'rate_limited',
+  'account_changed',
+  'document_changed',
 ]);
 
 export function errorText(e: unknown): string {

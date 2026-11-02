@@ -167,13 +167,13 @@ export const authStore = {
     const same = () => (account?.id ?? null) === who;
     consentWrites += 1;
     const write = consentQueue.then(() => {
-      if (!same()) throw new Error('signed-in account changed');
+      if (!same()) throw new ApiError(409, 'account_changed', 'signed-in account changed');
       return authenticated(() => authApi.recordConsent(kind, granted));
     });
     consentQueue = write.catch(() => {});
     return write
       .then((next) => {
-        if (!same()) throw new Error('signed-in account changed');
+        if (!same()) throw new ApiError(409, 'account_changed', 'signed-in account changed');
         account = next;
         return next;
       })

@@ -69,6 +69,8 @@ const en: Record<string, string> = {
   'account.err.project_limit_reached': 'You have reached the maximum number of cloud projects. Delete one to save another.',
   'account.err.project_changed': 'This project changed on another computer since you opened it. Open it again or save it as a new project.',
   'account.err.rate_limited': 'Too many requests in a short time. Wait a minute and try again.',
+  'account.err.account_changed': 'You signed in with another account before this finished, so it was not done.',
+  'account.err.document_changed': 'This tab opened another document before the save could start, so nothing was saved. Save again.',
   'cloud.confirmOpen': 'Opening “{name}” replaces the model in this tab, and its changes are not saved to the cloud. Continue?',
   'account.field.mustAccept': 'You need to accept the terms to create an account.',
   'account.field.tooLarge': 'It is too large.',

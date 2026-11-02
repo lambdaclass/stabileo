@@ -326,7 +326,7 @@ describe('cloud projects', () => {
 
     const third = cloudProjects.saveCurrent().catch((e) => e);
     modelStore.clear();
-    expect(await third).toBeInstanceOf(Error);
+    expect((await third).code).toBe('document_changed');
     expect(seen.filter((r) => r.method === 'PUT')).toHaveLength(2);
   });
 
@@ -344,6 +344,24 @@ describe('cloud projects', () => {
     expect(seen.slice(-2).map((r) => r.method)).toEqual(['PUT', 'DELETE']);
     expect(cloudProjects.items.map((p) => p.id)).not.toContain('d1');
     expect(cloudProjects.linkedId).toBeNull();
+  });
+
+  it('a list that answers after a delete does not bring the deleted project back', async () => {
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('l1'), meta('l2')], meta: { total: 2, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    let answer!: () => void;
+    const held = new Promise<void>((done) => (answer = done));
+    replies.set('GET /api/v1/projects', async () => {
+      await held;
+      return json(200, { data: [meta('l1'), meta('l2')], meta: { total: 2, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } });
+    });
+    replies.set('DELETE /api/v1/projects/l1', () => new Response(null, { status: 204 }));
+    const list = cloudProjects.refresh();
+    await cloudProjects.remove('l1');
+    answer();
+    await list;
+    expect(cloudProjects.items.map((p) => p.id)).toEqual(['l2']);
+    expect(cloudProjects.total).toBe(1);
   });
 
   it('two tabs holding the same project each keep the revision they last saw', async () => {

@@ -592,8 +592,8 @@ describe('consents and server switches', () => {
     await authStore.logout();
     release();
 
-    expect(await answered).toBeInstanceOf(Error);
-    expect(await queued).toBeInstanceOf(Error);
+    expect((await answered).code).toBe('account_changed');
+    expect((await queued).code).toBe('account_changed');
     expect(seen.filter((s) => s.route === 'POST /consents')).toHaveLength(1);
     expect(authStore.account).toBeNull();
     expect(authStore.consentSaving).toBe(false);
