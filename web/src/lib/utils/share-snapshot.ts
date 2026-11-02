@@ -44,7 +44,7 @@ const LOAD_REQUIRED: Record<Load['type'], (string | string[])[]> = {
   distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ'],
   pointOnElement3d: ['a', 'py', 'pz'],
   prestress3d: ['force', 'eI', 'eM', 'eJ'],
-  displacement3d: [],
+  displacement3d: [['dx', 'dy', 'dz', 'drx', 'dry', 'drz']],
   surface3d: [['q', 'qNodes']],
   thermalQuad3d: ['dtUniform', 'dtGradient'],
 };

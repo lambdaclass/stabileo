@@ -121,6 +121,7 @@ describe('shared-link importer', () => {
       danglingFooting: p => { p.footings = [[1, { id: 1, nodeId: 9 }]]; },
       stringFootingNode: p => { p.footings = [[1, { id: 1, nodeId: '1' }]]; },
       nullFootingNode: p => { p.footings = [[1, { id: 1, nodeId: null }]]; },
+      emptyDisplacement: p => { p.loads.push({ type: 'displacement3d', data: { id: 2, nodeId: 1 } }); },
       loadCaseBeyondDefaults: p => { p.loads[0].data.caseId = 99; },
       combinationBeyondDefaults: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 99, factor: 1.4 }] }]; },
       loadCaseWithNoCases: p => { p.loadCases = []; p.loads[0].data.caseId = 1; },
@@ -161,6 +162,12 @@ describe('shared-link importer', () => {
       p.loads[0].data.caseId = caseId;
       expect(prepareSharedSnapshot(p) !== null, `case ${caseId}`).toBe(restored.includes(caseId));
     }
+  });
+
+  it('accepts an imposed displacement with one component', () => {
+    const payload = legacy();
+    payload.loads.push({ type: 'displacement3d', data: { id: 2, nodeId: 2, dz: -0.01 } });
+    expect(prepareSharedSnapshot(payload)?.loads.map(l => l.type)).toEqual(['distributed', 'displacement3d']);
   });
 
   it('accepts loads on shells that exist', () => {
