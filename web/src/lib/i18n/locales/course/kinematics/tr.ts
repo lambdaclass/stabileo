@@ -116,14 +116,14 @@ const words: Translations = {
 
   'course.kinematics.dm.sup.title': 'Süperpozisyon',
   'course.kinematics.dm.sup.intro': 'Her son iç kuvvet, durum 0’ınkine her durumun kendi bilinmeyeninin değeriyle çarpılmış katkısı eklenerek bulunur.',
-  'course.kinematics.dm.sup.checks': 'Kontrol: dönen her düğümde uç momentlerinin toplamı etkiyen momente eşittir.',
+  'course.kinematics.dm.sup.checks': 'Kontrol: dönen her düğümde uç momentlerinin toplamı, oradaki bir dönme yayının k_θ·θ momentiyle birlikte, etkiyen momente eşittir.',
   'course.kinematics.dm.sup.checkJoint': '{u} dengesi',
 
   'course.kinematics.dsm.rigid.label': 'Eksenel rijit çubuklar',
   'course.kinematics.dsm.rigid.help': 'Eğilen çubuklar, elle hesapta olduğu gibi boylarını korur. Bazı ötelemeler artık bağımsız değildir: u_f = u⁰ + T·q ile diğerleri cinsinden yazılır, sistem K* = Tᵀ·K_ff·T’ye indirgenir ve normal kuvvetler düğüm dengesinden bulunur. Pandül çubuklar uzayabilir kalır. Sıradan bir çerçevede az, yüksek yapılarda, kemerlerde veya çok narin çubuklarda belirgin biçimde değişir.',
   'course.kinematics.dsm.rigid.on': 'Eksenel rijit çubuklar: sistem {f} yerine {q} bağımsız bilinmeyenle çözülür.',
   'course.kinematics.dsm.rigid.mechanism': 'Eksenel rijit çubuklarla yapı bir mekanizmadır; eksenel rijitlikle çözülür.',
-  'course.kinematics.dsm.rigid.conditions': 'Eğilen her çubuk boyunu korur: (u_j − u_i)·e = 0. Mesnet yer değiştirmeleri bilindiğine göre bu koşullar {q} bağımsız yer değiştirme q bırakır; diğer {d} tanesi bunlara bağlıdır.',
+  'course.kinematics.dsm.rigid.conditions': 'Eğilen her çubuk, ısıl uzaması dışında boyunu korur: (u_j − u_i)·e = α·ΔT·L (sıcaklık yoksa sıfır). Mesnet yer değiştirmeleri bilindiğine göre bu koşullar {q} bağımsız yer değiştirme q bırakır; diğer {d} tanesi bunlara bağlıdır.',
   'course.kinematics.dsm.rigid.conditionsCaption': 'Sabit boy koşulları',
   'course.kinematics.dsm.rigid.dependent': 'Bağımlı yer değiştirmeler',
   'course.kinematics.dsm.rigid.tCaption': 'u_f = u⁰ + T·q: her serbest serbestlik derecesi bağımsızlar cinsinden. u⁰ mesnet çökmelerinden ve ısıl uzamalardan gelir; bunlar yoksa sıfırdır.',

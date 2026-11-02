@@ -116,14 +116,14 @@ const words: Translations = {
 
   'course.kinematics.dm.sup.title': 'Überlagerung',
   'course.kinematics.dm.sup.intro': 'Jede endgültige Schnittgröße ist die aus Zustand 0 plus die jedes Zustands mal dem Wert seiner Unbekannten.',
-  'course.kinematics.dm.sup.checks': 'Kontrolle: An jedem sich verdrehenden Knoten ergibt die Summe der Stabendmomente das angreifende Moment.',
+  'course.kinematics.dm.sup.checks': 'Kontrolle: An jedem sich verdrehenden Knoten ergibt die Summe der Stabendmomente plus das Moment k_θ·θ einer dortigen Drehfeder das angreifende Moment.',
   'course.kinematics.dm.sup.checkJoint': 'Gleichgewicht von {u}',
 
   'course.kinematics.dsm.rigid.label': 'Dehnstarre Stäbe',
   'course.kinematics.dsm.rigid.help': 'Die Biegestäbe behalten ihre Länge, wie in der Handrechnung. Einige Verschiebungen sind dann nicht mehr unabhängig: Sie werden mit u_f = u⁰ + T·q durch die anderen ausgedrückt, das System reduziert sich auf K* = Tᵀ·K_ff·T, und die Normalkräfte folgen aus dem Knotengleichgewicht. Pendelstäbe bleiben dehnbar. Bei einem gewöhnlichen Rahmen ändert sich wenig, bei hohen Tragwerken, Bögen oder sehr schlanken Stäben deutlich mehr.',
   'course.kinematics.dsm.rigid.on': 'Dehnstarre Stäbe: Das System wird mit {q} unabhängigen Unbekannten statt {f} gelöst.',
   'course.kinematics.dsm.rigid.mechanism': 'Mit dehnstarren Stäben ist das Tragwerk ein Mechanismus; es wird mit Dehnsteifigkeit gelöst.',
-  'course.kinematics.dsm.rigid.conditions': 'Jeder Biegestab behält seine Länge: (u_j − u_i)·e = 0. Bei bekannten Lagerverschiebungen lassen diese Bedingungen {q} unabhängige Verschiebungen q übrig; die anderen {d} hängen von ihnen ab.',
+  'course.kinematics.dsm.rigid.conditions': 'Jeder Biegestab behält seine Länge bis auf seine Wärmedehnung: (u_j − u_i)·e = α·ΔT·L (null ohne Temperatur). Bei bekannten Lagerverschiebungen lassen diese Bedingungen {q} unabhängige Verschiebungen q übrig; die anderen {d} hängen von ihnen ab.',
   'course.kinematics.dsm.rigid.conditionsCaption': 'Bedingungen konstanter Länge',
   'course.kinematics.dsm.rigid.dependent': 'Abhängige Verschiebungen',
   'course.kinematics.dsm.rigid.tCaption': 'u_f = u⁰ + T·q: jeder freie Freiheitsgrad durch die unabhängigen ausgedrückt. u⁰ stammt aus Stützensenkungen und Temperaturdehnungen; ohne sie ist es null.',

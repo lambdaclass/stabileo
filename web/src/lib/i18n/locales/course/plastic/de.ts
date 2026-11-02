@@ -171,7 +171,7 @@ const words: Translations = {
   'course.plastic.user.type.partial': 'Teilmechanismus: {n} Gelenke, weniger als GH + 1 = {need}. Es bleiben {free} Unbekannte frei; sie werden so gewählt, dass |M|/Mp möglichst klein ist.',
   'course.plastic.user.type.overcomplete': 'Überzähliger Mechanismus: {n} Gelenke, mehr als GH + 1 = {need}.',
   'course.plastic.user.admissible': 'Die Momente bleiben überall unter Mp: λ = {lambda} ist die Traglast (Eindeutigkeitssatz).',
-  'course.plastic.user.exceeds': 'M überschreitet Mp im Stab {member}, x = {x}: |M| = {M} > Mp = {mp}. λ = {lambda} ist eine obere Schranke und λ·Mp/|M|max = {lower} eine untere.',
+  'course.plastic.user.exceeds': 'M überschreitet Mp im Stab {member}, x = {x}: |M| = {M} > Mp = {mp}. λ = {lambda} ist eine obere Schranke und λ / max(|M|/Mp) = {lower} eine untere.',
   'course.plastic.user.compare': 'Die schrittweise Berechnung ergab λc = {lambda} (Abweichung {diff} %).',
   'course.plastic.user.showLabel': 'Was gezeichnet wird',
   'course.plastic.user.showMech': 'Mechanismus',

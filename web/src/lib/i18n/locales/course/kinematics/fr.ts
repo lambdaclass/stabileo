@@ -116,14 +116,14 @@ const words: Translations = {
 
   'course.kinematics.dm.sup.title': 'Superposition des états',
   'course.kinematics.dm.sup.intro': 'Chaque effort final est celui de l’état 0 plus celui de chaque état multiplié par la valeur de son inconnue.',
-  'course.kinematics.dm.sup.checks': 'Contrôle : à chaque nœud qui tourne, la somme des moments aux extrémités égale le couple appliqué.',
+  'course.kinematics.dm.sup.checks': 'Contrôle : à chaque nœud qui tourne, la somme des moments aux extrémités, plus le moment k_θ·θ d\'un ressort de rotation qui s\'y trouve, égale le couple appliqué.',
   'course.kinematics.dm.sup.checkJoint': 'Équilibre de {u}',
 
   'course.kinematics.dsm.rigid.label': 'Barres axialement rigides',
   'course.kinematics.dsm.rigid.help': 'Les barres fléchies gardent leur longueur, comme dans le calcul à la main. Certaines translations cessent d’être indépendantes : elles s’écrivent en fonction des autres avec u_f = u⁰ + T·q, le système se réduit à K* = Tᵀ·K_ff·T et les efforts normaux viennent de l’équilibre des nœuds. Les bielles restent extensibles. Cela change peu dans un portique courant et nettement plus dans les structures hautes, les arcs ou les barres très élancées.',
   'course.kinematics.dsm.rigid.on': 'Barres axialement rigides : le système se résout avec {q} inconnues indépendantes au lieu de {f}.',
   'course.kinematics.dsm.rigid.mechanism': 'Avec des barres axialement rigides la structure est un mécanisme ; elle est résolue avec la rigidité axiale.',
-  'course.kinematics.dsm.rigid.conditions': 'Chaque barre fléchie garde sa longueur : (u_j − u_i)·e = 0. Les déplacements des appuis étant connus, ces conditions laissent {q} déplacements indépendants q ; les {d} autres en dépendent.',
+  'course.kinematics.dsm.rigid.conditions': 'Chaque barre fléchie garde sa longueur, à son allongement thermique près : (u_j − u_i)·e = α·ΔT·L (nul sans température). Les déplacements des appuis étant connus, ces conditions laissent {q} déplacements indépendants q ; les {d} autres en dépendent.',
   'course.kinematics.dsm.rigid.conditionsCaption': 'Conditions de longueur constante',
   'course.kinematics.dsm.rigid.dependent': 'Déplacements dépendants',
   'course.kinematics.dsm.rigid.tCaption': 'u_f = u⁰ + T·q : chaque degré de liberté libre en fonction des indépendants. u⁰ provient des tassements d’appui et des dilatations thermiques ; sans eux il est nul.',

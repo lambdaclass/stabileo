@@ -171,7 +171,7 @@ const words: Translations = {
   'course.plastic.user.type.partial': 'Mécanisme partiel : {n} rotules, moins que GH + 1 = {need}. Il reste {free} inconnues libres, choisies pour que |M|/Mp soit le plus petit possible.',
   'course.plastic.user.type.overcomplete': 'Mécanisme surabondant : {n} rotules, plus que GH + 1 = {need}.',
   'course.plastic.user.admissible': 'Les moments ne dépassent Mp nulle part : λ = {lambda} est la charge de ruine (théorème d\'unicité).',
-  'course.plastic.user.exceeds': 'M dépasse Mp dans la barre {member}, x = {x} : |M| = {M} > Mp = {mp}. λ = {lambda} est une borne supérieure et λ·Mp/|M|max = {lower} une borne inférieure.',
+  'course.plastic.user.exceeds': 'M dépasse Mp dans la barre {member}, x = {x} : |M| = {M} > Mp = {mp}. λ = {lambda} est une borne supérieure et λ / max(|M|/Mp) = {lower} une borne inférieure.',
   'course.plastic.user.compare': 'Le calcul pas à pas a donné λc = {lambda} (écart {diff} %).',
   'course.plastic.user.showLabel': 'Ce qu\'on dessine',
   'course.plastic.user.showMech': 'Mécanisme',

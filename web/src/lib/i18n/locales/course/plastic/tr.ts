@@ -171,7 +171,7 @@ const words: Translations = {
   'course.plastic.user.type.partial': 'Kısmi mekanizma: {n} mafsal, GH + 1 = {need} değerinden az. {free} bilinmeyen serbest kalır; |M|/Mp mümkün olduğunca küçük olacak şekilde seçilir.',
   'course.plastic.user.type.overcomplete': 'Fazla mafsallı mekanizma: {n} mafsal, GH + 1 = {need} değerinden fazla.',
   'course.plastic.user.admissible': 'Momentler hiçbir yerde Mp değerini aşmıyor: λ = {lambda} göçme yüküdür (teklik teoremi).',
-  'course.plastic.user.exceeds': 'M, {member} çubuğunda x = {x} konumunda Mp değerini aşıyor: |M| = {M} > Mp = {mp}. λ = {lambda} bir üst sınır, λ·Mp/|M|maks = {lower} bir alt sınırdır.',
+  'course.plastic.user.exceeds': 'M, {member} çubuğunda x = {x} konumunda Mp değerini aşıyor: |M| = {M} > Mp = {mp}. λ = {lambda} bir üst sınır, λ / maks(|M|/Mp) = {lower} bir alt sınırdır.',
   'course.plastic.user.compare': 'Adım adım hesap λc = {lambda} verdi (fark %{diff}).',
   'course.plastic.user.showLabel': 'Ne çizilsin',
   'course.plastic.user.showMech': 'Mekanizma',
