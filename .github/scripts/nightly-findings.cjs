@@ -17,6 +17,7 @@ function normalize(message) {
     .replace(/^.*?original solved but transformed model failed:\s*/i, '')
     .replace(/failed to solve case\s+['"][^'"]+['"]:\s*/gi, '')
     .replace(/\b(node|element|member|support|case)\s+(?:['"][^'"]+['"]|[a-zA-Z_]*\d[\w.-]*)/gi, '$1 #')
+    .replace(/\b([ne])\d+\b/g, '$1#')
     .replace(/[-+]?\b\d+(?:\.\d*)?(?:e[-+]?\d+)?\b/gi, '#')
     .replace(/#(?:\s*,\s*#)+/g, '#')
     .replace(/\s+/g, ' ').trim().toLowerCase();
