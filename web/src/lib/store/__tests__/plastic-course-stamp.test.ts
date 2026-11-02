@@ -10,6 +10,10 @@ describe('the plastic course ties a mechanism check to its own run', () => {
     const b = run([{ elementId: 3, x: 0 }, { elementId: 2, x: 1 }], [1.2, 1.5]);
     expect(stampOf(a)).not.toBe(stampOf(b));
   });
+  it('a moment sign flipped for drawing keeps the stamp', () => {
+    const a = { collapseFactor: 2, steps: [{ loadFactor: 2 }], hinges: [{ elementId: 1, end: 'start', moment: 5, loadFactor: 2, step: 0 }] };
+    expect(stampOf(a)).toBe(stampOf({ ...a, hinges: [{ ...a.hinges[0], moment: -5 }] }));
+  });
   it('the same λc reached through other events stamps apart; a copy of the same run does not', () => {
     const a = run([{ elementId: 1, x: 0 }], [1.1, 2]);
     expect(stampOf(a)).not.toBe(stampOf(run([{ elementId: 1, x: 0 }], [1.3, 2])));
