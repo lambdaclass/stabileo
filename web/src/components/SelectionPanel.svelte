@@ -20,7 +20,7 @@
   import { selectionHistory, trackSelectionHistory } from '../lib/store/selection-history.svelte';
   import { viewState, visibleModel } from '../lib/store/view-state.svelte';
   import { selectWalkItem, type WalkKind } from '../lib/actions/selection-walk';
-  import { t, tp } from '../lib/i18n';
+  import { t, tp, inSentence } from '../lib/i18n';
 
   /**
    * Section stress is deliberately absent: it is not a kind of thing to
@@ -265,8 +265,8 @@
       for (const k of byIdKinds) {
         const r = selectShownByIds(modelStore.model as never, shown() as never, k, byIdText);
         for (const ch of ['nodes', 'elements', 'supports', 'loads'] as const) for (const id of r.selection[ch] ?? []) sel[ch].add(id);
-        if (r.missing.length) missing.push(`${t(KIND_LABEL[k]).toLowerCase()} ${r.missing.join(', ')}`);
-        if (r.hidden.length) hidden.push(`${t(KIND_LABEL[k]).toLowerCase()} ${r.hidden.join(', ')}`);
+        if (r.missing.length) missing.push(`${inSentence(t(KIND_LABEL[k]))} ${r.missing.join(', ')}`);
+        if (r.hidden.length) hidden.push(`${inSentence(t(KIND_LABEL[k]))} ${r.hidden.join(', ')}`);
         bad = r.bad;
       }
       apply(sel);
@@ -417,7 +417,7 @@
   </div>
 
   <div class="sel-byid">
-    <label for="sel-id-list">{basic ? tp('selection.byIdKinds', { kinds: byIdKinds.map((k) => t(KIND_LABEL[k]).toLowerCase()).join(', ') }) : t('selection.byId')}</label>
+    <label for="sel-id-list">{basic ? tp('selection.byIdKinds', { kinds: byIdKinds.map((k) => inSentence(t(KIND_LABEL[k]))).join(', ') }) : t('selection.byId')}</label>
     <div class="sel-byid-row">
       {#if !basic}
         <select class="sel-field" bind:value={byIdKind} data-testid="sel-id-kind" aria-label={t('selection.byId')}>

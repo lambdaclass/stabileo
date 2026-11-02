@@ -3,7 +3,7 @@
   import { tPublic as t, publicI18n } from '../lib/i18n/store.svelte';
   import { applyPageMeta, restorePageMeta, STABILEO_ORGANIZATION, ERGODIC_GROUP, LAMBDA_CLASS } from '../lib/page-meta';
   import { publicUrl } from '../lib/i18n/public-routes';
-  import LandingNav from './landing/LandingNav.svelte';
+  import SiteHeader from './site/SiteHeader.svelte';
   import LandingHero from './landing/LandingHero.svelte';
   import LandingPricing from './landing/LandingPricing.svelte';
   import LandingBasic from './landing/LandingBasic.svelte';
@@ -155,8 +155,8 @@
     contacts fonts.googleapis.com or fonts.gstatic.com. Only the four faces the
     first screen needs are preloaded; the rest arrive with the stylesheet.
   -->
-  <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-700.woff2" crossorigin="anonymous" />
-  <link rel="preload" as="font" type="font/woff2" href="/fonts/ibm-plex-sans-400.woff2" crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk.woff2" crossorigin="anonymous" />
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/ibm-plex-sans.woff2" crossorigin="anonymous" />
   <link rel="preload" as="font" type="font/woff2" href="/fonts/ibm-plex-mono-500.woff2" crossorigin="anonymous" />
 </svelte:head>
 
@@ -185,7 +185,7 @@
     between Basic and the capabilities matrix — was the second, and the deck
     is renumbered so the sequence has no gap where it was.
   -->
-  <LandingNav />
+  <SiteHeader page="landing" />
   <LandingHero {prefersReducedMotion} />
   <LandingBasic />
   <LandingProCalc />

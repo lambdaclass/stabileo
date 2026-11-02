@@ -17,9 +17,11 @@ export const WHATS_NEW_STORAGE_KEY = 'stabileo-whats-new-seen';
 
 const NOTES_BASE = 'https://github.com/lambdaclass/stabileo/blob/main/docs/releases';
 
+const NOTES_LOCALES = ['es', 'pt', 'de', 'fr', 'tr'];
+
 /** The release notes in the reader's language (English for any locale without a translation). */
 export function releaseNotesUrl(locale: string, version: string = RESULTS_CHANGED_IN): string {
-  const suffix = locale === 'es' ? '.es' : locale === 'pt' ? '.pt' : '';
+  const suffix = NOTES_LOCALES.includes(locale) ? `.${locale}` : '';
   return `${NOTES_BASE}/v${version}${suffix}.md`;
 }
 

@@ -607,21 +607,40 @@ pub fn solid_shell_geometric_stiffness(
 
 // ==================== Stress Recovery ====================
 
-/// Compute mid-surface stresses by evaluating at ζ=0 centroid.
-/// Returns in-plane stresses mapped to QuadStressResult for compatibility.
-/// u: 24-element displacement vector in global coordinates.
+fn solid_shell_frame(j: &[[f64; 3]; 3]) -> [[f64; 3]; 3] {
+    let norm = |v: [f64; 3]| { let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt(); [v[0] / l, v[1] / l, v[2] / l] };
+    let e3 = norm(j[2]);
+    let d = j[0][0] * e3[0] + j[0][1] * e3[1] + j[0][2] * e3[2];
+    let e1 = norm([j[0][0] - d * e3[0], j[0][1] - d * e3[1], j[0][2] - d * e3[2]]);
+    let e2 = [e3[1] * e1[2] - e3[2] * e1[1], e3[2] * e1[0] - e3[0] * e1[2], e3[0] * e1[1] - e3[1] * e1[0]];
+    [e1, e2, e3]
+}
+
+/// Centroid in-plane stresses in the frame e3 ∥ ∂x/∂ζ, e1 ∥ projected ∂x/∂ξ, e2 = e3 × e1.
+/// Von Mises uses only these in-plane components; integration-point recovery retains full 3D stress.
 pub fn solid_shell_stresses(
     coords: &[[f64; 3]; 8],
     u: &[f64],
     e: f64,
     nu: f64,
 ) -> QuadStressResult {
-    // Evaluate at the centroid (0, 0, 0), with the element's own (ANS + EAS) strain.
     let stress = solid_shell_avg_stress(coords, u, e, nu);
 
-    let sigma_xx = stress[0];
-    let sigma_yy = stress[1];
-    let tau_xy = stress[3];
+    let (j, _, _) = jacobian_3d(coords, &shape_derivatives_hex8(0.0, 0.0, 0.0));
+    let [e1, e2, _] = solid_shell_frame(&j);
+    let tensor = [
+        [stress[0], stress[3], stress[5]],
+        [stress[3], stress[1], stress[4]],
+        [stress[5], stress[4], stress[2]],
+    ];
+    let project = |a: [f64; 3], b: [f64; 3]| -> f64 {
+        let mut value = 0.0;
+        for p in 0..3 { for q in 0..3 { value += a[p] * tensor[p][q] * b[q]; } }
+        value
+    };
+    let sigma_xx = project(e1, e1);
+    let sigma_yy = project(e2, e2);
+    let tau_xy = project(e1, e2);
     let von_mises = (sigma_xx * sigma_xx - sigma_xx * sigma_yy + sigma_yy * sigma_yy
         + 3.0 * tau_xy * tau_xy).sqrt();
 
@@ -664,11 +683,7 @@ pub fn solid_shell_inplane_samples(
             [0.5 * s[3], s[1], 0.5 * s[4]],
             [0.5 * s[5], 0.5 * s[4], s[2]],
         ];
-        let norm = |v: [f64; 3]| { let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt(); [v[0] / l, v[1] / l, v[2] / l] };
-        let e3 = norm(j[2]);
-        let d = j[0][0] * e3[0] + j[0][1] * e3[1] + j[0][2] * e3[2];
-        let e1 = norm([j[0][0] - d * e3[0], j[0][1] - d * e3[1], j[0][2] - d * e3[2]]);
-        let e2 = [e3[1] * e1[2] - e3[2] * e1[1], e3[2] * e1[0] - e3[0] * e1[2], e3[0] * e1[1] - e3[1] * e1[0]];
+        let [e1, e2, e3] = solid_shell_frame(&j);
         let proj = |a: &[f64; 3], bv: &[f64; 3]| -> f64 {
             let mut acc = 0.0;
             for p in 0..3 { for q in 0..3 { acc += a[p] * eps[p][q] * bv[q]; } }

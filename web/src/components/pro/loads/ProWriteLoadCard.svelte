@@ -12,7 +12,7 @@
   import { untrack } from 'svelte';
   import { modelStore, uiStore } from '../../../lib/store';
   import { drawState } from '../../../lib/store/draw-state.svelte';
-  import { t, tp } from '../../../lib/i18n';
+  import { t, tp, capitalized } from '../../../lib/i18n';
   import { parseDecimal } from '../../../lib/utils/numeric-input';
   import type { Load } from '../../../lib/store/model.svelte';
   import { addLoads } from '../../../lib/store/load-ops';
@@ -357,7 +357,7 @@
   {#if error}<p class="wl-error" role="alert" data-testid="wl-error">{error}</p>{/if}
   {#if done}<p class="wl-done" role="status" data-testid="wl-done">{done}</p>{/if}
   <div class="wl-actions">
-    <button type="button" class="wl-add" onclick={add} data-testid="wl-add">{t('pro.add')} {t('pro.oneLoad')}</button>
+    <button type="button" class="wl-add" onclick={add} data-testid="wl-add">{capitalized(tp('pro.addWhat', { what: t('pro.oneLoad') }))}</button>
     <span class="wl-count" class:warn={summary.warn} data-testid="load-target-count">{summary.text}</span>
   </div>
 </div>

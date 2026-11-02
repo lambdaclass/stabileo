@@ -1,12 +1,26 @@
+import metadata from 'virtual:result-change-metadata';
+import { RESULT_CHANGES } from '../full-registry';
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
-import { RESULT_CHANGES, validateRegistry, githubSlug, changelogUrl, conditionGroups } from '../registry';
+import { validateRegistry, githubSlug, changelogUrl, conditionGroups } from '../registry';
 import { FEATURE_IDS } from '../model-features';
 
 const repo = resolve(__dirname, '../../../../..');
 
 describe('result-change registry', () => {
+  it('keeps only the current version eager regardless of registry history', () => {
+    expect(metadata).toEqual({
+      currentResultsVersion: RESULT_CHANGES.currentResultsVersion,
+    });
+    expect(JSON.stringify(metadata)).not.toContain('explanation');
+    expect(JSON.stringify(metadata)).not.toContain('title');
+  });
+
+  it('losslessly decodes the complete source registry', () => {
+    expect(RESULT_CHANGES).toEqual(JSON.parse(readFileSync(resolve(repo, 'web/src/lib/provenance/result-changes.json'), 'utf8')));
+  });
+
   it('is well formed: ids, versions, three languages, known features', () => {
     expect(validateRegistry(RESULT_CHANGES, new Set(FEATURE_IDS))).toEqual([]);
   });

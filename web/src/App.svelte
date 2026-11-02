@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { provideEditorActivity } from './lib/utils/editor-activity';
   // First: every dictionary entry, before anything here renders (the store starts with the public
   // pages' entries only; Root.svelte loads this component on the first app route).
   import './lib/i18n/full-dictionaries';
@@ -386,6 +387,7 @@
   import { tourStore } from './lib/store/tour.svelte';
   import { startDemo, DEFAULT_DEMO } from './lib/tour/demos';
   import { whatIf } from './lib/store/whatif.svelte';
+  import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
@@ -588,6 +590,22 @@
   }
 
   let showLanding = $state(shouldShowLanding());
+  let showExperiment = $state(['research', 'tools'].includes(routeKind().kind));
+  let experiment = $state<typeof import('./components/research/ExperimentPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showExperiment && !experiment) {
+      void import('./components/research/load-experiment')
+        .then((m) => m.loadExperimentPage())
+        .then((page) => (experiment = page));
+    }
+  });
+  let showPaper = $state(routeKind().kind === 'paper');
+  let paper = $state<typeof import('./components/paper/PaperPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showPaper && !paper) {
+      void import('./components/paper/PaperPage.svelte').then((m) => (paper = m.default));
+    }
+  });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
@@ -612,14 +630,18 @@
     }
     showLanding = false;
     showBlog = false;
+    showExperiment = false;
+    showPaper = false;
   }
 
   function syncRouteState() {
+    showExperiment = ['research', 'tools'].includes(routeKind().kind);
+    showPaper = routeKind().kind === 'paper';
     adoptLocaleFromPath();
     showBlog = isBlogRoute(location.pathname);
     blogPath = publicRoute(location.pathname).path;
     showLanding = shouldShowLanding();
-    if (!showLanding && !showBlog) {
+    if (!showLanding && !showBlog && !showExperiment && !showPaper) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -784,8 +806,12 @@
     importText = '';
   }
 
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
+  provideEditorActivity(() => editorActive);
+
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {
+    if (!editorActive) return;
     if (uiStore.appMode !== 'pro' || !pendingPaste) return;
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -800,6 +826,7 @@
   }
   // A paste key with no paste event (no clipboard access) still pastes in place from memory.
   $effect(() => {
+    if (!editorActive) { pendingPaste = null; return; }
     if (!pendingPaste) return;
     const p = pendingPaste;
     const id = setTimeout(() => { if (pendingPaste === p) { pendingPaste = null; if (p.inPlace) paste(true); } }, 150);
@@ -807,6 +834,7 @@
   });
 
   function handleProKeydown(e: KeyboardEvent) {
+    if (!editorActive) return;
     if (uiStore.appMode !== 'pro') return;
     // Skip if focus is in an input/textarea/select
     const tag = (e.target as HTMLElement)?.tagName;
@@ -1011,16 +1039,9 @@
       if (uiStore.pendingSolveFromURL) {
         const pendingDiagram = uiStore.pendingSolveFromURL;
         uiStore.pendingSolveFromURL = null;
-        setTimeout(() => {
-          // Dispatch global solve event (same as clicking Calcular)
-          window.dispatchEvent(new Event('stabileo-solve'));
-          // After solve completes, set the diagram type from the share link
-          setTimeout(() => {
-            if (resultsStore.results !== null || resultsStore.results3D !== null) {
-              resultsStore.diagramType = pendingDiagram as any;
-            }
-          }, 200);
-        }, 200);
+        void tick().then(() => solveSharedView(pendingDiagram, runGlobalSolve, (diagram) => {
+          resultsStore.diagramType = diagram as typeof resultsStore.diagramType;
+        })).catch((error) => console.error('Shared-link solve failed:', error));
       }
     }
 
@@ -1159,7 +1180,7 @@
    * copies or reloads is the wrong one.
    */
   $effect(() => {
-    if (showLanding || showBlog || typeof window === 'undefined') return;
+    if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;
     replaceAppUrl(uiStore.appMode, modelStore.model.name);
   });
 
@@ -1402,7 +1423,17 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if showBlog}
+{#if showExperiment}
+  {#if experiment}
+    {@const Experiment = experiment}
+    <Experiment path={blogPath} />
+  {/if}
+{:else if showPaper}
+  {#if paper}
+    {@const Paper = paper}
+    <Paper />
+  {/if}
+{:else if showBlog}
   <BlogPage path={blogPath} />
 {:else if showLanding}
   <LandingPage />
@@ -1426,7 +1457,7 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog}>
+<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1447,7 +1478,7 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="pro">{t('app.modePro')} (Beta)</option>
+          <option value="pro">{t('app.modePro')} ({t('app.betaBadge')})</option>
           <!--
             Educational is not offered here any more; see the toggle below.
             The option is still RENDERED when that is where you already are,
@@ -1455,7 +1486,7 @@
             is what a `value` with no matching option does.
           -->
           {#if uiStore.appMode === 'educativo'}
-            <option value="educativo">{t('app.modeEdu')} (Beta)</option>
+            <option value="educativo">{t('app.modeEdu')} ({t('app.betaBadge')})</option>
           {/if}
         </select>
       {:else}
@@ -1477,7 +1508,7 @@
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">Beta</span></button>
+          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">{t('app.betaBadge')}</span></button>
         </div>
       {/if}
     </div>
@@ -1925,7 +1956,7 @@
         {:else}
           <Viewport3D />
         {/if}
-        {#if uiStore.appMode === 'pro'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--
@@ -2038,7 +2069,7 @@
           mounting both made one keystroke undo twice.
         -->
         {#if uiStore.appMode === 'basico'}
-          <KeyboardShortcuts />
+          <KeyboardShortcuts enabled={editorActive} />
         {/if}
       </main>
     </div>
@@ -2141,7 +2172,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && !showLanding && !showBlog}
+  {#if !uiStore.embedMode && !showLanding && !showBlog && !showExperiment && !showPaper}
     <WhatsNewNotice />
     <ResultsDisclaimer />
     <UsageNotice />

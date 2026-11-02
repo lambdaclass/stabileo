@@ -20,6 +20,7 @@ import steelEn from '../locales/steel/en';
 import steelEs from '../locales/steel/es';
 import steelPt from '../locales/steel/pt';
 import { stepsEn, stepsEs, stepsPt } from '../locales/steps';
+import { ALL_DICTS } from '../locales/all';
 
 const merged = {
   en: { ...en, ...steelEn, ...stepsEn } as Record<string, string>,
@@ -97,5 +98,56 @@ describe('in Basic mode each dictionary speaks one variant', () => {
     // "se verifique" and "haga falta" are not addressed to the reader.
     const usted = /\b(haga(?! falta)|elija|seleccione|presione|ingrese|(?<!se )verifique|asegúrese|revise|intente|elimínelo|conéctelo|cambie a|considere|sepárelas)\b/i;
     expect(offenders(merged.es, usted)).toEqual([]);
+  });
+});
+
+describe('German, French and Turkish address the reader formally', () => {
+  const informal: Record<string, RegExp> = {
+    de: /(?<![\p{L}-])(du|dich|dir|dein|deine|deinen|deinem|deiner)(?![\p{L}-])/u,
+    fr: /(?<![\p{L}'-])(tu|toi|ton|tes)(?![\p{L}-])/u,
+    tr: /(?<![\p{L}])sen(?![\p{L}])|(?<![\p{L}])senin(?![\p{L}])/u,
+  };
+  for (const [code, pattern] of Object.entries(informal)) {
+    it(`${code} never uses the informal second person`, () => {
+      const dict = ALL_DICTS[code];
+      const hits = Object.keys(dict).filter((k) => pattern.test(dict[k].replace(/\{\w+\}|„[^“]*“|«[^»]*»|“[^”]*”|`[^`]*`/g, ''))).map((k) => `${k}: ${dict[k]}`);
+      expect(hits).toEqual([]);
+    });
+  }
+});
+
+describe('the kinematics plural ending glued to a word', () => {
+  const plural = (d: Record<string, string>, key: string) =>
+    d[key].replaceAll('{n}', '2').replaceAll('{s}', d['kin.plural_s']);
+
+  it('reads as a plural in Spanish and English', () => {
+    expect(plural(es as Record<string, string>, 'kinematic.mechanismDetected')).toBe('✗ Se detectaron 2 modos de mecanismo.');
+    expect(plural(en as Record<string, string>, 'kinematic.mechanismDetected')).toBe('✗ Detected 2 mechanism modes.');
+  });
+});
+
+describe('a label set inside a sentence', () => {
+  it('is lowercased by the language’s own rules, and German nouns keep their capital', async () => {
+    const { inSentence } = await import('../store.svelte');
+    expect(inSentence('İç kuvvetler', 'tr')).toBe('iç kuvvetler');
+    expect(inSentence('Işık', 'tr')).toBe('ışık');
+    expect(inSentence('Stäbe', 'de')).toBe('Stäbe');
+    expect(inSentence('Nodos', 'es')).toBe('nodos');
+    expect(inSentence('Élément', 'fr')).toBe('élément');
+  });
+});
+
+describe('a phrase that opens with a label', () => {
+  it('raises its first letter by the language’s own rules', async () => {
+    const { capitalized } = await import('../store.svelte');
+    expect(capitalized('işlem çiz', 'tr')).toBe('İşlem çiz');
+    expect(capitalized('ızgara çiz', 'tr')).toBe('Izgara çiz');
+    expect(capitalized('Schale zeichnen', 'de')).toBe('Schale zeichnen');
+    expect(capitalized('dessiner coque', 'fr')).toBe('Dessiner coque');
+  });
+
+  it('puts the verb where each language puts it', () => {
+    const d = { en, es, pt } as Record<string, Record<string, string>>;
+    for (const l of ['en', 'es', 'pt']) for (const k of ['pro.drawWhat', 'pro.writeWhat', 'pro.addWhat']) expect(d[l][k]).toContain('{what}');
   });
 });

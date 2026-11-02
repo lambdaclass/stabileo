@@ -1,0 +1,35 @@
+{
+  "record_id": 18256271,
+  "doi": "10.5281/zenodo.18256271",
+  "license": "CC-BY-4.0",
+  "archive": "snapping_without_mathematica.zip",
+  "archive_md5": "c0f4baf3099c306bd3c82e7222c549b5",
+  "software_sha256": {
+    "lib/shallow_angle_model/pinned_modes.py": "b98f29b73501bcb1a5819c38fb5c0bf4d315162078654bf82716b335ff603577",
+    "lib/shallow_angle_model/supercritical_loop.py": "4e180ef8c9dd593892d2c7f9cb301b8373896d6b86e34a77806280998b5e235f",
+    "lib/shallow_angle_model/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "lib/shallow_angle_model/optimisation.py": "5de8c7a6c654578b81081d69e87943df8a25ebe6be7e020e6419193913dbfe72",
+    "lib/shallow_angle_model/rect.py": "2c3f72ea0550d67b82687b24dd33b50490f61614e497fa6f1cfe9a32dfddf38b",
+    "lib/shallow_angle_model/clamped_modes.py": "36667a972b002e383095ba607155d502f714b50ab21c92206c1106ddc15755f2",
+    "lib/shallow_angle_model/clamped_pinned_modes.py": "faf201ad46ae26f493e1a8f369d81b0681b654209f79254215003b8aee118c23",
+    "lib/shallow_angle_model/manuscript_profiles.py": "71cd4c0767fd7ded4cab55ce572a4da8122736568f592a98db31f21eaa2e7e94",
+    "lib/shallow_angle_model/analytical_result.py": "7a14c4e8ff411ae661759ad03c5ec5417f563bfead9e17b5ae98932530a753e7"
+  },
+  "generator": "ClampedFourierTransform(curvature_function=lambda s: np.where(abs(s)<width/2,1.,0.), n_interpolation=100001, n_modes=100).get_snap_threshold() ** -0.5",
+  "environment": {
+    "python": "3.14.8",
+    "numpy": "2.5.4",
+    "scipy": "1.18.1",
+    "matplotlib": "3.11.2"
+  },
+  "scope": "thresholds.csv/json are regenerated numerical software outputs; curvature_temperature.csv is unchanged experimental calibration data, retained for provenance only, not used to validate snap thresholds.",
+  "generated_at": "2026-10-29",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "paper_metadata": {
+    "DOI": "10.1103/56f8-8gsx",
+    "volume": "8",
+    "issue": "3",
+    "article-number": "033168",
+    "verified_by": "research/tools/catalog.py show and Crossref works API"
+  }
+}

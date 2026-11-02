@@ -1,14 +1,12 @@
 <script lang="ts">
   /**
-   * The calculation report, as a PDF: who it is from, what it carries and how its figures look.
+   * The calculation report, as PDF, Word or HTML (the results as data are the Results export): who
+   * it is from, what it carries and how its figures look.
    *
    * The same frame and folded sections as Basic's report (`components/export/`): each section
    * closed, its title saying in one line what is chosen inside. Each result is printed as its
    * table, its figures or both; the figures are drawn from the model (`pro/report-export.ts`),
    * and figures added from the view still go at the end.
-   *
-   * Only the PDF: the same data as a spreadsheet is Project › Export › Excel, with its own
-   * choice of sheets.
    */
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore } from '../../lib/store';
@@ -24,7 +22,7 @@
   import { reportFigures } from '../../lib/store/report-figures.svelte';
   import { captureFigure } from '../../lib/export/figure';
   import CheckGroup from './export/CheckGroup.svelte';
-  import { REPORT_FORMATS, type ReportFormat } from '../../lib/export/report-formats';
+  import type { ReportFormat } from '../../lib/export/report-formats';
 
   interface Props {
     open: boolean;
@@ -168,7 +166,8 @@
     reportFigures.list.length ? tp('proReport.addedN', { n: reportFigures.list.length }) : null,
   ].filter(Boolean).join(' · '));
 
-  /** The report's format: the PDF opens it to print (as before); the other four download it. */
+  /** The PDF opens to print; Word and HTML download. HTML is the copy a provenance check can load. */
+  const FORMATS: ReportFormat[] = ['pdf', 'docx', 'html'];
   let format = $state<ReportFormat>('pdf');
   function handleGenerate() {
     persist();
@@ -193,6 +192,12 @@
 </script>
 
 <ExportDialog bind:open width={640} title={t('proReport.title')} testid="pro-report-dialog">
+  <ExportSection title={t('proExport.format')} summary={t(`proReport.format.${format}`)} open testid="rpt-format">
+    <div class="xs-seg">
+      {#each FORMATS as f (f)}<button type="button" class:on={format === f} aria-pressed={format === f} onclick={() => (format = f)} data-testid={`rpt-format-${f}`}>{t(`proReport.format.${f}`)}</button>{/each}
+    </div>
+    <p class="xs-note">{t(`proReport.formatNote.${format}`)}</p>
+  </ExportSection>
   <ExportSection title={t('proReport.letterhead')} summary={projectSummary} open={hasProjectInfo} testid="rpt-project">
     <div class="rpt-logo-row">
       <span>{t('report.companyLogo')}</span>
@@ -295,15 +300,11 @@
 
   {#snippet actions()}
     <button type="button" onclick={() => (open = false)}>{t('report.cancel')}</button>
-    <label class="rpt-format">{t('export.formats')}
-      <select bind:value={format} data-testid="rpt-format">{#each REPORT_FORMATS as f (f)}<option value={f}>{t(`export.format.${f}`)}</option>{/each}</select>
-    </label>
-    <button type="button" class="primary" onclick={handleGenerate} data-testid="rpt-pdf">{t('proReport.generate')}</button>
+    <button type="button" class="primary" onclick={handleGenerate} data-testid="rpt-pdf">{tp('proReport.generate', { format: t(`proReport.format.${format}`) })}</button>
   {/snippet}
 </ExportDialog>
 
 <style>
-  .rpt-format { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.72rem; color: var(--st-text-2); }
   .rpt-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 24px; align-items: start; }
   .rpt-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   @media (max-width: 560px) { .rpt-cols { grid-template-columns: 1fr; } }

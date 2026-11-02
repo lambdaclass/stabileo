@@ -1,0 +1,102 @@
+{
+  "id": "mattiasson-10",
+  "expected_rigid_modes": 0,
+  "symmetry_planes": [],
+  "provenance": "Corrected branches, 2026-10-29; see docs/safety/benchmark-correctness.md",
+  "tolerance": {
+    "relative": 0.0003,
+    "justification": "Retain finest-mesh 0.03% gate from #845: A=1 extensibility <=0.025%; 16/32/64 mesh errors decrease."
+  },
+  "geometry": {
+    "kind": "polyline",
+    "element": "frame",
+    "points": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        2,
+        0,
+        0
+      ]
+    ]
+  },
+  "material": {
+    "e": 200000.0,
+    "nu": 0.3
+  },
+  "section": {
+    "a": 1.0,
+    "iz": 0.0001
+  },
+  "supports": [
+    {
+      "vertex": 0,
+      "type": "fixed"
+    }
+  ],
+  "loads": {
+    "vertex": 1,
+    "force": [
+      0,
+      0,
+      -50000
+    ],
+    "analytic_total": [
+      0,
+      0,
+      -50000
+    ]
+  },
+  "measurement": {
+    "vertex": 1,
+    "component": "uz",
+    "sign": -1,
+    "normalization": 2.0,
+    "reference_model": "frame"
+  },
+  "mesh_sequence": [
+    16,
+    32,
+    64
+  ],
+  "analysis": "corotational",
+  "references": [
+    {
+      "kind": "exact",
+      "citation": "engine/tests/research_references/elastica.py",
+      "location": "inextensible(): elliptic-integral equations; BENCHMARK_REFERENCES.md Mattiasson table",
+      "value": 0.810609024880296,
+      "precision": 5e-15,
+      "independence": "elliptic integrals",
+      "provisional": false,
+      "pass_fail": true
+    },
+    {
+      "kind": "paper",
+      "citation": "Nanakorn & Vu (2006), FEAD 42, 1240\u20131247",
+      "location": "Table 1, p.1245 (Mattiasson reproduction)",
+      "value": 0.81061,
+      "precision": 5e-06,
+      "independence": "published table",
+      "provisional": false,
+      "pass_fail": true
+    }
+  ],
+  "sources": {
+    "geometry": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)",
+    "material": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)",
+    "section": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)",
+    "supports": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)",
+    "symmetry_planes": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)",
+    "loads": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)",
+    "measurement": "fix/845-elastica:engine/tests/BENCHMARK_REFERENCES.md, Mattiasson Model audit (A=1 numerical inextensible limit)"
+  },
+  "solver": {
+    "max_iterations": 50,
+    "residual_tolerance": 1e-08,
+    "load_steps": 100
+  }
+}

@@ -72,7 +72,7 @@ defmodule StabileoAuth.Controllers.ProfileControllerTest do
 
     test "422 with the failing fields and nothing saved", %{account: account, token: token} do
       body =
-        request(:put, "/me", %{"name" => "", "country" => "ARG", "locale" => "fr"}, token)
+        request(:put, "/me", %{"name" => "", "country" => "ARG", "locale" => "xx"}, token)
         |> json_body(422)
 
       assert body["error"] == "validation_error"

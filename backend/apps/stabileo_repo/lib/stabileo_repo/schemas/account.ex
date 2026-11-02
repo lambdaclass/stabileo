@@ -9,7 +9,7 @@ defmodule StabileoRepo.Schemas.Account do
 
   @type t :: %__MODULE__{}
 
-  @locales ~w(es en pt)
+  @locales ~w(es en pt de fr tr)
   @profile_fields [:name, :company, :job_title, :country, :locale]
 
   schema "accounts" do

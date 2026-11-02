@@ -11,7 +11,7 @@ import type { SolverInput } from './types';
 import type { SolverInput3D } from './types-3d';
 import { countStaticDegree2D, analyzeKinematics, DOF_LABEL_KEY } from './kinematic-2d';
 import { countStaticDegree3D, supportRestraints3D, analyzeKinematics3D } from './kinematic-3d';
-import { t } from '../i18n';
+import { t, inSentence } from '../i18n';
 
 // ─── Public interfaces ─────────────────────────────────────────
 
@@ -1221,7 +1221,7 @@ function buildConstraintDescription(
       const reachedSup = findReachableSupport(ce.elemId, nodeId, thisElemId, nodeElems, supportByNode);
       const typeLabel = ce.type === 'frame' ? t('kin.connRigid') : t('kin.connHinged');
       const hingeNote = ce.hingedAtNode ? ', ' + t('kin.withHinge') : '';
-      const supNote = reachedSup ? ` \u2192 ${t('kin.reachesSupport').replaceAll('{type}', reachedSup.type.toLowerCase()).replaceAll('{node}', String(reachedSup.nodeId))}` : '';
+      const supNote = reachedSup ? ` \u2192 ${t('kin.reachesSupport').replaceAll('{type}', inSentence(reachedSup.type)).replaceAll('{node}', String(reachedSup.nodeId))}` : '';
       return `${t('kin.member')} ${ce.elemId} (${typeLabel}${hingeNote})${supNote}`;
     });
     if (support) {
@@ -1321,10 +1321,10 @@ function buildElementExplanation(
   // Build per-node summary
   const descNode = (info: NodeConstraintInfo, c: number): string => {
     if (info.support && info.connectedElems.some(ce => ce.reachesSupport)) {
-      return `${info.support.type.toLowerCase()} + ${t('kin.constraintFromMembers')}`;
+      return `${inSentence(info.support.type)} + ${t('kin.constraintFromMembers')}`;
     }
     if (info.support) {
-      return `${info.support.type.toLowerCase()} (${info.support.dofs} ${t('kin.reactions')})`;
+      return `${inSentence(info.support.type)} (${info.support.dofs} ${t('kin.reactions')})`;
     }
     const upstreams = info.connectedElems.filter(ce => ce.reachesSupport);
     if (upstreams.length > 0) {

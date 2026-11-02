@@ -16,10 +16,22 @@
  */
 import { describe, it, expect } from 'vitest';
 import { POSTS, findPost } from '..';
-import { readingMinutes, wordCount, type Block, type PostBody } from '../types';
-import { PUBLIC_LOCALES, dictFor } from '../../i18n/store.svelte';
+import { readingMinutes, wordCount, addTranslations, inLocale, type Block, type Localized, type PostBody } from '../types';
+import { type PublicLocale, dictFor } from '../../i18n/store.svelte';
+import { completeLocales } from '../../i18n/locales/all';
 
-const LOCALES = PUBLIC_LOCALES;
+const REQUIRED = completeLocales() as PublicLocale[];
+const written = (post: { i18n: Partial<Record<PublicLocale, PostBody>> }) =>
+  (Object.keys(post.i18n) as PublicLocale[]).filter((l) => post.i18n[l]);
+
+// Thousands may be grouped with a comma, a point or a (non-breaking) space depending on the
+// language: "15,833", "15.833" and "15 833" are one number, while "0,976" is a decimal.
+function normalizeNumber(cell: string): string | null {
+  const c = cell.trim();
+  if (/^-?[1-9]\d{0,2}(?:[.,\s\u00a0\u202f]\d{3})+$/.test(c)) return c.replace(/[.,\s\u00a0\u202f]/g, '');
+  const n = c.replace(',', '.');
+  return /^-?\d+(\.\d+)?$/.test(n) ? n : null;
+}
 
 /** The numbers in a table, decimal comma normalised away. */
 function numericCells(blocks: Block[]): string[] {
@@ -28,8 +40,8 @@ function numericCells(blocks: Block[]): string[] {
     if (b.k !== 'table') continue;
     for (const row of b.rows) {
       for (const cell of row) {
-        const n = cell.replace(',', '.');
-        if (/^-?\d+(\.\d+)?$/.test(n)) out.push(n);
+        const n = normalizeNumber(cell);
+        if (n !== null) out.push(n);
       }
     }
   }
@@ -70,15 +82,19 @@ describe('blog posts', () => {
         expect(post.authors.length).toBeGreaterThan(0);
         for (const author of post.authors) expect(author.trim()).not.toBe('');
         for (const key of post.tagKeys) {
-          for (const locale of LOCALES) {
+          for (const locale of REQUIRED) {
             expect(dictFor(locale)[key], `${key} missing from ${locale}`).toBeTruthy();
           }
         }
       });
 
-      for (const locale of LOCALES) {
+      it('is written in every complete language', () => {
+        for (const locale of REQUIRED) expect(post.i18n[locale], `${locale} body missing`).toBeTruthy();
+      });
+
+      for (const locale of written(post)) {
         it(`${locale}: has a title, an excerpt and no empty block`, () => {
-          const body = post.i18n[locale];
+          const body = post.i18n[locale]!;
           expect(body, `${locale} body missing`).toBeTruthy();
           expect(body.title.trim()).not.toBe('');
           expect(body.excerpt.trim()).not.toBe('');
@@ -105,15 +121,15 @@ describe('blog posts', () => {
         });
 
         it(`${locale}: reports a sane reading time`, () => {
-          const minutes = readingMinutes(post.i18n[locale]);
+          const minutes = readingMinutes(post.i18n[locale]!);
           expect(minutes).toBeGreaterThan(0);
           expect(minutes).toBeLessThan(60);
         });
       }
 
       it('has the same structure in every language', () => {
-        const shape = (l: (typeof LOCALES)[number]) =>
-          post.i18n[l].blocks.map((b) =>
+        const shape = (l: PublicLocale) =>
+          post.i18n[l]!.blocks.map((b) =>
             b.k === 'ul' || b.k === 'ol'
               ? `${b.k}:${b.items.length}`
               : b.k === 'table'
@@ -126,7 +142,7 @@ describe('blog posts', () => {
                       ? `ext:${b.href}`
                       : b.k,
           );
-        for (const locale of LOCALES) {
+        for (const locale of written(post)) {
           expect(shape(locale), `${locale} does not match the English structure`).toEqual(shape('en'));
         }
       });
@@ -134,16 +150,16 @@ describe('blog posts', () => {
       it('quotes the same numbers in every language', () => {
         const en = numericCells(post.i18n.en.blocks);
         expect(en.length).toBeGreaterThan(0);
-        for (const locale of LOCALES) {
-          expect(numericCells(post.i18n[locale].blocks), `${locale} table numbers differ`).toEqual(en);
+        for (const locale of written(post)) {
+          expect(numericCells(post.i18n[locale]!.blocks), `${locale} table numbers differ`).toEqual(en);
         }
       });
 
       it('links only to posts that exist, and never to itself', () => {
         // A link block whose slug resolves to nothing renders nothing — so the
         // failure has to be caught here, where it is loud, and not on the page.
-        for (const locale of LOCALES) {
-          for (const b of post.i18n[locale].blocks) {
+        for (const locale of written(post)) {
+          for (const b of post.i18n[locale]!.blocks) {
             if (b.k !== 'link') continue;
             expect(findPost(b.slug), `${locale}: no post "${b.slug}"`).toBeTruthy();
             expect(b.slug).not.toBe(post.slug);
@@ -154,8 +170,8 @@ describe('blog posts', () => {
       it('links outside the blog only to the project\'s own repository', () => {
         // An external link is a promise about where the reader lands; the
         // only place this blog vouches for is the project's repository.
-        for (const locale of LOCALES) {
-          for (const b of post.i18n[locale].blocks) {
+        for (const locale of written(post)) {
+          for (const b of post.i18n[locale]!.blocks) {
             if (b.k !== 'ext') continue;
             expect(b.href, `${locale}: ${b.href}`).toMatch(/^https:\/\/github\.com\/lambdaclass\/stabileo\/[\w./#-]+$/);
             expect(b.label.trim()).not.toBe('');
@@ -315,5 +331,20 @@ describe('the safety-advisories post quotes the advisories', () => {
       ['SA-2026-020', '158.2', '182.7'],
       ['SA-2026-009', '1.000', '1.225'],
     ]);
+  });
+});
+
+describe('translations added as files', () => {
+  const item = () => ({ slug: 'a-post', i18n: { en: { title: 'en' }, es: { title: 'es' }, pt: { title: 'pt' } } as Localized<{ title: string }> });
+
+  it('attach to the item their file names', () => {
+    const post = item();
+    addTranslations([post], (p) => p.slug, { './translations/de/a-post.ts': { title: 'de' } });
+    expect(inLocale(post.i18n, 'de').title).toBe('de');
+    expect(inLocale(post.i18n, 'fr').title).toBe('en');
+  });
+
+  it('refuse a file that names nothing', () => {
+    expect(() => addTranslations([item()], (p) => p.slug, { './translations/de/no-such-post.ts': { title: 'de' } })).toThrow();
   });
 });

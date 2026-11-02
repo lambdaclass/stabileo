@@ -149,13 +149,13 @@ async function openDetailingPanel(page: Page) {
  */
 async function captureReport(page: Page): Promise<string> {
   const [popup] = await Promise.all([
-    page.waitForEvent('popup', { timeout: 60_000 }),
+    page.waitForEvent('popup', { timeout: 45_000 }),
     page.getByTestId('doc-report').click(),
   ]);
   await popup.waitForLoadState('domcontentloaded');
   // The tab is opened inside the click and written once the provenance is in (an await later),
   // so its first document is the empty one: read it once the report is there.
-  await popup.waitForFunction(() => (document.body?.textContent ?? '').trim().length > 0, null, { timeout: 60_000 });
+  await popup.waitForFunction(() => (document.body?.textContent ?? '').trim().length > 0, null, { timeout: 45_000 });
   const html = await popup.content();
   await popup.close();
   return html;
@@ -164,7 +164,7 @@ async function captureReport(page: Page): Promise<string> {
 /** Click an export and return exactly what the browser was handed. */
 async function capture(page: Page, testid: string): Promise<string> {
   const [download] = await Promise.all([
-    page.waitForEvent('download', { timeout: 60_000 }),
+    page.waitForEvent('download', { timeout: 45_000 }),
     page.getByTestId(testid).click(),
   ]);
   const stream = await download.createReadStream();

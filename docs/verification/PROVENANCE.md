@@ -32,6 +32,13 @@ projects. `results-version.test.ts` pins each version's entries and fails on suc
 bump. `registry.test.ts` fails on unknown features, missing translations or a heading that does
 not exist.
 
+The results snapshot gate also compares registry versions against its base commit,
+even when no snapshot changes. New entries cannot reuse a released version, and
+released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
+version 5 while main was at 4: whichever merges second must preserve the first
+PR's entries and use version 6, updating the pinned version sets, fixture stamp
+and hashes, and documentation. Version 5 here remains provisional until merge.
+
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
 all at results version 1 (#328, 2026-10-21). Version 2 holds the fixes merged with 0.3.0 after
@@ -41,6 +48,97 @@ wind minimum and the earth-pressure dead load, #581 and #593); version 3, the co
 version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
+
+## Solid-shell local stress axes (PR #814, issue #757)
+
+Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
+justification and affected quantities are in
+[the results change note](../results-changes/2026-10-solid-shell-stress-axes.md).
+The review follow-up changes tests, release gates and documentation only; it introduces no further
+numerical change. Analytical membrane patches cover local e1 along global Z
+(σ11 = N/A = 500 kN/m²) and compound X/Y rotation with
+(σ11, σ22, τ12) = (700, −200, 150) kN/m². Their affine displacement fields
+come from isotropic compliance, independently of the recovery projection.
+The aligned X–Y regression compares all four values with `to_bits()` against
+the original global-component formula. Bit identity applies when the local axes
+align with global X/Y; skewed or in-plane-rotated elements use local components.
+
+Verification on 2026-10-29: the `shells` target passes all 132 tests and release
+`validation` passes all 4,763 tests. In an isolated copy, replacing only
+`let sigma_xx = project(e1, e1)` with `let sigma_xx = stress[0]` fails both
+new analytical tests while the five original frame regressions still pass.
+The unmodified implementation passes all seven. The WASM results suite passes
+all 41 tests and the snapshot gate reports no committed result changes. The web
+unit suite passes 15,706 tests (14 skipped), including regressions for colliding
+results versions and missing or renumbered released entries; the web typecheck and guarded Svelte
+checks pass against their existing baselines. The changelog check passes.
+
+## Results snapshot gate
+
+A pull request that changes any result must say so (#716; #461 changed steel verdicts and no
+check noticed). A reference corpus (`web/src/lib/results-snapshot/corpus.ts`, 39 cases) is solved
+on every pull request and in the merge queue, and compared with its committed snapshots in
+`web/results-snapshots/` (one file per case).
+
+**What a case runs.** The project is opened as the app opens it (`modelStore.loadExample`, or a
+`.ded` through `deserializeProject`) in its workspace (Basic 2D, Basic 3D or PRO) and solved by
+`solveNow` (`actions/solve.ts`), the entry point Calcular, Enter and the ribbon land on, so the
+numbers are those after the TypeScript finishing path (`solve-finish.ts`, `solver-service.ts`,
+self-weight and combination rules, the results-store publish), not the engine's raw output. With
+PRO's design on it then runs the CIRSOC 201 code check (`designRunStore.runCodeCheck`), the
+CIRSOC 301 steel check (`runSteelCheck`) and the footing run, and records each member's verdict as
+the design table reads it (`verificationStore.memberVerdict`, `getDisplayRatio`); with advanced
+analyses, P-Δ, modal, spectral and buckling with the Advanced tab's inputs. Recorded: displacements,
+reactions, member forces, shell stresses, per case and per combination; equilibrium flags and the
+warning/error diagnostic codes; design verdicts, holds, ratios, required steel, steel limit
+states, footing checks; and every refusal with its reason (in English).
+
+**Corpus.** Basic 2D: beams, frames, trusses, hinges, an arch, springs, thermal load, settlement,
+CIRSOC load cases and combinations, a seismic case, and a mechanism that must be refused. Basic
+3D: frame, space truss, torsion, grillage, braced tower, hinged arch, a building with combinations,
+a 2D example in 3D. PRO: membrane shells, slab and wall shells, a mat, P-Δ/modal/spectral/buckling
+on two frames. Design: CIRSOC 201 on five RC models (shear row 2, a seismic case, 12
+combinations), CIRSOC 301 on three steel models, and an isolated footing on a soil profile. Left
+out: the large showcase models (stadiums, towers, bridges, CAD imports, the 408-member flagship),
+which run the same paths at a size that would make the snapshot megabytes and the job minutes; the
+Basic 2D advanced toolbar; moving loads, time history and the nonlinear analyses; auto-design (a
+search with a wall-clock cap, whose answer depends on the machine). The whole corpus runs in about
+10 s.
+
+**Tolerance.** Two numbers of one quantity are the same result when
+`|a − b| ≤ 1e-6·max(|a|, |b|) + 1e-7·peak`, `peak` being the largest magnitude of that quantity
+in the case. One part per million is a thousand times tighter than any engineering difference
+(a code's rounding, a 0.1 % load factor); 1e-7 of the peak absorbs values that should be zero and
+come out as round-off. The WASM build is bit-for-bit deterministic, so the same build reproduces
+the snapshot exactly; what the tolerance absorbs is a refactor that reorders floating-point
+operations, whose error is about κ·ε ≈ 1e-8 of the peak on these models (κ up to ~1e8). Strings
+and booleans (verdicts, refusals) compare exactly. Not recorded: timings, the build that ran,
+residual magnitudes (their pass/fail flags are), the id at which an extreme occurs (a tie on a
+symmetric model), mode shapes and participation factors (arbitrary sign), and the worked
+explanation text of the checks (their numbers are recorded as numbers). The rule is in
+`web/scripts/results-snapshot/compare.mjs`, shared by the test and the gate.
+
+**The gate.** Two steps of the `Results Snapshot` job, required through CI OK:
+
+1. `make test.web.results`: the corpus must give the committed snapshots; a difference fails
+   with each moved value, before → after, and the percentage.
+2. `make check.results-snapshot-gate BASE=<base>` (pull requests and the merge queue): if the
+   pull request changes or deletes a committed snapshot (beyond the tolerance), it must also add
+   an entry to `result-changes.json` (a change id the base does not have) and a `changelog.d/`
+   fragment under `### BREAKING (results)`. A new case or a new recorded quantity is not a change.
+
+**A deliberate change**: `make snapshots-update` (or `cd web && npm run snapshots:update`)
+rewrites the snapshots, keeping every value still within the tolerance as committed so the diff
+is only what moved; then add the registry entry ("Adding a change" above) and the fragment.
+Adding a case: add it to `corpus.ts` and run the same command.
+
+The negative case (#451) is `results-snapshot/__tests__/negative.test.ts`: a 1 % change to a
+corpus case is reported value by value, and the gate fails it without a registry entry, with only
+a fragment, or with a fragment in another section, and passes it with both.
+`web/scripts/__tests__/results-snapshot.test.ts` covers the tolerance and the decision.
+
+In Node the worker pool is not available and the combinations are solved by the sequential
+fallback (`solveCombinations3DParallel`), on the same WASM bytes as the workers.
 
 ## Solve stamps and the re-check prompt
 

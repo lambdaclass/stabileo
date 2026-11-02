@@ -45,6 +45,24 @@ async function sameTables(title: string, html: string) {
   const docx = (await reportFile('docx', { title, html, stem: 'x', loadXlsx: async () => XLSX }))!;
   const xml = strFromU8(unzipSync(docx.bytes as Uint8Array)['word/document.xml']!);
   expect((xml.match(/<w:tbl>/g) ?? []).length, `${title}: docx tables`).toBe(tables.length);
+  // Cell by cell, the Word text is the HTML's: numbers, signs and units; a subscript in the HTML is a subscript run.
+  const cellRuns = (tc: string) => [...tc.matchAll(/<w:r>([\s\S]*?)<\/w:r>/g)].map((r) => ({ t: [...r[1]!.matchAll(/<w:t[^>]*>([^<]*)<\/w:t>/g)].map((m) => m[1]).join(''), sub: /subscript/.test(r[1]!) }));
+  const unxml = (t: string) => t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+  const docTables = [...xml.matchAll(/<w:tbl>([\s\S]*?)<\/w:tbl>/g)].map((tb) => [...tb[1]!.matchAll(/<w:tr>([\s\S]*?)<\/w:tr>/g)].map((tr) => [...tr[1]!.matchAll(/<w:tc>([\s\S]*?)<\/w:tc>/g)].map((tc) => cellRuns(tc[1]!))));
+  tables.forEach((tb, i) => {
+    const t = tb as { head: string[]; rows: string[][] };
+    const plain = [t.head, ...t.rows];
+    const written = docTables[i]!.map((r) => r.map((c) => unxml(c.map((x) => x.t).join('')).replace(/\s+/g, ' ').trim()));
+    expect(written, `${title}: table ${i + 1}`).toEqual(plain.map((r) => r.map((c) => c.replace(/\s+/g, ' ').trim())));
+  });
+  const htmlTables = [...html.matchAll(/<table\b[\s\S]*?<\/table>/g)].map((m) => m[0]);
+  let scripted = 0;
+  htmlTables.forEach((ht, i) => {
+    const firstRow = /<tr\b[\s\S]*?<\/tr>/.exec(ht)?.[0] ?? '';
+    const headCells = [...firstRow.matchAll(/<t[hd]\b[\s\S]*?<\/t[hd]>/g)].map((m) => m[0]);
+    headCells.forEach((c, j) => { if (/<msub>|<sub>/.test(c) && ++scripted) expect(docTables[i]![0]![j]!.some((r) => r.sub), `${title}: table ${i + 1} head ${j + 1} keeps its subscript`).toBe(true); });
+  });
+  return scripted;
   const xlsx = (await reportFile('xlsx', { title, html, stem: 'x', loadXlsx: async () => XLSX }))!;
   const wb = XLSX.read(xlsx.bytes as Uint8Array, { type: 'array' });
   expect(wb.SheetNames.length, `${title}: one sheet per table and the text`).toBe(tables.length + 1);
@@ -61,7 +79,7 @@ describe('the same five formats on both lines', () => {
       projectName: 'Obra A', date: '2026-10-19', nodes: [...m.nodes.values()], elements: [...m.elements.values()], materials: [...m.materials.values()], sections: [...m.sections.values()], supports: [...m.supports.values()],
       loadCount: m.loads.length, results, t: (k: string) => k,
     } as never);
-    await sameTables('Informe', html);
+    expect(await sameTables('Informe', html), 'the report has subscripted headers to check').toBeGreaterThan(5);
   });
 
   it('the designed model\'s memoria', async () => {

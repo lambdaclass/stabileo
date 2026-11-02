@@ -12,8 +12,8 @@ analysis the engine has and on the whole model corpus.
 ```sh
 cd engine
 cargo test --release --test metamorphic                       # PR tier (sampled)
-cargo test --release --test metamorphic -- --ignored          # nightly tier (exhaustive)
-METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --release --test metamorphic -- --ignored --nocapture
+cargo test --release --test metamorphic metamorphic_nightly_ -- --ignored # nightly tier (exhaustive)
+METAMORPHIC_SEED=123 METAMORPHIC_ONLY="P-Delta" cargo test --release --test metamorphic metamorphic_nightly_ -- --ignored --nocapture
 UPDATE_METAMORPHIC_DOC=1 cargo test --release --test metamorphic metamorphic_pr   # refresh the matrices below
 ```
 
@@ -125,7 +125,7 @@ each legitimately carries:
 The PR tier (`metamorphic_pr_2d`, `metamorphic_pr_3d`, run by ci.yml's suite,
 ≈ 3 min) uses every example and analytical fixture, four random fixtures, one in
 seven corpus models and ten fuzz models, with a fixed seed. The nightly tier
-(`verify.yml` → `metamorphic-nightly`) runs every model, 200 fuzz models and a
+(`nightly.yml` → `metamorphic-nightly`) runs every model, 200 fuzz models and a
 seed that moves daily (printed; reproduce with `METAMORPHIC_SEED`), and uploads
 the per-cell report.
 
@@ -255,3 +255,219 @@ Each has a minimal reproduction in `engine/tests/metamorphic/regressions.rs` (or
   member's span moment under an axle is not in the envelope. This is a
   discretisation property, not a metamorphic violation; deck members should be
   subdivided.
+
+## Deterministic safety sweep (2026-10-29)
+
+`generated::generated_fast` adds 128 seeds in each dimension (256 small models)
+to the required `metamorphic` target. SplitMix64 varies span, area, bending
+inertia and modulus. Each model exercises every existing analysis adapter,
+plus active distributed Winkler springs and a closed contact gap. Separate
+16-seed tests exercise actual taut cable elements in 2D V cables and 3D
+tripods. Reversal choices now consume randomness in sorted member-ID order;
+the generated sweep always reverses at least one member. The spectral
+absolute-envelope and influence-coordinate reversal maps are checked too,
+rather than reporting these transformations as unrepresentable.
+
+`METAMORPHIC_SEED` defaults to 20261018. A failed generated case prints its
+seed and full input JSON; with `METAMORPHIC_REPORT_DIR` it also writes those
+inputs and both matrices. The generated tests fail on refused baseline solves,
+lost coverage, unrepresentable comparisons or inconclusive tolerances.
+Generated response validation checks absolute references for modal, certified-modal,
+harmonic and influence-line adapters. Influence-line
+endpoints are compared with separate nodal unit-load static solves, including
+an independently nonzero ordinate. Zero-frequency harmonic real displacement
+must match the static probe displacement, and its imaginary part must vanish;
+legitimate zero-load responses remain valid. Modal responses require positive
+mass and positive ordered frequencies. A separate direct modal solve supplies
+expected entries and values, including effective-mass boundaries, for both
+modal adapters; this is an adapter check, not an independent eigensolver.
+These reference comparisons use relative tolerance 1e-10. Regression tests
+zero those four adapters, remove modal effective-mass entries, and corrupt the
+zero-frequency imaginary response.
+
+The active-foundation fixture additionally checks axial displacements against
+bar equilibrium and compatibility: its transverse bed cannot carry axial load.
+The loaded cable fixtures require positive member tension and support forces
+balancing the applied 100-unit load in every translational direction. Both
+fixture checks reject correctly shaped zero-valued responses.
+
+Shape and metamorphic checks alone do not establish physical correctness.
+In particular, primary linear, buckling, time-history, spectral, moving-load
+and plastic-collapse rows do not each have an independent absolute oracle;
+a consistently zero-valued adapter can satisfy homogeneous invariants.
+A matrix checkmark denotes the stated relation and coverage, not independent
+validation of every response value or protection against every zero mutation.
+
+The broad legacy corpus retains its conditioning-based tolerances and explicit
+feature limitations; its passing cells are not a promise that every possible
+model is supported.
+
+### Tolerances and physical scope
+
+The new direct-linear, staged, Winkler, harmonic and time-history checks use
+2.5e-10 for a two-solve comparison. The existing four-solve superposition and
+reciprocity checks multiply this by four, giving a maximum relative tolerance
+of **1e-9**. Comparisons retain dimensional family norms, including a
+load-scaled floor for exactly zero force components. Time history checks every
+stored step in the generated sweep, including the initial state. A separate
+dynamic test uses independent length, force and time factors (0.2, 3, 7), so
+mass scales by F T²/L; it does not depend on Froude scaling.
+
+Iterative comparisons retain the documented conditioning contribution plus
+20 times the adapter's iteration tolerance: P-Delta and modal/spectral use
+2e-9; co-rotational, material nonlinear, fiber and cable use 2e-8; active
+contact uses 2e-9; plastic collapse uses 1e-6 (event resolution). These are
+comparison bounds, not changes to solver convergence settings. Generated modal
+orthogonality uses 1e-8 (100 eigensolver residual tolerances), including repeated
+or nearly repeated eigenvalues; duplicate modes are not exempted.
+
+3D reflection uses central inversion. Forces and translations are polar
+vectors; moments and rotations are axial vectors. Local axes are rebuilt and
+local end-force signs mapped accordingly. Arbitrary proper rotations are
+covered separately. Gravity-bound analyses retain their existing admissible
+rotations: about Z in 3D, vertical-plane reflection in 2D. A response spectrum
+uses axis permutations. Active contact currently covers units, relabeling and
+member reversal; its named-axis gap direction is not a general rotated normal.
+The ordinary contact adapter additionally covers its no-gap linear limit.
+Fiber cases exercise the elastic constitutive limit; material-nonlinear cases
+check invariance and mandatory #428 containment warnings, not the physical
+accuracy of the whole-member secant approximation. Staged cases cover load
+application over one and two stages, not element birth/removal histories.
+
+### Known issues and findings
+
+**New engine findings: none established by these runs.** Open issues were
+checked against the repository's GitHub issue list, not just the local registry.
+The initial co-rotational finding is already tracked by
+[#761](https://github.com/lambdaclass/stabileo/issues/761).
+
+| Reproduction | Disposition |
+|---|---|
+| Plastic rigid-link and selected rich-fuzz cases | `#[ignore = "safety #758"]` |
+| Warping cantilever modal orthogonality | `#[ignore = "safety #759"]` |
+| Rich 2D seed 20843 time-history reciprocity | `#[ignore = "safety #760"]` |
+| Generated co-rotational rotations/reflections and one-member reproducer | `#[ignore = "safety #761"]` |
+| Rich 2D seed 20800 near-mechanism units/orientation | `#[ignore = "safety #762"]` |
+| Material nonlinear, every successful transformed solve | Require `KnownIssue`, phase `NL-5`, issue value 428 |
+
+The #761 reduction has two nodes, one fixed-end frame member, length
+1.537973864398564, E=193869.99887466928, ν=0.3, A=0.01734359913961188,
+Iz=0.00024294395037462315. The tip load is Fx=-0.1, Fz=-0.15, My=0.03.
+In 3D add Iy=0.63 Iz, J=0.4 Iz, Fy=0.07, Mx=0.01, Mz=0.04.
+With 100 iterations, tolerance 1e-10 and four increments, the unrotated
+member converges. A 2D rotation of 0.7 radians or 3D Euler angles
+(0.3, 0.7, 1.1) makes it fail convergence, even at the origin.
+`generated::corotational_rigid_motion_reproducer` constructs this reduction.
+It asserts convergence of both configurations and remains ignored by issue,
+not converted to a passing assertion of incorrect behavior.
+
+### CI and local execution
+
+No new Cargo target or dependency is required. `make test.engine.metamorphic`
+already runs this target in the required `test-engine-metamorphic` job, which
+feeds `CI OK`. The existing `metamorphic-nightly` job now selects
+`metamorphic_nightly_` explicitly and uses `--locked`, keeping diagnostic probes
+and issue-specific ignored reproductions out of the scheduled selection.
+It includes `metamorphic_nightly_generated` (4096 seeds per dimension), uploads
+its reports and failed-input JSON, and inherits the existing
+`verification-alert.yml` failure-to-issue workflow. The legacy full-corpus
+nightly tests still run; their known safety findings are not claimed fixed.
+
+```sh
+cd engine
+nix develop .. -c cargo test --locked --release --test metamorphic
+nix develop .. -c cargo test --locked --release --test metamorphic metamorphic_nightly_generated -- --ignored --nocapture
+nix develop .. -c cargo test --locked --release --test metamorphic safety_cases -- --ignored --nocapture
+nix develop .. -c cargo test --locked --release --test metamorphic corotational_rigid_motion_reproducer -- --ignored --nocapture
+```
+
+The explicit safety reproduction commands are expected to fail while their
+issues remain open. They are deliberately separate from the required run.
+The targeted checks reproduced #758, #759, #760 and #762; the minimal
+co-rotational check reproduced #761.
+
+### Verification evidence
+
+Reproducible base/head comparison and known corpus failures are recorded in
+[the verification evidence](metamorphic-review-813.txt). The broad nightly
+corpus is not green; generated coverage must not be presented as a passing
+result for the complete nightly selection.
+
+### Generated matrix
+
+Snapshot: seed 20261018, 128 seeds per dimension. ✓ = pass on every exercised
+case; `ignored(#761)` = the separately executable issue-linked test; · = not
+applicable or outside the stated adapter scope. There were no refused,
+unrepresentable or inconclusive generated comparisons. Active cable coverage
+is in the separate test described above. These small-model passes do not remove
+the adverse-model exclusions #758, #759, #760 and #762.
+
+#### 2D
+
+| Analysis | rotation | mirror | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · |
+| linear (dense reference) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
+| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · |
+| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
+| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
+| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · |
+| P-Delta | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| corotational | ignored(#761) | ignored(#761) | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| material nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| cable solver | · | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | ✓ |
+| certified modal | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · |
+| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
+| spectral | · | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
+| plastic collapse | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · |
+| kinematic check | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| moving loads | · | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| influence line | · | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+| Winkler (active) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · |
+| contact (active gap) | · | · | ✓ | ✓ | ✓ | · | · | · | · | · | · |
+
+#### 3D
+
+| Analysis | rotation | relabel | reversal | units | superposition | reciprocity | energy | symmetry | linear agreement | modal orthogonality | reflection |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | ✓ |
+| linear (sparse path) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| linear (PCG) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| constrained | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| certified linear | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| load combinations | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| staged (one stage) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| staged (loads in two stages) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | ✓ |
+| Winkler (no foundation) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | ✓ | · | ✓ |
+| contact (no gaps) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | ✓ |
+| SSI (no soil springs) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | ✓ |
+| creep & shrinkage (t = t0) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | ✓ | · | ✓ |
+| P-Delta | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| corotational | ignored(#761) | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| material nonlinear | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| fiber nonlinear | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| cable solver | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | · |
+| modal | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | ✓ | ✓ |
+| certified modal | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| buckling | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | ✓ |
+| time history | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | ✓ |
+| time history (ground motion) | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| spectral | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| harmonic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | ✓ |
+| plastic collapse | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | ✓ |
+| kinematic check | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | ✓ |
+| moving loads | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | · |
+| influence line | ✓ | ✓ | ✓ | ✓ | · | · | · | · | · | · | · |
+| Winkler (active) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | · | · | · | · | ✓ |
+| contact (active gap) | · | ✓ | ✓ | ✓ | · | · | · | · | · | · | · |
