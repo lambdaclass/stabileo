@@ -1470,6 +1470,14 @@ export function formatChangeMonth(iso: string, locale: string, { capitalize = tr
   return capitalize ? text.charAt(0).toLocaleUpperCase(locale) + text.slice(1) : text;
 }
 
+export function changeCount(entries: readonly ChangelogEntry[], area: ChangelogArea | null = null): number {
+  return entries.reduce((n, e) => n + (area ? e.areas.filter((a) => a === area).length : e.areas.length), 0);
+}
+
+export function changesPerArea(entries: readonly ChangelogEntry[]): Record<ChangelogArea, number> {
+  return Object.fromEntries(CHANGELOG_AREAS.map((a) => [a, changeCount(entries, a)])) as Record<ChangelogArea, number>;
+}
+
 export function entryAreas(entry: ChangelogEntry): ChangelogArea[] {
   return [...new Set(entry.areas)];
 }
