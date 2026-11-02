@@ -170,7 +170,11 @@ describe('a load along a member', () => {
     const t = teachingPDelta(input, { method: 'consistent', axialRigid: false });
     if (!t.ok) throw new Error(t.reason.key);
     const mine = toAnalysisResults(t.run.sys, input, t.run.final, 'consistent', t.run.final.N).elementForces[0];
-    const eng = wasm.solvePDelta(input).results.elementForces[0];
+    const engRes = wasm.solvePDelta(input).results;
+    const eng = engRes.elementForces[0];
+    const top = t.run.final.D[t.run.sys.dof(2, 1)];
+    expect(top).toBeCloseTo(engRes.displacements.find((d: { nodeId: number }) => d.nodeId === 2).uz, 12);
+    expect(Math.abs(top)).toBeGreaterThan(0);
     expect(mine.nStart - mine.nEnd).toBeCloseTo(qa * L, 9);
     for (const key of ['nStart', 'nEnd', 'vStart', 'mStart', 'mEnd'] as const) expect(mine[key]).toBeCloseTo(eng[key], 6);
     expect(mine.distributedLoadsX).toEqual([{ qI: qa, qJ: qa, a: 0, b: L }]);

@@ -265,9 +265,12 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
       { a: [...f.cy.map((v) => -v), -f.mp], op: '<=' as const, b: f.c0 },
     ]);
     const res = solveLp({ c: [...new Array(nz).fill(0), 1], rows, free: [...new Array(nz).fill(true), false] });
-    if (res.status === 'optimal') M = compose(res.x.slice(0, nz));
+    if (res.status !== 'optimal') return null;
+    M = compose(res.x.slice(0, nz));
   }
+  if (!M.every(Number.isFinite)) return null;
   const peak = peakRatio(lm.sm, M, lambda);
+  if (!Number.isFinite(peak.ratio)) return null;
   return { M, lambda, ratio: peak.ratio, worst: peak.worst, free: Z.length };
 }
 
