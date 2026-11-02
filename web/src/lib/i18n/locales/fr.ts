@@ -3,7 +3,6 @@ import type { Translations } from '../types';
 const fr: Translations = {
   "landing.navTools": "Outils",
   "landing.navExamples": "Exemples",
-  "landing.heroCtaExamples": "Essayer les exemples en direct",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Vue',
@@ -316,7 +315,6 @@ const fr: Translations = {
   'results.verification': 'Vérification',
   'resultsTable.diagnostics': 'Diagnostic',
   'blog.allPosts': 'Tous les articles',
-  'blog.backHome': 'Retour à stabileo.com',
   'blog.by': 'Par',
   'blog.embedNote': 'Charge l\'application réelle dans cette page. Rien ne s\'exécute tant que vous ne le demandez pas.',
   'blog.embedOpenFull': 'Ouvrir en grand',

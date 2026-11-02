@@ -18,7 +18,7 @@
 
       <div class="hero-ctas">
         <button class="btn btn-primary btn-lg" onclick={() => enterApp()}>{t('landing.heroCtaPrimary')}</button>
-        <PublicLink to="/examples" class="btn btn-ghost btn-lg">{t('landing.heroCtaExamples')}</PublicLink>
+        <PublicLink to="/examples" class="btn btn-ghost btn-lg">{t('landing.navExamples')} →</PublicLink>
       </div>
 
       <!--

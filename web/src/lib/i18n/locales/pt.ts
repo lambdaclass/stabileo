@@ -2,7 +2,6 @@ import type { Translations } from '../types';
 const pt: Translations = {
   "landing.navTools": "Ferramentas",
   "landing.navExamples": "Exemplos",
-  "landing.heroCtaExamples": "Experimentar exemplos ao vivo",
 
   // Shared scalar-field viewer
   "scalarViewer.view": "Vista",
@@ -818,7 +817,6 @@ const pt: Translations = {
   'autoLoad.zoneModerate': 'Moderada',
   'autoLoad.zoneVeryHigh': 'Muito elevada',
   'blog.allPosts': 'Todas as notas',
-  'blog.backHome': 'Voltar a stabileo.com',
   'blog.by': 'Por',
   'blog.embedNote': 'Carrega a aplicação real dentro desta página. Nada roda até você pedir.',
   'blog.embedOpenFull': 'Abrir em tamanho grande',

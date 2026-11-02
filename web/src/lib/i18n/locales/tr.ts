@@ -11,7 +11,6 @@ const tr: Translations = {
   "recheck.retry": "Tekrar dene",
   "landing.navTools": "Araçlar",
   "landing.navExamples": "Örnekler",
-  "landing.heroCtaExamples": "Canlı örnekleri deneyin",
 
   // ─── Shared scalar-field viewer ───
   'scalarViewer.view': 'Görünüm',
@@ -324,7 +323,6 @@ const tr: Translations = {
   'results.verification': 'Doğrulama',
   'resultsTable.diagnostics': 'Tanılama',
   'blog.allPosts': 'Tüm yazılar',
-  'blog.backHome': 'stabileo.com\'a dön',
   'blog.by': 'Yazar:',
   'blog.embedNote': 'Gerçek uygulamayı bu sayfaya yükler. Siz istemedikçe hiçbir şey çalışmaz.',
   'blog.embedOpenFull': 'Tam boyutta aç',

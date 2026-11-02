@@ -1,7 +1,6 @@
 const en: Record<string, string> = {
   "landing.navTools": "Tools",
   "landing.navExamples": "Examples",
-  "landing.heroCtaExamples": "Try live examples",
 
   // Shared scalar-field viewer
   "scalarViewer.view": "View",
@@ -317,7 +316,6 @@ const en: Record<string, string> = {
   'results.verification': "Verification",
   'resultsTable.diagnostics': "Diagnostics",
   'blog.allPosts': 'All posts',
-  'blog.backHome': 'Back to stabileo.com',
   'blog.by': 'By',
   'blog.embedNote': 'Loads the real application in this page. Nothing runs until you ask.',
   'blog.embedOpenFull': 'Open full size',
