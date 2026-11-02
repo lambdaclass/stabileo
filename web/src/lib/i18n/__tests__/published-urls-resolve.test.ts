@@ -57,6 +57,7 @@ import { promisify } from 'node:util';
 import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { searchMetadataSuite } from './search-metadata';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -117,6 +118,8 @@ describe('every published URL is served, not redirected', () => {
   }, 660_000);
 
   afterAll(() => rmSync(DIST, { recursive: true, force: true }));
+
+  searchMetadataSuite(DIST);
 
   it('the build produced a sitemap with URLs in it', () => {
     // Without this the three assertions below would pass vacuously on an empty

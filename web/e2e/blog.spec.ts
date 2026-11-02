@@ -497,7 +497,8 @@ test.describe('blog', () => {
     await boot(page, '/es/blog');
     // The index states itself as the blog, not as an article.
     const index = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!)['@graph'];
-    expect(index.map((n: { '@type': string }) => n['@type'])).toEqual(['Blog']);
+    const types = index.map((n: { '@type': string }) => n['@type']).sort();
+    expect(types).toEqual(['Blog', 'BreadcrumbList', 'Organization', 'Organization', 'Organization', 'WebSite']);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
