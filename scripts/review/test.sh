@@ -33,6 +33,10 @@ cp "$SOURCE/research/papers.yaml" "$SOURCE/research/papers.json" "$TEMP/repo/res
 for area in "$SOURCE"/research/*; do
   [ ! -d "$area" ] || [ "${area##*/}" = tools ] || ln -s "$area" "$TEMP/repo/research/${area##*/}"
 done
+sed -n 's/^  page: *//p' "$SOURCE/research/papers.yaml" | sort -u | while read -r page; do
+  [ -e "$SOURCE/$page" ] || continue
+  mkdir -p "$TEMP/repo/$(dirname "$page")" && ln -s "$SOURCE/$page" "$TEMP/repo/$page"
+done
 cd "$TEMP/repo"
 git init -q
 git config user.email test@example.com
