@@ -411,14 +411,22 @@ fn steel_forces_3d(element_id: usize, a: AxisDemand) -> ElementDesignForces {
 }
 
 /// Err when the demand carries a component a check covering only the strong
-/// axis (or, with `biaxial`, only one shear) would drop.
+/// axis (or, with `biaxial`, only one shear) would drop, or an invalid bound on
+/// one. A bound missing altogether (`n` invalid too) is refused per member by
+/// the check itself.
 fn strong_axis_only(d: &BoundedSteelDemand, code: &str, biaxial: bool) -> Result<(), String> {
-    let present = |x: f64, b: f64| x != 0.0 || b > 0.0;
-    let weak_shear = present(d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak);
-    let weak_moment = !biaxial && present(d.forces.mz.unwrap_or(0.0), d.bound.mz);
-    if weak_shear || weak_moment {
-        let what = if weak_moment { "weak-axis moment Mz" } else { "weak-axis shear Vy" };
-        return Err(format!("element {}: {code} demands carry a {what} that {code} does not check", d.forces.element_id));
+    let valid = |b: f64| b.is_finite() && b >= 0.0;
+    let mut dropped = vec![("weak-axis shear Vy", d.forces.v_weak.unwrap_or(0.0), d.bound.v_weak)];
+    if !biaxial {
+        dropped.push(("weak-axis moment Mz", d.forces.mz.unwrap_or(0.0), d.bound.mz));
+    }
+    for (what, x, b) in dropped {
+        if !valid(b) && valid(d.bound.n) {
+            return Err(format!("element {}: invalid {what} bound {b}", d.forces.element_id));
+        }
+        if x != 0.0 || b > 0.0 {
+            return Err(format!("element {}: {code} demands carry a {what} that {code} does not check", d.forces.element_id));
+        }
     }
     Ok(())
 }
@@ -2419,6 +2427,17 @@ mod tests {
         };
         assert!(rc_demands(std::slice::from_ref(&weak)).unwrap_err().contains("weak-axis shear"));
         assert!(ec3_demands(&[weak]).is_err());
+        let zero = demand_bound(AxisDemand::default());
+        for (bound, biaxial_ok) in [
+            (DemandBound { v_weak: f64::NAN, ..zero }, false),
+            (DemandBound { v_weak: -1.0, ..zero }, false),
+            (DemandBound { mz: f64::NAN, ..zero }, true),
+            (DemandBound { mz: -1.0, ..zero }, true),
+        ] {
+            let d = BoundedSteelDemand { forces: steel_forces_3d(7, AxisDemand::plane_2d(-1.0, 2.0, 3.0)), bound };
+            assert!(rc_demands(std::slice::from_ref(&d)).unwrap_err().contains("invalid"), "{bound:?}");
+            assert_eq!(ec3_demands(&[d]).is_ok(), biaxial_ok, "{bound:?}");
+        }
     }
 
     #[test]
