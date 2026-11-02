@@ -6,7 +6,7 @@
 set -uo pipefail
 . "$(dirname "$0")/common.sh"
 AUTHOR=${AUTHOR_ENGINE:-claude}
-first=$(pick_engine review "$AUTHOR"); second=$(pick_engine review "$AUTHOR" "$first")
+first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_engine review "$AUTHOR" "$first")
 [ "$first" != none ] || { log "$(basename "$0"): no review engine available"; exit 75; }
 pr=$1; max=${2:-150000}; R=$ST/reviews; mkdir -p "$R"
 head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid,title -q '.headRefName+" "+.headRefOid+" "+.title')

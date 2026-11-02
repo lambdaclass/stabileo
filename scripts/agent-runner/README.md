@@ -25,7 +25,7 @@ The scripts that run Stabileo's fix and review agents on the shared agent host. 
 
 `queue-runner.sh` processes `queue/jobs/pending/*.job` (`TYPE=fixpaper|review|review-chunked|review-paper`,
 `ARG`, `SCOPE`, optional `ENGINE`, `AUTHOR_ENGINE`) so queued research and review jobs keep running
-while the interactive session is paused. It runs every 10 minutes as a systemd user timer:
+while the interactive session is paused. For reviews, `ENGINE` sets only the first reviewer. It runs every 10 minutes as a systemd user timer:
 
     systemd-run --user --unit=stabileo-queue --on-calendar='*:0/10' bgrun bash ~/projects/stabileo-state/bin/queue-runner.sh --once
 

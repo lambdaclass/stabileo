@@ -22,7 +22,7 @@ p=$T/$pr-$sha-prompt.md
   echo; echo '```diff'; git -C "$REPO" diff "$base...$want" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**'; echo '```'; } > "$p"
 size=$(wc -c < "$p"); [ "$size" -gt 900000 ] && { echo "review-diff: #$pr prompt is $size bytes, switching to review-chunked.sh" >&2; rm -rf "$T"; trap - EXIT; exec "$(dirname "$0")/review-chunked.sh" "$pr"; }; [ "$size" -gt 3000 ] || { echo "review-diff: diff for #$pr is empty ($size bytes), not reviewing" >&2; exit 1; }; [ "$size" -gt 400000 ] && echo "warning: prompt is $size bytes" >&2
 AUTHOR=${AUTHOR_ENGINE:-claude}
-first=$(pick_engine review "$AUTHOR"); second=$(pick_engine review "$AUTHOR" "$first")
+first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_engine review "$AUTHOR" "$first")
 [ "$first" != none ] || { log "review-diff #$pr: no review engine available"; exit 75; }
 log "review-diff #$pr $sha: author $AUTHOR, reviewers $first and ${second}"
 ( "$(dirname "$0")/run-engine.sh" "$first" review "$REPO" "$p" "$T/$pr-$sha-codex.md"; rc=$?; sed -i "1i FIRST REVIEWER: $first" "$T/$pr-$sha-codex.md"; exit $rc ) & p1=$!

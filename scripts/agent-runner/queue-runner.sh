@@ -21,9 +21,9 @@ run_one() {
   mv "$f" "$J/running/"; log "queue: $name start ($TYPE $ARG, $SCOPE, $engine)"
   case "$TYPE" in
     fixpaper) ENGINE=$engine SCOPE=$SCOPE "$ST/bin/fixpaper.sh" "$ARG" ;;
-    review) STABILEO_FORCE_ENGINE=${ENGINE:-} AUTHOR_ENGINE=$AUTHOR_ENGINE "$ST/bin/review-diff.sh" "$ARG" ;;
-    review-chunked) STABILEO_FORCE_ENGINE=${ENGINE:-} AUTHOR_ENGINE=$AUTHOR_ENGINE "$ST/bin/review-chunked.sh" "$ARG" ;;
-    review-paper) STABILEO_FORCE_ENGINE=${ENGINE:-} AUTHOR_ENGINE=$AUTHOR_ENGINE "$ST/bin/review-paper.sh" "$ARG" ;;
+    review) REVIEW_FIRST_ENGINE=${ENGINE:-} AUTHOR_ENGINE=$AUTHOR_ENGINE "$ST/bin/review-diff.sh" "$ARG" ;;
+    review-chunked) REVIEW_FIRST_ENGINE=${ENGINE:-} AUTHOR_ENGINE=$AUTHOR_ENGINE "$ST/bin/review-chunked.sh" "$ARG" ;;
+    review-paper) REVIEW_FIRST_ENGINE=${ENGINE:-} AUTHOR_ENGINE=$AUTHOR_ENGINE "$ST/bin/review-paper.sh" "$ARG" ;;
     *) log "queue: $name unknown TYPE $TYPE"; false ;;
   esac
   rc=$?
