@@ -104,12 +104,12 @@ test('a later failure comments on the open issue instead of opening another', as
 const at = (h) => `2026-11-01T${String(h).padStart(2, '0')}:00:00Z`;
 const issue14 = {number: 14, title: 'CI failure: Nightly verification', created_at: at(5)};
 const bot = {user: {login: 'github-actions[bot]', type: 'Bot'}, body: 'Run 54 of Nightly verification ...', created_at: at(6)};
-const human = (h) => ({user: {login: 'someone', type: 'User'}, body: 'Triaged: #757, #758.', created_at: at(h)});
+const human = (h, author_association = 'MEMBER') => ({user: {login: 'someone', type: 'User'}, author_association, body: 'Triaged: #757, #758.', created_at: at(h)});
 
 test('a green scheduled run closes an issue triaged after its latest failure', async () => {
   for (const triaged of [
     {comments: [bot, human(7)]},
-    {comments: [bot], timeline: [{event: 'commented', created_at: at(6)}, {event: 'cross-referenced', created_at: at(7)}]},
+    {comments: [bot, human(7, 'COLLABORATOR')]},
     {comments: [bot], timeline: [{event: 'labeled', label: {name: 'triaged'}, created_at: at(7)}]},
   ]) {
     const h = harness({run: {conclusion: 'success'}, open: [issue14], runsByWorkflow: {7: [{id: 55, conclusion: 'success'}]}, ...triaged});
@@ -121,11 +121,13 @@ test('a green scheduled run closes an issue triaged after its latest failure', a
   }
 });
 
-test('triage before the latest failure does not count', async () => {
+test('triage before the latest failure, by an outsider or by a mere reference does not count', async () => {
   for (const stale of [
     {comments: [human(5), bot]},
     {comments: [bot], timeline: [{event: 'cross-referenced', created_at: at(5)}, {event: 'labeled', label: {name: 'triaged'}, created_at: at(5)}]},
     {comments: [bot], timeline: [{event: 'labeled', label: {name: 'bug'}, created_at: at(7)}]},
+    {comments: [bot, human(7, 'NONE'), human(7, 'CONTRIBUTOR')]},
+    {comments: [bot], timeline: [{event: 'cross-referenced', created_at: at(7)}]},
   ]) {
     const h = harness({run: {conclusion: 'success'}, open: [issue14], ...stale});
     await h.run();

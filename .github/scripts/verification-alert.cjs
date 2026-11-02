@@ -2,6 +2,7 @@ const LABEL = 'ci-failure';
 const BAD = new Set(['failure', 'timed_out', 'cancelled', 'startup_failure']);
 const FORCED = '[forced failure]';
 const TRIAGED = 'triaged';
+const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 const HELD = 'Green again, but this issue is not triaged yet';
 
 // Hours since the last completed scheduled run: cron interval plus the longest run plus slack.
@@ -73,7 +74,7 @@ async function raise(ctx, issueTitle, body) {
     owner, repo, title: issueTitle, labels: [LABEL],
     body: `${body}\n\n---\nOpened by \`.github/workflows/verification-alert.yml\`. Later failures ` +
       'are added as comments. Triage each real finding (mismatch, crash, missed mutant, failing ' +
-      'proof) into its own issue and link it here, or comment why there is none, or add the ' +
+      'proof) into its own issue and link it in a comment here (or say why there is none), or add the ' +
       `\`${TRIAGED}\` label; after that the next green scheduled run closes this issue.`,
   });
   core.warning(`${issueTitle}: opened #${created.data.number}`);
@@ -89,12 +90,11 @@ async function triage(github, owner, repo, issue) {
   const since = [issue.created_at, ...reports].filter(Boolean).sort().at(-1) || '';
   const after = (x) => (x.created_at || '') > since;
   const held = comments.some((c) => (c.body || '').startsWith(HELD) && after(c));
-  if (comments.some((c) => !isBot(c) && after(c))) return { triaged: true, held };
+  if (comments.some((c) => !isBot(c) && TRUSTED.has(c.author_association) && after(c))) return { triaged: true, held };
   const events = await github.paginate(github.rest.issues.listEventsForTimeline, {
     owner, repo, issue_number: issue.number, per_page: 100,
   });
-  const triaged = events.some((e) => after(e) &&
-    (e.event === 'cross-referenced' || (e.event === 'labeled' && e.label && e.label.name === TRIAGED)));
+  const triaged = events.some((e) => after(e) && e.event === 'labeled' && e.label && e.label.name === TRIAGED);
   return { triaged, held };
 }
 
@@ -113,8 +113,8 @@ async function resolve({ github, core, owner, repo, dryRun }, issueTitle, body) 
     } else {
       await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body:
         `${HELD}: ${body.replace(/^Green again: /, '').replace(/ Closing\.$/, '')} The failures above may be real findings that ` +
-        'a later green run does not fix (seeds and shards rotate). Link the finding issues here, ' +
-        `comment why there are none, or add the \`${TRIAGED}\` label; the next green scheduled run then closes this.` });
+        'a later green run does not fix (seeds and shards rotate). Link the finding issues in a comment here, ' +
+        `say why there are none, or add the \`${TRIAGED}\` label; the next green scheduled run then closes this.` });
       core.warning(`${issueTitle}: #${existing.number} green but untriaged, left open`);
     }
     return;
