@@ -21,7 +21,7 @@
   const groups = $derived(gallery ? proExampleGroups(t) : []);
 
   type Mode = '3d' | 'plan' | 'split';
-  const mode = $derived<Mode>(viewState.split ? 'split' : uiStore.planView3D ? 'plan' : '3d');
+  const shown = $derived<Mode>(viewState.split ? 'split' : uiStore.planView3D ? 'plan' : '3d');
   function setMode(m: Mode) {
     viewState.split = m === 'split';
     uiStore.planView3D = m === 'plan';
@@ -48,10 +48,10 @@
   </div>
   <div class="vw-seg" role="radiogroup" aria-label={t('viewer.view')}>
     {#each [['3d', 'viewer.mode.3d'], ['plan', 'viewer.mode.plan'], ['split', 'viewer.mode.split']] as [m, k] (m)}
-      <button type="button" role="radio" aria-checked={mode === m} class:on={mode === m} onclick={() => setMode(m as Mode)} data-testid="viewer-mode-{m}">{t(k)}</button>
+      <button type="button" role="radio" aria-checked={shown === m} class:on={shown === m} onclick={() => setMode(m as Mode)} data-testid="viewer-mode-{m}">{t(k)}</button>
     {/each}
   </div>
-  {#if levels.length > 1 && mode !== '3d'}
+  {#if levels.length > 1 && (shown === 'plan' || shown === 'split')}
     <select value={levels.find((l) => Math.abs(l.z - uiStore.nodeCreateZ) < 1e-6)?.id ?? ''} onchange={(e) => { const l = levels.find((x) => x.id === e.currentTarget.value); if (l) uiStore.setActiveLevel(l.z); }}
       aria-label={t('viewport.split.levels')} data-testid="viewer-level">
       {#each [...levels].reverse() as l (l.id)}<option value={l.id}>{l.name}</option>{/each}
