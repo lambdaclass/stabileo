@@ -103,8 +103,8 @@ export function compare(baseline, preset, results) {
       const m = baseline.margin[c];
       if (!Number.isInteger(m) || m < 0) throw new Error(`margin.${c} must be a non-negative integer`);
       const got = result.scores[c];
-      const status = base === undefined ? 'no baseline' : got < base - m ? 'FAIL' : got > base ? 'better' : 'ok';
-      if (status === 'FAIL' || status === 'no baseline') failures.push(`${path} ${c}: ${status} (baseline ${base ?? '-'}, median ${got}, margin ${m})`);
+      const status = base === undefined ? 'no baseline' : got < base - m ? 'FAIL' : got > base + m ? 'RAISE' : 'ok';
+      if (status !== 'ok') failures.push(`${path} ${c}: ${status} (baseline ${base ?? '-'}, median ${got}, margin ${m})`);
       rows.push({ path, category: c, base, got, margin: m, status });
     }
   }
@@ -188,7 +188,7 @@ function main(argv) {
   }
   if (opt.check && failures.length) {
     for (const f of failures) console.error(f);
-    console.error(`below ${opt.baseline} by more than its margin, or not in it`);
+    console.error(`more than its margin away from ${opt.baseline}, or not in it: a FAIL is a regression; a RAISE is an improvement to record with --write from the workflow's numbers`);
     return 1;
   }
   return 0;

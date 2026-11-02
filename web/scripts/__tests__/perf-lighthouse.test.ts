@@ -51,12 +51,14 @@ describe('perf-lighthouse', () => {
     expect(aggregate([summarize(lhr(80)), summarize(lhr(95)), summarize(lhr(90))]).scores.performance).toBe(90);
   });
 
-  it('fails below the margin and a URL without a baseline, passes at the margin', () => {
+  it('fails beyond the margin either way and a URL without a baseline, passes at the margin', () => {
     const at = (perf: number) => ({ '/en/': { scores: { performance: perf, accessibility: 92, 'best-practices': 96, seo: 100 } } });
     expect(compare(baseline, 'mobile', at(87)).failures).toEqual([]);
+    expect(compare(baseline, 'mobile', at(93)).failures).toEqual([]);
+    expect(compare(baseline, 'mobile', at(94)).failures).toEqual(['/en/ performance: RAISE (baseline 90, median 94, margin 3)']);
     expect(compare(baseline, 'mobile', at(86)).failures).toEqual(['/en/ performance: FAIL (baseline 90, median 86, margin 3)']);
     expect(compare(baseline, 'desktop', at(99)).failures).toHaveLength(CATEGORIES.length);
-    expect(compare(baseline, 'mobile', { '/en/': { scores: { performance: 95, accessibility: 91, 'best-practices': 96, seo: 100 } } }).failures).toEqual(['/en/ accessibility: FAIL (baseline 92, median 91, margin 0)']);
+    expect(compare(baseline, 'mobile', { '/en/': { scores: { performance: 92, accessibility: 91, 'best-practices': 96, seo: 100 } } }).failures).toEqual(['/en/ accessibility: FAIL (baseline 92, median 91, margin 0)']);
     expect(() => compare({ ...baseline, margin: { performance: 3 } }, 'mobile', at(90))).toThrow(/margin\.accessibility/);
   });
 
@@ -97,8 +99,10 @@ fs.writeFileSync(out, process.env.FAKE_LHR);
     expect(low.stderr).toMatch(/performance: FAIL/);
     expect(run(80, ['--no-check']).status).toBe(0);
     expect(run(90, [], { FAKE_LH_FAIL: '1' }).status).not.toBe(0);
-    expect(run(93, ['--write']).status).toBe(0);
-    expect(JSON.parse(readFileSync(file, 'utf8')).scores.mobile['/en/'].performance).toBe(93);
-    expect(run(89).status).toBe(1);
+    expect(run(94).status).toBe(1);
+    expect(run(94, ['--write']).status).toBe(0);
+    expect(JSON.parse(readFileSync(file, 'utf8')).scores.mobile['/en/'].performance).toBe(94);
+    expect(run(94).status).toBe(0);
+    expect(run(90).status).toBe(1);
   });
 });
