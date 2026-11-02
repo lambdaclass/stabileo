@@ -10,13 +10,14 @@ import { expandToStoreys, placeOn, elementLevel, scopeLevels, STOREY_TOL, type S
 
 let scope = $state<StoreyScope>('this');
 let last = $state<StoreyExpansion | null>(null);
+let produced = '';
 
 const model = () => ({ nodes: modelStore.nodes, elements: modelStore.elements, quads: modelStore.quads, plates: modelStore.plates });
 const levels = () => modelStore.grid?.levels ?? [];
 
 export const storeyScope = {
   get scope() { return scope; },
-  set scope(v: StoreyScope) { scope = v; last = null; if (v !== 'this') this.expandSelection(); },
+  set scope(v: StoreyScope) { scope = v; last = null; produced = ''; if (v !== 'this') this.expandSelection(); },
   /** What the last expansion took: how many objects, on which storeys, and what had no counterpart. */
   get last() { return last; },
   get active() { return uiStore.analysisMode === 'pro' && scope !== 'this' && levels().length > 1; },
@@ -24,9 +25,11 @@ export const storeyScope = {
   expandSelection(): number {
     if (!this.active) return 0;
     const sel = { elements: uiStore.selectedElements, nodes: uiStore.selectedNodes, shells: uiStore.selectedShells };
-    if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; return 0; }
+    if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; produced = ''; return 0; }
+    if (selectionKey(sel.nodes, sel.elements, sel.shells) === produced) return 0;
     const x = expandToStoreys(model(), levels(), sel, scope);
     last = x;
+    produced = selectionKey(x.nodes, x.elements, x.shells);
     if (x.added > 0) uiStore.setSelection(new Set(x.nodes), new Set(x.elements), false, new Set(x.shells));
     return x.added;
   },
@@ -54,6 +57,11 @@ export const storeyScope = {
     return out;
   },
 };
+
+function selectionKey(nodes: Iterable<number>, elements: Iterable<number>, shells: Iterable<string | number>): string {
+  const ids = (s: Iterable<string | number>) => [...s].map(String).sort().join(',');
+  return `${ids(nodes)}|${ids(elements)}|${ids(shells)}`;
+}
 
 /** The node at a point, or a new one there. */
 function nodeAt(p: { x: number; y: number; z: number }): number {

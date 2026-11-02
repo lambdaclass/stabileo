@@ -12,7 +12,7 @@ test('@smoke the save status follows the autosave and opens the Project tab', as
   const status = page.getByTestId('pro-save-status');
   await expect(status).toHaveCount(0);
 
-  await page.evaluate(async () => { await window.__stabileoActions.loadExample('pro-simple-shed'); });
+  await page.evaluate(async () => { await window.__stabileoActions.loadExample('3d-portal-frame'); });
   await expect(status).toHaveAttribute('data-state', 'changed');
 
   await status.click();

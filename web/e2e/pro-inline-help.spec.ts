@@ -30,5 +30,6 @@ test('@smoke the inline help is on by default, turns off from Settings, and stay
   await page.getByTestId('pro-settings').click();
   await page.getByTestId('cfg-inline-help').check();
   await page.keyboard.press('Escape');
+  await page.getByTestId('pr-cmd-loads').click();
   await expect(help.first()).toBeVisible();
 });
