@@ -3,6 +3,7 @@
 This test-owned ledger records accuracy failures and production containment outcomes.
 The production registry is [`engine/src/known_issues.rs`](../../src/known_issues.rs).
 Distorted MITC4 membrane bending is contained by SH-MITC4-DISTORTION, known issue #798.
+MITC4 and MITC9 on twisted surfaces are contained by SH-WARPED-MITC4 and SH-WARPED-MITC9, known issue #1057.
 
 ## MH-MITC4-DISTORTION
 
@@ -25,6 +26,26 @@ and `research/benchmarks/macneal-harder-1985/wasm/check.mjs`. Inputs, references
 accuracy threshold are in `macneal_harder.json`. These measurements are evidence of the
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
 regression floors document related distortion sensitivity and remain unchanged.
+
+## SH-WARPED-MITC (twisted beam, #1057)
+
+On the MacNeal–Harder twisted cantilever (L 12, width 1.1, t 0.32, 90° twist, E 29000 in the
+engine's MPa field, ν 0.22; references 0.005424 for load A and 0.001754 for load B, and
+Euler–Bernoulli integration of the twisted strip), MITC4 and MITC9 are too flexible and the
+error does not shrink with refinement. Ratio to beam theory, load A / load B:
+
+| Twist | MITC4 6×2 | 12×4 | 24×8 | 48×16 | MITC9 3×1 | 6×2 | 12×4 | 24×8 | Curved shell 48×16 |
+|---|---|---|---|---|---|---|---|---|---|
+| 0° | 0.986 / 0.993 | 0.994 / 1.001 | 0.996 / 1.004 | 0.997 / 1.005 | 0.994 / 0.986 | 0.996 / 1.002 | 0.997 / 1.004 | 0.997 / 1.005 | 0.997 / 0.984 |
+| 15° | 0.995 / 0.995 | 1.003 / 1.002 | 1.006 / 1.004 | 1.007 / 1.005 | 1.019 / 1.000 | 1.036 / 1.006 | 1.046 / 1.009 | 1.051 / 1.009 | 0.997 / 0.985 |
+| 45° | 1.062 / 1.040 | 1.075 / 1.040 | 1.080 / 1.041 | 1.082 / 1.041 | 1.211 / 1.229 | 1.337 / 1.209 | 1.414 / 1.214 | 1.452 / 1.215 | 0.997 / 0.991 |
+| 90° | withheld (#798) | 1.304 / 1.271 | 1.318 / 1.267 | 1.323 / 1.267 | 1.697 / 2.372 | 2.141 / 2.336 | 2.413 / 2.333 | 2.544 / 2.318 | 0.998 / 0.997 |
+
+The error follows the twist curvature times the thickness (κt; 0.042 at 90°), not the warp
+per element: at 90° with the width halved or doubled MITC4 stays at 1.30 to 1.32 (load A),
+while halving t gives 1.08 and doubling it 2.21. The engine now withholds both elements above
+the measured 5 % level and warns above 1.5 % (docs/verification/CONTAINMENT.md, #1057). The
+formulation fix is open in #1057 and must be checked against both references.
 
 ## MH-REFERENCE-PROVENANCE
 

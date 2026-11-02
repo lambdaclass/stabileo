@@ -87,6 +87,27 @@ describe('known-issue warnings in the reader’s language', () => {
       }
     }
   });
+
+  it('says a warped MITC4 or MITC9 shell is withheld above the refusal band and only warned below it (#1057)', async () => {
+    await Promise.all(['de', 'fr', 'tr'].map(ensureLocale));
+    for (const element of ['MITC4', 'MITC9']) {
+      const phase = `SH-WARPED-${element}`;
+      for (const loc of ['es', 'en', 'pt', 'de', 'fr', 'tr'] as const) {
+        setLocale(loc);
+        const refused = knownIssueMessage({ code: 'known_issue', severity: 'error', phase, value: 1057, message: 'ENGINE' });
+        const warned = knownIssueMessage({ code: 'known_issue', severity: 'warning', phase, value: 1057, message: 'ENGINE' });
+        expect(refused, `${phase} ${loc}`).toBe(`${dictFor(loc)[`knownIssue.${phase}`]} (#1057)`);
+        expect(warned, `${phase} ${loc}`).toBe(`${dictFor(loc)[`knownIssue.${phase}.warning`]} (#1057)`);
+        expect(refused, `${phase} ${loc}`).toContain(element);
+        expect(refused, `${phase} ${loc}`).toMatch(/5 %|%5/);
+        expect(warned, `${phase} ${loc}`).toMatch(/1[.,]5/);
+        expect(warned).not.toBe(refused);
+      }
+    }
+    setLocale('en');
+    const refusal = JSON.stringify({ message: 'm', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-WARPED-MITC9', value: 1057, message: 'ENGINE' }] });
+    expect(knownIssueRefusal(`solver failed: ${refusal}`)).toMatch(/^Results withheld: the twist of these MITC9 shells/);
+  });
 });
 
 

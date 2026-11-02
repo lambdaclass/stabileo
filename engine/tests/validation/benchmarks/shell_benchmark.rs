@@ -3509,7 +3509,16 @@ fn benchmark_warped_element_accuracy() {
         };
 
         if warp > 0.0 {
-            crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
+            let refused: serde_json::Value = serde_json::from_str(&linear::solve_3d(&input).expect_err("warped quads are withheld")).unwrap();
+            let findings = refused["structuredDiagnostics"].as_array().unwrap();
+            let distortion = findings.iter().find(|d| d["phase"] == "SH-MITC4-DISTORTION").unwrap_or_else(|| panic!("warp {warp}: {findings:?}"));
+            let warped_withheld = findings.iter().any(|d| d["phase"] == "SH-WARPED-MITC4" && d["severity"] == "error");
+            assert_eq!(warped_withheld, warp >= 0.10, "warp {warp}: {findings:?}");
+            if !warped_withheld {
+                assert_eq!(distortion["severity"], "error", "warp {warp}: distortion alone withholds this result");
+            }
+            let withheld = findings.iter().find(|d| d["severity"] == "error").unwrap();
+            assert_eq!(refused["message"], withheld["message"]);
             continue;
         }
         let res = linear::solve_3d(&input).expect("Warped element solve failed");
@@ -3829,14 +3838,7 @@ fn twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> SolverInput3D {
 fn benchmark_twisted_beam_load_a() {
     for (nx, ny) in [(6, 2), (12, 4), (24, 8)] {
         let input = twisted_beam_solve(nx, ny, 'A');
-        if nx == 6 {
-            crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
-        } else {
-            let result = linear::solve_3d(&input).unwrap();
-            let tip = result.displacements.iter().find(|d| d.node_id == nx * (ny + 1) + ny / 2 + 1).unwrap();
-            let ratio = tip.uz.abs() / 0.005424;
-            assert!(ratio > 1e-8 && ratio < 100.0);
-        }
+        crate::common::assert_containment(linear::solve_3d(&input), "SH-WARPED-MITC4");
     }
 }
 
@@ -3844,14 +3846,7 @@ fn benchmark_twisted_beam_load_a() {
 fn benchmark_twisted_beam_load_b() {
     for (nx, ny) in [(6, 2), (12, 4), (24, 8)] {
         let input = twisted_beam_solve(nx, ny, 'B');
-        if nx == 6 {
-            crate::common::assert_containment(linear::solve_3d(&input), "SH-MITC4-DISTORTION");
-        } else {
-            let result = linear::solve_3d(&input).unwrap();
-            let tip = result.displacements.iter().find(|d| d.node_id == nx * (ny + 1) + ny / 2 + 1).unwrap();
-            let ratio = tip.uy.abs() / 0.001754;
-            assert!(ratio > 1e-8 && ratio < 100.0);
-        }
+        crate::common::assert_containment(linear::solve_3d(&input), "SH-WARPED-MITC4");
     }
 }
 
@@ -5090,9 +5085,7 @@ fn benchmark_q9_hypar() {
 // L=12, w=1.1, t=0.32, 90° linear twist. E=29×10⁶, ν=0.22.
 // Load A: Pz=1 at tip → ref uz = 0.005424
 // Load B: Py=1 at tip → ref uy = 0.001754
-// MITC4 24×8: ratio ~0.001-0.002 (severely locked on warped quads).
-
-fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
+fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> Result<f64, String> {
     let l = 12.0;
     let w = 1.1;
     let t_shell = 0.32;
@@ -5169,57 +5162,30 @@ fn q9_twisted_beam_solve(nx: usize, ny: usize, load_case: char) -> f64 {
         connectors: HashMap::new(),
     };
 
-    let res = linear::solve_3d(&input).expect("Q9 twisted beam solve failed");
+    let res = linear::solve_3d(&input)?;
 
     let d = res.displacements.iter()
         .find(|d| d.node_id == tip_mid)
         .expect("Tip node displacement not found");
 
-    match load_case {
+    Ok(match load_case {
         'A' => d.uz.abs(),
         'B' => d.uy.abs(),
         _ => unreachable!(),
-    }
+    })
 }
 
 #[test]
 fn benchmark_q9_twisted_beam_load_a() {
-    let reference = 0.005424;
-    let meshes = [(3, 1), (6, 2), (12, 4)];
-
-    for &(nx, ny) in &meshes {
-        let uz = q9_twisted_beam_solve(nx, ny, 'A');
-        let ratio = uz / reference;
-        eprintln!(
-            "Q9 Twisted beam A {}x{}: uz={:.6e}, ratio={:.4} (MITC4 24x8: ~0.002)",
-            nx, ny, uz, ratio
-        );
-        // Permanent gate: MITC9 twisted beam, flat-faceted wall.
-        // Current finest (12×4): ratio≈0.0011. Floor at 1e-5 (just nonzero + order-of-magnitude).
-        assert!(uz > 1e-15, "Q9 Twisted beam A {}x{}: should deflect", nx, ny);
-        if nx == 12 {
-            assert!(ratio > 1e-5, "Q9 Twisted beam A 12×4: ratio {:.6} regressed below floor 1e-5", ratio);
-        }
+    for (nx, ny) in [(3, 1), (6, 2), (12, 4)] {
+        crate::common::assert_containment(q9_twisted_beam_solve(nx, ny, 'A'), "SH-WARPED-MITC9");
     }
 }
 
 #[test]
 fn benchmark_q9_twisted_beam_load_b() {
-    let reference = 0.001754;
-    let meshes = [(3, 1), (6, 2), (12, 4)];
-
-    for &(nx, ny) in &meshes {
-        let uy = q9_twisted_beam_solve(nx, ny, 'B');
-        let ratio = uy / reference;
-        eprintln!(
-            "Q9 Twisted beam B {}x{}: uy={:.6e}, ratio={:.4} (MITC4 24x8: ~0.001)",
-            nx, ny, uy, ratio
-        );
-        // Permanent gate: current finest (12×4): ratio≈0.0024. Floor at 1e-5.
-        assert!(uy > 1e-15, "Q9 Twisted beam B {}x{}: should deflect", nx, ny);
-        if nx == 12 {
-            assert!(ratio > 1e-5, "Q9 Twisted beam B 12×4: ratio {:.6} regressed below floor 1e-5", ratio);
-        }
+    for (nx, ny) in [(3, 1), (6, 2), (12, 4)] {
+        crate::common::assert_containment(q9_twisted_beam_solve(nx, ny, 'B'), "SH-WARPED-MITC9");
     }
 }
 

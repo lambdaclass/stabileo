@@ -50,6 +50,8 @@ pub const ENTRIES: &[Entry] = &[
 
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
     Entry { id: "SH-MITC4-DISTORTION", issue: 798, mode: Mode::Refuse, message: "Results withheld: distorted MITC4 quadrilaterals can be about ten times too stiff in membrane bending. Remesh with rectangular elements and check mesh convergence" },
+    Entry { id: "SH-WARPED-MITC4", issue: 1057, mode: Mode::Refuse, message: WARPED_MITC4 },
+    Entry { id: "SH-WARPED-MITC9", issue: 1057, mode: Mode::Refuse, message: WARPED_MITC9 },
     Entry { id: "PL-2D-INVARIANCE", issue: 758, mode: Mode::Refuse, message: "Results withheld: the 2D plastic collapse factor can change by up to 4.6 times with numbering, member direction or units. Use an independently verified collapse analysis" },
     Entry { id: "BU-ACCURACY", issue: 818, mode: Mode::Warn, message: "3D buckling factors can be unconservatively high due to eigenproblem accuracy. Independently verify the critical factor before design" },
     Entry { id: "BU-UNRESOLVED-MODE", issue: 982, mode: Mode::Warn, message: "These buckling modes are not resolved: round-off in the axial forces can change their geometric work by more than 1 %, usually because members with no resolvable compression drive them. Their load factors are unreliable and must not be used without independent verification" },
@@ -82,6 +84,13 @@ pub fn refuse(diagnostics: &[StructuredDiagnostic]) -> Result<(), String> {
     }
 }
 
+/// Whether `error` is a known-issue refusal from `refuse`, rather than invalid input.
+pub fn is_refusal(error: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(error).ok()
+        .and_then(|v| v.get("structuredDiagnostics").and_then(|d| d.as_array()).cloned())
+        .is_some_and(|ds| ds.iter().any(|d| d["code"] == "known_issue" && d["severity"] == "error"))
+}
+
 /// Keep diagnostic-bearing failures intact when an ordinary solver failure has a fallback.
 pub fn optional_solve<T>(result: Result<T, String>) -> Result<Option<T>, String> {
     match result {
@@ -106,6 +115,32 @@ pub fn buckling_bound(computed: f64, lower: f64, upper: Option<f64>) -> Result<(
     } else {
         Ok(())
     }
+}
+
+const WARPED_MITC4: &str = "Results withheld: the twist of these MITC4 shells is beyond the measured 5 % accuracy band. On twisted (warped) surfaces MITC4 can be too flexible by more than 5 %, up to about twice as flexible, and refining the mesh does not reduce the error. Model the twisted region with curved-shell elements";
+const WARPED_MITC9: &str = "Results withheld: the twist of these MITC9 shells is beyond the measured 5 % accuracy band. On twisted (warped) surfaces MITC9 can be too flexible by more than 5 %, up to about 2.5 times as flexible, and refining the mesh does not reduce the error. Model the twisted region with curved-shell elements";
+
+/// Twist curvature × thickness (warn, refuse): measured over-flexibility about 1.5 % and 5 % (#1057).
+pub const WARPED_MITC4_TWIST: (f64, f64) = (0.009, 0.016);
+pub const WARPED_MITC9_TWIST: (f64, f64) = (0.0035, 0.0065);
+
+/// A collapsed element or an invalid thickness is not measured: input validation refuses it by name.
+fn measured(id: usize, kappa: f64, thickness: f64) -> Option<(usize, f64)> {
+    (kappa.is_finite() && thickness.is_finite() && thickness > 0.0).then_some((id, kappa * thickness))
+}
+
+fn warped(id: &str, kind: ElementKind, (warn_at, refuse_at): (f64, f64), twists: impl Iterator<Item = (usize, f64)>, warning: &str) -> Option<StructuredDiagnostic> {
+    let mut affected: Vec<(usize, f64)> = twists.filter(|(_, kt)| *kt > warn_at).collect();
+    if affected.is_empty() { return None }
+    affected.sort_by_key(|(id, _)| *id);
+    let withheld = affected.iter().any(|(_, kt)| *kt > refuse_at);
+    let mut d = diagnostic(id).with_elements(affected.into_iter().map(|(id, _)| id).collect());
+    d.element_kind = Some(kind);
+    if !withheld {
+        d.severity = Severity::Warning;
+        d.message = format!("{warning} (known issue #1057, {id})");
+    }
+    Some(d)
 }
 
 const NL_MATERIAL: &str = "Material-nonlinear results are approximate: the model is a whole-member secant rather than plasticity, so the response jumps at first yield (NL-5). Check the collapse load factor with plastic collapse";
@@ -392,6 +427,15 @@ pub fn model_3d(input: &SolverInput3D) -> Vec<StructuredDiagnostic> {
         d.element_kind = Some(ElementKind::Quad);
         out.push(d);
     }
+    let point = |id: &usize| input.nodes.get(&id.to_string()).map(|n| [n.x, n.y, n.z]);
+    out.extend(warped("SH-WARPED-MITC4", ElementKind::Quad, WARPED_MITC4_TWIST, input.quads.values().filter_map(|e| {
+        let p: Vec<_> = e.nodes.iter().map(point).collect::<Option<_>>()?;
+        measured(e.id, crate::element::quad::quad_twist_curvature(&[p[0], p[1], p[2], p[3]]), e.thickness)
+    }), "MITC4 shells on twisted (warped) surfaces can be about 1.5 to 5 % too flexible, and refining the mesh does not reduce the error. Verify the twisted region with curved-shell elements"));
+    out.extend(warped("SH-WARPED-MITC9", ElementKind::Quad9, WARPED_MITC9_TWIST, input.quad9s.values().filter_map(|e| {
+        let p: Vec<_> = e.nodes.iter().map(point).collect::<Option<_>>()?;
+        measured(e.id, crate::element::quad9::quad9_twist_curvature(&std::array::from_fn(|i| p[i])), e.thickness)
+    }), "MITC9 shells on twisted (warped) surfaces can be about 1.5 to 5 % too flexible, and refining the mesh does not reduce the error. Verify the twisted region with curved-shell elements"));
     if input.connectors.values().any(|c| c.k_shear != c.k_shear_z || c.k_bend_y != c.k_bend_z) {
         out.push(diagnostic("SP-17"));
     }
