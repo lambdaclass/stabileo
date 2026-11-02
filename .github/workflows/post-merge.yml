@@ -8,10 +8,6 @@ on:
 
 permissions: {}
 
-concurrency:
-  group: post-merge-revert
-  cancel-in-progress: false
-
 jobs:
   revert:
     name: Revert a failed main push

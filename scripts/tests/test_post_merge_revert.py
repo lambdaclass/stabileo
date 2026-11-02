@@ -126,6 +126,11 @@ class Decisions(unittest.TestCase):
         self.assertTrue(revert.failed({'review': '', 'checks': ['cancel']}))
         self.assertFalse(revert.failed({'review': '', 'checks': ['pending']}))
 
+    def test_a_second_failure_waits_for_the_open_auto_revert(self):
+        prs = [{'headRefName': 'fix/x', 'url': 'u1'}, {'headRefName': 'revert/auto-abc', 'url': 'u2'}]
+        self.assertEqual(revert.open_revert(prs), 'u2')
+        self.assertIsNone(revert.open_revert(prs[:1]))
+
     def test_the_script_never_approves_its_own_revert(self):
         source = (ROOT / '.github/scripts/post-merge-revert.py').read_text()
         self.assertNotIn('event=APPROVE', source)
@@ -139,7 +144,7 @@ class Workflow(unittest.TestCase):
         self.assertIn('workflows: [CI]', text)
         self.assertIn('branches: [main]', text)
         self.assertIn("github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'failure'", text)
-        self.assertIn('cancel-in-progress: false', text)
+        self.assertNotIn('concurrency:', text)
         self.assertIn('timeout-minutes:', text)
         self.assertIn('secrets.REVERT_BOT_TOKEN', text)
         self.assertIn('secrets.NTFY_TOPIC', text)

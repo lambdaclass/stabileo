@@ -15,6 +15,7 @@ import tempfile
 import time
 
 MARKER = '[auto-revert]'
+BRANCH = 'revert/auto-'
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -96,6 +97,10 @@ def mode(repo, rev, path):
     return entry[0] if entry else None
 
 
+def open_revert(prs):
+    return next((p['url'] for p in prs if p['headRefName'].startswith(BRANCH)), None)
+
+
 def pr_numbers(repo, merges):
     out = []
     for sha in merges:
@@ -152,16 +157,20 @@ def main():
     if green_after(runs, created_at):
         notify('default', 'main CI failure already superseded', f'{url}\nA later push to main is green; nothing reverted.')
         return 0
+    branch = f'{BRANCH}{bad[:12]}'
+    if gh('pr', 'list', '-R', repo_name, '--head', branch, '--state', 'all', '--json', 'number', '-q', '.[].number').strip():
+        print(f'{branch} already has a PR')
+        return 0
+    pending = open_revert(json.loads(gh('pr', 'list', '-R', repo_name, '--state', 'open', '--base', 'main', '--limit', '200', '--json', 'headRefName,url')))
+    if pending:
+        notify('urgent', 'main CI failed again', f'{url}\nAn auto-revert is already open ({pending}); land it, then check this failure by hand.')
+        return 1
     main_head = run('git', 'rev-parse', 'origin/main', cwd=repo).strip()
     merges = suspect_merges(repo, last_green_before(runs, created_at), bad)
     subjects = [run('git', 'log', '-1', '--format=%s%n%b', sha, cwd=repo) for sha in merges]
     if not merges or any(MARKER in s for s in subjects):
         notify('urgent', 'main CI failed: revert by hand', f'{url}\nNo merge to revert automatically (none found, or the range holds an auto-revert).')
         return 1
-    branch = f'revert/auto-{bad[:12]}'
-    if gh('pr', 'list', '-R', repo_name, '--head', branch, '--state', 'all', '--json', 'number', '-q', '.[].number').strip():
-        print(f'{branch} already has a PR')
-        return 0
     changes = revert_changes(repo, main_head, merges)
     if changes is None:
         notify('urgent', 'main CI failed: revert conflicts', f'{url}\nReverting {" ".join(m[:12] for m in merges)} on {main_head[:12]} conflicts; revert by hand.')
