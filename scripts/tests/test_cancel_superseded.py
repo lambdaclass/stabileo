@@ -18,6 +18,14 @@ class CancelSuperseded(unittest.TestCase):
                 run(5, 'old', event='push'), run(6, 'own')]
         self.assertEqual(cancel.superseded(runs, {'live', 'own'}, 'own'), [2, 3])
 
+    def test_a_run_is_live_if_its_head_is_a_queue_entry_or_a_merge_group_ref(self):
+        entries = [{'headCommit': {'oid': 'entry'}}, {'headCommit': None}]
+        refs = [{'ref': 'refs/heads/gh-readonly-queue/main/pr-1-base', 'object': {'sha': 'group'}}]
+        heads = cancel.live_heads(entries, refs)
+        self.assertEqual(heads, {'entry', 'group'})
+        runs = [run(1, 'entry'), run(2, 'group'), run(3, 'gone')]
+        self.assertEqual(cancel.superseded(runs, heads, 'group'), [3])
+
     def test_cancels_nothing_when_its_own_head_is_not_queued(self):
         self.assertEqual(cancel.superseded([run(1, 'old')], set(), 'own'), [])
         self.assertEqual(cancel.superseded([run(1, 'old')], {'live'}, 'own'), [])

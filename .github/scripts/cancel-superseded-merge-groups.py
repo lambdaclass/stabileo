@@ -15,6 +15,11 @@ def gh(*args):
     return subprocess.run(['gh', *args], check=True, capture_output=True, text=True).stdout
 
 
+def live_heads(entries, queue_refs):
+    return ({n['headCommit']['oid'] for n in entries if n.get('headCommit')}
+            | {r['object']['sha'] for r in queue_refs})
+
+
 def superseded(runs, queue_heads, own_sha):
     if own_sha not in queue_heads:
         return []
@@ -29,7 +34,8 @@ def main():
     owner, name = repo.split('/')
     data = json.loads(gh('api', 'graphql', '-f', f'query={QUERY}', '-f', f'owner={owner}', '-f', f'name={name}'))
     nodes = data['data']['repository']['mergeQueue']['entries']['nodes']
-    heads = {n['headCommit']['oid'] for n in nodes if n.get('headCommit')}
+    refs = json.loads(gh('api', f'repos/{repo}/git/matching-refs/heads/gh-readonly-queue/main/'))
+    heads = live_heads(nodes, refs)
     runs = []
     for workflow in sys.argv[1:]:
         for status in ('queued', 'in_progress', 'waiting', 'pending', 'requested'):

@@ -73,9 +73,9 @@ jobs:
           NOT_SHIPPED: '^research/tools/'
         run: |
           if [ -n "$BASE" ]; then
-            git diff --no-renames --name-only "$BASE" HEAD > /tmp/route-changed-paths
+            git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/route-changed-paths"
           fi
-          if [ -z "$BASE" ] || grep -E "$RESEARCH_PATHS" /tmp/route-changed-paths | grep -vE "$NOT_SHIPPED" > /dev/null; then
+          if [ -z "$BASE" ] || grep -E "$RESEARCH_PATHS" "$RUNNER_TEMP/route-changed-paths" | grep -vE "$NOT_SHIPPED" > /dev/null; then
             echo research=true >> "$GITHUB_OUTPUT"
           else
             echo research=false >> "$GITHUB_OUTPUT"
@@ -103,8 +103,8 @@ jobs:
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs web/scripts/product-route-growth-budgets.json route-main/web/scripts/
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
-          nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json --update'
-          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline /tmp/route-main.json'
+          nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline "$RUNNER_TEMP/route-main.json" --update'
+          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline "$RUNNER_TEMP/route-main.json"'
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
