@@ -334,7 +334,6 @@ export function generateReportHtml(data: ReportData): string {
     || (!!adv.buckling && wants('buckling')) || (!!adv.spectral && wants('spectral'))
   );
 
-  // Top-level sections in the order they are printed; the index and every heading number from it.
   const parts: { anchor: string; label: string; on: boolean }[] = [
     { anchor: 'sec-model-data', label: tr('report.modelData'), on: showSection('modelData') },
     { anchor: 'sec-results', label: tr('report.results'), on: showSection('results') },

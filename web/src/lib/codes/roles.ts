@@ -562,7 +562,6 @@ export function validateStack(reg: ProjectRegulations): StackValidation {
         params: { name: msg(opt.nameKey, { edition: String(opt.edition) }) } });
     }
   }
-  // The basis is chosen once for the whole stack: one warning, not one per regulation.
   if (unstated.length > 1) {
     problems.push({ severity: 'warning', roles: unstated.flatMap((p) => p.roles), key: 'regulations.problem.adoptionUnstatedAll',
       params: { n: unstated.length } });
