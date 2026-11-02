@@ -68,9 +68,9 @@ describe('known-issue warnings in the reader’s language', () => {
   it('names the unresolved buckling modes in the reader\'s language (#982)', () => {
     const engine = { code: 'known_issue', severity: 'warning', phase: 'BU-UNRESOLVED-MODE', value: 982, message: 'These buckling modes are not resolved (known issue #982, BU-UNRESOLVED-MODE): mode 3 (λ = 2.766e10), mode 4 (λ = 9.220e9)' };
     setLocale('es');
-    expect(knownIssueMessage(engine)).toBe('Los modos de pandeo 3, 4 no están resueltos: sus factores de carga vienen del redondeo de los esfuerzos axiales de barras sin compresión resoluble, así que no son físicos y no deben usarse. Los demás modos están resueltos. (#982)');
+    expect(knownIssueMessage(engine)).toBe('Los modos de pandeo 3, 4 no están resueltos: el redondeo de los esfuerzos axiales puede cambiar su trabajo geométrico en más del 1 %, normalmente porque los gobiernan barras sin compresión resoluble. Sus factores de carga no son confiables y no deben usarse sin verificación independiente. (#982)');
     setLocale('en');
-    expect(knownIssueMessage(engine)).toMatch(/^Buckling modes 3, 4 are not resolved: .* must not be used\. The other modes are resolved\. \(#982\)$/);
+    expect(knownIssueMessage(engine)).toMatch(/^Buckling modes 3, 4 are not resolved: .* must not be used without independent verification\. \(#982\)$/);
   });
 
   it('keeps the safety-critical clauses of the English copy in Spanish and Portuguese', () => {

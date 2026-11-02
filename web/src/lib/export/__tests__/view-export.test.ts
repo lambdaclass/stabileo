@@ -124,6 +124,29 @@ describe('copy image', () => {
     })();
   });
 
+  it('a refusal the copy\'s own solve replaces with clean results does not block the copy', async () => {
+    resultsStore.clear();
+    resultsStore.setResults({ displacements: [], reactions: [], elementForces: [],
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'ENGINE' }] } as never);
+    const unregister = registerFigure2D({
+      nodes: () => [{ x: 0, y: 0 }, { x: 4, y: 0 }],
+      render(ctx, _w, _h, _frame, view) { ctx.beginPath(); ctx.moveTo(view.panX, view.panY); ctx.stroke(); },
+    });
+    encodes.ok = [true];
+    solve.result = { ok: true };
+    solve.effect = () => resultsStore.setResults({ displacements: [], reactions: [], elementForces: [] } as never);
+    let copied: Blob | null = null;
+    vi.stubGlobal('navigator', { clipboard: { write: async (items: FakeClipboardItem[]) => { copied = await items[0]!.items['image/png']; } } });
+    try {
+      expect(await copyView({ format: 'png', contents: ['moment'], options: { ...DEFAULT_FIGURE_OPTIONS }, sheet: true })).toBe(true);
+      expect(copied).not.toBeNull();
+    } finally {
+      unregister();
+      solve.effect = null;
+      resultsStore.clear();
+    }
+  });
+
   it('a clipboard that refuses first leaves no unhandled rejection', async () => {
     vi.stubGlobal('navigator', { clipboard: { write: async () => { throw new Error('NotAllowedError'); } } });
     const seen: unknown[] = [];

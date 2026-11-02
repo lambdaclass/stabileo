@@ -58,14 +58,15 @@ it('PNG, JPEG and clipboard exports refuse an unsafe result with the localized r
   publish('error');
   expect(() => pngWithProvenance(new Uint8Array([137, 80, 78, 71]), {} as never)).toThrow(/#741/);
   expect(() => jpegWithProvenance(new Uint8Array([255, 216]), {} as never)).toThrow(/#741/);
-  const write = vi.fn(async () => {});
+  const copied: unknown[] = [];
+  const write = vi.fn(async (items: Array<{ items: Record<string, Promise<Blob>> }>) => { copied.push(await items[0]!.items['image/png']); });
   vi.stubGlobal('ClipboardItem', class { constructor(public items: unknown) {} });
   vi.stubGlobal('navigator', { clipboard: { write } });
   const toast = vi.spyOn(uiStore, 'toast');
   try {
-    expect(await copyView({ contents: [] } as never)).toBe(false);
+    expect(await copyView({ contents: ['model'] } as never)).toBe(false);
   } finally { vi.unstubAllGlobals(); }
-  expect(write).not.toHaveBeenCalled();
+  expect(copied).toEqual([]);
   expect(toast.mock.calls).toHaveLength(1);
   expect(toast.mock.calls[0]![0]).toContain('#741');
   expect(toast.mock.calls[0]![0]).toContain(t('knownIssue.BU-BOUND'));
