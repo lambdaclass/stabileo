@@ -4,7 +4,8 @@ import '../index';
 import { applyLoadPlan, loadStateForPlan } from '../apply-load-plan';
 import { buildLoadPlan, describePlanDelta, type LoadPlanInput } from '../../engine/loads/load-plan';
 import { defaultRegulations, type ProjectRegulations } from '../../codes/roles';
-import { defaultCombinations, defaultLoadCases } from '../../model/default-loads';
+import { defaultCombinations, defaultLoadCases, DEFAULT_CASE_NAME_KEYS } from '../../model/default-loads';
+import { t } from '../../i18n';
 import es from '../../i18n/locales/es';
 
 const nameOf = (key: string, params?: Record<string, string | number>) =>
@@ -34,7 +35,7 @@ describe('the example cases and combinations of a new project, when the generato
   beforeEach(newProjectFrame);
 
   it('a new project starts with them', () => {
-    expect(modelStore.model.loadCases.map((c) => c.name)).toEqual(defaultLoadCases().map((c) => c.name));
+    expect(modelStore.model.loadCases.map((c) => c.name)).toEqual(defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])).map((c) => c.name));
     expect(modelStore.model.combinations.map((c) => c.name)).toEqual(defaultComboNames);
   });
 
@@ -47,9 +48,15 @@ describe('the example cases and combinations of a new project, when the generato
     applyLoadPlan(p, { clearExisting: true, bothSenses: true, nameOf });
     const names = modelStore.model.combinations.map((c) => c.name);
     for (const n of defaultComboNames) expect(names).not.toContain(n);
-    expect(modelStore.model.loadCases.some((c) => c.name === 'Wind' || c.name === 'Earthquake')).toBe(false);
+    expect(modelStore.model.loadCases.some((c) => c.id === 3 || c.id === 4)).toBe(false);
     expect(modelStore.model.combinations.length).toBe(delta.after.combinations);
     expect(modelStore.model.combinations.every((c) => c.factors.every((f) => modelStore.model.loadCases.some((lc) => lc.id === f.caseId)))).toBe(true);
+  });
+
+  it('an English-named default from a project saved before is just as untouched', () => {
+    modelStore.updateLoadCase(3, 'Wind');
+    applyLoadPlan(buildLoadPlan(planInput()), { clearExisting: true, bothSenses: true, nameOf });
+    expect(modelStore.model.loadCases.some((c) => c.id === 3)).toBe(false);
   });
 
   it('the dead-load case the plan writes into stays, with the generated loads in it', () => {

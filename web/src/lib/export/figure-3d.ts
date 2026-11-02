@@ -33,6 +33,7 @@ import { takesNoBending } from '../engine/member-loads';
 import { displayedLoads3D, despieceNote3D, despieceDrawsActions, despieceNoteText } from '../store/displayed-loads-3d';
 import { drawFreeBody, type P3 } from '../canvas/free-body';
 import { createLabelCollector } from '../canvas/label-layout';
+import { drawHiddenLabelsNote } from './hidden-labels-note';
 import { addMemberTags } from '../canvas/member-tags';
 import { freeBodyActions3D } from '../viewport3d/free-body-3d';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
@@ -172,7 +173,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       return out;
     },
 
-    render(ctx: CanvasRenderingContext2D, _w: number, _h: number, frame: ExportFrame, view: FrameView) {
+    render(ctx: CanvasRenderingContext2D, _w: number, h: number, frame: ExportFrame, view: FrameView) {
       const { right, up, dir } = viewBasis(frame.options.view);
       const toScreen = (p: P3) => {
         const v: V = [p.x, p.y, p.z ?? 0];
@@ -187,6 +188,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       const leftHand = uiStore.axisConvention3D === 'leftHand';
       const labels = createLabelCollector();
       const memberSegs: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+      const flushLabels = () => drawHiddenLabelsNote(ctx, h, labels.flush(ctx, memberSegs, { drop: true }));
 
       const fbData = freeBodyActions3D({
         elements: modelStore.elements, nodes: modelStore.nodes, forces: r3d?.elementForces ?? [], reactions: r3d?.reactions ?? [],
@@ -221,9 +223,10 @@ export function createFigure3DRenderer(): Figure2DRenderer {
        */
       const drawMemberTags = () => {
         if (opts.numbering) {
-          ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-          ctx.fillStyle = '#8fa3b3';
-          for (const n of modelStore.nodes.values()) { const c = toScreen(projectNodeToScene(n, flat())); ctx.fillText(String(n.id), c.x + 5, c.y - 5); }
+          for (const n of modelStore.nodes.values()) {
+            const c = toScreen(projectNodeToScene(n, flat()));
+            labels.add({ text: String(n.id), colour: '#8fa3b3', font: '10px sans-serif', box: { x: c.x + 5, y: c.y - 5, width: 0, height: 0, dirX: 0.7, dirY: -0.7, priority: 1, anchorX: 'left', sweep: 'any' } });
+          }
         }
         if (!opts.numbering && !opts.lengths) return;
         for (const m of fbData.members) {
@@ -270,7 +273,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
         drawShellMap(ctx, frame.options.shellComponent ?? 'vonMises', frame.options.style, r3d, shellFaces, drawShells, toScreen, scenePos, opts.values, labels);
         drawMembers('#8fa3b3', 1.4);
         drawSupports();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -292,7 +295,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           labels,
         });
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -361,7 +364,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           }
         }
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -413,7 +416,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           }
         }
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
       }
     },
   };

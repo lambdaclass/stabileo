@@ -12,7 +12,8 @@ import type { LoadPlan } from '../engine/loads/load-plan';
 import type { CurrentLoadState } from '../engine/loads/load-plan-delta';
 import { findPlannedCase, type Load } from './model.svelte';
 import { patchDesignData } from './design-data';
-import { untouchedDefaults } from '../model/default-loads';
+import { untouchedDefaults, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
+import { t } from '../i18n';
 
 export interface ApplyLoadPlanOptions {
   clearExisting: boolean;
@@ -82,7 +83,7 @@ export function replaceScope(
     if (found) targets.add(found.id);
   }
   // A default case the plan writes into is the plan's target and stays; the rest of the untouched ones go.
-  const untouched = p.combinations.length > 0 ? untouchedDefaults(cases, combinations, loads) : { cases: [], combinations: [] };
+  const untouched = p.combinations.length > 0 ? untouchedDefaults(cases, combinations, loads, (type) => t(DEFAULT_CASE_NAME_KEYS[type])) : { cases: [], combinations: [] };
   const defaults = { cases: untouched.cases.filter((id) => !targets.has(id)), combinations: untouched.combinations };
   const defaultCombo = new Set(defaults.combinations);
   const marked = (l: Load) => !!(l.data as { generatedBy?: string }).generatedBy;

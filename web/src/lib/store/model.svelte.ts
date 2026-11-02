@@ -11,7 +11,7 @@ import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
 import { migrateRegulations, type StoredRegulations } from '../codes/roles';
-import { defaultLoadCases, defaultCombinations } from '../model/default-loads';
+import { defaultLoadCases, defaultCombinations, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import {
   cloneStoredJointDesigns, type StoredJointDesigns,
 } from '../connection/joint-choices';
@@ -1134,7 +1134,7 @@ function createModelStore() {
     elements: new Map(),
     supports: new Map(),
     loads: [],
-    loadCases: defaultLoadCases(),
+    loadCases: defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])),
     combinations: defaultCombinations(),
     plates: new Map(),
     quads: new Map(),
@@ -3862,7 +3862,7 @@ function createModelStore() {
       // unresolved is what made a freshly loaded example report its section as
       // amorphous even after the engine was up.
       model.sections = new Map([[1, resolveDefaultSection(defaultSection)]]);
-      model.loadCases = defaultLoadCases();
+      model.loadCases = defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type]));
       // A new model has one case in use: Basic shows no load cases until they are switched on.
       uiStore.loadCasesEnabled = false;
       model.combinations = defaultCombinations();

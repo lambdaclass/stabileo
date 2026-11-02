@@ -1,13 +1,14 @@
 export interface DefaultCase { id: number; type: 'D' | 'L' | 'W' | 'E'; name: string }
 export interface DefaultCombination { id: number; name: string; factors: Array<{ caseId: number; factor: number }> }
 
-export function defaultLoadCases(): DefaultCase[] {
-  return [
-    { id: 1, type: 'D', name: 'Dead Load' },
-    { id: 2, type: 'L', name: 'Live Load' },
-    { id: 3, type: 'W', name: 'Wind' },
-    { id: 4, type: 'E', name: 'Earthquake' },
-  ];
+const ENGLISH: Record<DefaultCase['type'], string> = { D: 'Dead Load', L: 'Live Load', W: 'Wind', E: 'Earthquake' };
+
+/** The keys their names are translated with (`exData.case.*`, shared with the examples). */
+export const DEFAULT_CASE_NAME_KEYS: Record<DefaultCase['type'], string> = { D: 'exData.case.dead', L: 'exData.case.live', W: 'exData.case.wind', E: 'exData.case.earthquake' };
+
+/** `nameOf`: the name in the app's language; the English one when absent, as projects were saved before. */
+export function defaultLoadCases(nameOf?: (type: DefaultCase['type']) => string): DefaultCase[] {
+  return (['D', 'L', 'W', 'E'] as const).map((type, i) => ({ id: i + 1, type, name: nameOf?.(type) ?? ENGLISH[type] }));
 }
 
 export function defaultCombinations(): DefaultCombination[] {
@@ -29,6 +30,7 @@ const sameFactors = (a: ReadonlyArray<{ caseId: number; factor: number }>, b: Re
 /** A renamed case, a case with a load or an edited combination is the user's and is never listed. */
 export function untouchedDefaults(
   cases: readonly CaseLike[], combinations: readonly ComboLike[], loads: readonly LoadLike[],
+  nameOf?: (type: DefaultCase['type']) => string,
 ): { cases: number[]; combinations: number[] } {
   const combos = defaultCombinations().filter((d) => combinations.some((c) =>
     c.id === d.id && c.name === d.name && !c.origin && sameFactors(c.factors ?? [], d.factors)));
@@ -36,7 +38,8 @@ export function untouchedDefaults(
   const loaded = new Set(loads.map((l) => l.data.caseId ?? 1));
   const usedElsewhere = new Set(combinations.filter((c) => !comboIds.has(c.id))
     .flatMap((c) => (c.factors ?? []).filter((f) => f.factor !== 0).map((f) => f.caseId)));
-  const caseIds = defaultLoadCases().filter((d) => cases.some((c) => c.id === d.id && c.type === d.type && c.name === d.name)
+  const named = (d: DefaultCase, name: string) => name === d.name || name === nameOf?.(d.type);
+  const caseIds = defaultLoadCases().filter((d) => cases.some((c) => c.id === d.id && c.type === d.type && named(d, c.name))
     && !loaded.has(d.id) && !usedElsewhere.has(d.id)).map((d) => d.id);
   return { cases: caseIds, combinations: [...comboIds] };
 }

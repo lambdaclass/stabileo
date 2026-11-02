@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { uiStore } from '../../lib/store';
   /**
    * Which combinations design reads, and named envelopes over them.
    *
@@ -93,7 +94,7 @@
 {#if combos.length > 0}
   <details class="rs pk-card" data-testid="result-scopes">
     <summary>
-      {t('scopes.title')}:
+      {t(uiStore.designInPro ? 'scopes.title' : 'scopes.titleNoDesign')}:
       <strong>{active ? tp('scopes.summarySome', { n: nActive, total: combos.length }) : tp('scopes.summaryAll', { n: nActive })}</strong>
       {#if envelopes.length > 0} · {tp('scopes.nEnvelopes', { n: envelopes.length })}{/if}
     </summary>
@@ -114,7 +115,7 @@
       </ul>
       {#if nActive === 0}<p class="pk-warn" role="alert">{t('scopes.noneActive')}</p>{/if}
     {/if}
-    <p class="pk-hint">{t('scopes.hint')}</p>
+    <p class="pk-hint">{t(uiStore.designInPro ? 'scopes.hint' : 'scopes.hintNoDesign')}</p>
 
     <h4 class="pk-heading rs-sub">{t('scopes.envelopes')}</h4>
     {#if resultsStore.viewedEnvelopeName}

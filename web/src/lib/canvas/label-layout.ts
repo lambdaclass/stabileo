@@ -50,8 +50,11 @@ export interface LabelCollector {
   add(entry: { text: string; colour: string; font: string; box: LabelBox }): void;
   /** Declare something labels must avoid — an arrow, a member, a node marker. */
   block(seg: SegmentObstacle): void;
-  /** Lay everything out and draw it. Safe to call with nothing queued. */
-  flush(ctx: CanvasRenderingContext2D, extra?: SegmentObstacle[]): void;
+  /**
+   * Lay everything out and draw it. Safe to call with nothing queued. With `drop`, a label with
+   * no room is left out instead of drawn over another; the count left out is returned.
+   */
+  flush(ctx: CanvasRenderingContext2D, extra?: SegmentObstacle[], opts?: { drop?: boolean }): number;
 }
 
 export function createLabelCollector(): LabelCollector {
@@ -60,8 +63,8 @@ export function createLabelCollector(): LabelCollector {
   return {
     add(entry) { entries.push(entry); },
     block(seg) { blockers.push(seg); },
-    flush(ctx, extra = []) {
-      if (entries.length === 0) return;
+    flush(ctx, extra = [], opts = {}) {
+      if (entries.length === 0) return 0;
       const obstacles = [...blockers, ...extra].flatMap((s) => segmentToBoxes(s));
       /*
        * Measure the text instead of trusting a declared width.
@@ -80,13 +83,15 @@ export function createLabelCollector(): LabelCollector {
         const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? '') || parseFloat(e.font) || 12;
         return { ...e.box, width: ctx.measureText(e.text).width, height: size + 2 };
       });
-      const placed = placeLabels(boxes, obstacles);
+      const placed = placeLabels(boxes, obstacles, undefined, undefined, opts);
       const prevAlign = ctx.textAlign;
       const prevBaseline = ctx.textBaseline;
       // Everything is measured from the alphabetic baseline, so anything the
       // caller left set would move the text away from the box that was tested.
       ctx.textBaseline = 'alphabetic';
+      let hidden = 0;
       for (let i = 0; i < entries.length; i++) {
+        if (placed[i].hidden) { hidden++; continue; }
         ctx.textAlign = entries[i].box.anchorX ?? 'center';
         ctx.font = entries[i].font;
         ctx.fillStyle = entries[i].colour;
@@ -96,6 +101,7 @@ export function createLabelCollector(): LabelCollector {
       ctx.textBaseline = prevBaseline;
       entries.length = 0;
       blockers.length = 0;
+      return hidden;
     },
   };
 }
@@ -174,6 +180,8 @@ export interface PlacedLabel {
   y: number;
   /** How far it had to move, in pixels. Zero means it got its first choice. */
   displaced: number;
+  /** Left out: with `drop`, no spot clear of the labels already placed. */
+  hidden?: boolean;
 }
 
 /** An axis-aligned box that a label must not cover. */
@@ -295,15 +303,21 @@ export function segmentToBoxes(s: SegmentObstacle, pad = 3, span = 24): Obstacle
  *
  * Returned in the SAME ORDER as the input, whatever order they were placed in,
  * because the caller indexes by its own list.
+ *
+ * `drop` is for a drawing that cannot be zoomed (an exported figure): a label with no spot clear
+ * of everything takes one clear of the other labels, over a member, and one with neither is
+ * hidden rather than written over another.
  */
 export function placeLabels(
   labels: LabelBox[],
   obstacles: Obstacle[] = [],
   step = 10,
   maxSteps = 10,
+  opts: { drop?: boolean } = {},
 ): PlacedLabel[] {
   const out: PlacedLabel[] = new Array(labels.length);
   const taken = new ObstacleGrid(obstacles);
+  const placedOnly = new ObstacleGrid();
 
   /*
    * Grouped labels are placed as one block, ungrouped ones on their own.
@@ -324,9 +338,18 @@ export function placeLabels(
 
     let shift: [number, number] = [0, 0];
     let free = false;
-    for (const cand of candidateOffsets(ux, uy, sweep, step, maxSteps)) {
-      const moved = { ...bounds, x: bounds.x + cand[0], y: bounds.y + cand[1] };
-      if (!taken.near(moved).some((o) => overlaps(moved, o))) { shift = cand; free = true; break; }
+    const candidates = candidateOffsets(ux, uy, sweep, step, maxSteps);
+    const clearOf = (grid: ObstacleGrid) => {
+      for (const cand of candidates) {
+        const moved = { ...bounds, x: bounds.x + cand[0], y: bounds.y + cand[1] };
+        if (!grid.near(moved).some((o) => overlaps(moved, o))) { shift = cand; return true; }
+      }
+      return false;
+    };
+    free = clearOf(taken) || (!!opts.drop && clearOf(placedOnly));
+    if (!free && opts.drop) {
+      for (const i of unit.members) out[i] = { x: labels[i].x, y: labels[i].y, displaced: 0, hidden: true };
+      continue;
     }
     /*
      * Nothing free: keep the preferred spot rather than the last thing tried.
@@ -337,6 +360,7 @@ export function placeLabels(
     if (!free) shift = [0, 0];
 
     taken.push({ ...bounds, x: bounds.x + shift[0], y: bounds.y + shift[1] });
+    placedOnly.push({ ...bounds, x: bounds.x + shift[0], y: bounds.y + shift[1] });
     for (let k = 0; k < unit.members.length; k++) {
       const i = unit.members[k];
       out[i] = {

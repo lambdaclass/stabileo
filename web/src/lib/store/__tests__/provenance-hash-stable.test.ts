@@ -17,8 +17,7 @@ describe('a model fingerprint a report can be checked against', () => {
   beforeEach(frame);
 
   it('is the same after save and open with a seismic regulation bound', () => {
-    const r = regulationsStore.requestChange('seismic', 'inpres103-2018');
-    if (r.kind === 'confirm') regulationsStore.applyPending(r.consequence?.kind ?? 'loadRegulation');
+    regulationsStore.requestChange('seismic', 'inpres103-2018');
     expect(modelStore.model.regulations?.roles.seismic.adapterId).toBe('inpres103-2018');
     const before = modelHash(modelStore.snapshot());
     expect(deserializeProject(serializeProject())).toBe(true);

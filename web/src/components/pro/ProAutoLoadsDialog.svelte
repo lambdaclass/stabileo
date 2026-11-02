@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { roleSelectOptions } from './design/role-select-options';
   import { untrack } from 'svelte';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { proNav } from '../../lib/store/pro-nav.svelte';
@@ -148,6 +149,15 @@
   // `bound`, not `usable`: this dialog supplies the settings, so gating on
   // configComplete would be circular.
   const seismicAvailable = $derived(regulationsStore.bound('seismic'));
+  let bindRefusal = $state<string | null>(null);
+  /** Binds a load code from here, staged as the Regulations panel stages it: this preview is where its loads are reviewed. */
+  function bindRegulation(role: 'wind' | 'seismic', adapterId: string) {
+    bindRefusal = null;
+    if (!adapterId) return;
+    const r = regulationsStore.requestChange(role, adapterId);
+    if (r.kind === 'refused') { bindRefusal = r.problems.map((p) => te({ key: p.key, params: p.params })).join(' '); return; }
+    if (role === 'wind') enableWind = true; else enableSeismic = true;
+  }
   const windAvailable = $derived(regulationsStore.bound('wind'));
   const snowAvailable = $derived(regulationsStore.bound('snow'));
   /** CIRSOC 102's editions in the catalogue, the ones without their text included. */
@@ -949,11 +959,8 @@
             <div class="al-pane-scroll" data-testid="al-wind-section">
               <div class="al-pane-body">
                 {#if !windAvailable}
-                  <p class="al-warn" data-testid="al-wind-unavailable">
-                    {t('autoLoad.windNeedsRole')}
-                    <button class="al-link" data-testid="al-goto-regulations-wind"
-                            onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
-                  </p>
+                  <p class="al-warn" data-testid="al-wind-unavailable">{t('autoLoad.windNeedsRole')}</p>
+                  {@render bindHere('wind')}
                 {:else if !enableWind}
                   <p class="al-hint">{t('autoLoad.wind.off')}</p>
                 {:else}
@@ -1066,11 +1073,8 @@
               <div class="al-pane-body">
                 {#if !seismicAvailable}
                   <!-- Why it is disabled, and where to fix it. -->
-                  <p class="al-warn" data-testid="al-seismic-unavailable">
-                    {t('autoLoad.seismicNeedsRole')}
-                    <button class="al-link" data-testid="al-goto-regulations"
-                            onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
-                  </p>
+                  <p class="al-warn" data-testid="al-seismic-unavailable">{t('autoLoad.seismicNeedsRole')}</p>
+                  {@render bindHere('seismic')}
                 {:else if !enableSeismic}
                   <p class="al-hint">{t('autoLoad.seismic.off')}</p>
                 {:else}
@@ -1225,6 +1229,22 @@
   </div>
 </div>
 {/if}
+
+{#snippet bindHere(role: 'wind' | 'seismic')}
+  <div class="al-row" data-testid={`al-bind-${role}`}>
+    <label class="al-field"><span class="al-label">{t('autoLoad.bindHere')}</span>
+      <select value="" onchange={(e) => bindRegulation(role, e.currentTarget.value)} data-testid={`al-bind-${role}-select`}>
+        <option value="">{t('regulations.none')}</option>
+        {#each roleSelectOptions(role, null).filter((o) => !o.noModule) as { option: o } (o.adapterId)}
+          <option value={o.adapterId}>{te(optionLabel(o))}</option>
+        {/each}
+      </select>
+    </label>
+    <button class="al-link" data-testid={role === 'wind' ? 'al-goto-regulations-wind' : 'al-goto-regulations'}
+            onclick={() => { proNav.openRegulations(); onclose(); }}>{t('autoLoad.openRegulations')}</button>
+  </div>
+  {#if bindRefusal}<p class="al-warn">{bindRefusal}</p>{/if}
+{/snippet}
 
 <style>
   /*
