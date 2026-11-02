@@ -21,7 +21,7 @@
   ];
 </script>
 
-<section class="sec sec--paper pro-calc reveal" data-section="pro-calc" id="pro" aria-labelledby="pro-calc-title">
+<section class="sec sec--paper pro-calc" data-section="pro-calc" id="pro" aria-labelledby="pro-calc-title">
   <div class="wrap">
     <Eyebrow n="02" label={t('landing.ebProCalc')} />
 
