@@ -40,7 +40,7 @@
     type SourceKind,
   } from '../../lib/engine/result-query';
   import {
-    SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey, shellGroupLabelKey, principalStresses,
+    SHELL_CONTOUR_COMPONENTS, shellComponentLabelKey, shellGroupLabelKey, membranePrincipals,
     shellComponentStats, type ShellComponentGroup,
   } from '../../lib/engine/shell-stress';
 
@@ -54,11 +54,11 @@
     if (!r) return [] as Array<{ key: string; type: string; id: number; sigmaXx: number; sigmaYy: number; tauXy: number; sigma1: number; sigma2: number; vonMises: number; mx: number; my: number; mxy: number }>;
     const rows = [];
     for (const ps of r.plateStresses ?? []) {
-      const pr = principalStresses(ps.sigmaXx, ps.sigmaYy, ps.tauXy);
+      const pr = membranePrincipals(ps);
       rows.push({ key: 'p' + ps.elementId, type: 'Plate', id: ps.elementId, sigmaXx: ps.sigmaXx, sigmaYy: ps.sigmaYy, tauXy: ps.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: ps.vonMises, mx: ps.mx, my: ps.my, mxy: ps.mxy });
     }
     for (const qs of r.quadStresses ?? []) {
-      const pr = principalStresses(qs.sigmaXx, qs.sigmaYy, qs.tauXy);
+      const pr = membranePrincipals(qs);
       rows.push({ key: 'q' + qs.elementId, type: 'Quad', id: qs.elementId, sigmaXx: qs.sigmaXx, sigmaYy: qs.sigmaYy, tauXy: qs.tauXy, sigma1: pr.sigma1, sigma2: pr.sigma2, vonMises: qs.vonMises, mx: qs.mx, my: qs.my, mxy: qs.mxy });
     }
     return rows;

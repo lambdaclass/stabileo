@@ -161,7 +161,7 @@ function shellCornersSheet(input: ResultSheetsInput): WorkbookSheet {
 
 /** The shell components the maxima sheet reads, with their units. */
 const SHELL_MAXIMA: Array<[string, string, (r: ShellCentreRow) => number | undefined]> = [
-  ['membraneVonMises', 'kN/m²', (r) => r.membrane.vonMises], ['topVonMises', 'kN/m²', (r) => r.top?.vonMises], ['bottomVonMises', 'kN/m²', (r) => r.bottom?.vonMises],
+  ['membraneVonMises', 'kN/m²', (r) => r.membrane?.vonMises], ['topVonMises', 'kN/m²', (r) => r.top?.vonMises], ['bottomVonMises', 'kN/m²', (r) => r.bottom?.vonMises],
   ['topTresca', 'kN/m²', (r) => r.top?.tresca], ['bottomTresca', 'kN/m²', (r) => r.bottom?.tresca],
   ['topS1', 'kN/m²', (r) => r.top?.s1], ['topS2', 'kN/m²', (r) => r.top?.s2],
   ['bottomS1', 'kN/m²', (r) => r.bottom?.s1], ['bottomS2', 'kN/m²', (r) => r.bottom?.s2],

@@ -2839,7 +2839,7 @@ function solveCombinations3DPDelta(
   const envelope = computeEnvelope3D([...perCombo.values()]);
   if (!envelope) return t('svc.envelopeError3d');
   // The engine's envelope drops shells; each combination here carries its own second-order ones.
-  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo.values()]));
+  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo].map(([id, results]) => ({ source: { kind: 'combination' as const, id }, results }))));
   return { ...pruneComboBundle3D({ perCase: linear.perCase, perCombo, envelope }, model), unstable };
 }
 

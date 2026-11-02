@@ -9,7 +9,7 @@ import { plainNumber } from '../utils/units';
 import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, ShellEnvelope } from './types-3d';
 import { formatPDeltaFactor } from './pdelta-result';
 import type { ProjectQuantities } from './quantities';
 import { quantitiesSectionHtml } from './report/quantities-section';
@@ -21,7 +21,7 @@ import type { Source } from './result-tables';
 import type { StaticsRows } from '../store/statics-rows';
 import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
-import { principalStresses } from './shell-stress';
+import { membranePrincipals } from './shell-stress';
 
 /** Translation function type — accepts key, returns translated string */
 type TFunc = (key: string) => string;
@@ -604,8 +604,8 @@ export function generateReportHtml(data: ReportData): string {
         s1: number; s2: number; mx: number; my: number; mxy: number; vm: number;
       }
       const rows: ShellRow[] = [];
-      const addRow = (kind: string, s: { elementId: number; sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; vonMises: number }) => {
-        const pr = principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
+      const addRow = (kind: string, s: { elementId: number; sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; vonMises: number; envelope?: ShellEnvelope }) => {
+        const pr = membranePrincipals(s);
         rows.push({ kind, id: s.elementId, sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy, s1: pr.sigma1, s2: pr.sigma2, mx: s.mx, my: s.my, mxy: s.mxy, vm: s.vonMises });
       };
       for (const s of psList) addRow('Plate', s);

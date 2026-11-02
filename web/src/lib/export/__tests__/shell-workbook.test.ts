@@ -48,7 +48,7 @@ it.each([0, -1, NaN, Infinity])('does not invent face stresses for thickness %s'
   const centre = shellCentreRows(result(2, 100), invalid)[0]!;
   expect(centre.top).toBeUndefined();
   expect(centre.bottom).toBeUndefined();
-  expect(centre.membrane.vonMises).toBe(100);
+  expect(centre.membrane!.vonMises).toBe(100);
 });
 
 it.each([-2, 2])('exports extrema of both principal stresses on both faces for moment %s', (mx) => {
