@@ -20,6 +20,8 @@ Usage (from anywhere in the repo; Python 3.9+, standard library only):
     scripts/verification-metrics.py --record v0.3.0  # from a checkout of the tag: write the
                                                      # release snapshot releases/v0.3.0.json
     scripts/verification-metrics.py --max-runs 20    # how far back to look for CI runs
+    scripts/verification-metrics.py --check-mutants-rotation  # exit 1 if a mutants shard is
+                                                     # older than MUTANTS_PROMISE_DAYS
 
 CI: .github/workflows/verification-dashboard.yml (weekly, on release tags, on demand).
 
@@ -29,6 +31,7 @@ Artifact contracts (a metric appears as soon as CI publishes it):
     opensees-report          opensees-report.json
     codeaster-report         codeaster-report.json
     mutants-report-<k>       cargo-mutants output dir (caught.txt, missed.txt, ...)
+    mutants-done-<k>-of-<n>  shard k of n ran to its verdict (nightly.yml)
     stryker-report           Stryker reports/mutation/ (mutation.json)
     fuzz-stats-<target>      text containing libFuzzer `stat::number_of_executed_units: N`
     llvm-cov-summary         `cargo llvm-cov --json --summary-only` output
@@ -56,6 +59,7 @@ OUT_MD = os.path.join(VDIR, "DASHBOARD.md")
 OUT_MATURITY = os.path.join(VDIR, "MATURITY.md")
 RELEASES_DIR = os.path.join(VDIR, "releases")  # one snapshot per release: <tag>.json
 NOT_MEASURED = "not yet measured"
+MUTANTS_PROMISE_DAYS = 16
 
 
 def read(rel: str) -> str:
@@ -415,7 +419,7 @@ def rust_mutants(gh: GH, max_runs: int):
     or without an artifact) contributed outcomes and every shard tested all it planned."""
     if not gh.ok:
         return None
-    hits = find_artifacts(gh, "verify.yml", r"mutants-report-\d+", max_runs)
+    hits = find_artifacts(gh, "nightly.yml", r"mutants-report-\d+", max_runs)
     if not hits:
         return None
     run = hits[0][0]
@@ -463,6 +467,58 @@ def rust_mutants(gh: GH, max_runs: int):
     tot["jobs"] = {j["name"]: j["conclusion"] for j in (jobs or [])}
     tot["run"], tot["date"] = run["url"], run["createdAt"][:10]
     return tot
+
+
+def mutants_plan():
+    text = read(".github/workflows/nightly.yml")
+    total = re.search(r"^\s*MUTANTS_TOTAL: (\d+)$", text, re.M)
+    slots = re.search(r"^\s*MUTANTS_SLOTS: (\d+)$", text, re.M)
+    return (int(total.group(1)), int(slots.group(1))) if total and slots else (None, None)
+
+
+def mutants_rotation(gh: GH, now: dt.datetime, promise_days: int = MUTANTS_PROMISE_DAYS):
+    """Which mutants shards of the current MUTANTS_TOTAL ran to their verdict on main within the
+    promise. None when GitHub or the plan cannot be read."""
+    total, slots = mutants_plan()
+    if not gh.ok or not total or not slots:
+        return None
+    since = now - dt.timedelta(days=promise_days)
+    try:
+        runs = gh.runs("nightly.yml", 4 * promise_days)
+    except Exception as ex:
+        warn(f"runs of nightly.yml: {ex}")
+        return None
+    last = {}
+    for r in runs:
+        created = dt.datetime.fromisoformat(r["createdAt"].replace("Z", "+00:00"))
+        if r.get("status") != "completed" or created < since:
+            continue
+        try:
+            arts = gh.artifacts(r["databaseId"])
+        except Exception as ex:
+            warn(f"artifacts of run {r['databaseId']}: {ex}")
+            return None
+        for a in arts:
+            m = re.fullmatch(r"mutants-done-(\d+)-of-(\d+)", a["name"])
+            if m and not a["expired"] and int(m.group(2)) == total:
+                shard = int(m.group(1))
+                last[shard] = max(last.get(shard, ""), r["createdAt"][:10])
+    stale = [k for k in range(total) if k not in last]
+    return {"total": total, "slots": slots, "promise_days": promise_days,
+            "nights_per_pass": -(-total // slots), "fresh": total - len(stale), "stale": stale,
+            "oldest": min(last.values()) if last else None, "since": since.strftime("%Y-%m-%d"),
+            "ok": not stale}
+
+
+def shard_ranges(shards):
+    out, start = [], None
+    for i, k in enumerate(shards):
+        if start is None:
+            start = k
+        if i + 1 == len(shards) or shards[i + 1] != k + 1:
+            out.append(str(start) if start == k else f"{start}-{k}")
+            start = None
+    return ", ".join(out)
 
 
 def ts_mutants(gh: GH, max_runs: int):
@@ -1229,9 +1285,19 @@ def ci_metrics(gh, max_runs: int):
             "Mutation score, Rust (cargo-mutants)", sc,
             display=f"{sc} %" + (f" (partial: {size})" if partial else ""),
             section=S_PROOF, status="partial" if partial else "measured",
-            source=f"verify.yml [{rm['date']}]({rm['run']})",
+            source=f"nightly.yml [{rm['date']}]({rm['run']})",
             note=f"caught/(caught+missed); {rm['shards']} shards; jobs: "
                  + ", ".join(sorted(set(str(v) for v in rm["jobs"].values())))), [rm["sha"]])
+    rot = None if getattr(gh, "require_sha", None) else mutants_rotation(gh, dt.datetime.now(dt.timezone.utc))
+    details["mutants_rotation"] = rot
+    if rot:
+        M["mutation_rotation"] = metric(
+            f"Rust mutants shards tested in the last {rot['promise_days']} days", rot["fresh"],
+            display=f"{rot['fresh']} of {rot['total']}" + ("" if rot["ok"] else f" (stale: {shard_ranges(rot['stale'])})"),
+            section=S_PROOF, status="measured" if rot["ok"] else "partial",
+            source="nightly.yml mutants-done-*",
+            note=f"{rot['slots']} shards a night, a full pass every {rot['nights_per_pass']} nights; "
+                 f"promise: every shard within {rot['promise_days']} days")
     tm = ts_mutants(gh, max_runs)
     details["ts_mutants"] = tm
     if tm and tm.get("score") is not None:
@@ -1245,6 +1311,22 @@ def ci_metrics(gh, max_runs: int):
     return M, details
 
 
+def check_mutants_rotation(gh, now) -> int:
+    rot = mutants_rotation(gh, now)
+    if rot is None:
+        print("mutants rotation: cannot read nightly.yml runs or the MUTANTS_TOTAL/MUTANTS_SLOTS plan")
+        return 1
+    print(f"mutants rotation: {rot['fresh']} of {rot['total']} shards ran to their verdict since {rot['since']} "
+          f"({rot['slots']} a night, a pass every {rot['nights_per_pass']} nights)")
+    if rot["nights_per_pass"] > rot["promise_days"]:
+        print(f"a pass takes {rot['nights_per_pass']} nights, more than the {rot['promise_days']}-day promise")
+        return 1
+    if rot["stale"]:
+        print(f"stale shards: {shard_ranges(rot['stale'])}")
+        return 1
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--offline", action="store_true", help="repository only; keep GitHub values from dashboard.json")
@@ -1254,7 +1336,11 @@ def main():
                     help="allow --record when HEAD is not the tag's commit (the row records HEAD)")
     ap.add_argument("--max-runs", type=int, default=15, help="CI runs to look back per workflow")
     ap.add_argument("--coverage-json", help="local `cargo llvm-cov --json --summary-only` output")
+    ap.add_argument("--check-mutants-rotation", action="store_true",
+                    help=f"only check that every mutants shard ran within {MUTANTS_PROMISE_DAYS} days; exit 1 if not")
     a = ap.parse_args()
+    if a.check_mutants_rotation:
+        sys.exit(check_mutants_rotation(GH(False), dt.datetime.now(dt.timezone.utc)))
     if a.record:  # fail before spending minutes on GitHub calls
         head = subprocess.run(["git", "rev-parse", "--short=10", "HEAD"], cwd=ROOT, capture_output=True,
                               text=True).stdout.strip()
@@ -1377,6 +1463,8 @@ def main():
          f"no differential report found {where}"),
         ("mutation_rust", "Mutation score, Rust (cargo-mutants)", S_PROOF,
          f"no mutants report with a defined score found {where}"),
+        ("mutation_rotation", f"Rust mutants shards tested in the last {MUTANTS_PROMISE_DAYS} days", S_PROOF,
+         "not tracked for a release snapshot" if a.record else "GitHub or the nightly.yml mutants plan unreadable"),
         ("mutation_ts", "Mutation score, TypeScript (Stryker)", S_COV,
          f"no successful Stryker run with a defined score found {where}"),
         ("fuzz_execs", "Fuzz executions (latest nightly)", S_TRUST,
@@ -1398,8 +1486,8 @@ def main():
                 details[k] = prev["details"][k]
 
     order = ["safety_open", "advisories", "rust_share", "ts_high_safety", "ts_engineering_lines", "certified_analyses",
-             "certified_design", "acceptance_cases", "acceptance_refs", "mutation_rust", "mutation_ts",
-             "coverage_lines", "coverage_branches", "differential_compared", "fuzz_execs", "fm_cells", "fm_bad",
+             "certified_design", "acceptance_cases", "acceptance_refs", "mutation_rust", "mutation_rotation",
+             "mutation_ts", "coverage_lines", "coverage_branches", "differential_compared", "fuzz_execs", "fm_cells", "fm_bad",
              "engine_tests", "kani_harnesses", "lean_theorems"]
     order += [k for k in M if k not in order]
     metrics = {k: M[k] for k in order if k in M}
