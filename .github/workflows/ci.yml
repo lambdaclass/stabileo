@@ -127,6 +127,7 @@ jobs:
               - 'Dockerfile'
               - '.github/scripts/**'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/merge-queue-supersede.yml'
 
   docker-smoke:
     name: Docker build smoke
