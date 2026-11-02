@@ -140,6 +140,31 @@ class Decisions(unittest.TestCase):
         finally:
             revert.gh = real
 
+    def test_only_one_run_holds_the_revert_lock(self):
+        refs, calls = set(), []
+
+        def fake_gh(*args, token=None, check=True):
+            calls.append((args, token))
+            if args[:3] == ('api', '-X', 'POST'):
+                ref = args[5].split('=', 1)[1]
+                if ref in refs:
+                    raise RuntimeError('Reference already exists')
+                refs.add(ref)
+            elif args[:3] == ('api', '-X', 'DELETE'):
+                refs.discard(args[3].split('/git/', 1)[1])
+            return ''
+        real, revert.gh = revert.gh, fake_gh
+        try:
+            self.assertIsNone(revert.acquire('o/r', 'abc', 'bot'))
+            self.assertIn('already exists', revert.acquire('o/r', 'abc', 'bot'))
+            revert.release('o/r', 'bot')
+            self.assertEqual(refs, set())
+            self.assertIsNone(revert.acquire('o/r', 'abc', 'bot'))
+            self.assertEqual(refs, {revert.LOCK})
+            self.assertTrue(all(token == 'bot' for _, token in calls))
+        finally:
+            revert.gh = real
+
     def test_enqueue_only_when_approved_and_every_required_check_passed(self):
         self.assertTrue(revert.ready({'review': 'APPROVED', 'checks': ['pass', 'skipping']}))
         self.assertFalse(revert.ready({'review': 'REVIEW_REQUIRED', 'checks': ['pass']}))

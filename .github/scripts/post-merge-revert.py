@@ -16,6 +16,7 @@ import time
 
 MARKER = '[auto-revert]'
 BRANCH = 'revert/auto-'
+LOCK = 'refs/heads/revert/auto-lock'
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -149,6 +150,18 @@ def wait_until_ready(number, token, minutes):
     return 'timeout'
 
 
+def acquire(repo_name, sha, token):
+    try:
+        gh('api', '-X', 'POST', f'repos/{repo_name}/git/refs', '-f', f'ref={LOCK}', '-f', f'sha={sha}', token=token)
+    except RuntimeError as error:
+        return str(error)
+    return None
+
+
+def release(repo_name, token):
+    gh('api', '-X', 'DELETE', f'repos/{repo_name}/git/{LOCK}', token=token, check=False)
+
+
 def main():
     repo_name = os.environ['GITHUB_REPOSITORY']
     bot = os.environ['REVERT_TOKEN']
@@ -169,11 +182,22 @@ def main():
     if gh('pr', 'list', '-R', repo_name, '--head', branch, '--state', 'all', '--json', 'number', '-q', '.[].number').strip():
         print(f'{branch} already has a PR')
         return 0
+    main_head = run('git', 'rev-parse', 'origin/main', cwd=repo).strip()
+    busy = acquire(repo_name, main_head, bot)
+    if busy:
+        notify('urgent', 'main CI failed: revert by hand', f'{url}\nAnother auto-revert holds {LOCK} (delete it if stale): {busy}')
+        return 1
+    try:
+        return revert_and_enqueue(repo, repo_name, bot, runs, bad, created_at, url, branch, main_head)
+    finally:
+        release(repo_name, bot)
+
+
+def revert_and_enqueue(repo, repo_name, bot, runs, bad, created_at, url, branch, main_head):
     pending = open_revert(json.loads(gh('pr', 'list', '-R', repo_name, '--state', 'open', '--base', 'main', '--limit', '200', '--json', 'headRefName,url')))
     if pending:
         notify('urgent', 'main CI failed again', f'{url}\nAn auto-revert is already open ({pending}); land it, then check this failure by hand.')
         return 1
-    main_head = run('git', 'rev-parse', 'origin/main', cwd=repo).strip()
     merges = suspect_merges(repo, last_green_before(runs, created_at), bad) or []
     subjects = [run('git', 'log', '-1', '--format=%s%n%b', sha, cwd=repo) for sha in merges]
     if not merges or any(MARKER in s for s in subjects):
