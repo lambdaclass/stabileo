@@ -1,6 +1,6 @@
 # <Title> (<first author> <year>)
 
-Citation (from `papers.yaml`), DOI link, reference code link, license and the commit used.
+Citation (from `papers/<id>.yaml`), DOI link, reference code link, license and the commit used.
 
 ## What is reproduced
 ## Formulation

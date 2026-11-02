@@ -1,0 +1,34 @@
+order: 24
+id: newmark-1959
+doi: 10.1061/jmcea3.0000098
+crossref:
+  title: A Method of Computation for Structural Dynamics
+  authors:
+  - Nathan M. Newmark
+  year: 1959
+  venue: Journal of the Engineering Mechanics Division
+area: seismic
+keywords: &id001
+- Newmark integration
+- structural dynamics
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's Newmark time-history integration for structural response.
+status: proposed
+stage: first-version
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+page: web/src/components/research/newmark1959/NewmarkPage.svelte
+contacts: []

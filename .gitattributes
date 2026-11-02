@@ -4,4 +4,7 @@
 web/src/lib/i18n/locales/en.ts merge=union
 web/src/lib/i18n/locales/es.ts merge=union
 web/src/lib/i18n/locales/pt.ts merge=union
+web/src/lib/i18n/locales/de.ts merge=union
+web/src/lib/i18n/locales/fr.ts merge=union
+web/src/lib/i18n/locales/tr.ts merge=union
 web/src/lib/i18n/locales/steel/*.ts merge=union

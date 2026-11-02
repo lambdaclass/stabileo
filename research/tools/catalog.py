@@ -1,4 +1,4 @@
-"""Check research/papers.yaml.
+"""Check research/papers/<id>.yaml.
 
   python3 -I research/tools/catalog.py check [--offline] [--links]
   python3 -I research/tools/catalog.py show <doi>
@@ -14,6 +14,7 @@ also fetches each GitHub code link (set GITHUB_TOKEN to avoid the anonymous rate
 import copy
 import hashlib
 import math
+from pathlib import Path
 import html
 import json
 import os
@@ -27,7 +28,7 @@ import urllib.request
 import yaml
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CATALOG = os.environ.get("RESEARCH_CATALOG", os.path.join(ROOT, "papers.yaml"))
+CATALOG = os.environ.get("RESEARCH_CATALOG", os.path.join(ROOT, "papers"))
 EXPORT = os.path.join(ROOT, "papers.json")
 UA = "stabileo-research-catalog (https://github.com/lambdaclass/stabileo)"
 
@@ -245,21 +246,43 @@ def export_text(papers):
     return json.dumps({"generated_from": "research/papers.yaml", "papers": papers}, indent=1, ensure_ascii=False) + "\n"
 
 
+def load_papers(path=CATALOG):
+    path = Path(path)
+    papers = []
+    for entry in sorted(path.glob("*.yaml")):
+        paper = yaml.safe_load(entry.read_text())
+        if not isinstance(paper, dict) or paper.get("id") != entry.stem:
+            raise ValueError(f"{entry}: id must match filename")
+        if type(paper.get("order")) is not int:
+            raise ValueError(f"{entry}: order must be an integer")
+        papers.append(paper)
+    if not papers:
+        raise ValueError(f"{path}: no paper files")
+    papers.sort(key=lambda p: (p["order"], p["id"]))
+    for paper in papers:
+        paper.pop("order")
+    return papers
+
+
 def main(argv):
     if len(argv) >= 2 and argv[0] == "show":
         print(yaml.safe_dump({"crossref": crossref_block(argv[1])}, sort_keys=False, allow_unicode=True))
         return 0
+    if argv == ["--offline"]:
+        argv = ["check", "--offline"]
     if argv and argv[0] == "export":
-        with open(CATALOG) as f:
-            papers = yaml.safe_load(f)["papers"]
+        papers = load_papers()
         with open(EXPORT, "w") as f:
             f.write(export_text(papers))
         return 0
     if not argv or argv[0] != "check":
         print(__doc__)
         return 2
-    with open(CATALOG) as f:
-        papers = yaml.safe_load(f)["papers"]
+    try:
+        papers = load_papers()
+    except (ValueError, yaml.YAMLError) as error:
+        print("FAIL", error)
+        return 1
     errors = []
     ids = [p.get("id") for p in papers]
     if len(set(ids)) != len(ids):

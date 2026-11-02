@@ -1,0 +1,30 @@
+order: 44
+id: bucalem-1993
+doi: 10.1002/nme.1620362109
+crossref:
+  title: Higher‐order MITC general shell elements
+  authors:
+  - Miguel Luiz Bucalem
+  - Klaus‐Jüen Bathe
+  year: 1993
+  venue: International Journal for Numerical Methods in Engineering
+area: shells
+keywords: &id001
+- MITC9
+- higher-order shells
+- mixed interpolation
+summary: Presents nine-node and sixteen-node MITC shell elements that tie interpolated covariant membrane
+  and shear strains to the displacement field. Numerical tests assess their predictive performance.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's MITC9 shell elements on the linear subset of the paper's formulation and
+  tests.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

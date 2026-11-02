@@ -1,0 +1,34 @@
+order: 31
+id: riks-1979
+doi: 10.1016/0020-7683(79)90081-7
+crossref:
+  title: An incremental approach to the solution of snapping and buckling problems
+  authors:
+  - E. Riks
+  year: 1979
+  venue: International Journal of Solids and Structures
+area: numerical-methods
+keywords: &id001
+- path following
+- buckling
+- snap-through
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's 2D frame arc-length solver through limit points and snap-through.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+page: web/src/components/research/riksCrisfield/RiksCrisfieldPage.svelte
+contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

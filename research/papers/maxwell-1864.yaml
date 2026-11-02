@@ -1,0 +1,30 @@
+order: 11
+id: maxwell-1864
+doi: 10.1080/14786446408643668
+crossref:
+  title: L. <i>On the calculation of the equilibrium and stiffness of frames</i>
+  authors:
+  - J. Clerk Maxwell
+  year: 1864
+  venue: The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science
+area: metamaterials
+keywords:
+- Maxwell counting rule
+- rigidity
+- pin-jointed frames
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- counting of bars and joints
+- statics of pin-jointed frames
+dependencies: []
+complexity: low
+relevance: Maxwell's rule for when a pin-jointed frame is stiff; Stabileo's truss solver and its mechanism
+  detection can show the rule and its exceptions live. Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

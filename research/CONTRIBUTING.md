@@ -1,7 +1,7 @@
 # Contributing to Stabileo Research
 
 You do not need to know the rest of Stabileo to contribute here. A contribution is one directory
-under `research/<area>/<id>/` plus one entry in `papers.yaml`, opened as a pull request. Once the
+under `research/<area>/<id>/` plus one entry in `papers/<id>.yaml`, opened as a pull request. Once the
 repository's external-contribution policy (issue #726) exists, it applies here as well.
 
 Read [DESIGN.md](DESIGN.md) first: what a research page offers, how statuses are earned, and how
@@ -11,7 +11,7 @@ papers are chosen.
 
 Copy `templates/paper/` to `research/<area>/<id>/` and fill it in.
 
-1. **Catalog entry** in `papers.yaml`. Write a `summary` only from the abstract (Crossref or publisher), the full text, or the repository README for code facts, and name it in `summary_source`; otherwise leave the summary empty. Get the bibliographic block with
+1. **Catalog entry** in `papers/<id>.yaml`. Write a `summary` only from the abstract (Crossref or publisher), the full text, or the repository README for code facts, and name it in `summary_source`; otherwise leave the summary empty. Get the bibliographic block with
    `python3 -I research/tools/catalog.py show <doi>` and paste it unchanged; CI compares it with
    Crossref on every run. Write the `summary` in your own words and say in `summary_source` what it
    rests on (full text, abstract, code). Code links must be GitHub repositories whose license, as
@@ -47,3 +47,9 @@ Copy `templates/paper/` to `research/<area>/<id>/` and fill it in.
 Code catalogue entries must record a full `commit` SHA. Licence checks query that revision,
 not the default branch. For reproduced code, use the revision in `reference-results/MANIFEST.json`;
 for proposed code, pin the revision inspected and update it when reproducing.
+
+Catalog entries live in `research/papers/<id>.yaml`, one mapping per file. Set integer
+`order` to control gallery order; ties sort by id. The export omits `order` and retains
+the legacy `generated_from` label for byte compatibility. Run `python3 research/tools/catalog.py export`
+after editing. After rebasing older paper PRs, restore the resolved legacy `research/papers.yaml`
+and run `scripts/split-registries.sh`; reconcile any reported differing entries before rerunning.

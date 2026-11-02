@@ -1,0 +1,31 @@
+order: 17
+id: bendsoe-1988
+doi: 10.1016/0045-7825(88)90086-2
+crossref:
+  title: Generating optimal topologies in structural design using a homogenization method
+  authors:
+  - Martin Philip Bendsøe
+  - Noboru Kikuchi
+  year: 1988
+  venue: Computer Methods in Applied Mechanics and Engineering
+area: optimization
+keywords:
+- topology optimization
+- homogenization
+- material distribution
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- homogenization
+- optimality criteria
+dependencies: []
+complexity: medium
+relevance: The founding paper of continuum topology optimization, background to the queued SIMP / MBB
+  experiment (andreassen-2011). Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

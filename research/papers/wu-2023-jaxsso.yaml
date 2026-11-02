@@ -1,0 +1,38 @@
+order: 1
+id: wu-2023-jaxsso
+doi: 10.1007/s00158-023-03601-0
+crossref:
+  title: A framework for structural shape optimization based on automatic differentiation, the adjoint
+    method and accelerated linear algebra
+  authors:
+  - Gaoyuan Wu
+  year: 2023
+  venue: Structural and Multidisciplinary Optimization
+area: optimization
+keywords:
+- shape optimization
+- automatic differentiation
+- adjoint
+- JAX
+- shells
+- frames
+summary: ''
+summary_source: null
+code:
+- url: https://github.com/GaoyuanWu/JaxSSO
+  commit: d27df0a6e657eacae497ead241fa6f9f48c66e5a
+  license: MIT
+data: []
+methods:
+- adjoint sensitivities
+- automatic differentiation
+- gradient-based optimization
+dependencies:
+- JAX
+complexity: medium
+relevance: Close to Stabileo's frame and shell structures; a natural first optimization entry.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

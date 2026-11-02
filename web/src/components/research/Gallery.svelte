@@ -5,7 +5,7 @@
   import { archStrings } from './biggins2026/strings';
   /**
    * /research: the experiments that run here first, then what is being built, then the
-   * catalogue (research/papers.yaml, exported to papers.json and checked against Crossref in CI).
+   * catalogue (research/papers/<id>.yaml, exported to papers.json and checked against Crossref in CI).
    */
   import { topoptStrings } from './andreassen2011/i18n';
   import { fs } from './fairclough2026/i18n';

@@ -1,0 +1,53 @@
+order: 5
+id: ferrari-2025
+doi: 10.1002/nme.70082
+crossref:
+  title: Optimization of the Initial Post‐Buckling Response of Trusses and Frames by an Asymptotic Approach
+  authors:
+  - Federico Ferrari
+  - Ole Sigmund
+  year: 2025
+  venue: International Journal for Numerical Methods in Engineering
+area: optimization
+keywords:
+- post-buckling
+- Koiter asymptotic theory
+- imperfection sensitivity
+- trusses
+- frames
+summary: Uses Koiter's asymptotic post-buckling expansion in sizing and topology optimization of trusses
+  and frames. Constraining the first two asymptotic coefficients (initial post-buckling slope and curvature)
+  shapes the post-buckling response and lowers imperfection sensitivity, and the same expansion approximates
+  the nonlinear response so that measures such as end-compliance can be optimized.
+summary_source: crossref-abstract
+code: []
+data: []
+methods:
+- linear buckling eigenproblem
+- Koiter asymptotic expansion
+- corotational beams
+- arc-length path following
+dependencies: []
+complexity: medium
+relevance: Production buckling reproduces the simple Roorda frame load factor; element energy derivatives
+  are checked through order four. Koiter coefficients and near-bifurcation path agreement remain unresolved.
+  No public author code was run.
+status: implementation-in-progress
+reproduced_published_results: false
+benchmarks:
+- Simple Roorda frame, Section 2.1.2; buckling load only
+implementation: stability/ferrari-sigmund-2025
+page: web/src/components/research/ferrari2025/FerrariPage.svelte
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+- reviewer: codex
+  sha: 714a79e47
+  findings: Frame hidden by a null scalar field; viewer status text below 12px; responsive checks did
+    not establish viewport access, tap target sizes, or readable viewer text.
+  resolution: Fixed in this PR with explicit uncoloured geometry, rendering and displacement regressions,
+    status text sizing, and responsive viewport, tap target, and text assertions.
+contacts: []

@@ -1,0 +1,27 @@
+order: 41
+id: rozvany-2008
+doi: 10.1007/s00158-007-0217-0
+crossref:
+  title: A critical review of established methods of structural topology optimization
+  authors:
+  - G. I. N. Rozvany
+  year: 2008
+  venue: Structural and Multidisciplinary Optimization
+area: optimization
+keywords: &id001
+- topology optimization
+- method comparison
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: medium
+relevance: Guides method selection and comparison for Stabileo's queued structural topology-optimization
+  capability. Crossref dates this review 2008 (online); the print issue is 2009.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

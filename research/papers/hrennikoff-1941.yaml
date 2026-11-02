@@ -1,0 +1,28 @@
+order: 33
+id: hrennikoff-1941
+doi: 10.1115/1.4009129
+crossref:
+  title: Solution of Problems of Elasticity by the Framework Method
+  authors:
+  - A. Hrennikoff
+  year: 1941
+  venue: Journal of Applied Mechanics
+area: numerical-methods
+keywords: &id001
+- framework method
+- elasticity
+summary: Approximates an elastic continuum by a patterned framework of bars with suitable elastic properties.
+  The approach covers several stress and bending problems and is illustrated with examples.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's linear frame and truss solvers with bar-framework approximations to elastic
+  structures.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

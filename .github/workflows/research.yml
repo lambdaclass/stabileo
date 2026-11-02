@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'research/**'
+      - 'scripts/*registries*'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -17,6 +18,7 @@ on:
   pull_request:
     paths:
       - 'research/**'
+      - 'scripts/*registries*'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -104,6 +106,7 @@ jobs:
           /tmp/catalog-venv/bin/pip install --require-hashes -r research/tools/requirements.txt
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_required_ci.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_grossman_catalog.py
+      - run: /tmp/catalog-venv/bin/python -I scripts/test_split_registries.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_pastrana_catalog.py
       - run: /tmp/catalog-venv/bin/python -I research/tools/test_fairclough_catalog.py
       - name: Checker rejects bad entries

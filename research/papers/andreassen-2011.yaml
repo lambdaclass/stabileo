@@ -1,0 +1,70 @@
+order: 4
+id: andreassen-2011
+doi: 10.1007/s00158-010-0594-7
+crossref:
+  title: Efficient topology optimization in MATLAB using 88 lines of code
+  authors:
+  - Erik Andreassen
+  - Anders Clausen
+  - Mattias Schevenels
+  - Boyan S. Lazarov
+  - Ole Sigmund
+  year: 2010
+  venue: Structural and Multidisciplinary Optimization
+area: optimization
+keywords:
+- SIMP
+- topology optimization
+- MBB
+- density filter
+- optimality criteria
+summary: An educational successor to the 99-line topology optimization code adds density filtering and
+  improves computational efficiency through preallocation and vectorization.
+summary_source: publisher-abstract
+summary_note: DTU authors' page abstract; 2010 online publication, 2011 volume 43 pages 1–16.
+code: []
+reference_source:
+  url: https://www.topopt.mek.dtu.dk/apps-and-software/efficient-topology-optimization-in-matlab
+  terms: Educational use; all rights reserved; no redistributed source.
+  provenance: optimization/andreassen-2011/reference/README.md
+data: []
+methods:
+- SIMP
+- Q4 plane stress
+- sensitivity filter
+- density filter
+- optimality criteria
+dependencies:
+- GNU Octave
+complexity: low
+relevance: Small reusable topology optimizer using the production sparse solver and scalar viewer.
+status: numerically-validated
+reproduced_published_results: false
+benchmarks:
+- MBB 60x20 sensitivity filter
+- MBB 60x20 density filter
+implementation: optimization/andreassen-2011
+contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+- reviewer: kimi
+  round: 2
+  date: '2026-10-30'
+  findings: Disclosure, replay verification, state, accessibility, responsive layout and translations.
+  resolution: Verified by Codex and Claude; corrected with numerical, component and browser regression
+    coverage.
+- reviewer: codex
+  round: 2
+  date: '2026-10-30'
+  findings: Initial reference-loading race and unequal-history chart readout.
+  resolution: Run waits for assets; chart values share the same iteration.
+- reviewer: claude
+  round: 2
+  date: '2026-10-30'
+  findings: Consolidated verified list; no solver blockers; evidence freshness and control-label nits.
+  resolution: All should-fix items addressed; browser execution remains for a Playwright-capable environment.
+    Evidence regeneration CI is a follow-up.

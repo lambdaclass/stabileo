@@ -1,0 +1,29 @@
+order: 15
+id: michell-1904
+doi: 10.1080/14786440409463229
+crossref:
+  title: LVIII. <i>The limits of economy of material in frame-structures</i>
+  authors:
+  - A.G.M. Michell
+  year: 1904
+  venue: The London, Edinburgh, and Dublin Philosophical Magazine and Journal of Science
+area: optimization
+keywords:
+- Michell trusses
+- minimum-weight structures
+- layout optimization
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- optimal truss layout theory
+dependencies: []
+complexity: low
+relevance: Analytical optimal trusses used as benchmarks for layout optimization; a Michell layout can
+  be built and checked on Stabileo's truss solver. Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

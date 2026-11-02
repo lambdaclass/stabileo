@@ -5,10 +5,9 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import catalog
-import yaml
 
 root = Path(__file__).resolve().parents[1]
-paper = next(p for p in yaml.safe_load((root / 'papers.yaml').read_text())['papers'] if p['id'] == 'pastrana-2026')
+paper = next(p for p in catalog.load_papers() if p['id'] == 'pastrana-2026')
 assert paper['implementation'] == 'form-finding/pastrana-2026'
 assert paper['reproduced_published_results'] is False
 errors = []

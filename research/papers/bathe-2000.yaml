@@ -1,0 +1,32 @@
+order: 47
+id: bathe-2000
+doi: 10.1016/s0045-7949(99)00214-x
+crossref:
+  title: An evaluation of the MITC shell elements
+  authors:
+  - Klaus-Jürgen Bathe
+  - Alexander Iosilevich
+  - Dominique Chapelle
+  year: 2000
+  venue: Computers & Structures
+area: shells
+keywords: &id001
+- MITC
+- shell benchmarks
+- convergence
+summary: Evaluates MITC shell elements on selected test problems using fundamental shell-analysis criteria.
+  The reported results support their use for general engineering applications.
+summary_source: full-text
+summary_note: 'Abstract in author-hosted full text: https://web.mit.edu/kjb/www/Principal_Publications/An_Evaluation_of_the_MITC_Shell_Elements.pdf'
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's MITC4 and MITC9 shells against published shell test results and mesh-convergence
+  comparisons.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

@@ -1,0 +1,43 @@
+order: 26
+id: horne-1979
+doi: 10.1016/c2013-0-05820-3
+crossref:
+  title: Plastic Theory of Structures
+  authors: []
+  year: 1979
+  venue: ''
+area: numerical-methods
+keywords:
+- plastic collapse
+- portal frame
+- combined mechanisms
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- virtual work
+- production 3D plastic collapse
+dependencies: []
+complexity: low
+relevance: 'One textbook-style portal following Horne sections 2.2 and 2.4, with explicitly chosen dimensions
+  and hand-derived mechanism bounds. Publisher attribution: M. R. Horne; Crossref book record omits authors.'
+status: proposed
+stage: first-version
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+reproduced_published_results: false
+benchmarks:
+- beam, sway and combined mechanism bounds
+implementation: benchmarks/plastic-collapse
+page: web/src/components/research/plastic-collapse/PlasticPage.svelte
+contacts: []
+bibliography:
+  authors:
+  - M. R. Horne
+  venue: Pergamon Press
+  source: https://shop.elsevier.com/books/plastic-theory-of-structures/horne/978-0-08-022737-5

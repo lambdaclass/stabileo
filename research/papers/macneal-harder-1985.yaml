@@ -1,0 +1,38 @@
+order: 22
+id: macneal-harder-1985
+doi: 10.1016/0168-874x(85)90003-4
+crossref:
+  title: A proposed standard set of problems to test finite element accuracy
+  authors:
+  - Richard H. Macneal
+  - Robert L. Harder
+  year: 1985
+  venue: Finite Elements in Analysis and Design
+area: shells
+keywords: &id001
+- finite element benchmarks
+- patch tests
+- mesh distortion
+summary: Proposes patch tests and beam, plate and shell problems for assessing finite element accuracy.
+  Applications to quadrilateral plate and solid brick elements illustrate sensitivity to important accuracy
+  parameters.
+summary_source: publisher-abstract
+summary_note: 'Publisher abstract: https://www.sciencedirect.com/science/article/pii/0168874X85900034'
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's beam, plate and shell elements on standard accuracy and mesh-distortion
+  tests; use the supported structural subset.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

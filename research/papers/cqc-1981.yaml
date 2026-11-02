@@ -1,0 +1,46 @@
+order: 25
+id: cqc-1981
+doi: 10.1002/eqe.4290090207
+crossref:
+  title: A replacement for the srss method in seismic analysis
+  authors:
+  - E. L. Wilson
+  - A. Der Kiureghian
+  - E. P. Bayo
+  year: 1981
+  venue: Earthquake Engineering & Structural Dynamics
+area: seismic
+keywords:
+- CQC
+- SRSS
+- closely spaced modes
+- response spectrum
+summary: Proposes complete quadratic combination to reduce modal-combination errors in response-spectrum
+  analysis; the method approaches SRSS for well-separated natural frequencies.
+summary_source: publisher-abstract
+code: []
+data: []
+methods:
+- modal analysis
+- response spectrum
+- complete quadratic combination
+dependencies: []
+complexity: low
+relevance: A two-coordinate shear-building idealization exercises the production 3D modal and spectrum
+  solvers against a closed-form reference. Not the original paper building.
+status: numerically-validated
+stage: first-version
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'
+reproduced_published_results: false
+benchmarks:
+- two close modes
+- SRSS and CQC base shear
+- roof displacement
+implementation: benchmarks/cqc-1981
+page: web/src/components/research/cqc1981/CqcPage.svelte
+contacts: []

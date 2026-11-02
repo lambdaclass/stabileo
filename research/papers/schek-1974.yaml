@@ -1,0 +1,30 @@
+order: 13
+id: schek-1974
+doi: 10.1016/0045-7825(74)90045-0
+crossref:
+  title: The force density method for form finding and computation of general networks
+  authors:
+  - H.-J. Schek
+  year: 1974
+  venue: Computer Methods in Applied Mechanics and Engineering
+area: optimization
+keywords:
+- force density method
+- form finding
+- cable nets
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- force density method
+- sparse linear solve
+dependencies: []
+complexity: low
+relevance: The force density method behind queued pastrana-2026; one sparse solve with the engine's Cholesky,
+  and the found form opens in the editor. Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

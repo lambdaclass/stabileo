@@ -1,0 +1,31 @@
+order: 45
+id: chapelle-1998
+doi: 10.1016/s0045-7949(97)00078-3
+crossref:
+  title: Fundamental considerations for the finite element analysis of shell structures
+  authors:
+  - D. Chapelle†
+  - K.J. Bathe
+  year: 1998
+  venue: Computers & Structures
+area: shells
+keywords: &id001
+- shell benchmarks
+- membrane dominance
+- bending dominance
+summary: Explains how geometry and boundary conditions determine whether a thin shell is dominated by
+  membrane action or bending. Proposes test cases for evaluating convergence and its dependence on shell
+  thickness.
+summary_source: publisher-abstract
+summary_note: 'Publisher abstract: https://www.sciencedirect.com/science/article/pii/S0045794997000783'
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's shell mesh convergence across thicknesses, geometries and boundary conditions.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

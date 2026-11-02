@@ -1,0 +1,50 @@
+order: 9
+id: fairclough-2026
+doi: 10.1016/j.compstruc.2025.107997
+crossref:
+  title: Topology and geometry optimization of grid-shells incorporating design-dependent self-weight
+    loading
+  authors:
+  - Helen E. Fairclough
+  - Karol Bołbotowski
+  - Linwei He
+  - Andrew Liew
+  - Matthew Gilbert
+  year: 2026
+  venue: Computers & Structures
+area: optimization
+keywords:
+- grid-shells
+- layout optimization
+- self-weight
+- second-order cone programming
+summary: The paper incorporates design-dependent self-weight into gridshell topology and geometry optimization
+  using equal-stress catenaries and conic constraints. The first reproduction covers only the five-node
+  square in Table 1 at normalized unit weight 1.65.
+summary_source: full-text
+code: []
+data:
+- url: https://doi.org/10.15131/shef.data.29046755.v1
+  license: GPL-3.0-or-later
+  note: vaultopt.py file 54492344; version and SHA-256 pinned in reference-results/MANIFEST.json; external
+    execution only
+methods:
+- second-order cone programming
+- ground structure
+dependencies: []
+complexity: medium
+relevance: One fixed five-node square, independently assembled in Rust with Clarabel; a discretized frame
+  surrogate is checked by the production engine.
+status: numerically-validated
+reproduced_published_results: true
+benchmarks:
+- 'Table 1, five nodes, rho_g L/sigma = 1.65: V sigma/(FL) = 13.8394'
+implementation: optimisation/fairclough-2026
+contacts: []
+page: web/src/components/research/fairclough2026/FaircloughPage.svelte
+reviews:
+- round: 1
+  reviewers:
+  - codex
+  - kimi
+  date: '2026-10-30'

@@ -1,0 +1,31 @@
+order: 14
+id: heyman-1966
+doi: 10.1016/0020-7683(66)90018-7
+crossref:
+  title: The stone skeleton
+  authors:
+  - Jacques Heyman
+  year: 1966
+  venue: International Journal of Solids and Structures
+area: shells
+keywords:
+- masonry
+- limit analysis
+- safe theorem
+- arches and vaults
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- plastic limit analysis
+- lines of thrust
+dependencies: []
+complexity: low
+relevance: The plastic theory of masonry used to assess arches and vaults; relevant to engineers working
+  on existing buildings and to the form-finding queue. Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

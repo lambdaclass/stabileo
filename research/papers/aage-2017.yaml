@@ -1,0 +1,33 @@
+order: 21
+id: aage-2017
+doi: 10.1038/nature23911
+crossref:
+  title: Giga-voxel computational morphogenesis for structural design
+  authors:
+  - Niels Aage
+  - Erik Andreassen
+  - Boyan S. Lazarov
+  - Ole Sigmund
+  year: 2017
+  venue: Nature
+area: optimization
+keywords:
+- topology optimization
+- large-scale computing
+- aircraft wing
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- topology optimization
+- parallel multigrid
+dependencies: []
+complexity: high
+relevance: Landmark large-scale topology optimization; context for the topology-optimization queue rather
+  than something to run in a browser. Crossref has no abstract, so no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

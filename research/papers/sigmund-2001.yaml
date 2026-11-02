@@ -1,0 +1,28 @@
+order: 40
+id: sigmund-2001
+doi: 10.1007/s001580050176
+crossref:
+  title: A 99 line topology optimization code written in Matlab
+  authors:
+  - O. Sigmund
+  year: 2001
+  venue: Structural and Multidisciplinary Optimization
+area: optimization
+keywords: &id001
+- topology optimization
+- compliance
+- educational code
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: medium
+relevance: Would add reusable compliance topology optimization for structural layouts, sharing the queued
+  andreassen-2011 experiment.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

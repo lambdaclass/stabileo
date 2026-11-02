@@ -1,0 +1,27 @@
+order: 34
+id: courant-1943
+doi: 10.1090/s0002-9904-1943-07818-4
+crossref:
+  title: Variational methods for the solution of problems of equilibrium and vibrations
+  authors:
+  - R. Courant
+  year: 1943
+  venue: Bulletin of the American Mathematical Society
+area: numerical-methods
+keywords: &id001
+- variational methods
+- equilibrium
+- vibration
+summary: ''
+summary_source: null
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Provides variational energy checks for Stabileo's linear stiffness and modal eigenvalue calculations.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

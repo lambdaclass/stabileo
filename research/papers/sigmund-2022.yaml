@@ -1,0 +1,28 @@
+order: 2
+id: sigmund-2022
+doi: 10.1007/s00158-022-03427-2
+crossref:
+  title: On benchmarking and good scientific practise in topology optimization
+  authors:
+  - Ole Sigmund
+  year: 2022
+  venue: Structural and Multidisciplinary Optimization
+area: optimization
+keywords:
+- topology optimization
+- benchmarking
+- scientific practice
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- benchmarking methodology
+dependencies: []
+complexity: low
+relevance: Methodological guide for how Stabileo Research reports comparisons.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

@@ -1,0 +1,29 @@
+order: 42
+id: bathe-dvorkin-1985
+doi: 10.1002/nme.1620210213
+crossref:
+  title: A four‐node plate bending element based on Mindlin/Reissner plate theory and a mixed interpolation
+  authors:
+  - Klaus‐Jürgen Bathe
+  - Eduardo N. Dvorkin
+  year: 1985
+  venue: International Journal for Numerical Methods in Engineering
+area: shells
+keywords: &id001
+- MITC4
+- plate bending
+- mixed interpolation
+summary: Derives a four-node linear elastic plate bending element as a special case of a general shell
+  formulation and uses example solutions to assess its predictions.
+summary_source: crossref-abstract
+code: []
+data: []
+methods: *id001
+dependencies: []
+complexity: low
+relevance: Exercises Stabileo's MITC4 plate bending formulation across thin and thick plates.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []

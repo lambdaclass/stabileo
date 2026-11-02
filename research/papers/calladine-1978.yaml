@@ -1,0 +1,33 @@
+order: 12
+id: calladine-1978
+doi: 10.1016/0020-7683(78)90052-5
+crossref:
+  title: Buckminster Fuller's “Tensegrity” structures and Clerk Maxwell's rules for the construction of
+    stiff frames
+  authors:
+  - C.R. Calladine
+  year: 1978
+  venue: International Journal of Solids and Structures
+area: metamaterials
+keywords:
+- tensegrity
+- Maxwell's rule
+- states of self-stress
+- mechanisms
+summary: ''
+summary_source: null
+code: []
+data: []
+methods:
+- equilibrium and compatibility matrices
+- self-stress and mechanism counting
+dependencies: []
+complexity: low
+relevance: Extends Maxwell's rule with states of self-stress and mechanisms; checkable with Stabileo's
+  truss solver (prestressed tensegrity, rank of the equilibrium matrix). Crossref has no abstract, so
+  no summary.
+status: proposed
+reproduced_published_results: false
+benchmarks: []
+implementation: null
+contacts: []
