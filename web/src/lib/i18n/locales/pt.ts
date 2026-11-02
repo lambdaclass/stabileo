@@ -69,6 +69,7 @@ const pt: Translations = {
   'account.err.project_limit_reached': 'Você atingiu o máximo de projetos na nuvem. Apague algum para salvar outro.',
   'account.err.project_changed': 'Este projeto mudou em outro computador desde que você o abriu. Abra-o de novo ou salve-o como um projeto novo.',
   'account.err.rate_limited': 'Muitas solicitações em pouco tempo. Espere um minuto e tente de novo.',
+  'account.err.project_deleted': 'Este projeto foi apagado antes de o salvamento começar, então nada foi salvo. Use “Salvar como novo” para manter o modelo.',
   'account.err.terms_changed': 'Os termos mudaram desde que esta página carregou. Recarregue-a para ler os vigentes.',
   'account.err.account_changed': 'Você entrou com outra conta antes de isto terminar, então não foi feito.',
   'account.err.document_changed': 'Esta aba abriu outro documento antes de o salvamento começar, então nada foi salvo. Salve de novo.',

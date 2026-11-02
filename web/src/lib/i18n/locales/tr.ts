@@ -14129,6 +14129,7 @@ const tr: Translations = {
   "account.err.project_limit_reached": "Bulut projelerinin azami sayısına ulaştınız. Yeni bir proje kaydetmek için birini silin.",
   "account.err.project_changed": "Bu proje, siz açtıktan sonra başka bir bilgisayarda değiştirildi. Yeniden açın veya yeni bir proje olarak kaydedin.",
   "account.err.rate_limited": "Kısa sürede çok fazla istek. Bir dakika bekleyip yeniden deneyin.",
+  "account.err.project_deleted": "Bu proje kaydetme başlamadan önce silindi, bu yüzden hiçbir şey kaydedilmedi. Modeli korumak için “Yeni olarak kaydet”i kullanın.",
   "account.err.terms_changed": "Bu sayfa yüklendiğinden beri koşullar değişti. Geçerli olanları okumak için sayfayı yeniden yükleyin.",
   "account.err.account_changed": "Bu işlem bitmeden başka bir hesapla oturum açtınız, bu yüzden yapılmadı.",
   "account.err.document_changed": "Bu sekme kaydetme başlamadan önce başka bir belge açtı, bu yüzden hiçbir şey kaydedilmedi. Yeniden kaydedin.",

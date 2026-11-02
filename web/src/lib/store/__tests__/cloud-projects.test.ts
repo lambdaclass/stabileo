@@ -364,6 +364,21 @@ describe('cloud projects', () => {
     expect(cloudProjects.total).toBe(1);
   });
 
+  it('a save asked for after a delete of its project is refused, instead of creating the deleted model again', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('z1', 'Frame', 1) }));
+    await cloudProjects.saveCurrent({ asNew: true });
+    replies.set('DELETE /api/v1/projects/z1', async () => {
+      await new Promise((done) => setTimeout(done, 20));
+      return new Response(null, { status: 204 });
+    });
+    const removal = cloudProjects.remove('z1');
+    const save = cloudProjects.saveCurrent().catch((e) => e);
+    await removal;
+    expect((await save).code).toBe('project_deleted');
+    expect(seen.filter((r) => r.method === 'POST')).toHaveLength(1);
+    expect(seen.filter((r) => r.method === 'PUT')).toHaveLength(0);
+  });
+
   it('two tabs holding the same project each keep the revision they last saw', async () => {
     if (!tabManager.activeTabId) tabManager.init();
     const first = tabManager.activeTabId!;

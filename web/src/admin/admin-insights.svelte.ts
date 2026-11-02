@@ -46,8 +46,10 @@ export const adminAudit = createListStore((p) => adminApi.listAuditLog(p));
 const feedbackList = createListStore<AdminFeedback>((p) => adminApi.listFeedback(p));
 
 export const adminFeedback = Object.assign(feedbackList, {
+  /** Reloads the page after the change, so a comment leaves a filter it no longer matches and the total follows. */
   async setStatus(id: string, status: FeedbackStatus): Promise<void> {
     const updated = await adminAuth.call(() => adminApi.setFeedbackStatus(id, status));
     feedbackList.replace(updated);
+    await feedbackList.load();
   },
 });

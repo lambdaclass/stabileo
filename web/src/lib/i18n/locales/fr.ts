@@ -14129,6 +14129,7 @@ const fr: Translations = {
   "account.err.project_limit_reached": "Vous avez atteint le nombre maximal de projets dans le cloud. Supprimez-en un pour en enregistrer un autre.",
   "account.err.project_changed": "Ce projet a été modifié sur un autre ordinateur depuis que vous l’avez ouvert. Ouvrez-le à nouveau ou enregistrez-le comme un nouveau projet.",
   "account.err.rate_limited": "Trop de requêtes en peu de temps. Attendez une minute et réessayez.",
+  "account.err.project_deleted": "Ce projet a été supprimé avant que l’enregistrement ne commence, donc rien n’a été enregistré. Utilisez « Enregistrer comme nouveau » pour garder le modèle.",
   "account.err.terms_changed": "Les conditions ont changé depuis le chargement de cette page. Rechargez-la pour lire celles en vigueur.",
   "account.err.account_changed": "Vous vous êtes connecté avec un autre compte avant la fin, donc rien n’a été fait.",
   "account.err.document_changed": "Cet onglet a ouvert un autre document avant que l’enregistrement ne commence, donc rien n’a été enregistré. Enregistrez à nouveau.",

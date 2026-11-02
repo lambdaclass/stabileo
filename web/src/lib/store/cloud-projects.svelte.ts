@@ -77,7 +77,7 @@ function queued<T>(run: () => Promise<T>): Promise<T> {
 function request() {
   sameOwner();
   const tab = tabKey();
-  return { who: owner, tab, generation: cloudLinks.generation(tab), edit: modelStore.modelVersion, ...snapshot() };
+  return { who: owner, tab, generation: cloudLinks.generation(tab), linked: cloudLinks.get(tab), edit: modelStore.modelVersion, ...snapshot() };
 }
 
 type SaveRequest = ReturnType<typeof request>;
@@ -92,6 +92,7 @@ async function saveNow(r: SaveRequest, asNew: boolean): Promise<CloudProject> {
   try {
     stillValid(r);
     const id = asNew ? null : cloudLinks.get(r.tab);
+    if (!asNew && r.linked && id !== r.linked) throw new ApiError(404, 'project_deleted', 'the project was deleted before it could be saved');
     const revision = cloudLinks.revision(r.tab);
     const name = id ? cloudLinks.name(r.tab, r.meta.name) : r.meta.name;
     const body = { ...r.meta, name, content: await gzipBase64(r.text) };

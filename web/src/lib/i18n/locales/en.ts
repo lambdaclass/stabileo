@@ -69,6 +69,7 @@ const en: Record<string, string> = {
   'account.err.project_limit_reached': 'You have reached the maximum number of cloud projects. Delete one to save another.',
   'account.err.project_changed': 'This project changed on another computer since you opened it. Open it again or save it as a new project.',
   'account.err.rate_limited': 'Too many requests in a short time. Wait a minute and try again.',
+  'account.err.project_deleted': 'This project was deleted before the save could start, so nothing was saved. Use “Save as new” to keep the model.',
   'account.err.terms_changed': 'The terms changed since this page loaded. Reload the page to read the ones in force.',
   'account.err.account_changed': 'You signed in with another account before this finished, so it was not done.',
   'account.err.document_changed': 'This tab opened another document before the save could start, so nothing was saved. Save again.',

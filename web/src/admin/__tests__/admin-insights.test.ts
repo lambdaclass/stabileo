@@ -83,14 +83,19 @@ describe('admin metrics and lists', () => {
     expect(adminAudit.rows.map((r) => r.id)).toEqual(['x']);
   });
 
-  it('changes a feedback status and updates the row in place', async () => {
+  it('changes a feedback status, and the comment leaves the unread filter with the total following', async () => {
     const { adminFeedback } = await signedIn();
-    on('GET /insights/feedback?limit=50&offset=0&status=new', () => json(200, { data: [{ id: 'f1', status: 'new' }], meta: { total: 1, limit: 50, offset: 0 } }));
+    on(
+      'GET /insights/feedback?limit=50&offset=0&status=new',
+      () => json(200, { data: [{ id: 'f1', status: 'new' }, { id: 'f2', status: 'new' }], meta: { total: 2, limit: 50, offset: 0 } }),
+      () => json(200, { data: [{ id: 'f2', status: 'new' }], meta: { total: 1, limit: 50, offset: 0 } }),
+    );
     on('PUT /insights/feedback/f1', () => json(200, { data: { id: 'f1', status: 'done' } }));
     await adminFeedback.load({ status: 'new' });
     await adminFeedback.setStatus('f1', 'done');
-    expect(seen.at(-1)!.body).toEqual({ status: 'done' });
-    expect(adminFeedback.rows[0].status).toBe('done');
+    expect(seen.find((r) => r.route === 'PUT /insights/feedback/f1')!.body).toEqual({ status: 'done' });
+    expect(adminFeedback.rows.map((r) => r.id)).toEqual(['f2']);
+    expect(adminFeedback.total).toBe(1);
   });
 
   it('sets one flag at a time, sending only that flag', async () => {

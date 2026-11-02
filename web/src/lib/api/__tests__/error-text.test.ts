@@ -18,7 +18,7 @@ describe('product error text', () => {
   });
 
   it('translates rate limits, changed terms and refused queued work in every offered language', () => {
-    for (const code of ['rate_limited', 'terms_changed', 'account_changed', 'document_changed']) {
+    for (const code of ['rate_limited', 'terms_changed', 'account_changed', 'document_changed', 'project_deleted']) {
       const e = new ApiError(code === 'rate_limited' ? 429 : 409, code, 'server words');
       for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
         setLocale(locale);

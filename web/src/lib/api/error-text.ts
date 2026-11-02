@@ -16,6 +16,7 @@ const KNOWN_CODES = new Set([
   'account_changed',
   'document_changed',
   'terms_changed',
+  'project_deleted',
 ]);
 
 export function errorText(e: unknown): string {
