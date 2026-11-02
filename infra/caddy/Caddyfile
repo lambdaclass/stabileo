@@ -53,7 +53,18 @@ import /etc/caddy/sites.d/*.caddy
 		not file {path}/index.html
 		file {english_twin}/index.html
 	}
-	redir @notInThisLanguage {english_twin}/ 301
+	redir @notInThisLanguage {english_twin}/{?query} 301
+
+	map {path} {unprefixed} {
+		~^/(?:en|es|pt|de|fr|tr)(?:/|$) ""
+		~^(/[^.]*[^./])/?$ "${1}"
+		default ""
+	}
+	@unprefixed {
+		not vars {unprefixed} ""
+		file /en{unprefixed}/index.html
+	}
+	redir @unprefixed /en{unprefixed}/{?query} 301
 
 	@static path_regexp \.
 	handle @static {
