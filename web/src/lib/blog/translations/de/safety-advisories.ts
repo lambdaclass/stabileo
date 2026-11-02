@@ -55,6 +55,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-029",
+          "3D: CIRSOC-201-Stützen in der App wurden mit Mz über die Querschnittshöhe bemessen (bis zu 36 % zu wenig Bewehrung); die zertifizierten 3D-Nachweise des Rechenkerns lasen die Querkraft Vy als Stegquerkraft",
+          "Kritisch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",
