@@ -59,11 +59,13 @@ defmodule StabileoAuth.Controllers.GoogleControllerTest do
     assert conn.status == 302
     [location] = get_resp_header(conn, "location")
     assert location =~ "https://accounts.google.test/"
+    assert location =~ "client_id=test-google-app-client-id"
     assert get_session(conn, :user_oauth_session_params) == %{state: "stub-state"}
   end
 
-  test "GET /google says unavailable when Google is not configured" do
-    put_env(:google_oauth, client_id: "", client_secret: "")
+  test "GET /google says unavailable without the product's own Google client" do
+    oauth = Application.get_env(:stabileo_auth, :google_oauth)
+    put_env(:google_oauth, Keyword.merge(oauth, app_client_id: "", app_client_secret: ""))
 
     assert %{"error" => "oauth_unavailable"} = redirect_query(get_with_session("/google", %{}))
   end

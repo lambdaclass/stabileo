@@ -202,6 +202,8 @@ jobs:
           ADMIN_FRONTEND_URL: ${{ vars.ADMIN_FRONTEND_URL }}
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_APP_CLIENT_ID: ${{ vars.GOOGLE_APP_CLIENT_ID }}
+          GOOGLE_APP_CLIENT_SECRET: ${{ secrets.GOOGLE_APP_CLIENT_SECRET }}
           PORT: ${{ vars.PORT }}
           BIND_ADDRESS: ${{ vars.BIND_ADDRESS }}
           POOL_SIZE: ${{ vars.POOL_SIZE }}

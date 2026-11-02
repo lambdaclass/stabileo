@@ -33,6 +33,8 @@ config :stabileo_auth,
 config :stabileo_auth, :google_oauth,
   client_id: "test-google-client-id",
   client_secret: "test-google-client-secret",
+  app_client_id: "test-google-app-client-id",
+  app_client_secret: "test-google-app-client-secret",
   redirect_uri: "http://localhost:4102/api/v1/admin/auth/google/callback",
   app_redirect_uri: "http://localhost:4000/api/v1/auth/google/callback"
 

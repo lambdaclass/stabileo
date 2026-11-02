@@ -90,8 +90,10 @@ database `stabileo` and `DEPLOY_ENV=prod`.
 | `TRUSTED_PROXIES` | variable | `127.0.0.1` (Caddy's `X-Forwarded-For` is believed) |
 | `DEPLOY_ENV` | variable | `staging` or `prod` |
 | `VITE_ACCOUNTS` | variable | `1` compiles the account UI in; login itself is switched on from the admin site's Settings |
-| `GOOGLE_CLIENT_ID` | variable | OAuth client (Web application) with two redirect URIs: `https://admin.staging.stabileo.com/api/v1/admin/auth/google/callback` for the admin site and `https://staging.stabileo.com/api/v1/auth/google/callback` for the product, whose users sign in only with Google. The consent screen must be open to any Google account (External, published); the admin site still admits only `ADMIN_DOMAINS` and its allowlist |
+| `GOOGLE_CLIENT_ID` | variable | The admin site's OAuth client (Web application), redirect URI `https://admin.staging.stabileo.com/api/v1/admin/auth/google/callback` |
 | `GOOGLE_CLIENT_SECRET` | secret | |
+| `GOOGLE_APP_CLIENT_ID` | variable | The product's OAuth client (Web application), its own, for users who sign in only with Google. Redirect URI `https://staging.stabileo.com/api/v1/auth/google/callback`; the consent screen open to any Google account (External, published). Unset, the product's sign-in with Google is unavailable |
+| `GOOGLE_APP_CLIENT_SECRET` | secret | The product client's secret |
 | `APP_URL` | variable | optional; the product's URL, `https://PHX_HOST` when unset. Google returns users to `APP_URL/api/v1/auth/google/callback` |
 | `USER_PASSWORD_LOGIN` | variable | optional; `1` turns email and password sign-up and sign-in back on. Unset, users sign in only with Google |
 | `PORT`, `BIND_ADDRESS`, `POOL_SIZE`, `DATABASE_SSL`, `CORS_ALLOWED_ORIGINS`, `ADMIN_DOMAINS`, `*_TTL` | variable | optional; `backend/config/runtime.exs` is the reference |

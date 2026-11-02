@@ -44,17 +44,22 @@ config :stabileo_auth,
   user_password_login: System.get_env("USER_PASSWORD_LOGIN") == "1",
   app_frontend_url: app_url
 
-google_client_id = System.get_env("GOOGLE_CLIENT_ID", "")
+app_google_client_id = System.get_env("GOOGLE_APP_CLIENT_ID", "")
 
-if google_client_id == "" do
-  config :stabileo_auth, google_strategy: StabileoAuth.DevGoogle, dev_google: true
+if app_google_client_id == "" do
+  config :stabileo_auth, app_google_strategy: StabileoAuth.DevGoogle, dev_google: true
 end
 
 config :stabileo_auth, :google_oauth,
-  client_id: if(google_client_id == "", do: "dev", else: google_client_id),
-  client_secret:
-    if(google_client_id == "", do: "dev", else: System.get_env("GOOGLE_CLIENT_SECRET", "")),
+  client_id: System.get_env("GOOGLE_CLIENT_ID", ""),
+  client_secret: System.get_env("GOOGLE_CLIENT_SECRET", ""),
   redirect_uri: "http://localhost:#{backend_port}/api/v1/admin/auth/google/callback",
+  app_client_id: if(app_google_client_id == "", do: "dev", else: app_google_client_id),
+  app_client_secret:
+    if(app_google_client_id == "",
+      do: "dev",
+      else: System.get_env("GOOGLE_APP_CLIENT_SECRET", "")
+    ),
   app_redirect_uri: "#{app_url}/api/v1/auth/google/callback"
 
 config :logger, :console, format: "[$level] $message\n"

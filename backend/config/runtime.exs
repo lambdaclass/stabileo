@@ -66,6 +66,8 @@ if config_env() == :prod do
   config :stabileo_auth, :google_oauth,
     client_id: StabileoUtils.fetch_env("GOOGLE_CLIENT_ID"),
     client_secret: StabileoUtils.fetch_env("GOOGLE_CLIENT_SECRET"),
+    app_client_id: StabileoUtils.fetch_env("GOOGLE_APP_CLIENT_ID"),
+    app_client_secret: StabileoUtils.fetch_env("GOOGLE_APP_CLIENT_SECRET"),
     redirect_uri:
       StabileoUtils.fetch_env!("API_URL", "The public URL of this backend.") <>
         "/api/v1/admin/auth/google/callback",
