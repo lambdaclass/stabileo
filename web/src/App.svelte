@@ -616,7 +616,7 @@
       publicPage = page;
     } catch (error) {
       console.error('Public navigation failed', error);
-      if (token === publicRevision && token > 1) location.reload();
+      if (token === publicRevision) location.reload();
       return;
     }
     showExperiment = next.kind === 'research' || next.kind === 'tools';

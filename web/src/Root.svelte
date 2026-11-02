@@ -30,7 +30,7 @@
   let current = $state(routeKind());
   /** Once loaded, the application owns the page. */
   let app = $state<typeof import('./App.svelte').default | null>(null);
-  let loading: Promise<void> | null = null;
+  let loading: Promise<typeof import('./App.svelte').default> | null = null;
 
   let pages = $state<Partial<Record<'research' | 'tools' | 'paper' | 'blog' | 'landing', import('svelte').Component<{ path: string }>>>>({});
   let revision = 0;
@@ -39,13 +39,7 @@
 
   function loadApp() {
     // A lazily loaded language must be registered before the application's modules run: some name things as they load.
-    loading ??= ensureLocale(i18n.locale).then(() => import('./load-app').then(m => m.loadApplication())).then(async (m) => {
-      app = m.default;
-      // Tell main.ts the application is up: it installs the browser-test hooks then (in an
-      // e2e build only), so that "the hooks are there" still means "the application is up".
-      await tick();
-      window.dispatchEvent(new CustomEvent('stabileo-app-ready'));
-    });
+    loading ??= ensureLocale(i18n.locale).then(() => import('./load-app').then(m => m.loadApplication())).then((m) => m.default);
     return loading;
   }
 
@@ -54,7 +48,15 @@
     const next = routeKind();
     const hash = location.hash;
     try {
-      if (next.kind === 'app') { await loadApp(); return; }
+      if (next.kind === 'app') {
+        const loaded = await loadApp();
+        if (token !== revision) return;
+        app = loaded;
+        // main.ts installs the e2e hooks on this event, so "the hooks are there" still means "the application is up".
+        await tick();
+        window.dispatchEvent(new CustomEvent('stabileo-app-ready'));
+        return;
+      }
       const [page] = await Promise.all([loadPublicPage(location.href), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
       if (token !== revision) return;
       if (page && (next.kind === 'research' || next.kind === 'tools' || next.kind === 'paper' || next.kind === 'blog' || next.kind === 'landing')) pages[next.kind] = page;
