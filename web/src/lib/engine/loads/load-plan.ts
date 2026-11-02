@@ -761,7 +761,8 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
     tributaryWidth: input.tributaryWidth,
   });
   derivation.push(...layout.notes);
-  if (input.roof?.deadFromFloors && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.every((q) => layout.roofQuads.has(q.quadId))) {
+  // A flat roof deck may well carry the floors' screed and tiles; a roof on rafters or trusses may not.
+  if (input.roof?.deadFromFloors && ![...layout.areaOf.values()].some((a) => a > 0) && layout.shellQuads.length === 0 && !layout.panels.some((p) => p.roof)) {
     return { ...empty, blockedKeys: [msg('loadPlan.blocked.roofDeadWithoutFloors')] };
   }
   /*
