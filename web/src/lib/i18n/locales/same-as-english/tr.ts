@@ -237,6 +237,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'plan.slab.col.panel',
   'plan.steel.planView',
   'pointMasses.izz',
+  'post.part.model',
   'pro.adv.pdelta',
   'pro.cementN',
   'pro.comboSubStrength',

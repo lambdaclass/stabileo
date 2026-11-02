@@ -38,6 +38,8 @@
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
+  import StoreyScopeBar from './components/pro/StoreyScopeBar.svelte';
+  import ProLinkedLayer from './components/pro/ProLinkedLayer.svelte';
   import ProSaveStatus from './components/pro/ProSaveStatus.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
   import {
@@ -1951,6 +1953,7 @@
           <Viewport3D />
         {/if}
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro'}<StoreyScopeBar /><ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--

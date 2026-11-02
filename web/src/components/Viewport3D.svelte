@@ -23,10 +23,7 @@
   import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
-  import { buildLinkedReference, swapLinked } from '../lib/three/linked-3d';
-  import { linkedGeometry } from '../lib/store/linked-geometry';
-  import { federation } from '../lib/store/federation.svelte';
-  import StoreyScopeBar from './viewport/StoreyScopeBar.svelte';
+  import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
   import SplitView3D from './viewport/SplitView3D.svelte';
   import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
   import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
@@ -748,6 +745,7 @@
     const ro = new ResizeObserver(() => { if (buildTimelapse.active) applyTimelapseSize(); else handleResize(); invalidate(); });
     ro.observe(container);
     handleResize();
+    sceneHost.attach({ scene, redraw: () => { toneDirty = true; invalidate(); } });
 
     // Initialize sync contexts (must be after parent groups are created)
     initSyncContexts();
@@ -1230,6 +1228,7 @@
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      sceneHost.attach(null);
       ghost?.dispose(); ghost = null; ghostFragment = null;
       previewGhost?.dispose(); previewGhost = null; previewFragment = null;
       initialized = false;
@@ -1345,7 +1344,7 @@
     toneObject(loadsParent, s('loads'));
     for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
     toneObject(underlaysGroup, s('underlays'));
-    toneObject(linkedGroup, s('linked'));
+    for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
   }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
@@ -1956,25 +1955,6 @@
     underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
     toneDirty = true;
     invalidate();
-  });
-
-  // The linked models of other disciplines, in 3D, as a reference (PRO).
-  let linkedGroup: THREE.Group | null = null;
-  $effect(() => {
-    const links = uiStore.analysisMode === 'pro' ? federation().links.filter((l) => l.visible && l.reference) : [];
-    const hashes = links.map((l) => l.reference!.hash);
-    if (!scene) return;
-    let stale = false;
-    void Promise.all(hashes.map((h) => linkedGeometry(h))).then((refs) => {
-      if (stale || !scene) return;
-      const got = refs.filter((r): r is NonNullable<typeof r> => !!r);
-      let next: THREE.Group | null = null;
-      if (got.length) { next = new THREE.Group(); next.name = 'linkedModels'; for (const r of got) next.add(buildLinkedReference(r)); }
-      linkedGroup = swapLinked(scene, linkedGroup, next);
-      toneDirty = true;
-      invalidate();
-    });
-    return () => { stale = true; };
   });
 
   // The use zones over their floors, coloured by use, state or intensity (PRO).
@@ -4321,7 +4301,7 @@
   oncontextmenu={handleContextMenu3D}
 >
   {#if uiStore.planView3D}<PlanViewChip />{/if}
-  <StoreyScopeBar />
+
   <!-- The despiece, drawn over the scene in screen space (`canvas/free-body.ts`); only while it is on. -->
   {#if resultsStore.diagramType === 'despiece'}
     <canvas class="fb-overlay" bind:this={fbCanvas} aria-hidden="true"></canvas>
