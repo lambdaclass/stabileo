@@ -12,12 +12,17 @@ first=${REVIEW_FIRST_ENGINE:-$(pick_engine review "$AUTHOR")}; second=$(pick_eng
 pr=$1; max=${2:-150000}; R=$ST/reviews; mkdir -p "$R"
 head=$(gh pr view "$pr" -R lambdaclass/stabileo --json headRefName,headRefOid,title -q '.headRefName+" "+.headRefOid+" "+.title')
 branch=$(echo "$head" | cut -d' ' -f1); want=$(echo "$head" | cut -d' ' -f2); title=$(echo "$head" | cut -d' ' -f3-)
-for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/pull/$pr/head:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
-[ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
+want=${REVIEW_HEAD:-$want}
+if [ -n "${REVIEW_HEAD:-}" ]; then
+  git -C "$REPO" cat-file -e "$want^{commit}" || { echo "review-chunked: pinned head $want is not available" >&2; exit 1; }
+else
+  for i in 1 2 3 4 5 6; do git -C "$REPO" fetch origin main "+refs/pull/$pr/head:refs/rv/pr-$pr" >> "$LOGS/review-fetch.log" 2>&1 && [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr")" = "$want" ] && break; sleep 15; done
+  [ "$(git -C "$REPO" rev-parse "refs/rv/pr-$pr" 2>/dev/null)" = "$want" ] || { echo "review-chunked: could not fetch PR #$pr" >&2; exit 1; }
+fi
 sha=${want:0:10}
 exec 9>"$R/.lock-$pr-$sha"
 flock -n 9 || { echo "review-chunked: a review of #$pr at $sha is already running" >&2; exit 75; }
-range="$(git -C "$REPO" rev-parse origin/main)...$want"
+range="${REVIEW_BASE:-$(git -C "$REPO" rev-parse origin/main)}...$want"
 names=$(mktemp); git -C "$REPO" diff -z --name-only "$range" -- . ':!**/package-lock.json' ':!research/papers.json' ':!web/public/research-wasm/**' ':!web/legacy-projects/**' > "$names" || { rm -f "$names"; echo "review-chunked: git diff failed for #$pr" >&2; exit 1; }
 mapfile -d '' -t files < "$names"; rm -f "$names"
 [ "${#files[@]}" -gt 0 ] || { echo "review-chunked: #$pr has no changes against main" >&2; exit 1; }
