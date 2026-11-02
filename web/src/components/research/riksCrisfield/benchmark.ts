@@ -130,21 +130,26 @@ export function inputFor(c: BenchmarkCase, parameters: RunParameters): ArcInput 
   return input;
 }
 
+function limitBracket(frames: BenchmarkFrame[]): { left: BenchmarkFrame; peak: BenchmarkFrame; right: BenchmarkFrame } | null {
+  for (let i = 1; i + 1 < frames.length; i++) {
+    const left = frames[i - 1], peak = frames[i];
+    if (!left.converged || !peak.converged || !(peak.load > 0) || !(left.load < peak.load) || !(left.displacement < peak.displacement)) continue;
+    let j = i;
+    while (j + 1 < frames.length && frames[j + 1].converged && frames[j + 1].load === peak.load && frames[j].displacement < frames[j + 1].displacement) j++;
+    const right = frames[j + 1];
+    if (right?.converged && right.load < peak.load && frames[j].displacement < right.displacement) return { left, peak, right };
+  }
+  return null;
+}
+
 export function measuredLimitFrame(frames: BenchmarkFrame[]): BenchmarkFrame | null {
-  const firstLimit = frames.findIndex((frame, index) => index > 0 && index + 1 < frames.length
-    && frames[index - 1].converged && frame.converged && frames[index + 1].converged
-    && frame.load > 0 && frames[index - 1].load < frame.load && frames[index + 1].load < frame.load
-    && frames[index - 1].displacement < frame.displacement && frame.displacement < frames[index + 1].displacement);
-  return firstLimit >= 0
-    ? frames[firstLimit]
-    : null;
+  return limitBracket(frames)?.peak ?? null;
 }
 
 export function interpolatedLimit(frames: BenchmarkFrame[]): LimitPoint | null {
-  const peak = measuredLimitFrame(frames);
-  if (!peak) return null;
-  const i = frames.indexOf(peak);
-  const left = frames[i - 1], right = frames[i + 1];
+  const bracket = limitBracket(frames);
+  if (!bracket) return null;
+  const { left, peak, right } = bracket;
   const x = peak.displacement, h0 = left.displacement - x, h1 = right.displacement - x;
   const d0 = (left.load - peak.load) / h0, d1 = (right.load - peak.load) / h1;
   const a = (d1 - d0) / (h1 - h0), b = d0 - a * h0;

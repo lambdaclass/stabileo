@@ -86,14 +86,16 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   const { mp, vertical: v, span: l, tolerance, yieldTolerance, equilibriumTolerance } = portal;
   const lambda = result.collapseFactor;
   const { moments, reactions } = collapseState(result);
-  const hingeNodes = events(result).flatMap(e => e.hinges.map(x => x.node)).sort((a, b) => a - b);
   const hingesMatch = result.steps.length === portal.events.length && result.steps.every((s, i) => {
     const want = portal.events[i];
     const formed = s.hingesFormed ?? [];
     return formed.length === 1 && formed.every(h => h.elementId === want.elementId && h.end === want.end && Math.sign(h.momentY) === want.momentSign && Math.abs(Math.abs(h.momentY) / mp - 1) <= yieldTolerance)
       && Math.abs(s.loadFactor - want.loadFactor) < tolerance;
   });
+  const hingeNodes = hingesMatch ? events(result).flatMap(e => e.hinges.map(x => x.node)).sort((a, b) => a - b) : [];
   const ends = [...moments.values()].flatMap(m => [m.myStart, m.myEnd]);
+  const supported = Object.values(portal.input.solver.supports).map(x => x.nodeId).sort((a, b) => a - b).join();
+  const reactionsAtSupports = [...reactions.keys()].sort((a, b) => a - b).join() === supported;
   const memberIds = elements.map(e => e.id).sort((a, b) => a - b).join();
   const completeEvents = result.steps.every(step => {
     const forces = step.results.elementForces ?? [];
@@ -108,13 +110,13 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
     return [...running.values()].flat().some(m => !(Math.abs(m) <= mp * (1 + yieldTolerance)));
   });
   const corner = moments.get(1)?.myEnd ?? NaN;
-  const r = residual(result);
+  const r = reactionsAtSupports ? residual(result) : { fx: NaN, fz: NaN, my: NaN };
   return [
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
     { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch },
     { id: 'yield', passed: completeEvents && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) && !yieldedOnTheWay },
-    { id: 'equilibrium', passed: reactions.size === 2 && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
+    { id: 'equilibrium', passed: reactionsAtSupports && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
     { id: 'corner', passed: Math.abs(corner - cornerMoment(lambda)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance },
   ];
 }

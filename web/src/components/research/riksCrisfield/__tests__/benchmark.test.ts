@@ -100,6 +100,9 @@ it('requires a converged reversal for truncated and failed paths', () => {
   expect(compareRun(c, { ...replay, frames: descending })[0].reached).toBe(false);
   expect(measuredLimitFrame(replay.frames.slice(i))).not.toBe(peak);
   const duplicated = [replay.frames[i], { ...replay.frames[i] }, ...replay.frames.slice(i + 1, i + 3)];
+  const plateau = [replay.frames[i - 1], replay.frames[i], { ...replay.frames[i], displacement: (replay.frames[i].displacement + replay.frames[i + 1].displacement) / 2 }, ...replay.frames.slice(i + 1)];
+  expect(measuredLimitFrame(plateau)).toBe(replay.frames[i]);
+  expect(compareRun(c, { ...replay, frames: plateau })[0].reached).toBe(true);
   expect(measuredLimitFrame(duplicated)).toBeNull();
   expect(compareRun(c, { ...replay, frames: duplicated })[0].reached).toBe(false);
   expect(compareRun(c, replay).every(c => c.passed)).toBe(true);
