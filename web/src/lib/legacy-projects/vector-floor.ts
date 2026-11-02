@@ -1,11 +1,11 @@
 /**
  * The comparison of an old project file's results (#718): the snapshot gate's rule
- * (`compare.mjs`), except for a component that statics makes zero: when both values are within
+ * (`compare.mjs`), except for a reaction force component that statics makes zero: when both values are within
  * VECTOR_ATOL (1e-12, a few thousand ε) of the vector it belongs to, they are the same zero.
  * v0.2.0's truss and Warren truss reactions need it (rx 5.7e-14 → 7.1e-14 and −9.2e-14 → −4.3e-14
  * kN beside 35 kN), which against their own peak read as 25 % and 54 % changes. Never used by the
- * snapshot gate, whose builds are bit-for-bit reproducible. Families never mix units and never
- * span two records.
+ * snapshot gate, whose builds are bit-for-bit reproducible. Only reaction forces, the one quantity
+ * the releases need it for; never another node's reaction.
  */
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues } from '../../../scripts/results-snapshot/compare.mjs';
@@ -14,14 +14,7 @@ import type { Values } from './capture-results';
 export const VECTOR_ATOL = 1e-12;
 
 export const UNIT_FAMILIES: Record<string, Record<string, string[]>> = {
-  displacements: { translation: ['ux', 'uy', 'uz'], rotation: ['rx', 'ry', 'rz'] },
-  reactions: { force: ['rx', 'ry', 'rz', 'fx', 'fy', 'fz'], moment: ['mx', 'my', 'mz'] },
-  elementForces: {
-    force: ['nStart', 'nEnd', 'vStart', 'vEnd', 'vyStart', 'vyEnd', 'vzStart', 'vzEnd'],
-    moment: ['mStart', 'mEnd', 'mxStart', 'mxEnd', 'myStart', 'myEnd', 'mzStart', 'mzEnd'],
-  },
-  quadStresses: { stress: ['sigmaXx', 'sigmaYy', 'tauXy', 'vonMises'], moment: ['mx', 'my', 'mxy'], shear: ['qx', 'qy'] },
-  quadNodalStresses: { stress: ['sigmaXx', 'sigmaYy', 'tauXy', 'vonMises'], moment: ['mx', 'my', 'mxy'] },
+  reactions: { force: ['rx', 'ry', 'rz', 'fx', 'fy', 'fz'] },
 };
 
 const FAMILY_OF = new Map(
