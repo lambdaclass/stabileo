@@ -9,7 +9,7 @@
  */
 import { type Mat, generalizedEigen, transpose, matMul, matVec, dot, solve, inverse, column, maxAbs } from './dense';
 import { sdofProps, harmonic, forcedResponse, freeResponse, type SdofProps, type Harmonic } from './sdof';
-import type { DofRef } from './mdof-system';
+import { circularFrequencies, type DofRef } from './mdof-system';
 
 export interface Mode {
   omega: number;
@@ -66,9 +66,10 @@ function offDiagonal(a: Mat): number {
  */
 export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[], ground?: { x: number[]; z: number[] }): ModalSolution {
   const { lambda, phi } = generalizedEigen(K, M);
+  const omegas = circularFrequencies(lambda);
   const Mrx = ground?.x ?? matVec(M, influence(dofs, 'ux')), Mrz = ground?.z ?? matVec(M, influence(dofs, 'uz'));
   const cols: number[][] = [];
-  const modes: Mode[] = lambda.map((lam, i) => {
+  const modes: Mode[] = lambda.map((_, i) => {
     const raw = column(phi, i);
     const big = maxAbs(raw);
     let s = raw.find((v) => Math.abs(v) === big) ?? 1;
@@ -76,7 +77,7 @@ export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[], ground?: { x
     const v = raw.map((x) => x / s);
     cols.push(v);
     const Mg = dot(v, matVec(M, v)), Kg = dot(v, matVec(K, v));
-    const omega = Math.sqrt(Math.max(lam, 0));
+    const omega = omegas[i];
     const lx = dot(v, Mrx), lz = dot(v, Mrz);
     return { omega, f: omega / (2 * Math.PI), T: omega > 0 ? (2 * Math.PI) / omega : Infinity, phi: v, Mg, Kg, gammaX: lx / Mg, gammaZ: lz / Mg, meffX: (lx * lx) / Mg, meffZ: (lz * lz) / Mg };
   });

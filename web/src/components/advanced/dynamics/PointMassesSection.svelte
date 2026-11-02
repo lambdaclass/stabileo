@@ -44,7 +44,7 @@
             <td><input class="pm-in" type="number" min="1" step="1" value={p.nodeId} data-testid={`dyn-pm-node-${i}`}
               onchange={(e) => { const v = Number(e.currentTarget.value); if (Number.isInteger(v) && modelStore.nodes.has(v) && !points.some((q, k) => k !== i && q.nodeId === v)) { error = null; set(i, { nodeId: v }); } else error = t('course.dynamics.ui.points.badNode'); }} /></td>
             <td><input class="pm-in" type="number" min="0" step="0.1" value={p.m} data-testid={`dyn-pm-m-${i}`}
-              onchange={(e) => { const v = Number(e.currentTarget.value.replace(',', '.')); if (Number.isFinite(v) && v >= 0) { error = null; set(i, { m: v }); } else error = t('course.dynamics.ui.points.badValue'); }} /></td>
+              onchange={(e) => { const raw = e.currentTarget.value.trim(); const v = Number(raw.replace(',', '.')); if (raw !== '' && Number.isFinite(v) && v >= 0) { error = null; set(i, { m: v }); } else { error = t('course.dynamics.ui.points.badValue'); e.currentTarget.value = String(p.m); } }} /></td>
             <td><input type="checkbox" checked={p.horizontalOnly === true} title={t('course.dynamics.ui.points.hOnlyTitle')} onchange={(e) => set(i, { horizontalOnly: e.currentTarget.checked })} /></td>
             <td><button class="pm-x" onclick={() => save(points.filter((_, k) => k !== i))} aria-label={t('course.dynamics.ui.points.remove')} title={t('course.dynamics.ui.points.remove')}>×</button></td>
           </tr>

@@ -111,7 +111,8 @@ export function computeGoverning3D(
 
 /**
  * The largest |value| of a diagram along the member: at its ends, either side of each point load,
- * and at every local peak of a k/40 sampling, refined by golden section between its neighbours.
+ * at the ends of and through each span load, and at every local peak of that sampling, refined by
+ * golden section between its neighbours.
  */
 export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces): number {
   const f = (t: number) => Math.abs(computeDiagramValueAt(kind, Math.min(1, Math.max(0, t)), ef));
@@ -119,6 +120,10 @@ export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces)
   for (const p of ef.pointLoads ?? []) {
     const t = p.a / Math.max(ef.length, 1e-12);
     ts.push(Math.max(0, t - 1e-9), Math.min(1, t + 1e-9));
+  }
+  for (const d of [...(ef.distributedLoads ?? []), ...(ef.distributedLoadsX ?? [])]) {
+    const a = d.a / Math.max(ef.length, 1e-12), b = d.b / Math.max(ef.length, 1e-12);
+    for (let k = 0; k <= 8; k++) ts.push(Math.min(1, Math.max(0, a + ((b - a) * k) / 8)));
   }
   ts.sort((a, b) => a - b);
   const v = ts.map(f);

@@ -57,8 +57,9 @@
         Σ P·δ = {fmtQ(work.We, 'moment')}·θ<br />
         λ = {mom(work.Wi)} / {fmtQ(work.We, 'moment')} = {work.lambda.toFixed(3)}
       </div>
-      <p>{tp('course.plastic.mech.vwAgree', { lambda: r.collapseFactor.toFixed(3) })}</p>
-      {#if !(Number.isFinite(work.lambda) && Number.isFinite(r.collapseFactor) && Math.abs(work.lambda - r.collapseFactor) <= 1e-3 * Math.abs(r.collapseFactor))}
+      {#if Number.isFinite(work.lambda) && Number.isFinite(r.collapseFactor) && Math.abs(work.lambda - r.collapseFactor) <= 1e-3 * Math.abs(r.collapseFactor)}
+        <p>{tp('course.plastic.mech.vwAgree', { lambda: r.collapseFactor.toFixed(3) })}</p>
+      {:else}
         <p class="mt-bad" data-testid="plastic-mechanism-vw-differ">{t('course.plastic.mech.vwDiffer')}</p>
       {/if}
     {/if}

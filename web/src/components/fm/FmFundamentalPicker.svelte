@@ -56,7 +56,7 @@
   {:else}
     <p class="ff-note">{tp('course.statics.fm.fund.how', { gh })}</p>
     <FmSketch geometry={r.original} testId="fm-pick-sketch" highlight={fmChoice.error?.nodes ?? []}
-      pick={{ options, picked: fmChoice.draft, onPick: toggle, title: releaseLabel }} />
+      pick={{ options, picked: fmChoice.draft, onPick: toggle, title: (o) => releaseLabel(o, r.original) }} />
     <p class="ff-count" class:ok={chosen === gh} data-testid="fm-fund-count">{tp('course.statics.fm.fund.counter', { n: chosen, gh })}</p>
     {#each groups as grp (grp.g)}
       {@const n = grp.items.filter((o) => fmChoice.draft.includes(o.key)).length}
@@ -65,7 +65,7 @@
         {#each grp.items as o (o.key)}
           <label class="ff-item">
             <input type="checkbox" checked={fmChoice.draft.includes(o.key)} onchange={() => toggle(o.key)} data-testid="fm-rel-{o.key}" />
-            <span>{releaseLabel(o)}</span>
+            <span>{releaseLabel(o, r.original)}</span>
             {#if xOf(o)}<strong class="ff-x">{xOf(o)}</strong>{/if}
           </label>
         {/each}

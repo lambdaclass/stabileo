@@ -66,7 +66,14 @@ export interface SystemOptions {
 }
 
 export class SystemError extends Error {
-  constructor(public code: 'empty' | 'noMass' | 'singular' | 'tooBig', public params: Record<string, number> = {}) { super(code); }
+  constructor(public code: 'empty' | 'noMass' | 'singular' | 'tooBig' | 'indefinite', public params: Record<string, number> = {}) { super(code); }
+}
+
+/** ω = √λ, refusing a λ below zero beyond round-off of the largest: K is then not positive semidefinite, an unstable structure. */
+export function circularFrequencies(lambda: readonly number[]): number[] {
+  const scale = Math.max(0, ...lambda.map(Math.abs));
+  if (lambda.some((l) => l < -1e-9 * scale)) throw new SystemError('indefinite');
+  return lambda.map((l) => Math.sqrt(Math.max(l, 0)));
 }
 
 export const MAX_SYSTEM_DOFS = 90;

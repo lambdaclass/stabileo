@@ -32,9 +32,12 @@ export function redundantText(r: Redundant, g: Geometry): string {
 }
 
 /** One release the reader can choose, in words. */
-export function releaseLabel(o: ReleaseOption): string {
+export function releaseLabel(o: ReleaseOption, g?: Geometry): string {
   const end = o.end === 'J' ? 'j' : 'i';
-  if (o.kind === 'reaction') return t(`fm.x.reaction${o.component}`).replace('{node}', String(o.nodeId));
+  if (o.kind === 'reaction') {
+    const inclined = o.component === 1 && g?.supports.find((s) => s.nodeId === o.nodeId)?.angle !== undefined;
+    return t(inclined ? 'fm.x.reaction1n' : `fm.x.reaction${o.component}`).replace('{node}', String(o.nodeId));
+  }
   if (o.kind === 'spring') return t(`course.statics.x.spring${o.component}`).replace('{node}', String(o.nodeId));
   if (o.kind === 'biela') return t('course.statics.fm.opt.biela').replace('{el}', String(o.elementId));
   const key = o.kind === 'hinge' ? 'course.statics.fm.opt.hinge' : o.count === 2 ? 'course.statics.fm.opt.cutHinged' : 'course.statics.fm.opt.cut';

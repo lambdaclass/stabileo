@@ -22,6 +22,7 @@ export function sdofFromModel(model: ModelData, points: readonly PointMass[], no
   const nF = det.dofNumbering.nFree;
   const frame = det.nodeFrames.find((f) => f.nodeId === nodeId);
   let k: number;
+  let tangent: [number, number] | null = null;
   if (!frame) {
     const at = det.dofNumbering.dofs.find((d) => d.nodeId === nodeId && d.localDof === (dir === 'ux' ? 0 : 1));
     if (!at || !at.isFree) return 'restrained';
@@ -29,13 +30,19 @@ export function sdofFromModel(model: ModelData, points: readonly PointMass[], no
       k = condense(det.Kff, zeros(nF), new Array(nF).fill(0), [at.globalIndex]).K[0][0];
     } catch { return 'mechanism'; }
   } else {
-    const r = inclinedStiffness(det.Kff, nF, det.dofNumbering.dofs.filter((d) => d.nodeId === nodeId && d.isFree && d.localDof < 2), frame.angle, dir);
+    const free = det.dofNumbering.dofs.filter((d) => d.nodeId === nodeId && d.isFree && d.localDof < 2);
+    const r = inclinedStiffness(det.Kff, nF, free, frame.angle, dir);
     if (typeof r === 'string') return r;
     k = r;
+    if (free.length === 1) {
+      const c = Math.cos(frame.angle), sn = Math.sin(frame.angle);
+      tangent = free[0].localDof === 0 ? [c, sn] : [-sn, c];
+    }
   }
   if (!(k > 1e-9)) return 'mechanism';
   const at = points.filter((q) => q.nodeId === nodeId && q.m > 0);
-  const m = at.reduce((sum, q) => sum + (dir === 'uz' && q.horizontalOnly ? 0 : q.m), 0);
+  const mOf = (d: 'ux' | 'uz') => at.reduce((sum, q) => sum + (d === 'uz' && q.horizontalOnly ? 0 : q.m), 0);
+  const m = tangent ? effectiveMass(mOf('ux'), mOf('uz'), tangent, dir) : mOf(dir);
   if (!(m > 0)) return 'noMass';
   return { nodeId, dir, k, delta: 1 / k, m, nFree: nF };
 }
@@ -66,3 +73,13 @@ function inclinedStiffness(Kff: number[][], nF: number, free: Array<{ localDof: 
   }
   return delta > 0 ? 1 / delta : 'mechanism';
 }
+
+/**
+ * The node slides along one line t: the motion read along `dir` is u = t_dir·q, so the mass that,
+ * with k along `dir`, gives the node's frequency is the kinetic energy's (mx·tx² + mz·tz²)/t_dir².
+ */
+function effectiveMass(mx: number, mz: number, t: [number, number], dir: 'ux' | 'uz'): number {
+  const along = dir === 'ux' ? t[0] : t[1];
+  return (mx * t[0] * t[0] + mz * t[1] * t[1]) / (along * along);
+}
+

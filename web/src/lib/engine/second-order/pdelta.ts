@@ -15,6 +15,7 @@ import { solveDense } from '../steps/sway-modes';
 import { assemble, buildSystem, elasticAxial, localDisplacements, memberDofs, type SecondOrderOptions, type SoSystem } from './system';
 import { congruent, matMul, matVec, negativeEigenvalues, norm2, transpose, type Mat } from './dense';
 import { memberStiffness, rotation, type GeomMethod } from './member-matrices';
+import { clampedModesBelow } from './stability-functions';
 
 export interface State {
   /** Every DOF of the model (restrained ones at their prescribed value). */
@@ -81,6 +82,17 @@ export function reducedStiffness(sys: SoSystem, N: Map<number, number>, method: 
   return sys.rigid ? congruent(Kff, sys.rigid.T) : Kff;
 }
 
+/** Buckling modes of the members clamped at their ends below λ·N0: invisible to the nodal K(N). */
+export function clampedCount(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
+  let j0 = 0;
+  for (const m of sys.members) {
+    const n = (N0.get(m.id) ?? 0) * lambda;
+    if (m.truss || !(n < 0) || !(m.EI > 0)) continue;
+    j0 += clampedModesBelow(m.L * Math.sqrt(-n / m.EI), m.hingeI, m.hingeJ);
+  }
+  return j0;
+}
+
 const freeVector = (sys: SoSystem, D: number[]) => sys.free.map((d) => D[d]);
 
 export function iteratePDelta(sys: SoSystem, method: GeomMethod, maxIter = PDELTA_MAX_ITER, tol = PDELTA_TOL): TeachingPDelta {
@@ -102,7 +114,8 @@ export function iteratePDelta(sys: SoSystem, method: GeomMethod, maxIter = PDELT
     if ((nrm === 0 && diff === 0) || (nrm > 1e-20 && change < tol)) { converged = true; break; }
   }
   const last = history[history.length - 1];
-  const stable = !failed && negativeEigenvalues(reducedStiffness(sys, last?.N ?? new Map(), method)) === 0;
+  const lastN = last?.N ?? new Map<number, number>();
+  const stable = !failed && negativeEigenvalues(reducedStiffness(sys, lastN, method)) === 0 && (method !== 'phi' || clampedCount(sys, lastN, 1) === 0);
   return { sys, method, linear, final: state, history, iterations: history.length, converged, stable, failed };
 }
 
@@ -157,10 +170,11 @@ export function toAnalysisResults(sys: SoSystem, input: SolverInput, state: Stat
 }
 
 /** The loads along a member, as the engine lists them with its forces (for the diagrams). */
-export function memberLoadsOf(input: SolverInput, id: number, L: number): Pick<ElementForces, 'qI' | 'qJ' | 'pointLoads' | 'distributedLoads'> {
+export function memberLoadsOf(input: SolverInput, id: number, L: number): Pick<ElementForces, 'qI' | 'qJ' | 'pointLoads' | 'distributedLoads' | 'distributedLoadsX'> {
   let qI = 0, qJ = 0;
   const pointLoads: ElementForces['pointLoads'] = [];
   const distributedLoads: ElementForces['distributedLoads'] = [];
+  const distributedLoadsX: NonNullable<ElementForces['distributedLoadsX']> = [];
   for (const l of input.loads) {
     if (l.type === 'distributed' && l.data.elementId === id) {
       const a = l.data.a ?? 0, b = l.data.b ?? L;
@@ -168,7 +182,9 @@ export function memberLoadsOf(input: SolverInput, id: number, L: number): Pick<E
       if (a < 1e-9 && Math.abs(b - L) < 1e-9) { qI += l.data.qI; qJ += l.data.qJ; }
     } else if (l.type === 'pointOnElement' && l.data.elementId === id) {
       pointLoads.push({ a: l.data.a, p: l.data.p, ...(l.data.px ? { px: l.data.px } : {}), ...(l.data.my ? { my: l.data.my } : {}) });
+    } else if (l.type === 'axialDistributed' && l.data.elementId === id) {
+      distributedLoadsX.push({ qI: l.data.qI, qJ: l.data.qJ, a: l.data.a ?? 0, b: l.data.b ?? L });
     }
   }
-  return { qI, qJ, pointLoads, distributedLoads };
+  return { qI, qJ, pointLoads, distributedLoads, ...(distributedLoadsX.length ? { distributedLoadsX } : {}) };
 }

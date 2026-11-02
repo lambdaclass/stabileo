@@ -209,6 +209,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.empty': 'Çubukları ve mesnetleri olan bir model gerekir.',
   'course.dynamics.mdof.err.noMass': 'Hiçbir serbestlik derecesinin kütlesi yok. Malzemelere yoğunluk verin ya da Dinamik panelinde tekil kütleler ekleyin.',
   'course.dynamics.mdof.err.singular': 'Yapı bir mekanizmadır: rijitlik matrisi tekildir.',
+  'course.dynamics.mdof.err.indefinite': 'Yapı kararsızdır: rijitlik matrisinin negatif özdeğerleri var, bu yüzden gerçek doğal frekansları yoktur.',
   'course.dynamics.mdof.err.tooBig': 'Sistemin {n} serbestlik derecesi var ve bu adım adım çözüm en fazla {max} tanesini açıklar. Çubuk başına daha az parça ya da kayma çerçevesini deneyin.',
   'course.dynamics.mdof.err.noLoad': 'Modelde en az bir yük olmalıdır: başlangıç şekil değiştirmesinin ya da harmonik kuvvetin biçimini verir.',
   'course.dynamics.mdof.err.shear.notFrames': 'Kayma çerçevesi, kafes çubuğu olmayan, çerçeve çubuklarından oluşan bir yapı ister.',

@@ -9,6 +9,7 @@ import type { AnalysisResults, ElementForces, SolverInput, SolverLoad } from '..
 import type { Load } from '../../store/model.svelte';
 import { segmentBounds, splitElementLoads } from '../../model/edit/member-split';
 import { memberLoadsOf } from './pdelta';
+import { computeDiagramValueAt } from '../diagrams';
 
 export interface Piece { id: number; nodeI: number; nodeJ: number; x0: number; x1: number }
 
@@ -90,7 +91,11 @@ export function refineInput(input: SolverInput, n: number): Refined {
   };
 }
 
-/** A solve of the refined model read on the model's members: ends from the end pieces, the original loads. */
+/**
+ * A solve of the refined model read on the model's members: ends from the end pieces, the original loads, and at
+ * the start of each piece the transverse force that the axial force on the bent piece adds, so the moment diagram passes
+ * through every piece's second-order end moments (its shear is then dM/dx, not the end shears).
+ */
 export function collapseResults(r: Refined, original: SolverInput, res: AnalysisResults): AnalysisResults {
   if (r.identity) return res;
   const byId = new Map(res.elementForces.map((f) => [f.elementId, f]));
@@ -100,12 +105,22 @@ export function collapseResults(r: Refined, original: SolverInput, res: Analysis
     if (!first || !last) continue;
     const L = list[list.length - 1].x1;
     const e = original.elements.get(id)!;
-    elementForces.push({
+    const ef: ElementForces = {
       ...first, elementId: id, length: L,
       nEnd: last.nEnd, vEnd: last.vEnd, mEnd: last.mEnd,
       hingeStart: e.hingeStart, hingeEnd: e.hingeEnd,
       ...memberLoadsOf(original, id, L),
+    };
+    list.forEach((piece, k) => {
+      const target = k + 1 < list.length ? byId.get(list[k + 1].id)?.mStart : last.mEnd;
+      if (target === undefined) return;
+      const at = piece.x1 / L;
+      const before = computeDiagramValueAt('moment', at, ef);
+      ef.pointLoads = [...ef.pointLoads, { a: piece.x0, p: 1 }];
+      const unit = computeDiagramValueAt('moment', at, ef) - before;
+      ef.pointLoads[ef.pointLoads.length - 1] = { a: piece.x0, p: (target - before) / unit };
     });
+    elementForces.push(ef);
   }
   elementForces.sort((a, b) => a.elementId - b.elementId);
   return {

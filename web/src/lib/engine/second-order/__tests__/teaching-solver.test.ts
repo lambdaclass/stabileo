@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasm from '../../wasm-solver';
-import type { SolverInput } from '../../types';
+import type { ElementForces, SolverInput } from '../../types';
 import { teachingPDelta, toAnalysisResults } from '../pdelta';
 import { teachingBuckling } from '../buckling';
 import { refineInput, collapseResults } from '../refine';
+import { computeDiagramValueAt } from '../../diagrams';
 import { buildSystem } from '../system';
 import { column, portal, scaleArea, EI } from './fixtures';
 
@@ -158,6 +159,49 @@ describe('iterations', () => {
     const t = teachingPDelta(column('fixed', null, 5, 1.5 * Pcr, 1), { method: 'phi', axialRigid: false });
     if (!t.ok) throw new Error(t.reason.key);
     expect(t.run.converged && t.run.stable).toBe(false);
+  });
+});
+
+describe('a load along a member', () => {
+  it('a cantilever column under its own axial load: N varies by the load along it, as in the engine, and the base carries it all', () => {
+    const L = 5, qa = -6;
+    const input = column('fixed', null, L, 100, 2);
+    input.loads.push({ type: 'axialDistributed', data: { elementId: 1, qI: qa, qJ: qa } });
+    const t = teachingPDelta(input, { method: 'consistent', axialRigid: false });
+    if (!t.ok) throw new Error(t.reason.key);
+    const mine = toAnalysisResults(t.run.sys, input, t.run.final, 'consistent', t.run.final.N).elementForces[0];
+    const eng = wasm.solvePDelta(input).results.elementForces[0];
+    expect(mine.nStart - mine.nEnd).toBeCloseTo(qa * L, 9);
+    for (const key of ['nStart', 'nEnd', 'vStart', 'mStart', 'mEnd'] as const) expect(mine[key]).toBeCloseTo(eng[key], 6);
+    expect(mine.distributedLoadsX).toEqual([{ qI: qa, qJ: qa, a: 0, b: L }]);
+  });
+});
+
+describe('a refined member read back as one', () => {
+  it('a pin-ended column under a side load: the collapsed diagram passes through every piece\'s second-order moment', () => {
+    const L = 5, w = 4;
+    const Pe = (Math.PI ** 2 * EI) / (L * L);
+    const input = column('pinned', 'rollerZ', L, 0.5 * Pe);
+    input.loads.push({ type: 'distributed', data: { elementId: 1, qI: w, qJ: w } });
+    const r = refineInput(input, 8);
+    const eng = wasm.solvePDelta(r.input);
+    const ef = collapseResults(r, input, eng.results).elementForces[0];
+    const pieces = new Map<number, ElementForces>(eng.results.elementForces.map((f: ElementForces) => [f.elementId, f]));
+    for (const piece of r.pieces.get(1)!) expect(computeDiagramValueAt('moment', piece.x0 / L, ef)).toBeCloseTo(pieces.get(piece.id)!.mStart, 6);
+    expect(computeDiagramValueAt('moment', 1, ef)).toBeCloseTo(ef.mEnd, 6);
+    const mid = Math.abs(computeDiagramValueAt('moment', 0.5, ef));
+    expect(mid / ((w * L * L) / 8)).toBeGreaterThan(1.8);
+  });
+});
+
+describe('P-Δ past an internal member mode', () => {
+  it('a fixed-guided column above 4π²EI/L² is not reported stable with φ', () => {
+    const Pcr = (4 * Math.PI ** 2 * EI) / (5 * 5);
+    for (const f of [0.9, 1.2]) {
+      const t = teachingPDelta(column('fixed', 'guided', 5, f * Pcr), { method: 'phi', axialRigid: false });
+      if (!t.ok) throw new Error(t.reason.key);
+      expect(t.run.stable).toBe(f < 1);
+    }
   });
 });
 

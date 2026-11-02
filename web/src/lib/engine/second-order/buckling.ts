@@ -14,10 +14,9 @@ import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import type { SolverInput } from '../types';
 import { buildSystem, type SecondOrderOptions, type SoSystem } from './system';
-import { reducedStiffness, solveState } from './pdelta';
+import { clampedCount, reducedStiffness, solveState } from './pdelta';
 import { generalizedEigen, logDet, matVec, negativeEigenvalues, norm2, type Mat } from './dense';
 import { solveDense } from '../steps/sway-modes';
-import { clampedModesBelow } from './stability-functions';
 import type { GeomMethod } from './member-matrices';
 
 export interface TeachingMode {
@@ -73,16 +72,6 @@ export function linearBuckling(sys: SoSystem, method: 'consistent' | 'string', n
 /** J(λ): how many critical load factors lie below λ. */
 export function criticalCount(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
   return clampedCount(sys, N0, lambda) + negativeEigenvalues(reducedStiffness(sys, scaled(N0, lambda), 'phi'));
-}
-
-function clampedCount(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
-  let j0 = 0;
-  for (const m of sys.members) {
-    const n = (N0.get(m.id) ?? 0) * lambda;
-    if (m.truss || !(n < 0) || !(m.EI > 0)) continue;
-    j0 += clampedModesBelow(m.L * Math.sqrt(-n / m.EI), m.hingeI, m.hingeJ);
-  }
-  return j0;
 }
 
 /** Whether the root at λ is a buckling of the nodes: there K(λ) gains a negative eigenvalue. */

@@ -137,7 +137,7 @@ describe('point masses in Basic reach the engine', () => {
 
 describe('ground excitation with a support in a turned frame', () => {
   for (const angle of [0, 35, 60]) {
-    it(`a horizontal-only point mass on a roller at ${angle}°: it all moves with an X ground motion, none with Z; the SDOF takes the same mass`, () => {
+    it(`a horizontal-only point mass on a roller at ${angle}°: it all moves with an X ground motion, none with Z; the SDOF has the MDOF's frequency`, () => {
       build(() => {
         const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 0);
         modelStore.addElement(a, b);
@@ -157,7 +157,8 @@ describe('ground excitation with a support in a turned frame', () => {
       expect(sol.totalMassZ).toBeCloseTo(along(0, 1), 9);
       const sx = sdofFromModel(modelStore.model, pts, 2, 'ux');
       if (typeof sx === 'string') throw new Error(sx);
-      expect(sx.m).toBe(7);
+      expect(sx.m / (mt / (tx * tx))).toBeCloseTo(1, 12);
+      expect(sx.k / sx.m / sol.modes[0].omega ** 2).toBeCloseTo(1, 9);
     });
   }
 });

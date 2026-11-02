@@ -85,7 +85,7 @@ export function solveLp(p: LpProblem): LpResult {
       for (let r = 0; r < T.length; r++) {
         if (T[r][enter] <= tol) continue;
         const ratio = T[r][width - 1] / T[r][enter];
-        const tie = EPS * Math.max(1, Math.abs(best === Infinity ? ratio : best));
+        const tie = EPS * Math.max(Math.abs(ratio), best === Infinity ? 0 : Math.abs(best));
         if (ratio < best - tie || (Math.abs(ratio - best) <= tie && basis[r] < basis[leave])) { best = ratio; leave = r; }
       }
       if (leave < 0) return 'unbounded';

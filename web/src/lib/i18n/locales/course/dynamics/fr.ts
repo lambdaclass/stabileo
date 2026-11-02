@@ -209,6 +209,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.empty': 'Il faut un modèle avec des barres et des appuis.',
   'course.dynamics.mdof.err.noMass': 'Aucun degré de liberté n\'a de masse. Donnez une masse volumique aux matériaux ou ajoutez des masses ponctuelles dans le panneau Dynamique.',
   'course.dynamics.mdof.err.singular': 'La structure est un mécanisme : sa matrice de raideur est singulière.',
+  'course.dynamics.mdof.err.indefinite': "La structure est instable : sa matrice de raideur a des valeurs propres négatives ; elle n'a donc pas de fréquences propres réelles.",
   'course.dynamics.mdof.err.tooBig': 'Le système compte {n} degrés de liberté et ce pas à pas en explique jusqu\'à {max}. Essayez moins de segments par barre ou le portique de cisaillement.',
   'course.dynamics.mdof.err.noLoad': 'Le modèle a besoin d\'au moins une charge : elle donne la forme de la déformée initiale ou de la force harmonique.',
   'course.dynamics.mdof.err.shear.notFrames': 'Le portique de cisaillement demande une structure en barres de portique, sans barres de treillis.',

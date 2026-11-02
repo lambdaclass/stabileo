@@ -60,7 +60,7 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
   let ust: number[];
   try { ust = solve(K, F); } catch { return { refusal: 'mdof.err.singular' }; }
   let sol: ModalSolution;
-  try { sol = modalSolve(K, M, dofs, sys?.ground); } catch { return { refusal: 'mdof.err.singular' }; }
+  try { sol = modalSolve(K, M, dofs, sys?.ground); } catch (e) { return { refusal: e instanceof SystemError && e.code === 'indefinite' ? 'mdof.err.indefinite' : 'mdof.err.singular' }; }
   if (!(sol.modes[0]?.omega > 0)) return { refusal: 'mdof.err.singular' };
   const Omega = ms.ratio * sol.modes[0].omega;
   const ex: Excitation = ms.excitation === 'free'

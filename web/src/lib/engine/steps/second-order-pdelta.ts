@@ -60,7 +60,7 @@ export function buildPDeltaDoc(ctx: MethodContext, sys: SoSystem, id: string, me
     ],
   });
 
-  const compressed = sys.members.filter((m) => (lin.N.get(m.id) ?? 0) < 0).slice(0, 4);
+  const axial = sys.members.filter((m) => (lin.N.get(m.id) ?? 0) !== 0).slice(0, 4);
   const lead = (() => {
     const v = unknownValues(sys, run.final.D);
     let k = 0;
@@ -71,7 +71,7 @@ export function buildPDeltaDoc(ctx: MethodContext, sys: SoSystem, id: string, me
   const leadDof = (sys.rigid ? sys.rigid.indep : sys.free.map((_, k) => k))[lead];
   const rows: Cell[][] = run.history.map((h) => [
     { tex: String(h.k) },
-    ...compressed.map((m) => ({ tex: num(h.N.get(m.id) ?? 0) })),
+    ...axial.map((m) => ({ tex: num(h.N.get(m.id) ?? 0) })),
     { tex: num(h.D[leadDof] ?? 0) },
     { tex: num(h.change, 3) },
   ]);
@@ -80,11 +80,13 @@ export function buildPDeltaDoc(ctx: MethodContext, sys: SoSystem, id: string, me
     blocks: [
       { kind: 'p', text: tx(`${P}.iter.what`) },
       { kind: 'eq', tex: `\\frac{\\lVert \\mathbf{D}^{(k)} - \\mathbf{D}^{(k-1)} \\rVert}{\\lVert \\mathbf{D}^{(k)} \\rVert} < ${num(PDELTA_TOL)}` },
-      { kind: 'table', head: [{ tex: 'k' }, ...compressed.map((m) => ({ tex: `N_{${m.name.replace('–', '')}}^{(k-1)}` })), { tex: leadLabel }, { tex: '\\lVert\\Delta\\mathbf{D}\\rVert / \\lVert\\mathbf{D}\\rVert' }], rows, caption: tx(`${P}.iter.caption`) },
+      { kind: 'table', head: [{ tex: 'k' }, ...axial.map((m) => ({ tex: `N_{${m.name.replace('–', '')}}^{(k-1)}` })), { tex: leadLabel }, { tex: '\\lVert\\Delta\\mathbf{D}\\rVert / \\lVert\\mathbf{D}\\rVert' }], rows, caption: tx(`${P}.iter.caption`) },
       { kind: 'note', tone: run.converged && run.stable ? 'ok' : 'warn', text: run.converged && run.stable ? tx(`${P}.iter.converged`, { k: run.iterations }) : tx(`${P}.iter.notConverged`) },
       { kind: 'p', text: tx(`${P}.iter.why.${method}`), detail: true },
     ],
   });
+
+  if (!run.converged || !run.stable) return { method: id, title: tx(`steps.m.${id}.title`), subtitle: tx(`${P}.subtitle.${method}`), intro: introBlocks(sys, id), steps };
 
   const ends = memberEndForces(sys, run.final, method, run.final.N);
   const linEnds = memberEndForces(sys, lin, 'none', new Map());

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { generalizedEigen, matMul, transpose } from '../dense';
 import { modalSolve, modalResponse, directIntegration, modalDampingMatrix } from '../modal-decomposition';
 import { condense, consistentFrameMass } from '../mass-model';
-import type { DofRef } from '../mdof-system';
+import { SystemError, circularFrequencies, type DofRef } from '../mdof-system';
 
 const dofs2: DofRef[] = [{ nodeId: 1, dir: 'ux' }, { nodeId: 2, dir: 'ux' }];
 
@@ -99,3 +99,14 @@ describe('static (Guyan) condensation', () => {
     expect(check[0][0]).toBeCloseTo(c.M[0][0], 12);
   });
 });
+
+describe('a stiffness that is not positive semidefinite', () => {
+  it('refuses a materially negative eigenvalue, and takes a round-off one as zero', () => {
+    const dofs: DofRef[] = [{ nodeId: 1, dir: 'ux' }, { nodeId: 2, dir: 'ux' }];
+    const I = [[1, 0], [0, 1]];
+    expect(() => modalSolve([[-1, 0], [0, 4]], I, dofs)).toThrow(SystemError);
+    try { modalSolve([[-1, 0], [0, 4]], I, dofs); } catch (e) { expect((e as SystemError).code).toBe('indefinite'); }
+    expect(circularFrequencies([-1e-13, 4])).toEqual([0, 2]);
+  });
+});
+

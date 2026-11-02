@@ -91,3 +91,25 @@ describe('the Euler check of a textbook column', () => {
     expect(euler.result).toContain(pcr.toPrecision(4));
   });
 });
+
+describe('P-Δ without compression, and past buckling', () => {
+  it('a tensioned cantilever with a tip load is a second-order problem: P-Δ applies, buckling does not, and tension stiffens it', () => {
+    const input = column('fixed', null, 5, -200, 10);
+    for (const id of ['so-pdelta-phi', 'so-pdelta-kg']) expect(methodById(id)!.applies(ctxOf(input)).ok).toBe(true);
+    for (const id of ['so-buckling-phi', 'so-buckling-kg']) expect(methodById(id)!.applies(ctxOf(input)).ok).toBe(false);
+    const doc = methodById('so-pdelta-kg')!.build!(ctxOf(input));
+    expect(keys(doc)).toContain('course.second-order.doc.results.title');
+    const lin = teachingPDelta(input, { method: 'none', axialRigid: false });
+    const pd = teachingPDelta(input, { method: 'consistent', axialRigid: false });
+    if (!lin.ok || !pd.ok) throw new Error('refused');
+    const tip = pd.run.sys.dof(2, 0);
+    expect(Math.abs(pd.run.final.D[tip])).toBeLessThan(Math.abs(lin.run.linear.D[tip]));
+  });
+
+  it('past the critical load the document stops at the iterations, with no second-order results', () => {
+    const Pcr = (Math.PI ** 2 * EI) / (4 * 25);
+    const doc = methodById('so-pdelta-phi')!.build!(ctxOf(column('fixed', null, 5, 1.5 * Pcr, 1)));
+    expect(keys(doc).at(-1)).toBe('course.second-order.doc.iter.title');
+  });
+});
+

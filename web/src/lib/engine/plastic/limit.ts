@@ -271,28 +271,31 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
   return { M, lambda, ratio: peak.ratio, worst: peak.worst, free: Z.length };
 }
 
-/** The largest |M|/Mp along every frame member, found on a fine grid and refined around its peak. */
+/** The largest |M|/Mp along every frame member: a fine grid through every load boundary, each local peak refined. */
 export function peakRatio(sm: SectionModel, M: number[], lambda: number): { ratio: number; worst: Distribution['worst'] } {
   let ratio = 0;
   let worst: Distribution['worst'] = null;
+  const take = (member: number, t: number, mp: number) => {
+    const v = momentAt(sm, member, t, M, lambda);
+    if (Math.abs(v) / mp > ratio + 1e-12) { ratio = Math.abs(v) / mp; worst = { member, t, M: v, mp }; }
+  };
   for (const [member] of sm.members) {
     const mp = sm.mpOf(member);
-    const ts = new Set(checkPoints(sm, member, 64));
-    for (const t of [...ts]) {
-      const v = momentAt(sm, member, t, M, lambda);
-      if (Math.abs(v) / mp > ratio + 1e-12) { ratio = Math.abs(v) / mp; worst = { member, t, M: v, mp }; }
-    }
-  }
-  if (worst) {
-    const { member, mp } = worst;
-    let lo = Math.max(0, worst.t - 1 / 64), hi = Math.min(1, worst.t + 1 / 64);
+    const ts = checkPoints(sm, member, 64);
     const f = (t: number) => Math.abs(momentAt(sm, member, t, M, lambda));
-    for (let i = 0; i < 60; i++) {
-      const a = lo + (hi - lo) * 0.382, b = lo + (hi - lo) * 0.618;
-      if (f(a) > f(b)) hi = b; else lo = a;
-    }
-    const t = (lo + hi) / 2;
-    if (f(t) / mp > ratio) { ratio = f(t) / mp; worst = { member, t, M: momentAt(sm, member, t, M, lambda), mp }; }
+    const vs = ts.map(f);
+    ts.forEach((t, k) => {
+      take(member, t, mp);
+      if (k === 0 || k === ts.length - 1 || vs[k] < vs[k - 1] || vs[k] < vs[k + 1]) return;
+      for (const [l0, h0] of [[ts[k - 1], t], [t, ts[k + 1]]]) {
+        let lo = l0, hi = h0;
+        for (let i = 0; i < 60; i++) {
+          const a = lo + (hi - lo) * 0.382, b = lo + (hi - lo) * 0.618;
+          if (f(a) > f(b)) hi = b; else lo = a;
+        }
+        take(member, (lo + hi) / 2, mp);
+      }
+    });
   }
   return { ratio, worst };
 }

@@ -25,6 +25,11 @@ describe('a small linear program', () => {
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '<=', b: -1 }] }).status).toBe('infeasible');
     expect(solveLp({ c: [-1], rows: [{ a: [-1], op: '<=', b: 1 }] }).status).toBe('unbounded');
   });
+  it('keeps the smaller ratio when two rows tie within the absolute noise of tiny right-hand sides', () => {
+    const r = solveLp({ c: [-1], rows: [{ a: [1], op: '<=', b: 2e-10 }, { a: [1], op: '<=', b: 1e-10 }] });
+    expect(r.status).toBe('optimal');
+    if (r.status === 'optimal') expect(r.x[0] / 1e-10).toBeCloseTo(1, 9);
+  });
   it('finds the same optimum whatever the scale of the right-hand side or of the costs', () => {
     for (const b of [1e-6, 1, 1e10]) {
       const r = solveLp({ c: [-1], rows: [{ a: [1], op: '<=', b }] });
@@ -162,3 +167,25 @@ describe('the static theorem: distributions and bounds', () => {
     void q;
   });
 });
+
+describe('the peak |M|/Mp of a distribution', () => {
+  it('finds the true peak under a narrow partial load and the competing one under a second load', () => {
+    const w = 10, L = 6;
+    const input = model([[1, 0, 0], [2, L, 0]], [[1, 1, 2]], [[1, 'pinned'], [2, 'rollerX']], [
+      { type: 'distributed', data: { elementId: 1, qI: -w, qJ: -w, a: 2, b: 2.3 } },
+      { type: 'distributed', data: { elementId: 1, qI: -40, qJ: -40, a: 4.47, b: 4.53 } },
+    ]);
+    const lm = limitModel(input, uniformMp);
+    const d = distribution(lm, new Map(), 1)!;
+    const loads = [{ a: 2, b: 2.3, w }, { a: 4.47, b: 4.53, w: 40 }];
+    const R1 = loads.reduce((s, l) => s + l.w * (l.b - l.a) * (L - (l.a + l.b) / 2) / L, 0);
+    const Mx = (x: number) => R1 * x - loads.reduce((s, l) => {
+      const e = Math.min(Math.max(x - l.a, 0), l.b - l.a);
+      return s + l.w * e * (x - l.a - e / 2);
+    }, 0);
+    let best = 0;
+    for (let i = 0; i <= 600000; i++) best = Math.max(best, Math.abs(Mx((L * i) / 600000)));
+    expect(d.ratio / (best / MP)).toBeCloseTo(1, 6);
+  });
+});
+

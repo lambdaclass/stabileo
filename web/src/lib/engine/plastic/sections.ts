@@ -204,6 +204,7 @@ export function checkPoints(sm: SectionModel, member: number, inside = 8): numbe
     const loaded = m.dists.some((d) => d.b > a * m.L + 1e-9 && d.a < b * m.L - 1e-9) || m.points.some((p) => p.x > a * m.L + 1e-9 && p.x < b * m.L - 1e-9);
     if (!loaded) continue;
     for (const p of m.points) if (p.x > a * m.L + 1e-9 && p.x < b * m.L - 1e-9) out.push(p.x / m.L);
+    for (const d of m.dists) for (const x of [d.a, d.b]) if (x > a * m.L + 1e-9 && x < b * m.L - 1e-9) out.push(x / m.L);
     for (let i = 1; i < inside; i++) out.push(a + ((b - a) * i) / inside);
   }
   return [...new Set(out)].sort((x, y) => x - y);

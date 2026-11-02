@@ -111,6 +111,17 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built
     }
     memberLoads.set(m.id, p);
   }
+  for (const l of input.loads) {
+    if (l.type !== 'axialDistributed') continue;
+    const m = members.find((x) => x.id === l.data.elementId);
+    if (!m) continue;
+    const [fI, fJ] = axialEquivalentLoads(l.data.qI, l.data.qJ, l.data.a ?? 0, l.data.b ?? m.L, m.L);
+    const p = memberLoads.get(m.id) ?? new Array(6).fill(0);
+    p[0] += fI; p[3] += fJ;
+    memberLoads.set(m.id, p);
+    F[dof(m.i, 0)] -= fI * m.c; F[dof(m.i, 1)] -= fI * m.s;
+    F[dof(m.j, 0)] -= fJ * m.c; F[dof(m.j, 1)] -= fJ * m.s;
+  }
 
   const sys: SoSystem = { pm, members, dof, nTotal, free: [], prescribed, springs, F, Fnodal: F.slice(), memberLoads, idle: [], axialRigid: opts.axialRigid };
   addEquivalentLoads(sys);

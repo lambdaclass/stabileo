@@ -209,6 +209,7 @@ const words: Translations = {
   'course.dynamics.mdof.err.empty': 'Erforderlich ist ein Modell mit Stäben und Lagern.',
   'course.dynamics.mdof.err.noMass': 'Kein Freiheitsgrad hat Masse. Geben Sie den Werkstoffen eine Dichte oder fügen Sie im Panel Dynamik Punktmassen hinzu.',
   'course.dynamics.mdof.err.singular': 'Das Tragwerk ist kinematisch: Seine Steifigkeitsmatrix ist singulär.',
+  'course.dynamics.mdof.err.indefinite': 'Das Tragwerk ist instabil: Seine Steifigkeitsmatrix hat negative Eigenwerte, daher gibt es keine reellen Eigenfrequenzen.',
   'course.dynamics.mdof.err.tooBig': 'Das System hat {n} Freiheitsgrade, und dieses Schritt für Schritt erklärt bis zu {max}. Versuchen Sie weniger Abschnitte je Stab oder den Schubrahmen.',
   'course.dynamics.mdof.err.noLoad': 'Das Modell braucht mindestens eine Last: Sie gibt die Form der Anfangsauslenkung oder der harmonischen Kraft vor.',
   'course.dynamics.mdof.err.shear.notFrames': 'Der Schubrahmen braucht ein Tragwerk aus Rahmenstäben, ohne Fachwerkstäbe.',
