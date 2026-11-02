@@ -346,6 +346,10 @@ export function snapshotPlugin(s: Snapshot | null, root: string): Plugin[] {
     {
       name: 'stabileo-snapshot-frozen-services',
       enforce: 'pre',
+      transformIndexHtml: {
+        order: 'pre',
+        handler: (html: string) => html.replace(/[ \t]*<script\b[^>]*\bsrc="https:\/\/challenges\.cloudflare\.com\/[^"]*"[^>]*><\/script>\n?/g, ''),
+      },
       async resolveId(source, importer, options) {
         if (!ONLINE_SERVICE_COMPONENTS.some((c) => source.endsWith(c.split('/').at(-1)!))) return null;
         const resolved = await this.resolve(source, importer, { ...options, skipSelf: true });

@@ -231,6 +231,15 @@ it('rewrites iframe URLs before insertion and on subsequent src attribute writes
   expect(iframe.getAttribute('src')).toBe('about:blank');
 });
 
+it('a snapshot page does not load the Turnstile challenge script; the live page does', () => {
+  const html = readFileSync('index.html', 'utf8');
+  expect(html).toContain('https://challenges.cloudflare.com/turnstile/');
+  const plugin = snapshotPlugin(snapshot, resolve('.')).find((p) => p.name === 'stabileo-snapshot-frozen-services')!;
+  const frozen = (plugin.transformIndexHtml as { handler: (html: string) => string }).handler(html);
+  expect(frozen).not.toContain('challenges.cloudflare.com');
+  expect(frozen.replace(/\s+/g, '')).toBe(html.replace(/[ \t]*<script\b[^>]*challenges\.cloudflare\.com[^>]*><\/script>\n?/, '').replace(/\s+/g, ''));
+});
+
 it('loads the snapshot runtime as an external script for the strict CSP', () => {
   const plugin = snapshotPlugin(snapshot, resolve('.'))[0];
   const hook = plugin.transformIndexHtml as { handler: Function };

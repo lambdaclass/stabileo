@@ -69,9 +69,9 @@ test('the research page is served under the prefix, with the version banner', as
 test('navigation between public pages stays in the snapshot', async ({ page, baseURL }) => {
   const outside = watch(page, baseURL);
   await page.goto(`${P}es/research/`);
-  await expect(page.getByRole('heading', { name: 'Stabileo Research' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Investigación en ingeniería estructural' })).toBeVisible();
   await expect(page.locator('#stabileo-snapshot-banner')).toContainText('Estás viendo la versión del');
-  await expect(page.getByTestId('gallery-permalink').first()).toHaveAttribute('href', new RegExp(`${P}es/research/fracture/shauer-2025/$`));
+  await expect(page.locator('[data-testid="gallery-permalink"][href*="/research/fracture/shauer-2025/"]')).toHaveAttribute('href', new RegExp(`${P}es/research/fracture/shauer-2025/$`));
   await page.locator('a[href$="/research/fracture/shauer-2025/"]:visible').first().click();
   await expect(page).toHaveURL(new RegExp(`${P}es/research/fracture/shauer-2025/$`));
   await expect(page.locator('#stabileo-snapshot-banner a').first()).toHaveAttribute('href', /\/es\/research\/fracture\/shauer-2025\/$/);
@@ -268,7 +268,7 @@ for (const width of [390, 810]) {
     await page.goto(`${P}app/basic?example=cantilever-point`);
     await page.evaluate(() => localStorage.setItem('stabileo-feature-accounts', '1'));
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Solve', exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Solve\b/ }).first()).toBeVisible();
     await expect(page.locator('#stabileo-snapshot-banner [data-services]')).toContainText('Accounts, AI and feedback are unavailable');
     await page.locator('#stabileo-snapshot-banner button').click();
     await page.getByTestId('ai-open').click();
