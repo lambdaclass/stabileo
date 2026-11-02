@@ -2174,6 +2174,8 @@ const es: Record<string, string> = {
   'switch2d.noElements': 'Hay nodos a esa distancia, pero ninguna barra que los una: no hay nada para analizar.',
   'switch2d.noOffset': 'Escribí una distancia, o elegí uno de los cortes.',
   'switch2d.allCollapse': 'Todas las barras colapsan o quedan duplicadas en esta proyección. Usá el modo 3D.',
+  'switch2d.constraintsPlane': "Este modelo tiene restricciones que el solver 2D leería con otro significado en este plano: las lee todas como si el pórtico estuviera en X–Z. Cortá por un plano X–Z o resolvé en 3D (problema conocido #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Algunas barras flexionan en este plano alrededor de otro eje de la sección que el que usaría el solver 2D, así que los resultados 2D serían incorrectos (una columna doble T cortada por Y–Z flexiona en 3D alrededor de su eje débil). Resolvé en 3D o cortá por un plano donde las barras flexionen alrededor de su eje fuerte (problema conocido #1238).",
   'switch2d.sliceBanner': 'Corte de un modelo 3D',
   'demo.action.solve': 'Calcular',
   'demo.basics2d.title': 'Primeros pasos',

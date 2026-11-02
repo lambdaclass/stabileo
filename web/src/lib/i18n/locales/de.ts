@@ -2159,6 +2159,8 @@ const de: Translations = {
   'switch2d.noElements': 'In diesem Abstand gibt es Knoten, aber keine Stäbe, die sie verbinden — nichts zu analysieren.',
   'switch2d.noOffset': 'Geben Sie einen Abstand ein oder wählen Sie einen der Schnitte.',
   'switch2d.allCollapse': 'Alle Stäbe fallen in dieser Projektion zusammen oder sind doppelt. Verwenden Sie den 3D-Modus.',
+  'switch2d.constraintsPlane': "Dieses Modell hat Zwangsbedingungen, die der 2D-Löser in dieser Ebene anders deuten würde: Er liest alle, als stünde der Rahmen in X–Z. Schneiden Sie entlang X–Z oder rechnen Sie in 3D (bekanntes Problem #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Einige Stäbe biegen sich in dieser Ebene um eine andere Querschnittsachse, als der 2D-Löser verwenden würde; die 2D-Ergebnisse wären daher falsch (eine entlang Y–Z geschnittene I-Stütze biegt sich in 3D um ihre schwache Achse). Rechnen Sie in 3D oder schneiden Sie eine Ebene, in der sich die Stäbe um ihre starke Achse biegen (bekanntes Problem #1238).",
   'switch2d.sliceBanner': 'Schnitt aus einem 3D-Modell',
   'demo.action.solve': 'Berechnen',
   'demo.basics2d.title': 'Erste Schritte',

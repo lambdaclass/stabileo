@@ -2046,6 +2046,8 @@ const ja: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "This model has constraints that the 2D solver would read with another meaning on this plane: it reads every constraint as if the frame stood in X–Z. Cut along X–Z, or solve in 3D (known issue #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Some members bend in this plane about another section axis than the 2D solver would use, so the 2D results would be wrong (an I column cut along Y–Z bends about its weak axis in 3D). Solve in 3D, or cut a plane where the members bend about their strong axis (known issue #1238).",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'その下にプリセットビュー（平面、正面、側面）、パース/平行投影、断面カット、測定などのツールがあります。',

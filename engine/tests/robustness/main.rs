@@ -34,6 +34,8 @@ mod hostile_sizes;
 mod index_exhaustive;
 #[path = "../input_validation_gates.rs"]
 mod input_validation_gates;
+#[path = "../known_issue_reproductions.rs"]
+mod known_issue_reproductions;
 #[path = "../known_issues.rs"]
 mod known_issues;
 #[path = "../model_sanity.rs"]

@@ -2159,6 +2159,8 @@ const fr: Translations = {
   'switch2d.noElements': 'Il y a des nœuds à cette distance, mais aucune barre ne les relie — rien à analyser.',
   'switch2d.noOffset': 'Saisissez une distance, ou choisissez l\'une des coupes.',
   'switch2d.allCollapse': 'Toutes les barres se superposent ou sont en double dans cette projection. Utilisez le mode 3D.',
+  'switch2d.constraintsPlane': "Ce modèle comporte des liaisons que le solveur 2D lirait autrement dans ce plan : il les lit toutes comme si le portique était dans X–Z. Coupez selon X–Z ou calculez en 3D (problème connu #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Certaines barres fléchissent dans ce plan autour d’un autre axe de la section que celui qu’utiliserait le solveur 2D ; les résultats 2D seraient donc faux (un poteau en I coupé selon Y–Z fléchit en 3D autour de son axe faible). Calculez en 3D ou coupez un plan où les barres fléchissent autour de leur axe fort (problème connu #1238).",
   'switch2d.sliceBanner': 'Coupe d\'un modèle 3D',
   'demo.action.solve': 'Calculer',
   'demo.basics2d.title': 'Premiers pas',

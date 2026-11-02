@@ -7714,6 +7714,8 @@ const pt: Translations = {
   'svc.zeroLength2dButZ': 'A barra {n} tem comprimento zero em 2D mas seus nós diferem em Z ({dz} m). Este é um modelo 3D — mude para Stabileo 3D para analisá-lo.',
   'svc.zeroLengthElement': 'A barra {n} tem comprimento zero (os nós {ni} e {nj} coincidem).',
   'switch2d.allCollapse': 'Todas as barras colapsam ou ficam duplicadas nesta projeção. Use o modo 3D.',
+  'switch2d.constraintsPlane': "Este modelo tem restrições que o solver 2D leria com outro significado neste plano: ele lê todas como se o pórtico estivesse em X–Z. Corte por um plano X–Z ou resolva em 3D (problema conhecido #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Algumas barras fletem neste plano em torno de outro eixo da seção do que o solver 2D usaria, então os resultados 2D estariam errados (um pilar em I cortado por Y–Z flete em 3D em torno do eixo fraco). Resolva em 3D ou corte por um plano em que as barras fletem em torno do eixo forte (problema conhecido #1238).",
   'switch2d.apply': 'Levar para 2D',
   'switch2d.cutsAvailable': 'Cortes disponíveis neste modelo:',
   'switch2d.empty': 'Não há nada a essa distância. Escolha um dos cortes acima.',
