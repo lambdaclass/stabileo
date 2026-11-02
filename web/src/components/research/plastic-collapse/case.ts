@@ -100,7 +100,7 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
     { id: 'collapse', passed: Math.abs(lambda - mechanisms().combined) < tolerance },
     { id: 'mechanism', passed: result.isMechanism && !(result.warnings ?? []).length },
     { id: 'hinges', passed: hingeNodes.join() === '1,3,4,5' && hingesMatch },
-    { id: 'yield', passed: ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) },
+    { id: 'yield', passed: [...moments.keys()].sort((a, b) => a - b).join() === elements.map(e => e.id).sort((a, b) => a - b).join() && ends.length === 2 * elements.length && ends.every(m => Math.abs(m) <= mp * (1 + yieldTolerance)) },
     { id: 'equilibrium', passed: reactions.size === 2 && [r.fx, r.fz, r.my].every(x => Math.abs(x) < equilibriumTolerance) },
     { id: 'corner', passed: Math.abs(corner - cornerMoment(lambda)) < tolerance && Math.abs(3 * mp + corner - lambda * v * l / 2) < tolerance },
   ];

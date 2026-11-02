@@ -69,7 +69,7 @@ Open `/en/research/benchmarks/dadeppo-arch-1975/` (also `/es/`, `/pt/`, `/de/`, 
 ## Open questions
 
 - The rotation sign convention of the 1975 table: the quotation gives 0.0498 without a convention we could check. The engine's `ry` is positive at the limit point and its extrapolated value (0.04987) matches; the test pins that sign, but the mapping is established by agreement, not from the source.
-- Whether the 1975 table's values come from an inextensible formulation or a specific discretization; the converged Stabileo values agree with them to within their rounding, which suggests a converged inextensible solution.
+- Whether the 1975 table's values come from an inextensible formulation or a specific discretization; the extrapolated Stabileo values are close to them, but u/R differs by 0.028% (0.611428 against 0.6116), more than the table's rounding, so this agreement does not establish which formulation or discretization the table used.
 
 The catalogue keeps `stage: first-version` and the conservative evidence status `implementation-in-progress`. Agreement here is a benchmark comparison, not experimental validation or certification.
 

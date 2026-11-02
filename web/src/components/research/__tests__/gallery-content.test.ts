@@ -81,3 +81,17 @@ it('titles the Riks card in the language its article is written in', async () =>
     expect(body).toContain(articleStrings(locale).arcLengthSnapThroughRiksAndCrisfield);
   }
 });
+
+it('names each thumbnail link by its localized card title and keeps the image decorative', async () => {
+  const { cardTitle } = await import('../card-title');
+  for (const locale of ['en', 'es', 'pt']) {
+    setLocale(locale);
+    const { body } = render(Gallery);
+    const thumbs = [...body.matchAll(/<a[^>]*class="rs-g-thumb[^"]*"[^>]*>([\s\S]*?)<\/a>/g)];
+    expect(thumbs).toHaveLength(EXPERIMENTS.length);
+    for (const [link, inner] of thumbs) {
+      expect(EXPERIMENTS.some((e) => link.includes(`aria-label="${cardTitle(e).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`))).toBe(true);
+      for (const [img] of inner.matchAll(/<img[^>]*>/g)) expect(img).toContain('alt=""');
+    }
+  }
+});

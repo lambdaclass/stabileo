@@ -89,7 +89,7 @@
         <li class="rs-g-runcard">
           <ResearchLink to={e.path} class="rs-g-thumb" aria-label={cardTitle(e)}>
             {#if e.thumbnail && !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.paperId === "lee-frame-1968" ? lee.thumbnailAlt : e.paperId === "newmark-1959" ? nm.alt : e.paperId === 'horne-1979' ? plastic.thumbnailAlt : e.thumbnailAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt="" onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}

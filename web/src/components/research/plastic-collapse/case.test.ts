@@ -103,6 +103,8 @@ describe('the recorded replay', () => {
     expect(checks({ ...replay, warnings: ['x'] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
     const moved = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, hingesFormed: [...s.hingesFormed!, ...replay.steps[1].hingesFormed!] } : i === 1 ? { ...s, hingesFormed: [] } : s)) };
     expect(checks(moved).filter(c => !c.passed).map(c => c.id)).toEqual(['hinges']);
+    const unknownMember = { ...replay, steps: replay.steps.map(s => ({ ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 4 ? { ...f, elementId: 9 } : f)) } })) };
+    expect(checks(unknownMember).find(c => c.id === 'yield')!.passed).toBe(false);
     const zeroLoads = { ...replay, steps: replay.steps.map(s => ({ ...s, loadFactor: 0 })) };
     expect(checks(zeroLoads).filter(c => !c.passed).map(c => c.id)).toEqual(['hinges']);
     const reversedCorner = { ...replay, steps: replay.steps.map(s => ({ ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 1 ? { ...f, myEnd: -f.myEnd } : f)) } })) };
