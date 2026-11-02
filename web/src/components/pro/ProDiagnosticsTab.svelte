@@ -8,6 +8,13 @@
   import { reviewModelSanity, sanityDiagnostics } from '../../lib/engine/model-sanity';
   import { diagnosticsWarning } from '../../lib/store/diagnostics-warning.svelte';
   import { plateDiagnostics, zoneDiagnostics } from '../../lib/store/plate-diagnostics';
+  import { postAnalysisLines, partLines, postAnalysisRows, postAnalysisHtml, type PostAnalysisLine } from '../../lib/engine/post-analysis';
+  import { staticsRows } from '../../lib/store/statics-rows';
+  import { instability } from '../../lib/store/instability.svelte';
+  import { verificationStore } from '../../lib/store/verification.svelte';
+  import { verdictApproves, verdictReasons } from '../../lib/store/member-verdict';
+  import { toCsv } from '../../lib/engine/result-tables';
+  import { tp } from '../../lib/i18n';
 
   // Opening Diagnostics is itself an interaction: the user has come to look, so the chip is
   // allowed to speak from here on even if nothing else has happened yet.
@@ -82,6 +89,50 @@
     const objects = is3D ? [...plateDiagnostics(t), ...zoneDiagnostics(t)] : [];
     return [...objects, ...mergeFindings([...autoModelDiags, ...sanityDiags], general, solver, fromGates)];
   });
+
+  /** The report after the analysis: the findings above, then the analysis's own checks and, with the design on, what does not verify. */
+  const postInput = $derived.by(() => {
+    const statics = is3D ? staticsRows() : null;
+    const p = is3D ? resultsStore.pdeltaResult3D : null;
+    const design = uiStore.designInPro && verificationStore.contexts.size > 0 ? (() => {
+      const members: Array<{ elementId: number; status: string; reasons: string[] }> = [];
+      for (const id of verificationStore.contexts.keys()) {
+        const v = verificationStore.memberVerdict(id);
+        if (!verdictApproves(v)) members.push({ elementId: id, status: v.status, reasons: verdictReasons(v, tp as never) });
+      }
+      return { total: verificationStore.contexts.size, members };
+    })() : null;
+    return {
+      statics: statics?.cases ?? null,
+      pdelta: p ? { converged: p.converged, iterations: p.iterations, isStable: p.isStable, b2Factor: p.b2Factor } : null,
+      mechanism: instability.current, design,
+    };
+  });
+  /** What the list below does not already show: the analysis's own checks and the design. */
+  const ownLines = $derived(postAnalysisLines({ ...postInput, diagnostics: [] }, tp as never));
+  const extraAnalysis = $derived(partLines(ownLines, 'analysis'));
+  const designLines = $derived(partLines(ownLines, 'design'));
+  const postLines = (): PostAnalysisLine[] => postAnalysisLines({ ...postInput, diagnostics: allDiagnostics }, tp as never);
+
+  function selectLine(l: PostAnalysisLine) {
+    if (!l.selection) return;
+    uiStore.setSelection(new Set(l.selection.nodes), new Set(l.selection.elements), false, new Set(l.selection.shells));
+    frameSelection();
+  }
+
+  async function exportReport(format: 'csv' | 'pdf' | 'docx') {
+    const name = (modelStore.model.name || 'model').replace(/[^\w.-]+/g, '-');
+    const title = t('post.title');
+    const subtitle = `${modelStore.model.name || ''} · ${new Date().toLocaleString(i18n.locale)}`;
+    if (format === 'csv') {
+      const csv = toCsv([t('post.col.part'), t('post.col.severity'), t('post.col.text'), t('post.col.detail'), t('post.col.objects')], postAnalysisRows(postLines(), tp as never));
+      const { downloadText } = await import('../../lib/store/file');
+      downloadText(csv, `post-analysis-${name}.csv`, 'text/csv');
+      return;
+    }
+    const { downloadReport } = await import('../../lib/export/report-download');
+    await downloadReport(format, { title, html: postAnalysisHtml(postLines(), tp as never, title, subtitle), stem: `post-analysis-${name}` });
+  }
 
   // Apply severity filter
   const diagnostics = $derived(
@@ -183,6 +234,35 @@
       {/if}
     </span>
   </div>
+
+  <section class="post" data-testid="post-report">
+    <div class="post-head">
+      <h4>{t('post.title')}</h4>
+      <span class="post-export">
+        <button class="pk-btn" onclick={() => exportReport('csv')} data-testid="post-export-csv">CSV</button>
+        <button class="pk-btn" onclick={() => exportReport('pdf')} data-testid="post-export-pdf">PDF</button>
+        <button class="pk-btn" onclick={() => exportReport('docx')} data-testid="post-export-docx">Word</button>
+      </span>
+    </div>
+    {#snippet part(key: string, lines: PostAnalysisLine[])}
+      {#if lines.length}
+        <h5 class="post-part">{t(`post.part.${key}`)}</h5>
+        <ul class="post-list" data-testid="post-{key}">
+          {#each lines as l, i (i)}
+            <li>
+              <button class="post-line sev-{l.severity}" disabled={!l.selection} onclick={() => selectLine(l)}>
+                <span class="post-sev">{t(`post.sev.${l.severity}`)}</span>
+                <span>{l.text}{#if l.detail}<small>{l.detail}</small>{/if}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+      {/if}
+    {/snippet}
+    {@render part('analysis', extraAnalysis)}
+    {@render part('design', designLines)}
+    <h5 class="post-part">{t('post.part.model')}</h5>
+  </section>
 
   <!--
     The switch for the Design bar's warning chip.
@@ -308,6 +388,19 @@
 </div>
 
 <style>
+  .post { margin: 0 0 0.75rem; }
+  .post-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .post-head h4 { margin: 0; font-size: 0.78rem; color: var(--st-text); }
+  .post-export { display: inline-flex; gap: 4px; }
+  .post-part { margin: 0.6rem 0 0.25rem; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--st-text-3); }
+  .post-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .post-line { display: flex; gap: 8px; width: 100%; text-align: left; border: 1px solid var(--st-hair); background: var(--st-surface-2); color: var(--st-text); border-radius: 4px; padding: 4px 6px; font-size: 0.72rem; cursor: pointer; }
+  .post-line:disabled { cursor: default; }
+  .post-line small { display: block; color: var(--st-text-3); font-size: 0.64rem; }
+  .post-sev { flex: none; font-weight: 600; min-width: 4.5em; }
+  .post-line.sev-error .post-sev { color: var(--st-danger); }
+  .post-line.sev-warning .post-sev { color: var(--st-warn); }
+  .post-line.sev-ok .post-sev { color: var(--st-ok); }
   /* ── Notification control ─────────────────────────────────────── */
   .diag-notify {
     margin: 0 0 0.75rem;
