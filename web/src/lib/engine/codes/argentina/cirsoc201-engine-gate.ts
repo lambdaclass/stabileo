@@ -67,6 +67,7 @@ export function engineRecheckElement(
   const rc: EngineRecheck = { edition, disagreements: [], unavailable: false, notRechecked: [] };
   if (v.torsion && !v.torsion.neglect) rc.notRechecked.push('torsion');
   if (v.slender?.isSlender || v.slenderSecondary?.isSlender) rc.notRechecked.push('slenderness');
+  if (v.shearSecondary) rc.notRechecked.push('shear-secondary');
   const out = { ...v, flexure: { ...v.flexure }, shear: { ...v.shear }, column: v.column && { ...v.column },
     biaxial: v.biaxial && { ...v.biaxial }, engineRecheck: rc };
   const stirrupM = opts.stirrupDia / 1000;
