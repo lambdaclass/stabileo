@@ -37,6 +37,7 @@ import {
   buildSimplified2DModel, countCollapsedElements, type DrawPlane,
 } from '../geometry/plane-projection';
 import { sliceModelAtPlane, planeOffsets, type PlaneOffset, SLICE_TOL } from '../geometry/plane-slice';
+import { constraintsMisreadOn, membersBentOffAxis } from '../geometry/plane-cut-guard';
 
 /**
  * The geometry modules describe a support structurally, with an index
@@ -184,6 +185,13 @@ function land(m: {
   resultsStore.clear();
 }
 
+/** Why a plane model of this cut would not be the space model's, as a `slice.*` key; null when it would. */
+function cutRefusal(plane: DrawPlane, kept: Iterable<number>, members: Iterable<number>): string | null {
+  if (constraintsMisreadOn(plane, modelStore.constraints, new Set(kept)).length > 0) return 'slice.constraintsPlane';
+  if (membersBentOffAxis(plane, members, modelStore.elements, modelStore.nodes, modelStore.sections).length > 0) return 'slice.sectionAxis';
+  return null;
+}
+
 /** Flatten the whole structure onto a plane. */
 export function projectOnto(plane: DrawPlane): SwitchOutcome {
   const result = buildSimplified2DModel(
@@ -196,6 +204,8 @@ export function projectOnto(plane: DrawPlane): SwitchOutcome {
     modelStore.sections,
   );
   if (!result.ok) return { ok: false, error: result.error };
+  const refusal = cutRefusal(plane, modelStore.nodes.keys(), result.model.elements.keys());
+  if (refusal) return { ok: false, error: refusal };
 
   takeBackup();
   land(result.model);
@@ -218,6 +228,8 @@ export function sliceAt(plane: DrawPlane, offset: number, tol = SLICE_TOL): Swit
     tol,
   );
   if (!result.ok) return { ok: false, error: result.error };
+  const refusal = cutRefusal(plane, result.model.nodes.keys(), result.model.elements.keys());
+  if (refusal) return { ok: false, error: refusal };
 
   takeBackup();
   land(result.model);

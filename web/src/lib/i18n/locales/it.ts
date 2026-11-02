@@ -2044,6 +2044,8 @@ const it: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "Questo modello ha vincoli che il solutore 2D leggerebbe con un altro significato su questo piano: li legge tutti come se il telaio stesse in X–Z. Taglia lungo X–Z oppure risolvi in 3D (problema noto #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Alcune aste si infletterebbero in questo piano con un'inerzia di sezione diversa da quella in 3D, oppure la loro flessione accoppia il piano e la sua perpendicolare, cosa che un modello 2D non può rappresentare, quindi i risultati 2D sarebbero errati (con gli assi predefiniti una colonna a I tagliata lungo Y–Z si inflette in 3D attorno all'asse debole). Risolvi in 3D oppure taglia un piano in cui gli assi della sezione di ogni asta siano allineati al piano (problema noto #1238).",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'Sotto quella opzione ci sono altri strumenti: viste predefinite (alto, fronte, lato), prospettiva/ortografica, piano di taglio e misurazione.',

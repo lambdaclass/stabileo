@@ -2043,6 +2043,8 @@ const id: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "Model ini memiliki kekangan yang akan dibaca oleh solver 2D dengan makna lain pada bidang ini: solver membaca semua kekangan seolah-olah rangka berdiri di X–Z. Potong sepanjang X–Z, atau selesaikan dalam 3D (masalah yang diketahui #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "Beberapa batang akan melentur pada bidang ini dengan inersia penampang yang berbeda dari 3D, atau lenturnya menggandeng arah di dalam dan di luar bidang, yang tidak dapat diwakili model 2D, sehingga hasil 2D akan salah (dengan sumbu bawaan, kolom I yang dipotong sepanjang Y–Z melentur dalam 3D terhadap sumbu lemahnya). Selesaikan dalam 3D, atau potong bidang yang sejajar dengan sumbu penampang setiap batang (masalah yang diketahui #1238).",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'Di bawah opsi tersebut ada lebih banyak alat: tampilan preset (atas, depan, samping), perspektif/ortografis, bidang potong, dan pengukuran.',

@@ -2044,6 +2044,8 @@ const hi: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "इस मॉडल में ऐसी बाधाएँ हैं जिन्हें 2D सॉल्वर इस तल पर किसी और अर्थ में पढ़ेगा: वह हर बाधा को ऐसे पढ़ता है मानो फ्रेम X–Z तल में खड़ा हो। X–Z के साथ काटें, या 3D में हल करें (ज्ञात समस्या #466, AC-PLANE-MAPPING)।",
+  'switch2d.sectionAxis': "कुछ सदस्य इस तल में 3D से भिन्न खंड जड़त्व आघूर्ण के साथ मुड़ेंगे, या उनका मुड़ना तल के भीतर और बाहर को जोड़ देता है, जिसे 2D मॉडल नहीं दर्शा सकता, इसलिए 2D परिणाम गलत होंगे (डिफ़ॉल्ट अक्षों के साथ Y–Z के साथ काटा गया I स्तंभ 3D में अपने कमज़ोर अक्ष के परितः मुड़ता है)। 3D में हल करें, या ऐसा तल काटें जिससे हर सदस्य के खंड अक्ष संरेखित हों (ज्ञात समस्या #1238).",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': 'उस विकल्प के नीचे और उपकरण हैं: प्रीसेट दृश्य (शीर्ष, सामने, पार्श्व), परिप्रेक्ष्य/लम्बक, क्लिपिंग तल और माप।',

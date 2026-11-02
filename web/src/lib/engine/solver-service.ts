@@ -181,6 +181,17 @@ export function effectiveBendingInertia(
   return Iy * Math.cos(alpha) ** 2 + Iz * Math.sin(alpha) ** 2;
 }
 
+/** The inertias a space solve bends a member with: `iy` about local y, `iz` about local z. */
+export function spaceBendingInertias(
+  s: Section,
+  props: ReturnType<typeof solverProperties> = solverProperties(s),
+): { iy: number; iz: number } {
+  return {
+    iy: props.source === 'canonical' ? props.iy : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz)),
+    iz: props.source === 'canonical' ? props.iz : s.iz,
+  };
+}
+
 /** Build solver supports map (2D), handling roller angle/inclined roller and spring rotation. */
 function buildSolverSupports2D(model: ModelData): Map<number, any> {
   return new Map(Array.from(model.supports.entries()).map(([id, s]) => {
@@ -1747,14 +1758,7 @@ export function buildSolverInput3D(
           ...(model.analysis?.shearDeformation === 'none' ? {} : shearOf(s)),
         }];
       }
-      // s.iy = about Y-axis (horizontal), s.iz = about Z-axis (vertical)
-      // Solver convention: iy controls bending about Y (w, θy DOFs), iz controls bending about Z (v, θz DOFs)
-      // A geometry-backed section reports the inertia its canonical polygons
-      // actually have; a properties-only section keeps what it declared.
-      const aboutY = props.source === 'canonical'
-        ? props.iy
-        : (s.iy ?? (s.b && s.h ? (s.b * s.h ** 3) / 12 : s.iz));  // Iy: about Y horizontal
-      const aboutZ = props.source === 'canonical' ? props.iz : s.iz;  // Iz: about Z vertical
+      const { iy: aboutY, iz: aboutZ } = spaceBendingInertias(s, props);
       return [id, {
         id: s.id, name: s.name, a: props.a,
         iy: aboutY,   // solver iy = Iy (about Y horizontal) → controls Z-displacement bending (w, θy)
