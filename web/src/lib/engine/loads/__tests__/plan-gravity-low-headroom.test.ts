@@ -164,7 +164,7 @@ describe('a roof that would take the dead load of floors there are not', () => {
     expect(buildLoadPlan(input(false)).outcome).not.toBe('BLOCKED');
   });
 
-  it('lets a flat roof deck over no floors take the floors\' dead load', async () => {
+  it('lets a flat roof over no floors take the floors\' dead load, by panels and by width', async () => {
     const { buildLoadPlan } = await import('../load-plan');
     const { defaultRegulations } = await import('../../../codes/roles');
     const reg = defaultRegulations();
@@ -189,6 +189,14 @@ describe('a roof that would take the dead load of floors there are not', () => {
       roof: { use: 'maintenance' as const, dead: 1.8, slopeDeg: 0, deadFromFloors: true },
     });
     expect(plan.outcome).not.toBe('BLOCKED');
+    const byWidth = buildLoadPlan({
+      regulations: reg, model: m as never,
+      dead: [{ labelKey: 'a', q: 1.8 }], occupancyKey: 'vivienda', tributaryWidth: 3,
+      reductionElementKind: 'interiorBeam' as const, floorsSupported: 1, applyLiveReduction: true, generateCombinations: true,
+      gravity: { mode: 'width' as const },
+      roof: { use: 'maintenance' as const, dead: 1.8, slopeDeg: 0, deadFromFloors: true },
+    });
+    expect(byWidth.blockedKeys.map((b) => b.key)).not.toContain('loadPlan.blocked.roofDeadWithoutFloors');
     expect(plan.blockedKeys.map((b) => b.key)).not.toContain('loadPlan.blocked.roofDeadWithoutFloors');
   });
 });
