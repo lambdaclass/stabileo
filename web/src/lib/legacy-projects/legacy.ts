@@ -35,7 +35,7 @@ import type { ResultChange } from '../provenance/registry';
 import registry from '../provenance/result-changes.json';
 import { resultValues, type Values } from './capture-results';
 // @ts-expect-error plain JavaScript shared with the results snapshot gate (no declaration file)
-import { compareValues, formatCaseReport, parseSnapshot } from '../../../scripts/results-snapshot/compare.mjs';
+import { compareValues, formatCaseReport, parseSnapshot, storeNumber } from '../../../scripts/results-snapshot/compare.mjs';
 import { compareLegacy } from './vector-floor';
 
 export type Workspace = '2d' | '3d' | 'pro';
@@ -250,8 +250,8 @@ const LOAD_TARGETS = ['nodeId', 'elementId', 'quadId', 'elementIds', 'quadIds', 
  * What the model on screen is, beyond its counts, as flat values: each node's coordinates; each
  * member's ends, material, section, releases, joints, offsets and orientation; each material's and section's stiffness properties; each shell's material and
  * thickness, nodes and offset; each support; each load case, and per case and kind of load, in
- * total and per target (node, member or shell), the number of loads and the sum of each of their
- * force, moment and position fields; each combination's factors; the
+ * total the number of loads and the sum of each of their force, moment and position fields, and per
+ * target (node, member or shell) every load as one record; each combination's factors; the
  * self-weight rule. A migration that drops a load, swaps a section or frees a support changes it
  * without a solve.
  */
@@ -297,19 +297,22 @@ export function modelFingerprint(): Values {
     }
   }
   for (const c of modelStore.loadCases) out[`loadCase[${c.id}].type`] = c.type;
+  const records = new Map<string, string[]>();
   for (const l of modelStore.loads) {
     const data = l.data as unknown as Record<string, unknown>;
     const k = `loads[${data.caseId ?? 1}].${l.type}`;
     out[`${k}.count`] = ((out[`${k}.count`] as number | undefined) ?? 0) + 1;
     const target = LOAD_TARGETS.filter((f) => data[f] !== undefined).map((f) => `${f}=${JSON.stringify(data[f])}`).join(',');
-    const t = `${k}[${target}]`;
-    out[`${t}.count`] = ((out[`${t}.count`] as number | undefined) ?? 0) + 1;
-    for (const [f, v] of Object.entries(data)) {
-      if (LOAD_REFERENCES.has(f) || typeof v !== 'number') continue;
-      out[`${k}.${f}`] = ((out[`${k}.${f}`] as number | undefined) ?? 0) + v;
-      out[`${t}.${f}`] = ((out[`${t}.${f}`] as number | undefined) ?? 0) + v;
+    const fields: Record<string, unknown> = {};
+    for (const [f, v] of Object.entries(data).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+      if (LOAD_REFERENCES.has(f) || LOAD_TARGETS.includes(f as never) || v === undefined) continue;
+      fields[f] = typeof v === 'number' ? storeNumber(v) : v;
+      if (typeof v === 'number') out[`${k}.${f}`] = ((out[`${k}.${f}`] as number | undefined) ?? 0) + v;
     }
+    const t = `${k}[${target}]`;
+    records.set(t, [...(records.get(t) ?? []), JSON.stringify(fields)]);
   }
+  for (const [t, list] of records) out[`${t}.loads`] = list.sort().join(' | ');
   for (const c of modelStore.combinations) {
     out[`combination[${c.id}].factors`] = c.factors.map((f) => `${f.caseId}:${f.factor}`).sort().join(' ');
   }

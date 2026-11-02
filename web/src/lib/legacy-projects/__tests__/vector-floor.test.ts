@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error plain JavaScript shared with the CI gate (no declaration file)
 import { compareValues, mergeValues } from '../../../../scripts/results-snapshot/compare.mjs';
-import { compareLegacy, familyOf } from '../vector-floor';
+import { compareLegacy, familyOf, VECTOR_ATOL } from '../vector-floor';
 
 describe('a component statics makes zero, against the size of its vector', () => {
   const truss = {
@@ -49,12 +49,19 @@ describe('a component statics makes zero, against the size of its vector', () =>
   });
 });
 
-describe('NEGATIVE: the snapshot gate keeps its own rule', () => {
-  it('a shear from 0 to 0.0004 beside an axial force of 5000 is a change to the gate, not to old files', () => {
-    const member = { 'base.elementForces[e1].nStart': 5000, 'base.elementForces[e1].vStart': 0 };
+describe('NEGATIVE: the floor is round-off, not an engineering tolerance', () => {
+  const member = { 'base.elementForces[e1].nStart': 5000, 'base.elementForces[e1].vStart': 0 };
+  it('a shear from 0 to 0.0004 beside an axial force of 5000 is a change, to the gate and to old files', () => {
     const shear = { ...member, 'base.elementForces[e1].vStart': 0.0004 };
     expect(compareValues(member, shear).changed.map((c: { path: string }) => c.path)).toEqual(['base.elementForces[e1].vStart']);
-    expect(compareLegacy(member, shear).differs).toBe(false);
+    expect(compareLegacy(member, shear).changed.map((c) => c.path)).toEqual(['base.elementForces[e1].vStart']);
     expect(mergeValues(member, shear)).toEqual(shear);
+  });
+  it('a shear of 1e-6 kN beside 5000 kN, two parts in ten billion, is a change', () => {
+    expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 1e-6 }).differs).toBe(true);
+  });
+  it('round-off of 1e-10 of the vector is not', () => {
+    expect(VECTOR_ATOL).toBe(1e-10);
+    expect(compareLegacy(member, { ...member, 'base.elementForces[e1].vStart': 4e-7 }).differs).toBe(false);
   });
 });

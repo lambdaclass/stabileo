@@ -4,10 +4,11 @@ import { initSolver } from '../../engine/wasm-solver';
 import type { ResultChange } from '../../provenance/registry';
 import { RESULT_CHANGES } from '../../provenance/full-registry';
 import {
-  againstExample, captureExample, currentFixtureBlob, declaresMove, judge, migrationMessage, openAndSolve, openSession,
+  againstExample, captureExample, currentFixtureBlob, declaresMove, fingerprintDifference, judge, modelFingerprint, migrationMessage, openAndSolve, openSession,
   readCorpusText, readManifest, readResults, savedFixture, unexplainedMessage,
 } from '../legacy';
 import type { Values } from '../capture-results';
+import { modelStore } from '../../store/model.svelte';
 
 const change = (id: string, quantities?: string[]): ResultChange => ({ ...RESULT_CHANGES.changes[0], id, resultsVersion: 1, quantities });
 const designOnly = change('design-only');
@@ -260,7 +261,23 @@ describe('against real corpus files', () => {
         const b = loads.find((l) => l.data.elementId !== loads[0].data.elementId && l.data.qZI !== loads[0].data.qZI)!;
         [loads[0].data.elementId, b.data.elementId] = [b.data.elementId, loads[0].data.elementId];
       });
-      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toMatch(/distributed3d\[elementId=\d+\]\.qZI/);
+      expect((await againstExample('tower', 'v0.2.0', tower, opened, false)).failure).toMatch(/distributed3d\[elementId=\d+\]\.loads/);
+    }, 120_000);
+
+    it('NEGATIVE: two loads on one member trading their end values, every count and sum unchanged, fails', async () => {
+      await open();
+      const fingerprintWith = (ends: Array<[number, number]>) => {
+        const base = modelStore.loads.filter((l) => (l.data as { id: number }).id < 1_000_000);
+        modelStore.loads.splice(0, modelStore.loads.length, ...base, ...ends.map(([qZI, qZJ], i) => ({
+          type: 'distributed3d', data: { id: 1_000_000 + i, elementId: 1, qYI: 0, qYJ: 0, qZI, qZJ, caseId: 1 },
+        }) as never));
+        return modelFingerprint();
+      };
+      const reference = fingerprintWith([[-5, -5], [-10, -10]]);
+      const migrated = fingerprintWith([[-5, -10], [-10, -5]]);
+      expect(migrated['loads[1].distributed3d.qZI']).toBe(reference['loads[1].distributed3d.qZI']);
+      expect(fingerprintDifference('swap', reference, migrated)).toMatch(/distributed3d\[elementId=1\]\.loads/);
+      expect(fingerprintDifference('same', reference, fingerprintWith([[-10, -10], [-5, -5]]))).toBeNull();
     }, 120_000);
 
     it('NEGATIVE: a support released from fixed to pinned fails', async () => {
