@@ -85,6 +85,8 @@ pub fn outcome(result: Result<Resp, String>) -> Result<Resp, String> {
                     return Err(format!("unregistered refusal {phase} #{issue}: {error}"));
                 }
                 ids.push((phase, issue as u64));
+            } else if d.severity == Severity::Error {
+                return Err(error);
             }
         }
         if ids.is_empty() { return Err(error); }

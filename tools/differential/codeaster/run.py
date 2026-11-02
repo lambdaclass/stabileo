@@ -30,6 +30,7 @@ import argparse
 import glob
 import importlib.util
 import json
+import math
 import os
 import re
 import shutil
@@ -286,7 +287,7 @@ def finish(r, tol, dump_dir, model):
     if r.pop("near_singular", False):
         st = "silent_singular" if bad else "near_singular"
         warned = sorted(set(sres["diags"]) & WARNED_CONDITIONING)
-        if bad and warned and "NUM-INVARIANCE" in sres.get("issues", []):
+        if bad and warned and "NUM-INVARIANCE" in sres.get("issues", []) and all(unloaded_mechanism(model, b) for b in bad):
             st = "warned_singular"
         if bad:
             why = ["code_aster: singular at NPREC=10, and with the check off its solution disagrees"] + [
@@ -300,6 +301,24 @@ def finish(r, tol, dump_dir, model):
             json.dump(model, f, indent=1)
         shutil.copy(os.path.join(job, "model.comm"), base + ".comm")
     return r
+
+
+def unloaded_mechanism(model, b):
+    """A disagreement a singular model can explain: a finite displacement at a node no load
+    reaches. Reactions, member forces and loaded nodes must still agree."""
+    kind, nid, comp = b[0], str(b[1]), b[2]
+    if kind != "disp" or comp == "missing" or not math.isfinite(b[5]):
+        return False
+    for ld in model.get("loads", {}).values() if isinstance(model.get("loads"), dict) else model.get("loads", []):
+        x = ld.get("data", {})
+        if ld.get("type") == "nodal" and str(x.get("nodeId")) == nid:
+            return False
+        eid = x.get("elementId")
+        if eid is not None:
+            for e in (model.get("elements") or {}).values():
+                if e.get("id") == eid and nid in (str(e.get("nodeI")), str(e.get("nodeJ"))):
+                    return False
+    return True
 
 
 def C_size(model):

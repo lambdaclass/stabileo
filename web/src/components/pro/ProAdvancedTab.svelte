@@ -632,9 +632,12 @@
     winklerSprings = winklerSprings.filter((_, i) => i !== idx);
   }
 
+  let winklerPublished: unknown = null;
   function handleWinkler() {
     solveError = null;
     winklerResult = null;
+    if (winklerPublished && resultsStore.results3D === winklerPublished) resultsStore.clear3D();
+    winklerPublished = null;
     solving = true;
     try {
       const input = buildInput({ caseDisplacements: true });
@@ -652,7 +655,7 @@
       // the axial part back to the member, as every other solve does.
       if (res.elementForces) finishSolve3D(res, input);
       winklerResult = asModel(res);
-      if (res.displacements) resultsStore.setResults3D(res);
+      if (res.displacements) { resultsStore.setResults3D(res); winklerPublished = resultsStore.results3D; }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.winkler'), error: errorText(e, t('pro.unknownError')) });
     }
@@ -712,9 +715,12 @@
     ssiSprings = ssiSprings.filter((_, i) => i !== idx);
   }
 
+  let ssiPublished: unknown = null;
   function handleSSI() {
     solveError = null;
     ssiResult = null;
+    if (ssiPublished && resultsStore.results3D === ssiPublished) resultsStore.clear3D();
+    ssiPublished = null;
     solving = true;
     try {
       const input = buildInput({ caseDisplacements: true });
@@ -728,7 +734,7 @@
       // member's load until it is given back.
       if (res.results) finishSolve3D(res.results, input);
       ssiResult = res?.results ? { ...res, results: asModel(res.results) } : res;
-      if (res.results) resultsStore.setResults3D(res.results);
+      if (res.results) { resultsStore.setResults3D(res.results); ssiPublished = resultsStore.results3D; }
     } catch (e: any) {
       solveError = tp('adv.failed', { analysis: t('adv.name.ssi'), error: errorText(e, t('pro.unknownError')) });
     }

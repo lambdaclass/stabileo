@@ -33,7 +33,7 @@ const WARNING_SECTION = /<section\b[^>]*\bid\s*=\s*(["']?)stabileo-warnings\1[^>
 const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 /** The warnings a report's HTML already carries, so re-exporting it from another workspace keeps them. */
 export function carriedWarnings(html: string): string[] {
-  return [...html.matchAll(WARNING_SECTION)].flatMap(([section]) => [...section.matchAll(/<p>([\s\S]*?)<\/p>/g)].map(m => unescape(m[1]!)));
+  return [...html.matchAll(WARNING_SECTION)].flatMap(([section]) => [...section.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)].map(m => unescape(m[1]!)));
 }
 export function warningHtml(html: string, warnings = requiredExportMessages()): string {
   warnings = [...new Set([...warnings, ...carriedWarnings(html)])];

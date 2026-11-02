@@ -1590,6 +1590,12 @@ fn refusals_must_be_registered_and_in_scope() {
     assert!(outcome(Err(known_issues::refuse(&[promoted]).unwrap_err())).is_err(), "a warning-only issue is not a registered refusal");
     let error = known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE")]).unwrap_err();
     assert!(outcome(Err(error.replace("\"value\":758.0", "\"value\":759.0"))).is_err(), "issue number must match the registry");
+    let mut failure = known_issues::diagnostic("PL-2D-INVARIANCE");
+    failure.code = dedaliano_engine::types::DiagnosticCode::SingularMatrix;
+    failure.phase = None;
+    failure.value = None;
+    let both = known_issues::refuse(&[known_issues::diagnostic("PL-2D-INVARIANCE"), failure]).unwrap_err();
+    assert!(outcome(Err(both)).is_err(), "a solver error beside a registered refusal is still an error");
 }
 
 #[test]

@@ -200,3 +200,26 @@ it.each(['html', 'docx', 'csv'] as const)('a warned %s report exported from a cl
     expect(text).toContain('987654');
   } finally { vi.unstubAllGlobals(); }
 });
+
+it.each(['csv', 'docx'] as const)('a generated report re-exported as %s from a clean workspace keeps its warnings', async format => {
+  const { downloadReport } = await import('../report-download');
+  const { generateReportHtml } = await import('../../engine/pro-report');
+  const blobs: Blob[] = [];
+  vi.stubGlobal('document', { createElement: () => ({ click() {} }) });
+  vi.spyOn(URL, 'createObjectURL').mockImplementation(b => { blobs.push(b as Blob); return 'blob:test'; });
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  try {
+    publish('warning');
+    const m = modelStore.model;
+    const html = generateReportHtml({
+      projectName: 'Obra A', date: '2026-10-19', nodes: [...m.nodes.values()], elements: [...m.elements.values()], materials: [...m.materials.values()],
+      sections: [...m.sections.values()], supports: [...m.supports.values()], loadCount: m.loads.length, results: resultsStore.results3D, t: (k: string) => k,
+    } as never);
+    expect(html).toContain('stabileo-warnings');
+    modelStore.clear(); resultsStore.clear();
+    expect(await downloadReport(format, { title: 'Report', stem: 'report', html, blocks: [{ kind: 'table' as const, head: ['Value'], rows: [['987654']] }] })).toBeTruthy();
+    const bytes = new Uint8Array(await blobs[0]!.arrayBuffer());
+    const text = format === 'docx' ? strFromU8(unzipSync(bytes)['word/document.xml']!) : new TextDecoder().decode(bytes);
+    expect(text).toContain('#741');
+  } finally { vi.unstubAllGlobals(); }
+});
