@@ -62,7 +62,7 @@ class Selection(unittest.TestCase):
                     # Execute the actual workflow selector, substituting only the read-only diff.
                     script_with_diff = 'git() { printf "%s\\n" "$CHANGED_PATH"; }\n' + script
                     env = {**os.environ, **patterns, 'BASE': 'base', 'GITHUB_EVENT_NAME': event,
-                           'GITHUB_OUTPUT': str(output), 'CHANGED_PATH': path}
+                           'GITHUB_OUTPUT': str(output), 'CHANGED_PATH': path, 'RUNNER_TEMP': tmp}
                     subprocess.run(['sh', '-eu', '-c', script_with_diff], env=env, check=True)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
         self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)

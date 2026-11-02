@@ -103,8 +103,8 @@ jobs:
           cp web/scripts/check-research-route-size.mjs web/scripts/research-route-budget.mjs web/scripts/product-route-growth-budgets.json route-main/web/scripts/
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd route-main/web && npm ci'
           .github/scripts/retry-infra.sh nix develop . -c sh -c 'cd web && npm ci'
-          nix develop . -c sh -c 'cd route-main/web && node scripts/check-research-route-size.mjs --baseline "$RUNNER_TEMP/route-main.json" --update'
-          nix develop . -c sh -c 'cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline "$RUNNER_TEMP/route-main.json"'
+          nix develop . -c sh -c "cd route-main/web && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json' --update"
+          nix develop . -c sh -c "cd web && node --test scripts/research-route-budget.test.mjs scripts/research-cargo-notices.test.mjs && node scripts/check-research-route-size.mjs --baseline '$RUNNER_TEMP/route-main.json'"
       - run: nix develop . -c node --test research/fracture/shauer-2025/wasm/check.test.mjs
 
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.

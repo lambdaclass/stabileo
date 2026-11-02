@@ -82,7 +82,7 @@ for paths, expected in [
 ]:
     with tempfile.NamedTemporaryFile() as out:
         script = scope['run'].replace('git diff --no-renames --name-only "$BASE" HEAD', 'printf "%s\\n" "$TEST_PATHS"')
-        script = script.replace('/tmp/route-changed-paths', out.name + '.paths')
+        script = script.replace('"$RUNNER_TEMP/route-changed-paths"', out.name + '.paths')
         try:
             subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script], check=True,
                            env={**scope['env'], 'BASE': 'base', 'TEST_PATHS': paths, 'GITHUB_OUTPUT': out.name})
@@ -94,7 +94,7 @@ with tempfile.NamedTemporaryFile() as out:
                    env={**scope['env'], 'BASE': '', 'GITHUB_OUTPUT': out.name})
     assert pathlib.Path(out.name).read_text().strip() == 'research=true'
     failed_diff = scope['run'].replace('git diff --no-renames --name-only "$BASE" HEAD', 'false')
-    result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', failed_diff.replace('/tmp/route-changed-paths', out.name)],
+    result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', failed_diff.replace('"$RUNNER_TEMP/route-changed-paths"', out.name)],
                             env={**scope['env'], 'BASE': 'missing', 'GITHUB_OUTPUT': out.name})
     assert result.returncode != 0
 triggers = research.get('on', research.get(True))
