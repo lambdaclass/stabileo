@@ -250,3 +250,23 @@ it('an independent result with its own record and sources ignores the workspace 
   expect(await downloadResultText('id,value\n1,987654', 'moving.csv', 'text/csv', record, refused)).toBe(false);
   expect(output.texts).toEqual([]);
 });
+
+it('a canvas near the browser limit is scaled so image and warnings fit together', async () => {
+  publish('warning');
+  const { warningCanvas } = await import('../containment');
+  const text: string[] = [];
+  const ctx = { font: '', fillStyle: '', fillRect: vi.fn(), drawImage: vi.fn(), measureText: (s: string) => ({ width: s.length * 8 }), fillText: (s: string) => text.push(s) };
+  const canvas = { width: 0, height: 0, getContext: () => ctx };
+  vi.stubGlobal('document', { createElement: () => canvas });
+  try {
+    const original = { width: 16384, height: 16384 } as HTMLCanvasElement;
+    warningCanvas(original);
+    expect(canvas.width).toBeLessThanOrEqual(16384);
+    expect(canvas.height).toBeLessThanOrEqual(16384);
+    expect(canvas.width * canvas.height).toBeLessThanOrEqual(2 ** 28);
+    const [, , , w, h] = ctx.drawImage.mock.calls[0]!;
+    expect(w / 16384).toBeCloseTo(h / 16384, 3);
+    expect(h).toBeLessThan(16384);
+    expect(text.join('')).toContain('#741');
+  } finally { vi.unstubAllGlobals(); }
+});

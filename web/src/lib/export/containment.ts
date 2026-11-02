@@ -46,10 +46,12 @@ export function warningHtml(html: string, warnings = requiredExportMessages()): 
 }
 
 /** Extend the image: warnings never cover engineering content or get clipped. */
+const MAX_CANVAS_SIDE = 16384;
+const MAX_CANVAS_AREA = 2 ** 28;
 export function warningCanvas(source: HTMLCanvasElement, warnings = requiredExportMessages()): HTMLCanvasElement {
   if (!warnings.length) return source;
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(source.width, 320);
+  canvas.width = Math.min(Math.max(source.width, 320), MAX_CANVAS_SIDE);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas unavailable');
   const font = Math.max(14, Math.round(canvas.width / 70));
@@ -63,11 +65,17 @@ export function warningCanvas(source: HTMLCanvasElement, warnings = requiredExpo
     }
     lines.push(line);
   }
-  canvas.height = source.height + 32 + lines.length * font * 1.5;
+  const text = 32 + lines.length * font * 1.5;
+  const scale = Math.min(1, canvas.width / source.width, (MAX_CANVAS_SIDE - text) / source.height,
+    (MAX_CANVAS_AREA / canvas.width - text) / source.height);
+  if (!(scale > 0)) throw new Error('Canvas too large for its warnings');
+  const shown = Math.floor(source.height * scale);
+  canvas.height = Math.ceil(shown + text);
   ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(source, 0, 0);
+  if (scale === 1) ctx.drawImage(source, 0, 0);
+  else ctx.drawImage(source, 0, 0, Math.floor(source.width * scale), shown);
   ctx.font = `${font}px sans-serif`; ctx.fillStyle = '#742d00';
-  lines.forEach((line, i) => ctx.fillText(line, 16, source.height + 20 + i * font * 1.5));
+  lines.forEach((line, i) => ctx.fillText(line, 16, shown + 20 + i * font * 1.5));
   return canvas;
 }
 export async function warningImage(dataUrl: string, warnings = requiredExportMessages()): Promise<string> {
