@@ -611,7 +611,7 @@
     const shell = publicShell();
     const hash = next.kind === 'app' ? '' : location.hash;
     try {
-      const [page] = await Promise.all([loadPublicPage(location.pathname + location.search), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale).catch((err) => { if (token > 1) throw err; })]);
+      const [page] = await Promise.all([loadPublicPage(location.pathname + location.search), ensurePublicLocale(parsePublicPath(location.pathname).locale ?? publicI18n.locale)]);
       if (token !== publicRevision) return;
       publicPage = page;
     } catch (error) {
