@@ -87,14 +87,13 @@
             export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1
           '' + ''
             if [ -n "''${RUNNER_NAME:-}" ]; then
-              # CI runner users share localhost: on the default port a job compiles through another user's sccache server, which cannot read its files.
-              export SCCACHE_SERVER_PORT="''${SCCACHE_SERVER_PORT:-$((20000 + $(id -u) % 10000))}"
+              # CI runner users share localhost: on sccache's default TCP port a job compiles through another user's server, which cannot read its files.
               export SCCACHE_DIR="''${SCCACHE_DIR:-$HOME/.cache/sccache-$RUNNER_NAME}"
-              if [ "''${RUSTC_WRAPPER:-}" = sccache ] && ! sccache_start=$(sccache --start-server 2>&1); then
-                case "$sccache_start" in
-                  *"Address in use"*) ;;
-                  *) echo "sccache did not start on port $SCCACHE_SERVER_PORT; building without it" >&2; unset RUSTC_WRAPPER ;;
-                esac
+              mkdir -p -m 700 "$SCCACHE_DIR"
+              export SCCACHE_SERVER_UDS="''${SCCACHE_SERVER_UDS:-$SCCACHE_DIR/server.sock}"
+              if [ "''${RUSTC_WRAPPER:-}" = sccache ] && ! sccache --start-server >/dev/null 2>&1; then
+                echo "sccache did not start at $SCCACHE_SERVER_UDS; building without it" >&2
+                unset RUSTC_WRAPPER
               fi
             fi
           '';
