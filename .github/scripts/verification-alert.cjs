@@ -144,6 +144,15 @@ async function alertRun(ctx, runId, anyEvent) {
   const link = `[${runId}](${run.html_url})`;
 
   if (run.conclusion === 'success') {
+    const { data: latest } = await github.rest.actions.listWorkflowRuns({
+      owner, repo, workflow_id: run.workflow_id, event: 'schedule', status: 'completed',
+      branch: ctx.defaultBranch, per_page: 1,
+    });
+    const newest = latest.workflow_runs[0];
+    if (!forced && newest && newest.id !== run.id) {
+      core.info(`${workflow} run ${runId} is green but not the latest scheduled run (${newest.id}, ${newest.conclusion}): not closing`);
+      return;
+    }
     await resolve(ctx, issueTitle, `Green again: run ${link} on \`${run.head_branch}\` @ ` +
       `${run.head_sha.slice(0, 10)} succeeded. Closing.`);
     return;

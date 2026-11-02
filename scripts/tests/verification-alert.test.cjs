@@ -99,7 +99,7 @@ test('a green scheduled run closes an issue triaged after its latest failure', a
     {comments: [bot], timeline: [{event: 'commented', created_at: at(6)}, {event: 'cross-referenced', created_at: at(7)}]},
     {comments: [bot], timeline: [{event: 'labeled', label: {name: 'triaged'}, created_at: at(7)}]},
   ]) {
-    const h = harness({run: {conclusion: 'success'}, open: [issue14], ...triaged});
+    const h = harness({run: {conclusion: 'success'}, open: [issue14], runsByWorkflow: {7: [{id: 55, conclusion: 'success'}]}, ...triaged});
     await h.run();
     const w = h.writes();
     assert.deepEqual(w.map((c) => c.name), ['createComment', 'update'], JSON.stringify(triaged));
@@ -149,6 +149,15 @@ test('two alerts that both opened an issue keep the oldest and close the other',
   const w = h.writes().map((c) => [c.name, c.args.issue_number, c.args.state]);
   assert.deepEqual(w, [['create', undefined, undefined], ['createComment', 900, undefined], ['createComment', 901, undefined], ['update', 901, 'closed']]);
   assert.match(h.writes()[2].args.body, /Duplicate of #900/);
+});
+
+test('an older green run replayed after a newer failure does not close the issue', async () => {
+  const h = harness({run: {conclusion: 'success', id: 55}, open: [issue14], comments: [bot, human(7)],
+    runsByWorkflow: {7: [{id: 60, conclusion: 'failure'}]}, env: {ALERT_ANY_EVENT: 'true'}});
+  await h.run();
+  assert.deepEqual(h.writes(), []);
+  const latest = h.calls.find((c) => c.name === 'listWorkflowRuns').args;
+  assert.deepEqual([latest.workflow_id, latest.event, latest.status, latest.branch], [7, 'schedule', 'completed', 'main']);
 });
 
 test('a green run with nothing open writes nothing', async () => {
