@@ -13,10 +13,10 @@ export interface PrintedComparison { compared: number; differences: PrintedDiffe
 
 const CONFIG_ID = 'stabileo-report-config';
 
-/** The report's own choices, embedded so a check can print the same tables again. */
+/** The report's choices of what to print, embedded so a check can print the same tables again; the letterhead stays out. */
 export function reportConfigScript(config: ReportConfig | undefined): string {
   if (!config) return '';
-  const { companyLogo: _logo, figures: _figures, ...rest } = config;
+  const { companyName: _name, companyLogo: _logo, projectAddress: _address, engineerName: _engineer, revision: _revision, figures: _figures, ...rest } = config;
   const json = JSON.stringify(rest).replace(/</g, '\\u003c');
   return `<script type="application/json" id="${CONFIG_ID}">${json}</script>`;
 }
