@@ -22,7 +22,7 @@ class Selection(unittest.TestCase):
             (['docs/a.md', 'README.md', 'changelog.d/a.md'], 'docs', set()),
             (['research/a.rs', 'web/src/components/research/a.svelte', 'web/e2e/research-new.spec.ts', 'changelog.d/a.md'], 'research', {'web', 'research'}),
             (['web/src/components/tools/a.svelte'], 'tools', {'web', 'research'}),
-            (['engine/src/lib.rs', 'README.md'], 'engine', {'web', 'engine', 'determinism', 'results'}),
+            (['engine/src/lib.rs', 'README.md'], 'engine', {'web', 'engine', 'research', 'determinism', 'results'}),
         ]:
             with self.subTest(scope=scope):
                 result = selection.select('pull_request', paths)

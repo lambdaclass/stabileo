@@ -10,7 +10,7 @@ engine test-target registration checks. Additional work depends on changed paths
 | Only `docs/**`, root `*.md`, `changelog.d/**` | None |
 | `research/**`, `web/src/components/research/**`, `web/e2e/research*.spec.ts` | Research validation/catalog/isolation, Research WASM, research web unit tests, research smoke specs, route budgets |
 | `web/src/components/tools/**`, `web/e2e/tools*.spec.ts` | Tools unit tests, tools smoke specs, route budgets |
-| `engine/**` | Engine lint/gates/suites/metamorphic, determinism, results snapshots, full web unit tests, engine-facing smoke specs tagged `@engine` |
+| `engine/**` | Engine lint/gates/suites/metamorphic, determinism, results snapshots, full web unit tests, the research workflow (isolation, production engine benchmarks, research crates on the engine), engine-facing smoke specs tagged `@engine` |
 | Anything else, multiple code areas, or uncertain selection | Full pipeline |
 
 Documentation/changelog changes may accompany one code area without broadening

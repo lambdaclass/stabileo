@@ -40,7 +40,7 @@ def select(event, paths, root=None, force_full=False):
     full = scope == 'full'
     outputs = {key: full for key in ('docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky')}
     outputs.update(engine=full or scope == 'engine', web=scope != 'docs',
-                   research=full or scope in ('research', 'tools'),
+                   research=full or scope in ('research', 'tools', 'engine'),
                    determinism=full or scope == 'engine', results=full or scope == 'engine')
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
