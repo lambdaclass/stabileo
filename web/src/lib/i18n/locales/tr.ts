@@ -14129,6 +14129,7 @@ const tr: Translations = {
   "knownIssue.PL-2D-INVARIANCE": "Sonuçlar sunulmuyor: 2B plastik göçme yük katsayısı numaralandırmaya, çubuk yönüne veya birimlere göre 4,6 kata kadar değişebilir. Bağımsız olarak doğrulanmış bir göçme analizi kullanın",
   "knownIssue.SH-MITC4-CONVERGENCE": "MITC4 deneyleri aşırı rijitlik ve ağ inceltildikçe artan hata göstermektedir. Tasarımdan önce kabuk tepkisini bağımsız olarak doğrulayın.",
   "knownIssue.BU-ACCURACY": "3B burkulma katsayıları güvenli olmayan ölçüde yüksek çıkabilir. Tasarımdan önce kritik katsayıyı bağımsız olarak doğrulayın.",
+  "knownIssue.BU-UNRESOLVED-MODE": "{modes} numaralı burkulma modları çözümlenmemiştir: yük katsayıları, çözümlenebilir basıncı olmayan elemanların eksenel kuvvetlerindeki yuvarlama hatasından gelir; fiziksel değildir ve kullanılmamalıdır. Diğer modlar çözümlenmiştir.",
   "knownIssue.BU-BOUND": "Sonuçlar sunulmuyor: hesaplanan burkulma katsayısı, sertifikalı sınırlarının dışındadır. Gösterilen katsayı da sertifika da tasarım için kullanılamaz",
   "knownIssue.SP-17": "Anizotropik bağlantı elemanlarının enine eksenleri kullanıcı tarafından yönlendirilemez ve doğrultuya göre aniden değişebilir. Bu sonuçları kullanmadan önce yay yönlerini bağımsız olarak doğrulayın",
   "knownIssue.FR-5": "Çarpılmalı çubuklar, bir düğümde tek bir çarpılma serbestlik derecesini paylaşır. Çarpılmanın tam aktarılması gerçek birleşimi aşırı kısıtlayabilir; birleşim detaylarını ve çarpılma kısıtlamasını bağımsız olarak doğrulayın",

@@ -71,12 +71,14 @@ test('multi-case checks cancellation for both prepared and constrained solves', 
     });
   }
 });
-test('model-less combination refuses distorted MITC4 cases', () => {
+test('model-less combination refuses distorted MITC4 cases unless it is the solved case itself', () => {
   const results = wasm.solve_3d(shell('fz'));
-  assert.throws(() => wasm.combine_results_3d({ factors: [{ caseId: 1, factor: 1 }], cases: [{ caseId: 1, results }] }), error => {
+  assert.throws(() => wasm.combine_results_3d({ factors: [{ caseId: 1, factor: 1.5 }], cases: [{ caseId: 1, results }] }), error => {
     const d = JSON.parse(String(error)).structuredDiagnostics;
     return d.some(d => d.code === 'known_issue' && d.severity === 'error' && d.phase === 'SH-MITC4-DISTORTION' && d.value === 798);
   });
+  const identity = wasm.combine_results_3d({ factors: [{ caseId: 1, factor: 1 }], cases: [{ caseId: 1, results }] });
+  assert.deepEqual(identity.displacements.map(d => d.uz), results.displacements.map(d => d.uz));
 });
 
 function tiltedSolidShell() {

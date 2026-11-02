@@ -83,6 +83,8 @@ export function dxfWithProvenance(dxf: string, p: ResultProvenance, warnings = r
 const xmlComment = (s: string) => s.replace(/--/g, '- -');
 const xmlText = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+const MIN_WARNED_SVG_WIDTH = 640;
+
 export function svgWithProvenance(svg: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   const m = /<svg\b[^>]*>/.exec(svg);
   if (!m) return svg;
@@ -94,13 +96,15 @@ export function svgWithProvenance(svg: string, p: ResultProvenance, warnings = r
   const vb = /viewBox=["']([^"']+)["']/.exec(m[0])?.[1]?.split(/[ ,]+/).map(Number);
   const width = vb?.[2] || parseFloat(/width=["']([\d.]+)/.exec(m[0])?.[1] ?? '800');
   const height = vb?.[3] || parseFloat(/height=["']([\d.]+)/.exec(m[0])?.[1] ?? '600');
-  const font = Math.max(12, width / 80), chars = Math.max(1, Math.floor(width / (font * 0.65)) - 4);
+  const outer = Math.max(width, MIN_WARNED_SVG_WIDTH), shown = height * outer / width;
+  const font = Math.max(12, outer / 80), chars = Math.max(1, Math.floor(outer / (font * 0.65)) - 4);
   const lines = warnings.flatMap(w => w.match(new RegExp(`.{1,${chars}}`, 'gu')) ?? [w]);
   const band = (lines.length + 2) * font * 1.5;
   // Keep the original styling, namespaces and viewBox while moving the whole drawing.
   const originalTag = m[0].replace(/\s(?:x|y|width|height)=["'][^"']*["']/g, '');
-  const nested = annotated.replace(m[0], originalTag.slice(0, -1) + ` x="0" y="${band}" width="${width}" height="${height}">`);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height + band}" viewBox="0 0 ${width} ${height + band}"><rect width="${width}" height="${band}" fill="white"/>${lines.map((line, i) => `<text x="12" y="${(i + 1.5) * font * 1.5}" font-size="${font}" fill="#742d00">${xmlText(line)}</text>`).join('')}${nested.replace(/<\?xml[^>]*>/g, '')}</svg>`;
+  const viewBox = vb ? '' : ` viewBox="0 0 ${width} ${height}"`;
+  const nested = annotated.replace(m[0], originalTag.slice(0, -1) + `${viewBox} x="0" y="${band}" width="${outer}" height="${shown}">`);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${outer}" height="${shown + band}" viewBox="0 0 ${outer} ${shown + band}"><rect width="${outer}" height="${band}" fill="white"/>${lines.map((line, i) => `<text x="12" y="${(i + 1.5) * font * 1.5}" font-size="${font}" fill="#742d00">${xmlText(line)}</text>`).join('')}${nested.replace(/<\?xml[^>]*>/g, '')}</svg>`;
 }
 
 // ─── PNG tEXt chunk ──────────────────────────────────────────────

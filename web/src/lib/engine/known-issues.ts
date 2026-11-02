@@ -18,6 +18,12 @@ export function knownIssueMessage(d: { code: string; phase?: string; value?: num
     const text = t(key);
     return text === key ? d.message : text;
   }
+  if (d.code === 'known_issue' && d.phase === 'BU-UNRESOLVED-MODE') {
+    const modes = [...d.message.matchAll(/mode (\d+) \(/g)].map(m => m[1]).join(', ');
+    if (t('knownIssue.BU-UNRESOLVED-MODE') === 'knownIssue.BU-UNRESOLVED-MODE') return d.message;
+    const text = tp('knownIssue.BU-UNRESOLVED-MODE', { modes: modes || '?' });
+    return d.value !== undefined ? `${text} (#${d.value})` : text;
+  }
   // A cable whose own weight gives most of its tension (#527): `value` the largest share.
   if (d.code === 'cable_self_weight_tension') {
     if (t('cableDiag.selfWeight') === 'cableDiag.selfWeight') return d.message;

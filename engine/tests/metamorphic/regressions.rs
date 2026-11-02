@@ -605,6 +605,48 @@ fn buckling_without_compression_refuses_in_every_orientation() {
     }
 }
 
+/// #982: a third mode with λ ≈ 1e10 came from the round-off axial force of the
+/// uncompressed cantilever, in some orientations only. Wherever it is returned it
+/// is named as unresolved, and the two physical modes never are.
+#[test]
+fn buckling_modes_from_round_off_compression_are_named_in_every_orientation() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-982.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    assert!(s.loads.iter().all(|l| matches!(l, SolverLoad::Distributed(_))), "only member-local transverse loads turn with the nodes");
+    let mut spurious = 0;
+    for deg in [0.0f64, 37.0, 90.0, 180.0, 271.0] {
+        let (c, sn) = (deg.to_radians().cos(), deg.to_radians().sin());
+        let mut r = s.clone();
+        for n in r.nodes.values_mut() {
+            (n.x, n.z) = (c * n.x - sn * n.z, sn * n.x + c * n.z);
+        }
+        let b = dedaliano_engine::solver::buckling::solve_buckling_2d(&r, 3).unwrap();
+        let factors: Vec<f64> = b.modes.iter().map(|m| m.load_factor).collect();
+        let flagged = b.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE"));
+        for (k, l) in factors.iter().enumerate() {
+            let named = flagged.is_some_and(|d| d.message.contains(&format!("mode {} (", k + 1)));
+            assert_eq!(named, *l > 1e6 * factors[0], "{deg}° mode {}: λ = {l:e}, {factors:?}", k + 1);
+            spurious += named as usize;
+        }
+        if let Some(d) = flagged {
+            assert_eq!(d.severity, Severity::Warning);
+            assert_eq!(d.element_ids, vec![2], "the uncompressed cantilever drives it");
+        }
+    }
+    assert!(spurious > 0, "the reproducer still returns its spurious mode somewhere");
+    let column = s2(json!({
+        "nodes": {"0": {"id": 0, "x": 0.0, "z": 0.0}, "1": {"id": 1, "x": 0.0, "z": 2.0}, "2": {"id": 2, "x": 0.0, "z": 4.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 0, "nodeJ": 1, "materialId": 1, "sectionId": 1}, "2": {"id": 2, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "supports": {"1": {"id": 1, "nodeId": 0, "type": "fixed"}},
+        "loads": [{"type": "nodal", "data": {"nodeId": 2, "fx": 0.0, "fz": -100.0, "my": 0.0}}],
+        "materials": {"1": {"id": 1, "e": 200000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}}
+    }));
+    let b = dedaliano_engine::solver::buckling::solve_buckling_2d(&column, 3).unwrap();
+    assert_eq!(b.modes.len(), 3);
+    assert!(!b.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("BU-UNRESOLVED-MODE")), "{:?}", b.structured_diagnostics);
+}
+
 /// The round-off threshold is per member and counts only the displacement
 /// components along it: a compressed column keeps its load factor next to an
 /// uncompressed, very flexible cantilever, a column under 1e-5 kN still

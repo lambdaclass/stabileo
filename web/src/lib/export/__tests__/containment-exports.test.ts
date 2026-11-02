@@ -278,3 +278,22 @@ it('a canvas near the browser limit is scaled so image and warnings fit together
     expect(text.join('')).toContain('#741');
   } finally { vi.unstubAllGlobals(); }
 });
+
+it('a warned SVG with a tiny coordinate system is enlarged so its warnings stay inside and readable', async () => {
+  publish('warning');
+  const { svgWithProvenance, prepareExportProvenance } = await import('../provenance-attach');
+  const record = (await prepareExportProvenance())!;
+  const out = svgWithProvenance('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>', record);
+  const [, w, h] = /^<svg[^>]*width="([\d.]+)" height="([\d.]+)"/.exec(out)!.map(Number);
+  expect(w).toBeGreaterThanOrEqual(640);
+  const texts = [...out.matchAll(/<text x="([\d.]+)" y="([\d.]+)" font-size="([\d.]+)"[^>]*>([^<]*)</g)];
+  expect(texts.length).toBeGreaterThan(0);
+  for (const [, x, y, font, line] of texts) {
+    expect(Number(x) + line.length * Number(font) * 0.65).toBeLessThanOrEqual(w);
+    expect(Number(y)).toBeLessThanOrEqual(h);
+  }
+  const nested = /<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 10 10" x="0" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)">/.exec(out)!;
+  expect(Number(nested[2])).toBe(w);
+  expect(Number(nested[3])).toBe(w);
+  expect(Number(nested[1]) + Number(nested[3])).toBeCloseTo(h, 6);
+});
