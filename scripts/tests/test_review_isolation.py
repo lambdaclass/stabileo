@@ -84,6 +84,14 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
             self.assertIn(f'--ro-bind /dev/null {home}/.git-credentials', joined)
             mac = readonly.sandbox_command(['/tmp/s'], ['reviewer'], 'darwin', hide=hidden)
             self.assertIn(f'(deny file-read* (subpath "{home}/.config/gh") (literal "{home}/.git-credentials"))', mac[2])
+        with tempfile.TemporaryDirectory() as tmp:
+            home, custom, xdg = Path(tmp) / 'home', Path(tmp) / 'gh-custom', Path(tmp) / 'xdg'
+            for path in (home, custom, xdg / 'gh'):
+                path.mkdir(parents=True)
+            hidden = readonly.hidden_credentials(home, {'GH_CONFIG_DIR': str(custom), 'XDG_CONFIG_HOME': str(xdg)})
+            self.assertIn(custom, hidden)
+            self.assertIn(xdg / 'gh', hidden)
+        self.assertIn('GH_CONFIG_DIR', readonly.SECRET_ENV)
         self.assertIn('GH_TOKEN', readonly.SECRET_ENV)
         self.assertIn('GITHUB_TOKEN', readonly.SECRET_ENV)
 

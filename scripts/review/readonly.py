@@ -8,13 +8,17 @@ import sys
 import tempfile
 
 
-SECRET_ENV = ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'SSH_AUTH_SOCK',
-              'GIT_ASKPASS', 'SSH_ASKPASS')
+SECRET_ENV = ('GH_TOKEN', 'GITHUB_TOKEN', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN', 'GH_CONFIG_DIR',
+              'SSH_AUTH_SOCK', 'GIT_ASKPASS', 'SSH_ASKPASS', 'NETRC')
 
 
-def hidden_credentials(home):
-    return [path for path in (home / '.config/gh', home / '.ssh', home / '.git-credentials', home / '.netrc')
-            if path.exists()]
+def hidden_credentials(home, environ=os.environ):
+    config = Path(environ.get('XDG_CONFIG_HOME') or home / '.config')
+    candidates = {home / '.config/gh', config / 'gh', home / '.ssh', home / '.git-credentials', home / '.netrc'}
+    for name in ('GH_CONFIG_DIR', 'NETRC'):
+        if environ.get(name):
+            candidates.add(Path(environ[name]))
+    return sorted(path for path in candidates if path.exists())
 
 
 def sandbox_command(paths, command, platform=sys.platform, hide=()):
@@ -57,7 +61,7 @@ def main(command):
                    XDG_STATE_HOME=str(scratch / 'state'),
                    TMPDIR=str(scratch), TMP=str(scratch), TEMP=str(scratch))
         # stdout/stderr stay on the descriptors opened by the parent runner.
-        return subprocess.call(sandbox_command([scratch], command, hide=hidden_credentials(original_home)), env=env)
+        return subprocess.call(sandbox_command([scratch], command, hide=hidden_credentials(original_home, os.environ)), env=env)
 
 
 if __name__ == '__main__':
