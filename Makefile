@@ -258,7 +258,7 @@ test.web.unit:
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
@@ -293,8 +293,10 @@ e2e.web.build:
 e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
+WALL_CLOCK_E2E := rebar-workspace-open\.spec|model-fluidity\.spec|tab-return-latency\.spec
+
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky$(if $(NO_WALL_CLOCK),|$(WALL_CLOCK_E2E))" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
 
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
@@ -352,6 +354,7 @@ test.nightly-scripts:
 
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 
 lint.backend:
