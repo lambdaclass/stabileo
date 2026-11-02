@@ -72,6 +72,18 @@ class CiRunners(unittest.TestCase):
         for name, job in jobs('nightly.yml').items():
             self.assertNotIn('stabileo-pr', labels(job.get('runs-on', '')), name)
 
+    def test_browser_jobs_can_be_capped_to_the_e2e_pool(self):
+        ci = jobs('ci.yml')
+        browser = {name for name, job in ci.items() if 'stabileo-e2e' in labels(job.get('runs-on', ''))}
+        self.assertEqual(browser, {'e2e', 'site-e2e', 'e2e-flaky'})
+        for name in browser:
+            runs_on = ci[name]['runs-on']
+            self.assertIn("(vars.STABILEO_E2E_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-e2e\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
+            self.assertLess(runs_on.index("github.event_name != 'pull_request'"), runs_on.index('STABILEO_E2E_POOL'), name)
+        for workflow in ['research.yml', 'supply-chain.yml', 'nightly.yml']:
+            for name, job in jobs(workflow).items():
+                self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)
+
     def test_superseded_runs_cancel_but_main_never_does(self):
         for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)
