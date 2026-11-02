@@ -115,6 +115,19 @@ describe('collapse loads: kinematic minimum = static check = step by step', () =
     const r = plasticCollapse2D(m, { mp, np: () => Infinity });
     expect(Math.abs(r.collapseFactor / (9625 / 135) - 1)).toBeLessThan(1e-4);
     expect(r.hinges.some((h) => h.unloadedAt !== undefined)).toBe(true);
+    expect(r.isMechanism).toBe(true);
+    expect(r.unconfirmed).toBeUndefined();
+  });
+
+  it('the same portal with no closings allowed: the run stops unconfirmed, not as a collapse', () => {
+    const m = model([[1, 0, 0], [2, 0, 4], [3, 6, 4], [4, 6, 0]], [[1, 1, 2], [2, 2, 3], [3, 4, 3]],
+      [[1, 'fixed'], [4, 'fixed']], [P(2, 10, 0), q(2, -15)]);
+    const mp = (id: number) => (id === 2 ? 3125 : 1687.5);
+    const r = plasticCollapse2D(m, { mp, np: () => Infinity, maxClosings: 0 });
+    expect(r.unconfirmed).toBe(true);
+    expect(r.isMechanism).toBe(false);
+    expect(r.collapseFactor).toBeLessThan(9625 / 135);
+    expect(r.hinges.every((h) => h.unloadedAt === undefined)).toBe(true);
   });
 
   it('columns weaker than the beam: the corner hinges go in the columns', () => {

@@ -12,7 +12,7 @@ import { num, numText } from '../format';
 import { plotOf, type Plot, type PlotColor } from '../plot';
 import type { Sketch } from '../sketch';
 import { sketchOf } from '../sketch';
-import { resolveMdof, type MdofCase } from './mdof-build';
+import { resolveMdof, type MdofCase, DIRECT_TOL } from './mdof-build';
 import { K as KEY, p, note, dt, nodeNames, dofTexN, dofTextN, matrixBlock, systemSketch, shapeSketch, shapeScale, expand, MAX_SHOWN, engineFrequencies } from './common';
 import { mdofSystemBlocks, shearBlocks } from './mdof-system-blocks';
 
@@ -65,6 +65,7 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
     { kind: 'eq', tex: '\\mathbf{M}\\,\\ddot{\\mathbf u} + \\mathbf{C}\\,\\dot{\\mathbf u} + \\mathbf{K}\\,\\mathbf u = \\mathbf F(t)' },
     p('mdof.intro.idea', undefined, true),
     c.kind === 'shear' ? p('mdof.intro.shear') : p(`mdof.intro.model.${c.settings.mass.massModel}`, { n: c.settings.mass.nPerMember }),
+    ...(c.sys && c.sys.nPerMember > 1 && c.sys.members.some((m) => m.type === 'truss') ? [p('mdof.intro.trussWhole')] : []),
     c.ex.kind === 'free' ? p('mdof.intro.free') : p('mdof.intro.harmonic', { r: numText(c.settings.mdof.ratio, 3) }),
     p('mdof.intro.damping', { xi: numText(c.xi, 3) }),
     c.sys
@@ -194,6 +195,9 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
       { kind: 'plot', plot: superpositionPlotOf(c, labels[j]), caption: dt('mdof.sup.caption', { dof: labels[j], T: numText(tEnd, 3) }) },
       p('mdof.sup.direct.lead'),
       p('mdof.sup.direct.why', undefined, true),
+      c.directStep.resolved
+        ? { kind: 'note', tone: 'info', text: dt('mdof.sup.step', { dt: numText(c.directStep.dt, 3), n: c.directStep.steps, w: numText(c.directStep.omega, 4), tol: numText(DIRECT_TOL * 100, 2) }) }
+        : { kind: 'note', tone: 'warn', text: dt('mdof.sup.stepShort', { dt: numText(c.directStep.dt, 3), n: c.directStep.steps, w: numText(c.directStep.omega, 4), pct: numText(c.directStep.estimate * 100, 2) }) },
       { kind: 'table', head: [{ tex: 't\\ [\\text{s}]' }, dt('mdof.sup.modalCol'), dt('mdof.sup.directCol'), dt('mdof.eig.diff')],
         rows: picks.map((k) => [c.times[k], c.modal[k][j] * MM, c.direct[k][j] * MM, `${numText((Math.abs(c.modal[k][j] - c.direct[k][j]) / peak) * 100, 2)} %`]),
         caption: dt('mdof.sup.tableCaption', { dof: labels[j] }) },

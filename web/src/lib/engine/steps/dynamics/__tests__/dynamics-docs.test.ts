@@ -4,7 +4,7 @@ import { isSolverReady } from '../../../wasm-solver';
 import { methodContext } from '../../../../store/explained-steps.svelte';
 import { methodById } from '../../methods';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
-import { resolveMdof } from '../mdof-build';
+import { resolveMdof, directStepFor, newmarkDrift, DIRECT_BUDGET, DIRECT_TOL } from '../mdof-build';
 import { solveSdof } from '../sdof-doc';
 import { stepsEs, stepsEn, stepsPt } from '../../../../i18n/locales/steps';
 import type { Block, StepDoc, Txt } from '../../doc';
@@ -166,5 +166,69 @@ describe('the distributed mass document', () => {
     setDynamicsSettings({ mass: { nPerMember: 2, massModel: 'lumped' } });
     const doc = build('massDiscretization');
     expectTranslated(doc);
+  });
+});
+
+describe('the n degree of freedom direct integration and its excitation', () => {
+  function axialColumn() {
+    uiStore.analysisMode = '2d';
+    historyStore.clear();
+    modelStore.clear();
+    modelStore.batch(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'fixed');
+      modelStore.addNodalLoad(b, 0, -100);
+    });
+  }
+  const drawnGap = (c: Exclude<ReturnType<typeof resolveMdof>, { refusal: string }>) => {
+    const peak = Math.max(...c.modal.map((u) => Math.abs(u[c.at])));
+    return Math.max(...c.modal.map((u, k) => Math.abs(u[c.at] - c.direct[k][c.at]))) / peak;
+  };
+
+  it('a column released from its axial deflection: the step follows the axial mode and both paths agree', () => {
+    axialColumn();
+    setDynamicsSettings({ mass: { nPerMember: 1, massModel: 'consistent' }, mdof: { excitation: 'free', xi: 0 } });
+    const c = resolveMdof({ model: modelStore.model });
+    if ('refusal' in c) throw new Error(c.refusal);
+    expect(c.dofs[c.at].dir).toBe('uz');
+    expect(c.directStep.resolved).toBe(true);
+    expect(c.directStep.omega).toBeGreaterThan(5 * c.sol.modes[0].omega);
+    expect(drawnGap(c)).toBeLessThan(0.01);
+  });
+
+  it('the same column forced axially, and the frame example free and forced: both paths agree', async () => {
+    axialColumn();
+    setDynamicsSettings({ mass: { nPerMember: 2, massModel: 'consistent' }, mdof: { excitation: 'harmonic', ratio: 0.8, xi: 0.02 } });
+    let c = resolveMdof({ model: modelStore.model });
+    if ('refusal' in c) throw new Error(c.refusal);
+    expect(drawnGap(c)).toBeLessThan(0.01);
+    await load('portal-frame');
+    for (const excitation of ['free', 'harmonic'] as const) {
+      setDynamicsSettings({ mass: { nPerMember: 2, massModel: 'lumped' }, mdof: { excitation, ratio: 1.3, xi: 0.05 } });
+      c = resolveMdof({ model: modelStore.model });
+      if ('refusal' in c) throw new Error(c.refusal);
+      expect(c.directStep.resolved).toBe(true);
+      expect(drawnGap(c)).toBeLessThan(0.01);
+    }
+  });
+
+  it('Ω = 0 is refused with its reason instead of a record of infinite length', () => {
+    axialColumn();
+    for (const ratio of [0, -1, Number.NaN]) {
+      setDynamicsSettings({ mdof: { excitation: 'harmonic', ratio } });
+      expect(resolveMdof({ model: modelStore.model })).toEqual({ refusal: 'mdof.err.omega' });
+    }
+    expect(stepsEs['course.dynamics.mdof.err.omega']).toMatch(/Ω = 0/);
+  });
+
+  it('a component too fast for the budget is flagged, and the step count stays within it', () => {
+    const s = directStepFor([{ omega: 10, amp: 1 }, { omega: 1e7, amp: 0.5 }], 2, 2 / 160, 1, 40);
+    expect(s.resolved).toBe(false);
+    expect(s.steps * 40 * 40).toBeLessThanOrEqual(DIRECT_BUDGET);
+    expect(s.estimate).toBeGreaterThan(DIRECT_TOL);
+    const easy = directStepFor([{ omega: 10, amp: 1 }], 2, 2 / 160, 1, 4);
+    expect(easy.resolved).toBe(true);
+    expect(newmarkDrift(10, easy.dt, 2)).toBeLessThanOrEqual(DIRECT_TOL);
   });
 });

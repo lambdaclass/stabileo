@@ -11,7 +11,8 @@ import { withSectionMass } from '../section-mass';
 import type { PointMass } from '../mass-source';
 import { subdivideForAnalysis } from '../../../model/edit/analysis-subdivision';
 import { type Mat, zeros, congruence } from './dense';
-import { type MassModel, type Condensation, lumpedFrameMass, consistentFrameMass, trussMass, condense } from './mass-model';
+import { type MassModel, type Condensation, lumpedFrameMass, consistentFrameMass, trussMass, condense, condenseVector } from './mass-model';
+import type { Inertia } from './modal-decomposition';
 
 export type DofDir = 'ux' | 'uz' | 'ry';
 export interface DofRef { nodeId: number; dir: DofDir }
@@ -48,6 +49,8 @@ export interface MdofSystem {
   points: Array<{ nodeId: number; mx: number; mz: number }>;
   /** Total translational mass, t. */
   totalMass: number;
+  /** The ground-motion load M·r on the solved degrees of freedom and the physical mass in each direction. */
+  inertia: Inertia;
   /** Nodes along each member, model member id → nodes from I to J (ends included). */
   chains: Map<number, number[]>;
   /** Coordinates of every node of the bar model (x, z). */
@@ -125,6 +128,16 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
     ({ K, M, F } = condensation);
     dofs = masters.map((i) => fullDofs[i]);
   }
+  // r is 1 on the restrained translations too: they move with the ground, and a consistent mass couples to them.
+  const ground = (ld: number) => {
+    const r = new Array<number>(nT).fill(0);
+    for (const d of det.dofNumbering.dofs) if (d.localDof === ld) r[d.globalIndex] = 1;
+    const Mr = Mt.slice(0, nF).map((row) => row.reduce((s, v, j) => s + v * r[j], 0));
+    const mass = Mt.reduce((s, row, i) => s + r[i] * row.reduce((a, v, j) => a + v * r[j], 0), 0);
+    return { Mr: condensation ? condenseVector(condensation, Mr) : Mr, mass };
+  };
+  const gx = ground(0), gz = ground(1);
+  const inertia: Inertia = { x: gx.Mr, z: gz.Mr, massX: gx.mass, massZ: gz.mass };
 
   const chains = new Map<number, number[]>();
   for (const [mid, segs] of sub.segments) {
@@ -134,5 +147,5 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   }
   const coords = new Map([...input.nodes.values()].map((n) => [n.id, { x: n.x, z: n.z }]));
   const totalMass = members.reduce((s, m) => s + m.rhoA * m.L, 0) + pts.reduce((s, p) => s + p.mx, 0);
-  return { fullDofs, fullK, fullM, fullF, dofs, K, M, F, condensation, massModel: opts.massModel, nPerMember: Math.max(1, opts.nPerMember), members, points: pts, totalMass, chains, coords };
+  return { fullDofs, fullK, fullM, fullF, dofs, K, M, F, condensation, massModel: opts.massModel, nPerMember: Math.max(1, opts.nPerMember), members, points: pts, totalMass, inertia, chains, coords };
 }

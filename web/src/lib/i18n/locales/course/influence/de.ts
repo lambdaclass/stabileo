@@ -164,6 +164,10 @@ const words: Translations = {
   'steps.m.influenceLine.title': 'Einflusslinie',
   'steps.m.influenceLine.help': 'Zeichnet die Einflusslinie einer Auflagerkraft, einer Schnittgröße oder einer Verschiebung, erklärt ihre Form mit dem Satz von Müller-Breslau oder dem Satz von Maxwell und zeigt, wie sie für Maximum und Minimum belastet wird.',
   'steps.m.influenceLine.requires': 'ein ebenes Tragwerk mit Lagern. Verwendet wird die Linie auf dem Bildschirm, der ausgewählte Stab (M in seiner Mitte) oder der ausgewählte gelagerte Knoten (Rz).',
+  'course.influence.states.v.cases': "Lastfälle",
+  'course.influence.states.v.combos': "Kombinationen",
+  'course.influence.states.v.state': "Berechnet",
+  'course.influence.panel.offPath': "Die Einheitslast wandert entlang eines Wegs (Stäbe: {list}), deshalb wird die Linie entlang dieses Wegs gezeichnet. Jede Ordinate ist der Wert im Schnitt S des Stabs {e}, wenn die Last an diesem Punkt steht.",
 };
 
 export default words;

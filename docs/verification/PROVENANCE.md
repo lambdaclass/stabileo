@@ -73,6 +73,18 @@ unit suite passes 15,706 tests (14 skipped), including regressions for colliding
 results versions and missing or renumbered released entries; the web typecheck and guarded Svelte
 checks pass against their existing baselines. The changelog check passes.
 
+## Basic course units (PR #871)
+
+Results version 6 registers four changes to Basic 2D advanced results:
+`basic-plastic-closes-unloading-hinges`, `basic-second-order-split-members`,
+`basic-influence-line-moment-sign` and `basic-governing-combination-along-members`. What moves
+and why is in [the results change note](../results-changes/2026-11-basic-course.md). The Rust
+engine is unchanged and no committed snapshot moves, since the corpus leaves out the Basic 2D
+advanced toolbar. Version 6 is provisional until merge: #817, #827 and #865 also propose it, and
+whichever merges later takes the next version, as the rule above says.
+`provenance/__tests__/basic-course-changes.test.ts` opens a Basic frame stamped 5 and checks
+which of the four it is told.
+
 ## Results snapshot gate
 
 A pull request that changes any result must say so (#716; #461 changed steel verdicts and no

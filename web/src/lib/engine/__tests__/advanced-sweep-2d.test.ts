@@ -576,6 +576,10 @@ function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: Ana
   const r = run.result;
   if (!Number.isFinite(r.collapseFactor) || !(r.collapseFactor > 0)) { fail('plastic', `${label}: λc=${r.collapseFactor} mechanism=${r.isMechanism}`); return; }
   const fy = firstYield(input, res, new Map(run.mps.map((m) => [m.sectionId, m.mp])));
+  if (r.unconfirmed) {
+    fail('plastic', `${label}: unconfirmed, stopped on its work limit at λ=${r.collapseFactor} (${r.hinges.length} hinges, ${r.hinges.filter((h) => h.unloadedAt !== undefined).length} closed)`);
+    return;
+  }
   if (!r.isMechanism) {
     // A structure under forces collapses at some factor; only self-equilibrated actions cannot.
     fail('plastic', `${label}: no mechanism (λ=${r.collapseFactor}, ${r.hinges.length} hinges, first yield at ${fy.lambda.toFixed(3)} in ${fy.where})${meta.thermal || meta.settlement ? ' [has thermal/settlement]' : ''}`);
@@ -906,6 +910,12 @@ const KNOWN: Array<{ check: string; defect: string; match: (m: string) => boolea
   //       factors found" instead of a (large) factor. Still open in the engine (beam#28,
   //       beam#36); the Basic panel cuts members where a force along them acts, and
   //       'buckling-basic' checks that path whole.
+  // The step-by-step plastic collapse of beam#5 (a settlement, an inclined roller, axial yield and
+  //       a member load) needs 346 hinge closings and about 350 events to reach its mechanism
+  //       (λc = 186.27, ~24 s): the span hinge walks along the member a sampling step at a time.
+  //       Within the 200 events the panel allows it stops and says the collapse is not confirmed;
+  //       with a 10-closing cap it used to report a false collapse at 160.23.
+  { check: 'plastic', defect: 'beam#5 needs ~350 events (a hinge drifting a sampling step per closing): the run stops unconfirmed within the panel\'s 200', match: (m) => m.startsWith('beam#5:') && m.includes('unconfirmed') },
   { check: 'buckling', defect: 'ENGINE D12 (buckling.rs:91-93): one mean N per member misses partial or small compression (Basic cuts the member: see buckling-basic)', match: (m) => /no compressed elements" but|No positive buckling/.test(m) },
 ];
 

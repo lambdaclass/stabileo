@@ -58,7 +58,7 @@
       {#each events as e (e.i)}
         <li>{e.axial ? tp('course.plastic.trace.yield', { member: e.h.elementId, i: e.i }) : tp('course.plastic.trace.hinge', { member: e.h.elementId, x: at(e.h.x), i: e.i })}</li>
       {/each}
-      <li class="tr-end">{last && r.isMechanism ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
+      <li class="tr-end">{last && r.unconfirmed ? tp('course.plastic.unconfirmed', { lambda: f3(r.collapseFactor) }) : last && r.isMechanism ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
     </ol>
   </PlasticSection>
 {/if}

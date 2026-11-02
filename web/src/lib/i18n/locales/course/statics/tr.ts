@@ -121,6 +121,7 @@ const words: Translations = {
   'course.statics.cast.realCouple': '{n} noktasında zaten P = {P} kN·m büyüklüğünde bir moment etkiyor: dönme, enerjinin bu momente göre türevidir.',
   'course.statics.cast.dummyCouple': '{n} noktasında moment etkimiyor: hayali bir Q momenti eklenir, enerjinin Q momentine göre türevi alınır ve en sonda Q = 0 alınır.',
   'course.statics.cast.dummyPair': 'Göreli bir büyüklük için {n} ve {m} noktalarına zıt yönlü iki hayali Q yükü eklenir: enerjinin Q yüküne göre türevi göreli büyüklüğü verir ve en sonda Q = 0 alınır.',
+  'course.statics.fm.fund.section': "Bir çubuğu ara bir noktada kesmek için önce onu bölün (çubuğa sağ tıklayın, Parçalara böl) ve yeni düğümde kesin.",
 };
 
 export default words;

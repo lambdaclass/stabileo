@@ -1,8 +1,141 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 5,
+  "currentResultsVersion": 6,
   "changes": [
+    {
+      "id": "basic-plastic-closes-unloading-hinges",
+      "resultsVersion": 6,
+      "date": "2026-11-02",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "analysis:plastic"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Plane plastic collapse closes unloading hinges and goes on to the true collapse",
+        "es": "El colapso plástico plano cierra las rótulas que se descargan y sigue hasta el colapso real",
+        "pt": "O colapso plástico plano fecha as rótulas que se descarregam e segue até o colapso real"
+      },
+      "explanation": {
+        "en": "The step-by-step collapse stopped at the first apparent mechanism. Under distributed loads a second hinge forms beside the first and unloads; the analysis stopped there with a low collapse factor (a portal frame gave 64.06 instead of 71.30). Those hinges now close and the analysis continues; a hinge that drifts along a member counts once. A run that does not reach an admissible mechanism within its step limit is reported as not confirmed instead of as a collapse. Re-check plastic collapse factors of plane frames, above all with distributed loads.",
+        "es": "El colapso paso a paso se detenía en el primer mecanismo aparente. Con cargas distribuidas se forma una segunda rótula junto a la primera que se descarga; el análisis se detenía ahí con un factor de colapso bajo (un pórtico daba 64,06 en lugar de 71,30). Ahora esas rótulas se cierran y el análisis sigue; una rótula que se desplaza a lo largo de una barra cuenta una sola vez. Una corrida que no llega a un mecanismo admisible dentro de su límite de pasos se informa como no confirmada, no como colapso. Revise los factores de colapso plástico de pórticos planos, sobre todo con cargas distribuidas.",
+        "pt": "O colapso passo a passo parava no primeiro mecanismo aparente. Com cargas distribuídas forma-se uma segunda rótula junto à primeira, que se descarrega; a análise parava ali com um fator de colapso baixo (um pórtico dava 64,06 em vez de 71,30). Agora essas rótulas se fecham e a análise continua; uma rótula que se desloca ao longo de uma barra conta uma só vez. Uma execução que não chega a um mecanismo admissível dentro do seu limite de passos é informada como não confirmada, não como colapso. Revise os fatores de colapso plástico de pórticos planos, sobretudo com cargas distribuídas."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course.md",
+        "heading": "Plastic collapse closes unloading hinges"
+      }
+    },
+    {
+      "id": "basic-second-order-split-members",
+      "resultsVersion": 6,
+      "date": "2026-11-02",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "analysis:pdelta",
+            "analysis:buckling"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Basic P-Δ and critical load split each member into elements at the solve",
+        "es": "El P-Δ y la carga crítica del Básico dividen cada barra en elementos al calcular",
+        "pt": "O P-Δ e a carga crítica do Básico dividem cada barra em elementos no cálculo"
+      },
+      "explanation": {
+        "en": "Basic's P-Δ and critical-load analyses now solve each member as 4 elements by default (1, 2, 4 or 8 can be chosen), and B₂ is 1/(1 − 1/λ₁) from the first buckling factor. Displacements, forces, B₂ and λcr move toward the converged values, most for slender members and members loaded along their length. Re-run second-order and buckling analyses of plane models.",
+        "es": "El P-Δ y la carga crítica del Básico ahora resuelven cada barra como 4 elementos por defecto (se puede elegir 1, 2, 4 u 8), y B₂ es 1/(1 − 1/λ₁) a partir del primer factor de pandeo. Desplazamientos, esfuerzos, B₂ y λcr se acercan a los valores convergidos, más en barras esbeltas y en barras cargadas a lo largo. Vuelva a calcular los análisis de segundo orden y de pandeo de modelos planos.",
+        "pt": "O P-Δ e a carga crítica do Básico agora resolvem cada barra como 4 elementos por padrão (pode-se escolher 1, 2, 4 ou 8), e B₂ é 1/(1 − 1/λ₁) a partir do primeiro fator de flambagem. Deslocamentos, esforços, B₂ e λcr se aproximam dos valores convergidos, mais em barras esbeltas e em barras carregadas ao longo do comprimento. Recalcule as análises de segunda ordem e de flambagem de modelos planos."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course.md",
+        "heading": "P-Δ and critical load split members at the solve"
+      }
+    },
+    {
+      "id": "basic-influence-line-moment-sign",
+      "resultsVersion": 6,
+      "date": "2026-11-02",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Influence lines of the bending moment take sagging as positive",
+        "es": "Las líneas de influencia del momento toman positivo el que tracciona la fibra inferior",
+        "pt": "As linhas de influência do momento tomam como positivo o que traciona a fibra inferior"
+      },
+      "explanation": {
+        "en": "The influence line of M at a section now takes M positive when it puts the bottom fibre in tension, as every other moment in Basic. Ordinates of moment influence lines change sign; their magnitudes do not.",
+        "es": "La línea de influencia de M en una sección ahora toma M positivo cuando tracciona la fibra inferior, como todo otro momento del Básico. Las ordenadas de las líneas de influencia de momento cambian de signo; sus valores absolutos no.",
+        "pt": "A linha de influência de M em uma seção agora toma M positivo quando traciona a fibra inferior, como todo outro momento do Básico. As ordenadas das linhas de influência de momento mudam de sinal; seus valores absolutos não."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course.md",
+        "heading": "Influence line of the bending moment: sign"
+      }
+    },
+    {
+      "id": "basic-governing-combination-along-members",
+      "resultsVersion": 6,
+      "date": "2026-11-02",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "combinations"
+          ]
+        ]
+      },
+      "title": {
+        "en": "The governing combination of a plane member is read along it, not only at its ends",
+        "es": "La combinación determinante de una barra plana se lee a lo largo de ella, no solo en sus extremos",
+        "pt": "A combinação determinante de uma barra plana é lida ao longo dela, não só nas extremidades"
+      },
+      "explanation": {
+        "en": "The governing combination of a member is chosen from the moment, shear and axial force along it. A member whose largest moment is inside the span, such as a beam under a distributed load, can name a different governing combination. Member forces themselves do not change.",
+        "es": "La combinación determinante de una barra se elige con el momento, el corte y el axil a lo largo de ella. Una barra cuyo mayor momento está dentro del tramo, como una viga con carga distribuida, puede indicar otra combinación determinante. Los esfuerzos en sí no cambian.",
+        "pt": "A combinação determinante de uma barra é escolhida com o momento, o cortante e o axial ao longo dela. Uma barra cujo maior momento está dentro do vão, como uma viga com carga distribuída, pode indicar outra combinação determinante. Os esforços em si não mudam."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course.md",
+        "heading": "Governing combination per member"
+      }
+    },
     {
       "id": "solid-shell-local-stress-axes",
       "resultsVersion": 5,

@@ -125,6 +125,7 @@ export const es: Translations = {
   'course.plastic.trace.yield': 'La barra {member} fluye (rótula {i}): sigue con Np y deja de aportar rigidez.',
   'course.plastic.trace.collapse': 'Con esta rótula la estructura es un mecanismo: λc = {lambda}.',
   'course.plastic.trace.noMechanism': 'Ninguna sección más puede llegar a Mp: la estructura no forma un mecanismo con estas cargas.',
+  'course.plastic.unconfirmed': "Colapso sin confirmar: el cálculo llegó a su límite de pasos sin alcanzar un mecanismo admisible y se detuvo en λ = {lambda}. Ese valor es el último factor alcanzado, no la carga de colapso. Contrastalo con los métodos estático y cinemático.",
   'course.plastic.trace.next': 'Con la rótula nueva la estructura tiene una incógnita hiperestática menos, y el paso siguiente la resuelve así.',
 
   'course.plastic.curve.title': 'Diagrama λ–desplazamiento',
@@ -314,6 +315,7 @@ export const en: Translations = {
   'course.plastic.trace.yield': 'Member {member} yields (hinge {i}): it keeps Np and adds no more stiffness.',
   'course.plastic.trace.collapse': 'With this hinge the structure is a mechanism: λc = {lambda}.',
   'course.plastic.trace.noMechanism': 'No other section can reach Mp: the structure does not form a mechanism under these loads.',
+  'course.plastic.unconfirmed': "Collapse not confirmed: the analysis reached its step limit without an admissible mechanism and stopped at λ = {lambda}. That value is the last factor reached, not the collapse load. Check it against the static and kinematic methods.",
   'course.plastic.trace.next': 'With the new hinge the structure has one redundant less, and the next step solves it that way.',
 
   'course.plastic.curve.title': 'λ–displacement diagram',
@@ -503,6 +505,7 @@ export const pt: Translations = {
   'course.plastic.trace.yield': 'A barra {member} escoa (rótula {i}): continua com Np e deixa de contribuir com rigidez.',
   'course.plastic.trace.collapse': 'Com esta rótula a estrutura é um mecanismo: λc = {lambda}.',
   'course.plastic.trace.noMechanism': 'Nenhuma outra seção consegue chegar a Mp: a estrutura não forma um mecanismo com estas cargas.',
+  'course.plastic.unconfirmed': "Colapso não confirmado: o cálculo chegou ao seu limite de passos sem alcançar um mecanismo admissível e parou em λ = {lambda}. Esse valor é o último fator alcançado, não a carga de colapso. Compare-o com os métodos estático e cinemático.",
   'course.plastic.trace.next': 'Com a nova rótula a estrutura tem uma incógnita hiperestática a menos, e o próximo passo a resolve assim.',
 
   'course.plastic.curve.title': 'Diagrama λ–deslocamento',

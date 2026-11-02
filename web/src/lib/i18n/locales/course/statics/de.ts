@@ -117,6 +117,7 @@ const words: Translations = {
   'course.statics.cast.realCouple': 'Bei {n} wirkt bereits ein Moment P = {P} kN·m: Die Verdrehung ist die Ableitung der Energie nach diesem Moment.',
   'course.statics.cast.dummyCouple': 'Bei {n} wirkt kein Moment: Es wird ein fiktives Moment Q hinzugefügt, die Energie nach Q abgeleitet und am Ende Q = 0 gesetzt.',
   'course.statics.cast.dummyPair': 'Für eine relative Größe wird ein Paar entgegengesetzter fiktiver Lasten Q hinzugefügt, bei {n} und bei {m}: Die Ableitung der Energie nach Q liefert die relative Größe, und am Ende wird Q = 0 gesetzt.',
+  'course.statics.fm.fund.section': "Um einen Stab an einer Zwischenstelle zu schneiden, teilen Sie ihn zuerst (Rechtsklick auf den Stab, Unterteilen in) und schneiden Sie am neuen Knoten.",
 };
 
 export default words;

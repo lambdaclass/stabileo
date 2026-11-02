@@ -63,6 +63,8 @@ export interface PlasticCollapseOptions {
   samples?: number;
   /** Stop after this many events if no mechanism has formed. */
   maxEvents?: number;
+  /** How many times unloading hinges may be closed before the run stops unconfirmed; `maxEvents` if absent. */
+  maxClosings?: number;
 }
 
 export interface PlasticCollapseHinge extends PlasticHinge {
@@ -97,6 +99,11 @@ export interface PlasticCollapseResult extends PlasticResult {
    * the caller says so instead of "does not collapse".
    */
   unloaded: boolean;
+  /**
+   * The run stopped on its work limit (its events, or its hinge closings) before a mechanism was
+   * shown admissible: `collapseFactor` is the last λ reached, not a collapse load.
+   */
+  unconfirmed?: boolean;
 }
 
 interface Piece { id: number; t0: number; t1: number }
@@ -234,7 +241,7 @@ function axialPeakStations(loads: readonly SolverLoad[], id: number, L: number):
 export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
   const S = opts.samples ?? 200;
   const maxEvents = opts.maxEvents ?? 200;
-  const MAX_CLOSINGS = 10;
+  const MAX_CLOSINGS = opts.maxClosings ?? maxEvents;
   const work = cloneInput(original);
 
   const kin0 = analyzeKinematics(original);
@@ -313,14 +320,14 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
    * and a second hinge beside the first is such a case). Closes those hinges and says whether any was.
    */
   let closings = 0;
-  const closeUnloading = (): boolean => {
-    if (closings >= MAX_CLOSINGS) return false;
+  let unconfirmed = false;
+  const closeUnloading = (): 'closed' | 'mechanism' | 'exhausted' => {
     const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
-    if (!open.length) return false;
+    if (!open.length) return 'mechanism';
     const removed = new Set(members.filter((mb) => mb.yielded).map((mb) => mb.id));
     const km = buildKinematics(original, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), removed);
     const space = nullspace(km.rows, km.n);
-    if (!space.length) return false;
+    if (!space.length) return 'mechanism';
     const dotRow = (row: number[], d: number[]) => row.reduce((acc, w, i) => acc + w * d[i], 0);
     const th = space.map((d) => open.map((_, k) => dotRow(km.rotation[k], d)));
     const sag = open.map((x) => -Math.sign(hinges[x.h].moment));
@@ -333,12 +340,14 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       ],
       free: space.map(() => true),
     });
-    if (consistent.status === 'optimal') return false;
+    if (consistent.status === 'optimal') return 'mechanism';
     const norm = Math.hypot(...loadWork) || 1;
     const theta = open.map((_, k) => space.reduce((acc, _d, j) => acc + (loadWork[j] / norm) * th[j][k], 0));
     const big = Math.max(...theta.map(Math.abs));
     const closing = open.filter((_, k) => theta[k] * sag[k] < -1e-6 * big);
-    if (closing.length) closings++;
+    if (!closing.length) return 'mechanism';
+    if (closings >= MAX_CLOSINGS) return 'exhausted';
+    closings++;
     for (const { ref, h } of closing) {
       const { mb, t, run } = ref!;
       if (t <= 1e-12) work.elements.get(mb.pieces[0].id)!.hingeStart = false;
@@ -348,7 +357,14 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       hinges[h].unloadedAt = lambda;
       hingeAt[h] = null;
     }
-    return closing.length > 0;
+    return 'closed';
+  };
+  /** A mechanism from the kinematic check or the solve: closes what unloads, else stops, confirmed or not. */
+  const atMechanism = (): boolean => {
+    const c = closeUnloading();
+    if (c === 'closed') return false;
+    if (c === 'exhausted') unconfirmed = true; else isMechanism = true;
+    return true;
   };
   const rotations: number[] = [];
   /** The rotation jump at a hinge in the solve of this step, right side minus left side along the member. */
@@ -371,21 +387,22 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     return rot ? nodeRot(e.nodeJ) - rot.tj : 0;
   };
 
-  for (let event = 0; event < maxEvents; event++) {
+  let event = 0;
+  for (; event < maxEvents; event++) {
     /*
      * A mechanism is what the kinematic check says it is. An exception from that check or from
      * the solve after it said "solvable" is an error, and it used to be recorded as collapse:
      * an engine failure came out as a collapse factor.
      */
     const kin = analyzeKinematics(work);
-    if (!kin.isSolvable) { if (closeUnloading()) continue; isMechanism = true; break; }
+    if (!kin.isSolvable) { if (atMechanism()) break; continue; }
     let r: AnalysisResults;
     try { r = solve(work); } catch (e) {
       const msg = (e as Error)?.message ?? String(e);
       // The engine has its own mechanism detection (a hinged node free to rotate, a singular
       // stiffness), finer than the kinematic count: its verdict is a mechanism. Anything else
       // is a failure and is reported as one.
-      if (/mechanism|singular|instab/i.test(msg)) { if (closeUnloading()) continue; isMechanism = true; break; }
+      if (/mechanism|singular|instab/i.test(msg)) { if (atMechanism()) break; continue; }
       throw new Error(`Plastic collapse: the solve after ${hinges.length} hinge(s) failed although the `
         + `structure is not a mechanism — ${msg}`);
     }
@@ -612,7 +629,8 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     if (crushed) { isMechanism = true; break; }
   }
 
-  if (!isMechanism) {
+  if (event >= maxEvents) unconfirmed = true;
+  if (!isMechanism && !unconfirmed) {
     isMechanism = !analyzeKinematics(work).isSolvable;
   }
   return {
@@ -623,5 +641,6 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     redundancy: Math.max(0, kin0.degree),
     degree: kin0.degree,
     unloaded,
+    ...(unconfirmed ? { unconfirmed } : {}),
   };
 }

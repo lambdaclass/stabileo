@@ -67,9 +67,11 @@
   </div>
   <AdvValues items={values} help={`${t('course.plastic.v.help')}`} testid="plastic-values" />
   {#if step === r.steps.length - 1}
-    <p class="pl-verdict" data-testid="plastic-verdict">{r.isMechanism
-      ? t('plastic.collapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{n}', String(finalCount))
-      : t('plastic.noCollapse')}</p>
+    <p class="pl-verdict" class:pl-warn={r.unconfirmed} data-testid="plastic-verdict">{r.unconfirmed
+      ? tp('course.plastic.unconfirmed', { lambda: r.collapseFactor.toFixed(3) })
+      : r.isMechanism
+        ? t('plastic.collapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{n}', String(finalCount))
+        : t('plastic.noCollapse')}</p>
   {/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
@@ -123,6 +125,7 @@
   .pl-closed { color: var(--st-text-3); font-weight: 400; }
   .pl-methods { display: flex; flex-wrap: wrap; gap: 4px; }
   .pl-verdict { margin: -4px 0 6px; font-size: 0.66rem; color: var(--st-text-2); }
+  .pl-verdict.pl-warn { color: var(--st-warn); }
   .pl-table tr.closed td { opacity: 0.5; font-style: italic; }
   .pl-moved { color: var(--st-text-3); font-size: 0.6rem; }
   .pl-mp { font-size: 0.64rem; line-height: 1.45; color: var(--st-text-2); padding: 2px 0; }

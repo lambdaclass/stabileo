@@ -5,6 +5,7 @@ import { withBasicMass } from '../../basic-mass';
 import { densityRecord } from '../../requests';
 import { modelSystem } from '../mdof-system';
 import { condense } from '../mass-model';
+import { modalSolve } from '../modal-decomposition';
 import { convergenceTable, exactBeam } from '../convergence';
 import { subdivideForAnalysis } from '../../../../model/edit/analysis-subdivision';
 import { buildSolverInput2D } from '../../../solver-service';
@@ -163,5 +164,114 @@ describe('the single degree of freedom against the engine', () => {
     const exact = forcedResponse(p, harmonic(p, F0, W), 0, 0).total;
     const peak = Math.max(...ux.map(Math.abs));
     for (const i of [100, 250, 400, 650, 800]) expect(Math.abs(ux[i] - exact(i * dt))).toBeLessThan(0.01 * peak);
+  });
+});
+
+describe('participation against the engine', () => {
+  function engineModes(n: number) {
+    const sub = subdivideForAnalysis(modelStore.model, n);
+    const input = buildSolverInput2D(sub.model)!;
+    const phys = withBasicMass(input, { ...sub.model, massSource: modelStore.model.massSource });
+    return solveModal(phys.input, phys.densities, 12);
+  }
+  function column(H = 3) {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, H);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'fixed');
+    });
+  }
+  function portal() {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, d);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'pinned');
+    });
+  }
+
+  for (const [name, make] of [['a one-element vertical cantilever', () => column()], ['a portal frame', portal]] as const) {
+    it(`${name}: effective masses and their share of the total mass, mode by mode, for n = 1, 2, 4`, () => {
+      make();
+      for (const n of [1, 2, 4]) {
+        const s = modelSystem(modelStore.model, points(), { nPerMember: n, massModel: 'consistent', barMass: true });
+        const sol = modalSolve(s.K, s.M, s.dofs, s.inertia);
+        const eng = engineModes(n);
+        const k = Math.min(4, eng.modes.length);
+        for (let i = 0; i < k; i++) {
+          const e = eng.modes[i], m = sol.modes[i];
+          expect(m.f).toBeCloseTo(e.frequency, 6);
+          expect(m.meffX).toBeCloseTo(e.effectiveMassX, 6);
+          expect(m.meffZ).toBeCloseTo(e.effectiveMassY, 6);
+          expect(m.meffX / sol.totalMassX).toBeCloseTo(e.massRatioX, 6);
+          expect(m.meffZ / sol.totalMassZ).toBeCloseTo(e.massRatioY, 6);
+        }
+      }
+    });
+  }
+
+  it('the one-element cantilever of the audit: its first horizontal mode has 60.5 %, not 98 %', () => {
+    column();
+    const s = modelSystem(modelStore.model, points(), { nPerMember: 1, massModel: 'consistent', barMass: true });
+    const sol = modalSolve(s.K, s.M, s.dofs, s.inertia);
+    const first = sol.modes.find((m) => m.meffX > m.meffZ)!;
+    expect(sol.totalMassX).toBeCloseTo((78.5 / 9.81) * RECT.a * 3, 9);
+    expect(first.meffX / sol.totalMassX).toBeCloseTo(0.6052, 3);
+  });
+
+  it('Guyan condensation keeps the support coupling: same effective masses as the engine within the condensation error', () => {
+    column();
+    const s = modelSystem(modelStore.model, points(), { nPerMember: 4, massModel: 'guyan', barMass: true });
+    const sol = modalSolve(s.K, s.M, s.dofs, s.inertia);
+    const eng = engineModes(4);
+    expect(Math.abs(sol.modes[0].meffX - eng.modes[0].effectiveMassX) / eng.modes[0].effectiveMassX).toBeLessThan(0.01);
+  });
+});
+
+describe('cutting members for the analysis leaves truss bars whole', () => {
+  const freqs = (n: number) => {
+    const s = modelSystem(modelStore.model, points(), { nPerMember: n, massModel: 'consistent', barMass: true });
+    return modalSolve(s.K, s.M, s.dofs, s.inertia).modes.map((m) => m.f);
+  };
+  function aFrame() {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(2, 3), c = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b, 'truss'); modelStore.addElement(b, c, 'truss');
+      modelStore.addSupport(a, 'pinned'); modelStore.addSupport(c, 'pinned');
+    });
+  }
+  function bracedPortal() {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, d);
+      modelStore.addElement(a, c, 'truss');
+      modelStore.addSupport(a, 'pinned'); modelStore.addSupport(d, 'pinned');
+    });
+  }
+
+  it('two pinned truss bars meeting at an apex: the same two frequencies for n = 1, 2, 4, none of them zero', () => {
+    aFrame();
+    const one = freqs(1);
+    expect(one).toHaveLength(2);
+    for (const n of [2, 4]) {
+      const f = freqs(n);
+      expect(f).toHaveLength(2);
+      f.forEach((v, i) => expect(v).toBeCloseTo(one[i], 9));
+      expect(subdivideForAnalysis(modelStore.model, n).model.nodes.size).toBe(3);
+    }
+    const eng = engineFrequencies(4);
+    expect(Math.min(...eng)).toBeGreaterThan(1);
+    eng.forEach((v, i) => expect(v).toBeCloseTo(one[i], 6));
+  });
+
+  it('a braced portal: the frame members are cut, the brace is not, and no zero frequency appears', () => {
+    bracedPortal();
+    for (const n of [2, 4]) {
+      const sub = subdivideForAnalysis(modelStore.model, n);
+      expect(sub.segments.get(4)).toEqual([4]);
+      expect(sub.segments.get(1)).toHaveLength(n);
+      const f = freqs(n), eng = engineFrequencies(n);
+      expect(Math.min(...f)).toBeGreaterThan(1);
+      f.slice(0, 4).forEach((v, i) => expect(v).toBeCloseTo(eng[i], 6));
+    }
   });
 });

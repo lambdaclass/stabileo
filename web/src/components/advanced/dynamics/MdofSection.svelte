@@ -43,7 +43,7 @@
   <div class="cf-grid">
     <NumField label="ξ (%)" value={s.xi} scale={100} min={0} max={99} onSet={(v) => courseDynamics.set({ mdof: { xi: v } })} testid="dyn-mdof-xi" />
     {#if s.excitation === 'harmonic'}
-      <NumField label="Ω/ω₁" value={s.ratio} min={0} onSet={(v) => courseDynamics.set({ mdof: { ratio: v } })} testid="dyn-mdof-ratio" />
+      <NumField label="Ω/ω₁" value={s.ratio} min={0.01} onSet={(v) => courseDynamics.set({ mdof: { ratio: v } })} testid="dyn-mdof-ratio" />
     {/if}
   </div>
   <label class="cf-check"><input type="checkbox" checked={s.barMass} onchange={(e) => courseDynamics.set({ mdof: { barMass: e.currentTarget.checked } })} /> {t('course.dynamics.ui.mdof.barMass')}</label>
@@ -60,6 +60,7 @@
     <p class="cf-caption">{t('course.dynamics.ui.mdof.modesCaption')}</p>
     <div class="cf-plot"><StepPlot plot={superpositionPlotOf(ok, dofText(ok.dofs[ok.at]), 3)} /></div>
     <p class="cf-caption">{tp('course.dynamics.ui.mdof.plotCaption', { dof: dofText(ok.dofs[ok.at]) })}</p>
+    {#if !ok.directStep.resolved}<p class="cf-hint" data-testid="dyn-mdof-step-short">{tp('course.dynamics.ui.mdof.stepShort', { w: numText(ok.directStep.omega, 4) })}</p>{/if}
     <button class="cf-primary" onclick={() => openExplainedMethod('mdofModal')} data-testid="dyn-mdof-open">{t('course.dynamics.ui.stepByStep')}</button>
   {:else if 'refusal' in c}
     <p class="cf-err" data-testid="dyn-mdof-error">{tp(`course.dynamics.${c.refusal}`, (c as { params?: Record<string, number> }).params ?? {})}</p>

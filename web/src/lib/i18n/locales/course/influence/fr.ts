@@ -164,6 +164,10 @@ const words: Translations = {
   'steps.m.influenceLine.title': 'Ligne d’influence',
   'steps.m.influenceLine.help': 'Trace la ligne d’influence d’une réaction, d’un effort ou d’un déplacement, explique sa forme par le principe de Müller-Breslau ou le théorème de Maxwell, et montre comment la charger pour le maximum et le minimum.',
   'steps.m.influenceLine.requires': 'une structure plane avec des appuis. On utilise la ligne à l’écran, la barre sélectionnée (M en son milieu) ou le nœud appuyé sélectionné (Rz).',
+  'course.influence.states.v.cases': "Cas de charge",
+  'course.influence.states.v.combos': "Combinaisons",
+  'course.influence.states.v.state': "Calculé",
+  'course.influence.panel.offPath': "La charge unitaire se déplace le long d’un chemin (barres : {list}), donc la ligne est tracée le long de ce chemin. Chaque ordonnée est la valeur dans la section S de la barre {e} quand la charge se trouve en ce point.",
 };
 
 export default words;

@@ -5,6 +5,8 @@
  *
  * Members of variable section or curved are left whole: their pieces are made
  * elsewhere (variable-members.ts) and a straight cut would change their shape.
+ * A truss bar is left whole too: a node inside it would hold nothing across the
+ * bar and turn a stable truss into a mechanism.
  */
 import type { ModelData } from '../../engine/solver-service';
 import type { Element, Load, Node } from '../../store/model.svelte';
@@ -34,7 +36,7 @@ export function subdivideForAnalysis(model: ModelData, n: number): Subdivision {
 
   for (const [id, e] of model.elements) {
     const ni = nodes.get(e.nodeI), nj = nodes.get(e.nodeJ);
-    if (!ni || !nj || e.variableSection || (e as { arc?: unknown }).arc) {
+    if (!ni || !nj || e.type === 'truss' || e.variableSection || (e as { arc?: unknown }).arc) {
       elements.set(id, e); segments.set(id, [id]); inner.set(id, []);
       continue;
     }

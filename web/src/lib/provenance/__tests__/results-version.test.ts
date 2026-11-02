@@ -48,6 +48,11 @@ const RELEASED: Record<number, string[]> = {
     'strip-footings-under-walls-whole-strip',
   ],
   5: ['solid-shell-local-stress-axes'],
+  // #871: Basic's course units; provisional until merge, like any version not yet on main.
+  6: [
+    'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
+    'basic-influence-line-moment-sign', 'basic-governing-combination-along-members',
+  ],
 };
 
 describe('results versions', () => {

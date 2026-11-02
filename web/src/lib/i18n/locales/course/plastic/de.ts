@@ -123,6 +123,7 @@ const words: Translations = {
   'course.plastic.trace.yield': 'Der Stab {member} fließt (Gelenk {i}): Er behält Np und trägt keine Steifigkeit mehr bei.',
   'course.plastic.trace.collapse': 'Mit diesem Gelenk ist das Tragwerk ein Mechanismus: λc = {lambda}.',
   'course.plastic.trace.noMechanism': 'Kein weiterer Querschnitt kann Mp erreichen: Das Tragwerk bildet unter diesen Lasten keinen Mechanismus.',
+  'course.plastic.unconfirmed': "Kollaps nicht bestätigt: Die Berechnung hat ihre Schrittgrenze ohne zulässigen Mechanismus erreicht und bei λ = {lambda} angehalten. Dieser Wert ist der letzte erreichte Faktor, nicht die Traglast. Vergleichen Sie ihn mit dem statischen und dem kinematischen Verfahren.",
   'course.plastic.trace.next': 'Mit dem neuen Gelenk hat das Tragwerk eine Unbekannte weniger, und der nächste Schritt rechnet so weiter.',
 
   'course.plastic.curve.title': 'λ-Verschiebungs-Diagramm',
@@ -175,6 +176,18 @@ const words: Translations = {
   'course.plastic.user.showLabel': 'Was gezeichnet wird',
   'course.plastic.user.showMech': 'Mechanismus',
   'course.plastic.user.showMoments': 'Momente',
+  'course.plastic.closed': "geschlossen",
+  'course.plastic.closedTitle': "Das Gelenk wurde bei λ = {lambda} entlastet und ist wieder starr.",
+  'course.plastic.v.step': "λ des Schritts",
+  'course.plastic.v.collapse': "λc",
+  'course.plastic.v.hinges': "Gelenke",
+  'course.plastic.v.help': "Alle Lasten wachsen gemeinsam mit λ. Jeder Querschnitt bleibt elastisch, bis er sein Mp erreicht; dort bildet sich ein Fließgelenk, und das Tragwerk trägt weiter, als hätte es an dieser Stelle ein Gelenk. Es versagt, wenn es zu einem Mechanismus wird. θp ist die plastische Verdrehung jedes Gelenks: wie weit sich der Querschnitt beim Fließen drehen muss; das letzte Gelenk des Mechanismus hat θp = 0.",
+  'course.plastic.methods.title': "Statisches und kinematisches Verfahren",
+  'course.plastic.methods.summary': "von Hand, Schritt für Schritt",
+  'course.plastic.methods.help': "Das kinematische Verfahren kombiniert Mechanismen und sucht das kleinste λ (eine obere Schranke). Das statische Verfahren sucht eine Momentenverteilung im Gleichgewicht mit |M| ≤ Mp (eine untere Schranke). Treffen sie sich, ist dieses λ die Traglast.",
+  'course.plastic.mp.title': "Plastische Momente",
+  'course.plastic.mp.summary': "{n} Querschnitte",
+  'course.plastic.movedNote': "Unter einer verteilten Last wandert das größte Feldmoment, während sich andere Gelenke bilden, und das Feldgelenk wandert mit (erstes x → aktuelles x). Die Berechnung liest den Stab Querschnitt für Querschnitt und macht diese Bewegung daher in kleinen Schritten; hier zählt es als ein einziges Gelenk.",
 };
 
 export default words;

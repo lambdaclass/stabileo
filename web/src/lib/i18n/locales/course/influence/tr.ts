@@ -164,6 +164,10 @@ const words: Translations = {
   'steps.m.influenceLine.title': 'Tesir çizgisi',
   'steps.m.influenceLine.help': 'Bir mesnet tepkisinin, bir iç kuvvetin veya bir yer değiştirmenin tesir çizgisini çizer, şeklini Müller-Breslau ilkesi veya Maxwell teoremiyle açıklar ve en büyük ile en küçük değer için nasıl yükleneceğini gösterir.',
   'steps.m.influenceLine.requires': 'mesnetleri olan düzlemsel bir yapı. Ekrandaki çizgi, seçili çubuk (ortasında M) veya seçili mesnetli düğüm (Rz) kullanılır.',
+  'course.influence.states.v.cases': "Yükleme durumları",
+  'course.influence.states.v.combos': "Kombinasyonlar",
+  'course.influence.states.v.state': "Hesaplandı",
+  'course.influence.panel.offPath': "Birim yük bir yol boyunca ilerler (çubuklar: {list}), bu yüzden çizgi o yol boyunca çizilir. Her ordinat, yük o noktadayken {e} çubuğunun S kesitindeki değerdir.",
 };
 
 export default words;

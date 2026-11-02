@@ -123,6 +123,7 @@ const words: Translations = {
   'course.plastic.trace.yield': '{member} çubuğu akar ({i} numaralı mafsal): Np değerini korur ve artık rijitlik katmaz.',
   'course.plastic.trace.collapse': 'Bu mafsalla yapı bir mekanizmadır: λc = {lambda}.',
   'course.plastic.trace.noMechanism': 'Başka hiçbir kesit Mp değerine ulaşamıyor: yapı bu yükler altında mekanizma oluşturmuyor.',
+  'course.plastic.unconfirmed': "Göçme doğrulanmadı: hesap, kabul edilebilir bir mekanizmaya ulaşmadan adım sınırına geldi ve λ = {lambda} değerinde durdu. Bu değer ulaşılan son çarpandır, göçme yükü değildir. Statik ve kinematik yöntemlerle karşılaştırın.",
   'course.plastic.trace.next': 'Yeni mafsalla yapının bir hiperstatik bilinmeyeni azalır ve sonraki adım yapıyı bu şekilde çözer.',
 
   'course.plastic.curve.title': 'λ–yer değiştirme diyagramı',
@@ -175,6 +176,18 @@ const words: Translations = {
   'course.plastic.user.showLabel': 'Ne çizilsin',
   'course.plastic.user.showMech': 'Mekanizma',
   'course.plastic.user.showMoments': 'Momentler',
+  'course.plastic.closed': "kapandı",
+  'course.plastic.closedTitle': "Mafsal λ = {lambda} değerinde boşaldı ve yeniden rijit oldu.",
+  'course.plastic.v.step': "Adımın λ değeri",
+  'course.plastic.v.collapse': "λc",
+  'course.plastic.v.hinges': "Mafsallar",
+  'course.plastic.v.help': "Bütün yükler λ ile birlikte artar. Her kesit Mp değerine ulaşana kadar elastik kalır; orada bir plastik mafsal oluşur ve yapı o noktada bir mafsal varmış gibi taşımaya devam eder. Yapı bir mekanizmaya dönüştüğünde göçer. θp her mafsalın plastik dönmesidir: kesitin akma sırasında ne kadar dönmesi gerektiği; mekanizmanın son mafsalında θp = 0 dır.",
+  'course.plastic.methods.title': "Statik ve kinematik yöntemler",
+  'course.plastic.methods.summary': "elle, adım adım",
+  'course.plastic.methods.help': "Kinematik yöntem mekanizmaları birleştirir ve en küçük λ değerini arar (bir üst sınır). Statik yöntem |M| ≤ Mp koşulunu sağlayan, dengede bir moment dağılımı arar (bir alt sınır). İkisi buluştuğunda o λ göçme yüküdür.",
+  'course.plastic.mp.title': "Plastik momentler",
+  'course.plastic.mp.summary': "{n} kesit",
+  'course.plastic.movedNote': "Yayılı yük altında diğer mafsallar oluştukça açıklığın en büyük momenti yer değiştirir ve açıklık mafsalı da onunla birlikte kayar (ilk x → güncel x). Hesap çubuğu kesit kesit okuduğu için bu kaymayı küçük adımlarla yapar; burada tek bir mafsal sayılır.",
 };
 
 export default words;

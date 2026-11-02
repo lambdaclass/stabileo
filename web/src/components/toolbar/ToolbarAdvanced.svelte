@@ -63,7 +63,7 @@
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
-  import { t } from '../../lib/i18n';
+  import { t, tp } from '../../lib/i18n';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
@@ -491,7 +491,8 @@
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
-      uiStore.toast(r.isMechanism
+      if (r.unconfirmed) uiStore.toast(tp('course.plastic.unconfirmed', { lambda: r.collapseFactor.toFixed(3) }), 'info', undefined, true);
+      else uiStore.toast(r.isMechanism
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(openHingeCount(r))).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
     } catch (e: any) {

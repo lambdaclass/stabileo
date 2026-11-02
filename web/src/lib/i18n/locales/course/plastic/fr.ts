@@ -123,6 +123,7 @@ const words: Translations = {
   'course.plastic.trace.yield': 'La barre {member} se plastifie (rotule {i}) : elle garde Np et n\'apporte plus de rigidité.',
   'course.plastic.trace.collapse': 'Avec cette rotule, la structure est un mécanisme : λc = {lambda}.',
   'course.plastic.trace.noMechanism': 'Aucune autre section ne peut atteindre Mp : la structure ne forme pas de mécanisme sous ces charges.',
+  'course.plastic.unconfirmed': "Ruine non confirmée : le calcul a atteint sa limite d’étapes sans mécanisme admissible et s’est arrêté à λ = {lambda}. Cette valeur est le dernier facteur atteint, pas la charge de ruine. Comparez-la aux méthodes statique et cinématique.",
   'course.plastic.trace.next': 'Avec la nouvelle rotule, la structure a une inconnue hyperstatique de moins, et le pas suivant la résout ainsi.',
 
   'course.plastic.curve.title': 'Diagramme λ–déplacement',
@@ -175,6 +176,18 @@ const words: Translations = {
   'course.plastic.user.showLabel': 'Ce qu\'on dessine',
   'course.plastic.user.showMech': 'Mécanisme',
   'course.plastic.user.showMoments': 'Moments',
+  'course.plastic.closed': "refermée",
+  'course.plastic.closedTitle': "La rotule s’est déchargée à λ = {lambda} et est redevenue rigide.",
+  'course.plastic.v.step': "λ de l’étape",
+  'course.plastic.v.collapse': "λc",
+  'course.plastic.v.hinges': "Rotules",
+  'course.plastic.v.help': "Toutes les charges croissent ensemble avec λ. Chaque section reste élastique jusqu’à atteindre son Mp ; une rotule plastique s’y forme et la structure continue de porter comme si elle avait une articulation en ce point. Elle s’effondre lorsqu’elle devient un mécanisme. θp est la rotation plastique de chaque rotule : de combien la section doit tourner pendant qu’elle plastifie ; la dernière rotule du mécanisme a θp = 0.",
+  'course.plastic.methods.title': "Méthodes statique et cinématique",
+  'course.plastic.methods.summary': "à la main, pas à pas",
+  'course.plastic.methods.help': "La méthode cinématique combine des mécanismes et cherche le plus petit λ (une borne supérieure). La méthode statique cherche une distribution de moments en équilibre avec |M| ≤ Mp (une borne inférieure). Quand elles se rejoignent, ce λ est la charge de ruine.",
+  'course.plastic.mp.title': "Moments plastiques",
+  'course.plastic.mp.summary': "{n} sections",
+  'course.plastic.movedNote': "Sous une charge répartie, le moment maximal de la travée se déplace à mesure que d’autres rotules se forment, et la rotule de travée se déplace avec lui (premier x → x actuel). Le calcul lit la barre section par section et fait donc ce déplacement par petits pas ; ici, elle compte comme une seule rotule.",
 };
 
 export default words;

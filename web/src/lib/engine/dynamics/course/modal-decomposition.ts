@@ -41,6 +41,14 @@ export interface ModalSolution {
   totalMassZ: number;
 }
 
+/** The load a unit ground acceleration puts on the solved degrees of freedom, M·r, and the physical mass it moves. */
+export interface Inertia {
+  x: number[];
+  z: number[];
+  massX: number;
+  massZ: number;
+}
+
 export function influence(dofs: readonly DofRef[], dir: 'ux' | 'uz'): number[] {
   return dofs.map((d) => (d.dir === dir ? 1 : 0));
 }
@@ -53,10 +61,11 @@ function offDiagonal(a: Mat): number {
   return diag > 0 ? off / diag : 0;
 }
 
-export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[]): ModalSolution {
+/** Without `inertia`, r is 1 on the solved translations only: right when no mass is coupled to a support. */
+export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[], inertia?: Inertia): ModalSolution {
   const { lambda, phi } = generalizedEigen(K, M);
   const rx = influence(dofs, 'ux'), rz = influence(dofs, 'uz');
-  const Mrx = matVec(M, rx), Mrz = matVec(M, rz);
+  const Mrx = inertia?.x ?? matVec(M, rx), Mrz = inertia?.z ?? matVec(M, rz);
   const cols: number[][] = [];
   const modes: Mode[] = lambda.map((lam, i) => {
     const raw = column(phi, i);
@@ -73,7 +82,7 @@ export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[]): ModalSoluti
   const Phi = transpose(cols);
   const PtMP = matMul(transpose(Phi), matMul(M, Phi));
   const PtKP = matMul(transpose(Phi), matMul(K, Phi));
-  return { modes, Phi, PtMP, PtKP, offM: offDiagonal(PtMP), offK: offDiagonal(PtKP), totalMassX: dot(rx, Mrx), totalMassZ: dot(rz, Mrz) };
+  return { modes, Phi, PtMP, PtKP, offM: offDiagonal(PtMP), offK: offDiagonal(PtKP), totalMassX: inertia?.massX ?? dot(rx, Mrx), totalMassZ: inertia?.massZ ?? dot(rz, Mrz) };
 }
 
 export type Excitation =

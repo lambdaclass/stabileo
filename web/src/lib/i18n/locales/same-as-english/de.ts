@@ -103,6 +103,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'course.influence.panel.maxSub',
   'course.influence.panel.minSub',
   'course.influence.q.ux',
+  'course.plastic.v.collapse',
   'defl.limits.dirShort.localY',
   'defl.limits.dirShort.localZ',
   'defl.limits.dirShort.resultant',

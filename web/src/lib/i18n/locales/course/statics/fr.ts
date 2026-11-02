@@ -121,6 +121,7 @@ const words: Translations = {
   'course.statics.cast.realCouple': 'Un moment P = {P} kN·m agit déjà en {n} : la rotation est la dérivée de l\'énergie par rapport à ce moment.',
   'course.statics.cast.dummyCouple': 'Aucun moment n\'agit en {n} : on ajoute un moment fictif Q, on dérive l\'énergie par rapport à Q, puis on fait Q = 0.',
   'course.statics.cast.dummyPair': 'Pour une grandeur relative, on ajoute une paire de charges fictives opposées Q, en {n} et en {m} : la dérivée de l\'énergie par rapport à Q donne la grandeur relative, puis on fait Q = 0.',
+  'course.statics.fm.fund.section': "Pour couper une barre en un point intermédiaire, divisez-la d’abord (clic droit sur la barre, Subdiviser en) puis coupez au nouveau nœud.",
 };
 
 export default words;

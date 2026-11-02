@@ -82,3 +82,9 @@ export function condense(K: Mat, M: Mat, F: number[], masters: number[]): Conden
   const sym = (a: Mat) => a.map((r, i) => r.map((v, j) => (v + a[j][i]) / 2));
   return { masters, slaves, Kmm, Kms, Ksm, Kss, Ts, T, K: sym(Kred), M: sym(Mred), F: Fred };
 }
+
+/** A vector on the full degrees of freedom carried to the masters like F: Tᵀ·v, master-then-slave. */
+export function condenseVector(c: Condensation, v: readonly number[]): number[] {
+  const vo = [...c.masters, ...c.slaves].map((i) => v[i]);
+  return c.T[0].map((_, j) => c.T.reduce((s, row, i) => s + row[j] * vo[i], 0));
+}

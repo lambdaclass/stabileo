@@ -194,6 +194,7 @@ const words: Translations = {
   'steps.m.so-buckling-kg.opt.chord.help': 'Verwendet nur N/L auf die Querverschiebungen statt der konsistenten Matrix: Es findet nur die Formen mit seitlicher Verschiebung.',
   'steps.m.so-buckling-kg.opt.axialRigid.label': 'Dehnstarre Stäbe',
   'steps.m.so-buckling-kg.opt.axialRigid.help': 'Die Stäbe behalten wie in der Handrechnung ihre Länge: Es gibt weniger Unbekannte, und N folgt aus dem Gleichgewicht.',
+  'course.second-order.doc.cannot': "Mit dieser Annahme nicht möglich",
 };
 
 export default words;
