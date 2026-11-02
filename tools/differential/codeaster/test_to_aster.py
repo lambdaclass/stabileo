@@ -47,6 +47,30 @@ class ConstraintRedundancy(unittest.TestCase):
     def test_no_constraints(self):
         self.assertFalse(T.constraints_redundant([], {1: FIXED}, {}))
 
+    def test_diaphragm_ties_in_plane_rotation_and_follows_omega_cross_r_in_all_planes(self):
+        pts = {1: (0.0, 0.0, 0.0), 2: (2.0, 3.0, 5.0)}
+        # XY: u_s = u_m + (0, 0, rz_m) x (2, 3, 5) = u_m + (-3*rz_m, 2*rz_m, 0), and rz_s = rz_m.
+        xy = T._constraint_rows({"constraints": [{"type": "diaphragm", "masterNode": 1, "slaveNodes": [2], "plane": "XY"}]}, pts)
+        self.assertEqual(xy, [
+            [(2, 0, 1.0), (1, 0, -1.0), (1, 5, 3.0)],
+            [(2, 1, 1.0), (1, 1, -1.0), (1, 5, -2.0)],
+            [(2, 5, 1.0), (1, 5, -1.0)],
+        ])
+        # XZ: u_s = u_m + (0, ry_m, 0) x (2, 3, 5) = u_m + (+5*ry_m, 0, -2*ry_m), and ry_s = ry_m.
+        xz = T._constraint_rows({"constraints": [{"type": "diaphragm", "masterNode": 1, "slaveNodes": [2], "plane": "XZ"}]}, pts)
+        self.assertEqual(xz, [
+            [(2, 0, 1.0), (1, 0, -1.0), (1, 4, -5.0)],
+            [(2, 2, 1.0), (1, 2, -1.0), (1, 4, 2.0)],
+            [(2, 4, 1.0), (1, 4, -1.0)],
+        ])
+        # YZ: u_s = u_m + (rx_m, 0, 0) x (2, 3, 5) = u_m + (0, -5*rx_m, 3*rx_m), and rx_s = rx_m.
+        yz = T._constraint_rows({"constraints": [{"type": "diaphragm", "masterNode": 1, "slaveNodes": [2], "plane": "YZ"}]}, pts)
+        self.assertEqual(yz, [
+            [(2, 1, 1.0), (1, 1, -1.0), (1, 3, 5.0)],
+            [(2, 2, 1.0), (1, 2, -1.0), (1, 3, -3.0)],
+            [(2, 3, 1.0), (1, 3, -1.0)],
+        ])
+
 
 class ConnectorMatrix(unittest.TestCase):
     """connector_matrix (port of element/connector.rs): symmetric, and every
