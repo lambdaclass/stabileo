@@ -1,4 +1,4 @@
-type Link = { id: string; revision: number; base: string; cloud: string };
+type Link = { id: string; revision: number; base: string; cloud: string; edit: number };
 
 const links = new Map<string, Link>();
 const generations = new Map<string, number>();
@@ -19,21 +19,30 @@ export const cloudLinks = {
     const link = links.get(tab);
     return link && current === link.base ? link.cloud : current;
   },
-  set(tab: string, id: string, revision: number, name: string): void {
-    links.set(tab, { id, revision, base: name, cloud: name });
+  /** Whether the tab's document is unchanged since it was last opened from or saved to the cloud, `edit` being the model's edit count now. */
+  synced(tab: string, edit: number): boolean {
+    return links.get(tab)?.edit === edit;
+  },
+  set(tab: string, id: string, revision: number, name: string, edit: number): void {
+    links.set(tab, { id, revision, base: name, cloud: name, edit });
     version += 1;
   },
   /** Moves on each time the tab gets another document; a link answered for an older one is dropped. */
   generation(tab: string): number {
     return generations.get(tab) ?? 0;
   },
-  setIf(tab: string, generation: number, id: string, revision: number, name: string): void {
-    if ((generations.get(tab) ?? 0) === generation) this.set(tab, id, revision, name);
+  setIf(tab: string, generation: number, id: string, revision: number, name: string, edit: number): void {
+    if ((generations.get(tab) ?? 0) === generation) this.set(tab, id, revision, name, edit);
   },
-  renamed(id: string, name: string, from: number | undefined, to: number): void {
-    for (const link of links.values()) {
+  /** Whether `current` is still the name the tab's document had from the cloud, not one given here. */
+  keepsCloudName(tab: string, current: string): boolean {
+    return links.get(tab)?.base === current;
+  },
+  renamed(id: string, name: string, from: number | undefined, to: number, activeTab: string): void {
+    for (const [tab, link] of links) {
       if (link.id !== id) continue;
       link.cloud = name;
+      if (tab === activeTab) link.base = name;
       if (from !== undefined && link.revision === from && to === from + 1) link.revision = to;
     }
   },

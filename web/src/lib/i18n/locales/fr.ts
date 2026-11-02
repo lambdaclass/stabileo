@@ -14128,6 +14128,8 @@ const fr: Translations = {
   "account.err.cloud_projects_disabled": "L’enregistrement des projets dans le cloud n’est pas disponible pour le moment.",
   "account.err.project_limit_reached": "Vous avez atteint le nombre maximal de projets dans le cloud. Supprimez-en un pour en enregistrer un autre.",
   "account.err.project_changed": "Ce projet a été modifié sur un autre ordinateur depuis que vous l’avez ouvert. Ouvrez-le à nouveau ou enregistrez-le comme un nouveau projet.",
+  "account.err.rate_limited": "Trop de requêtes en peu de temps. Attendez une minute et réessayez.",
+  "cloud.confirmOpen": "Ouvrir « {name} » remplace le modèle de cet onglet, et ses modifications ne sont pas enregistrées dans le cloud. Continuer ?",
   "account.field.mustAccept": "Vous devez accepter les conditions pour créer un compte.",
   "account.field.tooLarge": "C’est trop volumineux.",
   "legal.acceptTerms": "J’accepte les Conditions d’utilisation et la Politique de confidentialité",

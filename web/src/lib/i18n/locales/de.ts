@@ -14128,6 +14128,8 @@ const de: Translations = {
   "account.err.cloud_projects_disabled": "Das Speichern von Projekten in der Cloud ist derzeit nicht verfügbar.",
   "account.err.project_limit_reached": "Sie haben die maximale Anzahl an Cloud-Projekten erreicht. Löschen Sie eines, um ein weiteres zu speichern.",
   "account.err.project_changed": "Dieses Projekt wurde auf einem anderen Computer geändert, seit Sie es geöffnet haben. Öffnen Sie es erneut oder speichern Sie es als neues Projekt.",
+  "account.err.rate_limited": "Zu viele Anfragen in kurzer Zeit. Warten Sie eine Minute und versuchen Sie es erneut.",
+  "cloud.confirmOpen": "Das Öffnen von „{name}“ ersetzt das Modell in diesem Tab, und seine Änderungen sind nicht in der Cloud gespeichert. Fortfahren?",
   "account.field.mustAccept": "Sie müssen die Bedingungen akzeptieren, um ein Konto zu erstellen.",
   "account.field.tooLarge": "Es ist zu groß.",
   "legal.acceptTerms": "Ich akzeptiere die Nutzungsbedingungen und die Datenschutzerklärung",

@@ -17,6 +17,16 @@ describe('product error text', () => {
     setLocale('en');
   });
 
+  it('translates 429 rate_limited from the feedback inbox in every offered language', () => {
+    const e = new ApiError(429, 'rate_limited', 'Too many requests, try again later');
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const) {
+      setLocale(locale);
+      expect(errorText(e)).toBe(tAt('account.err.rate_limited', locale));
+      expect(errorText(e)).not.toBe('Too many requests, try again later');
+    }
+    setLocale('en');
+  });
+
   it('maps the server validation messages to translated field text', () => {
     expect(fieldText('must be a two-letter ISO code')).toBe('Use a two-letter ISO code, e.g. AR.');
     expect(fieldText('must have @ sign and no spaces')).toBe('Enter a valid email address, with an @ and no spaces.');

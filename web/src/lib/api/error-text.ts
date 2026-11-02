@@ -12,6 +12,7 @@ const KNOWN_CODES = new Set([
   'cloud_projects_disabled',
   'project_limit_reached',
   'project_changed',
+  'rate_limited',
 ]);
 
 export function errorText(e: unknown): string {

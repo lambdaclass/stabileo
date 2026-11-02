@@ -49,9 +49,9 @@
   }
 
   function openProject(p: CloudProject) {
+    if (cloudProjects.openWouldReplaceWork && !confirm(tp('cloud.confirmOpen', { name: p.name }))) return;
     void act(p.id, async () => {
-      await cloudProjects.open(p.id);
-      open = false;
+      if (await cloudProjects.open(p.id)) open = false;
     });
   }
 

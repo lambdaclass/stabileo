@@ -73,6 +73,11 @@ export const cloudProjects = {
   get linkedId(): string | null {
     return mine() ? cloudLinks.get(tabKey()) : null;
   },
+  /** Whether opening another project here would lose work: a model edited since its last cloud open or save, or never saved there. */
+  get openWouldReplaceWork(): boolean {
+    const empty = modelStore.nodes.size === 0 && modelStore.elements.size === 0;
+    return !empty && !(mine() && cloudLinks.synced(tabKey(), modelStore.modelVersion));
+  },
 
   async refresh(search?: string): Promise<void> {
     sameOwner();
@@ -99,12 +104,13 @@ export const cloudProjects = {
       const who = owner;
       const tab = tabKey();
       const generation = cloudLinks.generation(tab);
+      const edit = modelStore.modelVersion;
       const id = opts.asNew ? null : cloudLinks.get(tab);
       const body = await payload(id ? tab : undefined);
       guard(who);
       const saved = id ? await projectsApi.update(id, { ...body, revision: cloudLinks.revision(tab) }) : await projectsApi.create(body);
       if (!stillFor(who)) return saved;
-      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name);
+      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       if (!id) {
@@ -125,12 +131,13 @@ export const cloudProjects = {
       const who = owner;
       const tab = tabKey();
       const generation = cloudLinks.generation(tab);
+      const edit = modelStore.modelVersion;
       const listed = items.find((p) => p.id === id)?.revision;
       const body = await payload();
       guard(who);
       const saved = await projectsApi.update(id, { ...body, revision: listed });
       if (!stillFor(who)) return saved;
-      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name);
+      cloudLinks.setIf(tab, generation, saved.id, saved.revision, saved.name, edit);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
@@ -139,18 +146,21 @@ export const cloudProjects = {
     }
   },
 
-  async open(id: string): Promise<void> {
+  /** Loads the project into this tab's document; false when the tab, the document or an edit moved on while it downloaded. */
+  async open(id: string): Promise<boolean> {
     sameOwner();
     const who = owner;
     const tab = tabKey();
     const generation = cloudLinks.generation(tab);
+    const edit = modelStore.modelVersion;
     const project = await projectsApi.get(id);
     const text = await gunzipBase64(project.content);
-    if (!stillFor(who) || tabKey() !== tab || cloudLinks.generation(tab) !== generation) return;
+    if (!stillFor(who) || tabKey() !== tab || cloudLinks.generation(tab) !== generation || modelStore.modelVersion !== edit) return false;
     loadProjectText(text);
     modelStore.model.name = project.name;
-    cloudLinks.set(tab, project.id, project.revision, project.name);
+    cloudLinks.set(tab, project.id, project.revision, project.name, modelStore.modelVersion);
     trackUsage('project.cloud_open', { mode: project.app_mode });
+    return true;
   },
 
   async rename(id: string, name: string): Promise<void> {
@@ -159,8 +169,10 @@ export const cloudProjects = {
     const before = items.find((p) => p.id === id)?.revision;
     const updated = await projectsApi.update(id, { name });
     if (!stillFor(who)) return;
-    if (cloudLinks.get(tabKey()) === id) modelStore.model.name = updated.name;
-    cloudLinks.renamed(id, updated.name, before, updated.revision);
+    const tab = tabKey();
+    const renameHere = cloudLinks.get(tab) === id && cloudLinks.keepsCloudName(tab, modelStore.model.name.trim());
+    if (renameHere) modelStore.model.name = updated.name;
+    cloudLinks.renamed(id, updated.name, before, updated.revision, renameHere ? tab : '');
     items = items.map((p) => (p.id === id ? updated : p));
   },
 

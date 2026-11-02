@@ -68,6 +68,8 @@ const pt: Translations = {
   'account.err.cloud_projects_disabled': 'Salvar projetos na nuvem não está disponível no momento.',
   'account.err.project_limit_reached': 'Você atingiu o máximo de projetos na nuvem. Apague algum para salvar outro.',
   'account.err.project_changed': 'Este projeto mudou em outro computador desde que você o abriu. Abra-o de novo ou salve-o como um projeto novo.',
+  'account.err.rate_limited': 'Muitas solicitações em pouco tempo. Espere um minuto e tente de novo.',
+  'cloud.confirmOpen': 'Abrir “{name}” substitui o modelo desta aba, e as alterações dele não estão salvas na nuvem. Continuar?',
   'account.field.mustAccept': 'Para criar a conta você precisa aceitar os termos.',
   'account.field.tooLarge': 'É grande demais.',
   'legal.acceptTerms': 'Aceito os Termos de uso e a Política de privacidade',

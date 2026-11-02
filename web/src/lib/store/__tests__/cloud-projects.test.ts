@@ -265,6 +265,30 @@ describe('cloud projects', () => {
     expect(seen.at(-1)!.body).toMatchObject({ name: 'Local name', revision: 3 });
   });
 
+  it('a list rename leaves a name given to the open document here, and an edit made while a project downloads keeps it from loading', async () => {
+    const doc = serializeProject();
+    replies.set('GET /api/v1/projects/k1', async () => json(200, { data: { ...meta('k1', 'Frame', 1), content: await gzipBase64(doc) } }));
+    expect(await cloudProjects.open('k1')).toBe(true);
+    expect(cloudProjects.openWouldReplaceWork).toBe(false);
+    modelStore.model.name = 'Mine';
+    replies.set('GET /api/v1/projects', () => json(200, { data: [meta('k1', 'Frame', 1)], meta: { total: 1, limit: 100, offset: 0, max_projects: 5, max_bytes: 1 } }));
+    await cloudProjects.refresh();
+    replies.set('PUT /api/v1/projects/k1', () => json(200, { data: meta('k1', 'Listed', 2) }));
+    await cloudProjects.rename('k1', 'Listed');
+    expect(modelStore.model.name).toBe('Mine');
+
+    modelStore.addNode(9, 9);
+    expect(cloudProjects.openWouldReplaceWork).toBe(true);
+    const nodes = modelStore.nodes.size;
+    replies.set('GET /api/v1/projects/k2', async () => {
+      modelStore.addNode(10, 10);
+      return json(200, { data: { ...meta('k2', 'Other', 1), content: await gzipBase64(doc) } });
+    });
+    expect(await cloudProjects.open('k2')).toBe(false);
+    expect(modelStore.nodes.size).toBe(nodes + 1);
+    expect(cloudProjects.linkedId).toBe('k1');
+  });
+
   it('two tabs holding the same project each keep the revision they last saw', async () => {
     if (!tabManager.activeTabId) tabManager.init();
     const first = tabManager.activeTabId!;
