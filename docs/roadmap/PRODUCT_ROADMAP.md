@@ -51,10 +51,10 @@ The order of all work, set by the user. Nothing in a lower group takes capacity 
      CIRSOC 201 models.
    - [#755](https://github.com/lambdaclass/stabileo/issues/755) **SA-2026-023:** the RC column check read one sign of the moment, and an uneven bar
      layout is weaker the other way.
-   - **Shell envelope missing a combination** (from the nightly triage): each component now takes
-     its own extremes instead of the von Mises record, PR [#1237](https://github.com/lambdaclass/stabileo/pull/1237) (issue to file, for the record).
+   - **Shell envelope missing a combination** (from the nightly triage): on main it keeps the
+     record of the combination with the largest von Mises; PR [#1237](https://github.com/lambdaclass/stabileo/pull/1237) takes each component's own extremes (not on main yet; issue to file, for the record).
    - **Time history returns non-finite results** (nightly [#1196](https://github.com/lambdaclass/stabileo/issues/1196), [#1205](https://github.com/lambdaclass/stabileo/issues/1205), [#1207](https://github.com/lambdaclass/stabileo/issues/1207), [#1208](https://github.com/lambdaclass/stabileo/issues/1208), [#1210](https://github.com/lambdaclass/stabileo/issues/1210),
-     [#1212](https://github.com/lambdaclass/stabileo/issues/1212)): refused now, PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239) (issue to file, for the record).
+     [#1212](https://github.com/lambdaclass/stabileo/issues/1212)): PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239) refuses them (not on main yet; issue to file, for the record).
    - [#1238](https://github.com/lambdaclass/stabileo/issues/1238) **3D→2D cut bends members about the wrong axis:** Y–Z and X–Y cuts and rolled members
      use the X–Z in-plane inertia (silently 13× too stiff). Refused for now; the real fix carries
      each member's in-plane axis through the cut, so default-oriented I columns in Y–Z cuts solve
@@ -111,7 +111,7 @@ question. Safety, engine and app changes need two reviews before main (Codex alo
 | Nightly triage, engine side: NUM-INVARIANCE on near-singular contact/SSI/corotational solves, metamorphic harness fixes, ledger decisions for findings #954–#1041 | branch `safety/nightly-triage-engine` (3 commits not in #807) | pushed for safekeeping; to be folded into #807 or its own PR |
 | Nightly triage, noise checks | branch `wip/nightly-triage-noise-checks` | work in progress, pushed for safekeeping |
 | Warped MITC4/MITC9 shells contained with a known-issue warning | [#1074](https://github.com/lambdaclass/stabileo/pull/1074) ([#1057](https://github.com/lambdaclass/stabileo/issues/1057)) | folded into #807; close it "merged via #807" when #807 lands. MITC9 thin-shell locking on coarse twisted meshes still has no warning (group 1 above) |
-| Safety integration: modal repeated modes [#827](https://github.com/lambdaclass/stabileo/pull/827), self-checks [#865](https://github.com/lambdaclass/stabileo/pull/865), old project files [#770](https://github.com/lambdaclass/stabileo/pull/770), snapshot-gate fixes [#786](https://github.com/lambdaclass/stabileo/pull/786) | [#1225](https://github.com/lambdaclass/stabileo/pull/1225) | lands after #817 |
+| Safety integration: modal repeated modes [#827](https://github.com/lambdaclass/stabileo/pull/827), self-checks [#865](https://github.com/lambdaclass/stabileo/pull/865), old project files [#770](https://github.com/lambdaclass/stabileo/pull/770), snapshot-gate fixes [#786](https://github.com/lambdaclass/stabileo/pull/786) | [#1225](https://github.com/lambdaclass/stabileo/pull/1225) | lands after #1236 (results versions 9 and 10) |
 | Buckling certificate bounds | [#817](https://github.com/lambdaclass/stabileo/pull/817) | in the merge queue |
 | **Results-version renumbering** in landing order: #817 v6, #1233 v7, #1236 v8, #1225 v9 and v10 (#827, #865), #1237 v11 | each PR | each renumbers if anything lands ahead of it |
 | Units in the type system, slice 1 | [#864](https://github.com/lambdaclass/stabileo/pull/864) ([#359](https://github.com/lambdaclass/stabileo/issues/359)) | green, Codex clean; queued |
@@ -687,7 +687,7 @@ workstream (W2-ci).
 | 8 | **Runner labels and watchdog token:** `stabileo-pr` on sgha1-5; drop the borrowed `stabileo` label from sgha9-14 once #1221 lands; a fine-grained PAT for the watchdog | The pools only isolate jobs if the labels match them; the watchdog cannot restart a runner without a token | (dotfiles `servers/`, after #1221) | **waits on the user** |
 | 9 | **Wall-clock budgets on the timing pool** (`stabileo-timing`), for main and nightly only | Timing checks on shared runners flake under load and block the queue | [#1241](https://github.com/lambdaclass/stabileo/pull/1241) | after #1221 |
 | 10 | **Proof checks required:** Lean, symbolic and Kani as required checks in both rulesets (branch protection and merge queue) | #1235 runs them in the merge queue; until they are required, a red one does not block | [#1235](https://github.com/lambdaclass/stabileo/pull/1235) | **waits on the user**, after #1235 lands |
-| 11 | **Mutants rotation:** 32 shards a night so every shard runs every 16 days (the 128-day gap above), with a staleness check | The weekly staleness check fails until 16 nights of markers exist; expected, not a regression | [#1240](https://github.com/lambdaclass/stabileo/pull/1240) | open |
+| 11 | **Mutants rotation:** 32 shards a night, so every shard runs every 16 days instead of every 128, with a staleness check | The weekly staleness check fails until 16 nights of markers exist; expected, not a regression | [#1240](https://github.com/lambdaclass/stabileo/pull/1240) | open |
 | 12 | **Perf ratchet margin:** keep the strict 64-byte margin or widen it | Strict means nearly every PR that changes shipped web code also runs `make perf.budget.accept`, and two such PRs conflict on `web/perf-budget.json` | [#768](https://github.com/lambdaclass/stabileo/pull/768) | **waits on the user** |
 | 13 | **Agent hygiene:** a unique scratchpad log name per agent | Two agents overwrote each other's engine logs on 2026-11-02 | (agent instructions; issue to file) | open |
 | 14 | **Cancel superseded merge-group runs** automatically | A rebuilt queue left the old run for the same PR holding a runner | [#1242](https://github.com/lambdaclass/stabileo/pull/1242) | Codex clean; after #1079 |
@@ -1063,7 +1063,8 @@ columns, earthquake time history, RC pushover, RC column drawings, outrigger swe
 buckling. PR [#1229](https://github.com/lambdaclass/stabileo/pull/1229) ships the first three (frame playground, slab on columns, earthquake
 time history) and the `defineExample` contract; examples 4–7 (RC pushover, RC column drawings,
 outrigger sweep, tower modes and buckling) follow in a second PR on the same contract (issue to
-file).
+file). The earthquake time-history example lands after PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239), so a non-finite result is
+refused there too.
 
 **The 13 example types and where Stabileo stands:**
 
