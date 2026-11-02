@@ -329,7 +329,6 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'landing.footDocs',
   'landing.footRepo',
   'landing.heroMetaB',
-  'landing.modAi',
   'landing.navBlog',
   'landing.navMenuOpen',
   'landing.navPro',

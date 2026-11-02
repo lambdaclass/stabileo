@@ -268,7 +268,7 @@ const es: Record<string, string> = {
   'landing.badgeDevOpen': "EN DESARROLLO",
   'landing.proDesignH': 'Verificación normativa y diseño de elementos.',
   'landing.proDesignP': 'Después de calcular, verificá y diseñá los elementos según el reglamento. Hoy verifica hormigón armado (CIRSOC 201) y acero (CIRSOC 301, experimental), y genera las cargas y combinaciones de CIRSOC 101, 102, 103 y 104; está organizado para sumar reglamentos de otros países.',
-  'landing.metaDescription': "Cálculo estructural gratis y de código abierto en el navegador: pórticos y reticulados 2D y 3D, sin instalar nada. Diseño CIRSOC pago, gratis en universidades.",
+  'landing.metaDescription': "Programa de cálculo estructural gratis y de código abierto: pórticos y reticulados 2D y 3D en el navegador. Diseño CIRSOC pago, gratis en universidades.",
   'landing.metaTitle': 'Stabileo — Software de cálculo estructural gratis, en el navegador',
   'landing.proDesignCirsocLink': 'Qué verifica hoy según CIRSOC',
   'landing.ebAi': 'STABILEO IA',

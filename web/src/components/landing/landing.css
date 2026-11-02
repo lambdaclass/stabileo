@@ -432,7 +432,7 @@
 .landing .nav-inner {
   max-width: var(--lp-max);
   margin: 0 auto;
-  padding: 0.7rem var(--lp-gut);
+  padding: 0.4rem var(--lp-gut);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -785,6 +785,7 @@
 .landing .tf-key-z::before { background: var(--tf-zero); opacity: 0.5; height: 1px; }
 .landing .tf-key-g::before { background: var(--fg-2); opacity: 0.24; height: 1px; }
 .landing .tf-key-n::before { display: none; }
+.landing .tf-key-n { max-width: 100%; white-space: normal; }
 
 /* compact still frames used by the real-time comparison */
 .landing .truss-fig.compact .tf-caption {
@@ -1746,7 +1747,7 @@
   .landing .code-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .landing .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .landing .analogies { grid-template-columns: 1fr; gap: 1.25rem; }
-  .landing .hero-grid { grid-template-columns: 1fr; }
+  .landing .hero-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 1000px) {
