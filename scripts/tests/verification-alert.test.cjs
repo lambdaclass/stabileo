@@ -4,7 +4,7 @@ const alert = require('../../.github/scripts/verification-alert.cjs');
 
 const HOUR = 3.6e6;
 
-function harness({run: runOverrides = {}, jobs = [], open = [], workflows = [], runsByWorkflow = {}, label = false, env = {}, comments = [], timeline = []} = {}) {
+function harness({run: runOverrides = {}, jobs = [], open = [], workflows = [], runsByWorkflow = {}, label = false, labelRace = false, env = {}, comments = [], timeline = []} = {}) {
   const calls = [];
   const logs = [];
   const record = (name, result) => async (args) => {
@@ -16,7 +16,13 @@ function harness({run: runOverrides = {}, jobs = [], open = [], workflows = [], 
       if (!label) throw Object.assign(new Error('missing'), {status: 404});
       return {data: {}};
     }),
-    createLabel: record('createLabel', {data: {}}),
+    createLabel: record('createLabel', () => {
+      if (labelRace) {
+        label = true;
+        throw Object.assign(new Error('already_exists'), {status: 422});
+      }
+      return {data: {}};
+    }),
     listForRepo: record('listForRepo', () => ({data: typeof open === 'function' ? open() : open})),
     create: record('create', (a) => ({data: {...a, number: 900}})),
     createComment: record('createComment', {data: {}}),
@@ -73,6 +79,13 @@ test('a failed scheduled run opens one issue named after the workflow, with the 
   assert.match(issue.body, /\[mutants \(3\)\]\(https:\/\/x\/job\/1\): \*\*failure\*\* in step `Mutants \(shard 3\/512\)`/);
   assert.doesNotMatch(issue.body, /bench/);
   assert.match(issue.body, /abcdef0123 /);
+});
+
+test('a label created by a concurrent alert does not stop this one', async () => {
+  const h = harness({jobs: [failedJob], labelRace: true});
+  await h.run();
+  assert.deepEqual(h.calls.filter((c) => c.name.endsWith('Label')).map((c) => c.name), ['getLabel', 'createLabel', 'getLabel']);
+  assert.equal(h.writes().find((c) => c.name === 'create').args.title, 'CI failure: Nightly verification');
 });
 
 test('a later failure comments on the open issue instead of opening another', async () => {

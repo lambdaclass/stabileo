@@ -21,10 +21,15 @@ async function ensureLabel(github, owner, repo) {
     await github.rest.issues.getLabel({ owner, repo, name: LABEL });
   } catch (e) {
     if (e.status !== 404) throw e;
-    await github.rest.issues.createLabel({
-      owner, repo, name: LABEL, color: 'b60205',
-      description: 'A scheduled verification or production check is failing (opened and closed by CI)',
-    });
+    try {
+      await github.rest.issues.createLabel({
+        owner, repo, name: LABEL, color: 'b60205',
+        description: 'A scheduled verification or production check is failing (opened and closed by CI)',
+      });
+    } catch (err) {
+      if (err.status !== 422) throw err;
+      await github.rest.issues.getLabel({ owner, repo, name: LABEL });
+    }
   }
 }
 
