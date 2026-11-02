@@ -50,8 +50,15 @@ pub fn rect(a: f64, i: f64) -> (f64, f64) {
     (a / h, h)
 }
 
+pub(crate) fn section_material(
+    materials: &std::collections::HashMap<String, SolverMaterial>,
+    ids: impl Iterator<Item = usize>,
+) -> Option<&SolverMaterial> {
+    ids.map(|id| &materials[&id.to_string()]).max_by(|a, b| a.e.total_cmp(&b.e).then(a.nu.total_cmp(&b.nu)))
+}
+
 fn mat_e(s: &SolverInput, sec: usize) -> f64 {
-    s.elements.values().find(|e| e.section_id == sec).map_or(200_000.0, |e| s.materials[&e.material_id.to_string()].e)
+    section_material(&s.materials, s.elements.values().filter(|e| e.section_id == sec).map(|e| e.material_id)).map_or(200_000.0, |m| m.e)
 }
 
 fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
@@ -269,7 +276,7 @@ pub fn rows() -> Vec<Ana2> {
             axis_bound: false,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_2d(&round_off_converged(|steps, tol| pdelta::solve_pdelta_2d(&c.s, steps, tol).map(|r| (r.converged, r.results)), finite_2d, |r| pdelta::backward_error_2d(&c.s, r))?)),
+            run: |c| Ok(static_2d(&converged_finite(pdelta::solve_pdelta_2d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), finite_2d)?)),
         },
         Ana2 {
             name: "corotational",
@@ -485,7 +492,7 @@ pub fn rows() -> Vec<Ana2> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect(x.a, x.iz);
-                        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+                        let mat = section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
                         (x.id.to_string(), PlasticSectionData { a: x.a, iz: x.iz, material_id: mat, b: Some(b), h: Some(h) })
                     })
                     .collect();
@@ -601,33 +608,10 @@ fn a_cluster_crossing_the_requested_modes_is_fetched_whole() {
     assert!(cluster_complete(flat, |m: &Vec<f64>| m.clone(), 4, 8).unwrap_err().contains("not resolved"));
 }
 
-/// An iteration solved to 1e-12 in 100 steps, or, when it stops short there, one proven stagnant at
-/// round-off: its normwise equilibrium backward error is within 1e-12, the iterates after 100, 1000
-/// and 1001 steps at 1e-12 agree in every reported number (displacements, reactions, member forces)
-/// to 1e-11 of the largest value of its quantity, and a 1e-11 solve converges to the same answer.
-/// A slow or cycling iteration still moves between them and is rejected, and so is a non-finite one.
-pub(crate) fn round_off_converged<T: serde::Serialize>(solve: impl Fn(usize, f64) -> Result<(bool, T), String>, finite: impl Fn(&T) -> bool, backward_error: impl Fn(&T) -> Result<f64, String>) -> Result<T, String> {
-    let (converged, tight) = solve(100, 1e-12)?;
-    if !finite(&tight) {
-        return Err("did not converge: non-finite result".into());
-    }
-    if converged {
-        return Ok(tight);
-    }
-    let error = backward_error(&tight)?;
-    if !(error <= 1e-12) {
-        return Err(format!("did not converge: equilibrium backward error {error:e}"));
-    }
-    let value = |r: &T| serde_json::to_value(r).unwrap();
-    let (_, longer) = solve(1000, 1e-12)?;
-    let (_, next) = solve(1001, 1e-12)?;
-    let (converged, loose) = solve(100, 1e-11)?;
-    let reference = value(&tight);
-    if converged && [value(&longer), value(&next), value(&loose)].iter().all(|other| same_to_round_off(&reference, other)) {
-        Ok(tight)
-    } else {
-        Err("did not converge".into())
-    }
+/// A P-Delta result converged to 1e-12 within 100 steps, and finite in every reported number.
+pub(crate) fn converged_finite<T>(r: Result<(bool, T), String>, finite: impl Fn(&T) -> bool) -> Result<T, String> {
+    let r = conv(r)?;
+    if finite(&r) { Ok(r) } else { Err("converged to a non-finite result".into()) }
 }
 
 pub(crate) fn finite_2d(r: &AnalysisResults) -> bool {
@@ -646,50 +630,12 @@ pub(crate) fn finite_3d(r: &AnalysisResults3D) -> bool {
         })
 }
 
-fn same_to_round_off(a: &serde_json::Value, b: &serde_json::Value) -> bool {
-    fn numbers(v: &serde_json::Value, key: &str, out: &mut Vec<(String, f64)>) {
-        match v {
-            serde_json::Value::Number(n) => out.push((key.to_string(), n.as_f64().unwrap())),
-            serde_json::Value::Array(items) => items.iter().for_each(|x| numbers(x, key, out)),
-            serde_json::Value::Object(map) => map.iter().for_each(|(k, x)| numbers(x, k, out)),
-            _ => {}
-        }
-    }
-    let (mut x, mut y) = (Vec::new(), Vec::new());
-    numbers(a, "", &mut x);
-    numbers(b, "", &mut y);
-    if x.len() != y.len() || x.iter().zip(&y).any(|(p, q)| p.0 != q.0) {
-        return false;
-    }
-    let mut scale = std::collections::HashMap::<&str, f64>::new();
-    for (k, v) in x.iter().chain(&y) {
-        let s = scale.entry(k.as_str()).or_insert(0.0);
-        *s = s.max(v.abs());
-    }
-    x.iter().zip(&y).all(|((k, p), (_, q))| p.is_finite() && q.is_finite() && (p - q).abs() <= 1e-11 * scale[k.as_str()])
-}
-
 #[test]
-fn round_off_stagnation_is_accepted_only_at_the_same_answer() {
-    let stagnant = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0 + 1e-13], "n": [5.0e3]})));
-    assert!(round_off_converged(stagnant, |_| true, |_| Ok(1e-16)).is_ok());
-    let slow = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps > 100 { 2.0 } else { 2.0 + 1e-9 }]})));
-    assert!(round_off_converged(slow, |_| true, |_| Ok(1e-16)).is_err());
-    let loose_differs = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if tol < 1e-11 { 2.0 } else { 2.001 }]})));
-    assert!(round_off_converged(loose_differs, |_| true, |_| Ok(1e-16)).is_err());
-    let forces_differ = |_: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, 2.0], "n": [if tol < 1e-11 { 5.0e3 } else { 5.0e3 + 1e-6 }]})));
-    assert!(round_off_converged(forces_differ, |_| true, |_| Ok(1e-16)).is_err());
-    let never = |_: usize, _: f64| Ok::<_, String>((false, serde_json::json!({"u": [1.0]})));
-    assert!(round_off_converged(never, |_| true, |_| Ok(1e-16)).is_err());
-    assert!(round_off_converged(stagnant, |_| false, |_| Ok(1e-16)).is_err(), "matching non-finite outputs are not round-off");
-    let converged = |_: usize, _: f64| Ok::<_, String>((true, serde_json::json!({"u": [1.0]})));
-    assert!(round_off_converged(converged, |_| true, |_| Ok(1e-16)).is_ok());
-    assert!(round_off_converged(converged, |_| false, |_| Ok(1e-16)).is_err(), "a converged flag does not make a non-finite result usable");
-    let cycling = |steps: usize, tol: f64| Ok::<_, String>((tol >= 1e-11, serde_json::json!({"u": [1.0, if steps % 2 == 1 { 2.0 + 1e-9 } else { 2.0 }]})));
-    assert!(round_off_converged(cycling, |_| true, |_| Ok(1e-16)).is_err(), "endpoints 100 and 1000 agree, the next step moves");
-    assert!(round_off_converged(stagnant, |_| true, |_| Ok(1e-10)).is_err(), "agreeing iterates out of equilibrium");
-    assert!(round_off_converged(stagnant, |_| true, |_| Ok(f64::NAN)).is_err());
-    assert!(round_off_converged(stagnant, |_| true, |_| Err("no residual".into())).is_err());
+fn p_delta_rows_need_convergence_and_finite_numbers() {
+    assert_eq!(converged_finite(Ok((true, 1.0)), |v: &f64| v.is_finite()), Ok(1.0));
+    assert!(converged_finite(Ok((false, 1.0)), |v: &f64| v.is_finite()).is_err(), "an unconverged iterate is never used");
+    assert!(converged_finite(Ok((true, f64::NAN)), |v: &f64| v.is_finite()).is_err());
+    assert!(converged_finite::<f64>(Err("refused".into()), |v| v.is_finite()).is_err());
 }
 
 #[test]

@@ -3862,25 +3862,21 @@ pub(crate) fn build_reactions_2d(
             }
             my = -kz * ry_disp;
         } else {
-            // Rigid support: reaction from the restrained partition. A free
-            // DOF of a non-"spring" support can still carry a spring (e.g. a
-            // rollerX with kx): assemble_stiffness_2d adds its stiffness, so
-            // its force −k·u belongs in the reaction too (as in
-            // build_reactions_3d); dropping it broke global equilibrium.
-            // Inclined rollers keep their rotated-frame handling.
+            // assemble_stiffness_2d adds a rigid support's own springs to K on
+            // free and restrained DOFs alike, so the restrained partition
+            // holds only the rigid part and each spring's −k·u is added here;
+            // build_reactions_2d_inclined adds them for rotated rollers.
             let springs = [sup.kx, sup.ky, sup.kz];
+            let rotated = sup.support_type == "inclinedRoller" && sup.angle.is_some();
             let mut vals = [0.0f64; 3];
             for (i, val) in vals.iter_mut().enumerate().take(dof_num.dofs_per_node.min(3)) {
                 if let Some(&d) = dof_num.map.get(&(sup.node_id, i)) {
-                    if d >= nf {
-                        if reported.insert(d) {
-                            *val = reactions_vec[d - nf];
-                        }
-                    } else if sup.support_type != "inclinedRoller" {
-                        let k = springs[i].unwrap_or(0.0);
-                        if k > 0.0 {
-                            *val = -k * u_full[d];
-                        }
+                    if d >= nf && reported.insert(d) {
+                        *val = reactions_vec[d - nf];
+                    }
+                    let k = springs[i].unwrap_or(0.0);
+                    if !rotated && k > 0.0 {
+                        *val -= k * u_full[d];
                     }
                 }
             }

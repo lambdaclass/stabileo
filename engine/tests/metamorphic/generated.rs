@@ -371,9 +371,9 @@ fn generated_corotational_rigid_motions() {
 
 fn gap_2d(c: &Case2) -> Result<crate::response::Resp, String> {
     use dedaliano_engine::solver::contact;
-    let support = c.s.supports.values().next().unwrap().node_id;
-    let sec = c.s.sections.values().next().unwrap();
-    let e = c.s.materials.values().next().unwrap().e;
+    let support = dedaliano_engine::ordered::values(&c.s.supports).next().unwrap().node_id;
+    let sec = dedaliano_engine::ordered::values(&c.s.sections).next().unwrap();
+    let e = dedaliano_engine::ordered::values(&c.s.materials).next().unwrap().e;
     let input: contact::ContactInput = serde_json::from_value(json!({
         "solver": c.s, "tolerance": 1e-10,
         "gapElements": [{"id":1,"nodeI":support,"nodeJ":c.probes.last().unwrap(),"direction":0,
@@ -407,9 +407,9 @@ fn gap_2d(c: &Case2) -> Result<crate::response::Resp, String> {
 
 fn gap_3d(c: &Case3) -> Result<crate::response::Resp, String> {
     use dedaliano_engine::solver::contact;
-    let support = c.s.supports.values().next().unwrap().node_id;
-    let sec = c.s.sections.values().next().unwrap();
-    let e = c.s.materials.values().next().unwrap().e;
+    let support = dedaliano_engine::ordered::values(&c.s.supports).next().unwrap().node_id;
+    let sec = dedaliano_engine::ordered::values(&c.s.sections).next().unwrap();
+    let e = dedaliano_engine::ordered::values(&c.s.materials).next().unwrap().e;
     let input: contact::ContactInput3D = serde_json::from_value(json!({
         "solver": c.s, "tolerance": 1e-10,
         "gapElements": [{"id":1,"nodeI":support,"nodeJ":c.probes.last().unwrap(),"direction":0,

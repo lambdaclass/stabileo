@@ -21,3 +21,5 @@ from `""` to `"warning:known_issue"`:
 All 24 changes are mandatory shell convergence warnings; no numerical value,
 added/removed quantity, or tolerance changes. The tests also assert the exact
 `warning:SH-MITC4-CONVERGENCE` finding, independently of the snapshot strings.
+
+One reported number changes (#1113): a 2D rigid support that also carries a spring on a restrained DOF with a prescribed displacement (a settled rollerX, pinned or angle-less inclinedRoller with ky, for example) now includes that spring's force −k·u in its reaction, as springs on free DOFs and on angled inclined rollers already did. The old reaction was off by k·d and the reactions did not balance the loads. Displacements and member forces are unchanged, and a support without such a spring is unaffected. The fiber solves gain NUM-INVARIANCE on near-singular tangents (#1093), without numerical changes.

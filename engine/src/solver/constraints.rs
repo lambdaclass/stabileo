@@ -1122,10 +1122,12 @@ pub fn build_constraint_transform(
     let mut gen = 0usize;
     let mut touched: Vec<usize> = Vec::new();
 
+    let mut dep_order: Vec<(&usize, &Vec<(usize, f64)>)> = dep_equations.iter().collect();
+    dep_order.sort_unstable_by_key(|(d, _)| **d);
     for _pass in 0..10 {
         let mut max_change = 0.0f64;
 
-        for (&dep_dof, terms) in &dep_equations {
+        for &(&dep_dof, terms) in &dep_order {
             // new_row = Σ(coeff * row[master])
             gen += 1;
             touched.clear();
@@ -2601,10 +2603,6 @@ impl FreeConstraintSystem {
     }
 
     /// Expand solution: u_f = C_ff * u_indep
-    pub(crate) fn independent_norm(&self, u_f: &[f64]) -> f64 {
-        u_f.iter().zip(&self.dependent).filter(|(_, &d)| !d).fold(0.0f64, |m, (x, _)| m.max(x.abs()))
-    }
-
     pub fn expand_solution(&self, u_indep: &[f64]) -> Vec<f64> {
         self.c_ff.mul_vec(u_indep)
     }

@@ -585,6 +585,30 @@ fn nightly_harness_findings_hold() {
     }
 }
 
+/// #1192: a pinned and a rollerX support share node 2. Off the axes the roller
+/// becomes an inclined roller, which the solver will not merge with another
+/// support on the same node, so the image was refused while the original
+/// solved.
+#[test]
+fn shared_node_supports_off_the_axes_are_unrepresentable() {
+    let text = std::fs::read_to_string(format!("{}/tests/metamorphic_corpus/nightly/issue-1192.json", env!("CARGO_MANIFEST_DIR"))).unwrap();
+    let crate::corpus::Model::D2(s) = crate::corpus::parse(&text).unwrap() else { panic!("2D model") };
+    linear::solve_2d(&s).unwrap();
+    for iso in [Iso2::mirror_line(0.4), Iso2::rotation(0.3)] {
+        assert!(transform_2d(&s, &iso).is_err());
+    }
+    for iso in [Iso2::mirror_x(), Iso2::rotation(std::f64::consts::FRAC_PI_2)] {
+        linear::solve_2d(&transform_2d(&s, &iso).unwrap()).unwrap();
+    }
+    let mut single = s.clone();
+    single.supports.retain(|_, x| x.support_type != "pinned");
+    assert_eq!(transform_2d(&single, &Iso2::rotation(0.3)).unwrap().supports["3"].support_type, "inclinedRoller");
+    let t = crate::tally::Tally::default();
+    let anas: Vec<_> = crate::ana2::rows().into_iter().filter(|a| a.name == "linear").collect();
+    crate::checks2::check_case(&crate::checks2::Ctx { tally: &t, rng_seed: 2026110204434 }, &crate::case::Case2::new("issue-1192", s), &anas, &["mirror", "rotation"]);
+    assert!(t.failures().is_empty(), "{:?}", t.failures());
+}
+
 /// #959: a cantilever under a purely transverse load has N = 0; its round-off
 /// axial force (-3e-6 kN on EA/L = 1.3e7 kN/m) passed the absolute compression
 /// test and gave load factors from 2.4e7 to 9.4e7, or a refusal, depending on
@@ -754,4 +778,17 @@ fn spectral_symmetry_keeps_repeated_pairs_whole() {
     let cells = t.cells.lock().unwrap();
     let cell = cells.get(&("spectral".to_string(), "symmetry".to_string())).expect("spectral × symmetry ran");
     assert!(cell.fails.is_empty() && cell.pass > 0, "{cell:?}");
+}
+
+#[test]
+fn a_section_shared_by_two_materials_gets_one_fiber_material_in_any_order() {
+    let mut materials = std::collections::HashMap::new();
+    for (id, e) in [(1, 2089.9), (2, 6030.9), (3, 2089.9)] {
+        materials.insert(id.to_string(), SolverMaterial { id, e, nu: 0.3 });
+    }
+    let pick = |ids: &[usize]| crate::ana2::section_material(&materials, ids.iter().copied()).map(|m| m.id);
+    for ids in [[1, 2, 3], [2, 1, 3], [3, 1, 2], [3, 2, 1]] {
+        assert_eq!(pick(&ids), Some(2), "{ids:?}");
+    }
+    assert_eq!(pick(&[]), None);
 }

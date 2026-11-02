@@ -284,7 +284,7 @@ pub fn pad_3d(s: &SolverInput3D) -> (SolverInput3D, HashSet<usize>, HashSet<usiz
         m.nodes.insert((n0 + k).to_string(), SolverNode3D { id: n0 + k, x: x0, y: 0.0, z: 0.25 * k as f64 });
     }
     for k in 0..12 {
-        let mut e = s.elements.values().next().cloned().unwrap_or_else(|| serde_json::from_value(serde_json::json!({
+        let mut e = dedaliano_engine::ordered::values(&s.elements).next().cloned().unwrap_or_else(|| serde_json::from_value(serde_json::json!({
             "id": 0, "type": "frame", "nodeI": 0, "nodeJ": 0, "materialId": mat, "sectionId": sec
         })).unwrap());
         e.id = e0 + k;

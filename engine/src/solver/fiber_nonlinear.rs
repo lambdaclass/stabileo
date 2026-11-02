@@ -15,7 +15,7 @@ use crate::element::{frame_transform_2d, compute_local_axes_3d, frame_transform_
 use super::dof::DofNumbering;
 use super::assembly::{self, InclinedFrame};
 use super::constraints::FreeConstraintSystem;
-use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse};
+use super::sparse_tangent::{SparseSymbolicCache, cached_symbolic, tangent_free_sparse_triplets, solve_tangent_sparse_diagnosed};
 
 /// Fiber nonlinear analysis input.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -152,6 +152,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
     // tangent pattern is constant; the fingerprinted cache rebuilds it if
     // it ever changes). Used only when ns >= SPARSE_THRESHOLD.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     // Incremental loading
     for inc in 1..=input.n_increments {
@@ -287,7 +288,9 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                             &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                         );
                         let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
-                        match numeric_cholesky(sym, &k_csc) {
+                        let factor = numeric_cholesky(sym, &k_csc);
+                        conditioning = crate::known_issues::sparse_factor_conditioning(&k_csc, factor.as_ref());
+                        match factor {
                             Some(num) => {
                                 let result = sparse_cholesky_solve(&num, &r_s);
                                 cached_sparse_num = Some(num);
@@ -296,7 +299,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                             None => {
                                 // Sparse factorization failed — fall back to full NR
                                 // for this increment (same semantics as dense path).
-                                solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                                solve_tangent_sparse_diagnosed(&k_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                             }
                         }
                     }
@@ -304,7 +307,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                     let k_csc = tangent_free_sparse_triplets(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
-                    solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                    solve_tangent_sparse_diagnosed(&k_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                 }
             } else if input.modified_nr {
                 if let Some((ref l, sz)) = cached_l {
@@ -319,7 +322,9 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                         k_ff
                     };
                     let mut l = k_s.clone();
-                    if cholesky_decompose(&mut l, ns) {
+                    let factored = cholesky_decompose(&mut l, ns);
+                    conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, factored.then_some(l.as_slice()));
+                    if factored {
                         let y = forward_solve(&l, &r_s, ns);
                         let result = back_solve(&l, &y, ns);
                         cached_l = Some((l, ns));
@@ -341,7 +346,9 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
                     k_ff
                 };
                 let mut k_work = k_s.clone();
-                match cholesky_solve(&mut k_work, &r_s, ns) {
+                let solved = cholesky_solve(&mut k_work, &r_s, ns);
+                conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+                match solved {
                     Some(u) => u,
                     None => {
                         let mut k_work = k_s;
@@ -427,7 +434,7 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         vec![]
     };
 
-    Ok(FiberNonlinearResult {
+    let mut result = FiberNonlinearResult {
         results: AnalysisResults {
             displacements,
             reactions: vec![],
@@ -443,7 +450,9 @@ fn solve_fiber_nonlinear_2d_contained(input: &FiberNonlinearInput) -> Result<Fib
         converged,
         n_increments: input.n_increments,
         fiber_status,
-    })
+    };
+    crate::known_issues::attach(&mut result.results.structured_diagnostics, conditioning.into_iter().collect());
+    Ok(result)
 }
 
 /// Member end forces of the fiber members from their fiber section resultants.
@@ -873,6 +882,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
     // tangent pattern is constant; the fingerprinted cache rebuilds it if
     // it ever changes). Used only when ns >= SPARSE_THRESHOLD.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
+    let mut conditioning = None;
 
     for inc in 1..=input.n_increments {
         let load_factor = inc as f64 / input.n_increments as f64;
@@ -1000,7 +1010,9 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                             &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                         );
                         let sym = cached_symbolic(&mut sparse_sym_cache, &k_csc);
-                        match numeric_cholesky(sym, &k_csc) {
+                        let factor = numeric_cholesky(sym, &k_csc);
+                        conditioning = crate::known_issues::sparse_factor_conditioning(&k_csc, factor.as_ref());
+                        match factor {
                             Some(num) => {
                                 let result = sparse_cholesky_solve(&num, &r_s);
                                 cached_sparse_num = Some(num);
@@ -1009,7 +1021,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                             None => {
                                 // Sparse factorization failed — fall back to full NR
                                 // for this increment (same semantics as dense path).
-                                solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                                solve_tangent_sparse_diagnosed(&k_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                             }
                         }
                     }
@@ -1017,7 +1029,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                     let k_csc = tangent_free_sparse_triplets(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
-                    solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                    solve_tangent_sparse_diagnosed(&k_csc, &r_s, &mut sparse_sym_cache, &mut conditioning)?
                 }
             } else if input.modified_nr {
                 if let Some((ref l, sz)) = cached_l {
@@ -1032,7 +1044,9 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                         k_ff
                     };
                     let mut l = k_s.clone();
-                    if cholesky_decompose(&mut l, ns) {
+                    let factored = cholesky_decompose(&mut l, ns);
+                    conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, factored.then_some(l.as_slice()));
+                    if factored {
                         let y = forward_solve(&l, &r_s, ns);
                         let result = back_solve(&l, &y, ns);
                         cached_l = Some((l, ns));
@@ -1053,7 +1067,9 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
                     k_ff
                 };
                 let mut k_work = k_s.clone();
-                match cholesky_solve(&mut k_work, &r_s, ns) {
+                let solved = cholesky_solve(&mut k_work, &r_s, ns);
+                conditioning = crate::known_issues::dense_factor_conditioning(&k_s, ns, solved.as_ref().map(|_| k_work.as_slice()));
+                match solved {
                     Some(u) => u,
                     None => {
                         let mut k_work = k_s;
@@ -1135,7 +1151,7 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
         vec![]
     };
 
-    Ok(FiberNonlinearResult3D {
+    let mut result = FiberNonlinearResult3D {
         results: AnalysisResults3D {
             displacements,
             reactions: vec![],
@@ -1155,7 +1171,9 @@ fn solve_fiber_nonlinear_3d_contained(input: &FiberNonlinearInput3D) -> Result<F
         converged,
         n_increments: input.n_increments,
         fiber_status,
-    })
+    };
+    crate::known_issues::attach(&mut result.results.structured_diagnostics, conditioning.into_iter().collect());
+    Ok(result)
 }
 
 /// Support springs, 3D. The 3D fiber solver had none: a spring support was a

@@ -341,14 +341,14 @@ pub fn combine_results_3d(input: &CombinationInput3D) -> Result<Option<AnalysisR
 }
 
 /// `combine_results_3d` over borrowed case results: `(case_id, &results)` pairs,
-/// avoiding per-combination clones of every case.
+/// avoiding per-combination clones of every case. Distorted-shell results combine only when
+/// Σ|factor| ≤ 1, which keeps each case's checked membrane-stress variation within its bound.
 pub fn combine_results_3d_refs(factors: &[CombinationFactor], cases: &[(usize, &AnalysisResults3D)]) -> Result<Option<AnalysisResults3D>, String> {
     let contributing: Vec<_> = cases.iter().filter(|(id, _)| factors.iter().any(|f| f.case_id == *id && f.factor != 0.0)).collect();
+    let weight: f64 = factors.iter().filter(|f| cases.iter().any(|(id, _)| *id == f.case_id)).map(|f| f.factor.abs()).sum();
     for (_, result) in &contributing {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
-        let nonzero: Vec<_> = factors.iter().filter(|f| f.factor != 0.0).collect();
-        let identity = contributing.len() == 1 && nonzero.len() == 1 && nonzero[0].factor == 1.0;
-        if !identity && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+        if !(weight <= 1.0) && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }
@@ -456,11 +456,12 @@ pub(crate) fn combine_results_3d_refs_unchecked(factors: &[CombinationFactor], c
 
 // ==================== 3D Envelope ====================
 
-/// Compute pointwise 3D envelope.
+/// Compute pointwise 3D envelope. A single distorted-shell result is returned as it is; several
+/// are refused, since the envelope cannot check their combined membrane stresses.
 pub fn compute_envelope_3d(results: &[AnalysisResults3D]) -> Result<Option<FullEnvelope3D>, String> {
     for result in results {
         crate::known_issues::refuse(&result.structured_diagnostics)?;
-        if result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
+        if results.len() > 1 && result.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
             crate::known_issues::refuse(&[crate::known_issues::diagnostic("SH-MITC4-DISTORTION")])?;
         }
     }

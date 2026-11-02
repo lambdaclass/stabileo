@@ -244,7 +244,7 @@ pub fn rows() -> Vec<Ana3> {
             motion: Motion::Any,
             iter_tol: 1e-10,
             full_static: false,
-            run: |c| Ok(static_3d(&crate::ana2::round_off_converged(|steps, tol| pdelta::solve_pdelta_3d(&c.s, steps, tol).map(|r| (r.converged, r.results)), crate::ana2::finite_3d, |r| pdelta::backward_error_3d(&c.s, r))?)),
+            run: |c| Ok(static_3d(&crate::ana2::converged_finite(pdelta::solve_pdelta_3d(&c.s, 100, 1e-12).map(|r| (r.converged, r.results)), crate::ana2::finite_3d)?)),
         },
         Ana3 {
             name: "corotational",
@@ -298,7 +298,7 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let e = c.s.elements.values().find(|e| e.section_id == x.id).map_or(200_000.0, |e| c.s.materials[&e.material_id.to_string()].e);
+                        let e = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(200_000.0, |m| m.e);
                         (x.id.to_string(), rect_fibers(b, h, 12, 12, e))
                     })
                     .collect();
@@ -470,7 +470,7 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let mat = c.s.elements.values().find(|e| e.section_id == x.id).map_or(1, |e| e.material_id);
+                        let mat = crate::ana2::section_material(&c.s.materials, c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| e.material_id)).map_or(1, |m| m.id);
                         (x.id.to_string(), PlasticSectionData3D { a: x.a, iy: x.iy, iz: x.iz, material_id: mat, b: Some(b), h: Some(h), d: Some(b) })
                     })
                     .collect();

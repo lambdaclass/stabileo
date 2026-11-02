@@ -313,10 +313,19 @@ fn mitc4_macneal_harder_contains_membrane_bending_only() {
                 let result = result.unwrap_or_else(|e| panic!("{shape} direction {direction}: {e}"));
                 assert_eq!(ids(&result.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), shape != "regular");
                 assert!(result.structured_diagnostics.iter().all(|d| d.severity != Severity::Error));
-                for results in [std::slice::from_ref(&result).to_vec(), vec![result.clone(), result.clone()]] {
-                    let envelope = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&results);
-                    if shape == "regular" { assert!(envelope.is_ok()); } else { common::assert_containment(envelope, "SH-MITC4-DISTORTION"); }
+                let single = dedaliano_engine::postprocess::combinations::compute_envelope_3d(std::slice::from_ref(&result)).unwrap().unwrap().max_abs_results_3d;
+                let signs = |v: Vec<f64>| v.iter().any(|x| *x > 0.0) && v.iter().any(|x| *x < 0.0);
+                assert!(shape == "regular" || signs(result.displacements.iter().flat_map(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz]).collect()), "{shape}: a field with both signs");
+                for (enveloped, solved) in [
+                    (serde_json::to_value(&single.displacements), serde_json::to_value(&result.displacements)),
+                    (serde_json::to_value(&single.reactions), serde_json::to_value(&result.reactions)),
+                    (serde_json::to_value(&single.element_forces), serde_json::to_value(&result.element_forces)),
+                ] {
+                    assert_eq!(enveloped.unwrap(), solved.unwrap(), "{shape}: one result's envelope is that result, signs kept");
                 }
+                assert!(single.quad_stresses.is_empty() && single.plate_stresses.is_empty(), "no shell field is enveloped");
+                let pair = dedaliano_engine::postprocess::combinations::compute_envelope_3d(&[result.clone(), result.clone()]);
+                if shape == "regular" { assert!(pair.is_ok()); } else { common::assert_containment(pair, "SH-MITC4-DISTORTION"); }
                 assert_warning(&result.structured_diagnostics, "SH-MITC4-CONVERGENCE", 810.0);
                 let tip = result.displacements.iter().find(|d| d.node_id == 13).unwrap();
                 let (published, reference) = [(tip.ux, 3.0e-5), (tip.uy, 0.1081), (tip.uz, 0.4321)][direction];
@@ -366,8 +375,17 @@ fn combinations_and_envelopes_keep_known_issue_warnings() {
     let mut distorted = dedaliano_engine::known_issues::diagnostic("SH-MITC4-DISTORTION");
     distorted.severity = Severity::Warning;
     r.structured_diagnostics.push(distorted);
-    common::assert_containment(compute_envelope_3d(&[r.clone()]), "SH-MITC4-DISTORTION");
+    let single = compute_envelope_3d(&[r.clone()]).unwrap().unwrap().max_abs_results_3d;
+    assert!(single.displacements.iter().zip(&r.displacements).all(|(e, d)| e.uz == d.uz));
+    assert!(single.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
     common::assert_containment(compute_envelope_3d(&[r.clone(), r.clone()]), "SH-MITC4-DISTORTION");
+    let half = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: -0.5 }], &[(1, &r)]).unwrap().unwrap();
+    assert!(half.displacements.iter().zip(&r.displacements).all(|(h, d)| h.uz == -0.5 * d.uz));
+    assert!(half.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
+    let split = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 0.6 }, CombinationFactor { case_id: 2, factor: -0.4 }], &[(1, &r), (2, &r)]).unwrap().unwrap();
+    assert!(split.displacements.iter().zip(&r.displacements).all(|(h, d)| (h.uz - 0.2 * d.uz).abs() <= 1e-15 * d.uz.abs()));
+    common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 0.6 }, CombinationFactor { case_id: 2, factor: 0.6 }], &[(1, &r), (2, &r)]), "SH-MITC4-DISTORTION");
+    common::assert_containment(combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: f64::NAN }], &[(1, &r)]), "SH-MITC4-DISTORTION");
     let same = combine_results_3d_refs(&[CombinationFactor { case_id: 1, factor: 1.0 }], &[(1, &r)]).unwrap().unwrap();
     assert!(same.structured_diagnostics.iter().any(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION") && d.severity == Severity::Warning));
     assert!(same.displacements.iter().zip(&r.displacements).all(|(s, d)| s.uz == d.uz));
@@ -998,6 +1016,40 @@ fn contact_ssi_and_corotational_solves_of_a_mechanism_are_flagged() {
     };
     check(&transverse_loaded_bar(), true);
     check(&make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)), false);
+}
+
+#[test]
+fn fiber_solves_of_a_mechanism_are_flagged() {
+    use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
+    use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, solve_fiber_nonlinear_3d, FiberNonlinearInput, FiberNonlinearInput3D};
+    let sections = |a: f64, i: f64, e: f64, nz: usize| {
+        let h = (12.0 * i / a).sqrt();
+        let b = a / h;
+        let at = |k: usize, n: usize, w: f64| -w / 2.0 + (k as f64 + 0.5) * w / n as f64;
+        let fibers = (0..20).flat_map(|k| (0..nz).map(move |m| Fiber { y: at(k, 20, h), z: at(m, nz, b), area: a / (20 * nz) as f64, material_idx: 0 })).collect();
+        HashMap::from([("1".to_string(), FiberSectionDef { fibers, materials: vec![FiberMaterial::Elastic { e }] })])
+    };
+    for modified_nr in [false, true] {
+        let check_2d = |solver: SolverInput, flagged: bool| {
+            let fiber_sections = sections(solver.sections["1"].a, solver.sections["1"].iz, solver.materials["1"].e, 1);
+            let r = solve_fiber_nonlinear_2d(&FiberNonlinearInput { solver, fiber_sections, n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 1, modified_nr }).unwrap();
+            assert_eq!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), flagged, "2D modified {modified_nr}: {:?}", ids(&r.results.structured_diagnostics));
+        };
+        check_2d(transverse_loaded_bar(), true);
+        check_2d(make_beam(4, 4.0, E, 0.045, 3.375e-4, "fixed", None, tip(-10.0)), false);
+        let check_3d = |solver: SolverInput3D, flagged: bool| {
+            let fiber_sections = sections(0.01, 1e-4, E, 20);
+            let r = solve_fiber_nonlinear_3d(&FiberNonlinearInput3D { solver, fiber_sections, n_integration_points: 5, max_iter: 50, tolerance: 1e-10, n_increments: 1, modified_nr }).unwrap();
+            assert_eq!(ids(&r.results.structured_diagnostics).contains(&"NUM-INVARIANCE".to_string()), flagged, "3D modified {modified_nr}: {:?}", ids(&r.results.structured_diagnostics));
+        };
+        let load = vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 5, fx: 0.0, fy: 0.0, fz: -10.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })];
+        let fixed = make_3d_beam(4, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, load.clone());
+        let mut pinned = make_3d_beam(4, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true, true, true, false, false, false], None, load);
+        let support = pinned.supports.values_mut().next().unwrap();
+        (support.krx, support.kry, support.krz) = (Some(1e-6), Some(1e-6), Some(1e-6));
+        check_3d(pinned, true);
+        check_3d(fixed, false);
+    }
 }
 
 #[test]
