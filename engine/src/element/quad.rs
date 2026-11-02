@@ -1409,7 +1409,7 @@ pub fn quad_quality_metrics(coords: &[[f64; 3]; 4]) -> QuadQualityMetrics {
 }
 
 /// Largest twist curvature |n·x,ξη| / |x,ξ × x,η| of the bilinear surface over the 2×2 Gauss
-/// points (1/length): 4h/(a·b) for an a×b quad whose corners lie ±h off its mean plane.
+/// points (1/length): about 4h/(a·b), for small h, for an a×b quad whose corners lie ±h off its mean plane.
 /// Infinite for a degenerate mapping.
 pub fn quad_twist_curvature(coords: &[[f64; 3]; 4]) -> f64 {
     const CORNERS: [(f64, f64); 4] = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)];

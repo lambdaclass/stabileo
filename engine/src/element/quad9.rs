@@ -1288,7 +1288,7 @@ pub fn quad9_quality_metrics(coords: &[[f64; 3]; 9]) -> Quad9QualityMetrics {
 }
 
 /// Largest twist curvature |n·x,ξη| / |x,ξ × x,η| of the nine-node surface over the 3×3 Gauss
-/// points (1/length): 4h/(a·b) for a bilinear a×b patch whose corners lie ±h off its mean
+/// points (1/length): about 4h/(a·b), for small h, for a bilinear a×b patch whose corners lie ±h off its mean
 /// plane, zero on cylinders meshed along their generators. Infinite for a degenerate mapping.
 pub fn quad9_twist_curvature(coords: &[[f64; 3]; 9]) -> f64 {
     const AT: [(f64, f64); 9] = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0), (0.0, -1.0), (1.0, 0.0), (0.0, 1.0), (-1.0, 0.0), (0.0, 0.0)];
