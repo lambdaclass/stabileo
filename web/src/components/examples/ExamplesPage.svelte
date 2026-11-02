@@ -164,6 +164,7 @@
                   </div>
                 {/each}
               </div>
+              {#if outcome.notes.includes('elasticShear')}<p class="fine" data-testid="elastic-shear-note">{te('note.elasticShear')}</p>{/if}
               {@const c = outcome.certificate}
               <p class="certificate" data-testid="certificate" data-status={c.status}>
                 {#if c.status === 'certified'}{te('cert.certified')} ({te(`cert.${c.kind}`)}){#if c.bound !== null} · {te(`cert.${c.measure}`)} ≤ <Sci value={c.bound} unit="" />{/if}{#if c.kind === 'timeHistory'}. {te('cert.timeNote')}{/if}

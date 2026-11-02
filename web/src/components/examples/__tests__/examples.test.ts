@@ -152,6 +152,15 @@ describe('earthquake frame', () => {
     expect(baseShear(model, histories, 0)).toBeCloseTo(100, 6);
     expect(results.reactions.filter(r => r.nodeId <= 2).reduce((s, r) => s + r.fx, 0)).toBeCloseTo(-100, 6);
   });
+  it('reports the elastic base shear k·u at the peak, and says it is only the elastic part', () => {
+    const v: Values = { ...defaults(earthquake.params), storeys: 1, damping: 0 };
+    const model = earthquake.build(v);
+    const results = engine.solve3D({ ...model, loads: [3, 4].map(nodeId => ({ type: 'nodal' as const, data: { nodeId, fx: 50, fy: 0, fz: 0, mx: 0, my: 0, mz: 0 } })) });
+    const k = 100 / results.displacements.find(d => d.nodeId === 3)!.ux;
+    const out = run(earthquake, v);
+    expect(readout(out, 'peakElasticBaseShear').value / (k * readout(out, 'peakRoof').value / 1000)).toBeCloseTo(1, 2);
+    expect(out.notes).toContain('elasticShear');
+  });
   it('certifies a time history only with stability and certified residuals', () => {
     expect(timeCertificate(null)).toEqual({ status: 'unavailable', kind: 'timeHistory', code: 'noExport' });
     expect(timeCertificate({ certificate: { stabilityCertified: false, stabilityReason: 'x' } })).toMatchObject({ status: 'uncertified', code: 'notStable' });

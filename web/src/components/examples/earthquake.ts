@@ -117,7 +117,7 @@ export const earthquake = defineExample<Model>({
       { key: 'period', value: modal.modes[0].period, unit: 's' },
       { key: 'peakRoof', value: Math.abs(peakRoof), unit: 'mm' },
       { key: 'peakDrift', value: drift * 100, unit: '%' },
-      { key: 'peakBaseShear', value: shear, unit: 'kN' },
+      { key: 'peakElasticBaseShear', value: shear, unit: 'kN' },
     ];
     const s = new Sketch();
     const size = Math.max(model.bay, model.storeys * model.storeyHeight);
@@ -136,7 +136,7 @@ export const earthquake = defineExample<Model>({
     }
     const ground = config.groundAccelX.map((a, k) => [k * DT, a / G] as [number, number]);
     return {
-      status: 'ok', readouts, certificate, notes: ['chord', 'editorFrameOnly'],
+      status: 'ok', readouts, certificate, notes: ['chord', 'editorFrameOnly', 'elasticShear'],
       views: { deformed: s.view('deformed', 'mm', boundsOf(s.xy, 0.1)) },
       charts: [
         { key: 'roof', xUnit: 's', yUnit: 'mm', points: roofPoints, marker: peakTime },
