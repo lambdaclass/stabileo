@@ -5651,6 +5651,7 @@ const de: Translations = {
   'pro.th.fitSteps': 'Gesamte Aufzeichnung berechnen',
   'pro.th.stale': 'Das Modell hat sich nach dieser Berechnung geändert: Führen Sie sie erneut aus, um die Antwort schrittweise zu durchlaufen.',
   'pro.th.refusal.nonFinite': 'die Antwort ist ab Schritt {step} (t = {time} s) nicht endlich (NaN oder unendlich), daher wird kein Ergebnis angezeigt. Prüfen Sie das Modell auf ein Bauteil oder Lager, das eine Bewegung ohne Steifigkeit lässt, und die Größenordnung der Lasten',
+  'pro.th.refusal.nonFiniteReactions': 'die Auflagerreaktionen bei der Spitzenantwort sind nicht endlich (NaN oder unendlich), daher wird kein Ergebnis angezeigt. Prüfen Sie das Modell auf ein Bauteil oder Lager, das eine Bewegung ohne Steifigkeit lässt, und die Größenordnung der Lasten',
   'pro.th.showInModel': 'Im Modell anzeigen',
   'pro.th.play': 'Abspielen',
   'pro.th.pause': 'Pause',

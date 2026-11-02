@@ -9,6 +9,12 @@ describe('timeHistoryRefusal', () => {
     expect(timeHistoryRefusal(engineText)).toEqual({ key: 'pro.th.refusal.nonFinite', params: { step: 12, time: 0.024 } });
   });
 
+  it('reads the refusal of non-finite peak reactions, which has no step', () => {
+    const m = timeHistoryRefusal('TH-NONFINITE: Time history: the reactions at the peak response are not finite (NaN or infinite); no result is returned');
+    expect(m).toEqual({ key: 'pro.th.refusal.nonFiniteReactions' });
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) expect(teAt(m!, locale), locale).not.toBe('pro.th.refusal.nonFiniteReactions');
+  });
+
   it('leaves every other engine error to be shown as it is', () => {
     expect(timeHistoryRefusal('Ground acceleration history contains non-finite values')).toBeNull();
   });
