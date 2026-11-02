@@ -4,7 +4,7 @@ import { uiStore } from '../ui.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
 import { projectOnto, resetSwitchBackup, sliceAt } from '../switch-2d';
-import { membersBentOffAxis } from '../../geometry/plane-cut-guard';
+import { constraintsMisreadOn, membersBentOffAxis } from '../../geometry/plane-cut-guard';
 import type { Constraint3D } from '../../engine/types-3d';
 
 beforeAll(async () => { await initSolver(); });
@@ -86,6 +86,42 @@ describe('a model cut along Y–Z keeps the meaning of its constraints (#466)', 
     modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
     modelStore.addConstraint({ type: 'equalDOF', masterNode: b, slaveNode: d, dofs: [0] } as Constraint3D);
     expect(sliceAt('xz', 0).ok).toBe(true);
+  });
+
+  function cantileversInXY(): { b: number; d: number } {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
+    const c = modelStore.addNode(0, 5, 0), d = modelStore.addNode(3, 5, 0);
+    for (const id of [modelStore.addElement(a, b, 'frame'), modelStore.addElement(c, d, 'frame')]) {
+      modelStore.elements.get(id)!.rollAngle = 90;
+    }
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addSupport(c, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
+    return { b, d };
+  }
+
+  it('an axial tie written as a linear MPC on ux means the same on an X–Y cut, so the cut goes ahead and agrees with 3D', () => {
+    const { b, d } = cantileversInXY();
+    const tie = { type: 'linearMPC', terms: [{ nodeId: b, dof: 0, coefficient: 1 }, { nodeId: d, dof: 0, coefficient: -1 }] } as Constraint3D;
+    modelStore.addConstraint(tie);
+    expect(constraintsMisreadOn('xy', [tie], new Set([b, d]))).toEqual([]);
+    const r3 = modelStore.solve3D(false, false, true);
+    if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
+    const ux3 = r3.displacements.find((x) => x.nodeId === d)!.ux;
+    expect(Math.abs(ux3)).toBeGreaterThan(1e-9);
+    expect(sliceAt('xy', 0).ok).toBe(true);
+    uiStore.analysisMode = '2d';
+    const r2 = modelStore.solve(false);
+    if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
+    expect(r2.displacements.find((x) => x.nodeId === d)!.ux).toBeCloseTo(ux3, 12);
+  });
+
+  it('a linear MPC on uz, out of an X–Y cut, is refused rather than read as an in-plane one', () => {
+    const { b, d } = cantileversInXY();
+    const tie = { type: 'linearMPC', terms: [{ nodeId: b, dof: 2, coefficient: 1 }, { nodeId: d, dof: 2, coefficient: -1 }] } as Constraint3D;
+    modelStore.addConstraint(tie);
+    expect(constraintsMisreadOn('xy', [tie], new Set([b, d]))).toEqual([tie]);
+    expect(sliceAt('xy', 0)).toEqual({ ok: false, error: 'slice.constraintsPlane' });
   });
 });
 

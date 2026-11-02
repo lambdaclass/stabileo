@@ -23,6 +23,7 @@ function readAlike(c: Constraint3D, plane: DrawPlane): boolean {
     case 'rigidLink': return !c.dofs?.length || planeDofs(c.dofs, 'xz') === planeDofs(c.dofs, plane);
     case 'equalDOF': return planeDofs(c.dofs ?? [], 'xz') === planeDofs(c.dofs ?? [], plane);
     case 'diaphragm': return (c.plane ?? 'XY').toUpperCase() === (plane === 'yz' ? 'XY' : 'YZ');
+    case 'linearMPC': return c.terms.every((t) => PLANE_DOFS.xz[t.dof] === PLANE_DOFS[plane][t.dof]);
     default: return false;
   }
 }

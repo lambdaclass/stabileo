@@ -1040,6 +1040,18 @@ fn contact_ssi_and_corotational_solves_of_a_mechanism_are_flagged() {
 }
 
 #[test]
+fn a_prepared_3d_solve_reports_the_thermal_defaults_of_the_loads_it_solves() {
+    let heat = |alpha: Option<f64>| SolverLoad3D::Thermal(SolverThermalLoad3D { element_id: 1, dt_uniform: 20.0, dt_gradient_y: 0.0, dt_gradient_z: 0.0, alpha, depth_y: None, depth_z: None });
+    let defaulted = |r: &AnalysisResults3D| r.structured_diagnostics.iter().any(|d| d.code == DiagnosticCode::ThermalDefaultAssumed);
+    let mut input = beam3d();
+    input.loads = vec![heat(None)];
+    let prepared = dedaliano_engine::solver::linear::prepare_static_3d(&input).unwrap();
+    assert!(defaulted(&prepared.solve_loads(&input.loads).unwrap()));
+    assert!(!defaulted(&prepared.solve_loads(&[heat(Some(1.2e-5))]).unwrap()));
+    assert!(!defaulted(&prepared.solve_loads(&[]).unwrap()));
+}
+
+#[test]
 fn fiber_solves_of_a_mechanism_are_flagged() {
     use dedaliano_engine::element::fiber_beam::{Fiber, FiberMaterial, FiberSectionDef};
     use dedaliano_engine::solver::fiber_nonlinear::{solve_fiber_nonlinear_2d, solve_fiber_nonlinear_3d, FiberNonlinearInput, FiberNonlinearInput3D};
@@ -1440,8 +1452,8 @@ fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
                 };
                 let (twisted, ds) = ratio(90.0);
                 let (flat, _) = ratio(0.0);
-                eprintln!("{quad9} κt {kt} load {}: {twisted:.4} (untwisted {flat:.4})", if load_a { "A" } else { "B" });
-                worst = worst.max(twisted / flat - 1.0);
+                assert!((flat - 1.0).abs() < 0.01, "{quad9} load {load_a}: the untwisted mesh is {flat} of beam theory");
+                worst = worst.max((twisted / flat - 1.0).abs());
                 diagnostics = ds;
             }
             (worst, diagnostics)
