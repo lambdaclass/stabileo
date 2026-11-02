@@ -1,6 +1,8 @@
 """Append review metadata without reformatting the rest of the YAML catalog."""
+import fcntl
 import importlib.util
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -14,6 +16,8 @@ spec = importlib.util.spec_from_file_location("catalog", root / "research/tools/
 catalog = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(catalog)
 path = root / "research/papers.yaml"
+lock = open(root / "research/.papers.lock", "w")
+fcntl.flock(lock, fcntl.LOCK_EX)
 text = path.read_text()
 data = yaml.safe_load(text)
 matches = [p for p in data["papers"] if p["id"] == paper_id]
@@ -50,6 +54,12 @@ else:
 if yaml.safe_load(text) != data:
     sys.exit("Refusing to write: YAML round-trip mismatch")
 export = catalog.export_text(data["papers"])
-path.write_text(text)
-(root / "research/papers.json").write_text(export)
+def replace(target, content):
+    tmp = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+    tmp.write_text(content)
+    os.replace(tmp, target)
+
+
+replace(root / "research/papers.json", export)
+replace(path, text)
 print(f"Recorded {reviewer} review of {paper_id} at {sha}")

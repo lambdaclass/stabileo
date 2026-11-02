@@ -86,3 +86,4 @@ __pycache__/
 .hex/
 .stabileo-inst
 .env.prod
+research/.papers.lock

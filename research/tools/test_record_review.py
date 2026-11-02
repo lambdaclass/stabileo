@@ -44,6 +44,27 @@ class RecordReview(unittest.TestCase):
                     self.assertEqual(json.loads((root / 'research/papers.json').read_text())['papers'],
                                      data['papers'])
 
+    def test_concurrent_recordings_keep_every_review(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'research/tools').mkdir(parents=True)
+            shutil.copy(ROOT / 'research/tools/catalog.py', root / 'research/tools/catalog.py')
+            paper = yaml.safe_load((ROOT / 'research/papers.yaml').read_text())['papers'][0]
+            paper.update(status='proposed', reproduced_published_results=False)
+            paper.pop('reviews', None)
+            path = root / 'research/papers.yaml'
+            path.write_text(yaml.safe_dump({'papers': [paper]}, sort_keys=False))
+            runs = [subprocess.Popen([sys.executable, str(ROOT / 'scripts/review/record_review.py'), str(root),
+                                      paper['id'], f'Reviewer{i}', f'{i:x}' * 40, 'not ready'],
+                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) for i in range(8)]
+            for run in runs:
+                _, err = run.communicate()
+                self.assertEqual(run.returncode, 0, err)
+            reviewers = sorted(r['reviewer'] for r in yaml.safe_load(path.read_text())['papers'][0]['reviews'])
+            self.assertEqual(reviewers, sorted(f'Reviewer{i}' for i in range(8)))
+            self.assertEqual(json.loads((root / 'research/papers.json').read_text())['papers'],
+                             yaml.safe_load(path.read_text())['papers'])
+
 
 if __name__ == '__main__':
     unittest.main()

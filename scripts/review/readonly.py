@@ -22,9 +22,10 @@ def sandbox_command(paths, command, platform=sys.platform, hide=()):
     paths = sorted({str(Path(path).resolve()) for path in paths})
     if platform == 'darwin':
         rules = ' '.join(f'(subpath {json.dumps(path)})' for path in paths)
+        hidden = ' '.join(f'({"subpath" if Path(path).is_dir() else "literal"} {json.dumps(str(path))})' for path in hide)
         return ['sandbox-exec', '-p',
                 f'(version 1)(allow default)(deny file-write*)'
-                f'(allow file-write* {rules})', *command]
+                f'(allow file-write* {rules})' + (f'(deny file-read* {hidden})' if hidden else ''), *command]
     return ['bwrap', '--die-with-parent', '--ro-bind', '/', '/', '--dev', '/dev',
             *[arg for path in paths for arg in ('--bind', path, path)],
             *[arg for path in map(str, hide) for arg in (('--tmpfs', path) if Path(path).is_dir() else ('--ro-bind', '/dev/null', path))],

@@ -82,6 +82,8 @@ for name in codex kimi grok adversarial; do review_attempt "$name" reviewer; don
             joined = ' '.join(linux)
             self.assertIn(f'--tmpfs {home}/.config/gh', joined)
             self.assertIn(f'--ro-bind /dev/null {home}/.git-credentials', joined)
+            mac = readonly.sandbox_command(['/tmp/s'], ['reviewer'], 'darwin', hide=hidden)
+            self.assertIn(f'(deny file-read* (subpath "{home}/.config/gh") (literal "{home}/.git-credentials"))', mac[2])
         self.assertIn('GH_TOKEN', readonly.SECRET_ENV)
         self.assertIn('GITHUB_TOKEN', readonly.SECRET_ENV)
 
