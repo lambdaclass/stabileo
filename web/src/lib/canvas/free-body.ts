@@ -490,9 +490,16 @@ export function drawFreeBody(d: FreeBodyInput): Map<number, ScreenPiece> {
         for (const off of [8, 22, 40, 60, 85]) {
           const cx = b.anchor.x + b.inward.x * (t + ext(b.inward) / 2) + sd.x * (off + ext(sd) / 2);
           const cy = b.anchor.y + b.inward.y * (t + ext(b.inward) / 2) + sd.y * (off + ext(sd) / 2);
+          const base = t * 0.5 + off * 0.6 + si * 15;
+          // Covering only adds: a spot that cannot beat the best so far is not measured, nor finished.
+          if (best && base >= best.cost) continue;
           const r = { x: cx - w / 2, y: cy - h / 2, width: w, height: h };
-          const cover = taken.near(r).reduce((acc, o) => acc + (overlaps(r, o) ? area(r, o) : 0), 0);
-          const cost = cover * 50 + t * 0.5 + off * 0.6 + si * 15;
+          let cost = base;
+          const bound = best?.cost ?? Infinity;
+          taken.visit(r, (o) => {
+            if (overlaps(r, o)) cost += area(r, o) * 50;
+            return cost >= bound;
+          });
           if (!best || cost < best.cost) best = { r, cost };
         }
       }
