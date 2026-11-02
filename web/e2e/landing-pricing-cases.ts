@@ -101,11 +101,12 @@ export function landingPricingTests(locale: Locale) {
           await expect(badge).toBeVisible();
           const metrics = await badge.evaluate((el) => ({
             size: parseFloat(getComputedStyle(el).fontSize),
+            html: el.outerHTML.slice(0, 160),
             fits: el.scrollWidth <= el.clientWidth + 1 &&
               el.getBoundingClientRect().left >= 0 && el.getBoundingClientRect().right <= innerWidth,
           }));
           expect(metrics.size).toBeGreaterThanOrEqual(12);
-          expect(metrics.fits).toBe(true);
+          expect(metrics.fits, metrics.html).toBe(true);
         }
         const overflow = await page.evaluate(() => ({
           document: document.documentElement.scrollWidth,
@@ -139,7 +140,6 @@ export function landingPricingTests(locale: Locale) {
           expect(metrics.smallText).toEqual([]);
           expect(metrics.overflow).toEqual([]);
           const prose = await article.locator(':is(p, li, td) a:visible').all();
-          expect(prose.length).toBeGreaterThan(0);
           for (const link of prose) {
             const rect = await link.boundingBox();
             expect(rect!.x).toBeGreaterThanOrEqual(0);

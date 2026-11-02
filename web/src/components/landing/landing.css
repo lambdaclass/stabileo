@@ -320,6 +320,7 @@
 }
 
 .landing .eyebrow-label {
+  min-width: 0;
   color: var(--accent-text);
 }
 
