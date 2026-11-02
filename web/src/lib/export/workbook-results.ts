@@ -171,24 +171,38 @@ const SHELL_MAXIMA: Array<[string, string, (r: ShellCentreRow) => number | undef
   ['mx', 'kN·m/m', (r) => r.mx], ['my', 'kN·m/m', (r) => r.my], ['mxy', 'kN·m/m', (r) => r.mxy], ['qx', 'kN/m', (r) => r.qx], ['qy', 'kN/m', (r) => r.qy],
 ];
 
+type ExtremeSource = { kind: string; id: number; name: string };
+
+/** The stored extremes an envelope row holds for a maxima component; a quad's Von Mises is its membrane's. */
+function storedExtreme(r: ShellCentreRow, key: string) {
+  if (!r.envelope) return undefined;
+  if (key === 'membraneVonMises') return r.kind === 'quad' ? r.envelope.vonMises : undefined;
+  return r.envelope[key as ShellEnvelopeKey];
+}
+
 function shellMaximaRows(input: ResultSheetsInput): WorkbookSheet['rows'] {
   const out: WorkbookSheet['rows'] = [];
-  const best = SHELL_MAXIMA.map(() => ({ max: null as null | { v: number; r: ShellCentreRow; s: WorkbookSource }, min: null as null | { v: number; r: ShellCentreRow; s: WorkbookSource } }));
+  type Best = null | { v: number; r: ShellCentreRow; src: ExtremeSource };
+  const best = SHELL_MAXIMA.map(() => ({ max: null as Best, min: null as Best }));
+  const named = (ref: ShellEnvelopeSource): ExtremeSource =>
+    input.sources.find((x) => x.id === ref.id && x.kind === ref.kind) ?? { kind: ref.kind, id: ref.id, name: `${ref.kind} ${ref.id}` };
   for (const s of governing(input.sources)) {
     for (const r of shellCentreRows(s.results, input.shells!)) {
       SHELL_MAXIMA.forEach(([key, , get], i) => {
-        const stored = r.envelope?.[key as ShellEnvelopeKey];
-        const hi = stored ? stored.max : get(r), lo = stored ? stored.min : get(r);
-        if (hi === undefined || lo === undefined || !Number.isFinite(hi) || !Number.isFinite(lo)) return;
         const b = best[i]!;
-        if (beatsExtreme(1, hi, r.id, 0, b.max && { value: b.max.v, entity: b.max.r.id })) b.max = { v: hi, r, s };
-        if (beatsExtreme(-1, lo, r.id, 0, b.min && { value: b.min.v, entity: b.min.r.id })) b.min = { v: lo, r, s };
+        const offer = (v: number | undefined, src: ExtremeSource) => {
+          if (v === undefined || !Number.isFinite(v)) return;
+          if (beatsExtreme(1, v, r.id, 0, b.max && { value: b.max.v, entity: b.max.r.id })) b.max = { v, r, src };
+          if (beatsExtreme(-1, v, r.id, 0, b.min && { value: b.min.v, entity: b.min.r.id })) b.min = { v, r, src };
+        };
+        const stored = storedExtreme(r, key);
+        if (stored) { offer(stored.max, named(stored.maxSource)); offer(stored.min, named(stored.minSource)); } else if (!r.envelope) offer(get(r), s);
       });
     }
   }
   SHELL_MAXIMA.forEach(([key, unit], i) => {
     for (const [extreme, e] of [['max', best[i]!.max], ['min', best[i]!.min]] as const) {
-      if (e) out.push(['shells', key, unit, extreme, e.v, `${e.r.kind} ${e.r.id}`, '', '', e.s.kind, e.s.id, safeText(e.s.name)]);
+      if (e) out.push(['shells', key, unit, extreme, e.v, `${e.r.kind} ${e.r.id}`, '', '', e.src.kind, e.src.id, safeText(e.src.name)]);
     }
   });
   return out;

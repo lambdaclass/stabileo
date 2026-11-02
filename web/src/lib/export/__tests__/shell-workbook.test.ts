@@ -134,8 +134,11 @@ it('an exported envelope keeps the extremes and combinations it holds instead of
   });
   const env = records(sheets.find((s) => s.name === 'Envelope')!).filter((r) => r.table === 'shells');
   expect(env.find((r) => r.component === 'mx')).toMatchObject({ max: 20, maxSourceId: 1, maxSourceName: 'combination 1', min: -5, minSourceId: 2, minSourceName: 'combination 2' });
-  const maxima = records(sheets.find((s) => s.name === 'Maxima')!).filter((r) => r.table === 'shells' && r.component === 'mx');
-  expect(maxima.map((r) => [r.extreme, r.value])).toEqual([['max', 20], ['min', -5]]);
+  const maxima = records(sheets.find((s) => s.name === 'Maxima')!).filter((r) => r.table === 'shells');
+  const mx = maxima.filter((r) => r.component === 'mx');
+  expect(mx.map((r) => [r.extreme, r.value, r.source, r.sourceId, r.sourceName])).toEqual([['max', 20, 'combination', 1, 'combination 1'], ['min', -5, 'combination', 2, 'combination 2']]);
+  const vm = maxima.filter((r) => r.component === 'membraneVonMises');
+  expect(vm.map((r) => [r.extreme, r.value, r.sourceId])).toEqual([['max', 100, 1], ['min', 40, 2]]);
   const centre = records(sheets.find((s) => s.name === 'ShellCentres')!)[0]!;
   expect(centre['mx [kN·m/m]']).toBe(20);
   expect(centre['topVonMises [kN/m²]']).toBe('');
