@@ -811,6 +811,58 @@ as such, never as a full code check.
 formula agreement; Lighthouse performance ≥ 90 on tool pages; Search Console impressions and editor
 opens measured per tool.
 
+### Live examples gallery (2026-11-02)
+
+A gallery of parametric examples at `/examples`: each a live model on the production engine with
+sliders, the results redrawn as the parameters move, and **Open in Stabileo**. Tools answer one
+calculation; examples show what a whole structure does. A feasibility study compared Stabileo with
+the examples a parametric structural gallery needs; this section is what it found and what is left.
+
+**Week 1 (in progress, separate branch):** `/examples` with 7 examples: frame playground, slab on
+columns, earthquake time history, RC pushover, RC column drawings, outrigger sweep, tower modes and
+buckling.
+
+**The 13 example types and where Stabileo stands:**
+
+| # | Example type | State | What is missing |
+|---|---|---|---|
+| 1 | Frame playground (2D/3D frames, loads, diagrams) | have it | week 1 |
+| 2 | Slab on columns (plates, deflection) | have it | week 1 |
+| 3 | Earthquake time history | have it | week 1 |
+| 4 | RC pushover | have it | week 1 |
+| 5 | RC column drawings (section, reinforcement, detailing) | have it | week 1 |
+| 6 | Parametric tower: outrigger sweep, modes and buckling | small gap | week 1 builds it by hand; structural generators (gap 9) |
+| 7 | Timber member design | small gap | NDS only; Eurocode 5 (gap 4) |
+| 8 | AI agent: IFC import → code check → report | small gap | IFC import and the BYO-key assistant exist; the example wiring (gap 5) |
+| 9 | Floor vibration under walking (footfall) | missing | walking-load generator, plate time history (gap 2) |
+| 10 | Membrane form-finding | missing | force density for surfaces (gap 3) |
+| 11 | Slab yield-line analysis | missing | a new solver (gap 6) |
+| 12 | Nonlinear shell buckling (imperfection-sensitive shells) | missing | corotational shells plus arc length (gap 7) |
+| 13 | Mesh (OBJ) to member skeleton | missing | an import pipeline (gap 8) |
+
+**Gaps, in order** (effort S = days, M = one to two weeks, L = a month or more):
+
+| # | Item | Why | Effort | Depends on |
+|---|---|---|---|---|
+| 1 | **General parametric example API:** a `defineExample` contract (parameters with units and ranges, a model generator, the results to show, refusals), with the generators unified with the Tools `buildModel` (`web/src/components/tools/calculators.ts`) | One way to write an example, a tool or a worked problem; every later gap plugs into it instead of growing one-off pages | M | week 1 (extract the contract from its 7 examples) |
+| 2 | **Footfall / walking-load generator** for floor vibration (pace frequency, harmonics, walker path), and plate time history with response factors | Floor vibration is a routine check for long-span and timber floors, and today has no load to drive it | M | 1; time history on plates verified against two references (modal superposition and direct integration) |
+| 3 | **Membrane form-finding:** force density for surfaces (cable nets and membranes), building on the cable form-finding in `research/form-finding/pastrana-2026` | Tension structures are a showcase example and only cables exist today | M | 1; the Pastrana research crate promoted to the engine through the experimental path |
+| 4 | **Eurocode 5 timber checks** next to the NDS checks in `engine/src/postprocess/timber_check.rs` (bending, compression with buckling, tension, shear, combined; kmod and service classes) | Timber outside the US is designed to EN 1995; NDS alone limits the timber example to one market | M | published worked examples for each check, signed off (#450) |
+| 5 | **AI agent example:** IFC import → code check → report, driven by the bring-your-own-key assistant (PR [#1064](https://github.com/lambdaclass/stabileo/pull/1064)) | Shows the AI stage on real engine results: the assistant drives, the engine decides, the report cites clauses | S/M | #1064 and its error translation ([#1080](https://github.com/lambdaclass/stabileo/issues/1080)); IFC import (`web/src/lib/ifc/`) |
+| 6 | **Slab yield-line analysis:** a new solver (mechanism search over candidate patterns, upper-bound check) | The standard way to check slab collapse; nothing in the engine does it | L | **safety-critical:** two reviews before main, published benchmarks (Johansen's patterns, textbook cases), experimental label until verified |
+| 7 | **Nonlinear shell buckling:** corotational shells plus arc length. Today `engine/src/solver/corotational.rs` rejects every shell element and only linear (eigenvalue) shell buckling exists | Imperfection-sensitive shells (cylinders, domes) buckle far below the linear load, so a linear factor alone is unconservative there | L | **safety-critical:** two reviews before main, published benchmarks (hinged cylindrical panel, pinched hemisphere); #1057 and #798 fixed first |
+| 8 | **OBJ / mesh to member skeleton import** (centrelines from a surface mesh, joints merged, sections assigned by the user) | Turns architects' massing models into analysis models. Low priority | L | 1; the refusals and checks of the other importers |
+| 9 | **Outrigger and other structural generators** for parametric towers (core, outrigger and belt levels, bracing patterns, diagrids) | Week 1's tower is hand-built; generators make the sweep a real parameter study | S | 1 |
+
+**Verification first, for every engine gap (2, 3, 4, 6, 7):** benchmarks with two independent
+references that agree before they are admitted, a convergence study, the self-checks and invariance
+tests of "Prevention", and refusal paths for whatever is out of scope. Each ships labelled
+experimental until it has all of them; an example never shows a number the engine could not check.
+Never silently wrong.
+
+**Sequence:** week 1, then gap 1 (the contract), then 9 and 5 (small, on existing engine features),
+then 4, 2 and 3; 6 and 7 as safety-critical engine work after the "Priority now" items; 8 on demand.
+
 ### Growth and housekeeping (2026-10-28)
 
 1. **Real users and independent validation:** a beta-tester program, the outreach to engineers and
