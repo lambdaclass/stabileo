@@ -20,7 +20,7 @@
   import ProDiagnosticsTab from './ProDiagnosticsTab.svelte';
   import { modelStore, resultsStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
-  import { te } from '../../lib/i18n/engine-text';
+  import { te, localizeEngineText } from '../../lib/i18n/engine-text';
   import { modelHasMemberOffsets } from '../../lib/engine/member-offsets';
   import { modelHasShellOffsets } from '../../lib/engine/shell-offsets';
   import { hasLoadCarrying3D } from '../../lib/engine/solver-service';
@@ -1005,7 +1005,7 @@
   <p class="adv-hint" data-testid="adv-loads-note">{t('adv.loadsNote')}</p>
 
   {#if solveError}
-    <div class="adv-error">{solveError}</div>
+    <div class="adv-error">{localizeEngineText(solveError)}</div>
   {/if}
 
   <div class="adv-scroll">

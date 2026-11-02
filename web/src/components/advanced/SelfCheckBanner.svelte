@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { StructuredDiagnostic } from '../../lib/engine/types';
   import { selfCheckGroups } from '../../lib/engine/self-checks';
+  import { selfCheckWarningText } from '../../lib/i18n/engine-text';
   import { t } from '../../lib/i18n';
   let { results, labels = [] }: { results: Array<{ structuredDiagnostics?: StructuredDiagnostic[] } | null | undefined>; labels?: string[] } = $props();
   const groups = $derived(selfCheckGroups(results, labels));
@@ -16,7 +17,7 @@
       <div class="warning-details" role="region" aria-label={t('resultChecks.title')} tabindex="0">
         {#each groups as group}
           {#if group.label}<strong>{group.label}</strong>{/if}
-          {#each group.warnings as warning}<p>{warning.message}</p>{/each}
+          {#each group.warnings as warning}<p>{selfCheckWarningText(warning)}</p>{/each}
         {/each}
       </div>
     </details>

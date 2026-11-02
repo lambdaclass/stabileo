@@ -135,7 +135,7 @@ of the number of modes. Small dense systems scan their stored `n^2` entries.
 
 ## Result registration and validation
 
-The new diagnostics/refusal policy is registered at results version 5 in
+The new diagnostics/refusal policy is registered at results version 6 in
 `web/src/lib/provenance/result-changes.json` with a BREAKING (results) fragment.
 Passing Info diagnostics are excluded from the snapshot gate's warning/error
 codes. Numeric snapshots must remain unchanged. Test commands and measured
