@@ -119,7 +119,7 @@ function sdofPeak(periodN: number, pga: number, periodG: number): number {
 
 describe('earthquake frame', () => {
   it('has the portal frame period of Chopra eq. 1.3.5', () => {
-    const v = { ...defaults(earthquake.params), storeys: 1, floorMass: 80 };
+    const v: Values = { ...defaults(earthquake.params), storeys: 1, floorMass: 80 };
     const h = v.storeyHeight, L = v.bay, e = 30000 * 1000;
     const rho = (BEAM.iy / L) / (2 * COLUMN.iy / h);
     const k = 24 * e * COLUMN.iy / h ** 3 * (12 * rho + 1) / (12 * rho + 4);

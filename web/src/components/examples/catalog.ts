@@ -3,7 +3,7 @@ import { slab } from './slab';
 import { earthquake } from './earthquake';
 import type { Example } from './define';
 
-export const EXAMPLES = [beamFrame, slab, earthquake] as unknown as Example<unknown>[];
+export const EXAMPLES: Example<any>[] = [beamFrame, slab, earthquake];
 
 export function findExample(id: string | undefined) {
   return EXAMPLES.find(e => e.id === id);
