@@ -134,6 +134,14 @@ found the projection changing a lock decision only on this plate (the gate and
 the harmonic test) and on that refused fuzz model; every other eigensolve locks
 the same vectors in the same order, so its results are bit-identical.
 
+A zero pivot in the dense elimination of a non-diagonal mass is condensed as a
+massless direction only after exact rational arithmetic proves M·d = 0 for the
+stored M along every discarded direction d. Cancellation can also produce a
+zero pivot for a positive definite mass (M = [[10, 1], [1, 0.1]] gives
+0.1 − 1·(1/10) = 0 in floating point), and condensing it would drop a finite
+mode and falsely claim the finite spectrum exhausted; that case now refuses.
+Exactly singular masses such as [[1, 1], [1, 1]] still condense.
+
 A negative mass pivot in the dense semidefinite path still refuses the model,
 even at rounding level: a mass that is semidefinite but loses a pivot to
 cancellation cannot be told apart from a slightly indefinite one, and treating

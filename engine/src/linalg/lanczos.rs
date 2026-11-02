@@ -542,6 +542,7 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
         let pivot = mass[h*n+h];
         if pivot == 0.0 {
             if (h..n).any(|i| (h..n).any(|j| mass[i*n+j] != 0.0)) { return None; }
+            if !(h..n).all(|col| exactly_massless(b, n, &(0..n).map(|row| transform[row*n+col]).collect::<Vec<_>>())) { return None; }
             break;
         }
         if !pivot.is_finite() || pivot < 0.0 { return None; }
@@ -570,6 +571,23 @@ pub(crate) fn dense_generalized_eigen_semidefinite(a: &[f64], b: &[f64], n: usiz
         vectors[i*n+j] = (0..n).map(|h| transform[i*n+h]*r.vectors[h*n+j]).sum();
     }}
     Some(EigenResult { values: r.values, vectors })
+}
+
+/// Whether B·d is exactly zero for the stored B, in rational arithmetic: a zero
+/// elimination pivot can also come from cancellation in a positive definite B.
+fn exactly_massless(b: &[f64], n: usize, d: &[f64]) -> bool {
+    use crate::certify::exact::q;
+    use num_traits::Zero;
+    let Some(dq) = d.iter().map(|&x| q(x)).collect::<Option<Vec<_>>>() else { return false };
+    (0..n).all(|i| {
+        let mut sum = crate::certify::exact::Q::zero();
+        for j in 0..n {
+            if b[i*n+j] == 0.0 || d[j] == 0.0 { continue; }
+            let Some(bij) = q(b[i*n+j]) else { return false };
+            sum += bij * &dq[j];
+        }
+        sum.is_zero()
+    })
 }
 
 // Tᵀ A T in O(n³), preserving symmetry.
@@ -1829,6 +1847,19 @@ mod completeness_tests {
         let b: Vec<f64> = (0..9).map(|e| v[e/3]*v[e%3]).collect();
         let a = [4.,-1.,0., -1.,4.,-1., 0.,-1.,4.];
         assert!(dense_generalized_eigen_semidefinite(&a,&b,3).is_none());
+    }
+
+    #[test]
+    fn cancellation_zero_pivot_of_a_definite_mass_refuses_instead_of_dropping_a_mode() {
+        let a = [1.,0., 0.,1.];
+        let b = [10.,1., 1.,0.1];
+        assert_eq!(0.1 - 1.0*(1.0/10.0), 0.0);
+        let r = dense_generalized_eigen_semidefinite(&a,&b,2);
+        assert!(r.is_none() || r.unwrap().values.iter().filter(|v| v.is_finite()).count() == 2);
+        assert!(lanczos_generalized_eigen(&a,&b,2,2,0.0).is_none());
+        let ac = CscMatrix::from_dense_symmetric(&a,2);
+        let bc = CscMatrix::from_dense_symmetric(&b,2);
+        if let Some(r) = lanczos_generalized_eigen_sparse(&ac,&bc,2,0.0) { assert_eq!(r.values.len(), 2); }
     }
 
     #[test]
