@@ -8,10 +8,12 @@ name. Its numbers were those of 1.2 D + 1.0 Lr, which never gave the largest mag
 force, reaction or displacement, but the name said the shed had been checked for an earthquake. The
 shed now opens with the seven CIRSOC 101-2025 §2.3.2 combinations for its dead, roof live and wind
 cases, and the stadium canopy, which had Basic's "L" combinations applied to its roof live case,
-with the three for its dead and roof live loads. An example, workbook or generated model that brings
-its own load cases and no combinations keeps Basic's four only when each of their cases is there
-with the type it was written for and every case it loads is in one of them; otherwise it gets the
-CIRSOC 101-2025 strength combinations of its own cases. One whose own combination names a missing
-case is refused, and a share link whose loads omit their case is read as case 1 and refused when
-there is no such case. Projects saved with the old combinations solve as before; open the example
-again for the new ones.
+with the three for its dead and roof live loads. The biaxial cantilever, whose only load sits in its
+own "Tip load" case, had every combination at zero; it now has one combination of that case. An
+example, workbook or generated model that brings its own load cases and no combinations keeps
+Basic's four only when each of their cases is there with the type it was written for and every case
+it loads is in one of them; otherwise it gets the CIRSOC 101-2025 strength combinations of its own
+cases. One whose own combination names a missing case or a factor that is not a number is refused,
+and a share link whose loads omit their case is read as case 1 and refused when there is no such
+case. Projects saved with the old combinations solve as before; open the example again for the new
+ones.

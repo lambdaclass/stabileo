@@ -116,7 +116,7 @@ function referencesResolve(value: RecordValue): boolean {
       typeof f.factor === 'number' && typeof f.caseId === 'number' && inCase(f.caseId)))
     && (!Array.isArray(value.footings) || value.footings.every(f => {
       const footing = Array.isArray(f) ? f[1] : f;
-      return !record(footing) || footing.nodeId === undefined || has(footing.nodeId);
+      return record(footing) && (footing.nodeId === undefined || has(footing.nodeId));
     }))
     && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
     && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))

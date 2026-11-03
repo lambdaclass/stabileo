@@ -329,9 +329,9 @@ function codeCombinations(cases: ReadonlyArray<FixtureCase>): CodeCombination[] 
 /**
  * The cases and combinations a fixture leaves the model with. A fixture with cases of its own and
  * no combinations keeps the current ones when each of their cases is there with the type it was
- * written for and, if it loads several cases, every loaded case is in one of them; otherwise it
+ * written for and every case it loads is in one of them; otherwise it
  * gets CIRSOC 101-2025's for its cases (`rebuilt`). One whose own combination names a case it
- * lacks is refused.
+ * lacks, or a factor that is not a number, is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
   json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations' | 'loads'>,
@@ -345,14 +345,14 @@ export function fixtureLoadCases<C extends FixtureCombination>(
     const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
     const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
     const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
-    const everyLoadedCombined = loaded.size <= 1 || [...loaded].every((id) => combined.has(id));
+    const everyLoadedCombined = [...loaded].every((id) => combined.has(id));
     if (current.combinations.every(fits) && everyLoadedCombined) return { loadCases, combinations: current.combinations, rebuilt: false };
     return { loadCases, combinations: codeCombinations(loadCases), rebuilt: true };
   }
-  const dangling = json.combinations.filter((c) => !factorsOf(c)?.every((f) => f !== null && now.has(f.caseId)));
+  const dangling = json.combinations.filter((c) => !factorsOf(c)?.every((f) => f !== null && now.has(f.caseId) && Number.isFinite(f.factor)));
   if (dangling.length > 0) {
     const names = dangling.map((c) => `"${c.name}"`).join(', ');
-    throw new Error(`${json.name}: ${dangling.length === 1 ? `combination ${names} names` : `combinations ${names} name`} a load case the model does not have`);
+    throw new Error(`${json.name}: ${dangling.length === 1 ? `combination ${names} is` : `combinations ${names} are`} not a list of numeric factors on the model's load cases`);
   }
   return { loadCases, combinations: json.combinations, rebuilt: false };
 }

@@ -128,6 +128,7 @@ describe('shared-link importer', () => {
       danglingFooting: p => { p.footings = [[1, { id: 1, nodeId: 9 }]]; },
       stringFootingNode: p => { p.footings = [[1, { id: 1, nodeId: '1' }]]; },
       nullFootingNode: p => { p.footings = [[1, { id: 1, nodeId: null }]]; },
+      nonRecordFooting: p => { p.footings = [[1, 'footing']]; },
       emptyDisplacement: p => { p.loads.push({ type: 'displacement3d', data: { id: 2, nodeId: 1 } }); },
       loadCaseBeyondDefaults: p => { p.loads[0].data.caseId = 99; },
       combinationBeyondDefaults: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 99, factor: 1.4 }] }]; },

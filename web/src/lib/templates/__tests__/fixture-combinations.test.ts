@@ -42,7 +42,7 @@ describe('an example leaves no combination naming a case it does not have', () =
     expect(combinations.length, 'an example with cases keeps combinations to solve').toBeGreaterThan(0);
     const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
     const combined = new Set(combinations.flatMap((c) => (c.factors ?? []).filter((f) => f.factor !== 0).map((f) => f.caseId)));
-    if (loaded.size > 1) expect([...loaded].filter((id) => !combined.has(id)), 'a loaded case in no combination').toEqual([]);
+    expect([...loaded].filter((id) => !combined.has(id)), 'a loaded case in no combination').toEqual([]);
   });
 });
 
@@ -100,7 +100,7 @@ describe('a fixture that brings its own cases', () => {
       loadCases: [{ id: 1, type: 'D', name: 'D' }],
       combinations: [{ id: 1, name: '1.2 D + 1.0 E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 4, factor: 1 }] }],
     });
-    expect(() => loadFixture(json, modelStore.fixtureApi() as never)).toThrow(/"1\.2 D \+ 1\.0 E" names a load case the model does not have/);
+    expect(() => loadFixture(json, modelStore.fixtureApi() as never)).toThrow(/"1\.2 D \+ 1\.0 E" is not a list of numeric factors on the model's load cases/);
     expect(modelStore.nodes.size).toBe(0);
     expect(modelStore.model.combinations).toEqual(defaultCombinations());
   });
@@ -114,11 +114,19 @@ describe('a fixture that brings its own cases', () => {
     expect(missingCases(cases, combinations)).toEqual([]);
   });
 
-  it('is refused when its own combination has no factor list or a null factor', () => {
+  it('gets them when the only case it loads is one no default combines', () => {
+    const cases = [...defaultLoadCases(), { id: 5, type: 'S', name: 'Snow' }];
+    const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId: 5 } }];
+    const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+    expect(rebuilt).toBe(true);
+    expect(combinations.some((c) => c.factors.some((f) => f.caseId === 5 && f.factor !== 0))).toBe(true);
+  });
+
+  it('is refused when its own combination has no factor list, a null factor or a factor that is not a number', () => {
     const cases = [{ id: 1, type: 'D', name: 'D' }];
-    for (const combination of [{ id: 1, name: 'none' }, { id: 1, name: 'null', factors: [null] }]) {
+    for (const combination of [{ id: 1, name: 'none' }, { id: 1, name: 'null', factors: [null] }, { id: 1, name: 'text', factors: [{ caseId: 1, factor: '1.4' }] }, { id: 1, name: 'missing', factors: [{ caseId: 1 }] }]) {
       const json = emptyFixture({ loadCases: cases, combinations: [combination as never] });
-      expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() }), combination.name).toThrow(/names a load case/);
+      expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() }), combination.name).toThrow(/is not a list of numeric factors/);
     }
   });
 
