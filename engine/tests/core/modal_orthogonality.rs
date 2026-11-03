@@ -316,11 +316,9 @@ fn near_zero_modes_must_not_silently_truncate_the_requested_spectrum() {
             }
             Err(message) => {
                 assert!(below > 0 || near_threshold, "E scale {scale:e}: refused although every E-scaled omega² {expected:?} is above the threshold: {message}");
-                if below == expected.len() {
-                    assert_eq!(message, "No valid modes found");
-                } else {
-                    assert!(message.contains(&format!("only {} of 7 computed modes passed the positive-frequency threshold", 7 - below)), "{message}");
-                }
+                assert!(message.starts_with(dedaliano_engine::solver::modal::MODAL_MECHANISM), "E scale {scale:e}: {message}");
+                assert!(message.contains(&format!("{below} mode(s) with zero or negative ω²")), "E scale {scale:e}: {message}");
+                assert!(message.contains("No modes are returned"), "{message}");
                 refused += 1;
             }
         }
