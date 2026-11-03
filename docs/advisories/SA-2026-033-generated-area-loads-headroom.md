@@ -47,7 +47,8 @@ Generate the loads again and compare.
 ## Fixed in
 
 PR #1253. A panel is left out as roof structure only when roof structure lies over every probe
-(straight over it, or between roof members on both sides within the panel), all of it less than
+(straight over it, or between roof members on both sides within the panel, along and across the
+panel's own sides, so a roof is read alike at any angle in plan), all of it less than
 2.2 m above, a deck or beam less than 2.2 m above its center, and the loads already kept less than
 2.2 m above carry all of it: loaded panels, the tributary strips of members loaded by width, and
 (by panels) shells, and the parts a panel or member within the roof's structure kept for itself,

@@ -510,20 +510,22 @@ function notADeck(
     }
     return h;
   };
-  const between = (p: [number, number], z: number, lo: [number, number], hi: [number, number]): number => {
+  const between = (p: [number, number], z: number, poly: Array<[number, number]>): number => {
     let h = Infinity;
-    for (const axis of [0, 1] as const) {
-      const along = 1 - axis;
+    for (const v of scanDirections(poly)) {
+      const across = (q: [number, number]) => (q[0] - p[0]) * -v[1] + (q[1] - p[1]) * v[0];
+      const alongOf = (q: [number, number]) => (q[0] - p[0]) * v[0] + (q[1] - p[1]) * v[1];
+      const extent = poly.map(alongOf);
+      const lo = Math.min(...extent) - 0.1, hi = Math.max(...extent) + 0.1;
       let below: [number, number] | null = null, above: [number, number] | null = null;
       for (const [a, b] of roofMembers) {
-        if (Math.max(a[2], b[2]) <= z + TOL || a[axis] === b[axis]) continue;
-        const da = a[axis] - p[axis], db = b[axis] - p[axis];
-        if (da * db > 0) continue;
-        const t = da / (da - db);
-        const at = a[along] + t * (b[along] - a[along]);
+        if (Math.max(a[2], b[2]) <= z + TOL) continue;
+        const da = across([a[0], a[1]]), db = across([b[0], b[1]]);
+        if ((da > 1e-9 && db > 1e-9) || (da < -1e-9 && db < -1e-9) || Math.abs(da - db) <= 1e-12) continue;
+        const t = Math.max(0, Math.min(1, da / (da - db)));
+        const off = alongOf([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
         const dz = a[2] + t * (b[2] - a[2]) - z;
-        if (dz < -TOL || at < lo[along] - 0.1 || at > hi[along] + 0.1) continue;
-        const off = at - p[along];
+        if (dz < -TOL || off < lo || off > hi) continue;
         if (off < 0 && (!below || off > below[0])) below = [off, dz];
         if (off > 0 && (!above || off < above[0])) above = [off, dz];
       }
@@ -553,12 +555,17 @@ function notADeck(
       const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
       cover.push([[closeRing(tributaryStrip(at(range[0]), at(range[1]), tributaryWidth))]]);
     }
-    try {
-      const kept = cover.length > 0 ? (polygonClipping.difference(whole as never, ...(cover as never[])) as unknown as Region) : whole;
-      return { share: Math.min(1, Math.max(0, regionArea(kept) / total)), kept };
-    } catch {
-      return { share: 1, kept: whole };
+    if (cover.length === 0) return { share: 1, kept: whole };
+    for (const step of [1e-9, 1e-6, 1e-4]) {
+      try {
+        const rest = polygonClipping.difference(snap(whole, step) as never, ...(cover.map((c) => snap(c, step)) as never[])) as unknown as Region;
+        const kept = rest.filter((poly) => regionArea([poly]) > 1e-9 * total);
+        return { share: Math.min(1, Math.max(0, regionArea(kept) / total)), kept };
+      } catch {
+        continue;
+      }
     }
+    return { share: 1, kept: whole };
   };
   const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
@@ -566,11 +573,9 @@ function notADeck(
       const b = poly[(i + 1) % poly.length]!;
       for (const t of [0.25, 0.5, 0.75]) probes.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
     });
-    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
-    const lo: [number, number] = [Math.min(...xs), Math.min(...ys)], hi: [number, number] = [Math.max(...xs), Math.max(...ys)];
     const heights = probes.map((p) => {
       const h = heightAbove(p, z);
-      return Number.isFinite(h) ? h : between(p, z, lo, hi);
+      return Number.isFinite(h) ? h : between(p, z, poly);
     });
     const roofed = heights.filter(Number.isFinite);
     const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
@@ -611,6 +616,23 @@ function heightIn(p: Array<[number, number, number]>, pt: [number, number, numbe
 
 type Segment = [[number, number, number], [number, number, number]];
 
+/** The directions along and across the sides of `poly`, each once, so a panel is probed alike at any angle in plan. */
+function scanDirections(poly: Array<[number, number]>): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  const add = (v: [number, number]) => {
+    if (!out.some((w) => Math.abs(w[0] * v[1] - w[1] * v[0]) < 1e-9)) out.push(v);
+  };
+  poly.forEach((a, i) => {
+    const b = poly[(i + 1) % poly.length]!;
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (L <= 1e-12) return;
+    const u: [number, number] = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+    add(u);
+    add([-u[1], u[0]]);
+  });
+  return out.length > 0 ? out : [[1, 0], [0, 1]];
+}
+
 type Region = Array<Array<Array<[number, number]>>>;
 
 /** What the loads already kept carry: whole panels, members' strips, and what fringe panels and members kept. */
@@ -632,6 +654,11 @@ function closeRing(poly: Array<[number, number]>): Array<[number, number]> {
 function openRing(ring: Array<[number, number]>): Array<[number, number]> {
   const n = ring.length;
   return n > 1 && ring[0]![0] === ring[n - 1]![0] && ring[0]![1] === ring[n - 1]![1] ? ring.slice(0, -1) : ring;
+}
+
+/** A region with its coordinates rounded to `step`, which polygon-clipping needs to close rings whose edges nearly coincide. */
+function snap(r: Region, step: number): Region {
+  return r.map((poly) => poly.map((ring) => ring.map(([x, y]) => [Math.round(x / step) * step, Math.round(y / step) * step] as [number, number])));
 }
 
 /** Area of a region: outer rings less their holes. */

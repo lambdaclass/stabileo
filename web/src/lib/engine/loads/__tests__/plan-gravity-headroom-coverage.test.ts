@@ -52,10 +52,12 @@ function floorUnderCanopy(): GravityModel {
 /**
  * A 10 × 6 m ring of beams at 4 m under two gable trusses (truss members) at y = 0 and y = 6,
  * `depth` deep at the ridge, with frame purlins every 1.25 m when `purlins`, and a 1 m frame beam
- * over the centre when `stub`.
+ * over the centre when `stub`, all turned `turn` radians in plan.
  */
-function trussedRing(depth: number, purlins: boolean, stub = false): GravityModel {
-  const b = builder();
+function trussedRing(depth: number, purlins: boolean, stub = false, turn = 0): GravityModel {
+  const raw = builder();
+  const c = Math.cos(turn), s = Math.sin(turn);
+  const b = { ...raw, node: (x: number, y: number, z: number) => raw.node(x * c - y * s, x * s + y * c, z) };
   const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 6], [0, 6]];
   const ring = corners.map(([x, y]) => b.node(x, y, 4));
   corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
@@ -205,6 +207,15 @@ describe('trusses count as the roof\'s structure', () => {
     expect(sum(layout.areaOf)).toBe(0);
     expect(keys(layout)).toContain('loadPlan.gravity.lowHeadroom');
     expect(sum(layout.roofAreaOf)).toBeGreaterThanOrEqual(60 - 1e-9);
+  });
+
+  it.each([Math.PI / 6, Math.PI / 4, Math.PI / 2])('the same ring turned %s rad in plan is classified and loaded alike', (turn) => {
+    const straight = gravityLayout(trussedRing(1.5, true), { mode: 'panels', tributaryWidth: 3 });
+    const layout = gravityLayout(trussedRing(1.5, true, false, turn), { mode: 'panels', tributaryWidth: 3 });
+    expect(JSON.stringify(layout.notes)).toBe(JSON.stringify(straight.notes));
+    expect(layout.areaByLevel.get(4)).toBeUndefined();
+    expect(sum(layout.areaOf)).toBe(0);
+    expect(sum(layout.roofAreaOf)).toBeCloseTo(sum(straight.roofAreaOf), 6);
   });
 
   it('a short beam over the centre does not stand in for the roof the ring carries', () => {

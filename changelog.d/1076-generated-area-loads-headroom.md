@@ -19,3 +19,5 @@
 - SA-2026-033: the part of a panel or member strip that the low structure above does not carry is
   now found exactly, not by a grid that counted any partly carried cell as uncarried (a 0.05 m gap
   between two beam strips kept 1.8 m² instead of 0.3 m²).
+- SA-2026-033: whether roof structure lies over a panel is now probed along the panel's own sides,
+  not the plan's X and Y, so a shallow trussed roof turned 45° is no longer loaded as a floor.
