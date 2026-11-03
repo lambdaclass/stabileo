@@ -89,7 +89,7 @@ test('@smoke the outrigger slider moves the result and the sweep marker', async 
   expect(new URL(page.url()).searchParams.get('position')).toBe('0.9');
 });
 
-for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080], [1440, 900]]) {
+for (const [width, height] of [[360, 800], [390, 844], [844, 390], [820, 1180], [1440, 900]]) {
   for (const id of EXAMPLE_IDS) test(`@smoke example ${id} at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto(`/en/examples/${id}/?e2e=1`);

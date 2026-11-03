@@ -106,7 +106,6 @@ export const rcColumn = defineExample<Model>({
     { key: 'mu', value: 200, min: 0, max: 1500, step: 10, unit: 'kN·m' },
   ],
   build,
-  benchmark: { path: '/research/benchmarks/cirsoc201-inti', title: 'inti' },
   analyses(m) {
     return withSection(m.outline, m.bars, m.mat, (section) => {
       const info = section.info();
