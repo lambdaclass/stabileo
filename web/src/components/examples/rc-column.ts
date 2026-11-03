@@ -42,6 +42,7 @@ export const MAX_UNSUPPORTED_CLEAR = 0.15;
 
 export function barsTied(v: Values): boolean {
   if (v.perFace <= 2) return true;
+  if (v.perFace > 3) return false;
   const db = v.barDia / 1000;
   const xEdge = v.b / 2 - v.cover - TIE_MM / 1000 - db / 2;
   const s = 2 * xEdge / (v.perFace - 1);
@@ -119,7 +120,7 @@ export const rcColumn = defineExample<Model>({
   params: [
     { key: 'b', value: 0.4, min: 0.2, max: 0.8, step: 0.05, unit: 'm' },
     { key: 'h', value: 0.5, min: 0.2, max: 1, step: 0.05, unit: 'm' },
-    { key: 'perFace', value: 3, min: 2, max: 6, step: 1, unit: '' },
+    { key: 'perFace', value: 3, min: 2, max: 3, step: 1, unit: '' },
     { key: 'barDia', value: 20, min: 12, max: 32, step: 2, unit: 'mm' },
     { key: 'cover', value: 0.04, min: 0.025, max: 0.06, step: 0.005, unit: 'm' },
     { key: 'fc', value: 25, min: 20, max: 50, step: 5, unit: 'MPa' },
