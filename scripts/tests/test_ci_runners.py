@@ -6,6 +6,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / '.github/workflows'
 SAME_REPO = 'github.event.pull_request.head.repo.full_name == github.repository'
 NOT_DEPENDABOT = "github.event.pull_request.user.login != 'dependabot[bot]'"
+TRUSTED = "(github.event_name == 'merge_group' || github.ref == 'refs/heads/main')"
 
 
 def parse(text):
@@ -52,7 +53,8 @@ class CiRunners(unittest.TestCase):
                     self.assertIn(NOT_DEPENDABOT, runs_on, name)
                     self.assertIn("vars.STABILEO_PR_POOL == 'true'", runs_on, name)
                 if labels(runs_on) & {'stabileo', 'stabileo-timing'}:
-                    self.assertIn("github.event_name != 'pull_request'", runs_on, name)
+                    self.assertIn(TRUSTED, runs_on, name)
+                    self.assertNotIn("github.event_name != 'pull_request'", runs_on, name)
                 if labels(runs_on):
                     self.assertIn("vars.STABILEO_SELF_HOSTED == 'true'", runs_on, name)
 
@@ -79,7 +81,7 @@ class CiRunners(unittest.TestCase):
         for name in browser:
             runs_on = ci[name]['runs-on']
             self.assertIn("(vars.STABILEO_E2E_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-e2e\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
-            self.assertLess(runs_on.index("github.event_name != 'pull_request'"), runs_on.index('STABILEO_E2E_POOL'), name)
+            self.assertLess(runs_on.index(TRUSTED), runs_on.index('STABILEO_E2E_POOL'), name)
         for workflow in ['research.yml', 'supply-chain.yml', 'nightly.yml']:
             for name, job in jobs(workflow).items():
                 self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)

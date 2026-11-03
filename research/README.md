@@ -49,7 +49,7 @@ The plan every page and contribution follows is [DESIGN.md](DESIGN.md).
 - Research CI is `.github/workflows/research.yml`. Its offline checks (validation, reference hashes,
   catalogue, isolation, route budgets) are part of the required CI OK on pull requests that touch
   research or mix areas (full pipeline); a tools-only PR runs only the route budgets, an engine-only PR runs them
-  all (research crates depend on the engine) and a docs-only PR skips them. The merge queue and main always run all of them. The online checks (Crossref, licences, links) run only as the standalone Research
+  all (research crates depend on the engine) and a docs-only PR skips them. The merge queue runs only the route budgets; pushes to main and the nightly 03:30 run run all of them. The online checks (Crossref, licences, links) run only as the standalone Research
   workflow on research/catalog PRs, pushes to main and weekly runs. Unrelated PRs do not run the online audit.
 
 ## Reproducibility statuses

@@ -230,5 +230,16 @@ class Ntfy(unittest.TestCase):
         self.assertEqual(files, {})
 
 
+class JobToken(unittest.TestCase):
+    def test_the_job_token_can_read_every_api_the_script_calls_without_the_bot_token(self):
+        workflow = (ROOT / '.github/workflows/post-merge.yml').read_text()
+        granted = workflow.split('    permissions:\n', 1)[1].split('    steps:', 1)[0]
+        script = (ROOT / '.github/scripts/post-merge-revert.py').read_text()
+        calls = [line for line in script.splitlines() if "gh('pr', 'list'" in line and 'token=bot' not in line]
+        self.assertTrue(calls)
+        self.assertIn('      pull-requests: read\n', granted)
+        self.assertNotIn('write', granted)
+
+
 if __name__ == '__main__':
     unittest.main()
