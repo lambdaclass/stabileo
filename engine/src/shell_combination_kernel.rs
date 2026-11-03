@@ -156,8 +156,11 @@ fn quad_row(q: &QuadStress) -> Row {
 fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<EnvelopeRow> {
     let mut out: Vec<EnvelopeRow> = Vec::new();
     let mut absent: Vec<[bool; KEYS]> = Vec::new();
+    let mut seen_in: Vec<usize> = Vec::new();
     let mut slot = HashMap::new();
+    let mut source_count = 0;
     for (source, rows) in sources {
+        source_count += 1;
         for row in rows {
             let i = *slot.entry(row.element_id).or_insert_with(|| {
                 out.push(EnvelopeRow {
@@ -165,8 +168,10 @@ fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<Env
                     extremes: [None; KEYS],
                 });
                 absent.push([false; KEYS]);
+                seen_in.push(0);
                 out.len() - 1
             });
+            seen_in[i] += 1;
             for (k, v) in envelope_keys(&row.values).into_iter().enumerate() {
                 if v.is_nan() {
                     absent[i][k] = true;
@@ -189,9 +194,9 @@ fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<Env
             }
         }
     }
-    for (row, gaps) in out.iter_mut().zip(absent) {
+    for ((row, gaps), seen) in out.iter_mut().zip(absent).zip(seen_in) {
         for (k, gap) in gaps.into_iter().enumerate() {
-            if gap {
+            if gap || seen < source_count {
                 row.extremes[k] = None;
             }
         }
@@ -802,6 +807,16 @@ mod tests {
     }
 
     #[test]
+    fn an_element_missing_from_one_set_has_no_envelope() {
+        let both = quad(1, [10., 0., 0., 4., 0., 0., 1., 1., 10.]);
+        let only_first = quad(2, [10., 0., 0., 4., 0., 0., 1., 1., 10.]);
+        let env = envelope(&[source(vec![both, only_first]), source(vec![both])]);
+        let row = |id: usize| env.quads.iter().find(|r| r.element_id == id).unwrap();
+        assert!(row(1).extremes[3].is_some() && row(1).extremes[0].is_some());
+        assert!(row(2).extremes.iter().all(Option::is_none));
+    }
+
+    #[test]
     fn wood_armer_design_moments_match_the_slab_formula() {
         assert_eq!(wood_armer(10., 4., 2.), [12., 6., 0., 0.]);
         assert_eq!(wood_armer(-10., -4., 2.), [0., 0., 12., 6.]);
@@ -848,8 +863,9 @@ mod tests {
                 for k in 0..KEYS {
                     let present: Vec<(usize, f64)> = rows.iter().map(|(i, v)| (*i, v[k])).collect();
                     match e.extremes[k] {
-                        None => prop_assert!(present.iter().any(|(_, v)| v.is_nan())),
+                        None => prop_assert!(present.len() < sources.len() || present.iter().any(|(_, v)| v.is_nan())),
                         Some(x) => {
+                            prop_assert_eq!(present.len(), sources.len());
                             for &(_, v) in &present {
                                 prop_assert!(!v.is_nan());
                                 prop_assert!(x.max >= v && x.min <= v);
