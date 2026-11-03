@@ -14,12 +14,14 @@ type Nodal = { nodeId: number; mass: number; massZ?: number; iy?: number; izz?: 
 type WithMasses = { nodes: Map<number, unknown>; masses?: { nodal?: Nodal[] } };
 
 export function withPointMasses<T extends WithMasses>(input: T, points: readonly PointMass[] | undefined, rotary: 'iy' | 'izz'): T {
+  const positive = (v: number | undefined) => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
   const nodal: Nodal[] = (points ?? [])
-    .filter((p) => (p.m > 0 || (p.izz ?? 0) > 0) && input.nodes.has(p.nodeId))
-    .map((p) => ({
-      nodeId: p.nodeId, mass: p.m,
+    .map((p) => ({ p, m: positive(p.m), izz: positive(p.izz) }))
+    .filter(({ p, m, izz }) => (m > 0 || izz > 0) && input.nodes.has(p.nodeId))
+    .map(({ p, m, izz }) => ({
+      nodeId: p.nodeId, mass: m,
       ...(p.horizontalOnly ? { massZ: 0 } : {}),
-      ...((p.izz ?? 0) > 0 ? { [rotary]: p.izz } : {}),
+      ...(izz > 0 ? { [rotary]: izz } : {}),
     }));
   if (!nodal.length) return input;
   return { ...input, masses: { ...(input.masses ?? {}), nodal: [...(input.masses?.nodal ?? []), ...nodal] } };

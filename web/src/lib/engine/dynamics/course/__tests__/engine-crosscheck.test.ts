@@ -128,6 +128,13 @@ describe('point masses in Basic reach the engine', () => {
     expect(withPointMasses(input, [{ nodeId: 2, m: 0, izz: 0 }], 'iy')).toBe(input);
   });
 
+  it('a negative or non-finite mass or inertia never reaches the engine, whichever of the two is valid', () => {
+    const input: { nodes: Map<number, unknown>; masses?: { nodal?: Array<{ nodeId: number; mass: number }> } } = { nodes: new Map([[2, {}]]) };
+    expect(withPointMasses(input, [{ nodeId: 2, m: -1, izz: 0.5 }, { nodeId: 2, m: NaN, izz: 0.25 }, { nodeId: 2, m: 2, izz: -0.5 }, { nodeId: 2, m: 3, izz: Infinity }], 'iy').masses?.nodal)
+      .toEqual([{ nodeId: 2, mass: 0, iy: 0.5 }, { nodeId: 2, mass: 0, iy: 0.25 }, { nodeId: 2, mass: 2 }, { nodeId: 2, mass: 3 }]);
+    expect(withPointMasses(input, [{ nodeId: 2, m: -1, izz: NaN }, { nodeId: 2, m: Infinity }], 'izz')).toBe(input);
+  });
+
   it('a rotational inertia at the tip is not taken for the bare exact cantilever', () => {
     cantilever(3);
     expect(exactBeam(modelStore.model, [{ nodeId: 2, m: 0, izz: 0.5 }])).toBeNull();
