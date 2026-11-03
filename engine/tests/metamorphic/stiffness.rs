@@ -50,14 +50,23 @@ fn invariants(name: &str, spatial: bool) -> Vec<&'static str> {
     inv
 }
 
-fn covered(t: &Tally, name: &str, inv: &[&str]) {
+fn refused_2d(name: &str) -> bool {
+    name == "plastic collapse"
+}
+
+fn assert_refused_2d(result: Result<Resp, String>) {
+    let refusal = crate::response::outcome(result).expect("a registered refusal");
+    assert_eq!(refusal.1, vec![("PL-2D-INVARIANCE".into(), 758)]);
+}
+
+fn covered(t: &Tally, name: &str, inv: &[&str], refused: bool) {
     let cells = t.cells.lock().unwrap();
     assert_eq!(cells.len(), inv.len(), "unexpected coverage for {name}");
     for i in inv {
         let c = cells
             .get(&(name.into(), (*i).into()))
             .expect("missing comparison");
-        assert_eq!(c.pass, 1, "{name} × {i}: {c:?}");
+        assert_eq!((c.pass, c.same_refusal), if refused { (0, 1) } else { (1, 0) }, "{name} × {i}: {c:?}");
         assert_eq!(
             c.refused + c.unrep + c.inconclusive + c.fails.len(),
             0,
@@ -207,12 +216,21 @@ fn check2(c: &Case2, only: Option<&str>, excited: bool) -> u64 {
             std::slice::from_ref(&a),
             &inv,
         );
-        covered(&t, a.name, &inv);
+        covered(&t, a.name, &inv, refused_2d(a.name));
         compared += inv.len() as u64;
         if excited && a.name.starts_with("time history") {
             generated::excited_history_witness(&(a.run)(c).unwrap(), &ResponseShape::of_2d(c));
         }
-        if STIFFNESS.contains(&a.name) {
+        if STIFFNESS.contains(&a.name) && refused_2d(a.name) {
+            for factor in [0.25, 4.0] {
+                let mut tc = c.clone();
+                for m in tc.s.materials.values_mut() {
+                    m.e *= factor;
+                }
+                assert_refused_2d((a.run)(&tc));
+                compared += 1;
+            }
+        } else if STIFFNESS.contains(&a.name) {
             compared += stiffness(
                 a.name,
                 a.iter_tol,
@@ -254,7 +272,7 @@ fn check3(c: &Case3, only: Option<&str>, excited: bool) -> u64 {
             std::slice::from_ref(&a),
             &inv,
         );
-        covered(&t, a.name, &inv);
+        covered(&t, a.name, &inv, false);
         compared += inv.len() as u64;
         if excited && a.name.starts_with("time history") {
             generated::excited_history_witness(&(a.run)(c).unwrap(), &ResponseShape::of_3d(c));
@@ -382,9 +400,12 @@ fn stiffness_rejects_nonpositive_factors() {
         "faulty stiffness",
         serde_json::from_value(generated::model(1, true)).unwrap(),
     );
+    for a in ana2::rows().into_iter().filter(|a| refused_2d(a.name)) {
+        assert_refused_2d((a.run)(&c2));
+    }
     let responses = ana2::rows()
         .into_iter()
-        .filter(|a| ["modal", "buckling", "plastic collapse"].contains(&a.name))
+        .filter(|a| ["modal", "buckling"].contains(&a.name))
         .map(|a| {
             (
                 a.name,
@@ -480,7 +501,7 @@ fn stiffness_rejects_nonpositive_factors() {
     }
     assert_eq!(
         tested,
-        [("buckling", 6), ("modal", 12), ("plastic collapse", 2)].into()
+        [("buckling", 6), ("modal", 12), ("plastic collapse", 1)].into()
     );
 }
 
