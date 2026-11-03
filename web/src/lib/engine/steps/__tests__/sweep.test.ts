@@ -20,7 +20,6 @@ import { allMethods } from '../methods';
 import type { ExplainedMethod, MethodContext } from '../registry';
 import type { Block, Cell, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
-import type { SolverInput, SolverLoad } from '../../types';
 import { fixtureNames2D, INTENTIONALLY_UNSOLVABLE } from '../../../templates/fixture-index';
 import { stepsEs, stepsEn, stepsPt } from '../../../i18n/locales/steps';
 import es from '../../../i18n/locales/es';
