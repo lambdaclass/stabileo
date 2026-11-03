@@ -540,8 +540,8 @@ Beyond software: an independent licensed structural engineer reviews worked exam
 
 **From the verified review (2026-11-02), P1:**
 
-- **Mutation rotation that keeps its promise:** 512 shards at 4 a night is 128 days, against the 16
-  promised; raise the nightly share or cut the shards.
+- **Mutation rotation that keeps its promise:** done by [#1240](https://github.com/lambdaclass/stabileo/pull/1240) (32 shards a night, every shard every 16 days);
+  the weekly staleness check stays red until 16 nights of markers exist.
 - **The TypeScript model rewrite before the solve is outside verification** (offsets, semi-rigid
   joints, variable members, 2D-in-3D): the differential, fuzz and metamorphic harnesses call Rust
   directly and never exercise it. Move it to Rust (not covered by #731 or #392, which are after the
@@ -1134,8 +1134,8 @@ the examples a parametric structural gallery needs; this section is what it foun
 columns, earthquake time history, RC pushover, RC column drawings, outrigger sweep, tower modes and
 buckling. PR [#1229](https://github.com/lambdaclass/stabileo/pull/1229) ships the first three (frame playground, slab on columns, earthquake
 time history) and the `defineExample` contract; examples 4–7 (RC pushover, RC column drawings,
-outrigger sweep, tower modes and buckling) follow in a second PR on the same contract (issue to
-file). The earthquake time-history example lands after PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239), so a non-finite result is
+outrigger sweep, tower modes and buckling) follow on the same contract in PR [#1300](https://github.com/lambdaclass/stabileo/pull/1300) (RC column,
+outrigger sweep, steel tower) and PR [#1308](https://github.com/lambdaclass/stabileo/pull/1308) (RC pushover with fibre sections), both stacked on #1229. The earthquake time-history example lands after PR [#1239](https://github.com/lambdaclass/stabileo/pull/1239), so a non-finite result is
 refused there too.
 
 **The 13 example types and where Stabileo stands:**
