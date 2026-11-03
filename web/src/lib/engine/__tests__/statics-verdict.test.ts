@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { staticsVerdict } from '../statics-check';
+import { staticsVerdict, residualLabel } from '../statics-check';
 import { staticsSectionHtml } from '../report/project-sections';
 import { postAnalysisLines } from '../post-analysis';
 import en from '../../i18n/locales/en';
@@ -24,6 +24,21 @@ describe('what the statics check can say about a case', () => {
     expect(html).not.toContain('✓');
     const lines = postAnalysisLines({ diagnostics: [], statics: [{ caseName: 'N', worstRelative: NaN, uncovered: [] }], pdelta: null, mechanism: null, design: null }, tr);
     expect(lines.map((l) => l.severity)).toEqual(['error']);
+  });
+
+  it('a residual that is not a number is said in words, never printed as NaN or Infinity', () => {
+    for (const r of [NaN, Infinity, -Infinity]) {
+      const html = staticsSectionHtml({ cases: [row('N', r, [])] as never, combos: [] }, tr, 'Statics').join('');
+      expect(html, String(r)).not.toMatch(/NaN|Infinity/);
+      expect(html).toContain(tr('pro.statics.notComputable'));
+      const [line] = postAnalysisLines({ diagnostics: [], statics: [{ caseName: 'N', worstRelative: r, uncovered: [] }], pdelta: null, mechanism: null, design: null }, tr);
+      expect(line!.text, String(r)).not.toMatch(/NaN|Infinity|\{/);
+      expect(line!.text).toBe(tr('post.unbalancedNotComputable', { name: 'N' }));
+      expect(residualLabel(r, 'x')).toBe('x');
+    }
+    expect(residualLabel(0, 'x')).toBe('0');
+    expect(residualLabel(2e-6, 'x')).toBe('2.0e-6');
+    expect(residualLabel(0.0123, 'x')).toBe('1.23 %');
   });
 
   it('the report ticks no case whose check left loads out, and names them', () => {
