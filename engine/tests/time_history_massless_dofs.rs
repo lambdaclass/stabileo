@@ -174,8 +174,11 @@ fn a_moment_on_massless_rotations_is_reciprocal_with_a_force_in_3d() {
     let moment = solve_time_history_3d(&cantilever_3d(json!({"nodeId": 2, "fx": 0.0, "fy": 0.0, "fz": 0.0, "mx": 0.0, "my": 1.0, "mz": 0.0}))).unwrap();
     let rot = &force.node_histories.iter().find(|h| h.node_id == 2).unwrap().ry;
     let disp = &moment.node_histories.iter().find(|h| h.node_id == 3).unwrap().ux;
+    assert_eq!(force.time_steps, moment.time_steps);
+    assert_eq!((rot.len(), disp.len()), (force.time_steps.len(), force.time_steps.len()));
+    assert!(rot.len() > 1 && rot.iter().chain(disp).all(|v| v.is_finite()));
+    assert!(rot.iter().any(|v| *v != 0.0) && disp.iter().any(|v| *v != 0.0));
     let scale = rot.iter().chain(disp).fold(0.0f64, |m, v| m.max(v.abs()));
-    assert!(scale > 0.0);
     for (n, (x, y)) in rot.iter().zip(disp).enumerate() {
         assert!((x - y).abs() <= 1e-9 * scale, "step {n}: θy2(Fx3) = {x:e} vs ux3(My2) = {y:e}");
     }
