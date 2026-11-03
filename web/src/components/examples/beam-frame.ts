@@ -8,7 +8,7 @@ const SUPPORTS = ['pinnedRoller', 'fixedPinned', 'fixedFixed'] as const;
 
 type Model = SolverInput & { portal: boolean; length: number; height: number };
 
-function supportTypes(index: number, portal: boolean): [SupportType, SupportType] {
+function supportTypes(index: number): [SupportType, SupportType] {
   const kind = SUPPORTS[index];
   if (kind === 'fixedFixed') return ['fixed', 'fixed'];
   if (kind === 'fixedPinned') return ['fixed', 'pinned'];
@@ -18,7 +18,7 @@ function supportTypes(index: number, portal: boolean): [SupportType, SupportType
 export function build(v: Values): Model {
   const portal = v.system === 1;
   const L = v.span, H = v.height;
-  const [left, right] = supportTypes(v.supports, portal);
+  const [left, right] = supportTypes(v.supports);
   const nodes: SolverInput['nodes'] = new Map();
   const elements: SolverInput['elements'] = new Map();
   const frame = (id: number, i: number, j: number) => elements.set(id, { id, type: 'frame', nodeI: i, nodeJ: j, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false });
