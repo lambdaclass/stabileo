@@ -148,7 +148,6 @@ export const rcPushover = defineExample<Model>({
   ],
   build,
   benchmark: { path: '/research/benchmarks/plastic-collapse', title: 'plastic' },
-  editor: (model) => ({ app: 'basic', model: model.solver }),
   analyses(model, v, engine) {
     if (!barsFit({ ...v, cover: COVER })) return { status: 'refused', code: 'barsDoNotFit' };
     const run = engine.solveFiberNonlinear2D({
