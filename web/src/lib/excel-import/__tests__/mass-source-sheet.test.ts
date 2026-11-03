@@ -175,6 +175,32 @@ describe('a project workbook carries the whole mass source', () => {
     expect((again.points ?? []).map((p) => ({ ...p, nodeId: 0 }))).toEqual((stated.points ?? []).map((p) => ({ ...p, nodeId: 0 })));
   });
 
+  it('a weight on a zone or a group is named on the cover as not carried, and its re-import reports it instead of dropping it silently', () => {
+    applyWorkbook(frame());
+    const ids = [...modelStore.nodes.keys()].sort((a, c) => a - c);
+    const group = modelStore.addGroup('upper', 'user' as never, { nodes: [ids[1]!, ids[2]!] });
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }], weights: [
+      { on: 'members', w: 0.8, region: { kind: 'box', x: [0, 5], z: [2, 7] } },
+      { on: 'members', w: 1.2, region: { kind: 'group', groupId: group } },
+      { on: 'floor', w: 2, region: { kind: 'zone', zoneId: 4 } },
+    ] });
+    const sheets = currentWorkbookSheets(5, { results: false });
+    const cover = sheets.find((x) => x.name === 'Cover')!;
+    const note = cover.rows.find((r) => String(r[1] ?? '').includes('2') && String(r[0]).length > 0 && /zone|group/i.test(String(r[1])));
+    expect(note).toBeDefined();
+    const back = parseWorkbook(Object.fromEntries(sheets.map((x) => [x.name, x.rows])));
+    const refused = back.problems.filter((p) => p.sheet === 'MassSource' && p.column === 'region');
+    expect(refused).toHaveLength(2);
+    expect(back.model.massSource).toEqual({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }], weights: [{ on: 'members', w: 0.8, region: { kind: 'box', x: [0, 5], z: [2, 7] } }] });
+  });
+
+  it('a mass source without zone or group weights adds no cover note', () => {
+    applyWorkbook(frame());
+    modelStore.setMassSource({ kind: 'custom', factors: [{ caseId: 1, factor: 1 }], weights: [{ on: 'floor', w: 1, region: { kind: 'all' } }] });
+    const cover = currentWorkbookSheets(5, { results: false }).find((x) => x.name === 'Cover')!;
+    expect(cover.rows.some((r) => /zone|group/i.test(String(r[1] ?? '')))).toBe(false);
+  });
+
   it('writes no MassSource sheet for a model without a mass source', () => {
     applyWorkbook(frame());
     expect(currentWorkbookSheets(5, { results: false }).some((s) => s.name === 'MassSource')).toBe(false);

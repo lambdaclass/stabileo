@@ -4946,6 +4946,8 @@ const tr: Translations = {
   'wb.cover.exported': 'Dışa aktarılma',
   'wb.cover.build': 'Sürüm (commit)',
   'wb.cover.units': 'Birimler',
+  'wb.cover.massRefs': "Taşınmayan kütle ağırlıkları",
+  'wb.cover.massRefsValue': "{n} kütle ağırlığı bir bölgeye ya da bir gruba etkiyor; MassSource sayfası bunları listeler, ancak içe aktarma bölge ve grup okuyamadığı için bunları bildirir ve dışarıda bırakır",
   'wb.cover.stations': 'Çubuklar boyunca istasyonlar',
   'wb.cover.stationsEqual': '{n} eşit aralıklı, uçlar dahil',
   'wb.cover.stationsCritical': 'kritik: çeyrekler, yük konumları ve sıfır kesme noktaları',

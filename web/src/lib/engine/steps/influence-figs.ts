@@ -10,6 +10,9 @@ import type { IlPoint, Dir } from '../influence/unit-sweep';
 import { canonicalQuantity, familyOf, type IlTarget } from '../influence/quantities';
 import type { InfluenceQuantity } from '../../store/model.svelte';
 import { numText } from './format';
+import type { SolverInput } from '../types';
+import { solve } from '../wasm-solver';
+import { withSectionNode, displacementAlong } from '../influence/maxwell';
 
 /**
  * The line as deformed polylines over the members, its largest ordinate 12 % of the structure's size:
@@ -94,19 +97,54 @@ export function releasedSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlT
   return { ...sk, supports: familyOf(q) === 'reaction' ? supports : sk.supports, ...r, deformed };
 }
 
-/** Maxwell: the unit force (or couple) at the target, and the deflected shape it gives, which is the line. */
-export function maxwellSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlTarget, points: IlPoint[], dir: Dir): Sketch {
+export type Field = Array<{ ux: number; uz: number }>;
+
+/** Both displacement components at each point of the line, from the solve under the unit action at the target. */
+export function maxwellField(solver: SolverInput, q: InfluenceQuantity, target: IlTarget, points: IlPoint[]): Field {
+  if (target.kind === 'section' && solver.elements.get(target.elementId)?.type === 'truss') {
+    const e = solver.elements.get(target.elementId)!;
+    const fi = maxwellField(solver, q, { kind: 'node', nodeId: e.nodeI }, points);
+    const fj = maxwellField(solver, q, { kind: 'node', nodeId: e.nodeJ }, points);
+    return fi.map((u, k) => ({ ux: (1 - target.t) * u.ux + target.t * fj[k].ux, uz: (1 - target.t) * u.uz + target.t * fj[k].uz }));
+  }
+  const c = canonicalQuantity(q);
+  const split = withSectionNode(solver, target);
+  const res = solve({ ...split.solver, loads: [{ type: 'nodal', data: { nodeId: split.node, fx: c === 'ux' ? 1 : 0, fz: c === 'uz' ? 1 : 0, my: c === 'ry' ? 1 : 0 } }] });
+  const pc = split.pieces;
+  return points.map((p) => {
+    if (!pc || p.elementId !== pc.original) return displacementAlong(split.solver, res, p.elementId, p.t);
+    return p.t <= pc.t
+      ? displacementAlong(split.solver, res, pc.first, p.t / pc.t)
+      : displacementAlong(split.solver, res, pc.second, (p.t - pc.t) / (1 - pc.t));
+  });
+}
+
+function fieldShape(pm: PlaneModel, points: IlPoint[], field: Field): Array<{ x: number; z: number }> {
+  const xs = [...pm.nodes.values()].map((n) => n.x), zs = [...pm.nodes.values()].map((n) => n.z);
+  const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1e-6);
+  const peak = Math.max(...field.map((u) => Math.hypot(u.ux, u.uz)), 1e-30);
+  const k = (0.12 * size) / peak;
+  return points.map((p, i) => ({ x: p.x + field[i].ux * k, z: p.y + field[i].uz * k }));
+}
+
+/** Maxwell: the unit force (or couple) at the target, and the deflected shape it gives, both components; its component along the load is the line. */
+export function maxwellSketch(pm: PlaneModel, q: InfluenceQuantity, target: IlTarget, points: IlPoint[], field: Field): Sketch {
   const c = canonicalQuantity(q);
   const p = targetPoint(pm, target);
   const sk = sketchOf(pm);
-  const deformed = lineShape(pm, points, dir, true);
+  const shape = fieldShape(pm, points, field);
+  const deformed: NonNullable<Sketch['deformed']> = [];
+  points.forEach((pt, i) => {
+    if (i === 0 || points[i - 1].elementId !== pt.elementId) deformed.push({ points: [], color: 'deformed' });
+    deformed[deformed.length - 1].points.push(shape[i]);
+  });
   if (c === 'ry') return { ...sk, couples: [{ x: p.x, z: p.z, m: 1, label: '1', color: 'load' }], deformed };
   return { ...sk, forces: [{ x: p.x, z: p.z, fx: c === 'ux' ? 1 : 0, fz: c === 'uz' ? 1 : 0, label: '1', color: 'load' }], deformed };
 }
 
-/** Labels of the largest and smallest ordinates, on the line. */
-export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir, along = false): NonNullable<Sketch['labels']> {
-  const shape = lineShape(pm, points, dir, along).flatMap((d) => d.points);
+/** Labels of the largest and smallest ordinates, on the line (on the deflected shape when `field` is given). */
+export function peakLabels(pm: PlaneModel, points: IlPoint[], dir: Dir, along = false, field?: Field): NonNullable<Sketch['labels']> {
+  const shape = field ? fieldShape(pm, points, field) : lineShape(pm, points, dir, along).flatMap((d) => d.points);
   const up = along ? 's' : 'n', down = along ? 'n' : 's';
   let iMax = 0, iMin = 0;
   points.forEach((p, k) => { if (p.value > points[iMax].value) iMax = k; if (p.value < points[iMin].value) iMin = k; });

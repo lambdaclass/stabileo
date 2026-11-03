@@ -4938,6 +4938,8 @@ const fr: Translations = {
   'wb.cover.exported': 'Exporté',
   'wb.cover.build': 'Version (commit)',
   'wb.cover.units': 'Unités',
+  'wb.cover.massRefs': "Poids de masse non transportés",
+  'wb.cover.massRefsValue': "{n} poids de masse portent sur une zone ou un groupe ; la feuille MassSource les liste, mais l'import ne lit ni zones ni groupes, il les signale donc et les laisse de côté",
   'wb.cover.stations': 'Points d\'évaluation le long des barres',
   'wb.cover.stationsEqual': '{n} équidistantes, extrémités comprises',
   'wb.cover.stationsCritical': 'critiques : quarts, positions des charges et effort tranchant nul',

@@ -5009,6 +5009,8 @@ const es: Record<string, string> = {
   'wb.cover.exported': "Exportado",
   'wb.cover.build': "Versión (commit)",
   'wb.cover.units': "Unidades",
+  'wb.cover.massRefs': "Pesos de masa que no viajan",
+  'wb.cover.massRefsValue': "{n} pesos de masa actúan sobre una zona o un grupo; la hoja MassSource los lista, pero la importación no lee zonas ni grupos, así que los informa y los deja afuera",
   'wb.cover.stations': "Estaciones en las barras",
   'wb.cover.stationsEqual': "{n} equiespaciadas, extremos incluidos",
   'wb.cover.stationsCritical': "críticas: cuartos, posiciones de carga y corte nulo",

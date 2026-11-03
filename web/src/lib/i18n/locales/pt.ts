@@ -4562,6 +4562,8 @@ const pt: Translations = {
   'wb.cover.exported': "Exportado",
   'wb.cover.build': "Versão (commit)",
   'wb.cover.units': "Unidades",
+  'wb.cover.massRefs': "Pesos de massa não transportados",
+  'wb.cover.massRefsValue': "{n} pesos de massa atuam sobre uma zona ou um grupo; a planilha MassSource os lista, mas a importação não lê zonas nem grupos, então os informa e os deixa de fora",
   'wb.cover.stations': "Estações nas barras",
   'wb.cover.stationsEqual': "{n} equiespaçadas, extremos incluídos",
   'wb.cover.stationsCritical': "críticas: quartos, posições de carga e cortante nula",

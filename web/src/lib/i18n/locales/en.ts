@@ -5016,6 +5016,8 @@ const en: Record<string, string> = {
   'wb.cover.exported': "Exported",
   'wb.cover.build': "Version (commit)",
   'wb.cover.units': "Units",
+  'wb.cover.massRefs': "Mass weights not carried",
+  'wb.cover.massRefsValue': "{n} mass weights act on a zone or a group; the MassSource sheet lists them, but the import cannot read zones or groups, so it reports them and leaves them out",
   'wb.cover.stations': "Stations along members",
   'wb.cover.stationsEqual': "{n} equally spaced, ends included",
   'wb.cover.stationsCritical': "critical: quarters, load positions and zero shear",

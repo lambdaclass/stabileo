@@ -4938,6 +4938,8 @@ const de: Translations = {
   'wb.cover.exported': 'Exportiert',
   'wb.cover.build': 'Version (Commit)',
   'wb.cover.units': 'Einheiten',
+  'wb.cover.massRefs': "Nicht übertragene Massengewichte",
+  'wb.cover.massRefsValue': "{n} Massengewichte wirken auf eine Zone oder eine Gruppe; das Blatt MassSource führt sie auf, aber der Import liest keine Zonen oder Gruppen, meldet sie daher und lässt sie weg",
   'wb.cover.stations': 'Auswertungsstellen entlang der Stäbe',
   'wb.cover.stationsEqual': '{n} gleichmäßig verteilt, Enden eingeschlossen',
   'wb.cover.stationsCritical': 'maßgebend: Viertelspunkte, Laststellen und Querkraftnullpunkte',

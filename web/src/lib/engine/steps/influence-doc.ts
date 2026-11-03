@@ -7,7 +7,7 @@ import type { Block, CompareRow, Step, StepDoc } from './doc';
 import { tx, compareNoteFor } from './doc';
 import type { PlaneModel } from './plane-model';
 import { num, numText } from './format';
-import { releasedSketch, maxwellSketch, targetSketch, peakLabels } from './influence-figs';
+import { releasedSketch, maxwellSketch, maxwellField, targetSketch, peakLabels } from './influence-figs';
 import type { SolverInput } from '../types';
 import type { InfluenceQuantity } from '../../store/model.svelte';
 import { canonicalQuantity, familyOf, ordinateUnit, quantitySymbol, quantityUnit, type IlTarget } from '../influence/quantities';
@@ -99,12 +99,13 @@ function principleStep(d: InfluenceDocData): Step {
     const sample = d.points.reduce((a, p) => (Math.abs(p.value) > Math.abs(a.value) ? p : a), d.points[0]);
     const rows: CompareRow[] = [{ label: '\\eta(s^*)', method: sample.value, matrix: directOrdinate(d, sample), unit: ordinateUnit(c) }];
     const m = d.pm.members.get(sample.elementId)!;
+    const field = maxwellField(d.unit, d.quantity, d.target, d.points);
     return {
       title: tx(`${K}maxwell.title`),
       blocks: [
         { kind: 'p', text: tx(`${K}maxwell.principle`) },
         { kind: 'eq', tex: '\\delta_{ij} = \\delta_{ji} \\qquad \\eta(s) = \\delta_{s\\,t}', note: tx(`${K}maxwell.eqNote`) },
-        { kind: 'fig', sketch: { ...maxwellSketch(d.pm, c, d.target, d.points, d.dir), labels: peakLabels(d.pm, d.points, d.dir, true) }, caption: tx(`${K}maxwell.fig.${c === 'ry' ? 'couple' : 'force'}`) },
+        { kind: 'fig', sketch: { ...maxwellSketch(d.pm, c, d.target, d.points, field), labels: peakLabels(d.pm, d.points, d.dir, true, field) }, caption: tx(`${K}maxwell.fig.${c === 'ry' ? 'couple' : 'force'}`) },
         { kind: 'p', text: tx(`${K}maxwell.check`, { m: m.name, x: numText(sample.t * m.L, 3) }) },
         { kind: 'compare', rows, caption: compareNoteFor(rows) },
       ],
