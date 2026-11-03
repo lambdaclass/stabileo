@@ -953,10 +953,8 @@ fn buckling_2d_with_axial_span_loads_warns_1323() {
         let result = solve_buckling_2d(&input, 1).unwrap();
         assert!(result.modes[0].load_factor.is_finite() && result.modes[0].load_factor > 0.0);
         assert_eq!(ids(&result.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns, "{:?}", ids(&result.structured_diagnostics));
-        let certified = dedaliano_engine::certify::buckling::certify_buckling_2d(&input, 1);
-        if let Ok(out) = certified {
-            assert_eq!(ids(&out.results.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns);
-        }
+        let certified = dedaliano_engine::certify::buckling::certify_buckling_2d(&input, 1).expect("the cantilever certifies");
+        assert_eq!(ids(&certified.results.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns);
     }
 }
 
