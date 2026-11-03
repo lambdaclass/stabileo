@@ -83,6 +83,22 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
     expect(pinned.result.modes[0].loadFactor / ((Math.PI ** 2 * EI) / (L * L) / P)).toBeCloseTo(12 / Math.PI ** 2, 6);
   });
 
+  it('a pin-ended member that can only shorten: every method calls P-Δ unstable past π²EI/L², stable below it', () => {
+    const pinned = (P: number) => {
+      const c = column('pinned', 'rollerZ', L, P);
+      c.elements.set(1, { ...c.elements.get(1)!, hingeStart: true, hingeEnd: true });
+      return c;
+    };
+    const euler = (Math.PI ** 2 * EI) / (L * L);
+    for (const method of ['consistent', 'string', 'phi'] as const) {
+      for (const [P, stable] of [[0.9 * euler, true], [1.1 * euler, false]] as const) {
+        const r = teachingPDelta(pinned(P), { method, axialRigid: false });
+        if (!r.ok) throw new Error(r.reason.key);
+        expect(r.run.stable, `${method} at ${P / euler} P_E`).toBe(stable);
+      }
+    }
+  });
+
   it('a fixed-fixed column of one element: φ gives its higher modes, each internal, with no nodal shape drawn', () => {
     const b = teachingBuckling(clampedColumn(L, P), { method: 'phi', axialRigid: false }, 3);
     if (!b.ok) throw new Error(b.reason.key);
