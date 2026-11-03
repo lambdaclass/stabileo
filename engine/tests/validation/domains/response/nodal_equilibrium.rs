@@ -119,7 +119,7 @@ fn validation_equilibrium_portal_joint() {
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert_close(r1.rx + r4.rx, -f_lat, 0.01, "Portal: ΣRx = -F_lat");
-    assert_close(r1.rz + r4.rz, 0.0, 0.01, "Portal: ΣRy = 0");
+    assert_close_abs(r1.rz + r4.rz, 0.0, 0.01, 1e-6, "Portal: ΣRy = 0");
 
     // Both bases develop moments
     assert!(r1.my.abs() > 0.1, "Portal: base moment at 1");
@@ -168,7 +168,7 @@ fn validation_equilibrium_multi_bay() {
 
     // ΣRx = 0 (no lateral load)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.01, "Multi-bay: ΣRx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6, "Multi-bay: ΣRx = 0");
 
     // By symmetry: outer column reactions should be equal
     let ry_1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;
@@ -350,7 +350,7 @@ fn validation_equilibrium_three_story() {
 
     // No vertical loads → ΣRy = 0
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.01, "3-story: ΣRy = 0");
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6, "3-story: ΣRy = 0");
 
     // Base moments should be non-zero (overturning resistance)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();

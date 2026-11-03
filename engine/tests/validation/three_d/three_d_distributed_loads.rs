@@ -144,11 +144,9 @@ fn validation_axial_distributed_load_tip_displacement() {
     // The tip node gets contribution from one element only.
     let mut loads: Vec<SolverLoad3D> = Vec::new();
     for node_id in 2..=n + 1 {
-        let fx = if node_id == 2 || node_id == n + 1 {
-            // boundary free nodes: only one adjacent element contributes
+        let fx = if node_id == n + 1 {
             w * elem_len / 2.0
         } else {
-            // interior free nodes: two adjacent elements each contribute half
             w * elem_len
         };
         loads.push(SolverLoad3D::Nodal(SolverNodalLoad3D {
@@ -175,7 +173,7 @@ fn validation_axial_distributed_load_tip_displacement() {
     // Exact: ux_tip = w*L^2 / (2*E*A)
     let ux_exact = w * l * l / (2.0 * e_eff * A);
 
-    assert_close(tip.ux.abs(), ux_exact, 0.05, "axial distributed load tip ux");
+    assert_close(tip.ux.abs(), ux_exact, 1e-6, "axial distributed load tip ux");
 }
 
 // ================================================================

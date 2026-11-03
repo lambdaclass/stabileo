@@ -771,7 +771,7 @@ fn validation_kassimali_ext_8_fan_truss_symmetric() {
     assert_close(r1.rz, r3.rz, 0.02, "Fan truss: R1y = R3y (symmetry)");
 
     // No horizontal reaction at pinned support (symmetric)
-    assert_close(r1.rx, 0.0, 0.02, "Fan truss: R1x = 0 (symmetric)");
+    assert_close_abs(r1.rx, 0.0, 0.02, 1e-6, "Fan truss: R1x = 0 (symmetric)");
 
     // Symmetric member forces: |F_14| = |F_34|
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();
