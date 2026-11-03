@@ -39,7 +39,7 @@ export function designTypology(kind: Typology, ctx: TypologyContext, p: Typology
   const d = designStrongAxis(kind, ctx, p, mainId);
   const main = ctx.members.find((m) => m.id === mainId) ?? ctx.members[0];
   const continuous = (m: JointMember) => kind !== 'splice' && m !== main && m.kind === 'column'
-    && ctx.members.some((o) => o !== m && o.kind === 'column' && o.dir.x * m.dir.x + o.dir.y * m.dir.y + o.dir.z * m.dir.z < -0.999);
+    && ctx.members.some((o) => o !== m && o.kind === 'column' && o.dir.x * m.dir.x + o.dir.y * m.dir.y + o.dir.z * m.dir.z < -1 + 1e-9);
   const weak = ctx.members.some((m) => !continuous(m) && (m.Mw ?? 0) > Math.max(WEAK_MOMENT_FLOOR, WEAK_MOMENT_RESIDUAL * m.M));
   return weak ? { ...d, state: 'unresolved', unresolvedKey: 'joint.typ.unresolved.weakAxisMoment' } : d;
 }

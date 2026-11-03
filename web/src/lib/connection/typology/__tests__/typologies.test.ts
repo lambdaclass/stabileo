@@ -122,6 +122,9 @@ describe('weak-axis moment (#532)', () => {
   it('a column ending at the joint (knee) or the other column of a splice counts', () => {
     const knee = designTypology('knee', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50 }), { ...below, Mw: 5, M: 100 }]), plate, 1);
     expect(knee.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+    const kinked = { ...above, dir: { x: Math.sin(Math.PI / 90), y: 0, z: Math.cos(Math.PI / 90) }, Mw: 40, M: 10 };
+    const cranked = designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50 }), { ...below, Mw: 40, M: 10 }, kinked]), plate, 1);
+    expect(cranked.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
     const splice = designTypology('splice', ctx([{ ...below, M: 50 }, { ...above, M: 50, Mw: 5 }]), plate, 2);
     expect(splice.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
   });
