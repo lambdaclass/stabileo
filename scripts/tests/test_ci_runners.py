@@ -59,7 +59,7 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'ci-ok'})
+        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'ci-ok'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
