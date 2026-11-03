@@ -47,7 +47,7 @@ export type Chart = { key: string; xUnit: string; yUnit: string; points: [number
 
 export type Outcome =
   | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[]; stopped?: { loadFactor: number; reason: string } }
-  | { status: 'refused'; code: 'engine' | 'noLoad' | 'nonFinite'; reason?: string };
+  | { status: 'refused'; code: 'engine' | 'noLoad' | 'nonFinite' | 'barsDoNotFit'; reason?: string };
 
 export type EditorModel = { app: 'basic'; model: import('../../lib/engine/types').SolverInput } | { app: 'pro'; model: import('../../lib/engine/types-3d').SolverInput3D };
 

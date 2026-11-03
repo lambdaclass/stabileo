@@ -100,7 +100,6 @@ export const tower = defineExample<Model>({
   ],
   build,
   benchmark: { path: '/tools/column-buckling', title: 'euler' },
-  editor: (model) => ({ app: 'basic', model: model.plane }),
   analyses(model, v, engine) {
     const buckling = engine.solveBuckling(model.plane, 2) as { modes: { loadFactor: number; displacements: Shape }[]; certificate?: never };
     const modal = engine.solveModal3D(model.space, new Map([[1, STEEL.density]]), 8) as { modes: { frequency: number; displacements: Shape }[] };
@@ -109,7 +108,7 @@ export const tower = defineExample<Model>({
     const lambda = buckling.modes[0].loadFactor;
     if (![lambda, ...modes.map(m => m.frequency)].every(Number.isFinite)) return { status: 'refused', code: 'nonFinite' };
     const exact = closedForm(v);
-    const source = v.topMass > 0 ? 'tip-mass frequency equation' : '(βL)²√(EI/mL⁴)';
+    const source = v.topMass > 0 ? `(βL)²√(EI/mL⁴), μ = M/mL = ${(v.topMass / (STEEL.density / 1000 * model.tube.a * model.height)).toPrecision(3)}` : '(βL)²√(EI/mL⁴)';
     const readouts: Readout[] = [
       ...modes.map((m, k) => ({ key: `f${k + 1}`, value: m.frequency, unit: 'Hz', reference: { value: exact.frequencies[k], source } })),
       { key: 'bucklingFactor', value: lambda, unit: '', reference: { value: exact.pcr / v.topLoad, source: 'π²EI/4H²P' } },

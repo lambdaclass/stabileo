@@ -79,7 +79,7 @@ for (const [id, query, key, tolerance] of CLOSED_FORMS) test(`@smoke example ${i
   near(await value(page, `readout-${key}`), await value(page, `reference-${key}`), tolerance);
 });
 
-test('@smoke the outrigger slider moves the result and the sweep marker', async ({ page }) => {
+test('@smoke the outrigger slider moves the result and the share link', async ({ page }) => {
   await page.goto('/en/examples/outrigger/?e2e=1');
   await expect(page.getByTestId('readout-topDrift')).toBeVisible({ timeout: 30000 });
   const before = await value(page, 'readout-topDrift');
