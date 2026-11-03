@@ -170,11 +170,27 @@ describe('torsion, which neither checker designs for (#1314)', () => {
       }
     });
 
-    it(`${code.id}: a torque below it is neglected, as the code allows`, () => {
-      const row = runOtherCode(code, frame({ cantilever: true, torque: 0.5 * neglectable, bars: BOTH_FACES })).rows[0]!;
-      expect(row.status).toBe('checked');
-      if (row.status === 'checked') expect(row.reading.unevaluated).not.toContain('otherCodes.check.torsion');
-    });
   }
+
+  it('aci318: a torque below it is neglected, as 22.7.1.1 allows', () => {
+    const row = runOtherCode(ACI318, frame({ cantilever: true, torque: 0.5 * neglectable, bars: BOTH_FACES })).rows[0]!;
+    expect(row.status).toBe('checked');
+    if (row.status === 'checked') expect(row.reading.unevaluated).not.toContain('otherCodes.check.torsion');
+  });
+
+  it('ec2: EN 1992 has no such cutoff, so a torque below it still leaves the check incomplete', () => {
+    const row = runOtherCode(EC2, frame({ cantilever: true, torque: 0.5 * neglectable, bars: BOTH_FACES })).rows[0]!;
+    expect(row.status).toBe('checked');
+    if (row.status === 'checked') {
+      expect(row.reading.unevaluated).toContain('otherCodes.check.torsion');
+      expect(row.reading.pass).toBe(false);
+    }
+  });
+
+  it('ec2: no torque, no torsion note', () => {
+    const row = runOtherCode(EC2, frame({ cantilever: true, bars: BOTH_FACES })).rows[0]!;
+    expect(row.status).toBe('checked');
+    if (row.status === 'checked') expect(row.reading.unevaluated).not.toContain('otherCodes.check.torsion');
+  });
 });
 

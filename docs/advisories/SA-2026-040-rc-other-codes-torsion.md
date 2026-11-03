@@ -24,14 +24,15 @@ member's stations was never passed to them, so a member with large torsion could
 
 You relied on a passing ACI 318 or EN 1992 check of a concrete member that carries torsion: a
 spandrel beam, an edge beam carrying a cantilever slab, a member of a grid or of a curved
-structure. With this fix such a check shows "torsion above the threshold that lets it be
-neglected: not checked" and does not pass when |T| > φ·0.083·√f'c·Acp²/pcp (ACI 318 22.7.1.1).
+structure. With this fix such a check shows "torsion not checked" and does not pass: for ACI 318
+when |T| > φ·0.083·√f'c·Acp²/pcp, the threshold below which 22.7.1.1 lets torsion be neglected;
+for EN 1992, which has no such threshold, whenever the member carries any torsion.
 
 ## Fixed in
 
-Containment only: above that threshold the check is incomplete, and its certificate is refused as
-partial. Test: `web/src/lib/engine/design/other-codes/__tests__/concrete-codes.test.ts` (a 30 × 50
-cantilever with twice and half the threshold torque, both codes).
+Containment only: such a check is incomplete, and its certificate is refused as partial. Test:
+`web/src/lib/engine/design/other-codes/__tests__/concrete-codes.test.ts` (a 30 × 50 cantilever with
+twice and half the ACI threshold torque, both codes, and with no torque).
 
 ## Workaround
 

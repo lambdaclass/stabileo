@@ -36,11 +36,11 @@ const list = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
 /** Share of fcd·Ac above which EN 1992 flexure without the axial force is not an answer. */
 const EC2_AXIAL_SHARE = 0.1;
 
-/** Neither checker designs for torsion: above ACI 318 22.7.1.1's neglect threshold the check is incomplete. */
-function torsionUnchecked(ctx: MemberContext, d: StationTuple): string[] {
+/** Neither checker designs for torsion; only ACI 318 22.7.1.1 has a threshold below which it may be neglected. */
+function torsionUnchecked(ctx: MemberContext, d: StationTuple, code: 'aci318' | 'ec2'): string[] {
   const b = ctx.section.b! * 1e3, h = ctx.section.h! * 1e3;
   const fc = concreteFc(ctx.material as never)!;
-  const neglectable = 0.75 * 0.083 * Math.sqrt(fc) * (b * h) ** 2 / (2 * (b + h)) * 1e-6;
+  const neglectable = code === 'aci318' ? 0.75 * 0.083 * Math.sqrt(fc) * (b * h) ** 2 / (2 * (b + h)) * 1e-6 : MOMENT_NOISE_FLOOR;
   return Math.abs(d.forces.torsion ?? 0) > neglectable ? ['otherCodes.check.torsion'] : [];
 }
 
@@ -109,7 +109,7 @@ export const ACI318: OtherCode = {
         sectionType: 'rectangular',
         ...(at.av !== undefined ? { av: at.av, sStirrup: at.s } : {}),
       },
-      unevaluated: [...(tension ? ['otherCodes.check.aciShearTension'] : []), ...torsionUnchecked(ctx, d)],
+      unevaluated: [...(tension ? ['otherCodes.check.aciShearTension'] : []), ...torsionUnchecked(ctx, d, 'aci318')],
     };
   },
   forces(ctx, d, data) {
@@ -158,7 +158,7 @@ export const EC2: OtherCode = {
         fck: fck * PA, fyk: (ctx.rebarFy ?? DEFAULT_REBAR_FY) * PA,
         ...(at.av !== undefined ? { asw: at.av, sStirrup: at.s } : {}),
       },
-      unevaluated: [...(Math.abs(d.forces.n) > nLimit ? ['otherCodes.check.ec2Axial'] : []), ...torsionUnchecked(ctx, d)],
+      unevaluated: [...(Math.abs(d.forces.n) > nLimit ? ['otherCodes.check.ec2Axial'] : []), ...torsionUnchecked(ctx, d, 'ec2')],
     };
   },
   forces(ctx, d, data) {
