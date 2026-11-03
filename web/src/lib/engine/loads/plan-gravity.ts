@@ -80,7 +80,7 @@ export interface GravityLayout {
   roofAreaOf: Map<number, number>;
   /**
    * Members loaded with the tributary width, and whether each is sloped (its load is per
-   * projection); `width`, m, when a member takes less than the tributary width (`roofFringe`).
+   * projection).
    */
   widthMembers: Array<{ elementId: number; length: number; horizontalLength: number }>;
   /**
