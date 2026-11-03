@@ -8,7 +8,7 @@ export async function duplicateViewed(write = { autosave: requestAutosave, works
   uiStore.viewerMode = false;
   const saved = await write.autosave('manual').catch(() => ({ ok: false }));
   const kept = write.workspace();
-  const ok = (saved?.ok ?? true) && kept;
+  const ok = saved?.ok === true && kept;
   uiStore.toast(t(ok ? 'viewer.duplicated' : 'viewer.duplicateNotSaved'), ok ? 'success' : 'error');
   return ok;
 }

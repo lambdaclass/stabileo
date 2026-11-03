@@ -71,6 +71,24 @@ export function shellPatches(pts: readonly XY[], values: readonly number[], leve
   return out;
 }
 
+/** The largest magnitude at a corner of a face the figure draws, and where that corner is. */
+export function drawnPeak(
+  corners: ReadonlyMap<string, readonly number[]>,
+  faces: ReadonlyArray<{ key: string; nodes: readonly number[] }>,
+  scenePos: (id: number) => P3 | undefined,
+): { v: number; at: P3 } | null {
+  let best: { v: number; at: P3 } | null = null;
+  for (const f of faces) {
+    const vs = corners.get(f.key);
+    if (!vs) continue;
+    vs.forEach((v, i) => {
+      const at = f.nodes[i] === undefined ? undefined : scenePos(f.nodes[i]!);
+      if (at && Number.isFinite(v) && (!best || Math.abs(v) > Math.abs(best.v))) best = { v, at };
+    });
+  }
+  return best;
+}
+
 export type DrawShells = (fill?: (key: string) => string | null, move?: (nodeId: number) => P3 | undefined, paint?: (key: string, pts: XY[]) => boolean) => void;
 
 export function drawShellMap(
@@ -135,13 +153,9 @@ export function drawShellMap(
   ctx.restore();
 
   if (values) {
-    let best: { key: string; i: number; v: number } | null = null;
-    for (const [key, vs] of field.corners) vs.forEach((v, i) => { if (!best || Math.abs(v) > Math.abs(best.v)) best = { key, i, v }; });
-    const peak = best as { key: string; i: number; v: number } | null;
-    const f = peak ? shellFaces().find((s) => s.key === peak.key) : undefined;
-    const p = f && peak ? scenePos(f.nodes[peak.i]!) : undefined;
-    if (peak && p) {
-      const c = toScreen(p);
+    const peak = drawnPeak(field.corners, shellFaces(), scenePos);
+    if (peak) {
+      const c = toScreen(peak.at);
       labels.add({ text: fmt(peak.v), colour: '#f4f7fa', font: 'bold 10.5px sans-serif', box: { x: c.x, y: c.y - 6, width: 0, height: 0, dirX: 0, dirY: -1, priority: Math.abs(peak.v), anchorX: 'center', sweep: 'any' } });
     }
   }
