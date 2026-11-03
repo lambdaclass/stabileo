@@ -78,6 +78,7 @@ describe('rc-column bar layout', () => {
     expect(out.status === 'refused' && out.code).toBe('needsCrossties');
     expect(barsTied(defaults(rcColumn.params))).toBe(true);
     expect(barsTied({ ...wide, perFace: 2 })).toBe(true);
+    expect(barsTied({ ...defaults(rcColumn.params), perFace: 4 })).toBe(false);
   });
   it('accepts the defaults and measures the clear spacing between bar faces', () => {
     const v = defaults(rcColumn.params);
