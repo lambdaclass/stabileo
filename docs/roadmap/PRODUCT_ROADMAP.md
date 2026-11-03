@@ -62,9 +62,9 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
   re-review of the PRs merged since 2026-11-01: Codex had run at reasoning effort "none" in that
   window, and `run-engine.sh` now forces high.
 - **[#1253](https://github.com/lambdaclass/stabileo/pull/1253):** the generated area loads drop a floor's load under a low member (post-merge findings
-  on [#1076](https://github.com/lambdaclass/stabileo/pull/1076); SA-2026-033, results version 14 provisional). Known on main; fix in review.
+  on [#1076](https://github.com/lambdaclass/stabileo/pull/1076); SA-2026-033, results version 16 in landing order). Known on main; fix in review.
 - **[#1255](https://github.com/lambdaclass/stabileo/pull/1255):** the equilibrium check says "balanced" over loads it left out, similar-storey matching
-  and replication (post-merge findings on [#1077](https://github.com/lambdaclass/stabileo/pull/1077); SA-2026-034, results version 16 provisional).
+  and replication (post-merge findings on [#1077](https://github.com/lambdaclass/stabileo/pull/1077); SA-2026-034, results version 17 in landing order).
   Known on main; fix in review.
 - **[#807](https://github.com/lambdaclass/stabileo/pull/807)** containment (above), then the per-defect fixes of the solver bug-fix workstream.
 - **[#755](https://github.com/lambdaclass/stabileo/issues/755) (SA-2026-023):** the RC column check read one sign of the moment; close the issue once its
@@ -73,8 +73,9 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
   ledger rows in [#807](https://github.com/lambdaclass/stabileo/pull/807); group A after [#1239](https://github.com/lambdaclass/stabileo/pull/1239); 7 replays). In progress on branch
   `safety/nightly-triage-1103`; earlier work on `safety/nightly-triage-engine` and
   `wip/nightly-triage-noise-checks`.
-- **Results versions follow the landing order:** main is at v13 after wave B; [#1253](https://github.com/lambdaclass/stabileo/pull/1253) (v14 provisional)
-  and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (v16 provisional) renumber when they land.
+- **Results versions follow the landing order:** main is at v13 after wave B. Next, in order: [#1310](https://github.com/lambdaclass/stabileo/pull/1310) (v14) and
+  [#1325](https://github.com/lambdaclass/stabileo/pull/1325) (v15), then [#1253](https://github.com/lambdaclass/stabileo/pull/1253) (v16) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (v17), then [#807](https://github.com/lambdaclass/stabileo/pull/807) and the solver fixes,
+  numbered at landing. Each PR renumbers if anything lands ahead of it.
 
 ### 2. Other bugs
 
@@ -121,8 +122,8 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | Wave B: the safety fixes, results versions v7 to v13 ([#1233](https://github.com/lambdaclass/stabileo/pull/1233), [#1236](https://github.com/lambdaclass/stabileo/pull/1236), [#1225](https://github.com/lambdaclass/stabileo/pull/1225), [#1237](https://github.com/lambdaclass/stabileo/pull/1237), [#1246](https://github.com/lambdaclass/stabileo/pull/1246), [#1234](https://github.com/lambdaclass/stabileo/pull/1234), [#1239](https://github.com/lambdaclass/stabileo/pull/1239), [#1247](https://github.com/lambdaclass/stabileo/pull/1247)) | [#1285](https://github.com/lambdaclass/stabileo/pull/1285) | landed 2026-11-03 (715279c26); every part merged or closed |
 | Containment of every open wrong-result issue ([#447](https://github.com/lambdaclass/stabileo/issues/447)) | [#807](https://github.com/lambdaclass/stabileo/pull/807) | draft; merging current main, then wave B, then local checks and Codex; lands before the per-defect fixes |
 | Per-defect fixes, in order [#1238](https://github.com/lambdaclass/stabileo/issues/1238), [#466](https://github.com/lambdaclass/stabileo/issues/466), [#458](https://github.com/lambdaclass/stabileo/issues/458), [#426](https://github.com/lambdaclass/stabileo/issues/426), [#456](https://github.com/lambdaclass/stabileo/issues/456), [#417](https://github.com/lambdaclass/stabileo/issues/417), [#432](https://github.com/lambdaclass/stabileo/issues/432) | [#1295](https://github.com/lambdaclass/stabileo/pull/1295), [#1297](https://github.com/lambdaclass/stabileo/pull/1297), [#1298](https://github.com/lambdaclass/stabileo/pull/1298), [#1301](https://github.com/lambdaclass/stabileo/pull/1301), [#1309](https://github.com/lambdaclass/stabileo/pull/1309); [#1296](https://github.com/lambdaclass/stabileo/pull/1296) (#433) | drafts stacked on #807 (#1297 on #1295); #417, #432 and the #798/#1057 plan not opened yet |
-| [#1076](https://github.com/lambdaclass/stabileo/pull/1076) follow-up: generated area loads (SA-2026-033), with [#1311](https://github.com/lambdaclass/stabileo/issues/1311), [#1312](https://github.com/lambdaclass/stabileo/issues/1312), [#1313](https://github.com/lambdaclass/stabileo/issues/1313) | [#1253](https://github.com/lambdaclass/stabileo/pull/1253) | draft; Codex clean and Grok clean on its last rounds; results version 14 provisional |
-| [#1077](https://github.com/lambdaclass/stabileo/pull/1077) follow-up: equilibrium verdict, similar storeys (SA-2026-034) | [#1255](https://github.com/lambdaclass/stabileo/pull/1255) | ready; Codex clean; results version 16 provisional |
+| [#1076](https://github.com/lambdaclass/stabileo/pull/1076) follow-up: generated area loads (SA-2026-033), with [#1311](https://github.com/lambdaclass/stabileo/issues/1311), [#1312](https://github.com/lambdaclass/stabileo/issues/1312), [#1313](https://github.com/lambdaclass/stabileo/issues/1313) | [#1253](https://github.com/lambdaclass/stabileo/pull/1253) | draft; Codex clean and Grok clean on its last rounds; results version 16 in landing order |
+| [#1077](https://github.com/lambdaclass/stabileo/pull/1077) follow-up: equilibrium verdict, similar storeys (SA-2026-034) | [#1255](https://github.com/lambdaclass/stabileo/pull/1255) | ready; Codex clean; results version 17 in landing order |
 | Nightly triage of the safety issues from [#1081](https://github.com/lambdaclass/stabileo/issues/1081) on | `safety/nightly-triage-1103`; [#1299](https://github.com/lambdaclass/stabileo/pull/1299) (metamorphic harness: scale-aware floors for nightly false positives) | in progress; #1299 draft |
 | Contain warped MITC4/MITC9 (outside PR, code not used) | [#1067](https://github.com/lambdaclass/stabileo/pull/1067) | superseded by [#1074](https://github.com/lambdaclass/stabileo/pull/1074), folded into [#807](https://github.com/lambdaclass/stabileo/pull/807). **Decision:** close it with the standard note |
 
