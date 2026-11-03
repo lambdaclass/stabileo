@@ -25,7 +25,7 @@ export function deltaTex(r: ForceMethodResult): string {
 export function delta0Tex(r: ForceMethodResult): string {
   const rows = r.delta0Terms.flat();
   const p = parts(rows, { m: 'M_0', n: 'N_0', r: 'R_0' });
-  if (has(rows, (x) => x.source === 'thermal')) p.push('\\sum \\int n_i\\,\\alpha\\,\\Delta T\\,dx + \\sum \\int m_i\\,\\frac{\\alpha\\,\\Delta t}{h}\\,dx');
+  if (has(rows, (x) => x.source === 'thermal')) p.push('\\sum \\int n_i\\,\\alpha\\,\\Delta T\\,dx - \\sum \\int m_i\\,\\frac{\\alpha\\,\\Delta t}{h}\\,dx');
   let tex = `\\delta_{i0} = ${p.length ? p.join(' + ') : '0'}`;
   if (has(rows, (x) => x.source === 'settlement')) tex += ' - \\sum R_{k,i}\\,c_k';
   return tex;
