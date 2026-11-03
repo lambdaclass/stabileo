@@ -610,7 +610,7 @@ test.describe('@landing landing page', () => {
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('es');
-      expect(h.title).toBe('Stabileo — Software de ingeniería estructural de código abierto');
+      expect(h.title).toBe('Stabileo — Software de ingeniería estructural de código abierto, IA en desarrollo');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('es_AR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('es'));
@@ -630,7 +630,7 @@ test.describe('@landing landing page', () => {
 
       expect(h.headTitles).toBe(1);
       expect(h.lang).toBe('pt');
-      expect(h.title).toBe('Stabileo — Software de engenharia estrutural de código aberto');
+      expect(h.title).toBe('Stabileo — Software de engenharia estrutural de código aberto, IA em desenvolvimento');
       expect(one(h, 'og:title')).toBe(h.title);
       expect(one(h, 'og:locale')).toBe('pt_BR');
       expect(h.meta['og:locale:alternate']).toEqual(ogAlternates('pt'));
