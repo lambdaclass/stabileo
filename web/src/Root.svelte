@@ -14,7 +14,6 @@
    */
   import { tick } from 'svelte';
   import LandingPage from './components/LandingPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
@@ -40,6 +39,13 @@
         ? import('./components/research/load-page').then(m => m.loadResearchPage())
         : import('./components/tools/load-page').then(m => m.loadToolsPage());
       void loading.then(page => { pages[kind] = page; });
+    }
+  });
+
+  let blog = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  $effect(() => {
+    if (current.kind === 'blog' && !blog) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blog = m.default));
     }
   });
 
@@ -108,7 +114,10 @@
   {@const App = app}
   <App />
 {:else if current.kind === 'blog'}
-  <BlogPage path={current.path} />
+  {#if blog}
+    {@const Blog = blog}
+    <Blog path={current.path} />
+  {/if}
 {:else if current.kind === 'research' || current.kind === 'tools'}
   {@const Page = pages[current.kind]}
   {#if Page}<Page path={current.path} />{/if}
