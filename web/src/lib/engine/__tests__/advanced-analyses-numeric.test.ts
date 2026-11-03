@@ -125,8 +125,7 @@ describe('modal', () => {
 
   it('a stable beam soft enough for a microhertz first mode keeps it, scaled as √E', () => {
     const stiff = solveModal(beam(10, 20), densities() as never, 2);
-    const soft = beam(10, 20);
-    soft.materials = new Map([[1, { id: 1, e: E * 1e-12, nu: 0.3, rho: RHO_W }]]);
+    const soft = { ...(beam(10, 20) as object), materials: new Map([[1, { id: 1, e: E * 1e-12, nu: 0.3, rho: RHO_W }]]) };
     const r = solveModal(soft as never, densities() as never, 2);
     expect(r.discardedModes).toEqual([]);
     expect(r.modes).toHaveLength(2);
