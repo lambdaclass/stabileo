@@ -111,6 +111,9 @@ export const es: Translations = {
   'steps.common.loads': 'Cargas',
   'steps.common.span': 'Tramo',
   'steps.common.joint': 'Nudo',
+  'course.statics.vw.p.title': 'Qué calcular',
+  'course.statics.vw.p.nodeAuto': 'Automático o el seleccionado',
+  'course.statics.vw.p.help': 'La carga virtual depende de lo que buscás: una fuerza unitaria para un desplazamiento, un par unitario para un giro, dos fuerzas opuestas para un desplazamiento relativo entre dos nodos y dos pares opuestos para un giro relativo. Automático toma el nodo seleccionado en el modelo o el que más se mueve; en una magnitud relativa, la dirección automática es la recta que une los dos nodos.',
 };
 
 export const en: Translations = {
@@ -218,6 +221,9 @@ export const en: Translations = {
   'steps.common.loads': 'Loads',
   'steps.common.span': 'Span',
   'steps.common.joint': 'Joint',
+  'course.statics.vw.p.title': 'What to compute',
+  'course.statics.vw.p.nodeAuto': 'Automatic or the selected one',
+  'course.statics.vw.p.help': 'The virtual load depends on what you look for: a unit force for a displacement, a unit couple for a rotation, two opposite forces for a relative displacement between two nodes and two opposite couples for a relative rotation. Automatic takes the node selected in the model or the one that moves most; for a relative quantity, the automatic direction is the line joining the two nodes.',
 };
 
 export const pt: Translations = {
@@ -325,4 +331,7 @@ export const pt: Translations = {
   'steps.common.loads': 'Cargas',
   'steps.common.span': 'Vão',
   'steps.common.joint': 'Nó',
+  'course.statics.vw.p.title': 'O que calcular',
+  'course.statics.vw.p.nodeAuto': 'Automático ou o selecionado',
+  'course.statics.vw.p.help': 'A carga virtual depende do que você procura: uma força unitária para um deslocamento, um binário unitário para uma rotação, duas forças opostas para um deslocamento relativo entre dois nós e dois binários opostos para uma rotação relativa. Automático usa o nó selecionado no modelo ou o que mais se desloca; numa grandeza relativa, a direção automática é a reta que une os dois nós.',
 };
