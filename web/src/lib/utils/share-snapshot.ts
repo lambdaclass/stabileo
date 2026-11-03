@@ -97,7 +97,7 @@ function referencesResolve(value: RecordValue): boolean {
   const has = (n: unknown) => nodes.has(n as number);
   const cases = Array.isArray(value.loadCases)
     ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : RESTORED_DEFAULT_CASES;
-  const inCase = (caseId: unknown) => caseId === undefined || cases.has(caseId);
+  const inCase = (caseId: unknown) => cases.has(caseId === undefined ? 1 : caseId);
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)

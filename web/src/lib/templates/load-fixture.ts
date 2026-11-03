@@ -6,6 +6,11 @@
  * consume the same JSON files, eliminating mock divergence.
  */
 
+import { generateCombinations } from '../codes/cirsoc101/combinations';
+import { withOrigin } from '../codes/families';
+import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
+import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
+
 export interface JSONModel {
   name: string;
   materials: Array<{ id: number; [k: string]: unknown }>;
@@ -99,7 +104,7 @@ export interface FixtureLoader {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader): void {
-  const { loadCases, combinations } = fixtureLoadCases(json, api.model);
+  const { loadCases, combinations, rebuilt } = fixtureLoadCases(json, api.model);
   api.model.name = json.name;
 
   // ID remapping: fixture IDs may not match the auto-increment IDs from the API
@@ -294,7 +299,7 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
   api.model.loadCases = loadCases as any;
   api.model.combinations = combinations as any;
   if (json.loadCases.length > 0) api.nextId.loadCase = Math.max(...json.loadCases.map(lc => lc.id)) + 1;
-  if (json.combinations.length > 0) api.nextId.combination = Math.max(...json.combinations.map(c => c.id)) + 1;
+  if (json.combinations.length > 0 || rebuilt) api.nextId.combination = Math.max(0, ...combinations.map(c => (c as { id: number }).id)) + 1;
 
   // Analysis rules, with any member list re-pointed at the ids this load gave the members.
   if (json.analysis) {
@@ -312,27 +317,38 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
 }
 
 type FixtureCombination = { factors?: ReadonlyArray<{ caseId: number }> };
-type FixtureCase = { id: number; type?: string };
+type FixtureCase = { id: number; type?: string; name: string };
+type CodeCombination = { id: number; name: string; factors: Array<{ caseId: number; factor: number }>; origin?: unknown };
+
+/** CIRSOC 101-2025 §2.3.2's strength combinations over `cases`, as signed. Needs the engine. */
+function codeCombinations(cases: ReadonlyArray<FixtureCase>): CodeCombination[] {
+  const specs = generateCombinations({ present: presentSymbols(cases) }).map((c) => withOrigin(c, CIRSOC101_BASIS));
+  return expandCombinations(specs, cases).map((c, i) => ({ id: i + 1, name: c.name, factors: c.factors, ...(c.origin ? { origin: c.origin } : {}) }));
+}
 
 /**
- * The cases and combinations a fixture leaves the model with. A fixture without combinations
- * keeps only the current ones whose every case it has with the type the combination was written
- * for; one whose own combination names a case it lacks is refused.
+ * The cases and combinations a fixture leaves the model with. A fixture with cases of its own and
+ * no combinations keeps the current ones when each of their cases is there with the type it was
+ * written for, and otherwise gets CIRSOC 101-2025's for its cases (`rebuilt`). One whose own
+ * combination names a case it lacks is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
   json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations'>,
   current: { loadCases: ReadonlyArray<FixtureCase>; combinations: readonly C[] },
-): { loadCases: ReadonlyArray<FixtureCase>; combinations: ReadonlyArray<C | JSONModel['combinations'][number]> } {
+): { loadCases: ReadonlyArray<FixtureCase>; combinations: ReadonlyArray<C | CodeCombination>; rebuilt: boolean } {
   const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
   const typeOf = (cases: ReadonlyArray<FixtureCase>) => new Map(cases.map((c) => [c.id, c.type ?? '']));
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
-  const kept = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
-  if (json.combinations.length === 0) return { loadCases, combinations: current.combinations.filter(kept) };
-  const dangling = json.combinations.filter((c) => !(c.factors ?? []).every((f) => now.has(f.caseId)));
+  if (json.combinations.length === 0) {
+    const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
+    if (current.combinations.every(fits)) return { loadCases, combinations: current.combinations, rebuilt: false };
+    return { loadCases, combinations: codeCombinations(loadCases), rebuilt: true };
+  }
+  const dangling = json.combinations.filter((c) => !c.factors.every((f) => now.has(f.caseId)));
   if (dangling.length > 0) {
     throw new Error(`${json.name}: combination ${dangling.map((c) => `"${c.name}"`).join(', ')} names a load case the model does not have`);
   }
-  return { loadCases, combinations: json.combinations };
+  return { loadCases, combinations: json.combinations, rebuilt: false };
 }
 
 function withoutId(obj: Record<string, unknown>): Record<string, unknown> {

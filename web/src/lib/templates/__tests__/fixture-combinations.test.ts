@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { fixtureLoadCases, loadFixture, type JSONModel } from '../load-fixture';
@@ -24,8 +24,15 @@ const emptyFixture = (over: Partial<JSONModel>): JSONModel => ({
   plates: [], quads: [], constraints: [], loadCases: [], combinations: [], ...over,
 });
 
+const startMode = uiStore.analysisMode;
+
 beforeAll(async () => {
   await initSolver();
+});
+
+afterEach(() => {
+  modelStore.clear();
+  uiStore.analysisMode = startMode;
 });
 
 describe('an example leaves no combination naming a case it does not have', () => {
@@ -33,6 +40,9 @@ describe('an example leaves no combination naming a case it does not have', () =
     const { loadCases, combinations } = fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
     expect(missingCases(loadCases, combinations)).toEqual([]);
     expect(combinations.length, 'an example with cases keeps combinations to solve').toBeGreaterThan(0);
+    const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
+    const combined = new Set(combinations.flatMap((c) => (c.factors ?? []).filter((f) => f.factor !== 0).map((f) => f.caseId)));
+    if (loaded.size > 1) expect([...loaded].filter((id) => !combined.has(id)), 'a loaded case in no combination').toEqual([]);
   });
 });
 
@@ -61,18 +71,25 @@ describe('the stadium canopy', () => {
 });
 
 describe('a fixture that brings its own cases', () => {
-  it('drops the default combinations that name a case it lacks, and keeps the rest', async () => {
+  it('gets the CIRSOC 101-2025 combinations of its cases when a default names a case it lacks', async () => {
     uiStore.analysisMode = '3d';
     modelStore.clear();
-    loadFixture(emptyFixture({ loadCases: [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }] }), modelStore.fixtureApi() as never);
-    expect(modelStore.model.combinations.map((c) => c.id)).toEqual([1, 2]);
+    const cases = [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }];
+    loadFixture(emptyFixture({ loadCases: cases }), modelStore.fixtureApi() as never);
+    const expected = expandCombinations(generateCombinations({ present: presentSymbols(cases) }), cases);
+    expect(modelStore.model.combinations.map((c) => [c.name, c.factors])).toEqual(expected.map((c) => [c.name, c.factors]));
     expect(missingCases(modelStore.model.loadCases, modelStore.model.combinations)).toEqual([]);
+    const next = modelStore.addCombination('mine', [{ caseId: 1, factor: 1 }]);
+    expect(next).toBe(expected.length + 1);
   });
 
-  it('drops the default combinations whose case it has under another type', () => {
-    const json = emptyFixture({ loadCases: [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'Lr', name: 'Lr' }, { id: 3, type: 'W', name: 'W' }] });
-    const { combinations } = fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
-    expect(combinations.map((c) => c.name)).toEqual(['1.4D']);
+  it('gets them too when a default would take one of its cases under another type, and every case is combined', () => {
+    const cases = [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'Lr', name: 'Lr' }, { id: 3, type: 'W', name: 'W' }];
+    const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+    expect(rebuilt).toBe(true);
+    const expected = expandCombinations(generateCombinations({ present: presentSymbols(cases) }), cases);
+    expect(combinations.map((c) => [c.name, c.factors])).toEqual(expected.map((c) => [c.name, c.factors]));
+    for (const c of cases) expect(combinations.some((k) => k.factors.some((f) => f.caseId === c.id && f.factor !== 0)), c.type).toBe(true);
   });
 
   it('is refused, before anything is loaded, when its own combination names a case it lacks', () => {

@@ -134,12 +134,28 @@ describe('shared-link importer', () => {
       loadCaseWithNoCases: p => { p.loadCases = []; p.loads[0].data.caseId = 1; },
       combinationWithoutCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.combinations = [{ id: 1, name: 'ULS', factors: [{ factor: 1.4 }] }]; },
       stringCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: '1.4' }] }]; },
+      implicitCaseWithNoCases: p => { p.loadCases = []; delete p.loads[0].data.caseId; },
+      implicitCaseNotListed: p => { p.loadCases = [{ id: 2, name: 'Live' }]; delete p.loads[0].data.caseId; },
+      combinationWithoutFactors: p => { p.combinations = [{ id: 1, name: 'ULS' }]; },
+      nullCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [null] }]; },
+      loadWithoutData: p => { delete p.loads[0].data; },
+      nullLoadData: p => { p.loads[0].data = null; },
     };
     for (const [name, fault] of Object.entries(faults)) {
       const payload = legacy();
       fault(payload);
       expect(prepareSharedSnapshot(payload), name).toBeNull();
     }
+  });
+
+  it('reads a load without a case as case 1, with the restored cases or the listed ones', () => {
+    const restored = legacy();
+    delete restored.loads[0].data.caseId;
+    expect(prepareSharedSnapshot(restored)).not.toBeNull();
+    const listed = legacy();
+    listed.loadCases = [{ id: 1, name: 'Dead' }];
+    delete listed.loads[0].data.caseId;
+    expect(prepareSharedSnapshot(listed)?.loads).toHaveLength(1);
   });
 
   it('accepts connectors, constraints and combinations that resolve', () => {
