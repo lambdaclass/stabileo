@@ -253,7 +253,7 @@ function axialPeakStations(loads: readonly SolverLoad[], id: number, L: number):
 export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOptions): PlasticCollapseResult {
   const S = opts.samples ?? 200;
   const maxEvents = opts.maxEvents ?? 200;
-  const MAX_CLOSINGS = 10;
+  const MAX_CLOSINGS = maxEvents;
   const work = cloneInput(original);
 
   const kin0 = analyzeKinematics(original);
