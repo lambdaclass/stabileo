@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import Hint from './Hint.svelte';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
@@ -230,6 +231,12 @@
   // ─── 2. Modal ───────────────────────────────────────────────────
 
   let modalResult = $state<any | null>(null);
+  let modalGroup = $state<HTMLDivElement | undefined>();
+  $effect(() => {
+    if (!modalResult || !modalGroup) return;
+    const group = modalGroup;
+    void tick().then(() => group.scrollIntoView({ block: 'start' }));
+  });
   let numModes = $state(6);
   /** Add modes until 90 % of the mass participates in X and in Y (INPRES-CIRSOC 103 asks for it). */
   let modalAuto = $state(false);
@@ -1049,7 +1056,7 @@
     </div>
 
     <!-- ── 2. Modal ── -->
-    <div class="adv-group modal-group">
+    <div class="adv-group modal-group" bind:this={modalGroup}>
       <div class="adv-row">
         <button class="adv-run-btn" onclick={handleModal} disabled={!hasModel || solving} data-testid="adv-run-modal">{t('pro.adv.modal')}</button>
         <label class="adv-label">
@@ -2147,6 +2154,7 @@
   .cum-warn { color: var(--st-warn); }
   .adv-limits { margin: 0 0 6px; padding: 4px 8px 4px 20px; font-size: 0.66rem; color: var(--st-warn); background: var(--st-surface-2); border-radius: 3px; }
   .adv-mode-row { cursor: pointer; }
+  .modal-group { scroll-margin-top: 8px; }
   .adv-mode-row:hover td { background: var(--st-surface-2, rgba(255,255,255,0.04)); }
   .adv-mode-on td { color: var(--st-accent); }
   .adv-refused { margin: 4px 0 0; font-size: 0.7rem; color: var(--st-warn); line-height: 1.4; }
