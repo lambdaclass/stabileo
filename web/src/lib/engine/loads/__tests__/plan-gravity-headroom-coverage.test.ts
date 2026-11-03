@@ -442,3 +442,36 @@ describe('a concave roof-structure ring under trusses, one low beam and a small 
     expect(my / force).toBeCloseTo(cy, 6);
   });
 });
+
+describe('a roof-structure ring with another ring inside it', () => {
+  it('loads the uncovered area once, the inner ring keeping its own part', () => {
+    const b = builder();
+    const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
+    const ring = corners.map(([x, y]) => b.node(x, y, 3));
+    corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+    ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+    const inner = ([[2, 1.2], [4, 1.2], [4, 1.8], [2, 1.8]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 3));
+    inner.forEach((id, i) => b.bar(id, inner[(i + 1) % 4]!));
+    b.bar(b.node(2, 1.2, 0), inner[0]!);
+    for (const y of [0, 3, 6]) b.bar(b.node(0, y, 4), b.node(6, y, 4));
+    const model = b.model();
+    const levelIds = new Set([...model.elements.values()].filter((e) => model.nodes.get(e.nodeI)!.z === 3 && model.nodes.get(e.nodeJ)!.z === 3).map((e) => e.id));
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 2 });
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(2 * 6, 6);
+    let force = 0, mx = 0, my = 0;
+    for (const p of layout.pieces.filter((q) => levelIds.has(q.elementId))) {
+      const e = model.elements.get(p.elementId)!;
+      const n0 = model.nodes.get(e.nodeI)!, n1 = model.nodes.get(e.nodeJ)!;
+      const L = Math.hypot(n1.x - n0.x, n1.y - n0.y), s = (p.a! + p.b!) / 2, f = p.wI * (p.b! - p.a!);
+      force += f; mx += f * (n0.x + ((n1.x - n0.x) * s) / L); my += f * (n0.y + ((n1.y - n0.y) * s) / L);
+    }
+    for (const p of layout.points.filter((q) => levelIds.has(q.elementId))) {
+      const n = model.nodes.get(p.nodeId)!;
+      force += p.w; mx += p.w * n.x; my += p.w * n.y;
+    }
+    expect(force).toBeCloseTo(12, 6);
+    expect(mx / force).toBeCloseTo(3, 6);
+    expect(my / force).toBeCloseTo(3, 6);
+  });
+});

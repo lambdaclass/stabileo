@@ -53,7 +53,8 @@ panel's own sides, so a roof is read alike at any angle in plan), all of it less
 2.2 m above carry all of it: loaded panels, the tributary strips of members loaded by width, and
 (by panels) shells, and the parts a panel or member within the roof's structure kept for itself,
 checked top-down. Otherwise the part of its area they do not carry stays on the panel as roof
-load, found exactly as the panel's plan less theirs (polygon difference; geometry that cannot be
+load, found exactly as the panel's plan less theirs and less the panels nested in it, which load
+their own area (polygon difference; geometry that cannot be
 resolved keeps the whole panel), so a 0.05 m gap between two strips keeps 0.05 m of width and no
 more. A member loaded by width keeps the part of its tributary strip they do not carry, each of
 200 stretches of the member taking the part of it that lies beside that stretch, centred on where

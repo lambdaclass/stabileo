@@ -298,7 +298,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
-        const { share, kept } = deck!.uncarried(panel.polygon, z, held);
+        const nested = (levels.get(z)?.res.panels ?? []).filter((o) => o !== panel && o.area < panel.area && o.polygon.every((q) => inside(q, panel.polygon)));
+        const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
         fringeKept.set(panel, kept);
@@ -484,7 +485,7 @@ function notADeck(
   shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
-  uncarried: (area: Array<[number, number]>, z: number, held: Held) => { share: number; kept: Region };
+  uncarried: (area: Array<[number, number]>, z: number, held: Held, holes?: Array<Array<[number, number]>>) => { share: number; kept: Region };
 } {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
@@ -538,14 +539,15 @@ function notADeck(
    * of `area`: what is left once the loaded panels, the tributary strips of members kept by width
    * (over the stretch of each that is low), the shells loaded by panels (all of whose corners are
    * low) and what panels and members within the roof's structure kept for themselves are taken
-   * away. Geometry that cannot be resolved keeps all of `area`.
+   * away, as are `holes`, the panels nested in it that load their own area. Geometry that cannot be
+   * resolved keeps all of `area`.
    */
-  const uncarried = (area: Array<[number, number]>, z: number, held: Held): { share: number; kept: Region } => {
+  const uncarried = (area: Array<[number, number]>, z: number, held: Held, holes: Array<Array<[number, number]>> = []): { share: number; kept: Region } => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
     const whole: Region = [[closeRing(area)]];
-    const total = regionArea(whole);
+    const cover: Region[] = holes.map((h) => [[closeRing(h)]]);
+    const total = regionArea(whole) - cover.reduce((s, h) => s + regionArea(h), 0);
     if (!(total > 1e-12)) return { share: 1, kept: whole };
-    const cover: Region[] = [];
     for (const p of held.panels) if (low(p.z - z)) cover.push([[closeRing(p.poly)]]);
     for (const k of held.kept) if (low(k.z - z)) cover.push(k.region);
     if (shellsLoaded) for (const c of carriers) if (c.pts.every((p) => low(p[2] - z))) cover.push([[closeRing(c.poly)]]);
