@@ -3453,6 +3453,7 @@ const hi: Translations = {
   'design.error.codeUnsupported': '{code} सुदृढीकरण डिज़ाइन नहीं कर सकता — यह केवल दी गई व्यवस्था का मूल्यांकन कर सकता है।',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',
   'design.error.concreteFyReadAsSteel': 'No member could be treated as concrete: material “{material}”, used by {n} members, has fy = {fy} MPa. For a concrete, fy holds f′c (H-30 → 30); the rebar is taken as ADN 420 separately. Correct the material and solve again.',
+  'design.error.concreteStrengthMissing': 'किसी भी सदस्य की जाँच नहीं हो सकी: {n} सदस्यों द्वारा उपयोग किए गए सामग्री “{material}” में f′c नहीं है। कंक्रीट के लिए fy फ़ील्ड में f′c भरें (H-30 → 30) और फिर से गणना करें।',
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) state none. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': 'इस मॉडल के लिए {code} द्वारा कोई अवयव जाँचा नहीं गया।',

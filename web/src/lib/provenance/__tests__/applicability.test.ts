@@ -147,6 +147,21 @@ describe('which registered changes concern a model', () => {
     expect(ids(model({ quads: [[1, {}]] as never }))).toContain(change);
   });
 
+  it('tells CIRSOC 301 steel models solved before the Q ≤ 0 refusal about it', () => {
+    const change = 'cirsoc301-q-nonpositive-refused';
+    const steel = model({ elements: [member(1, 1, 'frame')] });
+    expect(ids(steel, { resultsVersion: 11, analyses: ['linear'] } as SolveStamp)).toContain(change);
+    expect(ids(steel, { resultsVersion: 12, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    expect(ids(model({ elements: [member(1, 2, 'frame')] }))).not.toContain(change);
+    const ec3 = model({ elements: [member(1, 1, 'frame')], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } });
+    expect(ids(ec3)).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

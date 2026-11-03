@@ -38,7 +38,7 @@ even when no snapshot changes. New entries cannot reuse a released version, and
 released entries cannot be removed or renumbered. PRs #807 and #814 both proposed
 version 5 while main was at 4: whichever merges second must preserve the first
 PR's entries and use version 6, updating the pinned version sets, fixture stamp
-and hashes, and documentation. #814 released version 5; #817 (buckling certificate) took 6; #1233 (column design axes) took 7; #1236 (EC2 strain compatibility) took 8; #827 (modal completeness, issue #759) took 9; #865 (self-checks) took 10; #1237 (shell envelope per component) took 11.
+and hashes, and documentation. #814 released version 5; #817 (buckling certificate) took 6; #1233 (column design axes) took 7; #1236 (EC2 strain compatibility) took 8; #827 (modal completeness, issue #759) took 9; #865 (self-checks) took 10; #1237 (shell envelope per component) took 11; #1246 (CIRSOC 301 Q ≤ 0 refused) took 12.
 
 The registry is seeded with every behaviour change of the October 2026 safety wave
 (`docs/MERGE_PLAN_SAFETY_WAVE.md` section 3) and the earlier BREAKING entries of `CHANGELOG.md`,
@@ -49,6 +49,14 @@ wind minimum and the earth-pressure dead load, #581 and #593); version 3, the co
 version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #460 and #461
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
+
+## CIRSOC 301 Qa ≤ 0 refused (PR #1246, issue #467)
+
+Results version 12, after #1237's 11, registers `cirsoc301-q-nonpositive-refused`: a CIRSOC 301 compression member whose §E.7
+reduction gave Qa ≤ 0, or whose Fcr exceeded Fy, is held instead of passed above its squash load
+(SA-2026-030). The same entry covers the CHS Q of E.7.2(c), now capped at 1: round tubes with
+D/t just above 0.11·E/Fy, consistent ones included, lose up to 1.2 % of compression capacity.
+Other consistent sections give the same numbers.
 
 ## Solid-shell local stress axes (PR #814, issue #757)
 

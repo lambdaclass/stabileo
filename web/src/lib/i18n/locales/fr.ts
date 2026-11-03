@@ -7155,6 +7155,7 @@ const fr: Translations = {
   'design.error.codeUnsupported': '{code} ne peut pas dimensionner les armatures — elle peut seulement évaluer une disposition donnée.',
   'design.error.noConcreteMembers': '{code} est la norme du béton armé et ce modèle n\'a aucune barre en béton : ses {n} barres sont toutes en acier. Le flux de dimensionnement des armatures ne s\'applique pas à cette structure.',
   'design.error.concreteFyReadAsSteel': 'Aucune barre n\'a pu être traitée comme du béton : le matériau « {material} », utilisé par {n} barres, a fy = {fy} MPa. Pour un béton, le champ fy contient f′c (H-30 → 30) ; l\'armature est prise séparément en ADN 420. Corrigez le matériau et relancez le calcul.',
+  'design.error.concreteStrengthMissing': 'Aucune barre n\'a pu être vérifiée : le matériau « {material} », utilisé par {n} barres, n\'a pas de f′c. Pour un béton, le champ fy contient f′c (H-30 → 30) : renseignez-le et relancez le calcul.',
   'design.error.noRectangularSections': '{code} ne peut vérifier que des sections rectangulaires b×h, et {n} barre(s) en béton n\'en déclarent aucune. Affectez-leur une section rectangulaire pour les dimensionner.',
   'design.error.noConcreteMembersMixed': '{code} n\'a trouvé aucune barre vérifiable : {steel} en acier et {other} sans section ou matériau utilisable.',
   'design.error.nothingChecked': 'Aucune barre n\'a été vérifiée par {code} pour ce modèle.',
