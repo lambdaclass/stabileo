@@ -132,6 +132,9 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     }
 
     // Build constraint system (if constraints present)
+    if !input.solver.constraints.is_empty() {
+        return Err(CONSTRAINTS_REFUSED.to_string());
+    }
     let cs = FreeConstraintSystem::build_2d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -902,6 +905,9 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
     }
 
     // Build constraint system (if constraints present)
+    if !input.solver.constraints.is_empty() {
+        return Err(CONSTRAINTS_REFUSED.to_string());
+    }
     let cs = FreeConstraintSystem::build_3d(&input.solver, &dof_num)?;
     let ns = cs.as_ref().map_or(nf, |c| c.n_free_indep);
 
@@ -1497,7 +1503,6 @@ pub(crate) fn wrench_equilibrium(
     rel_residual: f64,
     tolerance: f64,
     n_dof: usize,
-    constraints: &[Constraint],
 ) -> WrenchBalance {
     let mut lo = [f64::INFINITY; 3];
     let mut hi = [f64::NEG_INFINITY; 3];
@@ -1538,9 +1543,11 @@ pub(crate) fn wrench_equilibrium(
         max_imbalance: force.max(moment),
         equilibrium_ok: within(force) && within(moment),
     };
-    let gate = !constraints.is_empty() || summary.equilibrium_ok;
+    let gate = summary.equilibrium_ok;
     WrenchBalance { summary, applied: a, reactions: r, gate }
 }
+
+pub(crate) const CONSTRAINTS_REFUSED: &str = "Fiber-nonlinear analysis: constraints are not supported, because the global force and moment balance of a constrained model cannot be checked without the constraint forces; model the link with elements instead";
 
 pub(crate) struct WrenchBalance {
     pub summary: EquilibriumSummary,
@@ -1624,7 +1631,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
     let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
     let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
-    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free, &input.solver.constraints);
+    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
     let (a, r) = (balance.applied, balance.reactions);
     balance.summary.applied_force_sum = vec![a[0], a[2], -a[4]];
     balance.summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
@@ -1675,7 +1682,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
     let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
     let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
-    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free, &input.solver.constraints);
+    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
     balance.summary.applied_force_sum = balance.applied.to_vec();
     balance.summary.reaction_force_sum = balance.reactions.to_vec();
     (reactions, balance)
@@ -1902,28 +1909,17 @@ mod tests {
     fn wrench_equilibrium_judges_a_pure_moment_on_the_model_scale() {
         let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
         let couple = |m: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0; 3], m: [0.0, m, 0.0] };
-        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-80.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-80.0, 0.0)], 0.0, 1e-8, 6).summary;
         assert!(eq.equilibrium_ok && eq.max_imbalance == 0.0, "{eq:?}");
-        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[], 0.0, 1e-8, 6, &[]).summary;
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[], 0.0, 1e-8, 6).summary;
         assert!(!eq.equilibrium_ok, "an unreacted couple must fail: {eq:?}");
         assert!((eq.max_imbalance - 80.0 / 4.0).abs() < 1e-12, "{eq:?}");
-        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-79.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-79.0, 0.0)], 0.0, 1e-8, 6).summary;
         assert!(!eq.equilibrium_ok, "{eq:?}");
         let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
-        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0)], 0.0, 1e-8, 6).summary;
         assert!(!eq.equilibrium_ok, "forces balance but the 40 kN·m couple of the pair is unreacted: {eq:?}");
-        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6).summary;
         assert!(eq.equilibrium_ok, "{eq:?}");
-    }
-
-    #[test]
-    fn constraints_leave_the_balance_reported_but_ungated() {
-        let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
-        let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
-        let link = Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 2, dofs: vec![] });
-        let unconstrained = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(9.0, 0.0)], 0.0, 1e-8, 6, &[]);
-        assert!(!unconstrained.gate && !unconstrained.summary.equilibrium_ok);
-        let constrained = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(9.0, 0.0)], 0.0, 1e-8, 6, &[link]);
-        assert!(constrained.gate && !constrained.summary.equilibrium_ok);
     }
 }

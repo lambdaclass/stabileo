@@ -231,3 +231,11 @@ fn collapse_load_converges_to_mp_over_l_as_the_mesh_is_refined() {
     assert!(fine < coarse, "coarse {coarse}, fine {fine}");
     assert!(fine < 0.02, "fine-mesh collapse load off Mp/L by {fine}");
 }
+
+#[test]
+fn a_constrained_model_is_refused_since_its_global_balance_cannot_be_checked() {
+    let mut input = cantilever_2d(FiberMaterial::Elastic { e: E }, tip_load(10.0), 1);
+    input.solver.constraints = vec![Constraint::RigidLink(RigidLinkConstraint { master_node: N_EL, slave_node: N_EL + 1, dofs: vec![0, 1, 2] })];
+    let err = solve_fiber_nonlinear_2d(&input).err().expect("a constrained fiber model must be refused");
+    assert!(err.contains("constraints are not supported"), "{err}");
+}
