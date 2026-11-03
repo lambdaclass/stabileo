@@ -92,9 +92,10 @@ describe('aluminium', () => {
   });
 
   it('weak-axis shear of a rectangular tube uses the walls along its width', () => {
-    const s = { kind: 'RHS' as const, b: 0.1, h: 0.2, t: 0.005, a: 0.0029, iy: 1.5e-5, iz: 5.1e-6, j: 1.1e-5 };
+    const s = { kind: 'RHS' as const, b: 0.1, h: 0.15, t: 0.01, a: 0.0046, iy: 1.3e-5, iz: 6.6e-6, j: 1.3e-5 };
+    expect(sectionClass(s, 240, 'A').compression).toBeLessThan(4);
     const rows = aluminiumCheckRows(s, { fo: 240, fu: 260, designation: '6061-T6' }, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0, vWeak: 100, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
-    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')?.capacity).toBeCloseTo((2 * 0.005 * 0.09 * 240) / (Math.sqrt(3) * 1.1) * 1000, 2);
+    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')?.capacity).toBeCloseTo((2 * 0.01 * 0.08 * 240) / (Math.sqrt(3) * 1.1) * 1000, 2);
   });
 
   it('a slender I section is class 4 and is not evaluated, a stocky one is', () => {
