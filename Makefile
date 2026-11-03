@@ -1,6 +1,6 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.visual e2e.web.flaky \
+       web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        test.ci-scripts test.nightly-scripts \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
@@ -258,7 +258,10 @@ test.web.unit:
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
+
+test.web.timing:
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
@@ -294,7 +297,10 @@ e2e.web.smoke:
 	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/smoke.json npx playwright test --grep @smoke --grep-invert @flaky $(if $(SHARD),$$(node scripts/e2e-shard.mjs $(subst /, ,$(SHARD))))'
 
 e2e.web.slow:
-	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
+	$(NIX_RUN) bash -c 'cd web && E2E_JSON_REPORT=e2e/.results/slow.json NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx playwright test --grep "@slow" --grep-invert "visual baselines|@flaky" $(if $(SHARD),$$(node scripts/e2e-shard.mjs --suite slow $(subst /, ,$(SHARD))))'
+
+e2e.web.timing:
+	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "@slow" e2e/rebar-workspace-open.spec.ts e2e/model-fluidity.spec.ts'
 
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
@@ -358,6 +364,7 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py
 	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml
 
