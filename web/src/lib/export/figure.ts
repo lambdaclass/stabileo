@@ -43,6 +43,7 @@ export function resultSetName(): string {
     return modelStore.loadCases.find((c) => c.id === resultsStore.activeCaseId)?.name ?? `${t('pro.caseN')}${resultsStore.activeCaseId}`;
   }
   if (v === 'envelope') return resultsStore.viewedEnvelopeName ?? t('tables.mode.envelope');
+  if (v === 'single' && Math.max(resultsStore.perCase3D.size, resultsStore.perCase.size) > 1) return t('tables.shownSum');
   return t('tables.shown');
 }
 
