@@ -266,6 +266,8 @@ jobs:
           .github/scripts/retry-infra.sh nix develop --command true
       - name: Shellcheck
         run: make test.ci-scripts
+      - name: Prepare the browser shell (infrastructure retries)
+        run: .github/scripts/retry-infra.sh nix develop .#e2e --command true
       - name: Browser shell (.#e2e) launches Chromium and Firefox
         run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
 
