@@ -689,8 +689,9 @@ smoke budget (PR [#869](https://github.com/lambdaclass/stabileo/pull/869)). Brow
 
 **From the verified review (2026-11-02), P1:**
 
-- **Contain the lower-severity open defects too** (item 7, [#447](https://github.com/lambdaclass/stabileo/issues/447)): [#741](https://github.com/lambdaclass/stabileo/issues/741)/[#818](https://github.com/lambdaclass/stabileo/issues/818)
-  buckling factor above its certified bound (about 0.05%); [#456](https://github.com/lambdaclass/stabileo/issues/456) 3D buckling averages end
+- **Contain the lower-severity open defects too** (item 7, [#447](https://github.com/lambdaclass/stabileo/issues/447)): [#818](https://github.com/lambdaclass/stabileo/issues/818)
+  the dense reciprocal eigen-solve can report a buckling factor slightly above the true one (0.05%
+  in #741's case; #741 itself, a certified factor above its own bound, is fixed on main by #817); [#456](https://github.com/lambdaclass/stabileo/issues/456) 3D buckling averages end
   forces (mostly false refusals); [#419](https://github.com/lambdaclass/stabileo/issues/419) 3D connector axes; [#408](https://github.com/lambdaclass/stabileo/issues/408) warping shared at a node
   with the UI silent; [#417](https://github.com/lambdaclass/stabileo/issues/417) cable in compression caught only in TypeScript.
 - **Research crate lists drawn from `research/papers.yaml`:** `supply-chain.yml` skips
