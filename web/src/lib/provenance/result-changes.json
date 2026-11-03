@@ -1,8 +1,42 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 5,
+  "currentResultsVersion": 14,
   "changes": [
+    {
+      "id": "generated-area-loads-headroom",
+      "resultsVersion": 14,
+      "date": "2026-11-03",
+      "prs": [
+        1253
+      ],
+      "area": "loads",
+      "when": {
+        "any": [
+          "generatedLoads"
+        ]
+      },
+      "title": {
+        "en": "Load generator: a floor partly under low roof structure keeps its area loads",
+        "es": "Generador de cargas: un piso en parte bajo estructura de techo baja conserva sus cargas de área",
+        "pt": "Gerador de cargas: um piso em parte sob estrutura de cobertura baixa mantém suas cargas de área",
+        "de": "Lastgenerator: eine Decke, die teilweise unter niedrigem Dachtragwerk liegt, behält ihre Flächenlasten",
+        "fr": "Générateur de charges : un plancher en partie sous une structure de toiture basse garde ses charges surfaciques",
+        "tr": "Yük üreteci: kısmen alçak çatı taşıyıcı sisteminin altındaki bir döşeme alan yüklerini koruyor"
+      },
+      "explanation": {
+        "en": "Since 2026-11-03 (#1076) \"Generate loads from the code\" left out a panel as the roof's structure when every member found over it was less than 2.2 m above, ignoring the parts of the panel with nothing over them: a floor with one low beam over one edge lost all its dead, live and roof live area load, with only a count in the derivation (SA-2026-033). A panel is now left out only when roof structure lies over all of it, all under 2.2 m, and the deck or beam over its centre is under 2.2 m too; trusses count as roof structure. A panel or member only partly under low structure keeps its load and is named in the derivation. Saved loads do not change: generate the loads again for models whose loads came from the generator.",
+        "es": "Desde el 2026-11-03 (#1076) «Generar cargas desde el reglamento» dejaba fuera un paño como estructura del techo cuando todas las barras halladas sobre él estaban a menos de 2,2 m, sin mirar las partes del paño sin nada encima: un piso con una sola viga baja sobre un borde perdía toda su carga de área permanente, de uso y de uso de techo, con solo un conteo en la derivación (SA-2026-033). Ahora un paño queda fuera solo cuando la estructura del techo lo cubre entero, toda a menos de 2,2 m, y el entrepiso o la viga sobre su centro también está a menos de 2,2 m; las cerchas cuentan como estructura del techo. Un paño o una barra solo en parte bajo estructura baja conserva su carga y se nombra en la derivación. Las cargas guardadas no cambian: vuelva a generar las cargas en los modelos cuyas cargas vienen del generador.",
+        "pt": "Desde 2026-11-03 (#1076) \"Gerar cargas a partir da norma\" deixava de fora um painel como estrutura da cobertura quando todas as barras encontradas sobre ele estavam a menos de 2,2 m, sem olhar as partes do painel sem nada por cima: um piso com uma única viga baixa sobre uma borda perdia toda a sua carga de área permanente, de uso e de uso da cobertura, com apenas uma contagem na derivação (SA-2026-033). Agora um painel fica de fora só quando a estrutura da cobertura o cobre inteiro, toda a menos de 2,2 m, e o piso ou a viga sobre o seu centro também está a menos de 2,2 m; as treliças contam como estrutura da cobertura. Um painel ou uma barra só em parte sob estrutura baixa mantém sua carga e é nomeado na derivação. As cargas salvas não mudam: gere as cargas de novo nos modelos cujas cargas vêm do gerador.",
+        "de": "Seit 2026-11-03 (#1076) ließ „Lasten aus der Norm erzeugen“ ein Feld als Dachtragwerk weg, wenn alle darüber gefundenen Stäbe weniger als 2,2 m darüber lagen, ohne die Teile des Felds ohne etwas darüber zu beachten: eine Decke mit einem einzigen niedrigen Träger über einem Rand verlor ihre gesamte ständige Flächenlast, Nutzlast und Dachnutzlast, mit nur einer Zählung in der Herleitung (SA-2026-033). Ein Feld wird jetzt nur weggelassen, wenn Dachtragwerk über dem ganzen Feld liegt, überall unter 2,2 m, und auch die Decke oder der Träger über seiner Mitte unter 2,2 m liegt; Fachwerke zählen als Dachtragwerk. Ein Feld oder Stab nur teilweise unter niedrigem Tragwerk behält seine Last und wird in der Herleitung genannt. Gespeicherte Lasten ändern sich nicht: Erzeugen Sie die Lasten für Modelle, deren Lasten aus dem Generator stammen, erneut.",
+        "fr": "Depuis le 2026-11-03 (#1076), « Générer les charges selon la norme » écartait un panneau comme structure de la toiture quand toutes les barres trouvées au-dessus étaient à moins de 2,2 m, sans regarder les parties du panneau sans rien au-dessus : un plancher avec une seule poutre basse au-dessus d'un bord perdait toute sa charge surfacique permanente, d'exploitation et d'exploitation de toiture, avec un simple décompte dans la dérivation (SA-2026-033). Un panneau n'est désormais écarté que si la structure de la toiture le couvre entièrement, partout à moins de 2,2 m, et si le plancher ou la poutre au-dessus de son centre est aussi à moins de 2,2 m ; les fermes comptent comme structure de toiture. Un panneau ou une barre seulement en partie sous une structure basse garde sa charge et est nommé dans la dérivation. Les charges enregistrées ne changent pas : générez de nouveau les charges des modèles dont les charges viennent du générateur.",
+        "tr": "2026-11-03'ten beri (#1076) \"Yönetmelikten yük üret\", üzerinde bulunan bütün elemanlar 2,2 m'den daha az yukarıda olduğunda bir paneli çatı taşıyıcı sistemi sayıp dışarıda bırakıyordu; panelin üstünde hiçbir şey olmayan kısımlarına bakmıyordu: bir kenarının üstünde tek bir alçak kiriş olan bir döşeme bütün sabit, hareketli ve çatı hareketli alan yükünü kaybediyor, türetmede yalnızca bir sayım kalıyordu (SA-2026-033). Artık bir panel ancak çatı taşıyıcı sistemi panelin tamamını örttüğünde, her yerde 2,2 m'nin altında olduğunda ve merkezinin üstündeki döşeme veya kiriş de 2,2 m'nin altında olduğunda dışarıda bırakılıyor; kafes kirişler çatı taşıyıcı sistemi sayılıyor. Yalnızca kısmen alçak sistemin altında kalan bir panel veya eleman yükünü koruyor ve türetmede adıyla anılıyor. Kaydedilmiş yükler değişmez: yükleri üreteçten gelen modellerde yükleri yeniden üretin."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-033-generated-area-loads-headroom.md",
+        "heading": "SA-2026-033: The load generator dropped a floor's area loads when one low member stood over part of it"
+      }
+    },
     {
       "id": "solid-shell-local-stress-axes",
       "resultsVersion": 5,

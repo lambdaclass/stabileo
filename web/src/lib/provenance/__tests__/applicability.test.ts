@@ -116,6 +116,20 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells models with generated loads about SA-2026-033, and no other model', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const generated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }] });
+    const v13 = { resultsVersion: 13, analyses: ['linear'] } as SolveStamp;
+    expect(ids(generated, v13)).toContain('generated-area-loads-headroom');
+    expect(ids(generated, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).not.toContain('generated-area-loads-headroom');
+    expect(ids(frame, v13)).not.toContain('generated-area-loads-headroom');
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

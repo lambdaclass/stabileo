@@ -49,6 +49,15 @@ version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #4
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
 
+## Generated area loads under low roof structure (PR #1253, after #1076)
+
+Results version 14 (provisional: versions 7 to 13 are held by PRs in flight, and the merge
+captain renumbers it to main's next free version at landing) registers
+`generated-area-loads-headroom`: the load generator no longer leaves out a panel's area loads when
+low roof structure stands over only part of it, and counts trusses as roof structure
+(SA-2026-033). It concerns models whose loads came from the generator (`generatedLoads`); saved
+loads change only when generated again.
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
