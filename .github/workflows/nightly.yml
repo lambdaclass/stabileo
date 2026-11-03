@@ -53,6 +53,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_JOBS: 2
+  CARGO_HTTP_MULTIPLEXING: false
 
 jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
@@ -345,7 +346,7 @@ jobs:
   fuzz:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' fuzz ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_NIGHTLY_POOL == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 180
     strategy:
       fail-fast: false
