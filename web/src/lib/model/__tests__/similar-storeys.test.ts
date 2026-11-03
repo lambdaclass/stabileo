@@ -96,7 +96,7 @@ describe('master and similar storeys', () => {
     const m = { nodes, elements } as StoreyModel;
     expect(expandToStoreys(m, levels, { elements: [1], nodes: [], shells: [] }, 'similar').elements.sort()).toEqual([1, 2]);
     expect(expandToStoreys(m, levels, { elements: [], nodes: [1], shells: [] }, 'similar').nodes.sort()).toEqual([1, 3]);
-    const far = new Map(nodes).set(3, { x: 0.0160, y: 0, z: 6 });
+    const far = new Map(nodes).set(3, { x: 0.0205, y: 0, z: 6 });
     expect(expandToStoreys({ nodes: far, elements } as StoreyModel, levels, { elements: [1], nodes: [], shells: [] }, 'similar').unmatched).toHaveLength(1);
   });
 
