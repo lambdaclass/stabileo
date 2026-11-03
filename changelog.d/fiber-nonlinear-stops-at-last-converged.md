@@ -6,7 +6,8 @@ collapse), `solve_fiber_nonlinear_2d/3d` returned the last unconverged iterate, 
 the whole run. They now return the state at the last converged increment with
 `status: "stopped"`, `lastConvergedLoadFactor` and `stopReason`, plus the history of every
 converged increment. The reactions (empty before) and an equilibrium summary are filled for the
-returned state. A state whose residual is out of tolerance is always refused; global force and
-moment balance is also enforced, except on models with constraints, where it is reported but not
-gated. The web app does not call these solvers yet; direct engine callers should read
+returned state, and a state whose residual or global force and moment balance is out of
+tolerance is refused. Models with constraints (rigid links, diaphragms, equal DOFs) are now
+refused, because their global balance cannot be checked without the constraint forces; before,
+they ran unchecked. The web app does not call these solvers yet; direct engine callers should read
 `status` before using the result.
