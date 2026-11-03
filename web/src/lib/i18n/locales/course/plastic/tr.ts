@@ -164,7 +164,7 @@ const words: Translations = {
   'course.plastic.user.ignored.zero': 'Orada moment zaten sıfır (mafsal veya serbest uç).',
   'course.plastic.user.ignored.duplicate': 'O kesitte zaten bir mafsal var.',
   'course.plastic.user.notMechanism': 'Mekanizma değil: {n} mafsalla yapıda {r} hiperstatik bilinmeyen kalır ve yapı stabil kalır. Seçilen mafsallar hiçbir parçanın hareket etmesine izin vermiyor: kısmi bir mekanizma bir parçanın hareket etmesine yetecek mafsal, tam bir mekanizma GH + 1 = {need} mafsal ister.',
-  'course.plastic.user.multi': 'Bu, {k} serbestlik dereceli bir mekanizma: {n} mafsal tek bir hareket için gerekenden fazla (GH + 1 = {need}). Birini kaldırın ya da en küçük λ veren birleşimi arayın.',
+  'course.plastic.user.multi': 'Bu, {k} serbestlik dereceli bir mekanizma: {n} mafsal {k} bağımsız harekete izin veriyor. Birini bırakmak için bir mafsalı kaldırın ya da en küçük λ veren birleşimi arayın.',
   'course.plastic.user.combine': 'En küçük λ veren birleşimi kullan',
   'course.plastic.user.combined': 'En küçük λ veren birleşim kullanıldı; dönmeyen mafsallar işaretlendi.',
   'course.plastic.user.noWork': 'Yükler bu mekanizmada iş yapmaz: onu oluşturamazlar.',
