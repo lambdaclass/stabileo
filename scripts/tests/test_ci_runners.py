@@ -67,6 +67,16 @@ class CiRunners(unittest.TestCase):
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
 
+    def test_a_same_repo_pull_request_on_github_while_the_pool_is_on_warns(self):
+        lint = jobs('ci.yml')['lint-repo']
+        self.assertIn('stabileo-pr', labels(lint['runs-on']))
+        self.assertNotIn('    if:', lint['block'].split('    steps:', 1)[0])
+        first = lint['block'].split('    steps:\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn('name: Pull request pool in use', first)
+        for term in ["vars.STABILEO_PR_POOL == 'true'", "github.event_name == 'pull_request'", SAME_REPO, NOT_DEPENDABOT, "runner.environment != 'self-hosted'"]:
+            self.assertIn(term, first)
+        self.assertIn('::warning ', first)
+
     def test_nightly_fuzz_never_takes_a_ci_runner(self):
         fuzz = jobs('nightly.yml')['fuzz']['runs-on']
         self.assertEqual(labels(fuzz), {'stabileo-nightly'})
