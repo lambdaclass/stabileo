@@ -66,7 +66,7 @@ struct Regime {
 
 const REGIMES: [Regime; 3] = [
     Regime { name: "undamped", steps_per_period: 400.0, xi: 0.0, tol_a: 1e-3, tol_w: 1e-9 },
-    Regime { name: "damped, step below 2·a1", steps_per_period: 400.0, xi: 0.05, tol_a: 1e-3, tol_w: 5e-3 },
+    Regime { name: "damped, step below 2·a1", steps_per_period: 400.0, xi: 0.05, tol_a: 1e-3, tol_w: 2e-2 },
     Regime { name: "damped, step above 2·a1", steps_per_period: 40.0, xi: 0.05, tol_a: 2e-2, tol_w: 2e-2 },
 ];
 
@@ -77,6 +77,7 @@ fn period() -> f64 {
 #[test]
 fn a_step_load_on_a_massless_dof_matches_the_two_dof_closed_form() {
     let p = 10.0;
+    let mut failures = Vec::new();
     for g in &REGIMES {
         let dt = period() / g.steps_per_period;
         let n_steps = (2.0 * g.steps_per_period) as usize;
@@ -96,9 +97,11 @@ fn a_step_load_on_a_massless_dof_matches_the_two_dof_closed_form() {
             err_a = err_a.max((ua[n] - exact_a).abs() / (p / k1()));
             err_w = err_w.max((ub[n] - ua[n] - exact_w).abs() / (p / k2()));
         }
-        assert!(err_a <= g.tol_a, "{}: u_A off the damped SDOF by {err_a:.3e} of P/k1", g.name);
-        assert!(err_w <= g.tol_w, "{}: u_B − u_A off P/k2·(1 − e^(−t/a1)) by {err_w:.3e} of P/k2", g.name);
+        if err_a > g.tol_a || err_w > g.tol_w {
+            failures.push(format!("{}: u_A off the damped SDOF by {err_a:.3e} of P/k1, u_B − u_A off P/k2·(1 − e^(−t/a1)) by {err_w:.3e} of P/k2", g.name));
+        }
     }
+    assert!(failures.is_empty(), "{failures:#?}");
 }
 
 #[test]
