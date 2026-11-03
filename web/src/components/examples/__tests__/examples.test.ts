@@ -6,6 +6,11 @@ import { EXAMPLE_IDS } from '../ids';
 import { defaults, readValues, writeValues, mergeQuery, clampValue, referenceGap, type Outcome, type Values } from '../define';
 import { exampleStrings } from '../strings';
 import { proCode } from '../editor';
+import { EXPERIMENTS } from '../../research/experiments';
+import { TOOL_IDS } from '../../tools/calculators';
+import { BATCH_IDS } from '../../tools/batch';
+
+const BENCHMARK_ROUTES = [...EXPERIMENTS.map(x => x.path), ...[...TOOL_IDS, ...BATCH_IDS].map(id => `/tools/${id}`)];
 import { beamFrame, EI } from '../beam-frame';
 import { slab, navierCentre } from '../slab';
 import { earthquake, G, DT, DURATION, CYCLES, BEAM, COLUMN, baseShear, timeCertificate } from '../earthquake';
@@ -41,7 +46,8 @@ describe('catalog and contract', () => {
     const keys = Object.keys(exampleStrings.en).sort();
     for (const locale of ['es', 'pt', 'de', 'fr', 'tr']) expect(Object.keys(exampleStrings[locale]).sort()).toEqual(keys);
     for (const e of EXAMPLES) {
-      for (const key of ['title', 'subtitle', 'about', 'benchmark']) expect(keys).toContain(`${e.id}.${key}`);
+      if (e.benchmark) expect(BENCHMARK_ROUTES).toContain(e.benchmark.path);
+      for (const key of ['title', 'subtitle', 'about', ...(e.benchmark ? ['benchmark'] : [])]) expect(keys).toContain(`${e.id}.${key}`);
       for (const p of e.params) {
         expect(keys).toContain(`${e.id}.p.${p.key}`);
         for (const o of p.options ?? []) expect(keys).toContain(`${e.id}.o.${o}`);
