@@ -390,12 +390,19 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const mask = fringeMask.get(panel);
       if (mask) {
         let kept = 0;
-        for (const pc of openCellsToBeams(model, mask, [...one.perBeam.keys()])) {
+        const moved = openCellsToBeams(model, mask, [...one.perBeam.keys()]);
+        for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
           const a = pc.wI * (pc.b - pc.a);
           addArea(out.roofAreaOf, pc.elementId, a);
           out.roof.add(pc.elementId);
           kept += a;
+        }
+        for (const pt of moved.points) {
+          out.points.push({ ...pt, roof, panel: index });
+          addArea(out.roofAreaOf, pt.elementId, pt.w);
+          out.roof.add(pt.elementId);
+          kept += pt.w;
         }
         out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + kept);
         continue;
@@ -642,32 +649,84 @@ function openCellsAlong(m: Mask, axis: Axis, bins: number[], pick?: (c: [number,
 }
 
 /**
- * The cells a panel kept for itself, each given to the nearest of its beams over the stretch its
- * outline projects onto, in twenty stretches per beam: a uniform piece per stretch, m² per m.
+ * The cells a panel kept for itself, carried to its beams as a one-way slab: each cell from the
+ * nearest beam across to the beam opposite, split by the lever rule, so the beams' loads keep the
+ * cells' resultant and both its plan moments. On each beam a uniform piece per fortieth, centred
+ * on the moment of what it took; one at an end goes to the end's node.
  */
-function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }> {
-  const BINS = 20;
+function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): {
+  pieces: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }>;
+  points: Array<{ nodeId: number; w: number; elementId: number }>;
+} {
+  const BINS = 40;
   const beams = beamIds.flatMap((id) => {
     const e = model.elements.get(id);
     const p = e && model.nodes.get(e.nodeI), q = e && model.nodes.get(e.nodeJ);
-    if (!p || !q) return [];
+    if (!e || !p || !q) return [];
     const L = Math.hypot(q.x - p.x, q.y - p.y);
-    return L > 0 ? [{ id, axis: { p: [p.x, p.y] as [number, number], u: [(q.x - p.x) / L, (q.y - p.y) / L] as [number, number], L }, bins: new Array(BINS).fill(0) as number[] }] : [];
+    return L > 0 ? [{ id, ends: [e.nodeI, e.nodeJ] as [number, number], p: [p.x, p.y] as [number, number], u: [(q.x - p.x) / L, (q.y - p.y) / L] as [number, number], L, area: new Array(BINS).fill(0) as number[], first: new Array(BINS).fill(0) as number[] }] : [];
   });
-  if (beams.length === 0) return [];
-  const distance = (bm: (typeof beams)[number], c: [number, number]) => {
-    const { p, u, L } = bm.axis;
-    const t = Math.max(0, Math.min(L, (c[0] - p[0]) * u[0] + (c[1] - p[1]) * u[1]));
-    return Math.hypot(c[0] - p[0] - t * u[0], c[1] - p[1] - t * u[1]);
+  const out = { pieces: [] as Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }>, points: [] as Array<{ nodeId: number; w: number; elementId: number }> };
+  if (beams.length === 0) return out;
+  type B = (typeof beams)[number];
+  const along = (bm: B, c: [number, number]) => Math.max(0, Math.min(bm.L, (c[0] - bm.p[0]) * bm.u[0] + (c[1] - bm.p[1]) * bm.u[1]));
+  const distance = (bm: B, c: [number, number]) => {
+    const t = along(bm, c);
+    return Math.hypot(c[0] - bm.p[0] - t * bm.u[0], c[1] - bm.p[1] - t * bm.u[1]);
   };
-  const nearest = (c: [number, number]) => beams.reduce((best, bm) => (distance(bm, c) < distance(best, c) - 1e-9 ? bm : best));
-  for (const bm of beams) openCellsAlong(m, bm.axis, bm.bins, (c) => nearest(c) === bm);
-  const out: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }> = [];
+  const put = (bm: B, s: number, a: number) => {
+    const k = Math.min(BINS - 1, Math.floor((s / bm.L) * BINS));
+    bm.area[k]! += a;
+    bm.first[k]! += a * s;
+  };
+  for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
+    if (!m.open[i * 20 + j]) continue;
+    const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
+    const area = Math.abs(polygonArea(part));
+    if (!(area > 0)) continue;
+    const c = areaCentroid(part);
+    const near = beams.reduce((best, bm) => (distance(bm, c) < distance(best, c) - 1e-9 ? bm : best));
+    const s0 = along(near, c);
+    const foot: [number, number] = [near.p[0] + s0 * near.u[0], near.p[1] + s0 * near.u[1]];
+    const d = Math.hypot(c[0] - foot[0], c[1] - foot[1]);
+    let far: { bm: B; s: number; lambda: number } | null = null;
+    if (d > 1e-9) {
+      const n: [number, number] = [(c[0] - foot[0]) / d, (c[1] - foot[1]) / d];
+      for (const bm of beams) {
+        if (bm === near) continue;
+        const den = n[0] * bm.u[1] - n[1] * bm.u[0];
+        if (Math.abs(den) < 1e-12) continue;
+        const wx = bm.p[0] - foot[0], wy = bm.p[1] - foot[1];
+        const lambda = (wx * bm.u[1] - wy * bm.u[0]) / den;
+        const s = (wx * n[1] - wy * n[0]) / den;
+        if (lambda > d + 1e-9 && s >= -1e-9 && s <= bm.L + 1e-9 && (!far || lambda < far.lambda)) far = { bm, s: Math.max(0, Math.min(bm.L, s)), lambda };
+      }
+    }
+    if (!far) { put(near, s0, area); continue; }
+    put(near, s0, area * (1 - d / far.lambda));
+    put(far.bm, far.s, (area * d) / far.lambda);
+  }
   for (const bm of beams) {
-    const w = bm.axis.L / BINS;
-    bm.bins.forEach((a, k) => { if (a > 0) out.push({ elementId: bm.id, a: k * w, b: (k + 1) * w, wI: a / w, wJ: a / w }); });
+    const w = bm.L / BINS;
+    bm.area.forEach((a, k) => {
+      if (!(a > 0)) return;
+      const c = bm.first[k]! / a;
+      const half = Math.min(w / 2, c, bm.L - c);
+      if (half > 1e-9) { out.pieces.push({ elementId: bm.id, a: c - half, b: c + half, wI: a / (2 * half), wJ: a / (2 * half) }); return; }
+      out.points.push({ nodeId: c < bm.L / 2 ? bm.ends[0] : bm.ends[1], w: a, elementId: bm.id });
+    });
   }
   return out;
+}
+
+function areaCentroid(poly: Array<[number, number]>): [number, number] {
+  let a = 0, x = 0, y = 0;
+  poly.forEach((p, k) => {
+    const q = poly[(k + 1) % poly.length]!;
+    const cross = p[0] * q[1] - q[0] * p[1];
+    a += cross; x += (p[0] + q[0]) * cross; y += (p[1] + q[1]) * cross;
+  });
+  return Math.abs(a) > 1e-15 ? [x / (3 * a), y / (3 * a)] : centroid(poly);
 }
 
 /** The cell lies within the mask's area and every mask cell it overlaps is one the mask kept. */

@@ -292,19 +292,29 @@ describe('a roof-structure ring carried above all but its back strip', () => {
     const upper = ([[0, 0], [6, 0], [6, 3], [0, 3]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
     upper.forEach((id, i) => b.bar(id, upper[(i + 1) % 4]!));
     b.bar(b.node(0, 4, 4), b.node(6, 4, 4), 'truss');
-    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
+    const model = b.model();
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
     expect(layout.areaByLevel.get(3)).toBeCloseTo(6, 6);
+    const ringIds = new Set([front, right, back, left]);
+    let force = 0, mx = 0, my = 0;
+    for (const p of layout.pieces.filter((q) => ringIds.has(q.elementId))) {
+      const e = model.elements.get(p.elementId)!;
+      const n0 = model.nodes.get(e.nodeI)!, n1 = model.nodes.get(e.nodeJ)!;
+      const L = Math.hypot(n1.x - n0.x, n1.y - n0.y), s = (p.a! + p.b!) / 2, f = p.wI * (p.b! - p.a!);
+      force += f; mx += f * (n0.x + ((n1.x - n0.x) * s) / L); my += f * (n0.y + ((n1.y - n0.y) * s) / L);
+    }
+    for (const p of layout.points.filter((q) => ringIds.has(q.elementId))) {
+      const n = model.nodes.get(p.nodeId)!;
+      force += p.w; mx += p.w * n.x; my += p.w * n.y;
+    }
+    expect(force).toBeCloseTo(6, 6);
+    expect(mx / force).toBeCloseTo(3, 6);
+    expect(my / force).toBeCloseTo(3.5, 6);
     const on = (id: number) => layout.roofAreaOf.get(id) ?? 0;
-    expect(on(front)).toBe(0);
-    expect(on(back)).toBeGreaterThan(4.6);
-    expect(on(back)).toBeLessThan(5.4);
     expect(on(left)).toBeCloseTo(on(right), 6);
-    expect(on(left) + on(right) + on(back)).toBeCloseTo(6, 6);
-    const backPieces = layout.pieces.filter((p) => p.elementId === back);
-    expect(backPieces.every((p) => p.roof)).toBe(true);
-    const sideLoad = layout.pieces.filter((p) => p.elementId === left).reduce((s, p) => s + p.wI * ((p.b ?? 4) - (p.a ?? 0)), 0);
-    expect(sideLoad).toBeCloseTo(on(left), 6);
+    expect(on(back)).toBeGreaterThan(on(front));
+    expect(on(front)).toBeLessThan(1);
   });
 });
 
