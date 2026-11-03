@@ -14481,6 +14481,7 @@ const es: Record<string, string> = {
   'viewer.gallery': "Galería",
   'viewer.duplicate': "Duplicar y editar",
   'viewer.duplicated': "Es una copia tuya: los cambios se guardan en este navegador.",
+  'viewer.duplicateNotSaved': "Es una copia tuya, pero no se pudo guardar en este navegador: descárgala como archivo para no perderla.",
   'viewer.copyLink': "Copiar link de solo lectura",
   'viewer.linkTip': "Quien lo abre ve el modelo en 3D y en planta, sin el editor, y puede duplicarlo para editar su copia.",
   'viewer.linkCopied': "Link de solo lectura copiado.",

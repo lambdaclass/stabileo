@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-
-const file = vi.hoisted(() => ({ saveAutosave: vi.fn(), saveWorkspaceToLocalStorage: vi.fn() }));
-vi.mock('../file', async (original) => ({ ...(await original<typeof import('../file')>()), ...file }));
+import type { AutosaveWriteResult } from '../autosave-db';
 
 import { modelStore, uiStore } from '../index';
 import { resetAutosaveService } from '../autosave-service';
@@ -20,37 +18,40 @@ describe('duplicating the model in the viewer', () => {
     modelStore.addNode(0, 0, 0);
     uiStore.viewerMode = true;
     uiStore.toasts.splice(0);
-    file.saveAutosave.mockReset();
-    file.saveWorkspaceToLocalStorage.mockReset();
   });
   afterEach(() => { uiStore.viewerMode = false; resetAutosaveService(); });
 
   it('says it is saved only once the autosave and the workspace are both written', async () => {
-    const write = deferred<{ ok: boolean; backend: 'indexeddb'; revision: number }>();
-    file.saveAutosave.mockReturnValue(write.promise);
-    file.saveWorkspaceToLocalStorage.mockReturnValue(true);
-    const done = duplicateViewed();
+    const write = deferred<AutosaveWriteResult>();
+    const autosave = vi.fn(() => write.promise);
+    const workspace = vi.fn(() => true);
+    const done = duplicateViewed({ autosave, workspace });
     expect(uiStore.viewerMode).toBe(false);
     await Promise.resolve();
-    expect(file.saveAutosave).toHaveBeenCalledTimes(1);
+    expect(autosave).toHaveBeenCalledWith('manual');
+    expect(workspace).not.toHaveBeenCalled();
     expect(uiStore.toasts).toHaveLength(0);
     write.resolve({ ok: true, backend: 'indexeddb', revision: 3 });
     expect(await done).toBe(true);
-    expect(file.saveWorkspaceToLocalStorage).toHaveBeenCalledTimes(1);
+    expect(workspace).toHaveBeenCalledTimes(1);
     expect(uiStore.toasts.map((x) => [x.message, x.type])).toEqual([[t('viewer.duplicated'), 'success']]);
   });
 
   it('reports a failed autosave instead of a success', async () => {
-    file.saveAutosave.mockResolvedValue({ ok: false, backend: 'indexeddb', revision: null, failure: { kind: 'quota', detail: '' } });
-    file.saveWorkspaceToLocalStorage.mockReturnValue(true);
-    expect(await duplicateViewed()).toBe(false);
+    const autosave = vi.fn(async (): Promise<AutosaveWriteResult> => ({ ok: false, backend: 'indexeddb', revision: null, failure: { kind: 'quota', detail: '' } }));
+    expect(await duplicateViewed({ autosave, workspace: () => true })).toBe(false);
     expect(uiStore.toasts.map((x) => [x.message, x.type])).toEqual([[t('viewer.duplicateNotSaved'), 'error']]);
   });
 
+  it('writes the autosave slot the viewer kept free, once out of the viewer', async () => {
+    let seen: boolean | null = null;
+    await duplicateViewed({ autosave: async () => { seen = uiStore.viewerMode; return null; }, workspace: () => true });
+    expect(seen).toBe(false);
+  });
+
   it('reports a workspace that could not be written', async () => {
-    file.saveAutosave.mockResolvedValue({ ok: true, backend: 'indexeddb', revision: 1 });
-    file.saveWorkspaceToLocalStorage.mockReturnValue(false);
-    expect(await duplicateViewed()).toBe(false);
+    const autosave = vi.fn(async (): Promise<AutosaveWriteResult> => ({ ok: true, backend: 'indexeddb', revision: 1 }));
+    expect(await duplicateViewed({ autosave, workspace: () => false })).toBe(false);
     expect(uiStore.toasts.map((x) => x.type)).toEqual(['error']);
   });
 });

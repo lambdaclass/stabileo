@@ -14132,6 +14132,7 @@ const pt: Translations = {
   'viewer.gallery': "Galeria",
   'viewer.duplicate': "Duplicar e editar",
   'viewer.duplicated': "Agora é uma cópia sua: as alterações são salvas neste navegador.",
+  'viewer.duplicateNotSaved': "Agora é uma cópia sua, mas não foi possível salvá-la neste navegador: baixe-a como arquivo para não perdê-la.",
   'viewer.copyLink': "Copiar link somente leitura",
   'viewer.linkTip': "Quem abre vê o modelo em 3D e em planta, sem o editor, e pode duplicá-lo para editar sua cópia.",
   'viewer.linkCopied': "Link somente leitura copiado.",

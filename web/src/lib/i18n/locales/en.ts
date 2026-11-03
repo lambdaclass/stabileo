@@ -14492,6 +14492,7 @@ const en: Record<string, string> = {
   'viewer.gallery': "Gallery",
   'viewer.duplicate': "Duplicate and edit",
   'viewer.duplicated': "It is your copy now: changes are saved in this browser.",
+  'viewer.duplicateNotSaved': "It is your copy now, but it could not be saved in this browser: download it as a file to keep it.",
   'viewer.copyLink': "Copy read-only link",
   'viewer.linkTip': "Whoever opens it sees the model in 3D and in plan, without the editor, and can duplicate it to edit their copy.",
   'viewer.linkCopied': "Read-only link copied.",

@@ -14331,6 +14331,7 @@ const tr: Translations = {
   'viewer.gallery': "Galeri",
   'viewer.duplicate': "Çoğalt ve düzenle",
   'viewer.duplicated': "Artık sizin kopyanız: değişiklikler bu tarayıcıya kaydedilir.",
+  'viewer.duplicateNotSaved': "Artık sizin kopyanız, ancak bu tarayıcıya kaydedilemedi: saklamak için dosya olarak indirin.",
   'viewer.copyLink': "Salt okunur bağlantıyı kopyala",
   'viewer.linkTip': "Açan kişi modeli düzenleyici olmadan 3B ve planda görür ve kendi kopyasını düzenlemek için çoğaltabilir.",
   'viewer.linkCopied': "Salt okunur bağlantı kopyalandı.",

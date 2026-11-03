@@ -14331,6 +14331,7 @@ const fr: Translations = {
   'viewer.gallery': "Galerie",
   'viewer.duplicate': "Dupliquer et modifier",
   'viewer.duplicated': "C'est maintenant votre copie : les modifications sont enregistrées dans ce navigateur.",
+  'viewer.duplicateNotSaved': "C'est maintenant votre copie, mais elle n'a pas pu être enregistrée dans ce navigateur : téléchargez-la comme fichier pour la conserver.",
   'viewer.copyLink': "Copier le lien en lecture seule",
   'viewer.linkTip': "Qui l'ouvre voit le modèle en 3D et en plan, sans l'éditeur, et peut le dupliquer pour modifier sa copie.",
   'viewer.linkCopied': "Lien en lecture seule copié.",

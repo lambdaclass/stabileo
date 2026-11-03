@@ -3,12 +3,12 @@
    * The public viewer (`/app/pro?view`, with a link's model or `&example=`): the model's name and
    * who signs it, the 3D view, the plan of each level or both side by side, and the examples to
    * look at, without the editor. Nothing is saved. "Duplicate and edit" turns it into an ordinary
-   * PRO tab, a copy that is then saved as any other.
+   * PRO tab, a copy saved as any other (`viewer-duplicate.ts`).
    */
   import { modelStore, uiStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
   import { viewState } from '../../lib/store/view-state.svelte';
-  import { requestAutosave } from '../../lib/store/autosave-service';
+  import { duplicateViewed } from '../../lib/store/viewer-duplicate';
   import { sortedLevels } from '../../lib/model/grid';
   import { proExampleGroups, type ProExample } from '../../lib/data/pro-examples';
 
@@ -34,11 +34,10 @@
   }
 
   function duplicate() {
-    uiStore.viewerMode = false;
     history.replaceState(null, '', '/app/pro');
-    void requestAutosave('manual');
-    uiStore.toast(t('viewer.duplicated'), 'success');
+    void duplicateViewed();
   }
+
 </script>
 
 <header class="vw" data-testid="pro-viewer">
