@@ -12295,6 +12295,7 @@ const fr: Translations = {
   'discretization.refuse.other': 'le moteur n\'a pas pu raffiner ni recalculer ce modèle (détails dans l\'info-bulle)',
   'certificate.buckling': 'λ_cr ∈ [{lower}, {upper}] (certifié)',
   'certificate.bucklingNotCertified': 'λ_cr non certifié : {reason}',
+  'certificate.bucklingRefusal.computedAboveUpperBound': 'le facteur de charge calculé {computed} dépasse la borne supérieure certifiée {upper}',
   'certificate.bucklingTooltip': 'Encadrement rigoureux, prouvé en Lean : la structure est certifiée stable pour tout facteur de charge jusqu\'à la valeur inférieure et certifiée instable à la valeur supérieure.',
   'float.loadFrameGlobalTip': 'Les valeurs sont selon les axes globaux (Z est la verticale).',
   'float.loadFrameLocalTip': 'Les valeurs sont selon les axes locaux de la barre.',
