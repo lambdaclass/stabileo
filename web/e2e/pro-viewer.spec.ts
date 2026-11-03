@@ -31,9 +31,13 @@ test('@smoke an example in the viewer, seen in plan and split, then duplicated t
   await expect(page.getByTestId('quick-edit')).toHaveCount(0);
   expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(before);
 
+  await page.getByTestId('viewer-mode-plan').click();
+  await expect(page.getByTestId('viewer-mode-plan')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('split-view')).toHaveCount(0);
   await page.getByTestId('viewer-mode-split').click();
   await expect(page.getByTestId('split-view')).toBeVisible();
   await page.getByTestId('viewer-mode-3d').click();
+  await expect(page.getByTestId('viewer-mode-plan')).toHaveAttribute('aria-checked', 'false');
   await expect(page.getByTestId('split-view')).toHaveCount(0);
 
   await page.getByTestId('viewer-gallery').click();
@@ -58,3 +62,32 @@ test('@smoke the Project tab lists the videos beside the examples, and offers th
   await expect(page.getByTestId('pro-videos-offer')).toHaveCount(0);
   await expect(page.getByTestId('pp-share-viewer')).toBeVisible();
 });
+
+for (const [label, width, height] of [['phone', 390, 844], ['tablet', 820, 1180]] as const) {
+  test.describe(`@smoke the viewer on a ${label}`, () => {
+    test.use({ viewport: { width, height } });
+
+    test('its bar never covers the model or the gallery, and fits the screen', async ({ page }) => {
+      await page.goto('/app/pro?view&example=3d-portal-frame&e2e=1');
+      await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
+      const bar = page.getByTestId('pro-viewer');
+      await expect(bar).toBeVisible();
+      await page.getByTestId('viewer-mode-split').click();
+      const barBox = (await bar.boundingBox())!;
+      const body = (await page.locator('.viewer-mode .app-body').boundingBox())!;
+      expect(body.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 0.5);
+      expect(body.y + body.height).toBeLessThanOrEqual(height + 0.5);
+      expect(barBox.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      for (const id of ['viewer-mode-3d', 'viewer-gallery', 'viewer-duplicate']) {
+        const b = (await page.getByTestId(id).boundingBox())!;
+        expect(b.x + b.width, id).toBeLessThanOrEqual(width);
+        expect(b.height, id).toBeGreaterThanOrEqual(32);
+      }
+      await page.getByTestId('viewer-gallery').click();
+      const list = (await page.getByTestId('viewer-gallery-list').boundingBox())!;
+      expect(list.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 0.5);
+      expect(list.y + list.height).toBeLessThanOrEqual(height + 0.5);
+    });
+  });
+}
