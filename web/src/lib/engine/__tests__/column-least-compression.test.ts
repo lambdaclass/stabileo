@@ -46,4 +46,17 @@ describe('an RC column is checked under its least compression as well as its lar
     expect(checked.AsProv).toBeGreaterThan(squeezedOnly.AsProv);
     expect(checked.phiMn).toBeGreaterThanOrEqual(150);
   });
+
+  it('a combination that leaves the column unloaded axially checks the moment in pure bending', () => {
+    const unloaded = { ...esr, comboResults: [esr.comboResults[0]!, { comboId: 2, comboName: '0.9D+1.6W', stations: stations(0, 150) }] };
+    const demands = extractGoverningDemands(unloaded);
+    expect(demands.leastCompression).toBe(0);
+    expect(Object.is(demands.leastCompression, -0)).toBe(false);
+    const { leastCompression: _, ...withoutLeast } = demands;
+    const column = (d: typeof demands) => autoVerifyFromResults(results, model, null, undefined, new Map([[1, d]])).concrete[0]!.column!;
+    const checked = column(demands), squeezedOnly = column(withoutLeast);
+    expect(checked.phiMn).toBeLessThan(squeezedOnly.phiMn);
+    expect(checked.AsProv).toBeGreaterThan(squeezedOnly.AsProv);
+    expect(checked.phiMn).toBeGreaterThanOrEqual(150);
+  });
 });
