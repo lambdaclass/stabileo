@@ -114,6 +114,7 @@ export const outrigger = defineExample<Model>({
       { key: 'bareDrift', value: bare, unit: 'mm', reference: { value: exact.bare * 1000, source: 'wH⁴/8EI' } },
       { key: 'driftReduction', value: (1 - drift / bare) * 100, unit: '%' },
       { key: 'columnForce', value: columnForce, unit: 'kN', reference: { value: exact.columnForce, source: 'Smith & Coull' } },
+      { key: 'outriggerLevel', value: model.level / model.storeys, unit: `× H (${model.level}/${model.storeys})` },
       { key: 'bestLevel', value: best[0] / model.height, unit: '× H' },
     ];
     const disp = new Map(results.displacements.map(d => [d.nodeId, d]));
