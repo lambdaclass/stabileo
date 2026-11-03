@@ -24,8 +24,8 @@
  * module reaches for the stores, which means it cannot catch anything the
  * stores do. This can.
  *
- * The shed is the case worth pinning: 232 nodes, 633 members, 242 loads, three
- * load cases and seven combinations, and a link around 10 700 characters — five
+ * The shed is the case worth pinning: 232 nodes, 729 members, 254 loads, three
+ * load cases and seven combinations, and a link past 8 000 characters — four
  * times the threshold that used to warn about it.
  */
 
