@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { staticsVerdict } from '../statics-check';
 import { staticsSectionHtml } from '../report/project-sections';
+import { postAnalysisLines } from '../post-analysis';
 import en from '../../i18n/locales/en';
 
 const tr = (k: string, p: Record<string, string | number> = {}) => ((en as Record<string, string>)[k] ?? k).replace(/\{(\w+)\}/g, (_, x) => String(p[x] ?? `{${x}}`));
@@ -21,6 +22,8 @@ describe('what the statics check can say about a case', () => {
     for (const r of [NaN, Infinity, -Infinity]) expect(staticsVerdict(row('N', r, [])), String(r)).toBe('unbalanced');
     const html = staticsSectionHtml({ cases: [row('N', NaN, [])] as never, combos: [] }, tr, 'Statics').join('');
     expect(html).not.toContain('✓');
+    const lines = postAnalysisLines({ diagnostics: [], statics: [{ caseName: 'N', worstRelative: NaN, uncovered: [] }], pdelta: null, mechanism: null, design: null }, tr);
+    expect(lines.map((l) => l.severity)).toEqual(['error']);
   });
 
   it('the report ticks no case whose check left loads out, and names them', () => {

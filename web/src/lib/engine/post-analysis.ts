@@ -59,7 +59,7 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
       const verdict = staticsVerdict(r, POST_ANALYSIS_BALANCED);
       if (verdict === 'unbalanced') {
         out.push({
-          part: 'analysis', severity: r.worstRelative >= POST_ANALYSIS_UNBALANCED ? 'error' : 'warning',
+          part: 'analysis', severity: !(r.worstRelative < POST_ANALYSIS_UNBALANCED) ? 'error' : 'warning',
           text: tr('post.unbalanced', { name: name(r), residual: pct(r.worstRelative) }), ...uncovered(r),
         });
       } else if (verdict === 'partial') {
