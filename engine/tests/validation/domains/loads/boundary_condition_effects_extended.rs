@@ -261,7 +261,7 @@ fn validation_bce_internal_hinge_zero_moment() {
         }
     }
 
-    let sups_vec = vec![(1, 1, "pinned"), (2, n_total + 1, "rollerX")];
+    let sups_vec = vec![(1, 1, "fixed"), (2, n_total + 1, "rollerX")];
 
     let mut loads = Vec::new();
     for i in 0..n_total {
@@ -287,8 +287,9 @@ fn validation_bce_internal_hinge_zero_moment() {
     assert!(ef_after.m_start.abs() < 0.1,
         "BCE internal hinge: m_start at hinge = {:.6e}, expected ~0", ef_after.m_start);
 
-    // The beam should deflect MORE than a normal SS beam (hinge reduces stiffness)
-    let input_no_hinge = make_ss_beam_udl(n_total, l, E, A, IZ, q);
+    // The beam should deflect MORE than a continuous propped beam (hinge reduces stiffness)
+    let mut input_no_hinge = make_ss_beam_udl(n_total, l, E, A, IZ, q);
+    input_no_hinge.supports.get_mut("1").unwrap().support_type = "fixed".into();
     let results_no_hinge = linear::solve_2d(&input_no_hinge).unwrap();
 
     let max_hinge: f64 = results.displacements.iter()

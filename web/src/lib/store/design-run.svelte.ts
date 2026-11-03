@@ -735,6 +735,9 @@ function createDesignRunStore() {
       const strength = failConcreteStrength();
       if (strength) return strength;
     }
+    if (c.checkable === 0 && c.noStrength > 0) {
+      return fail('design.error.concreteStrengthMissing', { code: codeName, material: c.noStrengthMaterials.join(', '), n: c.noStrength });
+    }
     if (c.checkable === 0 && c.notConcrete === c.total) {
       return fail('design.error.noConcreteMembers', { code: codeName, n: c.total });
     }

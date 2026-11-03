@@ -106,7 +106,7 @@ fn steel() -> Json {
                 { "kind": "web", "b": 0.255, "t": 0.0099 }
             ]
         }],
-        "demands": [{ "forces": { "elementId": 1, "n": -300.0, "my": 80.0, "vy": 20.0 }, "bound": { "n": 0.5, "my": 0.2 } }]
+        "demands": [{ "forces": { "elementId": 1, "n": -300.0, "my": 80.0, "vStrong": 20.0 }, "bound": { "n": 0.5, "my": 0.2 } }]
     })
 }
 

@@ -265,7 +265,7 @@ describe('edited projects with older provenance', () => {
 
   it('a frame solved before the containment diagnostics opens with exactly that notice', async () => {
     const store = createRecheckStore();
-    store.openProject({ ...frame(), solvedWith: oldStamp() }, 'pro');
+    store.openProject({ ...frame(), solvedWith: { ...oldStamp(), resultsVersion: 13 } }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes.map(c => c.id)).toEqual(['safety-containment-diagnostics']);
     expect(store.noticeOpen).toBe(true);
@@ -274,7 +274,7 @@ describe('edited projects with older provenance', () => {
 
   it('clears an empty notice before adding shells, saving and reopening without a solve', async () => {
     const store = createRecheckStore();
-    const snapshot: import('../../provenance/model-features').FeatureSnapshot = { analysisMode: 'pro', materials: [[1, STEEL]] };
+    const snapshot = { ...frame(), elements: [], regulations: { roles: { steel: { adapterId: 'eurocode3' } } } } as ReturnType<typeof frame>;
     store.openProject({ ...snapshot, solvedWith: oldStamp() }, 'pro');
     await vi.waitFor(() => expect(store.pending).toBe(false));
     expect(store.assessment?.changes).toEqual([]);

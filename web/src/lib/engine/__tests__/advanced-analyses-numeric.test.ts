@@ -124,6 +124,16 @@ describe('modal', () => {
     expect(r.modes[0].frequency / exact).toBeCloseTo(1, 1);
   });
 
+  it('a stable beam soft enough for a microhertz first mode keeps it, scaled as √E', () => {
+    const stiff = solveModal(beam(10, 20), densities() as never, 2);
+    const soft = { ...(beam(10, 20) as object), materials: new Map([[1, { id: 1, e: E * 1e-12, nu: 0.3, rho: RHO_W }]]) };
+    const r = solveModal(soft as never, densities() as never, 2);
+    expect(r.discardedModes).toEqual([]);
+    expect(r.modes).toHaveLength(2);
+    expect(r.modes[0].frequency).toBeLessThan(1e-3);
+    expect(r.modes[0].frequency / stiff.modes[0].frequency).toBeCloseTo(1e-6, 9);
+  });
+
   it('frequency scales as 1/L², which a wrong mass scaling would break', () => {
     const f6 = solveModal(beam(6, 12), densities() as never, 1).modes[0].frequency;
     const f12 = solveModal(beam(12, 24), densities() as never, 1).modes[0].frequency;

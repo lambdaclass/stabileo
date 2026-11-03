@@ -96,6 +96,18 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       comboName: v.governingCombos?.shear?.comboName,
     });
 
+    if (v.shearSecondary) {
+      checks.push({
+        name: 'Shear, secondary axis',
+        demand: Math.abs(v.shearSecondary.Vu),
+        capacity: v.shearSecondary.phiVn,
+        ratio: v.shearSecondary.ratio,
+        unit: 'kN',
+        status: v.shearSecondary.status as CheckStatus,
+        comboName: v.governingCombos?.shearSecondary?.comboName,
+      });
+    }
+
     const { axial, flexure, momentY } = v.governingCombos ?? {};
     const sources = [axial, flexure, momentY].filter(c => !!c);
     const mixed = new Set(sources.map(c => c!.comboId)).size > 1;

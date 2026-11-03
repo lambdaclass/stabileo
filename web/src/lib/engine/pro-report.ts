@@ -1,5 +1,6 @@
 import { knownIssueResultDisposition, type knownIssueDisposition } from './known-issues';
 import { ContainmentExportError } from './containment-error';
+import { finiteSpectrumWarning } from './finite-spectrum-warning';
 // PRO Report Generator — HTML-based report with KaTeX math rendering
 // Generates the structural analysis report; the design is reported by the memoria
 // (`lib/report/memoria`).
@@ -12,8 +13,9 @@ import { plainNumber } from '../utils/units';
 import katex from 'katex';
 import katexCss from 'katex/dist/katex.min.css?raw';
 import type { Node, Material, Section, Element, Support, Quad } from '../store/model.svelte';
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, ShellEnvelope } from './types-3d';
 import { formatPDeltaFactor } from './pdelta-result';
+import { selfCheckWarningText } from '../i18n/engine-text';
 import type { ProjectQuantities } from './quantities';
 import { quantitiesSectionHtml } from './report/quantities-section';
 import {
@@ -24,7 +26,7 @@ import type { Source } from './result-tables';
 import type { StaticsRows } from '../store/statics-rows';
 import type { ProjectInfo } from '../model/project-info';
 import type { SolverDiagnostic } from './types';
-import { principalStresses } from './shell-stress';
+import { membranePrincipals } from './shell-stress';
 
 /** Translation function type — accepts key, returns translated string */
 type TFunc = (key: string) => string;
@@ -126,7 +128,7 @@ export interface ReportData {
   // Advanced analysis results (modal, spectral, P-Delta, buckling)
   advancedResults?: {
     pdelta?: { disposition?: ReturnType<typeof knownIssueDisposition>; converged: boolean; iterations: number; b2Factor?: number; isStable?: boolean };
-    modal?: { disposition?: ReturnType<typeof knownIssueDisposition>; modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; ratiosWithheld?: boolean };
+    modal?: { disposition?: ReturnType<typeof knownIssueDisposition>; modes: Array<{ frequency: number; period: number; participationX?: number; participationY?: number; participationZ?: number; massRatioX?: number; massRatioY?: number }>; totalMass?: number; finiteSpectrumDiagnostic?: string; ratiosWithheld?: boolean; structuredDiagnostics?: import('./types').StructuredDiagnostic[] };
     buckling?: { disposition?: ReturnType<typeof knownIssueDisposition>; factors: number[] };
     spectral?: { disposition?: ReturnType<typeof knownIssueDisposition>; baseShearX?: number; baseShearY?: number; baseShearZ?: number };
   };
@@ -627,8 +629,8 @@ export function generateReportHtml(data: ReportData): string {
         s1: number; s2: number; mx: number; my: number; mxy: number; vm: number;
       }
       const rows: ShellRow[] = [];
-      const addRow = (kind: string, s: { elementId: number; sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; vonMises: number }) => {
-        const pr = principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
+      const addRow = (kind: string, s: { elementId: number; sigmaXx: number; sigmaYy: number; tauXy: number; mx: number; my: number; mxy: number; vonMises: number; envelope?: ShellEnvelope }) => {
+        const pr = membranePrincipals(s);
         rows.push({ kind, id: s.elementId, sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy, s1: pr.sigma1, s2: pr.sigma2, mx: s.mx, my: s.my, mxy: s.mxy, vm: s.vonMises });
       };
       for (const s of psList) addRow(tr('shellFaces.plate'), s);
@@ -696,10 +698,15 @@ export function generateReportHtml(data: ReportData): string {
 
     if (adv.modal && wants('modal') && adv.modal.modes.length > 0) {
       html.push(`<h3>${escHtml(tr('report.modalTitle'))}</h3>`);
+      for (const d of adv.modal.structuredDiagnostics ?? []) {
+        if (d.severity !== 'info' && d.code !== 'known_issue') html.push(`<p role="alert">${escHtml(selfCheckWarningText(d, tr))}</p>`);
+      }
       if (adv.modal.totalMass != null) {
         // The engine reports mass in tonnes (kN·s²/m). The label said kg.
         html.push(`<p>${escHtml(tr('report.totalMass'))}: ${fmtNum(adv.modal.totalMass, 1)} t</p>`);
       }
+      const finiteWarning = finiteSpectrumWarning(adv.modal, tr);
+      if (finiteWarning) html.push(`<p role="status">${escHtml(finiteWarning)}</p>`);
       if (adv.modal.ratiosWithheld) html.push(`<p>${escHtml(tr('pro.modalConstrained'))}</p>`);
       html.push(`<table><thead><tr><th>${escHtml(tr('report.mode'))}</th><th>f (Hz)</th><th>T (s)</th><th>Part. X</th><th>Part. Y</th><th>Part. Z</th><th>ΣM X</th><th>ΣM Y</th></tr></thead><tbody>`);
       let cx = 0, cy = 0;

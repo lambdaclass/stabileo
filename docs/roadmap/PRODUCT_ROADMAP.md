@@ -433,6 +433,8 @@ queue is live. In review: fast PR checks that run what a change touches (PR [#86
 WASM once and retry only infrastructure errors (PR [#866](https://github.com/lambdaclass/stabileo/pull/866)), and e2e guards including a 45 s
 smoke budget (PR [#869](https://github.com/lambdaclass/stabileo/pull/869)). Browser checks run on the OVH server.
 
+**Route byte budgets (2026-11-03):** the wave B safety fixes ([#1285](https://github.com/lambdaclass/stabileo/pull/1285)) grow the landing routes by 10,442 B (the safety-advisories blog rows) and the app routes by 66,037 B (result-change notices, advisory strings in six locales, self-check and envelope code). The user accepted this once: [#1291](https://github.com/lambdaclass/stabileo/pull/1291) raises `web/scripts/product-route-growth-budgets.json` to 10,560 B and 66,176 B, and a restore PR sets all six routes back to 128 B right after #1285 lands.
+
 1. **Staging before production:** [#385](https://github.com/lambdaclass/stabileo/issues/385) deploy main to a staging URL first; promote to production on a tagged release after the full suite, the acceptance suite and a smoke check pass.
 2. **Versioned releases with notes:** [#386](https://github.com/lambdaclass/stabileo/issues/386) every release has a version, release notes in English and Spanish, and a prominent "results may change" section listing result-affecting changes and who is affected.
 3. **Users of saved projects are told what changed for their model** [#387](https://github.com/lambdaclass/stabileo/issues/387) (see the re-check prompt above), and stale results are marked until re-run.

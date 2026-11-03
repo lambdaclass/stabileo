@@ -127,7 +127,8 @@ pub struct Ec3MemberData {
     /// C1 moment diagram factor for LTB (default 1.0)
     #[serde(default)]
     pub c1: Option<f64>,
-    /// Shear area Av (m²)
+    /// Shear area Av (m²). Absent: from `geometry`, see [`shear_area`]; with
+    /// neither, a loaded shear check is unevaluated.
     #[serde(default)]
     pub av: Option<f64>,
     /// Inputs of the 6.3.3 member interaction (Annex B). Absent: the
@@ -662,6 +663,40 @@ pub(crate) struct Ec3Capacities<T> {
     pub mcr: Option<T>,
 }
 
+/// Shear area Av for a load parallel to the web (I) or the depth (RHS), EN
+/// 1993-1-1 6.2.6(3) with η = 1: `av` when given, else (a) for a rolled I
+/// (r > 0), (d) hw·tw for a welded one (r = 0), for an RHS the lower of (f)
+/// A·h/(b + h) and (d) 2·hw·t (rolled or welded is not known), and (g) 2A/π
+/// for a CHS. NaN, which leaves a loaded shear check
+/// unevaluated, when neither `av` nor a usable `geometry` is given.
+pub(crate) fn shear_area<T: Real>(m: &Ec3MemberData) -> T {
+    if let Some(av) = m.av {
+        return T::exact(av);
+    }
+    let pos = |x: f64| x.is_finite() && x > 0.0;
+    let a = T::exact(m.a);
+    let two = T::exact(2.0);
+    match m.geometry {
+        Some(Ec3Geometry::I { h, b, tw, tf, r })
+            if [h, b, tw, tf].into_iter().all(pos) && r.is_finite() && r >= 0.0 && h > 2.0 * tf =>
+        {
+            let (h, b, tw, tf) = (T::exact(h), T::exact(b), T::exact(tw), T::exact(tf));
+            let web = (h - two * tf) * tw;
+            if r > 0.0 {
+                (a - two * b * tf + (tw + two * T::exact(r)) * tf).max(web)
+            } else {
+                web
+            }
+        }
+        Some(Ec3Geometry::Rhs { h, b, t }) if [h, b, t].into_iter().all(pos) && h > 2.0 * t => {
+            let (h, t) = (T::exact(h), T::exact(t));
+            (a * h).dv(T::exact(b) + h).min(two * (h - two * t) * t)
+        }
+        Some(Ec3Geometry::Chs { d, t }) if [d, t].into_iter().all(pos) => (two * a).dv(T::pi()),
+        _ => T::exact(f64::NAN),
+    }
+}
+
 /// EN 1993-1-1 resistances 6.2.3, 6.3.1, 6.3.2, 6.2.5, 6.2.6.
 pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     let e = T::exact(m.e.unwrap_or(210e9));
@@ -723,12 +758,7 @@ pub(crate) fn ec3_capacities<T: Real>(m: &Ec3MemberData) -> Ec3Capacities<T> {
     let mc_z_rd = (w_z * fy).dv(gamma_m0);
     let mz_rd_m1 = (w_z * fy).dv(gamma_m1);
 
-    // Shear (EC3 6.2.6)
-    let av = match m.av {
-        Some(av) => T::exact(av),
-        None => T::exact(m.a) * T::exact(0.5), // Approximate if not given
-    };
-    let vpl_rd = (av * fy.dv(T::exact(3.0).sqrt())).dv(gamma_m0);
+    let vpl_rd = (shear_area::<T>(m) * fy.dv(T::exact(3.0).sqrt())).dv(gamma_m0);
 
     Ec3Capacities {
         npl_rd,

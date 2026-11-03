@@ -246,7 +246,7 @@ superposed itself; model-aware multi-case solves check the combined displacement
 field with factored thermal loads. This conservative model-less refusal is diagnostic-only.
 The determinism gate requires six structured 2D plastic refusals (#758), retains both 3D plastic
 certificates and their bundle exports, and compares all outputs exactly across runtimes.
-Results version 7 (renumbered at landing) registers the warnings and refusals; the only numerical kernel change is the 2D reaction of a settled rigid support with its own spring (#1113), and no baseline changes.
+Results version 14 (renumbered at landing) registers the warnings and refusals; the only numerical kernel change is the 2D reaction of a settled rigid support with its own spring (#1113), and no baseline changes.
 
 The constrained-path guard also withholds validation-01's DEAD LOAD case (quads 640 and 657).
 Its numerical baseline is retained unchanged alongside validation-03's; the tests now require

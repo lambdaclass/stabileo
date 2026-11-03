@@ -218,7 +218,7 @@ pub fn solve_buckling_2d(
         crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
     });
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
-    let result = result.ok_or_else(|| "Eigenvalue decomposition failed — stiffness matrix issue".to_string())?;
+    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
@@ -495,7 +495,7 @@ pub fn solve_buckling_3d(
         crate::linalg::lanczos::lanczos_buckling_eigen_sparse_observed(k_solve, kg_solve, num_modes, observe)
     });
     crate::known_issues::attach(&mut structured_diagnostics, conditioning.into_iter().collect());
-    let result = result.ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    let result = result.ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
 
     let num_modes = num_modes.min(ns);
     let n_converged = result.values.len();
