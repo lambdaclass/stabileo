@@ -208,11 +208,10 @@ fn validation_ext_symmetry_portal_udl_no_sway() {
     );
     let results = linear::solve_2d(&input).unwrap();
 
-    // No sway: top nodes should have equal horizontal displacement
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap();
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap();
-    assert_close(d2.ux, d3.ux, 0.02,
-        "Portal UDL symmetry: top nodes equal horizontal disp");
+    assert_close(d2.ux, -d3.ux, 1e-9,
+        "Portal UDL symmetry: top nodes mirror horizontal disp");
 
     // No net horizontal reaction (symmetry)
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -418,7 +417,7 @@ fn validation_ext_symmetry_two_bay_portal() {
         "Two-bay symmetry: equal vertical reactions");
 
     // Equal base moments in magnitude
-    assert_close(r1.my.abs(), r5.my.abs(), 0.02,
+    assert_close_abs(r1.my.abs(), r5.my.abs(), 0.02, 1e-6,
         "Two-bay symmetry: equal base moment magnitudes");
 
     // Center node (3) has zero horizontal displacement (symmetry axis)

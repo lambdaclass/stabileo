@@ -49,8 +49,8 @@ fn validation_3d_grid_single_beam() {
     })];
     let input = make_3d_beam(
         n, l, E, NU, A, IY, IZ, J,
-        vec![true, true, true, true, true, true],     // fixed rotation at pin
-        Some(vec![false, true, true, false, false, false]), // roller in Y,Z
+        vec![true, true, true, true, false, false],
+        Some(vec![false, true, true, false, false, false]),
         loads,
     );
     let results = linear::solve_3d(&input).unwrap();
@@ -58,7 +58,7 @@ fn validation_3d_grid_single_beam() {
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap().uy.abs();
     let d_exact = p * l.powi(3) / (48.0 * e_eff * IZ);
-    assert_close(d_mid, d_exact, 0.02, "3D SS beam: δ = PL³/(48EI_z)");
+    assert_close(d_mid, d_exact, 1e-6, "3D SS beam: δ = PL³/(48EI_z)");
 }
 
 // ================================================================
@@ -169,7 +169,7 @@ fn validation_3d_grid_symmetry() {
     ];
     let input = make_3d_beam(
         n, l, E, NU, A, IY, IZ, J,
-        vec![true, true, true, true, true, true],
+        vec![true, true, true, true, false, false],
         Some(vec![false, true, true, false, false, false]),
         loads,
     );
@@ -180,7 +180,9 @@ fn validation_3d_grid_symmetry() {
         .find(|d| d.node_id == node_l3).unwrap().uy;
     let d2 = results.displacements.iter()
         .find(|d| d.node_id == node_2l3).unwrap().uy;
-    assert_close(d1, d2, 0.001, "Grid symmetry: δ(L/3) = δ(2L/3)");
+    assert_close(d1, d2, 1e-6, "Grid symmetry: δ(L/3) = δ(2L/3)");
+    assert_close(d1.abs(), 5.0 * p * l.powi(3) / (162.0 * E * 1000.0 * IZ), 1e-6,
+        "Grid symmetry: δ(L/3) = 5PL³/(162EIz)");
 }
 
 // ================================================================
