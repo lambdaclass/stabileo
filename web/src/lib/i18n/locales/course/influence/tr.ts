@@ -58,6 +58,7 @@ const words: Translations = {
   'course.influence.load.min': 'En küçük',
   'course.influence.load.qOn': 'q: {list}',
   'course.influence.load.nowhere': 'hiçbir çubuk',
+  'course.influence.load.nonNegative': 'q ve P hareketli yüklerdir: sonlu ve negatif olmayan değerler girin; etki çizgisi onları işarete göre yerleştirir.',
   'course.influence.load.pAt': 'P, {e} çubuğunda %{pct} konumunda',
   'course.influence.load.direct': 'Bu yüklerle doğrudan hesap: {v}',
   'course.influence.load.drawEnvelope': 'Zarfı çubuklar üzerinde çiz',

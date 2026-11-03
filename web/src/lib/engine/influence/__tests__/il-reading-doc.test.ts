@@ -8,7 +8,7 @@ import { initSolver, solve } from '../../wasm-solver';
 import { computeInfluenceLine } from '../../influence-service';
 import { buildSolverInput2D } from '../../solver-service';
 import { unitSolver } from '../unit-sweep';
-import { readLine } from '../analysis';
+import { readLine, linePeaks } from '../analysis';
 import { sectionAt, positionToT, otherSideOf } from '../section-pick';
 import { buildInfluenceDoc } from '../../steps/influence-doc';
 import { planeModel as pmOf } from '../../steps/plane-model';
@@ -59,6 +59,24 @@ describe('reading a line', () => {
     expect(r.etaMin!.value).toBeCloseTo(exact, 9);
     expect(r.min.value).toBeCloseTo(exact, 9);
     expect(r.direct.min).toBeCloseTo(exact, 9);
+  });
+
+  it('the panel peaks are the refined ones on every member, not the samples: R_A of two spans, loaded members or not', () => {
+    const L = 5;
+    const model = twoSpan(L) as never;
+    const unit = unitSolver(buildSolverInput2D(model, false)!);
+    const il = computeInfluenceLine(model, 'Rz', 1, undefined, 0.5);
+    if (typeof il === 'string') throw new Error(il);
+    const xi = 1 - 1 / Math.sqrt(3);
+    const exact = -(xi * (1 - xi) * (2 - xi)) / 4;
+    const sampled = Math.min(...il.points.map((p) => p.value));
+    expect(sampled - exact).toBeGreaterThan(1e-5);
+    const peaks = linePeaks(unit, il, DOWN);
+    expect(peaks.min!.elementId).toBe(2);
+    expect(peaks.min!.t).toBeCloseTo(xi, 4);
+    expect(peaks.min!.value).toBeCloseTo(exact, 9);
+    expect(peaks.max!.value).toBeCloseTo(1, 9);
+    expect(readLine(unit, il, { g: 0, q: 0, P: 1 }, 'zones', [1], DOWN).etaMin!.value).toBeGreaterThan(exact + 1e-5);
   });
 
   it('a curved line crossing zero between samples: the zones end where it does', () => {
