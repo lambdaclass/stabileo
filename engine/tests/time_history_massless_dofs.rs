@@ -90,7 +90,7 @@ fn a_step_load_on_a_massless_dof_matches_the_two_dof_closed_form() {
         }
         let (ua, ub) = (ux(&r, 2), ux(&r, 3));
         let c = a0 * MASS + a1 * k1();
-        let rho = (1.0 - dt / (2.0 * a1)) / (1.0 + dt / (2.0 * a1));
+        let rho = if a1 > 0.0 { (1.0 - dt / (2.0 * a1)) / (1.0 + dt / (2.0 * a1)) } else { 1.0 };
         let (mut err_a, mut err_w, mut err_trapezoid) = (0.0f64, 0.0f64, 0.0f64);
         for (n, &t) in r.time_steps.iter().enumerate() {
             let w = ub[n] - ua[n];

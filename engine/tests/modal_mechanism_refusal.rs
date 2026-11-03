@@ -127,20 +127,23 @@ fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
     assert!(!r.modes.is_empty() && r.modes.iter().all(|m| m.frequency > 0.1), "{:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
 }
 
-fn seesaw(arm: f64) -> SolverInput {
+fn seesaw(arm: f64, far: f64) -> SolverInput {
     serde_json::from_value(json!({
         "nodes": {
             "1": {"id": 1, "x": -arm, "z": 0.0},
             "2": {"id": 2, "x": 0.0, "z": 0.0},
             "3": {"id": 3, "x": arm, "z": 0.0},
+            "4": {"id": 4, "x": far, "z": 0.0},
+            "5": {"id": 5, "x": far, "z": 3.0},
         },
         "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
         "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
         "elements": {
             "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
             "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+            "3": {"id": 3, "type": "frame", "nodeI": 4, "nodeJ": 5, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
         },
-        "supports": {"1": {"id": 1, "nodeId": 2, "type": "pinned"}},
+        "supports": {"1": {"id": 1, "nodeId": 2, "type": "pinned"}, "2": {"id": 2, "nodeId": 4, "type": "fixed"}},
         "loads": [],
     }))
     .unwrap()
@@ -148,6 +151,8 @@ fn seesaw(arm: f64) -> SolverInput {
 
 #[test]
 fn a_seesaw_whose_ends_move_opposite_ways_is_refused_though_no_rigid_translation_excites_it() {
-    let e = refusal(freqs_2d(&seesaw(2.0), 4), "seesaw", MECHANISM);
-    assert!(e.contains("moves node 1 along uz") || e.contains("moves node 3 along uz"), "{e}");
+    for (arm, far) in [(2.0, 10.0), (0.01, 1e5)] {
+        let e = refusal(freqs_2d(&seesaw(arm, far), 4), &format!("seesaw of arm {arm} m beside a column {far} m away"), MECHANISM);
+        assert!(e.contains("moves node 3 along uz"), "{e}");
+    }
 }

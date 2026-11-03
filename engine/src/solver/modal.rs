@@ -181,7 +181,7 @@ pub fn solve_modal_2d(
     // forces exactly, for every constraint type.
     let (l_x, l_y) = match &cs {
         Some(cs) => (cs.reduce_vector(&m_r_x), cs.reduce_vector(&m_r_y)),
-        None => (m_r_x, m_r_y),
+        None => (m_r_x.clone(), m_r_y.clone()),
     };
 
     let null_modes = {
@@ -189,8 +189,9 @@ pub fn solve_modal_2d(
             Some(m_csc) => m_csc.sym_mat_vec(x),
             None => mat_vec_sub(&m_solve, x, ns),
         };
-        let shape = |phi: &[f64]| to_global(&cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf], n, &its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &shape, &dof_num, &["ux", "uz", "ry"], extent(input.nodes.values(), |n| vec![n.x, n.z]))?
+        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
+        let shape = |phi: &[f64]| to_global(&free(phi), n, &its);
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"])?
     };
 
     let mut modes = Vec::new();
@@ -316,13 +317,15 @@ fn null_modes_or_mechanism(
     ns: usize,
     m_mul: &dyn Fn(&[f64]) -> Vec<f64>,
     loads: &[(&Vec<f64>, f64)],
+    rigid: &[&Vec<f64>],
+    free: &dyn Fn(&[f64]) -> Vec<f64>,
     shape: &dyn Fn(&[f64]) -> Vec<f64>,
     dof_num: &DofNumbering,
     dof_names: &[&str],
-    extent: f64,
 ) -> Result<Vec<NullMode>, String> {
     let nk = result.values.len();
-    let translational = loads.len();
+    let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().map(|(&(node, local), &g)| (node, local, g)).collect();
+    dofs.sort_unstable();
     let mut out = Vec::new();
     let mut moving = None;
     for (idx, &lambda) in result.values.iter().enumerate() {
@@ -335,39 +338,28 @@ fn null_modes_or_mechanism(
             let pl: f64 = phi.iter().zip(l.iter()).map(|(a, b)| a * b).sum();
             if pmp.abs() > 1e-30 && *mass > 1e-20 { w.max(pl * pl / pmp / mass) } else { w }
         });
-        let u = shape(&phi);
-        let named = |want: &dyn Fn(usize) -> bool| {
-            dof_num.map.iter().filter(|(&(_, local), &g)| want(local) && g < u.len())
-                .max_by(|a, b| u[*a.1].abs().total_cmp(&u[*b.1].abs()))
-                .map(|(&(node, local), &g)| (node, dof_names.get(local).copied().unwrap_or("").to_string(), u[g].abs()))
+        let uf = free(&phi);
+        let kinetic = |&&(_, local, g): &&(usize, usize, usize)| {
+            rigid.get(local).and_then(|m| m.get(g)).zip(uf.get(g)).map_or(0.0, |(m, u)| m.abs() * u * u)
         };
-        let (node_id, dof, peak) = named(&|_| true).unwrap_or((0, String::new(), 0.0));
-        let rotation = named(&|l| l >= translational).map_or(0.0, |t| t.2);
-        let moved = named(&|l| l < translational);
-        let translates = moved.as_ref().is_some_and(|t| t.2 > NULL_MODE_MASS_RATIO * peak.max(rotation * extent));
-        if moving.is_none() && (share > NULL_MODE_MASS_RATIO || translates) {
-            let (n, d, _) = moved.unwrap_or((node_id, dof.clone(), 0.0));
-            moving = Some((n, d, lambda));
+        let heaviest = dofs.iter().filter(|d| d.1 < rigid.len()).max_by(|a, b| kinetic(a).total_cmp(&kinetic(b)));
+        let translational: f64 = dofs.iter().map(|d| kinetic(&d)).sum();
+        let u = shape(&phi);
+        let (node_id, dof) = dofs.iter().filter(|d| d.2 < u.len()).max_by(|a, b| u[a.2].abs().total_cmp(&u[b.2].abs()))
+            .map_or((0, String::new()), |&(node, local, _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
+        if moving.is_none() && (share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs()) {
+            let (node, dof) = heaviest.map_or((node_id, dof.clone()), |&(n, l, _)| (n, dof_names.get(l).copied().unwrap_or("").to_string()));
+            moving = Some((node, dof, lambda));
         }
         out.push(NullMode { omega_sq: lambda, node_id, dof });
     }
     if let Some((node, dof, lambda)) = moving {
         return Err(format!(
-            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative frequency (ω² ≤ {NULL_EIGENVALUE:e} rad²/s²); one (ω² = {lambda:.3e}) moves node {node} along {dof} without deforming, so a release, hinge or missing support lets part of the mass move freely. No modes are returned.",
+            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative ω² (≤ {NULL_EIGENVALUE:e} rad²/s²); one (ω² = {lambda:.3e}) moves node {node} along {dof} with no positive stiffness against it, so a release, hinge, missing support or negative stiffness lets part of the mass move freely. No modes are returned.",
             out.len()
         ));
     }
     Ok(out)
-}
-
-fn extent<P>(nodes: impl Iterator<Item = P>, coords: impl Fn(&P) -> Vec<f64>) -> f64 {
-    let pts: Vec<Vec<f64>> = nodes.map(|n| coords(&n)).collect();
-    let span = |k: usize| {
-        let (lo, hi) = pts.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
-        if hi > lo { hi - lo } else { 0.0 }
-    };
-    let dims = pts.first().map_or(0, |p| p.len());
-    (0..dims).map(span).fold(0.0f64, f64::max).max(1.0)
 }
 
 /// M*v product for a submatrix (nf×nf flat array)
@@ -481,17 +473,19 @@ pub fn solve_modal_3d(
     // The full mass is assembled once, only if some support moves with the ground.
     let m_full_cell: std::cell::OnceCell<CscMatrix> = std::cell::OnceCell::new();
     let m_r = |local: usize| {
-        let mr = ground_influence(&dof_num, local, its, &m_sparse_ff, || {
+        ground_influence(&dof_num, local, its, &m_sparse_ff, || {
             m_full_cell.get_or_init(|| super::mass_matrix::assemble_mass_matrix_3d_sparse_block(input, &dof_num, densities, n))
-        });
-        match &cs { Some(cs) => cs.reduce_vector(&mr), None => mr }
+        })
     };
-    let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
+    let rigid = [m_r(0), m_r(1), m_r(2)];
+    let reduce = |mr: &Vec<f64>| match &cs { Some(cs) => cs.reduce_vector(mr), None => mr.clone() };
+    let (l_x, l_y, l_z) = (reduce(&rigid[0]), reduce(&rigid[1]), reduce(&rigid[2]));
 
     let null_modes = {
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
-        let shape = |phi: &[f64]| to_global(&cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf], n, its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], extent(input.nodes.values(), |n| vec![n.x, n.y, n.z]))?
+        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
+        let shape = |phi: &[f64]| to_global(&free(phi), n, its);
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"])?
     };
 
     let mut modes = Vec::new();
