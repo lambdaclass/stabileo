@@ -475,7 +475,7 @@ function centroid(poly: Array<[number, number]>): [number, number] {
 }
 
 /** A beam lies on a panel's boundary: both ends and its midpoint on its sides. */
-function onBoundary(model: GravityModel, b: FloorBeam, poly: Array<[number, number]>): boolean {
+function onBoundary(model: GravityModel, b: { nodeI: number; nodeJ: number }, poly: Array<[number, number]>): boolean {
   const a = model.nodes.get(b.nodeI)!, c = model.nodes.get(b.nodeJ)!;
   const pts: Array<[number, number]> = [[a.x, a.y], [c.x, c.y], [(a.x + c.x) / 2, (a.y + c.y) / 2]];
   return pts.every((p) => poly.some((v, i) => nearSegment(p, v, poly[(i + 1) % poly.length]!, 1e-3)));
