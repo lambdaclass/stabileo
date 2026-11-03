@@ -367,3 +367,46 @@ fn a_stable_frame_with_an_arm_up_to_1e12_times_softer_keeps_the_arm_modes() {
         assert!((freqs[1] / axial - 1.0).abs() <= 1e-3, "stiffness ratio {ratio:e}: arm axial mode {} Hz, EA/(mL) gives {axial} Hz", freqs[1]);
     }
 }
+
+fn meshed_frame(path: &[(f64, f64)], segments: usize, iz: f64, fixed_far_end: bool) -> SolverInput {
+    let mut nodes = Map::new();
+    let mut elements = Map::new();
+    nodes.insert("1".into(), json!({"id": 1, "x": path[0].0, "z": path[0].1}));
+    let mut last = 1;
+    for w in path.windows(2) {
+        for s in 1..=segments {
+            let f = s as f64 / segments as f64;
+            let id = last + 1;
+            nodes.insert(id.to_string(), json!({"id": id, "x": w[0].0 + f * (w[1].0 - w[0].0), "z": w[0].1 + f * (w[1].1 - w[0].1)}));
+            elements.insert(last.to_string(), json!({"id": last, "type": "frame", "nodeI": last, "nodeJ": id, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}));
+            last = id;
+        }
+    }
+    let mut supports = json!({"1": {"id": 1, "nodeId": 1, "type": "fixed"}});
+    if fixed_far_end {
+        supports["2"] = json!({"id": 2, "nodeId": last, "type": "fixed"});
+    }
+    serde_json::from_value(json!({
+        "nodes": nodes,
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": iz}},
+        "elements": elements,
+        "supports": supports,
+        "loads": [],
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_thousand_elements_per_member_still_return_the_lowest_modes() {
+    let cantilever = [(0.0, 0.0), (10.0, 0.0)];
+    let portal = [(0.0, 0.0), (0.0, 3.0), (20.0, 3.0), (20.0, 0.0)];
+    for (name, path, iz, far) in [("cantilever", &cantilever[..], 1e-4, false), ("portal", &portal[..], 1e-4, true)] {
+        let coarse = freqs_2d(&meshed_frame(path, 100, iz, far), 2).unwrap_or_else(|e| panic!("{name}, 100 per member: {e}"));
+        let fine = freqs_2d(&meshed_frame(path, 1000, iz, far), 2).unwrap_or_else(|e| panic!("{name}, 1000 per member: {e}"));
+        assert_eq!((coarse.len(), fine.len()), (2, 2), "{name}: {coarse:?} with 100 elements per member, {fine:?} with 1000");
+        for (c, f) in coarse.iter().zip(&fine) {
+            assert!((f / c - 1.0).abs() < 1e-4, "{name}: {f} Hz with 1000 elements per member, {c} Hz with 100");
+        }
+    }
+}

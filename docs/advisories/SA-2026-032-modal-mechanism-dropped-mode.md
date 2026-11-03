@@ -35,9 +35,12 @@ singular or indefinite stiffness. Re-run it: it now refuses and names the mechan
 
 ## Fixed in
 
-PR #1247. A mode is zero when its ω² is round-off: |ω²|·φᵀMφ at most 10⁻¹² of |φ|ᵀ|K||φ|, the
-size of the stiffness terms that cancel in it (mechanisms measure 10⁻¹⁹ to 10⁻¹⁶, the lowest real
-modes of the test models 10⁻⁷ and above). That cut is relative, so it holds whichever eigensolver
+PR #1247. A mode is zero when its ω² is round-off: |ω²|·φᵀMφ at most 10⁻¹⁴ of |φ|ᵀ|K||φ|, the
+size of the stiffness terms that cancel in it (mechanisms measure 10⁻¹⁹ to 2·10⁻¹⁶). Real modes
+fall as the mesh is refined, about as the fourth power of the elements per member: a cantilever
+measures 2·10⁻⁵ with 10 elements and 3·10⁻¹³ with 1000, so 1000 elements per member still return
+their modes. Below 10⁻¹⁴ double precision knows ω² to no better than 2 %, and the analysis refuses
+rather than return it. That cut is relative, so it holds whichever eigensolver
 shift puts a mechanism's zero at 10⁻⁸ instead of 10⁻¹¹, and a stable cantilever soft enough for
 ω² = 2·10⁻¹¹ rad²/s² keeps its modes. Modal analysis refuses when a zero mode moves a
 translational DOF that carries mass by more than round-off (10⁻⁸ of its largest component), has
