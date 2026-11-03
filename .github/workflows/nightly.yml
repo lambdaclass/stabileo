@@ -60,6 +60,7 @@ permissions:
 env:
   CARGO_TERM_COLOR: always
   CARGO_BUILD_JOBS: 2
+  CARGO_HTTP_MULTIPLEXING: false
 
 jobs:
   # Which jobs run, and which mutants shards tonight. The mutants scope
@@ -83,7 +84,7 @@ jobs:
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
           MUTANTS_TOTAL: 512
-          MUTANTS_SLOTS: 4
+          MUTANTS_SLOTS: 32
           FORCE_FAILURE: ${{ inputs.force_failure }}
         run: |
           if [ "$FORCE_FAILURE" = true ]; then
@@ -368,7 +369,7 @@ jobs:
   fuzz:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' fuzz ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_NIGHTLY_POOL == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 180
     strategy:
       fail-fast: false
@@ -459,7 +460,7 @@ jobs:
   mutants:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' mutants ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && (vars.STABILEO_NIGHTLY_POOL == 'true' && fromJSON('["self-hosted","stabileo-nightly"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
     timeout-minutes: 150
     strategy:
       fail-fast: false
@@ -489,6 +490,7 @@ jobs:
         with:
           tool: cargo-mutants,nextest
       - name: Mutants (shard ${{ matrix.shard }}/${{ needs.plan.outputs.mutants_total }})
+        id: mutants
         env:
           SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.mutants_total }}
           # Leaves time to upload the report before the job timeout.
@@ -509,6 +511,7 @@ jobs:
           if [ -s mutants.out/missed.txt ]; then
             { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
+          case "$status" in 0|2) echo "finished=true" >> "$GITHUB_OUTPUT" ;; esac
           if [ "$status" -eq 124 ]; then
             echo "::error::mutants shard $SHARD did not finish within ${BUDGET_MIN} min (see the summary above for how far it got); raise MUTANTS_TOTAL in nightly.yml"
             exit 1
@@ -520,6 +523,19 @@ jobs:
           name: mutants-report-${{ matrix.shard }}
           path: mutants.out/
           if-no-files-found: ignore
+      - name: Mark the shard as tested to its end
+        if: always() && steps.mutants.outputs.finished == 'true'
+        env:
+          SHARD: ${{ matrix.shard }}/${{ needs.plan.outputs.mutants_total }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/mutants-done"
+          echo "$SHARD $GITHUB_SHA" > "$RUNNER_TEMP/mutants-done/shard.txt"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always() && steps.mutants.outputs.finished == 'true'
+        with:
+          name: mutants-done-${{ matrix.shard }}-of-${{ needs.plan.outputs.mutants_total }}
+          path: ${{ runner.temp }}/mutants-done/
+          retention-days: 45
 
   # Criterion reports, informational: benchmark wall time on shared runners is
   # too noisy to gate on (the perf regression gates in ci.yml run
