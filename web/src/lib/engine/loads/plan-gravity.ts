@@ -300,7 +300,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (why === 'lowHeadroom') {
         const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));
         const all = levels.get(z)?.res.panels ?? [];
-        const nested = all.filter((o) => within(o, panel) && !all.some((m) => within(m, panel) && within(o, m)));
+        const nested = all.filter((o) => within(o, panel) && !all.some((m) => within(m, panel) && within(o, m)) && deckless(o.polygon, z) !== 'wide');
         const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
@@ -541,7 +541,7 @@ function notADeck(
    * of `area`: what is left once the loaded panels, the tributary strips of members kept by width
    * (over the stretch of each that is low), the shells loaded by panels (all of whose corners are
    * low) and what panels and members within the roof's structure kept for themselves are taken
-   * away, as are `holes`, the outermost panels nested in it (apart from each other), which load their own area. Geometry that cannot be
+   * away, as are `holes`, the outermost panels nested in it that load their own area. Geometry that cannot be
    * resolved keeps all of `area`.
    */
   const uncarried = (area: Array<[number, number]>, z: number, held: Held, holes: Array<Array<[number, number]>> = []): { share: number; kept: Region } => {

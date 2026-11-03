@@ -492,3 +492,22 @@ describe('three concentric roof-structure rings', () => {
     expect(layout.areaByLevel.get(3)).toBeCloseTo(2 * 6, 6);
   });
 });
+
+describe('a roof-structure ring around a ring too wide for a slab', () => {
+  it('keeps the wide ring\'s area, which no panel of its own loads', () => {
+    const b = builder();
+    for (const [x0, x1] of [[0, 30], [15, 28]] as const) {
+      const corners: Array<[number, number]> = [[x0, x0], [x1, x0], [x1, x1], [x0, x1]];
+      const ring = corners.map(([x, y]) => b.node(x, y, 3));
+      ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+      b.bar(b.node(x0, x0, 0), ring[0]!);
+    }
+    for (let y = 0; y <= 30; y++) b.bar(b.node(0, y, 4), b.node(30, y, 4), 'truss');
+    const deck = ([[14.6, 14.6], [15.5, 14.6], [15.5, 15.5], [14.6, 15.5]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
+    deck.forEach((id, i) => b.bar(id, deck[(i + 1) % 4]!));
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
+    expect(keys(layout)).toContain('loadPlan.gravity.widePanels');
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(900 - 0.9 * 0.9, 6);
+  });
+});
