@@ -76,6 +76,27 @@ describe('aluminium', () => {
     expect(c.capacity).toBeCloseTo(0.13801 * 1090.909, 0);
   });
 
+  it('weak-axis shear is checked on the flanges of an I, by hand (#532)', () => {
+    const s = { kind: 'I' as const, b: 0.2, h: 0.3, tw: 0.015, tf: 0.016, a: 0.0103, iy: 1.6e-4, iz: 2.1e-5, j: 6e-7 };
+    const g = { fo: 240, fu: 260, designation: '6061-T6' };
+    const rows = aluminiumCheckRows(s, g, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0, vWeak: 900, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    const weak = rows.find((r) => r.titleKey === 'check.alu.shearWeak');
+    const vRd = (2 * 0.2 * 0.016 * 240) / (Math.sqrt(3) * 1.1) * 1000;
+    expect(vRd).toBeCloseTo(806.18, 1);
+    expect(weak?.capacity).toBeCloseTo(vRd, 2);
+    expect(weak?.status).toBe('fail');
+    expect(rows.find((r) => r.titleKey === 'check.alu.shear')).toBeUndefined();
+    const strong = aluminiumCheckRows(s, g, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 900, vWeak: 0, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    expect(strong.find((r) => r.titleKey === 'check.alu.shear')?.capacity).toBeCloseTo((0.015 * (0.3 - 0.032) * 240) / (Math.sqrt(3) * 1.1) * 1000, 2);
+    expect(strong.find((r) => r.titleKey === 'check.alu.shearWeak')).toBeUndefined();
+  });
+
+  it('weak-axis shear of a rectangular tube uses the walls along its width', () => {
+    const s = { kind: 'RHS' as const, b: 0.1, h: 0.2, t: 0.005, a: 0.0029, iy: 1.5e-5, iz: 5.1e-6, j: 1.1e-5 };
+    const rows = aluminiumCheckRows(s, { fo: 240, fu: 260, designation: '6061-T6' }, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0, vWeak: 100, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')?.capacity).toBeCloseTo((2 * 0.005 * 0.09 * 240) / (Math.sqrt(3) * 1.1) * 1000, 2);
+  });
+
   it('a slender I section is class 4 and is not evaluated, a stocky one is', () => {
     const slender = { kind: 'I' as const, b: 0.2, h: 0.3, tw: 0.002, tf: 0.004, a: 0.002, iy: 1e-5, iz: 1e-6, j: 1e-9 };
     expect(sectionClass(slender, 240, 'A').compression).toBe(4);

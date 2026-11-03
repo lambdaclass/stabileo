@@ -8360,6 +8360,7 @@ const en: Record<string, string> = {
   'check.alu.bendingStrong': 'Bending, strong axis',
   'check.alu.bendingWeak': 'Bending, weak axis',
   'check.alu.shear': 'Shear',
+  'check.alu.shearWeak': 'Shear, weak axis',
   'check.alu.interaction': 'Axial force and bending',
   'check.alu.class': 'Section class',
   'check.alu.grade': 'Grade',

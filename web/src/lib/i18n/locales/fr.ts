@@ -8266,6 +8266,7 @@ const fr: Translations = {
   'check.alu.bendingStrong': 'Flexion, axe fort',
   'check.alu.bendingWeak': 'Flexion, axe faible',
   'check.alu.shear': 'Effort tranchant',
+  'check.alu.shearWeak': 'Effort tranchant, axe faible',
   'check.alu.interaction': 'Effort normal et flexion',
   'check.alu.class': 'Classe de section',
   'check.alu.grade': 'Nuance',

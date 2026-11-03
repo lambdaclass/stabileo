@@ -8266,6 +8266,7 @@ const de: Translations = {
   'check.alu.bendingStrong': 'Biegung, starke Achse',
   'check.alu.bendingWeak': 'Biegung, schwache Achse',
   'check.alu.shear': 'Querkraft',
+  'check.alu.shearWeak': 'Querkraft, schwache Achse',
   'check.alu.interaction': 'Normalkraft und Biegung',
   'check.alu.class': 'Querschnittsklasse',
   'check.alu.grade': 'Legierung',

@@ -2,7 +2,7 @@
  * Aluminium members by EN 1999-1-1, the code of the EN AW grades the catalogue carries: the
  * cross-section class from the slenderness of its parts (Table 6.2), tension, compression with
  * flexural buckling (6.3.1), bending with lateral-torsional buckling for open sections (6.3.2),
- * shear (6.2.6) and a linear interaction of the three. Heat-treated tempers (T…) buckle as class A,
+ * shear along each axis (6.2.6) and a linear interaction of the three. Heat-treated tempers (T…) buckle as class A,
  * the others as class B. Members without welds: no heat-affected zone. A class 4 section is not
  * evaluated (its effective thickness is not computed here) and says so.
  *
@@ -101,7 +101,9 @@ export function aluminiumCheckRows(
   const NtRd = Math.min(A * fo / GAMMA_M1, (0.9 * A * grade.fu) / GAMMA_M2) * 1000;
   const MyRd = (wy * fo / GAMMA_M1) * 1000, MzRd = (wz * fo / GAMMA_M1) * 1000;
   const av = s.kind === 'I' && s.tw && s.tf ? s.tw * (s.h - 2 * s.tf) : s.kind === 'RHS' && s.t ? 2 * s.t * (s.h - 2 * s.t) : s.kind === 'CHS' ? (2 * A) / Math.PI : A * 2 / 3;
+  const avWeak = s.kind === 'I' && s.tw && s.tf ? 2 * s.b * s.tf : s.kind === 'RHS' && s.t ? 2 * s.t * (s.b - 2 * s.t) : s.kind === 'CHS' ? (2 * A) / Math.PI : A * 2 / 3;
   const VRd = ((av * fo) / (Math.sqrt(3) * GAMMA_M1)) * 1000;
+  const VRdWeak = ((avWeak * fo) / (Math.sqrt(3) * GAMMA_M1)) * 1000;
   // Flexural buckling about each axis.
   const ncr = (I: number, k = 1) => (Math.PI ** 2 * E * I) / (k * geo.L) ** 2 * 1000;
   const lamY = Math.sqrt((A * fo * 1000) / ncr(s.iy, geo.kStrong)), lamZ = Math.sqrt((A * fo * 1000) / ncr(s.iz, geo.kWeak));
@@ -132,6 +134,8 @@ export function aluminiumCheckRows(
     if (Mz > 0) keep(row('bendingWeak', 'Bending, weak axis', '6.2.5', 'MEd ≤ W·fo/γM1', Mz, MzRd, 'kN·m', [inp('W', wz * 1e6, 'cm³')], dm));
     const V = Math.abs(dm.vStrong);
     if (V > 0) keep(row('shear', 'Shear', '6.2.6', 'VEd ≤ Av·fo/(√3·γM1)', V, VRd, 'kN', [inp('Av', av * 1e4, 'cm²')], dm));
+    const Vw = Math.abs(dm.vWeak);
+    if (Vw > 0) keep(row('shearWeak', 'Shear, weak axis', '6.2.6', 'VEd ≤ Av·fo/(√3·γM1)', Vw, VRdWeak, 'kN', [inp('Av', avWeak * 1e4, 'cm²')], dm, ['Av: the parts parallel to the shear']));
     if ((Nc > 0 || Nt > 0) && (My > 0 || Mz > 0)) {
       const u = (Nc > 0 ? Nc / NbRd : Nt / NtRd) + My / MbRd + Mz / MzRd;
       keep(row('interaction', 'Axial force and bending', '6.3.3', 'NEd/NRd + My,Ed/My,Rd + Mz,Ed/Mz,Rd ≤ 1', u, 1, '', [inp('NEd', Nc || Nt, 'kN'), inp('My,Ed', My, 'kN·m'), inp('Mz,Ed', Mz, 'kN·m')], dm, ['linear interaction (conservative)']));

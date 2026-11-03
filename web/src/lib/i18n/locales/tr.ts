@@ -8274,6 +8274,7 @@ const tr: Translations = {
   'check.alu.bendingStrong': 'Eğilme, güçlü eksen',
   'check.alu.bendingWeak': 'Eğilme, zayıf eksen',
   'check.alu.shear': 'Kesme',
+  'check.alu.shearWeak': 'Kesme, zayıf eksen',
   'check.alu.interaction': 'Eksenel kuvvet ve eğilme',
   'check.alu.class': 'Kesit sınıfı',
   'check.alu.grade': 'Kalite',
