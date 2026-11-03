@@ -152,7 +152,7 @@ jobs:
   deploy:
     name: Deploy (${{ inputs.environment || 'production' }})
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: ${{ inputs.environment || 'production' }}
     # Shared with the rollback, so neither runs while the other holds the host.
