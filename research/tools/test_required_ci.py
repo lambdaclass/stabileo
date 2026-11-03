@@ -167,27 +167,45 @@ for caller, event, route_only, expected in [
     assert selected == expected, (caller, event, route_only, selected)
 print('ok online audit runs on research PRs without duplicating required jobs')
 
-cache = next(step for step in jobs['research-wasm']['steps'] if step.get('id') == 'research-assets')
-patterns = re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
+steps = jobs['research-wasm']['steps']
+caches = {step['id'].removeprefix('research-'): step for step in steps if step.get('id', '').startswith('research-')}
+assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
+for name, cache in caches.items():
+    assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
+    builds = [step for step in steps if step.get('name') == f'Build research WASM ({name}, cache miss)']
+    assert len(builds) == 1 and builds[0].get('if') == f"steps.research-{name}.outputs.cache-hit != 'true'", name
+print('ok each research bundle is cached on its own and rebuilt only on its own miss')
+
+def patterns_of(cache):
+    return re.findall(r"'([^']+)'", re.search(r'hashFiles\((.*?)\)', cache['with']['key']).group(1))
+
 with tempfile.TemporaryDirectory() as directory:
     checkout = pathlib.Path(directory)
-    def cache_digest():
+    def cache_digest(patterns):
         files = set()
         for glob in patterns:
             matched = checkout.glob(glob + '/*' if glob.endswith('/**') else glob)
             files.update(path for path in matched if path.is_file())
         return hashlib.sha256(b''.join(hashlib.sha256(path.read_bytes()).digest() for path in sorted(files))).hexdigest()
 
-    for crate in ['research/fracture/shauer-2025', 'research/metamaterials/grossman-2026']:
-        for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml']:
-            path = checkout / crate / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            before = cache_digest()
-            path.write_text('first input')
-            added = cache_digest()
-            assert added != before, (path, 'addition did not invalidate cache')
-            path.write_text('changed input')
-            assert cache_digest() != added, (path, 'edit did not invalidate cache')
-            path.unlink()
-            assert cache_digest() == before, (path, 'removal did not restore cache identity')
-print('ok research cache invalidates for added and changed build scripts and inputs')
+    def invalidated(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        before = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
+        path.write_text('changed input')
+        after = {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()}
+        path.unlink()
+        assert {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()} == before, path
+        return {name for name in caches if after[name] != before[name]}
+
+    engine = {'shauer-2025', 'biggins-2026', 'fairclough-2026'}
+    for relative in ['engine/src/lib.rs', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/config.toml']:
+        assert invalidated(checkout / relative) == engine, relative
+    for relative in ['flake.lock', 'Cargo.lock', 'rust-toolchain.toml', 'research/tools/asset_identity.py']:
+        assert invalidated(checkout / relative) == set(caches), relative
+    assert invalidated(checkout / 'research/fracture/shauer-2025/wasm/trim_exports.py') == {'shauer-2025', 'biggins-2026'}
+    for name, crate in [('shauer-2025', 'research/fracture/shauer-2025'), ('grossman-2026', 'research/metamaterials/grossman-2026'),
+                        ('andreassen-2011', 'research/optimization/andreassen-2011'), ('pastrana-2026', 'research/form-finding/pastrana-2026'),
+                        ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026')]:
+        for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
+            assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
+print('ok research caches invalidate for their own inputs, and engine changes only for bundles that link it')

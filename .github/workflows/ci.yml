@@ -678,20 +678,50 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
-      # Cache only the expensive Rust bundles/replay. Rebuild and republish the viewer below.
-      - name: Research compiled assets
-        id: research-assets
+      # One cache per research bundle, keyed on what that bundle is built from: an engine change
+      # rebuilds only the bundles that link the engine. The viewer is rebuilt and republished below.
+      - name: Research compiled assets (shauer-2025)
+        id: research-shauer-2025
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
-          path: |
-            web/public/research-wasm/shauer-2025
-            web/public/research-wasm/grossman-2026
-            web/public/research-wasm/andreassen-2011
-            web/public/research-wasm/biggins-2026
-            web/public/research-wasm/pastrana-2026
-            web/public/research-wasm/fairclough-2026
-          key: research-assets-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/**') }}
+          path: web/public/research-wasm/shauer-2025
+          key: research-assets-v3-shauer-2025-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/fracture/shauer-2025/**') }}
+      - name: Research compiled assets (andreassen-2011)
+        id: research-andreassen-2011
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/andreassen-2011
+          key: research-assets-v3-andreassen-2011-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'research/optimization/andreassen-2011/**') }}
+      - name: Research compiled assets (biggins-2026)
+        id: research-biggins-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/biggins-2026
+          key: research-assets-v3-biggins-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/biggins-2026/**', 'research/fracture/shauer-2025/wasm/trim_exports.py') }}
+      - name: Research compiled assets (grossman-2026)
+        id: research-grossman-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/grossman-2026
+          key: research-assets-v3-grossman-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'research/metamaterials/grossman-2026/**') }}
+      - name: Research compiled assets (pastrana-2026)
+        id: research-pastrana-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/pastrana-2026
+          key: research-assets-v3-pastrana-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'research/form-finding/pastrana-2026/**') }}
+      - name: Research compiled assets (fairclough-2026)
+        id: research-fairclough-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/fairclough-2026
+          key: research-assets-v3-fairclough-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimisation/fairclough-2026/**') }}
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         continue-on-error: true
@@ -704,24 +734,48 @@ jobs:
           shared-key: research-wasm
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
-      - name: Build research WASM and replay (cache miss)
-        if: steps.research-assets.outputs.cache-hit != 'true'
+      - name: Build research WASM (shauer-2025, cache miss)
+        if: steps.research-shauer-2025.outputs.cache-hit != 'true'
         env:
           RESEARCH_SKIP_VIEWER: '1'
         run: |
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/wasm/Cargo.toml
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
-          # Clear the flake's sccache wrapper for research toolchains on the host.
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/fracture/shauer-2025/wasm/build.sh
+      - name: Build research WASM (andreassen-2011, cache miss)
+        if: steps.research-andreassen-2011.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimization/andreassen-2011/wasm/build.sh
+      - name: Build research WASM (biggins-2026, cache miss)
+        if: steps.research-biggins-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/mechanics/biggins-2026/build.sh
+      - name: Build research WASM (grossman-2026, cache miss)
+        if: steps.research-grossman-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/metamaterials/grossman-2026/wasm/build.sh
+      - name: Build research WASM (pastrana-2026, cache miss)
+        if: steps.research-pastrana-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/form-finding/pastrana-2026/wasm/build.sh
+      - name: Build research WASM (fairclough-2026, cache miss)
+        if: steps.research-fairclough-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimisation/fairclough-2026/wasm/build.sh
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
