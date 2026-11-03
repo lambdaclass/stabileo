@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Each level's weight, centre of mass, centre of rigidity and the eccentricity between them; and
    * each storey's stability index Q, whether it sways (§6.6.4.3) and the δs its slender columns
@@ -19,7 +20,7 @@
 </script>
 
 <div class="dl" data-testid="desk-levels">
-  <p class="dl-hint">{t('desk.centresHint')}</p>
+  <Hint text={t('desk.centresHint')} />
   <table>
     <thead><tr><th>{t('desk.level')}</th><th>{t('desk.weight')}</th><th>CM x · y</th><th>CR x · y</th><th>ex · ey</th></tr></thead>
     <tbody>
@@ -35,7 +36,7 @@
   </table>
   {#if storeys.length}
     <h5 class="dl-h">{t('desk.stability')}</h5>
-    <p class="dl-hint">{t('desk.stabilityHint')}</p>
+    <Hint text={t('desk.stabilityHint')} />
     <table data-testid="desk-storeys">
       <thead><tr><th>{t('desk.storey')}</th><th>Q</th><th>{t('desk.governs')}</th><th></th><th>δs</th></tr></thead>
       <tbody>
@@ -54,7 +55,6 @@
 
 <style>
   .dl { padding: 10px; overflow: auto; }
-  .dl-hint { font-size: 0.7rem; color: var(--st-text-3); margin: 0 0 6px; }
   table { border-collapse: collapse; font-size: 0.72rem; width: 100%; }
   th { text-align: left; font-weight: 500; color: var(--st-text-3); padding: 2px 6px; }
   td { padding: 2px 6px; border-top: 1px solid var(--st-hair); }

@@ -230,7 +230,7 @@ fn validation_transfer_ext_cantilever_triangular_load() {
     // Tip deflection should be zero (free end has zero force)
     let tip_v = results.element_forces.iter()
         .find(|f| f.element_id == n).unwrap().v_end;
-    assert_close(tip_v.abs(), 0.0, 0.05, "Triangular cantilever tip shear ≈ 0");
+    assert_close_abs(tip_v.abs(), 0.0, 0.05, 1e-6, "Triangular cantilever tip shear ≈ 0");
 }
 
 // ================================================================
@@ -346,7 +346,7 @@ fn validation_transfer_ext_four_point_bending() {
     for elem_id in load_node_left..load_node_right {
         let ef = results.element_forces.iter()
             .find(|f| f.element_id == elem_id).unwrap();
-        assert_close(ef.v_start.abs(), 0.0, 0.02,
+        assert_close_abs(ef.v_start.abs(), 0.0, 0.02, 1e-6,
             &format!("Pure bending zone elem {} V_start ≈ 0", elem_id));
     }
 

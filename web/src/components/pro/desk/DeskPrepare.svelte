@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Design's «Prepare»: what the model still lacks before it can be designed, and the tools that
    * supply it, opened in context.
@@ -61,7 +62,7 @@
     <div class="pp-routes">
       <section class="pp-route" data-testid="desk-route-existing">
         <h4>{t('desk.prep.existing')}</h4>
-        <p class="pp-hint">{t('desk.prep.existingHint')}</p>
+        <Hint text={t('desk.prep.existingHint')} />
         <h5>{t('desk.prep.missing')}</h5>
         {#if existingMissing.length}
           <ul data-testid="desk-route-existing-missing">{#each existingMissing as k (k)}<li>{t(k)}</li>{/each}</ul>
@@ -73,7 +74,7 @@
       </section>
       <section class="pp-route" data-testid="desk-route-scratch">
         <h4>{t('desk.prep.scratch')}</h4>
-        <p class="pp-hint">{t('desk.prep.scratchHint')}</p>
+        <Hint text={t('desk.prep.scratchHint')} />
         <h5>{t('desk.prep.missing')}</h5>
         <ul data-testid="desk-route-scratch-missing">{#each scratchMissing as k (k)}<li>{t(k)}</li>{/each}</ul>
         <div class="pp-actions">
@@ -109,7 +110,7 @@
       <button onclick={() => openDeskAt('geometry')} data-testid="desk-prep-geometry">{t('desk.tab.geometry')}</button>
       <button onclick={() => openDeskAt('designData')} data-testid="desk-prep-design-data">{t('designData.title')}</button>
     </div>
-    <p class="pp-hint">{t('desk.prep.toolsHint')}</p>
+    <Hint text={t('desk.prep.toolsHint')} />
   </section>
 </div>
 

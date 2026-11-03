@@ -31,7 +31,7 @@ describe('report numbering', () => {
   });
 
   it('numbers sub-sections in the order they appear, each once', () => {
-    const nums = [...html.matchAll(/<h2>(\d)\.(\d+) /g)].map((m) => [+m[1]!, +m[2]!] as const);
+    const nums = [...html.matchAll(/<h2[^>]*>(\d)\.(\d+) /g)].map((m) => [+m[1]!, +m[2]!] as const);
     expect(nums.length).toBeGreaterThan(3);
     const seen = new Set<string>();
     let last = [0, 0];
@@ -57,5 +57,28 @@ describe('the design is not in this report', () => {
     // The memoria de cálculo carries the checks (`lib/report/memoria`).
     const toc = [...html.matchAll(/<div class="toc-entry"><a href="#[^"]+">(\d+)\. /g)].map((m) => +m[1]!);
     expect(toc).toEqual(toc.map((_, i) => i + 1));
+  });
+});
+
+describe('a report without slabs, with drift and diagnostics', () => {
+  const html = generateReportHtml({
+    ...data,
+    deflections: [{ span: '1', L: 4, delta: 0.004, limit: 'L/300', direction: 'z', ratio: 0.3, status: 'ok', cantilever: false }],
+    storyDrifts: [{ level: 3, height: 3, driftX: 0.001, driftY: 0.001, ratioX: 0.0003, ratioY: 0.0003, status: 'ok' }],
+    diagnostics: [{ severity: 'warning', code: 'X', message: 'm' }],
+    config: { ...config, sections: { ...config.sections, storyDrift: true, diagnostics: true, deflections: true } },
+  } as unknown as ReportData);
+
+  it('numbers the sections after a missing one without a gap', () => {
+    const results = [...html.matchAll(/<h2[^>]*>2\.(\d+) /g)].map((m) => +m[1]!);
+    expect(results).toEqual(results.map((_, i) => i + 1));
+    expect(html).toMatch(/<h2 id="sec-deflections">2\.\d+ /);
+  });
+
+  it('lists every top-level section in the order printed, each one with its anchor and its number', () => {
+    const toc = [...html.matchAll(/<div class="toc-entry"><a href="#([^"]+)">(\d+)\. /g)].map((m) => [m[1]!, +m[2]!] as const);
+    expect(toc.map(([a]) => a)).toEqual(['sec-model-data', 'sec-results', 'sec-drift', 'sec-diagnostics']);
+    const printed = [...html.matchAll(/<h1 id="([^"]+)">(\d+)\. /g)].map((m) => [m[1]!, +m[2]!] as const);
+    expect(printed).toEqual(toc);
   });
 });

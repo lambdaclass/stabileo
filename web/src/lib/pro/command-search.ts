@@ -8,13 +8,19 @@ export interface PaletteEntry { cmd: ProCmd; label: string; path: string; enable
 
 const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-export function paletteEntries(stages: readonly ProStage[], t: (k: string) => string): PaletteEntry[] {
+/** The ribbon's commands, then `extra` (what lives outside it), each once. */
+export function paletteEntries(stages: readonly ProStage[], t: (k: string) => string, extra: ReadonlyArray<{ cmd: ProCmd; pathKey: string }> = []): PaletteEntry[] {
   const seen = new Set<string>();
   const out: PaletteEntry[] = [];
   for (const s of stages) for (const g of s.groups) for (const c of g.cmds) {
     if (seen.has(c.id)) continue;
     seen.add(c.id);
     out.push({ cmd: c, label: c.label ?? t(c.labelKey), path: `${t(s.labelKey)} › ${t(g.labelKey)}`, enabled: c.enabled ? c.enabled() : true });
+  }
+  for (const x of extra) {
+    if (seen.has(x.cmd.id)) continue;
+    seen.add(x.cmd.id);
+    out.push({ cmd: x.cmd, label: t(x.cmd.labelKey).replace(/…$/, ''), path: t(x.pathKey), enabled: x.cmd.enabled ? x.cmd.enabled() : true });
   }
   return out;
 }

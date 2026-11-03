@@ -48,6 +48,37 @@ class ConstraintRedundancy(unittest.TestCase):
         self.assertFalse(T.constraints_redundant([], {1: FIXED}, {}))
 
 
+class DiaphragmRows(unittest.TestCase):
+    """_constraint_rows for a diaphragm: a rigid in-plane rotation of the
+    whole floor (u = theta x r, every node turning by theta) satisfies every
+    row, and the slave's in-plane rotation is tied (the engine's diaphragm,
+    constraints.rs; aster3d-754008/754070/754079/754186/754253/754265/754299
+    mismatched on the untied slave rotation)."""
+
+    PTS = {1: (0.0, 0.0, 0.0), 2: (1.5, -2.0, 0.7), 3: (-0.4, 1.1, 2.3)}
+
+    def rows(self, plane):
+        d = {"constraints": [{"type": "diaphragm", "masterNode": 1, "slaveNodes": [2, 3], "plane": plane}]}
+        return T._constraint_rows(d, self.PTS)
+
+    def test_rigid_rotation_satisfies_rows(self):
+        for plane, axis in (("XY", 2), ("YZ", 0), ("XZ", 1)):
+            th = [0.0, 0.0, 0.0]
+            th[axis] = 0.01
+            u = {}
+            for n, p in self.PTS.items():
+                t = [th[1] * p[2] - th[2] * p[1], th[2] * p[0] - th[0] * p[2], th[0] * p[1] - th[1] * p[0]]
+                u[n] = t + th
+            for row in self.rows(plane):
+                self.assertAlmostEqual(sum(c * u[n][k] for n, k, c in row), 0.0, places=15, msg=(plane, row))
+
+    def test_slave_in_plane_rotation_is_tied(self):
+        for plane, dr in (("XY", 5), ("YZ", 3), ("XZ", 4)):
+            rows = self.rows(plane)
+            for sl in (2, 3):
+                self.assertIn([(sl, dr, 1.0), (1, dr, -1.0)], rows)
+
+
 class ConnectorMatrix(unittest.TestCase):
     """connector_matrix (port of element/connector.rs): symmetric, and every
     rigid-body motion is force free, including rotations of a finite-length

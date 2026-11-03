@@ -516,7 +516,7 @@ fn marine_deck_load_path() {
 
     // No net horizontal load: sum of horizontal reactions = 0
     let rx_sum: f64 = r1.rx + r4.rx;
-    assert_close(rx_sum, 0.0, 0.01, "Deck load: horizontal equilibrium");
+    assert_close_abs(rx_sum, 0.0, 0.01, 1e-6, "Deck load: horizontal equilibrium");
 }
 
 // ================================================================

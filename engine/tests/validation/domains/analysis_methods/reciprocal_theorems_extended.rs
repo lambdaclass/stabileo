@@ -358,6 +358,6 @@ fn validation_reciprocal_ext_betti_frame_lateral_gravity() {
     //      = G * uy_2(sys1) + G * uy_3(sys1)
     let w21 = g_load * uy2_sys1 + g_load * uy3_sys1;
 
-    assert_close(w12, w21, 0.02,
+    assert_close_abs(w12, w21, 0.02, 1e-6,
         "Betti frame: H*ux2(sys2) = G*uy2(sys1) + G*uy3(sys1)");
 }

@@ -7,7 +7,7 @@
 
 <p align="center">
   <strong>Structural analysis, in a browser tab.</strong><br>
-  An open structural-analysis platform. The solver runs on your machine:
+  Open-source structural engineering software. The solver runs on your machine:
   nothing to install, no licences, no account.
 </p>
 
@@ -31,7 +31,8 @@
 
 ## What it is
 
-Stabileo is structural analysis software that runs in any modern browser. You model, load, solve
+Stabileo is structural analysis and design software that runs in any modern browser, with an AI
+assistant in development. You model, load, solve
 and read results in 2D and 3D. The analysis engine is written in Rust and compiled to WebAssembly,
 so it runs on your own computer: the model is not sent to a server to be solved.
 

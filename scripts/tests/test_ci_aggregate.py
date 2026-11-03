@@ -22,6 +22,20 @@ class CiAggregate(unittest.TestCase):
         for path in ['scripts/tests/**', 'Makefile', 'Dockerfile']:
             self.assertIn(f"- '{path}'", paths)
 
+    def test_docker_consumes_production_artifact_before_admin_overwrites_dist(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        docker = workflow.split('  docker-smoke:', 1)[1].split('  lint-repo:', 1)[0]
+        self.assertIn('needs: [changes, web-build]', docker)
+        self.assertIn('--name site-production --dir ci-site', docker)
+        self.assertIn('--build-arg FRONTEND_STAGE=web-prebuilt', docker)
+        self.assertIn('run: docker build --tag stabileo-source-smoke .', docker)
+        web = workflow.split('  web-build:', 1)[1].split('  results-snapshot:', 1)[0]
+        self.assertLess(web.index('name: site-production'), web.index('name: Admin site build'))
+        dockerfile = (ROOT / 'Dockerfile').read_text()
+        self.assertIn('ARG FRONTEND_STAGE=web-builder', dockerfile)
+        self.assertIn('COPY ci-site/ /app/web/dist/', dockerfile)
+        self.assertIn('COPY --from=frontend-assets /app/web/dist ./web-dist', dockerfile)
+
     def test_wasm_builder_installs_clang_before_compilation(self):
         stage = (ROOT / 'Dockerfile').read_text().split('AS wasm-builder', 1)[1].split('AS web-builder', 1)[0]
         self.assertRegex(stage.split('wasm-pack build', 1)[0], r'apt-get install[^\n]*\bclang\b')

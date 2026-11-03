@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The project's own combination rules: written in load symbols, saved with the project, and
    * expanded onto the load cases by the same generator as the regulation's
@@ -92,7 +93,7 @@
 </script>
 
 <div class="cr" data-testid="combo-rules">
-  <p class="al-hint">{t('combos.rules.hint')}</p>
+  <Hint text={t('combos.rules.hint')} />
   {#if rules.length === 0}<p class="al-hint" data-testid="combo-rules-none">{t('combos.rules.none')}</p>{/if}
   {#if rules.length > 0}
     <div class="cr-wrap">
@@ -148,7 +149,7 @@
         {/each}
       </ul>
     {/if}
-    <p class="al-hint">{t('combos.library.hint')}</p>
+    <Hint text={t('combos.library.hint')} />
   </div>
 </div>
 
