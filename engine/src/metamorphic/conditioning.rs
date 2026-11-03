@@ -31,6 +31,10 @@ use crate::types::*;
 /// Above this relative tolerance a metamorphic comparison is inconclusive.
 pub const INCONCLUSIVE: f64 = 1e-3;
 
+/// Largest system the generalized eigensolver solves densely
+/// (`linalg::lanczos_generalized_eigen_sparse`).
+pub const DENSE_EIGEN_MAX: usize = 80;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Conditioning {
     /// Order of the (reduced, free) stiffness system.
@@ -41,6 +45,14 @@ pub struct Conditioning {
     pub geom: f64,
     /// Model size (largest extent), for the family-scale floors.
     pub lchar: f64,
+    /// Largest diagonal entry of the assembled stiffness at a translational
+    /// DOF, restrained DOFs and springs included (force per length).
+    pub kmax: f64,
+    /// The same at a rotational DOF (moment per radian).
+    pub kmax_r: f64,
+    /// Relative accuracy of the lowest eigenvalue from a dense eigensolve of
+    /// the model's (K, M) pencil; 0 until a harness that has the masses sets it.
+    pub eig: f64,
 }
 
 impl Conditioning {
@@ -50,7 +62,26 @@ impl Conditioning {
     }
     /// Combine the conditioning of the two models being compared.
     pub fn worst(&self, o: &Conditioning) -> Conditioning {
-        Conditioning { n: self.n.max(o.n), kappa: self.kappa.max(o.kappa), geom: self.geom.max(o.geom), lchar: self.lchar.max(o.lchar) }
+        Conditioning { n: self.n.max(o.n), kappa: self.kappa.max(o.kappa), geom: self.geom.max(o.geom), lchar: self.lchar.max(o.lchar), kmax: self.kmax.max(o.kmax), kmax_r: self.kmax_r.max(o.kmax_r), eig: self.eig.max(o.eig) }
+    }
+    /// Smallest displacement per unit force (and rotation per unit moment) a
+    /// loaded DOF can have: for SPD `K`, `(K⁻¹)ᵢᵢ ≥ 1/Kᵢᵢ ≥ 1/kmax`. 0 when unknown.
+    pub fn compliance(&self) -> [f64; 2] {
+        let inv = |k: f64| if k > 0.0 && k.is_finite() { 1.0 / k } else { 0.0 };
+        [inv(self.kmax), inv(self.kmax_r)]
+    }
+    /// `eig` for a pencil of order `self.n` with eigenvalues spanning
+    /// `[lmin, lmax]`: a dense eigensolve has absolute error ~n·ε·λmax, so
+    /// the lowest eigenvalue is only known to n·ε·λmax/λmin relative. Above
+    /// [`DENSE_EIGEN_MAX`] DOFs the solver iterates (Lanczos) to its own
+    /// tolerance instead, which the harness budgets separately.
+    pub fn with_spectrum(self, lmin: f64, lmax: f64) -> Conditioning {
+        let eig = if self.n <= DENSE_EIGEN_MAX && lmin > 0.0 && lmax >= lmin && lmax.is_finite() {
+            4.0 * (self.n as f64 + 24.0) * f64::EPSILON * lmax / lmin
+        } else {
+            0.0
+        };
+        Conditioning { eig, ..self }
     }
 }
 
@@ -162,6 +193,11 @@ fn reduced(k: &[f64], dof: &DofNumbering, ct: Option<crate::solver::constraints:
     }
 }
 
+fn stiffest(k: &[f64], dof: &DofNumbering, locals: std::ops::Range<usize>) -> f64 {
+    let n = dof.n_total;
+    dof.map.iter().filter(|((_, local), _)| locals.contains(local)).map(|(_, &g)| k[g * n + g].abs()).filter(|v| v.is_finite()).fold(0.0, f64::max)
+}
+
 fn geom_factor(points: &[[f64; 3]], chords: &[f64]) -> (f64, f64) {
     let xmax = points.iter().flat_map(|p| p.iter()).fold(0.0f64, |a, &b| a.max(b.abs()));
     let lmin = chords.iter().copied().filter(|&l| l > 0.0).fold(f64::INFINITY, f64::min);
@@ -186,6 +222,7 @@ pub fn of_2d(input: &SolverInput) -> Result<Conditioning, String> {
     } else {
         Some(build_constraint_transform(&input.constraints, &dof, Some(&input.nodes), None, &inclined_dofs_2d(input, &dof))?)
     };
+    let (kmax, kmax_r) = (stiffest(&asm.k, &dof, 0..2), stiffest(&asm.k, &dof, 2..3));
     let (kr, n) = reduced(&asm.k, &dof, ct);
     let kappa = scaled_condition(&kr, n)?;
     let pts: Vec<[f64; 3]> = crate::ordered::values(&input.nodes).map(|p| [p.x, p.z, 0.0]).collect();
@@ -197,7 +234,7 @@ pub fn of_2d(input: &SolverInput) -> Result<Conditioning, String> {
         .map(|(a, b)| ((b[0] - a[0]).powi(2) + (b[1] - a[1]).powi(2)).sqrt())
         .collect();
     let (geom, lchar) = geom_factor(&pts, &chords);
-    Ok(Conditioning { n, kappa, geom, lchar })
+    Ok(Conditioning { n, kappa, geom, lchar, kmax, kmax_r, eig: 0.0 })
 }
 
 pub fn of_3d(input: &SolverInput3D) -> Result<Conditioning, String> {
@@ -209,6 +246,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Conditioning, String> {
     } else {
         Some(build_constraint_transform(&input.constraints, &dof, None, Some(&input.nodes), &inclined_dofs_3d(input, &dof))?)
     };
+    let (kmax, kmax_r) = (stiffest(&asm.k, &dof, 0..3), stiffest(&asm.k, &dof, 3..6));
     let (kr, n) = reduced(&asm.k, &dof, ct);
     let kappa = scaled_condition(&kr, n)?;
     let pts: Vec<[f64; 3]> = crate::ordered::values(&input.nodes).map(|p| [p.x, p.y, p.z]).collect();
@@ -238,7 +276,7 @@ pub fn of_3d(input: &SolverInput3D) -> Result<Conditioning, String> {
         edges(&p.nodes[..4]);
     }
     let (geom, lchar) = geom_factor(&pts, &chords);
-    Ok(Conditioning { n, kappa, geom, lchar })
+    Ok(Conditioning { n, kappa, geom, lchar, kmax, kmax_r, eig: 0.0 })
 }
 
 #[cfg(test)]

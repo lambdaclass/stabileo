@@ -14,7 +14,7 @@ use crate::ana3::Ana3;
 use crate::case::{Case2, Case3};
 use crate::checks2::guarded;
 use crate::tally::{Tally, Verdict};
-use dedaliano_engine::metamorphic::compare::compare_with_floor;
+use dedaliano_engine::metamorphic::compare::compare_with_compliance;
 use dedaliano_engine::metamorphic::conditioning::{self, INCONCLUSIVE};
 use dedaliano_engine::metamorphic::relabel::Relabel;
 use dedaliano_engine::metamorphic::transform::{transform_2d, transform_3d, Iso2, Iso3};
@@ -148,7 +148,7 @@ fn pair_load_2d(l: &SolverLoad, nm: &dyn Fn(usize) -> usize, emax: usize) -> Sol
 pub fn check_2d(tally: &Tally, sym: &Sym2, anti: bool, anas: &[Ana2]) {
     let c = &sym.case;
     let cond = match guarded(|| conditioning::of_2d(&c.s)) {
-        Ok(k) => k,
+        Ok(k) => crate::checks2::with_eigen_2d(k, c),
         Err(e) => {
             for a in anas {
                 tally.record(a.name, "symmetry", &c.name, Verdict::Refused(format!("no conditioning estimate: {e}")));
@@ -182,7 +182,7 @@ pub fn check_2d(tally: &Tally, sym: &Sym2, anti: bool, anas: &[Ana2]) {
                     if rel > INCONCLUSIVE {
                         Verdict::Inconclusive(rel)
                     } else {
-                        match compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar)) {
+                        match compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)) {
                             Ok(rep) => Verdict::Pass(rep.worst),
                             Err(e) => Verdict::Fail(format!("{} response not {}: {e}", if anti { "antisymmetric" } else { "symmetric" }, if anti { "antisymmetric" } else { "symmetric" })),
                         }
@@ -330,7 +330,7 @@ pub fn symmetrize_3d(name: &str, half: &SolverInput3D, anti: bool) -> Option<Sym
 pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
     let c = &sym.case;
     let cond = match guarded(|| conditioning::of_3d(&c.s)) {
-        Ok(k) => k,
+        Ok(k) => crate::checks3::with_eigen_3d(k, c),
         Err(e) => {
             for a in anas {
                 tally.record(a.name, "symmetry", &c.name, Verdict::Refused(format!("no conditioning estimate: {e}")));
@@ -364,7 +364,7 @@ pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
                     if rel > INCONCLUSIVE {
                         Verdict::Inconclusive(rel)
                     } else {
-                        match compare_with_floor(&r.flat(), &exp.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar)) {
+                        match compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)) {
                             Ok(rep) => Verdict::Pass(rep.worst),
                             Err(e) => Verdict::Fail(format!("response not {}: {e}", if anti { "antisymmetric" } else { "C2-symmetric" })),
                         }

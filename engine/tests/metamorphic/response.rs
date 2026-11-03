@@ -430,3 +430,15 @@ pub fn frequency_index(tag: &str) -> Option<usize> {
 pub fn modal_gap(lower: f64, upper: f64) -> bool {
     upper > lower * (1.0 + 1e-3)
 }
+
+/// Davis–Kahan: an eigenvalue error of `rel·λ_k` turns the span of the modes
+/// up to `k` by `rel·λ_k / (λ_{k+1} − λ_k)`, so a quantity of that span
+/// (cumulative effective mass) is compared at `rel` times this factor.
+pub fn eigen_gap_factor(lower: f64, upper: f64) -> f64 {
+    let (a, b) = (lower * lower, upper * upper);
+    1.0 + a / (b - a)
+}
+
+/// Tag of the marker a plastic row adds when its factor is only a lower bound
+/// (no mechanism formed).
+pub const LOWER_BOUND: &str = "lower_bound";
