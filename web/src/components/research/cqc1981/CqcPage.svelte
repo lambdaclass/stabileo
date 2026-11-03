@@ -64,7 +64,6 @@
   sourcePath="research/benchmarks/cqc-1981"
 >
   {#snippet article()}
-    <p><strong>{s.stage}</strong></p>
     <p><strong>{s.disclaimer}</strong></p>
     <h2>{s.model}</h2><p>{s.description}</p>
     <h2>{s.method}</h2><p>{s.equations}</p>
