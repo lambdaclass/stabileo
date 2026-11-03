@@ -247,9 +247,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     levels.set(z, { beams, res });
     panelsAt.set(z, res.panels.map((pn) => pn.polygon));
   }
-  const covered = coverage(model, out.zOf, panelsAt);
+  const coverAbove = coverage(model, out.zOf, panelsAt);
+  const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
   if (opts.mode === 'width') levels.clear();
-  const deckless = opts.loadEveryPanel ? () => null : notADeck(model, carriers, covered);
+  const deckless = opts.loadEveryPanel ? () => null : notADeck(model, carriers, coverAbove);
 
   if (opts.mode === 'panels') {
     for (const [z, quads] of quadsAt) {
@@ -266,7 +267,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // Second pass: each panel on its own, as a floor or as a roof.
-  let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0;
+  let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0;
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
@@ -288,6 +289,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'lowHeadroom') { lowPanels++; continue; }
       if (why === 'wide') { widePanels++; continue; }
+      if (why === 'headroomUnclear') unclear++;
       const share = cover > 0.02 ? 1 - cover : 1;
       if (share < 1) partly++;
       // The panel's own part of the level's result. Loading its members again on their own found
@@ -323,11 +325,17 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     if (Math.abs(m.length - m.horizontalLength) > TOL) return true;
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    return deckless([[a.x, a.y], [b.x, b.y]], a.z ?? 0) !== 'lowHeadroom';
+    const z = a.z ?? 0;
+    const why = deckless([[a.x, a.y], [b.x, b.y]], z);
+    const beside = (panelsAt.get(levelKey(z)) ?? []).filter((poly) => onBoundary(model, e, poly)).map((poly) => deckless(poly, z));
+    const floorBeside = beside.some((w) => w === null || w === 'headroomUnclear');
+    if (why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) unclear++;
+    return why !== 'lowHeadroom' || floorBeside;
   });
   if (out.widthMembers.length < beforeDepth) {
     out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
   }
+  if (unclear > 0) out.notes.push(msg('loadPlan.gravity.headroomUnclear', { n: unclear, h: MIN_STOREY_HEADROOM }));
   out.panelColour = checkerboard(panelBeams.length, panelLevel,
     (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
   out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
@@ -368,14 +376,13 @@ export const MAX_DECK_SPAN = 12;
 function notADeck(
   model: GravityModel,
   carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }>,
-  covered: (pt: [number, number], zTop: number) => boolean,
-): (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | null {
+  coverAbove: (pt: [number, number], zTop: number) => number,
+): (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
-    if (e.type === 'truss') continue;
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
     if (!a || !b || !beamLike(model, e).ok) continue;
-    if (covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0))) continue;
+    if (Number.isFinite(coverAbove([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0)))) continue;
     roofMembers.push([[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]]);
   }
   const roofShells = carriers.filter((c) => c.nodes);
@@ -395,17 +402,44 @@ function notADeck(
     }
     return h;
   };
+  const between = (p: [number, number], z: number, lo: [number, number], hi: [number, number]): number => {
+    let h = Infinity;
+    for (const axis of [0, 1] as const) {
+      const along = 1 - axis;
+      let below: [number, number] | null = null, above: [number, number] | null = null;
+      for (const [a, b] of roofMembers) {
+        if (Math.max(a[2], b[2]) <= z + TOL || a[axis] === b[axis]) continue;
+        const da = a[axis] - p[axis], db = b[axis] - p[axis];
+        if (da * db > 0) continue;
+        const t = da / (da - db);
+        const at = a[along] + t * (b[along] - a[along]);
+        const dz = a[2] + t * (b[2] - a[2]) - z;
+        if (dz < -TOL || at < lo[along] - 0.1 || at > hi[along] + 0.1) continue;
+        const off = at - p[along];
+        if (off < 0 && (!below || off > below[0])) below = [off, dz];
+        if (off > 0 && (!above || off < above[0])) above = [off, dz];
+      }
+      if (below && above) h = Math.min(h, Math.max(0, below[1] + ((above[1] - below[1]) * -below[0]) / (above[0] - below[0])));
+    }
+    return h;
+  };
   return (poly, z) => {
     const probes: Array<[number, number]> = [centroid(poly)];
     poly.forEach((a, i) => {
       const b = poly[(i + 1) % poly.length]!;
       for (const t of [0.25, 0.5, 0.75]) probes.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
     });
-    const roofed = probes.map((p) => heightAbove(p, z)).filter(Number.isFinite);
-    if (roofed.length > 0 && Math.max(...roofed) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
     const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
-    if (Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) > MAX_DECK_SPAN) return 'wide';
-    return null;
+    const lo: [number, number] = [Math.min(...xs), Math.min(...ys)], hi: [number, number] = [Math.max(...xs), Math.max(...ys)];
+    const heights = probes.map((p) => {
+      const h = heightAbove(p, z);
+      return Number.isFinite(h) ? h : between(p, z, lo, hi);
+    });
+    const roofed = heights.filter(Number.isFinite);
+    const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
+    if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM && coverAbove(centroid(poly), z) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
+    if (Math.min(hi[0] - lo[0], hi[1] - lo[1]) > MAX_DECK_SPAN) return 'wide';
+    return low ? 'headroomUnclear' : null;
   };
 }
 
@@ -465,8 +499,8 @@ function nearSegment(p: [number, number], a: [number, number], b: [number, numbe
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy)) <= tol;
 }
 
-/** Whether something higher than `zTop` covers a plan point: a panel, a slab or a beam (see the header). */
-function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => boolean {
+/** How far above `zTop` the lowest panel, slab or beam over a plan point is (see the header); Infinity when none is. */
+function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<number, Array<Array<[number, number]>>>): (pt: [number, number], zTop: number) => number {
   type Cover = { z: number; polys: Array<Array<[number, number]>>; segs: Array<[[number, number], [number, number]]> };
   const covers: Cover[] = [];
   const coverAt = (z: number) => {
@@ -485,8 +519,8 @@ function coverage(model: GravityModel, zOf: Map<number, number>, panelsAt: Map<n
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     coverAt(Math.min(a.z ?? 0, b.z ?? 0)).segs.push([[a.x, a.y], [b.x, b.y]]);
   }
-  return (pt, zTop) => covers.some((c) => c.z > zTop + 0.05
-    && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))));
+  return (pt, zTop) => covers.reduce((h, c) => (c.z > zTop + 0.05
+    && (c.polys.some((poly) => inside(pt, poly)) || c.segs.some(([a, b]) => nearSegment(pt, a, b, 0.05))) ? Math.min(h, c.z - zTop) : h), Infinity);
 }
 
 /**
