@@ -922,6 +922,9 @@ const stepsFr: Translations = {
   'steps.cuts.dia.N': 'Effort normal N [kN], traction positive.',
   'steps.cuts.dia.V': 'Effort tranchant V [kN].',
   'steps.cuts.dia.M': 'Moment fléchissant M [kN·m], du côté de la fibre tendue.',
+  'course.statics.vw.p.title': 'Objet du calcul',
+  'course.statics.vw.p.nodeAuto': 'Automatique ou nœud sélectionné',
+  'course.statics.vw.p.help': 'La charge virtuelle dépend de ce que vous cherchez : une force unitaire pour un déplacement, un couple unitaire pour une rotation, deux forces opposées pour un déplacement relatif entre deux nœuds et deux couples opposés pour une rotation relative. Automatique prend le nœud sélectionné dans le modèle ou celui qui se déplace le plus ; pour une grandeur relative, la direction automatique est la droite qui relie les deux nœuds.',
 };
 
 export default { ...stepsFr, ...course };
