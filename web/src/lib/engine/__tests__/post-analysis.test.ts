@@ -6,13 +6,17 @@ const tr = (k: string, p: Record<string, string | number> = {}) => ((en as Recor
 const none = { diagnostics: [], statics: null, pdelta: null, mechanism: null, design: null };
 
 describe('the report after the analysis', () => {
-  it('puts the model findings in the model, the solver\'s in the analysis, each with what it names', () => {
+  it('files every finding under the model, as the screen lists them, naming the source of the solver\'s', () => {
     const lines = postAnalysisLines({ ...none, diagnostics: [
       { severity: 'warning', code: 'A', message: 'm1', source: 'model', elementIds: [3] },
       { severity: 'error', code: 'B', message: 'm2', source: 'solver', nodeIds: [7] },
     ] as never }, tr);
-    expect(partLines(lines, 'model').map((l) => l.selection)).toEqual([{ nodes: [], elements: [3], shells: [] }]);
-    expect(partLines(lines, 'analysis')[0]).toMatchObject({ severity: 'error', selection: { nodes: [7] } });
+    expect(partLines(lines, 'analysis')).toEqual([]);
+    const model = partLines(lines, 'model');
+    expect(model.map((l) => [l.severity, l.selection])).toEqual([['error', { nodes: [7], elements: [], shells: [] }], ['warning', { nodes: [], elements: [3], shells: [] }]]);
+    expect(model[0]!.detail).toBe('Solver');
+    expect(model[1]!.detail).toBeUndefined();
+    expect(postAnalysisRows(lines, tr).map((r) => r[0])).toEqual(['Model', 'Model']);
   });
 
   it('says which cases do not balance, how much, and that the rest do', () => {
