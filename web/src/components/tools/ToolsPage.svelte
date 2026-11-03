@@ -4,7 +4,7 @@
   import LandingFooter from '../landing/LandingFooter.svelte';
   import PublicLink from '../landing/PublicLink.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
+  import { applyPageMeta, restorePageMeta, stabileoSoftware, stabileoCalculator, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { TOOL_IDS, EXAMPLE, FORMULAS, format, formula, valid, workedExamples, type ToolId, type Parameters } from './calculators';
   import { type Warning } from './validity';
@@ -33,10 +33,28 @@
   const units = { moment: 'kN·m', shear: 'kN', deflection: 'm' };
   const fields = [ ['length', 'length', 'm', 0.1, 100], ['e', 'modulus', 'MPa', 1, 1000000], ['i', 'inertia', 'm⁴', 1e-10, 10] ] as const;
   const ends = [[0.5, 'fixedFixed'], [0.7, 'fixedPinned'], [1, 'pinnedPinned'], [2, 'fixedFree']] as const;
+  const others = $derived([...TOOL_IDS, ...BATCH_IDS].filter(tool => tool !== (id || batchId)));
   $effect(() => {
-    const route = id || batchId ? `/tools/${id || batchId}` : '/tools';
-    applyPageMeta({ title: `${title} — Stabileo Tools`, description: batchId ? t(`tools.${batchId}.subtitle`) : `${title}. ${t('tools.lead')}`, locale: publicI18n.locale, path: route,
-      graph: [{ '@type': 'WebApplication', name: title, url: publicUrl(route, publicI18n.locale), applicationCategory: 'EducationalApplication', operatingSystem: 'Any', isAccessibleForFree: true, offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' } }] });
+    const tool = id || batchId;
+    const locale = publicI18n.locale;
+    if (tool) {
+      const route = `/tools/${tool}`, url = publicUrl(route, locale);
+      const description = `${t(`tools.${tool}.subtitle`)} ${t('tools.free')}`;
+      applyPageMeta({ title: `${title}: ${t(`tools.${tool}.case`)} — Stabileo`, description, locale, path: route,
+        graph: [
+          stabileoCalculator(locale, { '@id': `${url}#calculator`, name: title, description, url }),
+          stabileoSoftware(locale),
+          breadcrumbs(locale, [['Stabileo', '/'], [t('tools.index'), '/tools'], [title, route]]),
+        ] });
+    } else {
+      const url = publicUrl('/tools', locale), description = t('tools.index.description');
+      applyPageMeta({ title: `${t('tools.index.metaTitle')} — Stabileo`, description, locale, path: '/tools',
+        graph: [
+          { '@type': 'CollectionPage', '@id': url, url, name: title, description, inLanguage: locale, isPartOf: { '@id': WEBSITE_ID }, mainEntity: { '@id': `${url}#calculators` } },
+          { '@type': 'ItemList', '@id': `${url}#calculators`, itemListElement: [...TOOL_IDS, ...BATCH_IDS].map((tool, i) => ({ '@type': 'ListItem', position: i + 1, name: t(`tools.${tool}`), url: publicUrl(`/tools/${tool}`, locale) })) },
+          breadcrumbs(locale, [['Stabileo', '/'], [title, '/tools']]),
+        ] });
+    }
     return () => restorePageMeta();
   });
   $effect(() => {
@@ -170,6 +188,12 @@
       </ul>
       <p>{t('tools.indexAssumptions')}</p>
     {/if}
+    {#if id || batchId}
+      <nav class="tool-others" aria-labelledby="tool-others-h">
+        <h2 id="tool-others-h">{t('tools.index')}</h2>
+        <ul>{#each others as tool (tool)}<li><PublicLink to={`/tools/${tool}`}>{t(`tools.${tool}`)}</PublicLink></li>{/each}</ul>
+      </nav>
+    {/if}
     </div>
   </main>
   <LandingFooter />
@@ -202,6 +226,10 @@
   .formula { font: .875rem/1.8 var(--lp-mono); overflow-wrap: anywhere; }
   details { border-top: 1px solid var(--hair); margin-top: 2rem; padding-top: 1rem; font-size: .875rem; }
   summary { min-height: 44px; cursor: pointer; display: flex; align-items: center; }
+  .tool-others { border-top: 1px solid var(--hair); margin-top: 3rem; padding-top: 1.5rem; }
+  .tool-others h2 { font: 500 1.25rem/1.2 var(--lp-display); margin: 0 0 .75rem; }
+  .tool-others ul { display: flex; flex-wrap: wrap; gap: .25rem 1.5rem; list-style: none; padding: 0; margin: 0; }
+  .tool-others :global(a) { display: inline-flex; align-items: center; min-height: 44px; }
   .tool-cards { display: grid; gap: 1.5rem; list-style: none; padding: 0; margin: 2rem 0; }
   .tool-card { display: grid; background: var(--card); border: 1px solid var(--card-hair); border-radius: 6px; overflow: hidden; }
   .card-body { padding: 1.5rem; }

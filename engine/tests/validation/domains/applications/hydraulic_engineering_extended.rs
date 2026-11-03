@@ -464,13 +464,12 @@ fn hydraulic_flume_support_beam() {
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_ry, q * l, 0.01, "Flume beam equilibrium");
 
-    // Maximum deflection for propped cantilever with UDL:
-    // delta_max = q*L^4/(185*EI) (approximate, exact coefficient is 1/185.2)
-    // Occurs near x = 0.4215*L. We check at nearest node.
-    let node_near_max = (0.4215 * n as f64).round() as usize + 1;
+    // The fixed end is at x = 0, so the maximum lies at 0.5785 L from it (0.4215 L from the roller).
+    let node_near_max = (0.5785 * n as f64).round() as usize + 1;
+    let x_node: f64 = (node_near_max - 1) as f64 * l / n as f64;
     let d_max_node = results.displacements.iter().find(|d| d.node_id == node_near_max).unwrap();
-    let delta_approx = q * l.powi(4) / (185.0 * ei);
-    assert_close(d_max_node.uz.abs(), delta_approx, 0.10, "Flume beam max deflection");
+    let delta_node = q * x_node.powi(2) * (3.0 * l * l - 5.0 * l * x_node + 2.0 * x_node * x_node) / (48.0 * ei);
+    assert_close(d_max_node.uz.abs(), delta_node, 1e-6, "Flume beam max deflection");
 }
 
 // ================================================================

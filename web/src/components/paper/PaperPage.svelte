@@ -19,6 +19,7 @@
     applyPageMeta({ title: s.metaTitle, description: s.metaDescription, locale: publicI18n.locale, path: '/paper' });
     return () => restorePageMeta();
   });
+  $effect(() => () => document.querySelectorAll('script[data-paper-ld]').forEach((el) => el.remove()));
   const display = (tex: string) => katex.renderToString(tex, { displayMode: true, throwOnError: false, output: 'htmlAndMathml' });
   const url = (r: string) => r.match(/https?:\/\/\S+$/)?.[0];
 </script>

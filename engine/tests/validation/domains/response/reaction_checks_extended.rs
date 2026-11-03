@@ -330,7 +330,7 @@ fn validation_reaction_portal_frame_gravity() {
 
     // Sum of horizontal reactions = 0 (no lateral load)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.01,
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6,
         "Portal gravity: sum Rx = 0");
 
     // By symmetry, vertical reactions at both bases should be equal
@@ -343,7 +343,7 @@ fn validation_reaction_portal_frame_gravity() {
 
     // By symmetry, horizontal reactions should be equal and opposite (sum = 0)
     let sum_rx_check: f64 = r1.rx + r4.rx;
-    assert_close(sum_rx_check, 0.0, 0.01,
+    assert_close_abs(sum_rx_check, 0.0, 0.01, 1e-6,
         "Portal gravity: R1_x + R4_x = 0");
 }
 

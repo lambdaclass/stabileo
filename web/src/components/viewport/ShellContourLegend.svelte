@@ -1,11 +1,11 @@
 <script lang="ts">
+  import { currentShellContourField, shellStressInputs } from '../../lib/store/shell-contour';
   // Shell contour legend (CP2). Floats over the 3D viewport while a shell
   // contour colour map is active. Computes its own min/max from the shell
   // results so it never writes back into the results store, and samples the
   // SAME colour functions the contour uses so the gradient matches exactly.
   import { resultsStore, modelStore } from '../../lib/store';
   import { contourOptions } from '../../lib/store/contour-options.svelte';
-  import { shellContourField } from '../../lib/engine/shell-contour-field';
   import { t } from '../../lib/i18n';
   import ContourLegend from './ContourLegend.svelte';
   import { shellComponentLabelKey, shellComponentMeta, shellComponentStats } from '../../lib/engine/shell-stress';
@@ -36,19 +36,14 @@
   const allShells = $derived.by(() => {
     const r = resultsStore.results3D;
     if (!r) return [];
-    return [...(r.plateStresses ?? []), ...(r.quadStresses ?? [])];
+    const inputs = shellStressInputs(r, resultsStore.shellContourComponent);
+    return [...inputs.plates, ...inputs.quads];
   });
 
   // The same field the shells are painted from, so the scale reads what they show.
   const range = $derived.by(() => {
-    const r = resultsStore.results3D;
-    if (!r) return { min: 0, max: 0 };
-    return shellContourField(
-      { plates: r.plateStresses ?? [], quads: r.quadStresses ?? [] },
-      (key) => (key.startsWith('p') ? modelStore.plates.get(+key.slice(1))?.nodes : modelStore.quads.get(+key.slice(1))?.nodes),
-      resultsStore.shellContourComponent,
-      contourOptions,
-    ).range;
+    void contourOptions.signature;
+    return currentShellContourField()?.range ?? { min: 0, max: 0 };
   });
   const bands = $derived(contourOptions.bands);
 

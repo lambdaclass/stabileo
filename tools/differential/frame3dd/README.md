@@ -27,9 +27,16 @@ bug, never the element mechanics (details in the script):
   (0.5% low first frequency on a 4-member frame with a partially restrained
   node). The patch zeroes the whole row and column.
 
+- **Frame3DD bug** (frame3dd.c, end forces with the geometric stiffness on):
+  the end torque is −(G·J/L)·Δθ without K_G's torsional term T·J/(A·L), so it
+  does not balance the solved (K + K_G)·u. The patch adds it (T is 0 without
+  geometric stiffness, so static and modal output do not change).
+
 A second binary, `frame3dd-norot`, also drops the rotary inertia of the
-consistent mass and the torsional geometric-stiffness term N·J/(A·L), which
-stabileo's elements do not have; it is used for modal and P-Delta.
+consistent mass and the torsional geometric-stiffness term N·J/(A·L); it is
+used for modal. P-Delta uses the full binary: since #404 stabileo's K_G has
+the Wagner term N·(Iy+Iz)/(A·L), Frame3DD's N·J/(A·L) for the J = Iy + Iz
+that `pdelta3d` generates.
 
 ## What is compared
 
@@ -38,7 +45,7 @@ stabileo's elements do not have; it is used for modal and P-Delta.
 | static 3D | frames (Euler-Bernoulli and Timoshenko), roll angles / local-y vectors, settlements on restrained DOFs, nodal, uniform, partial / trapezoidal (qX, qY, qZ) and point loads | displacements, reactions, end forces |
 | static 2D | lifted into the XZ plane (`common.model.lift_2d`) | same |
 | modal | consistent mass, J = Iy + Iz so polar masses agree (`modal3d`) | frequencies, mode shapes (subspaces of clustered frequencies; purely rotational modes on all DOFs) |
-| P-Delta | Euler-Bernoulli, nodal and full-length uniform loads (`pdelta3d`) | displacements, reactions, end forces |
+| P-Delta | Euler-Bernoulli, J = Iy + Iz, nodal and full-length uniform loads (`pdelta3d`) | displacements, reactions, end forces |
 
 The mapping (roll angle from stabileo's local axes, shear-area pairing,
 end-force signs) is in `adapter.py`.

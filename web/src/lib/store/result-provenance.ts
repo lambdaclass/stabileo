@@ -218,6 +218,21 @@ function tokenStillCurrent(t: ProvenanceToken): boolean {
     && now.scope === t.scope && now.stampId === t.stampId && now.modelHash === t.modelHash;
 }
 
+/**
+ * Throws `ExportChangedError` when the project moved since `token`, for an export that yields while
+ * it writes. `quick` skips the model hash, for the pauses in between; the last check is the full one.
+ */
+export function assertExportCurrent(token: ProvenanceToken, quick = false): void {
+  if (quick) {
+    const is3D = uiStore.is3DWorkspace;
+    const results = (is3D ? resultsStore.results3D : resultsStore.results) ?? null;
+    if (modelStore.modelVersion === token.version && results === token.results && baseInput === token.base
+      && (recheckStore.stamp?.id ?? null) === token.stampId && JSON.stringify(currentScopeRef()) === token.scope) return;
+    throw new ExportChangedError();
+  }
+  if (!tokenStillCurrent(token)) throw new ExportChangedError();
+}
+
 /** The export was started on one state and the project moved under it: nothing is written. */
 export class ExportChangedError extends Error {
   constructor() { super(t('provenance.exportChanged')); this.name = 'ExportChangedError'; }
@@ -229,10 +244,20 @@ export class ExportChangedError extends Error {
  * in the same tick as the check. Changed (an edit, another project, another solve or view while
  * the export was being prepared): `ExportChangedError`, so the export is abandoned, never mixed.
  */
-export async function provenanceForExport(token: ProvenanceToken): Promise<ResultProvenance> {
+export async function provenanceForExport(token: ProvenanceToken, printed?: ScopeRef | null): Promise<ResultProvenance> {
   await ensureEngineHashes();
   if (!tokenStillCurrent(token)) throw new ExportChangedError();
-  return currentResultProvenance();
+  return printed ? provenanceForScope(printed) : currentResultProvenance();
+}
+
+/** The scope a report's result set prints (`pro/export-results` keys); null for what is on screen. */
+export function scopeOfResultSet(key: string | undefined): ScopeRef | null {
+  if (!key || key === 'screen') return null;
+  const [kind, id] = key.split(':');
+  if (kind === 'envelope') return { kind: 'envelope', name: null };
+  const n = Number(id);
+  if ((kind === 'case' || kind === 'combo') && Number.isInteger(n)) return { kind, id: n };
+  return null;
 }
 
 /** The provenance of what is on screen now (results null: none). */

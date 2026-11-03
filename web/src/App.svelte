@@ -38,6 +38,11 @@
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
+  import ProVideosOffer from './components/pro/ProVideosOffer.svelte';
+  import ProViewer from './components/pro/ProViewer.svelte';
+  import StoreyScopeBar from './components/pro/StoreyScopeBar.svelte';
+  import ProLinkedLayer from './components/pro/ProLinkedLayer.svelte';
+  import ProSaveStatus from './components/pro/ProSaveStatus.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
@@ -625,7 +630,7 @@
     showBlog = shell.kind === 'blog';
     blogPath = shell.path;
     showLanding = shell.kind === 'landing';
-    if (editorActive) {
+    if (!publicActive) {
       const nextMode = pathToMode(location.pathname);
       currentAppMode = nextMode;
       if (nextMode === 'educativo') {
@@ -787,9 +792,11 @@
     importText = '';
   }
 
-  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
+  // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
+  const publicActive = $derived(showLanding || showBlog || showExperiment || showPaper);
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
   provideEditorActivity(() => editorActive);
-  $effect(() => { if (!editorActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
+  $effect(() => { if (publicActive) return manualPublicScrollRestoration(); document.documentElement.lang = t('file.htmlLang'); });
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
   function handleProPaste(e: ClipboardEvent) {
@@ -955,6 +962,9 @@
     // Check for URL hash (shared model link or embed). The link is untrusted
     // input and restore() is not atomic: whatever a link still manages to break
     // must not take the app down before it starts, nor leave a half-loaded model.
+    // The public viewer reads the link's model in a tab of its own, saved only once duplicated.
+    const viewing = new URLSearchParams(location.search).has('view') && pathToMode(location.pathname) === 'pro';
+    if (viewing) { uiStore.viewerMode = true; tabManager.createTab(); }
     let hashMode: ReturnType<typeof loadFromURLHash> = null;
     try {
       hashMode = loadFromURLHash();
@@ -1072,7 +1082,7 @@
     // finishes, because losing one of those to a 30 s window is losing the run.
     autosaveInterval = setInterval(() => {
       void requestAutosave('timer');
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
     }, 30_000);
 
     // Mobile responsive: track window width
@@ -1136,7 +1146,7 @@
     window.addEventListener('stabileo-open-panel', handleOpenPanelEvent);
 
     return () => {
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
@@ -1403,7 +1413,7 @@
 
 <svelte:window onkeydown={handleProKeydown} onclick={handleProBarClickOutside} onpaste={handleProPaste} />
 
-{#if !editorActive}
+{#if publicActive}
   <SiteHeader path={blogPath} />
   {#if showLanding}
     <LandingPage />
@@ -1437,7 +1447,8 @@
   lazy editor mount cannot overwrite the restored <html lang>.
 -->
 <div class="app-language" lang={t('file.htmlLang')} style="display: contents">
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={!editorActive}>
+{#if uiStore.viewerMode}<ProViewer />{/if}
+<div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={publicActive}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1602,6 +1613,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
+      {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--
@@ -1717,7 +1729,7 @@
         || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen))}
   >
 
-    {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && !uiStore.isMobile && !uiStore.viewerMode}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
@@ -1731,7 +1743,7 @@
         />
     {/if}
     <!-- What the next click in the model does while drawing, under the bar that started it. -->
-    {#if uiStore.appMode === 'pro'}<ProDrawBar />{/if}
+    {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -1749,7 +1761,7 @@
       Same slot rules as Basic's: `flex: 1 1 0`, so the row is exactly as wide
       as the screen at every width and never scrolls.
     -->
-    {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && uiStore.isMobile && !uiStore.viewerMode}
       <!--
         A positioned wrapper, so the camera menu resolves against THIS bar.
         ──────────────────────────────────────────────────────────────────
@@ -1937,6 +1949,7 @@
           <Viewport3D />
         {/if}
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--
@@ -2108,7 +2121,7 @@
           >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
-        {#if !uiStore.proPanelVisible}
+        {#if !uiStore.proPanelVisible && !uiStore.viewerMode}
           <!-- A closed panel has to be reopenable from where it closed. -->
           <!--
             A bare chevron on the canvas edge is not a clue. It says what it
@@ -2152,7 +2165,7 @@
     </footer>
   {/if}
 
-  {#if !uiStore.embedMode && editorActive}
+  {#if !uiStore.embedMode && !publicActive}
     <WhatsNewNotice />
   {/if}
 
@@ -3474,6 +3487,10 @@
 
   .embed-mode .app-body {
     height: 100vh;
+  }
+  .viewer-mode .app-body {
+    height: calc(100vh - 52px);
+    margin-top: 52px;
   }
 
   :global(.edu-tooltip) {

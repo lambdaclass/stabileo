@@ -54,7 +54,7 @@ describe('merged public routes', () => {
     expect(loader).toContain("import('../components/tools/load-page')");
     expect(loader).toContain("import('../components/paper/PaperPage.svelte')");
     expect(root).toContain("import('./load-app')");
-    expect(app).toContain('const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper)');
+    expect(app).toContain('const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode)');
     expect(app).toContain("if (showLanding || showBlog || showExperiment || showPaper || typeof window === 'undefined') return;");
   });
 });

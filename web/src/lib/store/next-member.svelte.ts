@@ -13,6 +13,7 @@
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import { declareDrawnBar, type DrawnRun } from '../model/building/declare';
+import { storeyScope } from './storey-scope.svelte';
 
 /** What a drawn member is to the engineer (`model/physical`): kind and typology. */
 export interface DrawnKind { kind: 'column' | 'beam' | 'brace'; typology?: string }
@@ -64,6 +65,7 @@ function createNextMember() {
         if (sec !== null && modelStore.sections.has(sec)) modelStore.updateElementSection(id, sec);
         // Declared as it is drawn: a chained beam or column continues the element it extends.
         run = pro && physical ? declareDrawnBar(id, physical.kind, physical.typology, run) : null;
+        for (const copy of storeyScope.replicateMember(id)) if (physical) declareDrawnBar(copy, physical.kind, physical.typology, null);
       });
       return id;
     },

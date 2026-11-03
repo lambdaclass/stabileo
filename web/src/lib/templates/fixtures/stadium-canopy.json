@@ -2267,5 +2267,65 @@
       "name": "Earthquake"
     }
   ],
-  "combinations": []
+  "combinations": [
+    {
+      "id": 1,
+      "name": "1.4 D",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.4
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "1",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 2,
+      "name": "1.2 D + 0.5 Lr",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 0.5
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "2-Lr",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 3,
+      "name": "1.2 D + 1.6 Lr",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1.6
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "3-Lr",
+        "purpose": "strength"
+      }
+    }
+  ]
 }

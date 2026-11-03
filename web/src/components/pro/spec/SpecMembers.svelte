@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › Members: everything a member is told beyond its geometry, section and
    * material, for the members selected. One editor per property, and each write over the whole
@@ -97,13 +98,13 @@
         <option value="cable">{t('spec.axial.cable')}</option>
         <option value="inactive">{t('behaviour.inactive')}</option>
       </select>
-      {#if axial === 'tensionOnly' || axial === 'compressionOnly'}<p class="pk-hint">{t('behaviour.nonlinearHint')}</p>{/if}
+      {#if axial === 'tensionOnly' || axial === 'compressionOnly'}<Hint text={t('behaviour.nonlinearHint')} />{/if}
       {#if axial === 'cable'}
         <label class="pk-row">{t('spec.axial.cablePretension')}
           <QuantityInput value={pretension ?? null} quantity="force" above={0} nullable placeholder={pretension === undefined && mixedPretension ? t('behaviour.mixed') : t('spec.axial.cableChord')}
             onchange={setPretension} testid="spec-cable-pretension" cls="sm-num" />
         </label>
-        <p class="pk-hint" data-testid="spec-cable-hint">{t('spec.axial.cableHint')}</p>
+        <Hint testid="spec-cable-hint" text={t('spec.axial.cableHint')} />
       {/if}
     </section>
 
@@ -122,7 +123,7 @@
           {/each}
         {/each}
       </div>
-      <p class="pk-hint">{t('spec.members.releasesHint')}</p>
+      <Hint text={t('spec.members.releasesHint')} />
       <ProMemberBehaviour part="ends" />
     </section>
 
@@ -134,7 +135,7 @@
       {#if hasReference}
         <button class="pk-btn" onclick={clearReference} data-testid="spec-roll-clear-ref">{t('spec.members.clearReference')}</button>
       {/if}
-      <p class="pk-hint">{t('spec.members.localAxesHint')}</p>
+      <Hint text={t('spec.members.localAxesHint')} />
     </section>
 
     <section class="pk-card">
