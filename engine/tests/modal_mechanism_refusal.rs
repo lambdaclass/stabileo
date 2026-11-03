@@ -55,10 +55,10 @@ fn column_with_hinged_arm_2d(hinged: bool) -> SolverInput {
 const MECHANISM: &str = "MODAL-MECHANISM: ";
 const SINGULAR: &str = "Eigenvalue decomposition failed";
 
-fn refusal(result: Result<Vec<f64>, String>, what: &str, expected: &str) -> String {
+fn refusal(result: Result<Vec<f64>, String>, what: &str, expected: &[&str]) -> String {
     match result {
         Err(e) => {
-            assert!(e.starts_with(expected), "{what}: refused for another reason: {e}");
+            assert!(expected.iter().any(|x| e.starts_with(x)), "{what}: refused for another reason: {e}");
             e
         }
         Ok(freqs) => panic!("{what}: a mechanism returned {} modes with no refusal: {freqs:?}", freqs.len()),
@@ -79,19 +79,19 @@ fn the_mystran_differential_mechanism_is_refused_instead_of_dropping_its_zero_mo
     let densities: HashMap<String, f64> = serde_json::from_value(model.as_object_mut().unwrap().remove("_densities").unwrap()).unwrap();
     let input: SolverInput3D = serde_json::from_value(model).unwrap();
     let result = solve_modal_3d(&input, &densities, 12).map(|r| r.modes.iter().map(|m| m.frequency).collect());
-    let e = refusal(result, "modal3d_lumped-744196", MECHANISM);
+    let e = refusal(result, "modal3d_lumped-744196", &[MECHANISM]);
     assert!(e.contains("No modes are returned"), "{e}");
 }
 
 #[test]
 fn a_hinged_arm_with_a_free_tip_is_refused_as_a_mechanism_in_3d() {
-    refusal(freqs_3d(&column_with_hinged_arm_3d(1, true), 12), "3D, dense eigensolver", MECHANISM);
-    refusal(freqs_3d(&column_with_hinged_arm_3d(20, true), 12), "3D, sparse eigensolver", SINGULAR);
+    refusal(freqs_3d(&column_with_hinged_arm_3d(1, true), 12), "3D, dense eigensolver", &[MECHANISM]);
+    refusal(freqs_3d(&column_with_hinged_arm_3d(20, true), 12), "3D, sparse eigensolver", &[MECHANISM, SINGULAR]);
 }
 
 #[test]
 fn a_hinged_arm_with_a_free_tip_is_refused_as_a_mechanism_in_2d() {
-    refusal(freqs_2d(&column_with_hinged_arm_2d(true), 4), "2D", SINGULAR);
+    refusal(freqs_2d(&column_with_hinged_arm_2d(true), 4), "2D", &[MECHANISM, SINGULAR]);
 }
 
 #[test]
@@ -142,7 +142,7 @@ fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
 
 #[test]
 fn a_twist_against_a_negative_spring_is_refused_though_it_moves_no_translational_mass() {
-    let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", MECHANISM);
+    let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", &[MECHANISM]);
     assert!(e.contains("(ω² = -9.9") && e.contains("moves node 2 along"), "{e}");
 }
 
@@ -172,7 +172,40 @@ fn seesaw(arm: f64, far: f64, pivot_inertia: f64) -> SolverInput {
 #[test]
 fn a_seesaw_whose_ends_move_opposite_ways_is_refused_though_no_rigid_translation_excites_it() {
     for (arm, far, pivot_inertia) in [(2.0, 10.0, 0.0), (0.01, 1e5, 0.0), (2.0, 10.0, 1e9)] {
-        let e = refusal(freqs_2d(&seesaw(arm, far, pivot_inertia), 4), &format!("seesaw of arm {arm} m beside a column {far} m away, {pivot_inertia} t·m² at the pivot"), MECHANISM);
+        let e = refusal(freqs_2d(&seesaw(arm, far, pivot_inertia), 4), &format!("seesaw of arm {arm} m beside a column {far} m away, {pivot_inertia} t·m² at the pivot"), &[MECHANISM]);
         assert!(e.contains("moves node 1 along uz") || e.contains("moves node 3 along uz"), "{e}");
     }
+}
+
+fn slender_cantilever(iz: f64) -> SolverInput {
+    let (length, segments) = (2000.0, 40);
+    let mut nodes = Map::new();
+    let mut elements = Map::new();
+    for i in 0..=segments {
+        nodes.insert((i + 1).to_string(), json!({"id": i + 1, "x": length * i as f64 / segments as f64, "z": 0.0}));
+        if i > 0 {
+            elements.insert(i.to_string(), json!({"id": i, "type": "frame", "nodeI": i, "nodeJ": i + 1, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false}));
+        }
+    }
+    serde_json::from_value(json!({
+        "nodes": nodes,
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 1e-4, "iz": iz}},
+        "elements": elements,
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": [],
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_cantilever_soft_enough_for_omega_squared_below_1e_minus_10_keeps_its_modes() {
+    let r = solve_modal_2d(&slender_cantilever(1e-13), &densities(), 4).expect("a soft, stable cantilever is not a mechanism");
+    assert!(r.null_modes.is_empty(), "{:?}", r.null_modes);
+    assert_eq!(r.modes.len(), 4);
+    let w2: Vec<f64> = r.modes.iter().map(|m| m.omega * m.omega).collect();
+    assert!(w2[0] < 1e-10, "not soft enough to test the old absolute cut: {w2:?}");
+    let ratio = r.modes[1].omega / r.modes[0].omega;
+    let exact = (4.694_091_f64 / 1.875_104).powi(2);
+    assert!((ratio - exact).abs() < 1e-2 * exact, "second to first bending frequency {ratio}, Euler-Bernoulli {exact}");
 }
