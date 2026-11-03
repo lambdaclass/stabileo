@@ -4,9 +4,11 @@ import os
 import subprocess
 import sys
 
-QUERY = '''query($owner: String!, $name: String!) {
+QUERY = '''query($owner: String!, $name: String!, $after: String) {
   repository(owner: $owner, name: $name) {
-    mergeQueue(branch: "main") { entries(first: 100) { nodes { headCommit { oid } } } }
+    mergeQueue(branch: "main") {
+      entries(first: 100, after: $after) { nodes { headCommit { oid } } pageInfo { hasNextPage endCursor } }
+    }
   }
 }'''
 
@@ -29,11 +31,27 @@ def superseded(runs, queue_heads, own_sha):
             and run['head_sha'] not in queue_heads]
 
 
+def queue_entries(owner, name):
+    nodes, after = [], None
+    while True:
+        args = ['api', 'graphql', '-f', f'query={QUERY}', '-f', f'owner={owner}', '-f', f'name={name}']
+        if after:
+            args += ['-f', f'after={after}']
+        page = json.loads(gh(*args))['data']['repository']['mergeQueue']['entries']
+        nodes += page['nodes']
+        if not page['pageInfo']['hasNextPage']:
+            return nodes
+        after = page['pageInfo']['endCursor']
+
+
+def queue_refs(repo):
+    out = gh('api', '--paginate', '--jq', '.[]',
+             f'repos/{repo}/git/matching-refs/heads/gh-readonly-queue/main/?per_page=100')
+    return [json.loads(line) for line in out.splitlines() if line.strip()]
+
+
 def queue_heads(repo, owner, name):
-    data = json.loads(gh('api', 'graphql', '-f', f'query={QUERY}', '-f', f'owner={owner}', '-f', f'name={name}'))
-    nodes = data['data']['repository']['mergeQueue']['entries']['nodes']
-    refs = json.loads(gh('api', f'repos/{repo}/git/matching-refs/heads/gh-readonly-queue/main/'))
-    return live_heads(nodes, refs)
+    return live_heads(queue_entries(owner, name), queue_refs(repo))
 
 
 def unfinished_runs(repo, workflows):
