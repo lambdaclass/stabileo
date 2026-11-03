@@ -49,6 +49,14 @@ version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #4
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
 
+## Shell figures paint the screen's field (PR #1255, review of #1077)
+
+Results version 16 (provisional: the merge captain renumbers it to main's next free version at
+landing) registers `shell-figures-paint-the-screen-field`: exported shell result figures paint
+the contour field the screen shows (nodal averages within the chosen domain, face, typed range and
+bands) instead of one centre value per element over its own range, so their colours, scale and
+peak label change. Solver results are unchanged.
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,

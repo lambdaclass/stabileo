@@ -116,6 +116,19 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells shell models solved before #1255 that their shell figures now paint the screen\'s field', () => {
+    const fig = 'shell-figures-paint-the-screen-field';
+    const shell = model({ quads: [[1, { id: 1, nodes: [1, 2, 3, 4], materialId: 2, thickness: 0.2 }]] as never });
+    expect(ids(shell, { resultsVersion: 15, analyses: ['linear'] } as SolveStamp)).toContain(fig);
+    expect(ids(shell, { resultsVersion: 16, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }), { resultsVersion: 15, analyses: ['linear'] } as SolveStamp)).not.toContain(fig);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === fig) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });
