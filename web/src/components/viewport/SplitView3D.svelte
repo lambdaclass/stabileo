@@ -153,7 +153,7 @@
   {#if levels.length}
     <ul class="split-levels" aria-label={t('viewport.split.levels')} data-testid="split-levels">
       {#each [...levels].reverse() as l (l.id)}
-        <li><button type="button" class:on={level?.z === l.z} style:border-left-color={l.color ?? 'transparent'} onclick={() => (uiStore.nodeCreateZ = l.z)} data-testid="split-level-{l.id}">{l.name}</button></li>
+        <li><button type="button" class:on={level?.z === l.z} style:border-left-color={l.color ?? 'transparent'} onclick={() => uiStore.setActiveLevel(l.z)} data-testid="split-level-{l.id}">{l.name}</button></li>
       {/each}
     </ul>
   {/if}
