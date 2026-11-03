@@ -13,6 +13,7 @@
   import { modelStore, resultsStore } from '../../lib/store';
   import { t } from '../../lib/i18n';
   import { accountGate } from '../../lib/store/account-gate.svelte';
+  import { saveFile } from '../../lib/export/save-file';
   import { captureModel, toFile, fromFile, type CaptureWarning } from './exercise-capture';
   import {
     lintExercise, evaluateAnswer,
@@ -305,14 +306,7 @@
 
   function download() {
     if (!draft) return;
-    const blob = new Blob([toFile(draft)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${draft.id}.stabileo-ej.json`;
-    accountGate.guard('export', () => {
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
+    saveFile(`${draft.id}.stabileo-ej.json`, new Blob([toFile(draft)], { type: 'application/json' }));
   }
 
   function share() {

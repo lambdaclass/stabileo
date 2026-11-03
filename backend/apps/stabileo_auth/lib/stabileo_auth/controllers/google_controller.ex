@@ -2,8 +2,9 @@ defmodule StabileoAuth.Controllers.GoogleController do
   @moduledoc """
   Product sign-in with Google. The app opens `request/2` in a popup; Google
   comes back to `callback/2`, which sends the popup to the app's
-  `/oauth-callback.html` with a one-time code or an error. The page hands the
-  code to the app, which trades it with `exchange/2` and, for someone new,
+  `/oauth-callback.html` with a one-time code or an error, tagged with the
+  attempt the app opened it with. The page hands the code to the app, which
+  trades it with `exchange/2` and the attempt's verifier and, for someone new,
   opens the account with `register/2` once the terms are accepted.
   """
 
@@ -16,36 +17,43 @@ defmodule StabileoAuth.Controllers.GoogleController do
   action_fallback(StabileoUtils.FallbackController)
 
   @session_key :user_oauth_session_params
+  @attempt_key :user_oauth_attempt
   @register_fields ~w(locale accept_terms usage_analytics model_research)
 
-  def request(conn, _params) do
-    with true <- GoogleOAuth.app_configured?(),
+  def request(conn, params) do
+    attempt = params["attempt"]
+
+    with true <- UserOAuth.valid_attempt?(attempt) || :invalid_state,
+         true <- GoogleOAuth.app_configured?(),
          {:ok, %{url: url, session_params: session_params}} <- GoogleOAuth.authorize_url(:app) do
       conn
       |> put_session(@session_key, session_params)
+      |> put_session(@attempt_key, attempt)
       |> redirect(external: url)
     else
-      _ -> to_app(conn, error: "oauth_unavailable")
+      :invalid_state -> to_app(conn, nil, error: "invalid_state")
+      _ -> to_app(conn, attempt, error: "oauth_unavailable")
     end
   end
 
   def callback(conn, params) do
     session_params = get_session(conn, @session_key)
-    conn = delete_session(conn, @session_key)
+    attempt = get_session(conn, @attempt_key)
+    conn = conn |> delete_session(@session_key) |> delete_session(@attempt_key)
 
     cond do
       Map.has_key?(params, "error") ->
-        to_app(conn, error: "provider_error")
+        to_app(conn, attempt, error: "provider_error")
 
-      is_nil(session_params) ->
-        to_app(conn, error: "invalid_state")
+      is_nil(session_params) or not UserOAuth.valid_attempt?(attempt) ->
+        to_app(conn, attempt, error: "invalid_state")
 
       true ->
         with {:ok, user} <- GoogleOAuth.callback(params, session_params, :app),
-             {:ok, code} <- UserOAuth.sign_in(user, metadata(conn)) do
-          to_app(conn, code: code)
+             {:ok, code} <- UserOAuth.sign_in(user, attempt, metadata(conn)) do
+          to_app(conn, attempt, code: code)
         else
-          {:error, reason} -> to_app(conn, error: oauth_error(reason))
+          {:error, reason} -> to_app(conn, attempt, error: oauth_error(reason))
         end
     end
   end
@@ -63,7 +71,7 @@ defmodule StabileoAuth.Controllers.GoogleController do
   def dev(_conn, _params), do: {:error, :not_found}
 
   def exchange(conn, params) do
-    case UserOAuth.exchange(params["code"], metadata(conn)) do
+    case UserOAuth.exchange(params["code"], params["verifier"], metadata(conn)) do
       {:ok, payload} -> json(conn, payload)
       {:error, _reason} -> expired(conn)
     end
@@ -87,12 +95,13 @@ defmodule StabileoAuth.Controllers.GoogleController do
     |> json(%{error: "invalid_or_expired_code", message: "The sign-in expired. Try again."})
   end
 
-  @oauth_errors ~w(callback_failed email_not_verified account_disabled user_login_disabled)a
+  @oauth_errors ~w(callback_failed email_not_verified email_in_use invalid_state account_disabled user_login_disabled)a
 
   defp oauth_error(reason) when reason in @oauth_errors, do: Atom.to_string(reason)
   defp oauth_error(_reason), do: "callback_failed"
 
-  defp to_app(conn, query) do
+  defp to_app(conn, attempt, query) do
+    query = if UserOAuth.valid_attempt?(attempt), do: query ++ [attempt: attempt], else: query
     base = GoogleOAuth.app_frontend_url() || ""
     redirect(conn, external: "#{base}/oauth-callback.html?#{URI.encode_query(query)}")
   end

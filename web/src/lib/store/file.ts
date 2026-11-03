@@ -12,6 +12,7 @@ import { NO_RELEASE, type Release } from './model.svelte';
 import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import { accountGate } from './account-gate.svelte';
+import { saveFile } from '../export/save-file';
 import type { TabState } from './tabs.svelte';
 import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
@@ -93,18 +94,7 @@ export interface DedalSessionFile {
 // ─── Download Helpers ───────────────────────────────────────────
 
 export function downloadBlob(blob: Blob, filename: string): void {
-  accountGate.guard('export', () => triggerDownload(blob, filename));
-}
-
-function triggerDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  saveFile(filename, blob);
 }
 
 export function downloadText(content: string, filename: string, mime: string): void {

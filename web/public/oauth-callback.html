@@ -14,6 +14,7 @@
   var q = new URLSearchParams(location.search);
   var msg = { type: 'stabileo-oauth' };
   if (q.get('code')) msg.code = q.get('code'); else msg.error = q.get('error') || 'callback_failed';
+  if (q.get('attempt')) msg.attempt = q.get('attempt');
   try { var c = new BroadcastChannel('stabileo-oauth'); c.postMessage(msg); c.close(); } catch (e) {}
   try { if (window.opener) window.opener.postMessage(msg, location.origin); } catch (e) {}
   try { localStorage.setItem('stabileo-oauth-result', JSON.stringify(msg)); localStorage.removeItem('stabileo-oauth-result'); } catch (e) {}

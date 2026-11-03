@@ -1,6 +1,7 @@
 import { test, expect, CURRENT_STAMP } from './fixtures';
 import type { Page, Route } from '@playwright/test';
 import { gunzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
 import { RESULTS_CHANGED_IN, WHATS_NEW_STORAGE_KEY } from '../src/lib/release/whats-new';
 
 const TERMS_VERSION = '2026-10-27';
@@ -17,22 +18,25 @@ const ACCOUNT = {
   inserted_at: '2026-10-27T12:00:00Z',
 };
 
-const consents = (termsCurrent: boolean) => ({
+const consents = (termsCurrent: boolean, usage = true) => ({
   terms: termsCurrent ? { version: TERMS_VERSION, accepted_at: '2026-10-27T12:00:00Z' } : { version: '2020-01-01', accepted_at: '2020-01-01T12:00:00Z' },
   terms_current: termsCurrent,
-  usage_analytics: false,
-  model_research: false,
+  usage_analytics: usage,
+  model_research: true,
 });
 
-const session = (termsCurrent = true) => ({
+const session = (termsCurrent = true, usage = true) => ({
   access_token: 'access-1',
   refresh_token: 'refresh-1',
   expires_in: 900,
-  account: { ...ACCOUNT, consents: consents(termsCurrent) },
+  account: { ...ACCOUNT, consents: consents(termsCurrent, usage) },
 });
 
 interface Backend {
   googleOpened: number;
+  attempts: string[];
+  exchanges: { code: string; verifier: string }[];
+  holdGoogle: (go: Promise<void>) => void;
   register: Record<string, unknown>[];
   consents: Record<string, unknown>[];
   events: Record<string, unknown>[];
@@ -49,9 +53,13 @@ const savedProject = (id: string, name: string) => ({
 /** The account notices hide from automated browsers, so these tests present as a person's browser. */
 async function boot(
   page: Page,
-  opts: { termsCurrent?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; knownToGoogle?: boolean; path?: string } = {},
+  opts: { termsCurrent?: boolean; usageOff?: boolean; signedIn?: boolean; saveRequiresAccount?: boolean; saved?: ReturnType<typeof savedProject>[]; maxProjects?: number; knownToGoogle?: boolean; path?: string } = {},
 ): Promise<Backend> {
-  const backend: Backend = { googleOpened: 0, register: [], consents: [], events: [], projects: [], updates: [], feedback: [] };
+  let googleWaits: Promise<void> = Promise.resolve();
+  const backend: Backend = {
+    googleOpened: 0, attempts: [], exchanges: [], register: [], consents: [], events: [], projects: [], updates: [], feedback: [],
+    holdGoogle: (go) => { googleWaits = go; },
+  };
   await page.addInitScript(([signedIn, whatsNewKey, whatsNewSeen]) => {
     Object.defineProperty(navigator, 'webdriver', { get: () => false });
     try {
@@ -75,17 +83,23 @@ async function boot(
   await page.route('**/api/v1/auth/config', (r) =>
     json(r, 200, { user_login_enabled: true, terms_version: TERMS_VERSION, usage_telemetry_enabled: true, cloud_projects_enabled: true, save_requires_account: opts.saveRequiresAccount === true, google_login: true, password_login: false }),
   );
-  await page.context().route('**/api/v1/auth/google', (r) => {
+  await page.context().route(/\/api\/v1\/auth\/google(\?|$)/, async (r) => {
     backend.googleOpened += 1;
-    return r.fulfill({ status: 302, headers: { location: '/oauth-callback.html?code=code-1' } });
+    const attempt = new URL(r.request().url()).searchParams.get('attempt') ?? '';
+    backend.attempts.push(attempt);
+    await googleWaits;
+    return r.fulfill({ status: 302, headers: { location: `/oauth-callback.html?code=code-1&attempt=${attempt}` } });
   });
   await page.route('**/api/v1/auth/google/exchange', (r) => {
-    expect(body(r)).toEqual({ code: 'code-1' });
+    const b = body(r);
+    backend.exchanges.push(b);
+    const attempt = createHash('sha256').update(b.verifier ?? '').digest('base64url');
+    if (b.code !== 'code-1' || !backend.attempts.includes(attempt)) return json(r, 401, { error: 'invalid_or_expired_code', message: 'expired' });
     return opts.knownToGoogle
       ? json(r, 200, session())
       : json(r, 200, { signup_required: true, signup_token: 'signup-1', email: 'ada@gmail.test', name: 'Ada Lovelace' });
   });
-  await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true)));
+  await page.route('**/api/v1/auth/refresh', (r) => json(r, 200, session(opts.termsCurrent ?? true, opts.usageOff !== true)));
   await page.route('**/api/v1/auth/google/register', (r) => {
     const b = body(r);
     backend.register.push(b);
@@ -240,6 +254,27 @@ test.describe('accounts, legal and anonymous usage', () => {
     expect(backend.events).toEqual([]);
   });
 
+  test('an account that turned usage off keeps it off in a browser that had it on', async ({ page }) => {
+    const backend = await boot(page, { signedIn: true, usageOff: true });
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+    await expect(page.getByTestId('usage-notice')).toHaveCount(0);
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('stabileo-usage-consent') ?? '{}').choice)).toBe('denied');
+
+    await solvePortal(page);
+    await page.getByTestId('results-disclaimer-ok').click();
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    });
+    await page.waitForTimeout(500);
+    expect(backend.events).toEqual([]);
+    expect(backend.consents).toEqual([]);
+
+    await page.getByTestId('account-button').click();
+    await expect(page.getByTestId('profile-usage')).not.toBeChecked();
+  });
+
   test('an account under older terms is asked to accept the ones in force', async ({ page }) => {
     const backend = await boot(page, { signedIn: true, termsCurrent: false });
     await expect(page.getByTestId('terms-update')).toBeVisible();
@@ -370,6 +405,33 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
     expect(backend.register).toEqual([]);
+  });
+
+  test('a callback from another attempt, in another tab, finishes nothing; this attempt\'s does', async ({ page }) => {
+    const backend = await boot(page, { knownToGoogle: true });
+    let go!: () => void;
+    backend.holdGoogle(new Promise<void>((resolve) => { go = resolve; }));
+    await page.getByTestId('account-button').click();
+    await page.getByTestId('auth-google').click();
+    await expect(page.getByTestId('auth-google-waiting')).toBeVisible();
+    await expect.poll(() => backend.attempts.length).toBe(1);
+    expect(backend.attempts[0]).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    const stray = await page.context().newPage();
+    for (const query of [`code=code-1&attempt=${'x'.repeat(43)}`, 'code=code-1', `code=someone-else&attempt=${'y'.repeat(43)}`]) {
+      await stray.goto(`/oauth-callback.html?${query}`);
+      await expect(stray.locator('#m')).not.toHaveText('Stabileo');
+    }
+    await stray.close();
+    await expect(page.getByTestId('auth-google-waiting')).toBeVisible();
+    expect(backend.exchanges).toEqual([]);
+
+    go();
+    await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
+    await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
+    expect(backend.exchanges).toHaveLength(1);
+    expect(backend.exchanges[0].code).toBe('code-1');
+    expect(createHash('sha256').update(backend.exchanges[0].verifier).digest('base64url')).toBe(backend.attempts[0]);
   });
 
   test('a signed-in user saves without being asked', async ({ page }) => {

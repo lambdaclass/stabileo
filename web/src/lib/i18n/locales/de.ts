@@ -35,6 +35,7 @@ const de: Translations = {
   "account.google.err.popup_blocked": "Der Browser hat das Google-Fenster blockiert. Erlauben Sie Pop-ups für diese Seite und versuchen Sie es erneut.",
   "account.google.err.provider_error": "Google hat die Anmeldung nicht abgeschlossen. Versuchen Sie es erneut.",
   "account.google.err.email_not_verified": "Google hat die E-Mail-Adresse dieses Kontos nicht bestätigt.",
+  "account.google.err.email_in_use": "Für diese E-Mail-Adresse gibt es bereits ein Stabileo-Konto, und Google bestätigt nicht, dass sie noch Ihnen gehört. Schreiben Sie uns über die Kontaktkanäle, dann übertragen wir es auf Ihr Google-Konto.",
   "account.google.err.invalid_state": "Die Anmeldung ist abgelaufen oder wurde in einem anderen Tab geöffnet. Versuchen Sie es erneut.",
   "account.google.err.oauth_unavailable": "Die Anmeldung mit Google ist derzeit nicht verfügbar.",
   "account.google.err.account_disabled": "Dieses Konto ist deaktiviert.",

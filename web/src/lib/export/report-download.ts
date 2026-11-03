@@ -11,12 +11,10 @@ import { APP_VERSION } from '../build-info';
 import { t, tp } from '../i18n';
 import type { DocBlock } from './docx';
 import { accountGate } from '../store/account-gate.svelte';
+import { saveFile } from './save-file';
 
 function save(name: string, type: string, data: BlobPart) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = document.createElement('a'); a.href = url; a.download = name;
-  accountGate.guard('export', () => a.click());
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  saveFile(name, new Blob([data], { type }));
 }
 
 /** Print a report's HTML (the PDF), or download it when the window is blocked. */

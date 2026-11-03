@@ -550,8 +550,59 @@ describe('consents and server switches', () => {
     expect(seen.at(-1)!.body).toEqual({ email: 'ada@example.com', password: 'longenough', name: 'Ada', accept_terms: true, usage_analytics: true });
   });
 
+  describe('the usage choice follows the account', () => {
+    const withUsage = (usage: boolean) => ({ ...session(1), account: { ...session(1).account, consents: { ...CONSENTS, usage_analytics: usage } } });
+    const stored = () => JSON.parse(storage.get('stabileo-usage-consent') ?? '{}').choice;
+
+    it('an account that said no turns sharing off in a browser that had it on, on sign-in and on restore', async () => {
+      storage.set('stabileo-usage-consent', JSON.stringify({ choice: 'granted' }));
+      const { authStore } = await load();
+      const { usageConsent } = await import('../../telemetry/consent.svelte');
+      on('POST /login', () => json(200, withUsage(false)));
+      await authStore.login({ email: 'ada@example.com', password: 'longenough' });
+      expect(usageConsent.sharing).toBe(false);
+      expect(stored()).toBe('denied');
+
+      storage.set('stabileo-usage-consent', JSON.stringify({ choice: 'granted' }));
+      storage.set('stabileo-refresh-token', 'refresh-0');
+      const again = await load();
+      const consent = await import('../../telemetry/consent.svelte');
+      on('GET /config', () => json(200, { user_login_enabled: true }));
+      on('POST /refresh', () => json(200, withUsage(false)));
+      await again.authStore.init();
+      expect(consent.usageConsent.sharing).toBe(false);
+    });
+
+    it('a no given in this browser is recorded on an account that had it on, and stays off', async () => {
+      storage.set('stabileo-usage-consent', JSON.stringify({ choice: 'denied' }));
+      const { authStore } = await load();
+      const { usageConsent } = await import('../../telemetry/consent.svelte');
+      on('POST /login', () => json(200, withUsage(true)));
+      on('POST /consents', () => json(201, { data: withUsage(false).account }));
+      await authStore.login({ email: 'ada@example.com', password: 'longenough' });
+
+      await vi.waitFor(() => expect(authStore.account?.consents?.usage_analytics).toBe(false));
+      expect(seen.find((r) => r.route === 'POST /consents')!.body).toEqual({ kind: 'usage_analytics', granted: false });
+      expect(usageConsent.sharing).toBe(false);
+    });
+
+    it('an account that said yes leaves the browser as it was, and /me with a no turns it off', async () => {
+      const { authStore } = await load();
+      const { usageConsent } = await import('../../telemetry/consent.svelte');
+      on('POST /login', () => json(200, withUsage(true)));
+      await authStore.login({ email: 'ada@example.com', password: 'longenough' });
+      expect(usageConsent.choice).toBe('undecided');
+      expect(usageConsent.sharing).toBe(true);
+      expect(seen.some((r) => r.route === 'POST /consents')).toBe(false);
+
+      on('GET /me', () => json(200, { data: withUsage(false).account }));
+      await authStore.loadMe();
+      expect(usageConsent.choice).toBe('denied');
+    });
+  });
+
   describe('with Google', () => {
-    const popup = (answer: Promise<string>) => {
+    const popup = (answer: Promise<{ code: string; verifier: string }>) => {
       const opened: string[] = [];
       const cancel = vi.fn();
       return { opened, cancel, open: (url: string) => (opened.push(url), { answer, cancel }) };
@@ -560,12 +611,12 @@ describe('consents and server switches', () => {
     it('a known person: opens Google on the backend, trades the code and keeps the session', async () => {
       const { authStore, REFRESH_TOKEN_KEY } = await load();
       on('POST /google/exchange', () => json(200, session(1)));
-      const p = popup(Promise.resolve('code-1'));
+      const p = popup(Promise.resolve({ code: 'code-1', verifier: 'v-1' }));
 
       const outcome = await authStore.signInWithGoogle(p.open).result;
 
       expect(p.opened).toEqual(['http://localhost:4100/api/v1/auth/google']);
-      expect(seen).toEqual([{ route: 'POST /google/exchange', body: { code: 'code-1' }, auth: undefined }]);
+      expect(seen).toEqual([{ route: 'POST /google/exchange', body: { code: 'code-1', verifier: 'v-1' }, auth: undefined }]);
       expect(outcome).toEqual({ kind: 'signedIn', account: ADA });
       expect(authStore.status).toBe('authenticated');
       expect(storage.get(REFRESH_TOKEN_KEY)).toBe('refresh-1');
@@ -574,7 +625,7 @@ describe('consents and server switches', () => {
     it('someone new: answers the sign-up, then opens the session once the terms are accepted', async () => {
       const { authStore, REFRESH_TOKEN_KEY } = await load();
       on('POST /google/exchange', () => json(200, { signup_required: true, signup_token: 'st-1', email: 'ada@gmail.test', name: 'Ada' }));
-      const outcome = await authStore.signInWithGoogle(popup(Promise.resolve('code-1')).open).result;
+      const outcome = await authStore.signInWithGoogle(popup(Promise.resolve({ code: 'code-1', verifier: 'v-1' })).open).result;
 
       expect(outcome).toEqual({ kind: 'signup', token: 'st-1', email: 'ada@gmail.test', name: 'Ada' });
       expect(authStore.status).toBe('anonymous');

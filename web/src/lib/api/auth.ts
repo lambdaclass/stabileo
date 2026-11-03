@@ -95,8 +95,8 @@ export const authApi = {
     return `${API_URL}${BASE}/google`;
   },
 
-  googleExchange(code: string): Promise<Session | GoogleSignup> {
-    return request<Session | GoogleSignup>('POST', `${BASE}/google/exchange`, { body: { code } });
+  googleExchange(code: string, verifier: string): Promise<Session | GoogleSignup> {
+    return request<Session | GoogleSignup>('POST', `${BASE}/google/exchange`, { body: { code, verifier } });
   },
 
   googleRegister(input: GoogleRegisterInput): Promise<Session> {

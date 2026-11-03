@@ -28,20 +28,12 @@ import { retouchedIn, withExportLog } from './export-log';
 import { coverForMember, sheetMembers } from './detailing-sheet-inputs';
 import type { DocumentModel } from '../engine/detailing/document-model';
 import { accountGate } from './account-gate.svelte';
+import { saveFile } from '../export/save-file';
 
 /** Hand a blob to the browser under a name. The browser then loses sight of it — see
  * `EXPORT_CANNOT_ASSERT`. */
 export function downloadBlob(name: string, type: string, content: string): void {
-  accountGate.guard('export', () => triggerDownload(name, type, content));
-}
-
-function triggerDownload(name: string, type: string, content: string): void {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveFile(name, new Blob([content], { type }));
 }
 
 /** What every export is headed with, and what every filename carries. */
@@ -69,6 +61,7 @@ export function exportDetailingReport(doc: DocumentModel, ctx: ExportContext, fo
   const ext = format === 'pdf' ? 'html' : format === 'csv' ? 'csv' : format;
   const filename = `detailing-rev${doc.revision.number}.${ext}`;
   // Taken now, with the document; checked again once the engine hashes are in.
+  if (format === 'pdf' && accountGate.defer('export', () => exportDetailingReport(doc, ctx, format).catch((e) => uiStore.toast(String((e as Error)?.message ?? e), 'error')))) return Promise.resolve();
   const token = captureProvenanceToken();
   return said(withExportLog({ kind: 'report', doc, filename, at: ctx.at }, async () => {
     const html = renderReportHtml(

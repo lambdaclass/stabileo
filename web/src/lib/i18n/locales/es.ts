@@ -34,6 +34,7 @@ const es: Record<string, string> = {
   'account.google.err.popup_blocked': 'El navegador bloqueó la ventana de Google. Permití las ventanas emergentes para este sitio y probá de nuevo.',
   'account.google.err.provider_error': 'Google no completó el ingreso. Probá de nuevo.',
   'account.google.err.email_not_verified': 'Google no tiene verificado el email de esa cuenta.',
+  'account.google.err.email_in_use': 'Ya hay una cuenta de Stabileo con este email, y Google no confirma que siga siendo tuyo. Escribinos por los canales de contacto y la pasamos a tu cuenta de Google.',
   'account.google.err.invalid_state': 'El ingreso venció o se abrió en otra pestaña. Probá de nuevo.',
   'account.google.err.oauth_unavailable': 'El ingreso con Google no está disponible por ahora.',
   'account.google.err.account_disabled': 'Esta cuenta está deshabilitada.',

@@ -9,6 +9,7 @@
   import RecheckNotice from './RecheckNotice.svelte';
   import ReportFormats from '../export/ReportFormats.svelte';
   import { downloadReport } from '../../../lib/export/report-download';
+  import { accountGate } from '../../../lib/store/account-gate.svelte';
   import { t, tp, i18n, OFFERED_LOCALES } from '../../../lib/i18n';
   import { teAt } from '../../../lib/i18n/engine-text';
   import { memoriaInput } from '../../../lib/store/memoria-inputs';
@@ -52,6 +53,7 @@
    * writes nothing and says so.
    */
   async function print() {
+    if (accountGate.defer('export', print)) return;
     const doc = html;
     const w = window.open('', '_blank');
     const record = await prepareExportProvenance();

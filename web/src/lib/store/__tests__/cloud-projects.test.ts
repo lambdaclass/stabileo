@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { cloudProjects } from '../cloud-projects.svelte';
-import { modelStore } from '..';
+import { modelStore, tabManager } from '..';
 import { gzipBase64, gunzipBase64 } from '../../utils/gzip-base64';
 import { serializeProject } from '../file';
 
@@ -121,4 +121,78 @@ describe('cloud projects', () => {
     expect(cloudProjects.items.map((p) => p.id)).toEqual(['p9']);
     expect(cloudProjects.total).toBe(1);
   });
+
+  it('a new project in the same tab is saved as another project, never over the one the tab held', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p1') }));
+    await cloudProjects.saveCurrent();
+    expect(cloudProjects.linkedId).toBe('p1');
+
+    modelStore.clear();
+    modelStore.addNode(0, 0);
+    expect(cloudProjects.linkedId).toBeNull();
+
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p2') }));
+    await cloudProjects.saveCurrent();
+    expect(seen.map((r) => `${r.method} ${r.path}`)).toEqual(['POST /api/v1/projects', 'POST /api/v1/projects']);
+    expect(cloudProjects.linkedId).toBe('p2');
+  });
+
+  it('a project opened from a file in the tab drops the link too', async () => {
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('p1') }));
+    await cloudProjects.saveCurrent();
+    const { loadProject } = await import('../file');
+    await loadProject(new File([serializeProject()], 'otro.ded', { type: 'application/json' }));
+    expect(cloudProjects.linkedId).toBeNull();
+  });
+
+  it('switching tabs while a save is on its way sends the first tab\'s project to its own link and keeps both links', async () => {
+    tabManager.createTab();
+    const first = tabManager.activeTabId!;
+    const a = modelStore.addNode(0, 0);
+    modelStore.addElement(a, modelStore.addNode(4, 0));
+    modelStore.model.name = 'Pórtico de prueba';
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('pA') }));
+    await cloudProjects.saveCurrent();
+
+    tabManager.createTab();
+    const second = tabManager.activeTabId!;
+    modelStore.addNode(0, 0);
+    modelStore.addNode(9, 0);
+    modelStore.addNode(9, 3);
+    modelStore.model.name = 'Segundo';
+    replies.set('POST /api/v1/projects', () => json(201, { data: meta('pB', 'Segundo') }));
+    await cloudProjects.saveCurrent();
+    expect(cloudProjects.linkedId).toBe('pB');
+
+    tabManager.switchTab(first);
+    let answer!: (r: Response) => void;
+    replies.set('PUT /api/v1/projects/pA', () => new Promise<Response>((resolve) => { answer = resolve; }));
+    replies.set('PUT /api/v1/projects/pB', () => json(500, { error: 'wrong project' }));
+    const saving = cloudProjects.saveCurrent();
+    tabManager.switchTab(second);
+    await vi.waitFor(() => expect(answer).toBeTypeOf('function'));
+    tabManager.switchTab(first);
+    tabManager.switchTab(second);
+    answer(json(200, { data: meta('pA', 'Pórtico de prueba') }));
+    await saving;
+
+    const put = seen.find((r) => r.method === 'PUT')!;
+    expect(put.path).toBe('/api/v1/projects/pA');
+    expect(put.body).toMatchObject({ name: 'Pórtico de prueba', node_count: 2, element_count: 1 });
+    expect(cloudProjects.linkedId).toBe('pB');
+    tabManager.switchTab(first);
+    expect(cloudProjects.linkedId).toBe('pA');
+  });
+
+  it('a new project made while the save was on its way does not take the saved project\'s link', async () => {
+    let answer!: (r: Response) => void;
+    replies.set('POST /api/v1/projects', () => new Promise<Response>((resolve) => { answer = resolve; }));
+    const saving = cloudProjects.saveCurrent();
+    await vi.waitFor(() => expect(answer).toBeTypeOf('function'));
+    modelStore.clear();
+    answer(json(201, { data: meta('p1') }));
+    await saving;
+    expect(cloudProjects.linkedId).toBeNull();
+  });
 });
+

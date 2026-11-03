@@ -35,6 +35,7 @@ const fr: Translations = {
   "account.google.err.popup_blocked": "Le navigateur a bloqué la fenêtre de Google. Autorisez les fenêtres pop-up pour ce site et réessayez.",
   "account.google.err.provider_error": "Google n'a pas terminé la connexion. Réessayez.",
   "account.google.err.email_not_verified": "Google n'a pas vérifié l'adresse e-mail de ce compte.",
+  "account.google.err.email_in_use": "Un compte Stabileo utilise déjà cette adresse e-mail, et Google ne confirme pas qu’elle vous appartient toujours. Écrivez-nous via les canaux de contact et nous le transférerons vers votre compte Google.",
   "account.google.err.invalid_state": "La connexion a expiré ou a été ouverte dans un autre onglet. Réessayez.",
   "account.google.err.oauth_unavailable": "La connexion avec Google n'est pas disponible pour le moment.",
   "account.google.err.account_disabled": "Ce compte est désactivé.",

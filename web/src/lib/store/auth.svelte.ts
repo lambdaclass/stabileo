@@ -2,6 +2,7 @@ import { ApiError, setAuthHooks, type RefreshOutcome } from '../api/client';
 import { authApi, type Account, type AuthConfig, type ConsentKind, type GoogleRegisterInput, type ProfileUpdate, type RegisterInput, type LoginInput, type Session } from '../api/auth';
 import { openGooglePopup, type PendingPopup } from '../auth/google-popup';
 import { accounts } from '../features';
+import { usageConsent } from '../telemetry/consent.svelte';
 
 export type AuthStatus = 'anonymous' | 'loading' | 'authenticated';
 
@@ -33,12 +34,26 @@ let accessToken: string | null = null;
 let ownRefreshToken: string | null = null;
 let refreshing: Promise<RefreshOutcome> | null = null;
 
+/**
+ * A "no" to anonymous usage holds from either side once someone signs in: the account's turns this
+ * browser off, and this browser's is recorded on the account, so the profile, what is sent and the
+ * admin site agree. A "yes" changes nothing here, so the usage notice still shows once.
+ */
+function adoptUsageChoice(a: Account): void {
+  const recorded = a.consents?.usage_analytics;
+  if (recorded === false && usageConsent.choice !== 'denied') usageConsent.set('denied');
+  else if (recorded === true && usageConsent.choice === 'denied') {
+    void authApi.recordConsent('usage_analytics', false).then((next) => { if (account?.id === next.id) account = next; }, () => {});
+  }
+}
+
 function applySession(session: Session): Account {
   accessToken = session.access_token;
   ownRefreshToken = session.refresh_token;
   writeRefreshToken(session.refresh_token);
   account = session.account;
   status = 'authenticated';
+  adoptUsageChoice(session.account);
   return session.account;
 }
 
@@ -147,8 +162,8 @@ export const authStore = {
    */
   signInWithGoogle(open: (url: string) => PendingPopup = openGooglePopup): { result: Promise<GoogleOutcome>; cancel(): void } {
     const pending = open(authApi.googleStartUrl());
-    const result = pending.answer.then(async (code) => {
-      const answer = await authApi.googleExchange(code);
+    const result = pending.answer.then(async ({ code, verifier }) => {
+      const answer = await authApi.googleExchange(code, verifier);
       if ('signup_required' in answer) return { kind: 'signup' as const, token: answer.signup_token, email: answer.email, name: answer.name };
       return { kind: 'signedIn' as const, account: applySession(answer) };
     });
@@ -174,6 +189,7 @@ export const authStore = {
     const me = await authenticated(() => authApi.me());
     account = me;
     status = 'authenticated';
+    adoptUsageChoice(me);
     return me;
   },
 

@@ -34,6 +34,7 @@ const pt: Translations = {
   'account.google.err.popup_blocked': 'O navegador bloqueou a janela do Google. Permita pop-ups para este site e tente de novo.',
   'account.google.err.provider_error': 'O Google não concluiu o login. Tente de novo.',
   'account.google.err.email_not_verified': 'O Google não verificou o e-mail dessa conta.',
+  'account.google.err.email_in_use': 'Já existe uma conta do Stabileo com este e-mail, e o Google não confirma que ele ainda é seu. Fale com a gente pelos canais de contato e nós a passamos para a sua conta do Google.',
   'account.google.err.invalid_state': 'O login expirou ou foi aberto em outra aba. Tente de novo.',
   'account.google.err.oauth_unavailable': 'O login com o Google não está disponível no momento.',
   'account.google.err.account_disabled': 'Esta conta está desativada.',

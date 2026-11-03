@@ -52,6 +52,17 @@ export const accountGate = {
     else void run();
   },
 
+  /**
+   * For what opens a window in the click and writes into it later (a printed report): true when the
+   * account is missing, and `run` is then asked for and called again after sign-in, so nothing is
+   * written before.
+   */
+  defer(action: GatedAction, run: () => unknown): boolean {
+    if (!required()) return false;
+    ask(action, run);
+    return true;
+  },
+
   /** Resolves true once the action may go on: at once, or after sign-in; false if the request is closed. */
   allow(action: GatedAction): Promise<boolean> {
     if (!required()) return Promise.resolve(true);
@@ -63,14 +74,14 @@ export const accountGate = {
    * The gate comes after the choice because a browser opens a file picker only from a fresh click,
    * which a sign-in in another window outlasts.
    */
-  files(action: GatedAction, handler: (e: Event) => unknown): (e: Event) => void {
-    return (e: Event) => {
+  files<E extends Event>(action: GatedAction, handler: (e: E) => unknown): (e: E) => void {
+    return (e: E) => {
       const input = (e.currentTarget ?? e.target) as HTMLInputElement | null;
       if (!required()) {
         void handler(e);
         return;
       }
-      const later = { target: input, currentTarget: input } as unknown as Event;
+      const later = { target: input, currentTarget: input } as unknown as E;
       ask(action, () => handler(later), () => {
         if (input) input.value = '';
       });

@@ -11,6 +11,7 @@ vi.mock('../../telemetry/usage', () => ({
 }));
 
 const { accountGate } = await import('../account-gate.svelte');
+const { saveFile } = await import('../../export/save-file');
 
 beforeEach(() => {
   auth.saveRequiresAccount = false;
@@ -169,4 +170,65 @@ describe('account gate', () => {
       expect(el.value).toBe('');
     });
   });
+
+  it('defer leaves an action that opens its own window alone, unless the account is missing; then it runs it again after sign-in', () => {
+    const run = vi.fn();
+    expect(accountGate.defer('export', run)).toBe(false);
+    expect(run).not.toHaveBeenCalled();
+    expect(accountGate.open).toBe(false);
+
+    auth.saveRequiresAccount = true;
+    auth.userLoginEnabled = true;
+    expect(accountGate.defer('export', run)).toBe(true);
+    expect(accountGate.open).toBe(true);
+    accountGate.open = false;
+    expect(run).not.toHaveBeenCalled();
+
+    expect(accountGate.defer('export', run)).toBe(true);
+    auth.isAuthenticated = true;
+    accountGate.open = false;
+    expect(run).toHaveBeenCalledOnce();
+  });
+
+  it('a download that waits for a long sign-in makes its link then, and a closed request downloads nothing', () => {
+    vi.useFakeTimers();
+    const made: string[] = [];
+    const revoked: string[] = [];
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation(() => { made.push(`blob:${made.length}`); return made.at(-1)!; });
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation((u) => void revoked.push(u));
+    const clicks: string[] = [];
+    let attached = 0;
+    vi.stubGlobal('document', {
+      createElement: () => {
+        const a = { href: '', download: '', click: () => void clicks.push(`${a.download} ${a.href}`) };
+        return a;
+      },
+      body: { appendChild: () => void (attached += 1), removeChild: () => void (attached -= 1) },
+    });
+    try {
+      auth.saveRequiresAccount = true;
+      saveFile('a.csv', new Blob(['x']));
+      expect(made).toEqual([]);
+      accountGate.open = false;
+      vi.advanceTimersByTime(20_000);
+      expect(made).toEqual([]);
+      expect(clicks).toEqual([]);
+
+      saveFile('b.csv', new Blob(['y']));
+      vi.advanceTimersByTime(30_000);
+      auth.isAuthenticated = true;
+      accountGate.open = false;
+      expect(clicks).toEqual(['b.csv blob:0']);
+      expect(revoked).toEqual([]);
+      vi.advanceTimersByTime(10_000);
+      expect(revoked).toEqual(['blob:0']);
+      expect(attached).toBe(0);
+    } finally {
+      create.mockRestore();
+      revoke.mockRestore();
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    }
+  });
 });
+

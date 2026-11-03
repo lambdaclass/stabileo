@@ -10,8 +10,8 @@ There is no tenancy yet. Every account sees only itself, so there are no organiz
 
 - Sign-in is behind the runtime flag `user_login_enabled` (`system_settings`, toggled from the admin site, off by default). While off, `/register` and `/login` answer 403 `user_login_disabled`; existing sessions keep working (refresh, `/me`, profile) until they expire or an admin forces them out
 - Files in and out can require an account: runtime flag `save_requires_account`, off by default, read by the browser from `/config`. The browser applies it only while `user_login_enabled` is on and the config was read, so a closed sign-in or an unreachable server never keeps anyone from their file. Gated (`accountGate` in `web/src/lib/store/account-gate.svelte.ts`), in Basic and PRO: saving (buttons and Ctrl+S), opening a project file (buttons, Ctrl+O), every import (Excel and its template, DXF, IFC, a DXF dropped on the canvas, pasted coordinates, and the file inputs inside features: sections, combinations, moving loads, accelerograms, underlays, model code, exercises), every export (results in any format, reports, drawings and images, IFC, PRO data, videos, model code, solver input), the share link and saved fragments. Every download goes through the gate, so an export without its own button check still asks. A file input asks after the file is chosen and reads it after sign-in, because a browser opens a file picker only from a fresh click. Open: the examples and the browser autosave. After signing in, the action the user asked for runs
-- Sign-up and sign-in with Google only, through the product's own OAuth client (`GOOGLE_APP_CLIENT_ID`, `GOOGLE_APP_CLIENT_SECRET`; the admin site keeps `GOOGLE_CLIENT_ID`): the browser opens `/google` in a popup; Google returns to `/google/callback` on the product's own host, which sends the popup to `/oauth-callback.html` with a one-time code (60 s). The page hands it to the app, which trades it at `/google/exchange`: a known person gets a session, someone new gets a sign-up token (15 min) and an account once `/google/register` carries `accept_terms: true`
-- A person is found by Google's subject (`sub`), else by the email Google verified. An account found by email takes the subject; one nobody verified (opened with a password) becomes the Google owner's: its password and its sessions end. An email already tied to another subject is refused (`callback_failed`)
+- Sign-up and sign-in with Google only, through the product's own OAuth client (`GOOGLE_APP_CLIENT_ID`, `GOOGLE_APP_CLIENT_SECRET`; the admin site keeps `GOOGLE_CLIENT_ID`): the browser opens `/google?attempt=…` in a popup, where `attempt` is the SHA-256 (base64url) of a random verifier the app keeps for that sign-in; Google returns to `/google/callback` on the product's own host, which sends the popup to `/oauth-callback.html` with a one-time code (60 s) and the attempt. The page hands both to the app, which takes only its own attempt's answer and trades the code at `/google/exchange` with the verifier; a code from another attempt, tab or browser is refused: a known person gets a session, someone new gets a sign-up token (15 min) and an account once `/google/register` carries `accept_terms: true`
+- A person is found by Google's subject (`sub`), else by email, and by email only when Google answers for that address: Gmail (`gmail.com`, `googlemail.com`) or a Workspace domain Google reports in `hd`. For any other address `email_verified` may be a check from years ago, so an existing account on it is refused (`email_in_use`) and stays as it was. An account found by email takes the subject; one nobody verified (opened with a password) becomes the Google owner's: its password and its sessions end. An email already tied to another subject is refused (`callback_failed`)
 - Google must report the email verified (`email_not_verified` otherwise)
 - Refresh-token rotation, logout
 - Password sign-up, login and change answer 403 `password_login_disabled` unless `:user_password_login` is on
@@ -34,8 +34,8 @@ Prefix `/api/v1/auth`, router `StabileoAuth.Router`. Public routes run the `:api
 | Method | Path | Auth | Success | Errors |
 |--------|------|------|---------|--------|
 | `GET` | `/config` | public | `200 {user_login_enabled, terms_version, usage_telemetry_enabled, cloud_projects_enabled, save_requires_account, google_login, password_login}` | — |
-| `GET` | `/google` | public, session cookie | `302` to Google | `302 /oauth-callback.html?error=oauth_unavailable` |
-| `GET` | `/google/callback` | public, session cookie | `302 /oauth-callback.html?code=…` | `302 /oauth-callback.html?error=` `provider_error`, `invalid_state`, `email_not_verified`, `account_disabled`, `user_login_disabled`, `callback_failed` |
+| `GET` | `/google?attempt=` | public, session cookie | `302` to Google | `302 /oauth-callback.html?error=` `invalid_state` (no well-formed attempt), `oauth_unavailable` |
+| `GET` | `/google/callback` | public, session cookie | `302 /oauth-callback.html?code=…&attempt=…` | `302 /oauth-callback.html?error=…&attempt=…` `provider_error`, `invalid_state`, `email_not_verified`, `email_in_use`, `account_disabled`, `user_login_disabled`, `callback_failed` |
 | `POST` | `/google/exchange` | public | `200 <session>` or `200 {signup_required: true, signup_token, email, name}` | 401 `invalid_or_expired_code` |
 | `POST` | `/google/register` | public | `201 <session>` | 401 `invalid_or_expired_code`, 403 `user_login_disabled`, 422 `validation_error` (`accept_terms` not true, email or subject taken) |
 | `POST` | `/register` | public | `201 <session>` | 403 `password_login_disabled`, 403 `user_login_disabled`, 422 `validation_error` (email taken, short password, `accept_terms` not true, …) |
@@ -51,7 +51,7 @@ Bodies:
 
 ```jsonc
 // POST /google/exchange
-{ "code": "..." }
+{ "code": "...", "verifier": "..." }
 // POST /google/register: accept_terms must be true; usage_analytics and model_research start true unless sent false; locale is optional
 { "signup_token": "...", "accept_terms": true, "usage_analytics": true, "locale": "es" }
 // POST /register (only with password sign-in on): accept_terms must be true; usage_analytics and model_research are optional
@@ -74,7 +74,7 @@ Bodies:
 { "access_token": "...", "refresh_token": "...", "expires_in": 900, "account": <account> }
 ```
 
-`<account>` in a session, `/me` and `/consents` also carries `consents`: `{ "terms": {"version", "accepted_at"} | null, "terms_current": bool, "usage_analytics": bool, "model_research": bool }`. The app asks an account whose `terms_current` is false to accept again before anything else.
+`<account>` in a session, `/me` and `/consents` also carries `consents`: `{ "terms": {"version", "accepted_at"} | null, "terms_current": bool, "usage_analytics": bool, "model_research": bool }`. The app asks an account whose `terms_current` is false to accept again before anything else. On every session and `/me` the browser takes the account's `usage_analytics`: a `false` turns sharing off in that browser, and a browser that had turned it off records `false` on the account, so a "no" from either side holds.
 
 `<account>`:
 
@@ -121,7 +121,9 @@ Seeds create `demo@stabileo.com` / `stabileo-demo-password` (`StabileoRepo.DemoP
 | `/register`, `/login` or `PUT /password` with password sign-in off | 403 `password_login_disabled`, nothing written |
 | Google callback for someone new | code → exchange answers `signup_required` with the email and name; nothing written until `/google/register` with `accept_terms: true` creates a verified account with `google_subject`, no password, and the consents |
 | Google callback for a known subject, or a known email | code → exchange answers a session; the code works once; an unverified account found by email loses its password and sessions |
-| Google callback with the email unverified, with sign-in off, without the state cookie | `error=email_not_verified` / `user_login_disabled` / `invalid_state` |
+| Google callback with the email unverified, with sign-in off, without the state cookie or the attempt | `error=email_not_verified` / `user_login_disabled` / `invalid_state` |
+| A code traded with another attempt's verifier, or none | 401 `invalid_or_expired_code`; the code still trades with its own verifier |
+| An existing account on an address Google does not answer for (no Gmail, no matching `hd`) | `error=email_in_use`; the account keeps its password, sessions and no subject |
 | Two accounts with the same `google_subject` | Unique index; the second insert fails with `google_subject` taken |
 | Refresh while `user_login_enabled` is off | 200: existing sessions keep working |
 | Register with valid data | 201, tokens, account with lowercased email; row in DB with Argon2 hash |

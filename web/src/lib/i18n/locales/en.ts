@@ -34,6 +34,7 @@ const en: Record<string, string> = {
   'account.google.err.popup_blocked': 'Your browser blocked the Google window. Allow pop-ups for this site and try again.',
   'account.google.err.provider_error': 'Google did not complete the sign-in. Try again.',
   'account.google.err.email_not_verified': 'Google has not verified the email of that account.',
+  'account.google.err.email_in_use': 'A Stabileo account already uses this email, and Google does not confirm it is still yours. Write to us through the contact links and we will move it to your Google account.',
   'account.google.err.invalid_state': 'The sign-in expired or was opened in another tab. Try again.',
   'account.google.err.oauth_unavailable': 'Signing in with Google is not available right now.',
   'account.google.err.account_disabled': 'This account is disabled.',
