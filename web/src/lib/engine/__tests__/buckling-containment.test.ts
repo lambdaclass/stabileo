@@ -13,6 +13,7 @@ vi.mock('../../wasm/dedaliano_engine.js', async (original) => ({
 }));
 import { initSolver, solveBuckling, solveBuckling3D } from '../wasm-solver';
 import { isContainmentRefusal } from '../containment-error';
+import { knownIssueResultDisposition } from '../known-issues';
 
 const refusal = JSON.stringify({ message: 'withheld', structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'BU-BOUND', value: 741, message: 'withheld' }] });
 function input() {
@@ -84,6 +85,9 @@ it('the real #741 model stays warned through an ordinary certification fallback'
   expect(result.structuredDiagnostics).toEqual(expect.arrayContaining([
     expect.objectContaining({ phase: 'BU-ACCURACY', value: 818 }),
   ]));
+  const disposition = knownIssueResultDisposition(result);
+  expect(disposition.refused).toBe(false);
+  expect(disposition.messages.some(m => m.includes('#818'))).toBe(true);
 });
 
 it('the real #741 certificate refusal is a containment refusal and withholds the factor', async () => {
