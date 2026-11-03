@@ -14,6 +14,7 @@ import { buildSystem } from './system';
 import { iteratePDelta, toAnalysisResults, InteriorNotFinite, PDELTA_MAX_ITER, PDELTA_TOL, type TeachingPDelta } from './pdelta';
 import { teachingBuckling } from './buckling';
 import { collapseResults, refineInput, type Refined } from './refine';
+import { heldEndsBound } from './run-buckling';
 import { firstModeB2, teachingOptions, usesEngine, type SoSettings } from './settings';
 import { peakAlong } from '../governing-case';
 import { computeDiagramValueAt } from '../diagrams';
@@ -143,14 +144,16 @@ function teachingResults(r: Refined, input: SolverInput, run: TeachingPDelta): {
 
 function engineRun(r: Refined, input: SolverInput) {
   const raw = solvePDelta(r.input, PDELTA_MAX_ITER, PDELTA_TOL) as PDeltaResult & { notice?: string };
-  return { ...raw, results: collapseResults(r, input, raw.results), linearResults: collapseResults(r, input, raw.linearResults) };
+  const pieceN = new Map(raw.linearResults.elementForces.map((f) => [f.elementId, Math.min(f.nStart, f.nEnd)]));
+  return { ...raw, heldBound: heldEndsBound(r.input, pieceN), results: collapseResults(r, input, raw.results), linearResults: collapseResults(r, input, raw.linearResults) };
 }
 
 export function runPDelta2D(input: SolverInput, s: SoSettings): { ok: true; result: SoPDeltaResult } | { ok: false; reason: Txt } {
   const r = refineInput(input, s.n);
   if (usesEngine(s)) {
     const res = engineRun(r, input);
-    const lambda1 = engineLambda1(r.input);
+    const seen = engineLambda1(r.input);
+    const lambda1 = seen !== null && seen > res.heldBound * (1 + 1e-9) ? null : seen;
     const b2 = firstModeB2(lambda1);
     let history: IterationRow[] | null = null;
     let matches = false;
@@ -161,7 +164,7 @@ export function runPDelta2D(input: SolverInput, s: SoSettings): { ok: true; resu
       const mine = collapseResults(r, input, toAnalysisResults(run.sys, r.input, run.final, 'consistent', run.finalSolvedWith));
       matches = run.iterations === res.iterations && sameDisplacements(mine, res.results);
     }
-    const stable = res.isStable && !(lambda1 !== null && lambda1 <= 1);
+    const stable = res.isStable && !(res.heldBound <= 1) && !(lambda1 !== null && lambda1 <= 1);
     return {
       ok: true,
       result: {

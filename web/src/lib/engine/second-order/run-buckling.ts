@@ -8,7 +8,7 @@ import type { SolverInput } from '../types';
 import type { BucklingResult, ElementBucklingData } from '../result-types';
 import { tx, type Txt } from '../steps/doc';
 import { solveBuckling } from '../wasm-solver';
-import { teachingBuckling, firstOrderAxial, representsFirstMode } from './buckling';
+import { teachingBuckling, firstOrderAxial, representsFirstMode, clampedBound } from './buckling';
 import { buildSystem } from './system';
 import { refineInput, refinedGeometry, type Refined } from './refine';
 import { teachingOptions, usesEngine, type SoSettings } from './settings';
@@ -68,6 +68,11 @@ function engineClampedBound(input: SolverInput, pieceN: Map<number, number>): nu
     best = Math.min(best, (u * u * EI) / (L * L * -n));
   }
   return best;
+}
+
+export function heldEndsBound(input: SolverInput, pieceN: Map<number, number>): number {
+  const first = firstOrder(input);
+  return first ? clampedBound(first.sys, first.N0) : engineClampedBound(input, pieceN);
 }
 
 export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; result: SoBucklingResult } | { ok: false; reason: Txt } {
