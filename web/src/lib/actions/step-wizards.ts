@@ -9,29 +9,16 @@
 import { t } from '../i18n';
 import { uiStore, modelStore, dsmStepsStore, fmStepsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
-import { stepByStepScope, STEP_BY_STEP_MAX_DOFS } from '../engine/step-by-step-scope';
 import { solveDetailed } from '../engine/solver-detailed';
 import { solveDetailed3D } from '../engine/solver-detailed-3d';
 import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
 import { solveForceMethod3D } from '../engine/force-method/solve-3d';
-
-function blocked(): boolean {
-  if (modelStore.hasSlidingJoints()) { uiStore.toast(t('advanced.slidingUnsupported'), 'error'); return true; }
-  if (modelStore.hasJoint3D()) { uiStore.toast(t('advanced.jointsUnsupported'), 'error'); return true; }
-  return false;
-}
+import { blocked, refused } from './wizard-guard';
 
 function inputFor(threeD: boolean) {
   return threeD
     ? modelStore.buildSolverInput3D(uiStore.includeSelfWeight, uiStore.axisConvention3D === 'leftHand', { basic: uiStore.analysisMode !== 'pro', expandMemberOffsets: false })
     : modelStore.buildSolverInput(uiStore.includeSelfWeight);
-}
-
-function refused(input: Parameters<typeof stepByStepScope>[0], threeD: boolean): boolean {
-  const v = stepByStepScope(input, threeD);
-  if (v.ok) return false;
-  uiStore.toast(t(`sbs.scope.${v.reason}`).replace('{n}', String(v.dofs)).replace('{max}', String(STEP_BY_STEP_MAX_DOFS)), 'error');
-  return true;
 }
 
 function errText(e: unknown, fallbackKey: string): string {
@@ -106,5 +93,13 @@ export function openExplainedCatalog(): void {
   dsmStepsStore.close();
   fmStepsStore.close();
   explainedSteps.openCatalog();
+  showPanel();
+}
+
+/** Open one explained method's document from another panel. */
+export function openExplainedMethod(id: string): void {
+  dsmStepsStore.close();
+  fmStepsStore.close();
+  explainedSteps.openMethod(id);
   showPanel();
 }

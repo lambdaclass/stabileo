@@ -5,7 +5,9 @@
  * Pure JS iteration over per-combo results. No solver/WASM dependency.
  */
 
-import type { AnalysisResults } from './types';
+import type { AnalysisResults, ElementForces } from './types';
+import { computeDiagramValueAt } from './diagrams';
+import { cubicStationaryPoints } from './cubic-stationary';
 import type { AnalysisResults3D } from './types-3d';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -109,8 +111,48 @@ export function computeGoverning3D(
 // ─── 2D ───────────────────────────────────────────────────────
 
 /**
+ * The largest |value| of a diagram along the member: at its ends, either side of each point load,
+ * at the ends of and through each span load, at every local peak of that sampling, refined by
+ * golden section between its neighbours, and at the stationary points of the cubic through each
+ * stretch between load boundaries.
+ */
+export function peakAlong(kind: 'moment' | 'shear' | 'axial', ef: ElementForces): number {
+  const f = (t: number) => Math.abs(computeDiagramValueAt(kind, Math.min(1, Math.max(0, t)), ef));
+  const ts = Array.from({ length: 41 }, (_, k) => k / 40);
+  for (const p of ef.pointLoads ?? []) {
+    const t = p.a / Math.max(ef.length, 1e-12);
+    ts.push(Math.max(0, t - 1e-9), Math.min(1, t + 1e-9));
+  }
+  for (const d of [...(ef.distributedLoads ?? []), ...(ef.distributedLoadsX ?? [])]) {
+    const a = d.a / Math.max(ef.length, 1e-12), b = d.b / Math.max(ef.length, 1e-12);
+    for (let k = 0; k <= 8; k++) ts.push(Math.min(1, Math.max(0, a + ((b - a) * k) / 8)));
+  }
+  ts.sort((a, b) => a - b);
+  const v = ts.map(f);
+  let best = Math.max(...v);
+  const g = (t: number) => computeDiagramValueAt(kind, t, ef);
+  const cuts = [0, 1];
+  for (const p of ef.pointLoads ?? []) cuts.push(p.a / Math.max(ef.length, 1e-12));
+  for (const d of [...(ef.distributedLoads ?? []), ...(ef.distributedLoadsX ?? [])]) cuts.push(d.a / Math.max(ef.length, 1e-12), d.b / Math.max(ef.length, 1e-12));
+  const edges = [...new Set(cuts.map((t) => Math.min(1, Math.max(0, t))))].sort((a, b) => a - b);
+  for (let k = 0; k + 1 < edges.length; k++) {
+    for (const t of cubicStationaryPoints(g, edges[k], edges[k + 1])) best = Math.max(best, Math.abs(g(t)));
+  }
+  for (let k = 1; k < ts.length - 1; k++) {
+    if (!(v[k] >= v[k - 1] && v[k] >= v[k + 1])) continue;
+    let lo = ts[k - 1], hi = ts[k + 1];
+    for (let i = 0; i < 60 && hi - lo > 1e-12; i++) {
+      const a = lo + (hi - lo) * 0.381966, b = lo + (hi - lo) * 0.618034;
+      if (f(a) >= f(b)) hi = b; else lo = a;
+    }
+    best = Math.max(best, f((lo + hi) / 2));
+  }
+  return best;
+}
+
+/**
  * For each element, find which combination produces the max absolute
- * value per force component (M, V, N).
+ * value per force component (M, V, N) anywhere along it.
  */
 export function computeGoverning2D(
   perCombo: Map<number, AnalysisResults>,
@@ -127,9 +169,9 @@ export function computeGoverning2D(
   for (const [comboId, results] of perCombo) {
     for (const ef of results.elementForces) {
       const eid = ef.elementId;
-      const m = Math.max(Math.abs(ef.mStart), Math.abs(ef.mEnd));
-      const v = Math.max(Math.abs(ef.vStart), Math.abs(ef.vEnd));
-      const n = Math.max(Math.abs(ef.nStart), Math.abs(ef.nEnd));
+      const m = peakAlong('moment', ef);
+      const v = peakAlong('shear', ef);
+      const n = peakAlong('axial', ef);
 
       const cur = best.get(eid);
       if (!cur) {

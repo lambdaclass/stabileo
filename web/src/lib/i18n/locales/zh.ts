@@ -898,7 +898,7 @@ const zh: Translations = {
   'kinematic.step3Title': '步骤 3 — 刚度矩阵验证',
   'kinematic.matrixExplanation': 'Stabileo 通过组装<strong style="color:#ddd">全局刚度矩阵</strong>来求解结构。这里分析该矩阵 ({n}×{n}) 以检测步骤 2 公式无法发现的机构 — 例如，支座分布不当或铰导致局部不稳定。',
   'kinematic.noMechanisms': '✓ 未检测到机构。结构稳定。',
-  'kinematic.hiddenMechanism': '✗ 尽管 g = {degree} ≥ 0，仍检测到 {n} 个机构模态{s}。',
+  'kinematic.hiddenMechanism': '✗ 尽管 GH = {degree} ≥ 0，仍检测到 {n} 个机构模态{s}。',
   'kinematic.hiddenMechanismExplanation': '步骤 2 的公式从整体上计算约束数量，但不验证约束的分布位置。在这种情况下，结构的某些区域约束过多，而另一些区域约束不足。',
   'kinematic.mechanismDetected': '✗ 检测到 {n} 个机构模态{s}。',
   'kinematic.freeMovements': '检测到的自由运动：',
@@ -1884,8 +1884,8 @@ const zh: Translations = {
 
   // Classification text
   'kin.classHypostatic': '欠定 — 缺少 {n} 个约束{s}。结构是机构。',
-  'kin.classHiddenMechZero': '公式给出 g = 0（静定的必要条件），但非充分条件。数值验证（步骤 3）检测到 {modes} 个机构模态{s}。这在约束分布不当时发生：某些区域约束过多，而另一些区域约束不足。',
-  'kin.classHiddenMechPos': '公式给出 g = {degree} > 0（似乎超静定），但数值验证（步骤 3）检测到 {modes} 个机构模态{s}。这在约束分布不当时发生：某区域超静定（约束过多），另一区域欠定（约束不足）。过多的约束无法补偿不足。',
+  'kin.classHiddenMechZero': '公式给出 GH = 0（静定的必要条件），但非充分条件。数值验证（步骤 3）检测到 {modes} 个机构模态{s}。这在约束分布不当时发生：某些区域约束过多，而另一些区域约束不足。',
+  'kin.classHiddenMechPos': '公式给出 GH = {degree} > 0（似乎超静定），但数值验证（步骤 3）检测到 {modes} 个机构模态{s}。这在约束分布不当时发生：某区域超静定（约束过多），另一区域欠定（约束不足）。过多的约束无法补偿不足。',
   'kin.classIsostatic': '静定 — 约束数量恰好满足需要。无冗余。',
   'kin.classHyperstatic': '超静定 {degree} 次 — 比保证稳定性所需多 {degree} 个平衡方程{s}。',
   'kin.plural_s': '',

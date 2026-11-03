@@ -898,7 +898,7 @@ const it: Translations = {
   'kinematic.step3Title': 'Passo 3 — Verifica con matrice di rigidezza',
   'kinematic.matrixExplanation': 'Stabileo risolve le strutture assemblando una <strong style="color:#ddd">matrice di rigidezza globale</strong>. Qui analizziamo quella matrice ({n}×{n}) per rilevare meccanismi che l\'equazione del Passo 2 non individua — ad esempio, quando i vincoli sono mal distribuiti o le cerniere creano instabilità locali.',
   'kinematic.noMechanisms': '✓ Nessun meccanismo rilevato. La struttura è stabile.',
-  'kinematic.hiddenMechanism': '✗ Rilevati {n} modi di meccanismo{s} nonostante g = {degree} ≥ 0.',
+  'kinematic.hiddenMechanism': '✗ Rilevati {n} modi di meccanismo{s} nonostante GH = {degree} ≥ 0.',
   'kinematic.hiddenMechanismExplanation': 'L\'equazione del Passo 2 conta i vincoli globalmente, ma non verifica dove sono posizionati. In questo caso, una zona della struttura ha vincoli in eccesso mentre un\'altra ne è carente.',
   'kinematic.mechanismDetected': '✗ Rilevati {n} modi di meccanismo{s}.',
   'kinematic.freeMovements': 'Movimenti liberi rilevati:',
@@ -1889,8 +1889,8 @@ const it: Translations = {
 
   // Classification text
   'kin.classHypostatic': 'Ipostatica — mancano {n} vincoli{s}. La struttura è un meccanismo.',
-  'kin.classHiddenMechZero': 'La formula dà g = 0 (condizione necessaria per l\'isostaticità), ma NON sufficiente. La verifica numerica (Passo 3) ha rilevato {modes} modi di meccanismo{s}. Ciò si verifica quando i vincoli sono mal distribuiti: una zona ha vincoli in eccesso e un\'altra ne è carente.',
-  'kin.classHiddenMechPos': 'La formula dà g = {degree} > 0 (appare iperstatica), ma la verifica numerica (Passo 3) ha rilevato {modes} modi di meccanismo{s}. Ciò si verifica quando i vincoli sono mal distribuiti: una zona è iperstatica (ha vincoli in eccesso) mentre un\'altra è ipostatica (è carente di vincoli). L\'eccesso in una zona non compensa il deficit nell\'altra.',
+  'kin.classHiddenMechZero': 'La formula dà GH = 0 (condizione necessaria per l\'isostaticità), ma NON sufficiente. La verifica numerica (Passo 3) ha rilevato {modes} modi di meccanismo{s}. Ciò si verifica quando i vincoli sono mal distribuiti: una zona ha vincoli in eccesso e un\'altra ne è carente.',
+  'kin.classHiddenMechPos': 'La formula dà GH = {degree} > 0 (appare iperstatica), ma la verifica numerica (Passo 3) ha rilevato {modes} modi di meccanismo{s}. Ciò si verifica quando i vincoli sono mal distribuiti: una zona è iperstatica (ha vincoli in eccesso) mentre un\'altra è ipostatica (è carente di vincoli). L\'eccesso in una zona non compensa il deficit nell\'altra.',
   'kin.classIsostatic': 'Isostatica — il numero di vincoli è esattamente quello necessario. Nessuna ridondanza.',
   'kin.classHyperstatic': 'Iperstatica di grado {degree} — ci sono {degree} equazioni di equilibrio{s} in più del necessario per garantire la stabilità.',
   'kin.plural_s': '',

@@ -904,7 +904,7 @@ const ko: Translations = {
   'kinematic.step3Title': '단계 3 — 강성 행렬 검증',
   'kinematic.matrixExplanation': 'Stabileo는 <strong style="color:#ddd">전체 강성 행렬</strong>을 조립하여 구조물을 풀이합니다. 여기서는 해당 행렬({n}×{n})을 분석하여 단계 2의 방정식이 감지하지 못하는 기구를 찾습니다 — 예를 들어, 지점이 잘못 분배되었거나 힌지가 국부 불안정을 유발하는 경우.',
   'kinematic.noMechanisms': '✓ 기구가 감지되지 않았습니다. 구조물은 안정합니다.',
-  'kinematic.hiddenMechanism': '✗ g = {degree} ≥ 0임에도 불구하고 {n}개 기구 모드{s}가 감지되었습니다.',
+  'kinematic.hiddenMechanism': '✗ GH = {degree} ≥ 0임에도 불구하고 {n}개 기구 모드{s}가 감지되었습니다.',
   'kinematic.hiddenMechanismExplanation': '단계 2의 방정식은 구속을 전체적으로 계산하지만 위치를 검증하지 않습니다. 이 경우 구조물의 한 영역에 과잉 구속이 있고 다른 영역에는 부족합니다.',
   'kinematic.mechanismDetected': '✗ {n}개 기구 모드{s}가 감지되었습니다.',
   'kinematic.freeMovements': '감지된 자유 이동:',
@@ -1888,8 +1888,8 @@ const ko: Translations = {
 
   // Classification text
   'kin.classHypostatic': '부족정 — {n}개 구속 부족{s}. 구조물은 기구입니다.',
-  'kin.classHiddenMechZero': '공식은 g = 0(정정의 필요 조건)을 주지만 충분 조건은 아닙니다. 수치 검증(단계 3)에서 {modes}개 기구 모드{s}가 감지되었습니다. 이는 구속이 잘못 분배되어 한 영역에는 과잉이고 다른 영역에는 부족한 경우 발생합니다.',
-  'kin.classHiddenMechPos': '공식은 g = {degree} > 0(부정정으로 보이지만)을 줍니다. 그러나 수치 검증(단계 3)에서 {modes}개 기구 모드{s}가 감지되었습니다. 이는 구속이 잘못 분배되어 한 영역은 부정정(과잉 구속)이고 다른 영역은 부족정(구속 부족)인 경우 발생합니다. 한 영역의 과잉이 다른 영역의 부족을 보상하지 못합니다.',
+  'kin.classHiddenMechZero': '공식은 GH = 0(정정의 필요 조건)을 주지만 충분 조건은 아닙니다. 수치 검증(단계 3)에서 {modes}개 기구 모드{s}가 감지되었습니다. 이는 구속이 잘못 분배되어 한 영역에는 과잉이고 다른 영역에는 부족한 경우 발생합니다.',
+  'kin.classHiddenMechPos': '공식은 GH = {degree} > 0(부정정으로 보이지만)을 줍니다. 그러나 수치 검증(단계 3)에서 {modes}개 기구 모드{s}가 감지되었습니다. 이는 구속이 잘못 분배되어 한 영역은 부정정(과잉 구속)이고 다른 영역은 부족정(구속 부족)인 경우 발생합니다. 한 영역의 과잉이 다른 영역의 부족을 보상하지 못합니다.',
   'kin.classIsostatic': '정정 — 구속의 수가 정확히 필요한 만큼입니다. 여유가 없습니다.',
   'kin.classHyperstatic': '{degree}차 부정정 — 안정성을 보장하는 데 필요한 것보다 {degree}개의 평형 방정식이 더 있습니다.',
   'kin.plural_s': '',
