@@ -11,6 +11,7 @@ import { densityRecord } from '../requests';
 import type { SdofProps, Harmonic } from './sdof';
 
 const NODE = 2;
+export const MAX_HISTORY_STEPS = 250_000;
 
 export function sdofSyntheticInput(m: number, k: number) {
   const base: SolverInput = {
@@ -33,6 +34,8 @@ export interface EngineCheck {
   X: number | null;
   /** u(t) at the sampled times, from rest, when there is a force. */
   history: Array<[number, number]> | null;
+  /** The time integration would need more than MAX_HISTORY_STEPS steps, so it was not run. */
+  historyTooLong: boolean;
 }
 
 /**
@@ -41,7 +44,7 @@ export interface EngineCheck {
  * time integration. Null where the engine is not loaded or cannot run it.
  */
 export function engineCheck(p: SdofProps, h: Harmonic | null, tEnd: number, samples: number): EngineCheck {
-  const out: EngineCheck = { omega: null, X: null, history: null };
+  const out: EngineCheck = { omega: null, X: null, history: null, historyTooLong: false };
   if (!isWasmReady()) return out;
   const syn = sdofSyntheticInput(p.m, p.k);
   try { out.omega = solveModal(syn.input, syn.densities, 1).modes[0]?.omega ?? null; } catch { out.omega = null; }
@@ -50,10 +53,11 @@ export function engineCheck(p: SdofProps, h: Harmonic | null, tEnd: number, samp
     const r = solveHarmonic2D({ solver: syn.forced(h.F0), densities: densityRecord(syn.densities), frequencies: [h.Omega / (2 * Math.PI)], dampingRatio: p.xi, responseNodeId: NODE, responseDof: 'x' });
     out.X = r.responsePoints?.[0]?.amplitude ?? null;
   } catch { out.X = null; }
+  const perStep = Math.max(1, Math.ceil(tEnd / samples / (Math.min(p.T, (2 * Math.PI) / h.Omega) / 100)));
+  const nSteps = samples * perStep;
+  if (!(nSteps <= MAX_HISTORY_STEPS)) { out.historyTooLong = true; return out; }
   try {
-    const perStep = Math.max(1, Math.ceil(tEnd / samples / (Math.min(p.T, (2 * Math.PI) / h.Omega) / 100)));
     const dt = tEnd / samples / perStep;
-    const nSteps = samples * perStep;
     const forceHistory = Array.from({ length: nSteps + 1 }, (_, i) => ({ time: i * dt, loads: [{ nodeId: NODE, fx: h.F0 * Math.sin(h.Omega * i * dt), fz: 0, my: 0 }] }));
     const r = solveTimeHistory2D({ solver: syn.input, densities: syn.densities, timeStep: dt, nSteps, forceHistory, ...(p.xi > 0 ? { dampingXi: p.xi } : {}) });
     const ux: number[] = r.nodeHistories.find((n: { nodeId: number }) => n.nodeId === NODE)?.ux ?? [];

@@ -172,6 +172,7 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
         && constraint.terms !== undefined && !records(constraint.terms)) return null;
     }
   }
+  if (value.massSource !== undefined && !record(value.massSource)) return null;
   if (value.provenance !== undefined) {
     if (!record(value.provenance)) return null;
     const { assumptions, layerMappings } = value.provenance;

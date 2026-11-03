@@ -22,7 +22,7 @@ test.describe('@slow structural dynamics in Basic', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
-    await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-shear-building'));
+    await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-column-mass'));
     await runDynamic(page);
 
     await page.getByTestId('dyn-sdof-toggle').click();
@@ -39,6 +39,7 @@ test.describe('@slow structural dynamics in Basic', () => {
     await page.getByTestId('steps-back').click();
     await page.getByTestId('steps-catalog-back').click();
 
+    await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-shear-building'));
     await runDynamicIfClosed(page);
     await page.getByTestId('dyn-mdof-toggle').click();
     await page.getByTestId('dyn-mdof-shear').click();
@@ -47,9 +48,13 @@ test.describe('@slow structural dynamics in Basic', () => {
     const doc = page.getByTestId('steps-doc');
     await expect(doc).toBeVisible();
     await expect(page.getByTestId('steps-error')).toHaveCount(0);
-    const n = await page.getByTestId('steps-tab').count();
-    expect(n).toBeGreaterThan(9);
-    for (let k = 0; k < n; k++) await page.getByTestId('steps-next').click();
+    const numbered = await page.getByTestId('steps-tab').count();
+    expect(numbered).toBeGreaterThan(9);
+    const allTabs = await page.getByTestId('steps-tab').first().locator('xpath=..').locator(':scope > button').count();
+    expect(allTabs).toBe(numbered + 1);
+    for (let k = 1; k < allTabs; k++) await page.getByTestId('steps-next').click();
+    await expect(page.getByTestId('steps-tab').last()).toHaveClass(/\bon\b/);
+    await expect(page.getByTestId('steps-next')).toBeDisabled();
     await expect(doc.locator('.sb-compare').or(doc.locator('.sb-table')).first()).toBeVisible();
     await doc.screenshot({ path: 'test-results/course-dynamics-mdof-doc.png' });
     await page.getByTestId('steps-back').click();
@@ -63,11 +68,22 @@ test.describe('@slow structural dynamics in Basic', () => {
     const row = page.getByTestId('dyn-mass-table').locator('tbody tr').first();
     await expect(row.locator('td')).toHaveCount(3);
     const [mine, engine] = await row.locator('td').evaluateAll((tds) => [tds[1].textContent, tds[2].textContent]);
+    const freqMine = cellNumber(mine), freqEngine = cellNumber(engine);
+    expect(Number.isFinite(freqMine) && freqMine > 0).toBe(true);
+    expect(Number.isFinite(freqEngine) && freqEngine > 0).toBe(true);
     expect(mine).toBe(engine);
     await page.getByTestId('dyn-mass').screenshot({ path: 'test-results/course-dynamics-mass.png' });
     expect(errors).toEqual([]);
   });
 });
+
+const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+function cellNumber(text: string | null): number {
+  const m = (text ?? '').trim().replace(/−/g, '-').match(/^(-?\d+(?:\.\d+)?)(?:·10(⁻?)([⁰¹²³⁴⁵⁶⁷⁸⁹]+))?$/);
+  if (!m) return NaN;
+  const exp = m[3] ? Number([...m[3]].map((c) => SUPERSCRIPT.indexOf(c)).join('')) * (m[2] ? -1 : 1) : 0;
+  return Number(m[1]) * 10 ** exp;
+}
 
 async function runDynamicIfClosed(page: Page) {
   if (await page.getByTestId('dynamics-course').isVisible()) return;

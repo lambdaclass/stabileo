@@ -22,7 +22,7 @@ export function engineFrequencies(ctx: Pick<MethodContext, 'model'>, n: number, 
     const sub = subdivideForAnalysis(ctx.model, n);
     const input = buildSolverInput2D(sub.model);
     if (!input) return null;
-    const phys = withBasicMass(input, { ...sub.model, massSource: ctx.model.massSource });
+    const phys = withBasicMass(input, { ...sub.model, massSource: ctx.model.massSource }, 'iy');
     const densities = barMass ? phys.densities : new Map([...phys.densities.keys()].map((k) => [k, 0]));
     return solveModal(phys.input, densities, count).modes.map((m: { frequency: number }) => m.frequency);
   } catch {

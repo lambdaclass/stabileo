@@ -78,19 +78,24 @@ export function cholesky(a: Mat): Mat {
 }
 
 /** Eigenvalues and eigenvectors (columns) of a symmetric matrix, by cyclic Jacobi rotations. */
-export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
+export function symmetricEigen(a0: Mat, maxSweeps = 100): { values: number[]; vectors: Mat; residuals: number[] } {
   const n = a0.length;
-  const a = a0.map((r) => [...r]);
+  const big = a0.reduce((acc, r) => r.reduce((m, x) => Math.max(m, Math.abs(x)), acc), 0);
+  const f = big > 0 && Number.isFinite(big) ? 2 ** Math.max(-1000, Math.min(1000, -Math.round(Math.log2(big)))) : 1;
+  const a = a0.map((r) => r.map((x) => x * f));
+  const scaled = a.map((r) => [...r]);
   const v = identity(n);
-  for (let sweep = 0; sweep < 100; sweep++) {
-    let off = 0, norm = 0;
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { norm += a[i][j] ** 2; if (i !== j) off += a[i][j] ** 2; }
-    if (off <= 1e-26 * Math.max(norm, 1e-300)) break;
+  for (let sweep = 0; sweep < maxSweeps; sweep++) {
+    const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p])) * Math.sqrt(Math.abs(a[q][q]));
+    let done = true;
+    for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
+    if (done) break;
     for (let p = 0; p < n - 1; p++) {
       for (let q = p + 1; q < n; q++) {
-        if (Math.abs(a[p][q]) < 1e-300) continue;
+        if (small(p, q)) continue;
         const theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
-        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+        const at = Math.abs(theta);
+        const t = Math.sign(theta || 1) / (at > 1e150 ? 2 * at : at + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1), s = t * c;
         for (let k = 0; k < n; k++) {
           const akp = a[k][p], akq = a[k][q];
@@ -110,20 +115,44 @@ export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
       }
     }
   }
-  return { values: a.map((r, i) => r[i]), vectors: v };
+  const norm2 = (x: number[]) => {
+    const m = x.reduce((acc, t) => Math.max(acc, Math.abs(t)), 0);
+    return m === 0 ? 0 : m * Math.sqrt(x.reduce((acc, t) => acc + (t / m) * (t / m), 0));
+  };
+  const residuals: number[] = [];
+  for (let j = 0; j < n; j++) {
+    const lam = a[j][j];
+    const res: number[] = [], size: number[] = [];
+    for (let i = 0; i < n; i++) {
+      let s = -lam * v[i][j], z = Math.abs(lam * v[i][j]);
+      for (let k = 0; k < n; k++) { const t = scaled[i][k] * v[k][j]; s += t; z += Math.abs(t); }
+      res.push(s); size.push(z);
+    }
+    if (!(norm2(res) <= 1e-10 * norm2(size))) throw new Error('eigen did not converge');
+    residuals.push(norm2(res) / f);
+  }
+  return { values: a.map((r, i) => r[i] / f), vectors: v, residuals };
 }
 
 /**
  * K·φ = λ·M·φ for K symmetric and M symmetric positive definite: λ ascending,
- * φ as columns, each scaled so φᵀ·M·φ = 1.
+ * φ as columns, each scaled so φᵀ·M·φ = 1. `error[i]` bounds |λᵢ − exact| from that
+ * pair's own residual and the round-off of forming L⁻¹·K·L⁻ᵀ along its own vector.
  */
-export function generalizedEigen(k: Mat, m: Mat): { lambda: number[]; phi: Mat } {
+export function generalizedEigen(k: Mat, m: Mat): { lambda: number[]; phi: Mat; error: number[] } {
   const n = k.length;
   const l = cholesky(m);
   const linv = inverse(l);
   const a = matMul(matMul(linv, k), transpose(linv));
   for (let i = 0; i < n; i++) for (let j = 0; j < i; j++) a[i][j] = a[j][i] = (a[i][j] + a[j][i]) / 2;
-  const { values, vectors } = symmetricEigen(a);
+  const { values, vectors, residuals } = symmetricEigen(a);
+  const abs = (x: Mat) => x.map((r) => r.map(Math.abs));
+  const absA = matMul(matMul(abs(linv), abs(k)), transpose(abs(linv)));
+  const formed = values.map((_, j) => {
+    let q = 0;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) q += Math.abs(vectors[r][j]) * absA[r][c] * Math.abs(vectors[c][j]);
+    return q;
+  });
   const order = values.map((_, i) => i).sort((x, y) => values[x] - values[y]);
   const y = order.map((i) => vectors.map((r) => r[i]));
   const lt = transpose(linv);
@@ -133,7 +162,7 @@ export function generalizedEigen(k: Mat, m: Mat): { lambda: number[]; phi: Mat }
     for (const v of phi) if (Math.abs(v) > Math.abs(big)) big = v;
     return big < 0 ? phi.map((v) => -v) : phi;
   });
-  return { lambda: order.map((i) => values[i]), phi: transpose(cols) };
+  return { lambda: order.map((i) => values[i]), phi: transpose(cols), error: order.map((i) => residuals[i] + 4 * n * Number.EPSILON * formed[i]) };
 }
 
 export const column = (a: Mat, j: number): number[] => a.map((r) => r[j]);

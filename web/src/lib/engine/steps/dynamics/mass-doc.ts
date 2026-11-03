@@ -11,11 +11,11 @@ import { tx } from '../doc';
 import { num, numText } from '../format';
 import { plotOf } from '../plot';
 import { dynamicsSettings } from '../../dynamics/course/settings';
-import { modelSystem, SystemError, type MdofSystem } from '../../dynamics/course/mdof-system';
+import { modelSystem, circularFrequencies, SystemError, type MdofSystem } from '../../dynamics/course/mdof-system';
 import { lumpedFrameMass, consistentFrameMass, type MassModel } from '../../dynamics/course/mass-model';
 import { exactBeam, frequenciesOf, MASS_MODELS, type ConvergenceRow } from '../../dynamics/course/convergence';
 import { generalizedEigen } from '../../dynamics/course/dense';
-import { K as KEY, p, note, dt, nodeNames, dofTextN, matrixBlock, systemSketch, engineFrequencies } from './common';
+import { K as KEY, p, note, dt, nodeNames, dofTextN, matrixBlock, systemSketch, engineFrequencies, consistentCheck } from './common';
 
 export type EngineAt = (n: number) => number[] | null;
 
@@ -27,11 +27,18 @@ function system(ctx: MethodContext, n: number, mm: MassModel): MdofSystem {
   return modelSystem(ctx.model!, points, { nPerMember: n, massModel: mm, barMass: true });
 }
 
+function hertz(s: Pick<MdofSystem, 'K' | 'M'>): number[] {
+  const { lambda, error } = generalizedEigen(s.K, s.M);
+  return circularFrequencies(lambda, error).slice(0, MODES).map((w) => w / (2 * Math.PI));
+}
+
 export function massApplies(ctx: MethodContext): Applicability {
   if (!ctx.model) return { ok: false, reason: tx(KEY + 'mdof.err.empty') };
   try {
     const s = system(ctx, dynamicsSettings().mass.nPerMember, dynamicsSettings().mass.massModel);
     if (!s.members.length) return { ok: false, reason: tx(KEY + 'mass.err.noBars') };
+    if (!s.members.some((m) => m.type === 'frame')) return { ok: false, reason: tx(KEY + 'mass.err.noFrames') };
+    hertz(s);
     return { ok: true };
   } catch (e) {
     if (e instanceof SystemError) return { ok: false, reason: tx(KEY + `mdof.err.${e.code}`, e.params) };
@@ -39,9 +46,11 @@ export function massApplies(ctx: MethodContext): Applicability {
   }
 }
 
-function rows(ctx: MethodContext, ns: number[], engineAt?: EngineAt): ConvergenceRow[] {
+interface Sweep { table: ConvergenceRow[]; skipped: Array<{ n: number; code: SystemError['code'] }>; cut: boolean }
+
+function rows(ctx: MethodContext, ns: number[], engineAt?: EngineAt): Sweep {
   const points = ctx.model!.massSource?.points ?? [];
-  const out: ConvergenceRow[] = [];
+  const out: Sweep = { table: [], skipped: [], cut: false };
   for (const n of ns) {
     try {
       const f = {} as Record<MassModel, number[]>, dofs = {} as Record<MassModel, number>;
@@ -50,10 +59,11 @@ function rows(ctx: MethodContext, ns: number[], engineAt?: EngineAt): Convergenc
         f[mm] = r.f; dofs[mm] = r.dofs;
       }
       const e = engineAt?.(n) ?? null;
-      out.push({ n, f, dofs, ...(e ? { engine: e.slice(0, MODES) } : {}) });
+      out.table.push({ n, f, dofs, ...(e ? { engine: e.slice(0, MODES) } : {}) });
     } catch (e) {
-      if (e instanceof SystemError && e.code === 'tooBig') break;
-      throw e;
+      if (!(e instanceof SystemError)) throw e;
+      if (e.code === 'tooBig') { out.cut = true; break; }
+      out.skipped.push({ n, code: e.code });
     }
   }
   return out;
@@ -64,7 +74,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   const n = st.nPerMember;
   const sys = system(ctx, n, st.massModel);
   const names = nodeNames(ctx.pm, sys);
-  const piece = sys.members.find((m) => m.type === 'frame') ?? sys.members[0];
+  const piece = sys.members.find((m) => m.type === 'frame')!;
   const steps: Step[] = [];
   const added = sys.coords.size - ctx.pm.nodes.size;
   const pts = ctx.model!.massSource?.points ?? [];
@@ -110,63 +120,86 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
     ],
   });
 
-  const g = system(ctx, n, 'guyan');
-  const cond = g.condensation;
-  const full = g.fullDofs.map((d) => dofTextN(d, names));
-  const kept = g.dofs.map((d) => dofTextN(d, names));
-  const fG = generalizedEigen(g.K, g.M).lambda.slice(0, MODES).map((l) => Math.sqrt(l) / (2 * Math.PI));
-  steps.push({
-    title: dt('mass.s4'),
-    blocks: [
-      p('mass.guyan.lead', { m: kept.length, s: cond?.slaves.length ?? 0 }),
-      { kind: 'eq', tex: '\\mathbf K^* = \\mathbf K_{mm} - \\mathbf K_{ms}\\,\\mathbf K_{ss}^{-1}\\,\\mathbf K_{sm}, \\quad \\mathbf T = \\begin{bmatrix} \\mathbf I \\\\ -\\mathbf K_{ss}^{-1}\\mathbf K_{sm} \\end{bmatrix}, \\quad \\mathbf M^* = \\mathbf T^T\\mathbf M\\,\\mathbf T' },
-      p('mass.guyan.why', undefined, true),
-      ...(cond ? [
-        matrixBlock('\\mathbf T', cond.T, [...cond.masters, ...cond.slaves].map((i) => full[i]), dt('mdof.k.tCaption'), kept),
-        matrixBlock('\\mathbf K^*', g.K, kept, dt('mdof.k.kCaption')),
-        matrixBlock('\\mathbf M^*', g.M, kept, dt('mdof.m.mCaption')),
-      ] : [note('info', 'mass.guyan.none')]),
-      { kind: 'table', head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }], rows: fG.map((f, i) => [i + 1, f]), caption: dt('mass.guyan.freqCaption') },
-      p('mass.guyan.exactness', undefined, true),
-    ],
-  });
+  let g: MdofSystem | SystemError;
+  let fG: number[] = [];
+  try { g = system(ctx, n, 'guyan'); fG = hertz(g); } catch (e) { if (!(e instanceof SystemError)) throw e; g = e; }
+  if (g instanceof SystemError) {
+    steps.push({
+      title: dt('mass.s4'),
+      blocks: [
+        { kind: 'eq', tex: '\\mathbf K^* = \\mathbf K_{mm} - \\mathbf K_{ms}\\,\\mathbf K_{ss}^{-1}\\,\\mathbf K_{sm}, \\quad \\mathbf M^* = \\mathbf T^T\\mathbf M\\,\\mathbf T' },
+        note('warn', 'mass.guyan.refused', { n }),
+        note('info', `mdof.err.${g.code}`, g.params),
+      ],
+    });
+  } else {
+    const cond = g.condensation;
+    const full = g.fullDofs.map((d) => dofTextN(d, names));
+    const kept = g.dofs.map((d) => dofTextN(d, names));
+    steps.push({
+      title: dt('mass.s4'),
+      blocks: [
+        p('mass.guyan.lead', { m: kept.length, s: cond?.slaves.length ?? 0 }),
+        { kind: 'eq', tex: '\\mathbf K^* = \\mathbf K_{mm} - \\mathbf K_{ms}\\,\\mathbf K_{ss}^{-1}\\,\\mathbf K_{sm}, \\quad \\mathbf T = \\begin{bmatrix} \\mathbf I \\\\ -\\mathbf K_{ss}^{-1}\\mathbf K_{sm} \\end{bmatrix}, \\quad \\mathbf M^* = \\mathbf T^T\\mathbf M\\,\\mathbf T' },
+        p('mass.guyan.why', undefined, true),
+        ...(cond ? [
+          matrixBlock('\\mathbf T', cond.T, [...cond.masters, ...cond.slaves].map((i) => full[i]), dt('mdof.k.tCaption'), kept),
+          matrixBlock('\\mathbf K^*', g.K, kept, dt('mdof.k.kCaption')),
+          matrixBlock('\\mathbf M^*', g.M, kept, dt('mdof.m.mCaption')),
+        ] : [note('info', 'mass.guyan.none')]),
+        { kind: 'table', head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }], rows: fG.map((f, i) => [i + 1, f]), caption: dt('mass.guyan.freqCaption') },
+        p('mass.guyan.exactness', undefined, true),
+      ],
+    });
+  }
 
-  const chosen = generalizedEigen(sys.K, sys.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
+  const chosen = hertz(sys);
   const eng = engineAt?.(n) ?? null;
+  const sameMass = st.massModel === 'consistent' && !sys.members.some((m) => m.kind === 'released');
   const head = [dt('mdof.mode'), dt(`mass.col.${st.massModel}`), ...(exact ? [dt('mass.col.exact')] : [])];
   steps.push({
     title: dt('mass.s5'),
     blocks: [
       p('mass.freq.lead', { n }),
       { kind: 'table', head, rows: chosen.map((f, i) => [i + 1, f, ...(exact ? [exact.modes[i]?.f ?? '—'] : [])]), caption: dt('mass.freq.caption') },
-      ...(eng ? [p(st.massModel === 'consistent' ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), st.massModel === 'consistent', dt('mdof.eig.engineCaption'))] : []),
+      ...(eng ? [p(sameMass ? 'mdof.eig.engineSame' : 'mdof.eig.engineOther'), engineFrequencies(chosen.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i] ?? NaN, unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix)), sameMass, dt('mdof.eig.engineCaption')), ...(!sameMass ? consistentCheck(ctx.model!, pts, n, true, eng.slice(0, chosen.length)) : [])] : []),
       ...(exact ? [p(`mass.exact.${exact.beamCase}`, { L: numText(exact.L) })] : [p('mass.exact.none', undefined, true)]),
-      ...(exact ? [{ kind: 'eq', tex: `\\omega_1 = ${num(exactCoef(exact))}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(exactCoef(exact))}\\sqrt{\\frac{${num(exact.EI)}}{${num(exact.rhoA)} \\cdot ${num(exact.L)}^4}}` } as Block] : []),
+      ...(exact ? [{ kind: 'eq', tex: firstModeTex(exact) } as Block] : []),
     ],
   });
 
   const ns = [...new Set([1, 2, 4, 8, n])].sort((a, b) => a - b);
-  const table = rows(ctx, ns, engineAt);
+  const sweep = rows(ctx, ns, engineAt);
+  const table = sweep.table;
   const ref = exact?.modes[0]?.f ?? table[table.length - 1]?.f.consistent[0];
   const err = (f: number) => (ref ? `${numText(((f - ref) / ref) * 100, 3)} %` : '—');
-  const convRows = table.map((r) => [r.n, r.dofs.lumped, r.f.lumped[0], err(r.f.lumped[0]), r.f.consistent[0], err(r.f.consistent[0]), r.f.guyan[0], err(r.f.guyan[0]), ...(r.engine ? [r.engine[0]] : [])]);
+  const engineColumn = table.some((r) => r.engine);
+  const convRows = table.map((r) => [r.n, r.dofs.lumped, r.f.lumped[0], err(r.f.lumped[0]), r.f.consistent[0], err(r.f.consistent[0]), r.f.guyan[0], err(r.f.guyan[0]), ...(engineColumn ? [r.engine?.[0] ?? '—'] : [])]);
   const series = MASS_MODELS.map((mm, i) => ({ points: table.map((r) => [r.n, r.f[mm][0]] as [number, number]), color: (['load', 'accent', 'reaction'] as const)[i], label: dt(`mass.col.${mm}`) }));
   steps.push({
     title: dt('mass.s6'),
     blocks: [
       p('mass.conv.lead'),
-      { kind: 'table', head: ['n', dt('mass.col.dofs'), dt('mass.col.lumped'), '%', dt('mass.col.consistent'), '%', dt('mass.col.guyan'), '%', ...(table.some((r) => r.engine) ? [dt('mass.col.engine')] : [])], rows: convRows,
+      { kind: 'table', head: ['n', dt('mass.col.dofs'), dt('mass.col.lumped'), '%', dt('mass.col.consistent'), '%', dt('mass.col.guyan'), '%', ...(engineColumn ? [dt('mass.col.engine')] : [])], rows: convRows,
         caption: dt(exact ? 'mass.conv.captionExact' : 'mass.conv.captionRef') },
       { kind: 'plot', plot: plotOf('n', 'f₁ (Hz)', [...series, ...(exact && ref ? [{ points: [[ns[0], ref], [ns[ns.length - 1], ref]] as Array<[number, number]>, color: 'muted' as const, dashed: true, label: dt('mass.col.exact') }] : [])]), caption: dt('mass.conv.plotCaption') },
       ...(ref && exact ? [p('mass.conv.exactLine', { f: numText(ref, 4) })] : []),
       p('mass.conv.why', undefined, true),
-      ...(table.length < ns.length ? [note('info', 'mass.conv.cut', { n: table[table.length - 1]?.n ?? 1 })] : []),
+      ...sweep.skipped.flatMap((x) => [note('info', 'mass.conv.skip', { n: x.n }), note('info', `mdof.err.${x.code}`)]),
+      ...(sweep.cut ? [note('info', 'mass.conv.cut', { n: table[table.length - 1]?.n ?? 1 })] : []),
     ],
   });
 
   return { method: 'massDiscretization', title: tx('steps.m.massDiscretization.title'), subtitle: dt(`mass.subtitle.${st.massModel}`, { n }), intro, steps };
 }
 
-function exactCoef(e: NonNullable<ReturnType<typeof exactBeam>>): number {
-  return (e.modes.find((m) => m.kind === 'bending')!.f * 2 * Math.PI) / Math.sqrt(e.EI / (e.rhoA * e.L ** 4));
+export function firstModeTex(e: NonNullable<ReturnType<typeof exactBeam>>): string {
+  const first = e.modes[0];
+  const w = first.f * 2 * Math.PI;
+  if (first.kind === 'axial') {
+    const c = w / Math.sqrt(e.EA / (e.rhoA * e.L ** 2));
+    return `\\omega_1 = ${num(c)}\\sqrt{\\frac{EA}{\\rho A\\,L^2}} = ${num(c)}\\sqrt{\\frac{${num(e.EA)}}{${num(e.rhoA)} \\cdot ${num(e.L)}^2}}`;
+  }
+  const c = w / Math.sqrt(e.EI / (e.rhoA * e.L ** 4));
+  return `\\omega_1 = ${num(c)}\\sqrt{\\frac{EI}{\\rho A\\,L^4}} = ${num(c)}\\sqrt{\\frac{${num(e.EI)}}{${num(e.rhoA)} \\cdot ${num(e.L)}^4}}`;
 }

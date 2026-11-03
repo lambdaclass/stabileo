@@ -65,12 +65,13 @@
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
-  import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
+  import { withBasicMass } from '../../lib/engine/dynamics/basic-mass';
   import { variableRefusal2D, imposedRefusal } from '../../lib/engine/solver-service';
   import { formatPDeltaFactor } from '../../lib/engine/pdelta-result';
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
+  import DynamicsCourse from '../advanced/dynamics/DynamicsCourse.svelte';
   import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
   import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
   import BucklingDetails from '../advanced/BucklingDetails.svelte';
@@ -442,7 +443,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'iy');
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
@@ -570,7 +571,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      const physical = withSectionMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'izz');
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
@@ -1016,6 +1017,7 @@
           Σ: X={(moR.cumulativeMassRatioX * 100).toFixed(1)}% Z={(moR.cumulativeMassRatioY * 100).toFixed(1)}%
         {/if}
       </div>
+      <DynamicsCourse result={moR} mode={resultsStore.activeModeIndex} {is3D} onRerun={() => (is3D ? handleModal3D() : handleModal())} />
     {/if}
   {/if}
   {#if buR}

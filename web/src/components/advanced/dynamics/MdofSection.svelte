@@ -14,14 +14,14 @@
   import { numText } from '../../../lib/engine/steps/format';
   import { resolveMdof } from '../../../lib/engine/steps/dynamics/mdof-build';
   import { superpositionPlotOf } from '../../../lib/engine/steps/dynamics/mdof-doc';
-  import { dofText } from '../../../lib/engine/dynamics/course/mdof-system';
+  import { dofText, SystemError } from '../../../lib/engine/dynamics/course/mdof-system';
   import { dynamicsSettings } from '../../../lib/engine/dynamics/course/settings';
   import { openExplainedMethod } from '../../../lib/actions/step-wizards';
 
   const s = $derived(courseDynamics.mdof);
   const c = $derived.by(() => {
     void modelStore.modelVersion; void courseDynamics.mdof; void courseDynamics.mass;
-    try { return resolveMdof({ model: modelStore.model }, dynamicsSettings()); } catch { return { refusal: 'mdof.err.singular' }; }
+    try { return resolveMdof({ model: modelStore.model }, dynamicsSettings()); } catch (e) { return e instanceof SystemError ? { refusal: `mdof.err.${e.code}`, params: e.params } : { refusal: 'mdof.err.singular' }; }
   });
   const ok = $derived('refusal' in c ? null : c);
   const src = $derived(t(s.source === 'shear' ? 'course.dynamics.ui.mdof.shear' : 'course.dynamics.ui.mdof.model'));

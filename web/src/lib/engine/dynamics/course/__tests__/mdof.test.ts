@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { generalizedEigen, matMul, transpose } from '../dense';
+import { generalizedEigen, matMul, transpose, symmetricEigen } from '../dense';
 import { modalSolve, modalResponse, directIntegration, modalDampingMatrix } from '../modal-decomposition';
 import { condense, consistentFrameMass } from '../mass-model';
-import type { DofRef } from '../mdof-system';
+import { SystemError, circularFrequencies, type DofRef } from '../mdof-system';
 
 const dofs2: DofRef[] = [{ nodeId: 1, dir: 'ux' }, { nodeId: 2, dir: 'ux' }];
 
@@ -97,5 +97,109 @@ describe('static (Guyan) condensation', () => {
     expect(c.M[0][0]).toBeCloseTo(hand, 12);
     const check = matMul(transpose(c.T), matMul(M, c.T));
     expect(check[0][0]).toBeCloseTo(c.M[0][0], 12);
+  });
+});
+
+describe('a stiffness that is not positive semidefinite', () => {
+  it('refuses a materially negative eigenvalue, and takes a round-off one as zero', () => {
+    const dofs: DofRef[] = [{ nodeId: 1, dir: 'ux' }, { nodeId: 2, dir: 'ux' }];
+    const I = [[1, 0], [0, 1]];
+    expect(() => modalSolve([[-1, 0], [0, 4]], I, dofs)).toThrow(SystemError);
+    try { modalSolve([[-1, 0], [0, 4]], I, dofs); } catch (e) { expect((e as SystemError).code).toBe('indefinite'); }
+    expect(circularFrequencies([-1e-15, 4], [1e-14, 1e-14])).toEqual([0, 2]);
+    expect(() => circularFrequencies([-1e-13, 4], [1e-14, 1e-14])).toThrow(SystemError);
+    expect(() => circularFrequencies([-1, 1e12], [1e-15, 1e-3])).toThrow(SystemError);
+    expect(() => circularFrequencies([-0.05, 1e12], [1e-15, 1e-3])).toThrow(SystemError);
+  });
+
+  it('judges each mode by its own error bound, so a stiff mode cannot hide an unstable one', () => {
+    const dofs: DofRef[] = [{ nodeId: 1, dir: 'ux' }, { nodeId: 2, dir: 'ux' }];
+    const I = [[1, 0], [0, 1]];
+    for (const big of [1e12, 1e16, 1e20]) {
+      const { lambda, error } = generalizedEigen([[-1, 0], [0, big]], I);
+      expect(error[0]).toBeLessThan(1e-12);
+      expect(() => circularFrequencies(lambda, error)).toThrow(SystemError);
+      expect(() => modalSolve([[-1, 0], [0, big]], I, dofs)).toThrow(SystemError);
+    }
+    const ok = generalizedEigen([[2, -1], [-1, 2]], I);
+    expect(circularFrequencies(ok.lambda, ok.error).map((w) => w * w)).toEqual([expect.closeTo(1, 12), expect.closeTo(3, 12)]);
+  });
+});
+
+describe('symmetric eigenvalues', () => {
+  it('a large eigenvalue does not hide an unresolved block: diag(1e16, [[2, 1], [1, 2]]) gives 1, 3, 1e16', () => {
+    const { values } = symmetricEigen([[1e16, 0, 0], [0, 2, 1], [0, 1, 2]]);
+    const v = [...values].sort((a, b) => a - b);
+    expect(v[0]).toBeCloseTo(1, 12);
+    expect(v[1]).toBeCloseTo(3, 12);
+    expect(v[2] / 1e16).toBeCloseTo(1, 12);
+  });
+
+  for (const big of [1e32, 1e100]) {
+    it(`no global floor: diag(${big}, [[2, 1], [1, 2]]) still gives 1 and 3, every pair with a small residual`, () => {
+      const A = [[big, 0, 0], [0, 2, 1], [0, 1, 2]];
+      const { values, vectors } = symmetricEigen(A);
+      const v = [...values].sort((a, b) => a - b);
+      expect(v[0]).toBeCloseTo(1, 12);
+      expect(v[1]).toBeCloseTo(3, 12);
+      values.forEach((lam, j) => {
+        const x = vectors.map((r) => r[j]);
+        const r = A.map((row, i) => row.reduce((s, a, k) => s + a * x[k], 0) - lam * x[i]);
+        expect(Math.hypot(...r)).toBeLessThanOrEqual(1e-14 * Math.max(1, Math.abs(lam)));
+      });
+    });
+  }
+});
+
+
+describe('symmetric eigenvalues near overflow', () => {
+  for (const s of [1e200, 1e300, 1e-200]) {
+    it(`[[${s}, ${s}/2], [${s}/2, ${s}]] gives ${s}/2 and 1.5·${s}`, () => {
+      const A = [[s, s / 2], [s / 2, s]];
+      const { values, vectors } = symmetricEigen(A);
+      const v = [...values].sort((a, b) => a - b);
+      expect(v[0] / (s / 2)).toBeCloseTo(1, 12);
+      expect(v[1] / (1.5 * s)).toBeCloseTo(1, 12);
+      values.forEach((lam, j) => {
+        const x = vectors.map((r) => r[j]);
+        const r = A.map((row, i) => (row[0] / s) * x[0] + (row[1] / s) * x[1] - (lam / s) * x[i]);
+        expect(Math.hypot(...r)).toBeLessThanOrEqual(1e-14);
+      });
+    });
+  }
+
+  it('diag(1e300, [[2, 1], [1, 2]]) still resolves the small block', () => {
+    const { values } = symmetricEigen([[1e300, 0, 0], [0, 2, 1], [0, 1, 2]]);
+    const v = [...values].sort((a, b) => a - b);
+    expect(v[0]).toBeCloseTo(1, 12);
+    expect(v[1]).toBeCloseTo(3, 12);
+  });
+
+  it('a matrix with a non-finite entry is refused, not returned', () => {
+    expect(() => symmetricEigen([[1, NaN], [NaN, 1]])).toThrow();
+  });
+});
+
+describe('an unfinished eigen solve is an error, not frequencies', () => {
+  it('symmetricEigen refuses a result whose pairs do not satisfy A·v = λ·v', () => {
+    const A = [[1, Infinity], [Infinity, 1]];
+    expect(() => symmetricEigen(A)).toThrow();
+  });
+
+  it('a finite matrix whose sweeps run out before convergence is refused by the residual check', () => {
+    const A = [[4, 1, 0.5, 0.2], [1, 3, 0.7, 0.1], [0.5, 0.7, 2, 0.3], [0.2, 0.1, 0.3, 1]];
+    expect(() => symmetricEigen(A, 0)).toThrow();
+    expect(() => symmetricEigen(A, 1)).toThrow();
+    const ok = symmetricEigen(A);
+    expect(ok.values.every(Number.isFinite)).toBe(true);
+  });
+
+  it('an unresolved small block beside a huge one is refused, not underflowed into a pass', () => {
+    const A = [[1e300, 0, 0], [0, 2, 1], [0, 1, 2]];
+    expect(() => symmetricEigen(A, 0)).toThrow();
+    const ok = symmetricEigen(A).values.slice().sort((x, y) => x - y);
+    expect(ok[0]).toBeCloseTo(1, 12);
+    expect(ok[1]).toBeCloseTo(3, 12);
+    expect(ok[2]).toBe(1e300);
   });
 });

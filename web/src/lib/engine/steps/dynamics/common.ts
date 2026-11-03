@@ -7,6 +7,11 @@ import type { Sketch } from '../sketch';
 import { sketchOf } from '../sketch';
 import type { DofRef, MdofSystem } from '../../dynamics/course/mdof-system';
 import type { Mat } from '../../dynamics/course/dense';
+import type { ModelData } from '../../solver-service';
+import type { PointMass } from '../../dynamics/mass-source';
+import { frequenciesOf } from '../../dynamics/course/convergence';
+import { modelSystem, SystemError } from '../../dynamics/course/mdof-system';
+import { computeDeformedShape } from '../../diagrams';
 
 export const K = 'course.dynamics.';
 export const p = (key: string, params?: Record<string, string | number>, detail = false): Block => ({ kind: 'p', text: tx(K + key, params), ...(detail ? { detail } : {}) });
@@ -49,35 +54,64 @@ export function systemSketch(pm: PlaneModel, sys: MdofSystem, names: Map<number,
   for (const chain of sys.chains.values()) for (let k = 0; k + 1 < chain.length; k++) members.push({ id: mid++, i: chain[k], j: chain[k + 1] });
   const labels: NonNullable<Sketch['labels']> = sys.points.map((q) => {
     const c = sys.coords.get(q.nodeId)!;
-    return { x: c.x, z: c.z, text: `m = ${+q.mx.toPrecision(4)} t`, color: 'accent', anchor: 'ne' };
+    const t = (v: number) => +v.toPrecision(4);
+    const text = q.mx === q.mz ? `m = ${t(q.mx)} t` : `m_x = ${t(q.mx)} t, m_z = ${t(q.mz)} t`;
+    return { x: c.x, z: c.z, text, color: 'accent', anchor: 'ne' };
   });
   return { ...base, nodes, members, hinges: [], labels, ...extra };
 }
 
-/** A mode or a displaced shape drawn over the faint structure: the nodes joined by straight lines. */
+/** Global translations and rotation of every node of the bar model, from a full vector whose translations may be in a turned node frame. */
+export function nodeMotions(sys: MdofSystem, full: number[]): Map<number, { x: number; z: number; r: number }> {
+  const local = new Map<number, { a: number; b: number; r: number; angle: number }>();
+  sys.fullDofs.forEach((d, i) => {
+    const cur = local.get(d.nodeId) ?? { a: 0, b: 0, r: 0, angle: 0 };
+    if (d.dir === 'ux') { cur.a = full[i]; cur.angle = d.angle ?? 0; } else if (d.dir === 'uz') { cur.b = full[i]; cur.angle = d.angle ?? cur.angle; } else cur.r = full[i];
+    local.set(d.nodeId, cur);
+  });
+  const out = new Map<number, { x: number; z: number; r: number }>();
+  for (const [id, u] of local) {
+    const c = Math.cos(u.angle), s = Math.sin(u.angle);
+    out.set(id, { x: c * u.a - s * u.b, z: s * u.a + c * u.b, r: u.r });
+  }
+  return out;
+}
+
+/** A mode or a displaced shape drawn over the faint structure: each frame segment bent with the cubic its end translations and rotations give, truss segments straight. */
 export function shapeSketch(pm: PlaneModel, sys: MdofSystem, names: Map<number, string>, full: number[], scale: number): Sketch {
   const base = systemSketch(pm, sys, names);
-  const at = new Map<number, { x: number; z: number }>();
-  sys.fullDofs.forEach((d, i) => {
-    if (d.dir === 'ry') return;
-    const cur = at.get(d.nodeId) ?? { x: 0, z: 0 };
-    if (d.dir === 'ux') cur.x = full[i]; else cur.z = full[i];
-    at.set(d.nodeId, cur);
+  const at = nodeMotions(sys, full);
+  const still = { x: 0, z: 0, r: 0 };
+  const deformed = [...sys.chains].map(([mid, chain]) => {
+    const m = pm.members.get(mid);
+    const truss = m?.truss ?? false;
+    const points: Array<{ x: number; z: number }> = [];
+    for (let k = 0; k + 1 < chain.length; k++) {
+      const a = sys.coords.get(chain[k])!, b = sys.coords.get(chain[k + 1])!;
+      const ua = at.get(chain[k]) ?? still, ub = at.get(chain[k + 1]) ?? still;
+      const L = Math.hypot(b.x - a.x, b.z - a.z);
+      const hingeStart = truss || (k === 0 && (m?.hingeI ?? false));
+      const hingeEnd = truss || (k + 2 === chain.length && (m?.hingeJ ?? false));
+      const seg = computeDeformedShape(a.x, a.z, b.x, b.z, ua.x, ua.z, ua.r, ub.x, ub.z, ub.r, scale, L, hingeStart, hingeEnd);
+      points.push(...(k === 0 ? seg : seg.slice(1)).map((q) => ({ x: q.x, z: q.y })));
+    }
+    return { points };
   });
-  const moved = (id: number) => {
-    const c = sys.coords.get(id)!;
-    const u = at.get(id) ?? { x: 0, z: 0 };
-    return { x: c.x + scale * u.x, z: c.z + scale * u.z };
-  };
-  const deformed = [...sys.chains.values()].map((chain) => ({ points: chain.map(moved) }));
   return { ...base, members: base.members.map((m) => ({ ...m, style: 'faint' as const })), labels: [], deformed };
 }
 
-/** Scale for drawing a shape: its largest translation as a tenth of the structure's size. */
+/** Scale for drawing a shape: its largest translation, or a segment's end rotation times a quarter of its length, as a tenth of the structure's size. */
 export function shapeScale(sys: MdofSystem, full: number[]): number {
   const xs = [...sys.coords.values()];
   const size = Math.max(Math.max(...xs.map((c) => c.x)) - Math.min(...xs.map((c) => c.x)), Math.max(...xs.map((c) => c.z)) - Math.min(...xs.map((c) => c.z)), 1);
-  const big = Math.max(...full.filter((_, i) => sys.fullDofs[i].dir !== 'ry').map(Math.abs), 1e-12);
+  const at = nodeMotions(sys, full);
+  const turn: number[] = [];
+  for (const chain of sys.chains.values()) for (let k = 0; k + 1 < chain.length; k++) {
+    const a = sys.coords.get(chain[k])!, b = sys.coords.get(chain[k + 1])!;
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    turn.push(Math.abs(at.get(chain[k])?.r ?? 0) * L / 4, Math.abs(at.get(chain[k + 1])?.r ?? 0) * L / 4);
+  }
+  const big = Math.max(...full.filter((_, i) => sys.fullDofs[i].dir !== 'ry').map(Math.abs), ...turn, 1e-12);
   return (0.12 * size) / big;
 }
 
@@ -97,7 +131,22 @@ export function engineFrequencies(rows: { label: string; method: number; matrix:
   return {
     kind: 'table',
     head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }, dt('mass.col.engine'), { tex: '\\Delta\\ [\\%]' }],
-    rows: rows.map((r, i) => [i + 1, r.method, r.matrix, (100 * (r.method - r.matrix)) / r.matrix]),
+    rows: rows.map((r) => [{ tex: r.label }, r.method, r.matrix, r.matrix === 0 ? '—' : (100 * (r.method - r.matrix)) / r.matrix]),
     caption,
   };
+}
+
+/** The same bars with consistent mass against the engine, so a lumped or condensed document still checks its K and M; none when a hinged member takes lumped mass anyway. */
+export function consistentCheck(model: ModelData, points: readonly PointMass[], nPerMember: number, barMass: boolean, eng: number[]): Block[] {
+  let mine: number[];
+  try {
+    if (modelSystem(model, points, { nPerMember, massModel: 'consistent', barMass }).members.some((m) => m.kind === 'released')) return [];
+    mine = frequenciesOf(model, points, { nPerMember, massModel: 'consistent', barMass }, eng.length).f;
+  } catch (e) {
+    if (e instanceof SystemError) return [];
+    throw e;
+  }
+  const rows = mine.map((f, i) => ({ label: `f_{${i + 1}}`, method: f, matrix: eng[i], unit: 'Hz' })).filter((r) => Number.isFinite(r.matrix));
+  if (!rows.length) return [];
+  return [p('mdof.eig.engineCheck'), { kind: 'compare', rows, caption: dt('mdof.eig.engineCheckCaption') }];
 }

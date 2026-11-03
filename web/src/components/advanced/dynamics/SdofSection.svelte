@@ -13,7 +13,7 @@
   import { t, tp } from '../../../lib/i18n';
   import { numText } from '../../../lib/engine/steps/format';
   import { sdofFromModel, defaultSdofNode } from '../../../lib/engine/dynamics/course/sdof-model';
-  import { solveSdof, dafPlotOf, responsePlotOf } from '../../../lib/engine/steps/dynamics/sdof-doc';
+  import { solveSdof, finiteSdof, dafPlotOf, responsePlotOf } from '../../../lib/engine/steps/dynamics/sdof-doc';
   import { openExplainedMethod } from '../../../lib/actions/step-wizards';
 
   const s = $derived(courseDynamics.sdof);
@@ -27,7 +27,8 @@
     return sdofFromModel(modelStore.model, points, node, s.dir);
   });
   const mk = $derived(s.source === 'manual' ? { m: s.m, k: s.k } : fromModel && typeof fromModel !== 'string' ? { m: fromModel.m, k: fromModel.k } : null);
-  const sol = $derived(mk && mk.m > 0 && mk.k > 0 ? solveSdof(mk.m, mk.k, s) : null);
+  const raw = $derived(mk && mk.m > 0 && mk.k > 0 ? solveSdof(mk.m, mk.k, s) : null);
+  const sol = $derived(raw && finiteSdof(raw) ? raw : null);
   const summary = $derived(mk ? `m = ${numText(mk.m)} t · k = ${numText(mk.k)} kN/m` : t('course.dynamics.ui.sdof.undefined'));
 </script>
 
@@ -72,6 +73,7 @@
     <NumField label="v₀ (mm/s)" value={s.v0} scale={1000} onSet={(v) => courseDynamics.set({ sdof: { v0: v } })} testid="dyn-sdof-v0" />
   </div>
 
+  {#if raw && !sol}<p class="cf-err" data-testid="dyn-sdof-notfinite">{t('course.dynamics.mdof.err.notFinite')}</p>{/if}
   {#if sol}
     {@const P = sol.props}
     <div class="cf-res" data-testid="dyn-sdof-props">

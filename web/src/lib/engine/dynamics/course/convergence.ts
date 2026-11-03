@@ -10,7 +10,7 @@ import type { PointMass } from '../mass-source';
 import { massDensities } from '../requests';
 import { solverProperties } from '../../../section/state';
 import { effectiveBendingInertia } from '../../solver-service';
-import { modelSystem, type SystemOptions } from './mdof-system';
+import { SystemError, circularFrequencies, modelSystem, type SystemOptions } from './mdof-system';
 import { generalizedEigen } from './dense';
 import type { MassModel } from './mass-model';
 
@@ -38,7 +38,8 @@ const holdsX = (t: string) => t === 'fixed' || t === 'pinned' || t === 'rollerZ'
 const holdsZ = (t: string) => t === 'fixed' || t === 'pinned' || t === 'rollerX';
 
 export function exactBeam(model: ModelData, points: readonly PointMass[], count = 6): ExactBeam | null {
-  if (model.elements.size !== 1 || points.some((p) => p.m > 0)) return null;
+  if (model.elements.size !== 1 || points.some((p) => p.m > 0 || (p.izz ?? 0) > 0)) return null;
+  if ((model.plates?.size ?? 0) || (model.quads?.size ?? 0) || (model.connectors?.size ?? 0) || (model.constraints?.length ?? 0)) return null;
   const e = [...model.elements.values()][0];
   if (e.type !== 'frame' || e.releaseI?.mz || e.releaseJ?.mz || e.variableSection) return null;
   const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
@@ -46,6 +47,9 @@ export function exactBeam(model: ModelData, points: readonly PointMass[], count 
   const sup = new Map([...model.supports.values()].map((s) => [s.nodeId, s.type as string]));
   if (sup.size !== model.supports.size || [...sup.keys()].some((n) => n !== e.nodeI && n !== e.nodeJ)) return null;
   const sa = sup.get(e.nodeI), sb = sup.get(e.nodeJ);
+  const classical = new Set(['fixed', 'pinned', 'rollerX', 'rollerZ']);
+  if ([sa, sb].some((t) => t !== undefined && !classical.has(t))) return null;
+  if ([...model.supports.values()].some((s) => (s as { dx?: number; dy?: number; dz?: number; angle?: number }).angle)) return null;
   const c = Math.hypot(b.x - a.x, b.y - a.y);
   const ex = (b.x - a.x) / c, ez = (b.y - a.y) / c;
   const axisAligned = Math.abs(ex) < 1e-9 || Math.abs(ez) < 1e-9;
@@ -91,8 +95,9 @@ export const MASS_MODELS: MassModel[] = ['lumped', 'consistent', 'guyan'];
 
 export function frequenciesOf(model: ModelData, points: readonly PointMass[], opts: SystemOptions, count: number): { f: number[]; dofs: number } {
   const s = modelSystem(model, points, opts);
-  const { lambda } = generalizedEigen(s.K, s.M);
-  return { f: lambda.slice(0, count).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI)), dofs: s.dofs.length };
+  let lambda: number[], error: number[];
+  try { ({ lambda, error } = generalizedEigen(s.K, s.M)); } catch { throw new SystemError('singular'); }
+  return { f: circularFrequencies(lambda, error).slice(0, count).map((w) => w / (2 * Math.PI)), dofs: s.dofs.length };
 }
 
 export function convergenceTable(

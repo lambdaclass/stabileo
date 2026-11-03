@@ -13,21 +13,26 @@ import { plotOf, type Plot } from '../plot';
 import { dynamicsSettings, type SdofSettings } from '../../dynamics/course/settings';
 import { sdofProps, freeConstants, freeResponse, harmonic, forcedResponse, dynamicAmplification, resonancePeak, sample, timeWindow, type SdofProps, type Harmonic } from '../../dynamics/course/sdof';
 import { sdofFromModel, defaultSdofNode, type SdofFromModel } from '../../dynamics/course/sdof-model';
-import { engineCheck, type EngineCheck } from '../../dynamics/course/sdof-engine';
+import { engineCheck, MAX_HISTORY_STEPS, type EngineCheck } from '../../dynamics/course/sdof-engine';
 import { K, p, note, dt, nodeNames } from './common';
 
 export interface ResolvedSdof { m: number; k: number; fromModel: SdofFromModel | null; s: SdofSettings }
 
 /** The system the reader set: typed, or taken from the model; or why it cannot be built. */
 export function resolveSdof(ctx: MethodContext, s: SdofSettings = dynamicsSettings().sdof): ResolvedSdof | { refusal: string } {
-  if (s.source === 'manual' || !ctx.model) {
-    if (!(s.m > 0) || !(s.k > 0)) return { refusal: 'sdof.err.mk' };
+  const finite = [s.u0, s.v0, s.F0].every(Number.isFinite) && Number.isFinite(s.xi) && s.xi >= 0 && (s.Omega === null || (Number.isFinite(s.Omega) && s.Omega >= 0));
+  if (!finite) return { refusal: 'sdof.err.inputs' };
+  if (s.source === 'manual') {
+    if (!(s.m > 0 && Number.isFinite(s.m)) || !(s.k > 0 && Number.isFinite(s.k))) return { refusal: 'sdof.err.mk' };
+    if (!finiteSdof(solveSdof(s.m, s.k, s))) return { refusal: 'mdof.err.notFinite' };
     return { m: s.m, k: s.k, fromModel: null, s };
   }
+  if (!ctx.model) return { refusal: 'sdof.err.noModel' };
   const pts = ctx.model.massSource?.points ?? [];
   const node = s.nodeId ?? defaultSdofNode(ctx.model, pts);
   const r = sdofFromModel(ctx.model, pts, node, s.dir);
   if (typeof r === 'string') return { refusal: `sdof.err.${r}` };
+  if (!finiteSdof(solveSdof(r.m, r.k, s))) return { refusal: 'mdof.err.notFinite' };
   return { m: r.m, k: r.k, fromModel: r, s };
 }
 
@@ -48,6 +53,8 @@ export interface SdofSolution {
   total: Array<[number, number]> | null;
   steady: Array<[number, number]> | null;
   transient: Array<[number, number]> | null;
+  /** Every derived value and unit conversion the document writes. */
+  shown: number[];
 }
 
 export function solveSdof(m: number, k: number, s: SdofSettings): SdofSolution {
@@ -56,10 +63,36 @@ export function solveSdof(m: number, k: number, s: SdofSettings): SdofSolution {
   const h = s.F0 !== 0 && Omega > 0 ? harmonic(props, s.F0, Omega) : null;
   const tEnd = timeWindow(props, h ? Omega : 0);
   const free = sample(freeResponse(props, s.u0, s.v0), tEnd);
-  if (!h) return { props, h, Omega, tEnd, free, total: null, steady: null, transient: null };
+  const shown = shownValues(props, h, Omega, s);
+  if (!h) return { props, h, Omega, tEnd, free, total: null, steady: null, transient: null, shown };
   const r = forcedResponse(props, h, s.u0, s.v0);
-  return { props, h, Omega, tEnd, free, total: sample(r.total, tEnd), steady: sample(r.steady, tEnd), transient: sample(r.transient, tEnd) };
+  shown.push(r.u0t * MM, r.v0t * MM);
+  return { props, h, Omega, tEnd, free, total: sample(r.total, tEnd), steady: sample(r.steady, tEnd), transient: sample(r.transient, tEnd), shown };
 }
+
+function shownValues(P: SdofProps, h: Harmonic | null, Omega: number, s: SdofSettings): number[] {
+  const c = freeConstants(P, s.u0, s.v0);
+  const out = [s.u0 * MM, s.v0 * MM, Omega, P.omega, P.f, P.T, P.cCr, P.c, s.xi * P.omega, c.A, c.B, c.rho * MM];
+  if (P.regime === 'underdamped') out.push(P.omegaD, P.TD, P.logDec, (1 - Math.exp(-P.logDec)) * 100);
+  if (P.regime === 'overdamped') out.push(P.omega * Math.sqrt(s.xi ** 2 - 1));
+  if (h) {
+    out.push(h.F0, h.Omega, h.beta, h.ust * MM);
+    if (!h.resonant) out.push(h.D, h.X, h.X * MM, h.phi, (h.phi * 180) / Math.PI);
+  }
+  return out;
+}
+
+export function finiteSdof(sol: SdofSolution): boolean {
+  const P = sol.props;
+  const pos = [P.omega, P.f, P.T, sol.tEnd, sol.Omega].every((v) => Number.isFinite(v)) && P.omega > 0 && P.T > 0 && sol.tEnd > 0;
+  const curves = [sol.free, sol.total, sol.steady, sol.transient].every((c) => !c || c.every(([t, u]) => Number.isFinite(t) && Number.isFinite(u * MM)));
+  return pos && Number.isFinite(P.omegaD) && sol.shown.every(Number.isFinite) && curves;
+}
+
+const peakRatioTex = (delta: number): string => {
+  const r = Math.exp(delta);
+  return Number.isFinite(r) ? num(r) : `10^{${num(delta * Math.LOG10E, 6)}}`;
+};
 
 /** D(β) for the reader's ξ, with three reference ratios and the case marked. */
 export function dafPlotOf(xi: number, beta: number): Plot {
@@ -154,7 +187,7 @@ export function buildSdof(ctx: MethodContext): StepDoc {
   if (P.regime === 'underdamped') {
     damp.push(
       { kind: 'calc', label: dt('sdof.damp.wdLabel'), formula: '\\omega_D = \\omega\\sqrt{1-\\xi^2}', subst: `\\omega_D = ${num(P.omega)}\\sqrt{1-${num(s.xi)}^2}`, result: `\\omega_D = ${num(P.omegaD)}\\ \\text{rad/s}, \\quad T_D = ${num(P.TD)}\\ \\text{s}` },
-      { kind: 'calc', label: dt('sdof.damp.decLabel'), formula: '\\delta = \\ln\\frac{u_n}{u_{n+1}} = \\frac{2\\pi\\xi}{\\sqrt{1-\\xi^2}}', subst: `\\delta = \\frac{2\\pi \\cdot ${num(s.xi)}}{\\sqrt{1-${num(s.xi)}^2}}`, result: `\\delta = ${num(P.logDec)}`, check: `\\frac{u_n}{u_{n+1}} = e^{\\delta} = ${num(Math.exp(P.logDec))}` },
+      { kind: 'calc', label: dt('sdof.damp.decLabel'), formula: '\\delta = \\ln\\frac{u_n}{u_{n+1}} = \\frac{2\\pi\\xi}{\\sqrt{1-\\xi^2}}', subst: `\\delta = \\frac{2\\pi \\cdot ${num(s.xi)}}{\\sqrt{1-${num(s.xi)}^2}}`, result: `\\delta = ${num(P.logDec)}`, check: `\\frac{u_n}{u_{n+1}} = e^{\\delta} = ${peakRatioTex(P.logDec)}` },
       p('sdof.damp.decWhy', { pct: numText((1 - Math.exp(-P.logDec)) * 100, 3) }, true),
     );
   } else if (P.regime === 'undamped') {
@@ -206,7 +239,7 @@ export function buildSdof(ctx: MethodContext): StepDoc {
         ...(h.resonant ? [note('warn', 'sdof.harm.resonantUndamped')] : [
           { kind: 'calc', label: dt('sdof.harm.xLabel'), formula: 'u_{st} = \\frac{F_0}{k}, \\quad X = D\\,u_{st}', subst: `u_{st} = \\frac{${num(h.F0)}}{${num(k)}} = ${num(h.ust * MM)}\\ \\text{mm}`, result: `X = ${num(h.X * MM)}\\ \\text{mm}` } as Block,
           { kind: 'calc', label: dt('sdof.harm.phiLabel'), formula: '\\tan\\varphi = \\frac{2\\xi\\beta}{1-\\beta^2}', result: `\\varphi = ${num(h.phi)}\\ \\text{rad} = ${num((h.phi * 180) / Math.PI)}°` } as Block,
-          { kind: 'eq', tex: `u_p(t) = X\\sin(\\Omega t - \\varphi) = ${num(h.X)}\\sin(${num(h.Omega)}\\,t - ${num(h.phi)})` } as Block,
+          { kind: 'eq', tex: `u_p(t) = X\\sin(\\Omega t - \\varphi) = ${num(h.X * MM)}\\sin(${num(h.Omega)}\\,t - ${num(h.phi)})\\ \\text{mm}` } as Block,
         ]),
         { kind: 'plot', plot: dafPlotOf(s.xi, h.beta), caption: dt('sdof.dafCaption') },
         p(h.beta < 0.9 ? 'sdof.harm.below' : h.beta > 1.1 ? 'sdof.harm.above' : 'sdof.harm.near', undefined, true),
@@ -250,6 +283,7 @@ function engineBlocks(P: SdofProps, sol: SdofSolution, eng: EngineCheck, s: Sdof
     p('sdof.engine.lead'),
     p('sdof.engine.how', undefined, true),
     ...(sol.h && (s.u0 !== 0 || s.v0 !== 0) ? [note('info', 'sdof.engine.fromRest')] : []),
+    ...(eng.historyTooLong ? [note('info', 'sdof.engine.historyTooLong', { max: MAX_HISTORY_STEPS })] : []),
     { kind: 'compare', rows, caption: compareNoteFor(rows).key.endsWith('Exact') ? tx('steps.common.compareExact') : dt('sdof.engine.diff') },
   ];
 }
