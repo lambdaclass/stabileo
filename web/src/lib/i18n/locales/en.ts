@@ -7244,6 +7244,7 @@ const en: Record<string, string> = {
   'design.error.codeUnsupported': '{code} cannot design reinforcement — it can only rate a given arrangement.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',
   'design.error.concreteFyReadAsSteel': 'No member could be treated as concrete: material “{material}”, used by {n} members, has fy = {fy} MPa. For a concrete material, the fy field holds f′c (H-30 → 30); the rebar is taken as ADN 420 separately. Correct the material and solve again.',
+  'design.error.concreteStrengthMissing': 'No member could be checked: material “{material}”, used by {n} members, has no f′c. For a concrete material, enter f′c in the fy field (H-30 → 30) and compute again.',
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) do not declare one. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': 'No members were checked by {code} for this model.',

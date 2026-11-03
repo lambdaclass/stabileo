@@ -696,10 +696,10 @@ describe('fixture-to-manifest reconciliation', () => {
     // (`snapshot.solvedWith`, provenance/solve-stamp.ts), so opening it does not raise the
     // re-check notice. The model is unchanged.
     //
-    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then b25eb09b…, then 930646fc…, then 28b5e539…, then bbdbe9b1…, then a64cfe6c…, then 28d9021b…):
-    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10 and 11 with the registry.
+    // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then b25eb09b…, then 930646fc…, then 28b5e539…, then bbdbe9b1…, then a64cfe6c…, then 28d9021b…, then 082ab7c3…):
+    // the stamp moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 and 12 with the registry.
     expect(sha256(fixtureText()))
-      .toBe('082ab7c3ebdfc3e49b8a380eea9ff2d43a4496c963f84082169da8f11fe711f4');
+      .toBe('8fc7c9784d71f552fcb10d5b23bb163242126cb343a44fc863a64d2d988aba08');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {

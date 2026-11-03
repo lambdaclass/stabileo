@@ -7163,6 +7163,7 @@ const tr: Translations = {
   'design.error.codeUnsupported': '{code} donatı tasarlayamaz; yalnızca verilen bir düzeni değerlendirebilir.',
   'design.error.noConcreteMembers': '{code} betonarme yönetmeliğidir ve bu modelde beton çubuk yok: {n} çubuğun tümü çelik. Donatı tasarımı akışı bu yapıya uygulanmaz.',
   'design.error.concreteFyReadAsSteel': 'Hiçbir çubuk beton olarak ele alınamadı: {n} çubuğun kullandığı “{material}” malzemesinde fy = {fy} MPa. Beton malzemede fy alanı f′c değerini tutar (H-30 → 30); donatı çeliği ayrıca ADN 420 olarak alınır. Malzemeyi düzeltin ve yeniden çözün.',
+  'design.error.concreteStrengthMissing': 'Hiçbir çubuk kontrol edilemedi: {n} çubuğun kullandığı “{material}” malzemesinde f′c yok. Betonda fy alanı f′c değerini taşır (H-30 → 30): girin ve yeniden hesaplayın.',
   'design.error.noRectangularSections': '{code} yalnızca dikdörtgen b×h kesitleri kontrol edebilir ve {n} beton çubukta böyle bir kesit tanımlı değil. Tasarlamak için onlara dikdörtgen kesit atayın.',
   'design.error.noConcreteMembersMixed': '{code} kontrol edilebilir çubuk bulamadı: {steel} çelik ve kullanılabilir kesiti veya malzemesi olmayan {other} çubuk.',
   'design.error.nothingChecked': '{code} bu model için hiçbir çubuğu kontrol etmedi.',
