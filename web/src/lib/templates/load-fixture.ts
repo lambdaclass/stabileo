@@ -330,8 +330,8 @@ function codeCombinations(cases: ReadonlyArray<FixtureCase>): CodeCombination[] 
  * The cases and combinations a fixture leaves the model with. A fixture with cases of its own and
  * no combinations keeps the current ones when each of their cases is there with the type it was
  * written for and every case it loads is in one of them; otherwise it
- * gets CIRSOC 101-2025's for its cases (`rebuilt`). One whose own combination names a case it
- * lacks, or a factor that is not a number, is refused.
+ * gets CIRSOC 101-2025's for its cases (`rebuilt`). One with a load in a case it lacks, or whose
+ * own combination names such a case or a factor that is not a number, is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
   json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations' | 'loads'>,
@@ -340,10 +340,12 @@ export function fixtureLoadCases<C extends FixtureCombination>(
   const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
   const typeOf = (cases: ReadonlyArray<FixtureCase>) => new Map(cases.map((c) => [c.id, c.type ?? '']));
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
+  const loaded = new Set(json.loads.map((l) => (l.data?.caseId as number | undefined) ?? 1));
+  const unlisted = [...loaded].filter((id) => !now.has(id));
+  if (unlisted.length > 0) throw new Error(`${json.name}: loads in case ${unlisted.join(', ')}, which the model does not have`);
   const factorsOf = (c: { factors?: unknown }) => (Array.isArray(c.factors) ? c.factors as Array<{ caseId: number; factor?: number } | null> : null);
   if (json.combinations.length === 0) {
     const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
-    const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
     const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
     const everyLoadedCombined = [...loaded].every((id) => combined.has(id));
     if (current.combinations.every(fits) && everyLoadedCombined) return { loadCases, combinations: current.combinations, rebuilt: false };

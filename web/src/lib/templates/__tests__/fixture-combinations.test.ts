@@ -130,6 +130,16 @@ describe('a fixture that brings its own cases', () => {
     }
   });
 
+  it('is refused, with or without combinations of its own, when it loads a case it lacks', () => {
+    const cases = [{ id: 2, type: 'L', name: 'L' }];
+    const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0 } }];
+    const own = [{ id: 1, name: '1.6 L', factors: [{ caseId: 2, factor: 1.6 }] }];
+    for (const combinations of [[], own]) {
+      const json = emptyFixture({ loadCases: cases, loads, combinations });
+      expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() })).toThrow(/loads in case 1, which the model does not have/);
+    }
+  });
+
   it('without cases of its own keeps the four defaults', () => {
     const { combinations } = fixtureLoadCases(emptyFixture({}), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
     expect(combinations).toEqual(defaultCombinations());
