@@ -130,7 +130,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 |---|---|---|
 | `/examples` gallery, three examples | [#1229](https://github.com/lambdaclass/stabileo/pull/1229) | draft; ready on its last head, waits on `gh pr ready` |
 | `/examples` 4 to 7 and the engine work they need (see "Live examples gallery") | not opened | after [#1229](https://github.com/lambdaclass/stabileo/pull/1229) |
-| Landing positioning copy | [#1230](https://github.com/lambdaclass/stabileo/pull/1230) | ready |
+| Landing positioning: open-source structural engineering software, AI marked in development (no provider-key claim until [#1064](https://github.com/lambdaclass/stabileo/pull/1064)); where it fits; Basic and PRO Design copy | [#1230](https://github.com/lambdaclass/stabileo/pull/1230) | ready, Codex clean on 6affce7167; landing −3362 B; reconcile with [#1061](https://github.com/lambdaclass/stabileo/pull/1061) if that lands second |
 | Research and Tools faster on phones ([#880](https://github.com/lambdaclass/stabileo/pull/880) folded in) | [#1065](https://github.com/lambdaclass/stabileo/pull/1065) | draft; merging main, retry fix, re-measure, Codex |
 | Basic course, units 1 to 7 | [#1070](https://github.com/lambdaclass/stabileo/pull/1070) | ready; blocked by the per-route product budget (see "Other bugs") |
 | Website changelog, week to 2026-11-06 | [#1292](https://github.com/lambdaclass/stabileo/pull/1292) | draft |
