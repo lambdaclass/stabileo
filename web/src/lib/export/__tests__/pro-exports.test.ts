@@ -189,7 +189,7 @@ describe('the figures of a model with shells', () => {
       expect(texts).toEqual(expect.arrayContaining(['50.00', '0.00', '-50.00']));
       const field = currentShellContourField(resultsStore.results3D, 'mx')!;
       expect(field.range).toEqual({ min: -50, max: 50 });
-      const shellFills = new Set([...svg.matchAll(/<path[^>]*>/g)].map((m) => /fill="(rgb\([^)]+\))"/.exec(m[0])?.[1]).filter(Boolean));
+      const shellFills = new Set([...svg.matchAll(/<path[^>]*fill="rgb\((\d+),(\d+),(\d+)\)"/g)].filter((m) => !(m[1] === m[2] && m[2] === m[3])).map((m) => m[0].slice(m[0].indexOf('fill='))));
       expect(shellFills.size).toBeGreaterThan(1);
       expect(shellFills.size).toBeLessThanOrEqual(4);
     } finally {

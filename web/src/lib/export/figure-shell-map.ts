@@ -1,0 +1,138 @@
+/**
+ * The shells of a figure painted by one result: the field the screen paints them with
+ * (`currentShellContourField`: nodal or centre values, its averaging domain, face, range and bands),
+ * each face subdivided so its corner values blend across it, with the scale beside the structure.
+ */
+import type { AnalysisResults3D } from '../engine/types-3d';
+import { shellComponentMeta, type ShellContourComponent } from '../engine/shell-stress';
+import { bandValue } from '../engine/contour-scale';
+import { shellContourColor } from '../three/stress-heatmap';
+import { currentShellContourField } from '../store/shell-contour';
+import { contourOptions } from '../store/contour-options.svelte';
+import type { createLabelCollector } from '../canvas/label-layout';
+import type { P3 } from '../canvas/free-body';
+import { RAW_INK } from './paper-ink';
+
+type XY = { x: number; y: number };
+
+/** A value's colour on the figure: the screen's contour ramp, or a grey ramp in black and white. */
+export function bandColour(v: number, min: number, max: number, style: string): string {
+  if (style === 'bw') {
+    const t = max > min ? (v - min) / (max - min) : 0.5;
+    const g = Math.round(235 - 175 * Math.max(0, Math.min(1, t)));
+    return `${RAW_INK}rgb(${g},${g},${g})`;
+  }
+  return `${RAW_INK}#${shellContourColor(v, min, max).toString(16).padStart(6, '0')}`;
+}
+
+const SUBDIVISIONS = 6;
+
+/**
+ * A face cut into small pieces, each with the value its corners give at the piece's centre:
+ * bilinear over a quad, linear over a triangle, as the screen's mesh interpolates them.
+ */
+export function shellPatches(pts: readonly XY[], values: readonly number[], n = SUBDIVISIONS): Array<{ pts: XY[]; value: number }> {
+  const out: Array<{ pts: XY[]; value: number }> = [];
+  if (pts.length === 4 && values.length === 4) {
+    const at = (u: number, v: number) => {
+      const w = [(1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v];
+      return { x: w.reduce((a, k, i) => a + k * pts[i]!.x, 0), y: w.reduce((a, k, i) => a + k * pts[i]!.y, 0), value: w.reduce((a, k, i) => a + k * values[i]!, 0) };
+    };
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const [u0, u1, v0, v1] = [i / n, (i + 1) / n, j / n, (j + 1) / n];
+      out.push({ pts: [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)].map(({ x, y }) => ({ x, y })), value: at((u0 + u1) / 2, (v0 + v1) / 2).value });
+    }
+    return out;
+  }
+  if (pts.length === 3 && values.length === 3) {
+    const at = (a: number, b: number) => {
+      const w = [1 - a - b, a, b];
+      return { x: w.reduce((s, k, i) => s + k * pts[i]!.x, 0), y: w.reduce((s, k, i) => s + k * pts[i]!.y, 0), value: w.reduce((s, k, i) => s + k * values[i]!, 0) };
+    };
+    const tri = (p: Array<[number, number]>) => {
+      const c = at(p.reduce((s, q) => s + q[0], 0) / 3, p.reduce((s, q) => s + q[1], 0) / 3);
+      out.push({ pts: p.map(([a, b]) => { const q = at(a, b); return { x: q.x, y: q.y }; }), value: c.value });
+    };
+    for (let i = 0; i < n; i++) for (let j = 0; i + j < n; j++) {
+      tri([[i / n, j / n], [(i + 1) / n, j / n], [i / n, (j + 1) / n]]);
+      if (i + j + 1 < n) tri([[(i + 1) / n, j / n], [(i + 1) / n, (j + 1) / n], [i / n, (j + 1) / n]]);
+    }
+    return out;
+  }
+  return [{ pts: [...pts], value: values.reduce((a, v) => a + v, 0) / Math.max(1, values.length) }];
+}
+
+export type DrawShells = (fill?: (key: string) => string | null, move?: (nodeId: number) => P3 | undefined, paint?: (key: string, pts: XY[]) => boolean) => void;
+
+export function drawShellMap(
+  ctx: CanvasRenderingContext2D,
+  component: ShellContourComponent,
+  style: string,
+  r3d: AnalysisResults3D | null | undefined,
+  shellFaces: () => Array<{ key: string; id: number; nodes: number[] }>,
+  drawShells: DrawShells,
+  toScreen: (p: P3) => XY,
+  scenePos: (id: number) => P3 | undefined,
+  values: boolean,
+  labels: ReturnType<typeof createLabelCollector>,
+): void {
+  const field = r3d ? currentShellContourField(r3d, component) : null;
+  if (!field || field.corners.size === 0) { drawShells(); return; }
+  const { min, max } = field.range;
+  const bands = contourOptions.bands;
+  const colour = (v: number) => bandColour(bandValue(v, min, max, bands), min, max, style);
+  drawShells(undefined, undefined, (key, pts) => {
+    const vs = field.corners.get(key);
+    if (!vs || vs.length !== pts.length) return false;
+    for (const p of shellPatches(pts, vs)) {
+      ctx.beginPath();
+      p.pts.forEach((q, k) => (k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+      ctx.closePath();
+      const c = colour(p.value);
+      ctx.fillStyle = c; ctx.fill();
+      ctx.strokeStyle = c; ctx.lineWidth = 0.4; ctx.stroke();
+    }
+    return true;
+  });
+
+  let x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const f of shellFaces()) for (const id of f.nodes) {
+    const p = scenePos(id); if (!p) continue;
+    const c = toScreen(p);
+    x1 = Math.max(x1, c.x); y0 = Math.min(y0, c.y); y1 = Math.max(y1, c.y);
+  }
+  if (!Number.isFinite(x1)) return;
+  const meta = shellComponentMeta(component);
+  const fmt = (v: number) => (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : v.toFixed(Math.abs(v) >= 100 ? 0 : 2));
+  const h = Math.max(120, Math.min(260, y1 - y0)), w = 14, x = x1 + 36, top = (y0 + y1) / 2 - h / 2;
+  const steps = 24;
+  ctx.save();
+  for (let k = 0; k < steps; k++) {
+    ctx.fillStyle = colour(max - ((max - min) * (k + 0.5)) / steps);
+    ctx.fillRect(x, top + (h * k) / steps, w, h / steps + 0.5);
+  }
+  ctx.strokeStyle = '#8fa3b3'; ctx.lineWidth = 0.8; ctx.strokeRect(x, top, w, h);
+  ctx.fillStyle = '#c7d3dd'; ctx.font = '10.5px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  if (max - min > 1e-9 * Math.max(1, Math.abs(max))) {
+    ctx.fillText(fmt(max), x + w + 6, top);
+    ctx.fillText(fmt((max + min) / 2), x + w + 6, top + h / 2);
+    ctx.fillText(fmt(min), x + w + 6, top + h);
+  } else {
+    ctx.fillText(fmt(max), x + w + 6, top + h / 2);
+  }
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(`${meta.label} [${meta.unit}]`, x, top - 10);
+  ctx.restore();
+
+  if (values) {
+    let best: { key: string; i: number; v: number } | null = null;
+    for (const [key, vs] of field.corners) vs.forEach((v, i) => { if (!best || Math.abs(v) > Math.abs(best.v)) best = { key, i, v }; });
+    const peak = best as { key: string; i: number; v: number } | null;
+    const f = peak ? shellFaces().find((s) => s.key === peak.key) : undefined;
+    const p = f && peak ? scenePos(f.nodes[peak.i]!) : undefined;
+    if (peak && p) {
+      const c = toScreen(p);
+      labels.add({ text: fmt(peak.v), colour: '#f4f7fa', font: 'bold 10.5px sans-serif', box: { x: c.x, y: c.y - 6, width: 0, height: 0, dirX: 0, dirY: -1, priority: Math.abs(peak.v), anchorX: 'center', sweep: 'any' } });
+    }
+  }
+}
