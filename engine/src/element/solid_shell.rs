@@ -1077,6 +1077,28 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
+    fn test_centroid_stress_timing_budget() {
+        let coords = unit_cube();
+        let u: Vec<f64> = (0..24).map(|k| 1e-3 * k as f64).collect();
+        let n = 300;
+        let t0 = std::time::Instant::now();
+        let mut acc = 0.0;
+        for _ in 0..n {
+            acc += solid_shell_avg_stress(std::hint::black_box(&coords), &u, 200.0e3, 0.3)[0];
+        }
+        let t_stress = t0.elapsed();
+        let t0 = std::time::Instant::now();
+        for _ in 0..n {
+            acc += solid_shell_stiffness(std::hint::black_box(&coords), 200.0e3, 0.3)[0];
+        }
+        let t_k = t0.elapsed();
+        std::hint::black_box(acc);
+        eprintln!("centroid stress {t_stress:?}, stiffness {t_k:?}");
+        assert!(t_stress * 4 < t_k, "centroid stress {t_stress:?} vs stiffness {t_k:?} for {n} calls");
+    }
+
+    #[test]
     fn test_stiffness_symmetry() {
         let coords = unit_cube();
         let k = solid_shell_stiffness(&coords, 200.0e3, 0.3);
