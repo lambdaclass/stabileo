@@ -8,26 +8,31 @@ type Host = { scene: THREE.Scene; redraw: () => void };
 /** PRO's linked models in the shared scene: shown as one group in the 'linked' view category, and taken out whole. */
 export function createLinkedLayer() {
   let group: THREE.Group | null = null;
-  let onScene: THREE.Scene | null = null;
+  let shownOn: Host | null = null;
+  const takeOut = (): Host | null => {
+    const was = shownOn;
+    if (group) {
+      sceneHost.release(group);
+      if (was) swapLinked(was.scene, group, null);
+    }
+    group = null;
+    shownOn = null;
+    return was;
+  };
   return {
     show(host: Host | null, refs: readonly IfcReference[]): void {
-      this.clear(null);
+      takeOut();
       if (!host || !refs.length) { host?.redraw(); return; }
       const next = new THREE.Group();
       next.name = 'linkedModels';
       for (const r of refs) next.add(buildLinkedReference(r));
       group = swapLinked(host.scene, null, next);
-      onScene = host.scene;
+      shownOn = host;
       if (group) sceneHost.tone(group, 'linked');
     },
     clear(host: Host | null): void {
-      if (group) {
-        sceneHost.release(group);
-        if (onScene) swapLinked(onScene, group, null);
-      }
-      group = null;
-      onScene = null;
-      host?.redraw();
+      const was = takeOut();
+      (host ?? was)?.redraw();
     },
   };
 }
