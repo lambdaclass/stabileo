@@ -30,6 +30,8 @@ mod inclined_support_analyses;
 mod kinematics_invalid_input;
 #[path = "../modal_constrained_participation.rs"]
 mod modal_constrained_participation;
+#[path = "../modal_mechanism_refusal.rs"]
+mod modal_mechanism_refusal;
 #[path = "../nonlinear_solver_findings.rs"]
 mod nonlinear_solver_findings;
 #[path = "../pcg_solver_tests.rs"]
