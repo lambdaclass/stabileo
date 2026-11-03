@@ -178,9 +178,11 @@ fn solve_time_history_2d_inner(
     // Force is computed in nf space then reduced
     let f_0_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    let f_1_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 1, dt);
-    let f_1 = if let Some(ref cs) = cs { cs.reduce_vector(&f_1_nf) } else { f_1_nf };
-    let f_dot: Vec<f64> = f_1.iter().zip(&f_0).map(|(b, a)| (b - a) / dt).collect();
+    let slope_at = |t: f64, left: bool| {
+        let slope = force_history_slope_2d(input, &dof_num, its, t, left);
+        if let Some(ref cs) = cs { cs.reduce_vector(&slope) } else { slope }
+    };
+    let f_dot = slope_at(0.0, false);
     let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &[], &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
@@ -264,7 +266,7 @@ fn solve_time_history_2d_inner(
         a_vec = a_new;
         let settled = match &massless_rows {
             Some(rows) => {
-                let slope: Vec<f64> = f_next.iter().zip(&f_prev).map(|(b, a)| (b - a) / dt).collect();
+                let slope = slope_at(t_next, true);
                 let (mut v_out, mut a_out) = (v.clone(), a_vec.clone());
                 rows.settle(&mut v_out, &mut a_out, &slope)?;
                 Some((v_out, a_out))
@@ -570,7 +572,7 @@ impl MasslessRows {
     }
 
     /// Damped: `K_ZZ·a_Z = −(K·a_M)_Z + (ḟ − K·v)_Z / a1`; undamped: `K_ZZ·v_Z = (ḟ − K·v_M)_Z`
-    /// and `K_ZZ·a_Z = −(K·a_M)_Z`, with `f_dot` the load's slope over the step.
+    /// and `K_ZZ·a_Z = −(K·a_M)_Z`, with `f_dot` the force history's slope at that time.
     fn settle(&self, v: &mut [f64], a: &mut [f64], f_dot: &[f64]) -> Result<(), String> {
         let fd = rotate_vector(f_dot, &self.basis);
         let mut vt = rotate_vector(v, &self.basis);
@@ -751,6 +753,39 @@ fn compute_force_at_step(
     }
 
     f
+}
+
+/// The record times bracketing `t` on the piecewise-linear force history: the segment
+/// ending at `t` when `left`, the one starting there otherwise. None where the history is held.
+fn slope_window(times: &[f64], t: f64, left: bool) -> Option<(f64, f64)> {
+    let inside = |a: f64, b: f64| if left { a < t && t <= b } else { a <= t && t < b };
+    let first = *times.first()?;
+    if first > 0.0 && inside(0.0, first) {
+        return Some((0.0, first));
+    }
+    times.windows(2).find(|w| w[1] - w[0] >= 1e-15 && inside(w[0], w[1])).map(|w| (w[0], w[1]))
+}
+
+fn force_history_slope_2d(
+    input: &TimeHistoryInput,
+    dof_num: &DofNumbering,
+    its: &[assembly::InclinedTransformData2D],
+    t: f64,
+    left: bool,
+) -> Vec<f64> {
+    let nf = dof_num.n_free;
+    let Some(history) = input.force_history.as_ref() else { return vec![0.0; nf] };
+    let times: Vec<f64> = history.iter().map(|r| r.time).collect();
+    let Some((ta, tb)) = slope_window(&times, t, left) else { return vec![0.0; nf] };
+    let at = |t: f64| {
+        let mut f = interpolate_force_history(history, dof_num, dof_num.n_total, t);
+        for it in its {
+            assembly::rotate_inclined_f_2d(&mut f, &it.dofs, &it.r);
+        }
+        f.truncate(nf);
+        f
+    };
+    at(tb).iter().zip(at(ta)).map(|(b, a)| (b - a) / (tb - ta)).collect()
 }
 
 /// Interpolate ground acceleration at a given step.
@@ -1300,9 +1335,11 @@ fn solve_time_history_3d_inner(
     // Force computed in nf space, then reduced
     let f_0_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    let f_1_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 1, dt);
-    let f_1 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_1_nf) } else { f_1_nf };
-    let f_dot: Vec<f64> = f_1.iter().zip(&f_0).map(|(b, a)| (b - a) / dt).collect();
+    let slope_at = |t: f64, left: bool| {
+        let slope = force_history_slope_3d(input, &dof_num, its, t, left);
+        if let Some(ref cs) = cs3 { cs.reduce_vector(&slope) } else { slope }
+    };
+    let f_dot = slope_at(0.0, false);
     let triads = rotation_triads(&dof_num, cs3.as_ref());
     let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &triads, &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
@@ -1385,7 +1422,7 @@ fn solve_time_history_3d_inner(
         a_vec = a_new;
         let settled = match &massless_rows {
             Some(rows) => {
-                let slope: Vec<f64> = f_next.iter().zip(&f_prev).map(|(b, a)| (b - a) / dt).collect();
+                let slope = slope_at(t_next, true);
                 let (mut v_out, mut a_out) = (v.clone(), a_vec.clone());
                 rows.settle(&mut v_out, &mut a_out, &slope)?;
                 Some((v_out, a_out))
@@ -1487,6 +1524,21 @@ fn build_ground_influence_3d(
 /// Compute force vector at a given step for 3D time history.
 /// `m_ground_r` holds the precomputed per-direction M*r influence products
 /// (see `build_ground_influence_3d`).
+fn force_history_slope_3d(
+    input: &TimeHistoryInput3D,
+    dof_num: &DofNumbering,
+    its: &[assembly::InclinedTransformData],
+    t: f64,
+    left: bool,
+) -> Vec<f64> {
+    let nf = dof_num.n_free;
+    let Some(history) = input.force_history.as_ref() else { return vec![0.0; nf] };
+    let times: Vec<f64> = history.iter().map(|r| r.time).collect();
+    let Some((ta, tb)) = slope_window(&times, t, left) else { return vec![0.0; nf] };
+    let at = |t: f64| assembly::to_inclined_free(interpolate_force_history_3d(history, dof_num, dof_num.n_total, dof_num.dofs_per_node, t), its, nf);
+    at(tb).iter().zip(at(ta)).map(|(b, a)| (b - a) / (tb - ta)).collect()
+}
+
 fn compute_force_at_step_3d(
     input: &TimeHistoryInput3D,
     dof_num: &DofNumbering,

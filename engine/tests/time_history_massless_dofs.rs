@@ -269,9 +269,6 @@ fn an_undamped_massless_tip_holds_its_rates_after_a_kink_in_the_load() {
     let (va, vb, aa, ab) = (vx(&r, 2), vx(&r, 3), ax(&r, 2), ax(&r, 3));
     let peak = aa.iter().fold(0.0f64, |m, a| m.max(a.abs()));
     for (n, &t) in r.time_steps.iter().enumerate() {
-        if t > kink && t - dt < kink {
-            continue;
-        }
         let exact = if t < kink { rate } else { 0.0 };
         assert!((vb[n] - va[n] - exact).abs() <= 1e-9 * rate, "t = {t}: v_B − v_A = {:.4e}, the load gives {exact:.4e}", vb[n] - va[n]);
         assert!((ab[n] - aa[n]).abs() <= 1e-6 * peak, "t = {t}: a_B − a_A = {:.4e} against a peak a_A of {peak:.4e}", ab[n] - aa[n]);
@@ -293,9 +290,6 @@ fn a_damped_massless_tip_relaxes_after_a_kink_in_the_load() {
     let scale = slope / (k2() * a1);
     let (aa, ab) = (ax(&r, 2), ax(&r, 3));
     for (n, &t) in r.time_steps.iter().enumerate() {
-        if t > kink && t - 2.0 * dt < kink {
-            continue;
-        }
         assert!((ab[n] - aa[n] - w_dd(t)).abs() <= 3e-2 * scale, "t = {t}: a_B − a_A = {:.4e}, the first-order closed form gives {:.4e}", ab[n] - aa[n], w_dd(t));
     }
 }
