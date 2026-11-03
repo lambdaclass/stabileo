@@ -195,6 +195,14 @@
   let imageFormat = $state<ViewFormat>('svg');
   let drawingFormat = $state<DrawingFormat>('dxf');
   function openDrawings() { pickDrawing(drawingFormat); }
+  $effect(() => {
+    if (!proNav.request) return;
+    const r = proNav.takeRequest();
+    if (r === 'save') showSave = true;
+    else if (r === 'data') dataOpen = true;
+    else if (r === 'drawings') openDrawings();
+    else if (r === 'examples') showExamples = true;
+  });
   function pickDrawing(f: DrawingFormat) {
     drawingFormat = f;
     if (f === 'dxf') { imageOpen = false; dxfOpen = true; }

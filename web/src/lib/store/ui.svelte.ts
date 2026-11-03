@@ -154,6 +154,10 @@ function createUIStore() {
   let designInPro = $state(
     hasLocalStorage() ? localStorage.getItem('stabileo-design-in-pro') === '1' : false,
   );
+  /** The line under each PRO option saying what it does. On unless the reader turned it off. */
+  let inlineHelp = $state(
+    hasLocalStorage() ? localStorage.getItem('stabileo-inline-help') !== '0' : true,
+  );
   let supportType = $state<SupportTool>('pinned');
   let loadType = $state<LoadTool>('nodal');
   let nodalLoadDir = $state<NodalLoadDir>('fz'); // direction for nodal load placement
@@ -762,6 +766,12 @@ function createUIStore() {
     set eduInBasic(v: boolean) {
       eduInBasic = v;
       try { localStorage.setItem('stabileo-edu-in-basic', v ? '1' : '0'); } catch { /* private mode */ }
+    },
+
+    get inlineHelp() { return inlineHelp; },
+    set inlineHelp(v: boolean) {
+      inlineHelp = v;
+      try { localStorage.setItem('stabileo-inline-help', v ? '1' : '0'); } catch { /* private mode */ }
     },
 
     get designInPro() { return designInPro; },

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * The strata of a soil profile, top down from the founding level, as the soil report gives them
    * for piles: each its thickness and the allowable shaft friction and tip resistance. With them,
@@ -23,7 +24,7 @@
 
 <section class="pk-card" data-testid="soil-strata">
   <h5 class="ss-h">{t('fdn.strataTitle')}</h5>
-  <p class="pk-hint">{t('fdn.strataHint')}</p>
+  <Hint text={t('fdn.strataHint')} />
   {#if profiles.length === 0}
     <button class="pk-btn" onclick={() => { const id = modelStore.addSoilProfile(); modelStore.setDefaultSoilProfile(id); }} data-testid="strata-add-profile">{t('fdn.addProfile')}</button>
   {:else}

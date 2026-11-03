@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../../Hint.svelte';
   /**
    * The frame editor: the beam line the selected member is on, its bars and stirrups as a draft
    * along the line. Each edit is checked at once (the members' regions projected from the draft,
@@ -218,7 +219,7 @@
         </tbody>
       </table>
     {:else}
-      <p class="fx-hint">{t('frameEd.pointHint')}</p>
+      <Hint text={t('frameEd.pointHint')} />
     {/if}
     <div><button class="fx-worst" onclick={worstPoint} data-testid="frame-worst">{t('frameEd.worst')}</button></div>
     <div class="fx-cols">

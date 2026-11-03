@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { uiStore } from '../../lib/store';
   /**
    * Which combinations design reads, and named envelopes over them.
@@ -115,7 +116,7 @@
       </ul>
       {#if nActive === 0}<p class="pk-warn" role="alert">{t('scopes.noneActive')}</p>{/if}
     {/if}
-    <p class="pk-hint">{t(uiStore.designInPro ? 'scopes.hint' : 'scopes.hintNoDesign')}</p>
+    <Hint text={t(uiStore.designInPro ? 'scopes.hint' : 'scopes.hintNoDesign')} />
 
     <h4 class="pk-heading rs-sub">{t('scopes.envelopes')}</h4>
     {#if resultsStore.viewedEnvelopeName}
@@ -145,7 +146,7 @@
             <li><label><input type="checkbox" checked={env.comboIds.includes(c.id)} onchange={() => toggleEnvelopeCombo(env, c.id)} /> {c.name}</label></li>
           {/each}
         </ul>
-        <p class="pk-hint">{t('scopes.casesToo')}</p>
+        <Hint text={t('scopes.casesToo')} />
         <ul class="rs-list" data-testid="rs-env-cases">
           {#each cases as c (c.id)}
             <li><label><input type="checkbox" checked={env.caseIds?.includes(c.id) ?? false} onchange={() => toggleEnvelopeCase(env, c.id)} /> {c.name}</label></li>
@@ -154,7 +155,7 @@
       {/if}
     {/each}
     <button class="pk-btn" onclick={addEnvelope} data-testid="rs-add-envelope">+ {t('scopes.addEnvelope')}</button>
-    <p class="pk-hint">{t('scopes.serviceHint')}</p>
+    <Hint text={t('scopes.serviceHint')} />
   </details>
 {/if}
 

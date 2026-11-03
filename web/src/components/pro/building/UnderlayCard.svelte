@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Templates: DXF plans laid at their levels, to model over and to convert from. One drawing can
    * hold several plans, each laid at its own level (`UnderlayImport`); each template shows what it
@@ -19,7 +20,7 @@
 
 <section class="pk-card" data-testid="underlay-card">
   <h4 class="pk-heading">{t('underlay.title')}</h4>
-  <p class="pk-hint">{t('underlay.hint')}</p>
+  <Hint text={t('underlay.hint')} />
   <UnderlayImport {levels} onlaid={(n) => (note = n)} />
   {#if note}<p class="pk-hint" role="status" data-testid="underlay-note">{note}</p>{/if}
 

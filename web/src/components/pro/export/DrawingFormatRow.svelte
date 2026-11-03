@@ -1,4 +1,5 @@
 <script lang="ts" module>
+  import Hint from '../Hint.svelte';
   export type DrawingFormat = 'dxf' | 'svg' | 'png' | 'jpg';
 </script>
 
@@ -15,7 +16,7 @@
       <button type="button" class:on={current === f} aria-pressed={current === f} onclick={() => onpick(f)} data-testid={`drawing-format-${f}`}>{f.toUpperCase()}</button>
     {/each}
   </div>
-  <p class="xs-note">{t(`proExport.drawingFormatNote.${current}`)}</p>
+  <Hint class="xs-note" text={t(`proExport.drawingFormatNote.${current}`)} />
 </ExportSection>
 
 <style>
