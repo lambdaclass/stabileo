@@ -5,7 +5,8 @@
 - SA-2026-033: since #1076, "Generate loads from the code" left out a whole panel's dead, live
   and roof live area load when the only members found over it were less than 2.2 m above, even
   with open sky over the rest: a 6 × 6 m floor with one low beam over one edge lost all 36 m². A
-  panel is now left out only when roof structure covers all of it under 2.2 m and the loaded
-  members and decks under 2.2 m above it carry its whole area; trusses count as roof structure. Panels and members only
+  panel is now left out only when roof structure covers all of it under 2.2 m and a deck or
+  beam under 2.2 m stands over its centre; the part of its area that the loaded members above do
+  not carry stays on it as roof load, so no roof area is lost. Trusses count as roof structure. Panels and members only
   partly under low structure keep their load and are named in the derivation. Generate the loads
   again for models whose loads came from the generator.

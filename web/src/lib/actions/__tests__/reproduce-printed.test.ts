@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { modelStore, resultsStore, uiStore } from '../../store';
+import { currentScopeRef } from '../../store/result-provenance';
 import { initSolver } from '../../engine/wasm-solver';
 import { buildProReportData } from '../../engine/pro-report-inputs';
 import { generateReportHtml, type ReportConfig } from '../../engine/pro-report';
@@ -121,14 +122,24 @@ describe('checking a report value by value', () => {
     expect(own.differences).toEqual([]);
   });
 
-  it('a report printed from the screen sum is bound to the single scope', () => {
+  it('a report printed from the screen sum is compared while the same view is on screen, never as the single solve', () => {
     resultsStore.activeView = 'single';
     resultsStore.activeCaseId = null;
     const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
     expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })!.structural).toContain('result-set');
     expect(resultsStore.singleResults3D).not.toBe(resultsStore.results3D);
     expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
-    expect(comparePrintedReport(screen, { kind: 'other', label: 'sum' })).toBeNull();
+    const sum = currentScopeRef();
+    expect(sum.kind).toBe('other');
+    const own = comparePrintedReport(screen, sum)!;
+    expect(own.compared).toBeGreaterThan(10);
+    expect(own.differences).toEqual([]);
+    expect(own.structural).toEqual([]);
+    const reactions = printedTables(screen).find((p) => p.key === 'reactions')!;
+    const forged = screen.replace(`<td class="num">${reactions.rows[0]!.cells[2]!}</td>`, '<td class="num">10.10</td>');
+    expect(forged).not.toBe(screen);
+    expect(comparePrintedReport(forged, sum)!.differences.length).toBeGreaterThan(0);
+    expect(comparePrintedReport(screen, { kind: 'other', label: 'another view' })).toBeNull();
   });
 
   it('a report of the single solve on screen is compared against the single scope', () => {

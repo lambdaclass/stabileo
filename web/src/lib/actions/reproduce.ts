@@ -9,7 +9,7 @@
 import { resultsStore } from '../store';
 import { certificateStore } from '../store/certificate.svelte';
 import { runGlobalSolve } from '../engine/live-calc';
-import { currentResultProvenance, provenanceForScope, ensureEngineHashes, resultForScope, scopeOfResultSet } from '../store/result-provenance';
+import { currentResultProvenance, currentScopeRef, provenanceForScope, ensureEngineHashes, scopeOfResultSet } from '../store/result-provenance';
 import { compareProvenance, sameScope, type ResultProvenance, type ReproduceVerdict, type ScopeRef } from '../provenance/result-provenance';
 import { errorText } from '../utils/error-text';
 import { i18n, t } from '../i18n';
@@ -52,11 +52,12 @@ export const OTHER_RESULT_SET = 'result-set';
 export function comparePrintedReport(report: string, scope: ScopeRef | undefined): PrintedComparison | null {
   const config = embeddedReportConfig(report);
   const claimedTables = printedTables(report);
-  if (!config || !scope || scope.kind === 'other') return null;
+  if (!config || !scope) return null;
   const key = config.resultSetKey;
-  const printedScope: ScopeRef | null = !key || key === 'screen' ? { kind: 'single' } : scopeOfResultSet(key);
+  const screen = !key || key === 'screen';
+  const printedScope: ScopeRef | null = screen ? (scope.kind === 'other' ? scope : { kind: 'single' }) : scopeOfResultSet(key);
   if (!printedScope || !sameScope(printedScope, scope)) return { compared: 0, differences: [], structural: [OTHER_RESULT_SET], labels: true };
-  if (scope.kind === 'single' && resultForScope(scope) !== resultsStore.results3D) return null;
+  if (screen && !sameScope(currentScopeRef(), scope)) return null;
   const data = buildProReportData({ config, t });
   if (!data) return null;
   const locale = embeddedReportLocale(report);

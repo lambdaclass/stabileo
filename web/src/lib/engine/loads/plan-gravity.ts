@@ -255,7 +255,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     return [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]] as [[number, number, number], [number, number, number]];
   });
-  const deckless = opts.loadEveryPanel ? () => null : notADeck(model, carriers, coverAbove, loadedMembers, opts.tributaryWidth);
+  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, loadedMembers, opts.tributaryWidth);
+  const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
+  const fringeRoof = new Set<number>();
 
   if (opts.mode === 'panels') {
     for (const [z, quads] of quadsAt) {
@@ -272,7 +274,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // Second pass: each panel on its own, as a floor or as a roof.
-  let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0;
+  let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, fringes = 0;
   const panelBeams: Array<Set<number>> = [];
   const panelLevel: number[] = [];
   const levelOrder = [...levels.keys()].sort((a, b) => a - b);
@@ -292,16 +294,19 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const cover = shellCover(panel.polygon, z);
       if (cover >= 0.98) continue;
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
-      if (why === 'lowHeadroom') { lowPanels++; continue; }
+      const rest = why === 'lowHeadroom' ? deck!.uncarried(panel.polygon, z) : 0;
+      if (why === 'lowHeadroom') lowPanels++;
+      if (why === 'lowHeadroom' && rest <= 0) continue;
+      if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
-      if (why === 'headroomUnclear' && covered(centroid(panel.polygon), z)) unclear++;
-      const share = cover > 0.02 ? 1 - cover : 1;
+      if (why === 'headroomUnclear') unclear++;
+      const share = why === 'lowHeadroom' ? rest : cover > 0.02 ? 1 - cover : 1;
       if (share < 1) partly++;
       // The panel's own part of the level's result. Loading its members again on their own found
       // an opening's ring as a panel too, and the ring, loaded on its own as well, counted twice.
       const one = panel.own;
       const c = centroid(panel.polygon);
-      const roof = !covered(c, z);
+      const roof = why === 'lowHeadroom' || !covered(c, z);
       const index = panelBeams.length;
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
@@ -331,16 +336,22 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const z = a.z ?? 0;
-    const why = deckless([[a.x, a.y], [b.x, b.y]], z, tributaryStrip([a.x, a.y], [b.x, b.y], opts.tributaryWidth));
+    const strip = tributaryStrip([a.x, a.y], [b.x, b.y], opts.tributaryWidth);
+    const why = deckless([[a.x, a.y], [b.x, b.y]], z);
     const beside = (panelsAt.get(levelKey(z)) ?? []).filter((poly) => onBoundary(model, e, poly)).map((poly) => deckless(poly, z));
     const floorBeside = beside.some((w) => w === null || w === 'headroomUnclear');
-    if ((why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) && covered([(a.x + b.x) / 2, (a.y + b.y) / 2], z)) unclear++;
-    return why !== 'lowHeadroom' || floorBeside;
+    if (why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) unclear++;
+    if (why !== 'lowHeadroom' || floorBeside) return true;
+    if (deck!.uncarried(strip, z) <= 0) return false;
+    fringeRoof.add(m.elementId);
+    fringes++;
+    return true;
   });
   if (out.widthMembers.length < beforeDepth) {
     out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
   }
   if (unclear > 0) out.notes.push(msg('loadPlan.gravity.headroomUnclear', { n: unclear, h: MIN_STOREY_HEADROOM }));
+  if (fringes > 0) out.notes.push(msg('loadPlan.gravity.roofFringe', { n: fringes }));
   out.panelColour = checkerboard(panelBeams.length, panelLevel,
     (i, j) => panelLevel[i] === panelLevel[j] && [...panelBeams[i]!].some((id) => panelBeams[j]!.has(id)));
   out.widthColour = widthCheckerboard(model, out.widthMembers.map((m) => m.elementId));
@@ -349,7 +360,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   for (const m of out.widthMembers) {
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    const roof = !covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0));
+    const roof = fringeRoof.has(m.elementId) || !covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0));
     addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, opts.tributaryWidth * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
@@ -384,7 +395,10 @@ function notADeck(
   coverAbove: (pt: [number, number], zTop: number) => number,
   loaded: Array<[[number, number, number], [number, number, number]]>,
   tributaryWidth: number,
-): (poly: Array<[number, number]>, z: number, area?: Array<[number, number]>) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null {
+): {
+  why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
+  uncarried: (area: Array<[number, number]>, z: number) => number;
+} {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
@@ -430,33 +444,35 @@ function notADeck(
     }
     return h;
   };
-  /** Plan area of `area` whose roof load the members and decks less than a storey above it carry. */
-  const carriedAbove = (area: Array<[number, number]>, z: number): number => {
+  /**
+   * The share of `area` whose roof load no loaded member less than a storey above it carries
+   * (beside it, within half the tributary width) and no shell covers, by a 20 × 20 grid over it;
+   * a cell counts as carried only when all of it is, so the share errs high.
+   */
+  const uncarried = (area: Array<[number, number]>, z: number): number => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
-    let carried = 0;
-    for (const [a, b] of loaded) {
-      const n = 20;
-      let w = 0;
-      for (let i = 0; i < n; i++) {
-        const t = (i + 0.5) / n;
-        const pt: [number, number] = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-        if (!low(a[2] + t * (b[2] - a[2]) - z) || !inside(pt, area, 0)) continue;
-        w += area.some((v, k) => nearSegment(pt, v, area[(k + 1) % area.length]!, 0.05)) ? 0.5 : 1;
-      }
-      carried += (w / n) * Math.hypot(b[0] - a[0], b[1] - a[1]) * tributaryWidth;
-    }
+    const half = tributaryWidth / 2;
+    const shells = carriers.filter((c) => c.pts.some((p) => low(p[2] - z)));
     const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
     const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
-    let in_ = 0, decked = 0;
+    let n = 0, open = 0;
     for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
       const pt: [number, number] = [x0 + (i + 0.5) * dx, y0 + (j + 0.5) * dy];
       if (!inside(pt, area, 0)) continue;
-      in_++;
-      if (low(coverAbove(pt, z))) decked++;
+      n++;
+      const carried = (q: [number, number]) => loaded.some(([a, b]) => {
+        const ux = b[0] - a[0], uy = b[1] - a[1], L2 = ux * ux + uy * uy;
+        if (L2 === 0) return false;
+        const t = ((q[0] - a[0]) * ux + (q[1] - a[1]) * uy) / L2;
+        if (t < 0 || t > 1) return false;
+        return low(a[2] + t * (b[2] - a[2]) - z) && Math.abs((q[0] - a[0]) * uy - (q[1] - a[1]) * ux) / Math.sqrt(L2) <= half;
+      }) || shells.some((c) => inside(q, c.poly) && low(heightIn(c.pts, [q[0], q[1], z]) - z));
+      const cell: Array<[number, number]> = [pt, [pt[0] - dx / 2, pt[1] - dy / 2], [pt[0] + dx / 2, pt[1] - dy / 2], [pt[0] + dx / 2, pt[1] + dy / 2], [pt[0] - dx / 2, pt[1] + dy / 2]];
+      if (!cell.every(carried)) open++;
     }
-    return carried + (in_ > 0 ? (decked / in_) * planArea(area.map(([x, y]) => ({ x, y }))) : 0);
+    return n > 0 ? open / n : 0;
   };
-  return (poly, z, area = poly) => {
+  const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
     poly.forEach((a, i) => {
       const b = poly[(i + 1) % poly.length]!;
@@ -471,10 +487,11 @@ function notADeck(
     const roofed = heights.filter(Number.isFinite);
     const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
     if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM
-      && carriedAbove(area, z) >= planArea(area.map(([x, y]) => ({ x, y }))) - 1e-6) return 'lowHeadroom';
+      && coverAbove(centroid(poly), z) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
     if (Math.min(hi[0] - lo[0], hi[1] - lo[1]) > MAX_DECK_SPAN) return 'wide';
     return low ? 'headroomUnclear' : null;
   };
+  return { why, uncarried };
 }
 
 /** A quad's surface area, m²: its two triangles, as `quadCornerShares` integrates a flat one. */
