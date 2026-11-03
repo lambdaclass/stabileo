@@ -70,24 +70,27 @@ export interface KinSet {
   /** What estado 0 imposes: translations (settlements, thermal elongation of rigid members) and rotations of held ends. */
   up: Map<number, { x: number; z: number }>;
   thHeld: Map<number, number>;
-  thermal: Map<number, { dt: number; dg: number; alpha: number; h: number }>;
+  thermal: Map<number, MemberThermal>;
 }
 
 export type KinResult = { ok: true; ks: KinSet } | { ok: false; key: string; params?: Record<string, string | number> };
 
 export const hingedAt = (m: PMember, node: number) => m.truss || (m.i === node && m.hingeI) || (m.j === node && m.hingeJ);
 
-export function thermalOf(input: SolverInput, pm: PlaneModel): Map<number, { dt: number; dg: number; alpha: number; h: number }> {
-  const out = new Map<number, { dt: number; dg: number; alpha: number; h: number }>();
+export interface ThermalPart { alpha: number; dt: number; dg: number; h: number }
+export interface MemberThermal { eps: number; kap: number; parts: ThermalPart[] }
+
+export function thermalOf(input: SolverInput, pm: PlaneModel): Map<number, MemberThermal> {
+  const out = new Map<number, MemberThermal>();
   for (const l of input.loads) {
     if (l.type !== 'thermal') continue;
     const m = pm.members.get(l.data.elementId);
     if (!m) continue;
-    const alpha = loadAlpha(l.data);
-    const h = loadDepth(l.data.depth, m.A, m.I);
-    const o = out.get(m.id) ?? { dt: 0, dg: 0, alpha, h };
-    o.dt += (alpha / o.alpha) * l.data.dtUniform;
-    o.dg += (alpha / o.alpha) * (o.h / h) * l.data.dtGradient;
+    const part = { alpha: loadAlpha(l.data), dt: l.data.dtUniform, dg: l.data.dtGradient, h: loadDepth(l.data.depth, m.A, m.I) };
+    const o = out.get(m.id) ?? { eps: 0, kap: 0, parts: [] };
+    o.eps += part.alpha * part.dt;
+    if (part.dg && part.h > 0) o.kap += (part.alpha * part.dg) / part.h;
+    o.parts.push(part);
     out.set(m.id, o);
   }
   return out;
@@ -192,7 +195,7 @@ export function kinematicUnknowns(input: SolverInput, pm: PlaneModel, opts: KinO
     for (const m of bending) {
       rows.push(lengthRow(m, col, nv));
       const t = thermal.get(m.id);
-      rhs.push(t ? t.alpha * t.dt * m.L : 0);
+      rhs.push(t ? t.eps * m.L : 0);
     }
     if (rhs.some((v) => v !== 0)) {
       const { R, pivots } = rref(rows.map((r, k) => [...r, rhs[k]]), nv);

@@ -110,6 +110,7 @@ const words: Translations = {
   'course.kinematics.dm.sys.intro': 'Im wirklichen Tragwerk gibt es die fiktiven Festhaltungen nicht: Die Gesamtkraft in jeder, die aus Zustand 0 plus die jedes Zustands mal seiner Unbekannten, muss null sein.',
   'course.kinematics.dm.sys.kCaption': 'Steifigkeitsmatrix: k_ij ist die Kraft in Festhaltung i, wenn die Unbekannte j gleich 1 ist.',
   'course.kinematics.dm.sys.symmetric': 'K ist symmetrisch, k_ij = k_ji, wie der Satz von Betti sichert: eine Kontrolle der Rechnung.',
+  'course.kinematics.dm.sys.residualOff': 'Das Residuum von K·D + R⁰ ist gegenüber seinen Termen nicht vernachlässigbar: Der Lösung des Systems ist nicht zu trauen.',
   'course.kinematics.dm.sys.rCaption': 'Lastglieder: die Festhaltekräfte aus Zustand 0.',
   'course.kinematics.dm.sys.solve': 'System aus {n} Gleichungen',
   'course.kinematics.dm.sys.why': 'Eine Verdrehung ergibt sich in Radiant und eine Verschiebung in Metern, positiv im Sinn, in dem die Unbekannte gezeichnet ist.',

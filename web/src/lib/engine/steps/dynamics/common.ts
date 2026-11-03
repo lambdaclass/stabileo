@@ -101,7 +101,7 @@ export function engineFrequencies(rows: { label: string; method: number; matrix:
   return {
     kind: 'table',
     head: [dt('mdof.mode'), { tex: 'f\\ [\\text{Hz}]' }, dt('mass.col.engine'), { tex: '\\Delta\\ [\\%]' }],
-    rows: rows.map((r, i) => [i + 1, r.method, r.matrix, r.matrix === 0 ? '—' : (100 * (r.method - r.matrix)) / r.matrix]),
+    rows: rows.map((r) => [{ tex: r.label }, r.method, r.matrix, r.matrix === 0 ? '—' : (100 * (r.method - r.matrix)) / r.matrix]),
     caption,
   };
 }

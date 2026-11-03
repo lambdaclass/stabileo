@@ -38,13 +38,15 @@
   const canEnvelope = $derived(q === 'M' || q === 'V' || q === 'N');
   const selectedCount = $derived([...uiStore.selectedElements].filter((id) => unit.elements.has(id)).length);
 
+  $effect(() => { influenceTool.keepEnvelopeFor(loadedIds); });
+
   let busy = $state(false);
   function toggleEnvelope() {
     if (influenceTool.envelope) { influenceTool.envelope = null; return; }
     busy = true;
     requestAnimationFrame(() => {
       try {
-        influenceTool.envelope = ilEnvelopeAlong(unit, q as EnvelopeQuantity, loads, influenceTool.placement, dir, loadedIds);
+        influenceTool.setEnvelopeFor(ilEnvelopeAlong(unit, q as EnvelopeQuantity, loads, influenceTool.placement, dir, loadedIds), loadedIds);
       } catch (e) {
         uiStore.toast(String((e as Error)?.message ?? e), 'error');
       } finally { busy = false; }

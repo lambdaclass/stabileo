@@ -110,6 +110,7 @@ const words: Translations = {
   'course.kinematics.dm.sys.intro': 'Gerçek yapıda hayali tutucular yoktur: her birindeki toplam kuvvet, yani durum 0’ınki ile her durumun kendi bilinmeyeniyle çarpılmış kuvvetinin toplamı, sıfır olmalıdır.',
   'course.kinematics.dm.sys.kCaption': 'Rijitlik matrisi: k_ij, j bilinmeyeni 1 iken i tutucusundaki kuvvettir.',
   'course.kinematics.dm.sys.symmetric': 'K simetriktir, k_ij = k_ji; bunu Betti teoremi garanti eder ve hesapların kontrolüne yarar.',
+  'course.kinematics.dm.sys.residualOff': 'K·D + R⁰ artığı terimlerine göre ihmal edilemez: sistemin çözümüne güvenilemez.',
   'course.kinematics.dm.sys.rCaption': 'Yük terimleri: durum 0’da tutuculardaki kuvvetler.',
   'course.kinematics.dm.sys.solve': '{n} denklemli sistem',
   'course.kinematics.dm.sys.why': 'Bir dönme radyan, bir öteleme metre cinsinden çıkar; bilinmeyenin çizildiği yönde pozitiftir.',

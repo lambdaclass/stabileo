@@ -99,6 +99,18 @@ describe('the single degree of freedom document', () => {
     }
   });
 
+  it('the particular solution is written in the millimetres X was given in', async () => {
+    await load('cantilever');
+    setDynamicsSettings({ sdof: { source: 'manual', m: 2, k: 800, xi: 0.05, F0: 10, u0: 0.01, v0: 0.05, Omega: null } });
+    const doc = build('sdof');
+    const blocks = doc.steps.flatMap((st) => st.blocks);
+    const xCalc = blocks.find((b): b is Extract<Block, { kind: 'calc' }> => b.kind === 'calc' && /^X = /.test(b.result))!;
+    const X = xCalc.result.match(/^X = (.+)\\ \\text\{mm\}$/)![1];
+    const up = blocks.find((b): b is Extract<Block, { kind: 'eq' }> => b.kind === 'eq' && b.tex.startsWith('u_p(t) = X'))!;
+    expect(up.tex).toContain(`= ${X}\\sin(`);
+    expect(up.tex.endsWith('\\ \\text{mm}')).toBe(true);
+  });
+
   it('says why when the node has no mass', async () => {
     await load('cantilever');
     const ctx = methodContext('sdof')!;
@@ -300,6 +312,12 @@ describe('the distributed mass document', () => {
     if (t.kind !== 'table') throw new Error('no table');
     expect(t.rows[0][3]).toBe('—');
     expect(t.rows[1][3]).toBeCloseTo(1, 12);
+  });
+
+  it('a mode the engine left out keeps the numbers of the modes after it', () => {
+    const t = engineFrequencies([{ label: 'f_{1}', method: 1, matrix: 1, unit: 'Hz' }, { label: 'f_{3}', method: 3, matrix: 3, unit: 'Hz' }], false, { key: 'x' } as Txt);
+    if (t.kind !== 'table') throw new Error('no table');
+    expect(t.rows.map((r) => r[0])).toEqual([{ tex: 'f_{1}' }, { tex: 'f_{3}' }]);
   });
 
   it('the consistent-mass cross-check is left out when that extra model cannot be built', async () => {

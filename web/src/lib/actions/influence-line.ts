@@ -5,7 +5,7 @@
 import { modelStore, resultsStore, uiStore } from '../store';
 import type { InfluenceDirection, InfluenceLineResult, InfluenceQuantity } from '../store/model.svelte';
 import { influenceTool } from '../store/influence-tool.svelte';
-import { familyOf } from '../engine/influence/quantities';
+import { familyOf, supportReaction } from '../engine/influence/quantities';
 import { sectionAt } from '../engine/influence/section-pick';
 import { t } from '../i18n';
 import { explainedSteps } from '../store/explained-steps.svelte';
@@ -75,9 +75,19 @@ export function pickInfluenceTarget(world: { x: number; y: number }, nodeId: num
   else if (family === 'force' && elemId !== undefined) runInfluence(q, undefined, elemId, sectionOn(elemId));
   else if (family === 'displacement' && nodeId !== undefined) runInfluence(q, nodeId, undefined, 0.5);
   else if (family === 'displacement' && elemId !== undefined) runInfluence(q, undefined, elemId, sectionOn(elemId));
-  else if (nodeId !== undefined) runInfluence('Rz', nodeId, undefined, 0.5);
+  else if (nodeId !== undefined) runInfluence(reactionAt(nodeId), nodeId, undefined, 0.5);
   else if (elemId !== undefined) runInfluence('M', undefined, elemId, sectionOn(elemId));
   else uiStore.toast(t('viewport.ilClickHint'), 'info');
+}
+
+function reactionAt(nodeId: number): 'Rz' | 'Rx' | 'My' {
+  const input = modelStore.buildSolverInput(false);
+  for (const sup of input?.supports.values() ?? []) {
+    if (sup.nodeId !== nodeId) continue;
+    const q = supportReaction(sup, Math.cos(sup.angle ?? 0));
+    if (q) return q;
+  }
+  return 'Rz';
 }
 
 /** The section moved along its member, `at` ∈ [0, 1]. */
@@ -122,7 +132,7 @@ export function openInfluenceExplanation(loadedIds: number[]): void {
   setInfluenceDocInput(il ? {
     quantity: il.quantity, target: targetOf(il), direction: il.direction ?? 'vertical',
     loads: influenceTool.loads, placement: influenceTool.placement, loadedIds,
-  } : null);
+  } : null, modelStore.buildSolverInput(uiStore.includeSelfWeight));
   explainedSteps.openMethod('influenceLine', 'tool');
 }
 

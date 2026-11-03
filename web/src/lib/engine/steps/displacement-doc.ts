@@ -11,9 +11,9 @@ import { endKey as key, type EndSide } from './sway-modes';
 import { fixedEndBlocks } from './fem';
 import { sketchOf, type Sketch } from './sketch';
 import { UF, UM, Mt, extent, subOf, type MemberData } from './frames-common';
-import type { KinSet } from './kinematic-unknowns';
+import type { KinSet, ThermalPart } from './kinematic-unknowns';
 import { transOf, unknownSym } from './kinematic-unknowns';
-import { axialFixedEnd, released, type DispSolution, type MAct, type MKin } from './displacement-solve';
+import { axialFixedEnd, released, residualSettled, type DispSolution, type MAct, type MKin } from './displacement-solve';
 
 const P = 'course.kinematics.dm.';
 const tiny = (v: number) => Math.abs(v) < 1e-12;
@@ -112,13 +112,19 @@ function memberCalc(ks: KinSet, d: MemberData, k: MKin, a: MAct, base: { Mi: num
   }
   if (a.N !== null && (!tiny(k.e) || (base && !tiny(a.N)))) {
     const t = ks.thermal.get(d.m.id);
-    const free = base && t && t.dt ? t.alpha * t.dt * L : 0;
+    const free = base && t && t.eps ? t.eps * L : 0;
     const Nfe = base ? axialFixedEnd(d) : 0;
     const f = free ? `\\frac{EA}{L}\\left(e - \\alpha\\,\\Delta T\\,L\\right)` : '\\frac{EA}{L}\\,e';
     const subst = `N_{${d.ni}${d.nj}} = ${num(d.m.EA / L)}\\cdot${free ? `\\left(${par(k.e)} - ${num(free)}\\right)` : par(k.e)}${Nfe ? ` + ${par(Nfe)}` : ''}`;
     out.push({ kind: 'calc', label: tx(`${P}state.axial`, { m: d.m.name }), formula: `N_{${d.ni}${d.nj}} = ${f}${Nfe ? ' + N^{*}' : ''}`, subst, result: `\\boxed{N_{${d.ni}${d.nj}} = ${num(a.N)}\\ ${UF}}` });
   }
   return out;
+}
+
+function gradientSubst(EI: number, parts: ThermalPart[]): string {
+  const one = (q: ThermalPart) => `\\frac{${num(q.alpha)}\\cdot ${par(q.dg)}}{${num(q.h)}}`;
+  if (parts.length === 1) return `\\frac{${num(EI)}\\cdot ${num(parts[0].alpha)}\\cdot ${par(parts[0].dg)}}{${num(parts[0].h)}}`;
+  return `${num(EI)}\\cdot\\left(${parts.map(one).join(' + ')}\\right)`;
 }
 
 /** k_ij or R⁰_i written out: the work of state j's member actions through unknown i's unit displacement. */
@@ -208,7 +214,7 @@ export function state0Step(sol: DispSolution): Step {
       const t = ks.thermal.get(d.m.id)!;
       blocks.push({ kind: 'calc', label: tx(`${P}s0.thermalGrad`),
         formula: `\\mathrm{FEM}^{T}_{${subOf(d, 'i')}} = -\\mathrm{FEM}^{T}_{${subOf(d, 'j')}} = \\frac{EI\\,\\alpha\\,\\Delta T_g}{h}`,
-        subst: `\\frac{${num(d.m.EI)}\\cdot ${num(t.alpha)}\\cdot ${par(t.dg)}}{${num(t.h)}}`,
+        subst: gradientSubst(d.m.EI, t.parts.filter((q) => q.dg && q.h > 0)),
         result: `\\boxed{\\mathrm{FEM}^{T}_{${subOf(d, 'i')}} = ${num(f.thermal[0])}\\ ${UM}}` });
     }
     const loadSum = { Mi: f.load[0] + f.thermal[0], Mj: f.load[1] + f.thermal[1] };
@@ -295,6 +301,7 @@ export function systemStep(sol: DispSolution): Step {
   const asym = sol.K.reduce((s, row, i) => Math.max(s, ...row.map((v, j) => Math.abs(v - sol.K[j][i]))), 0);
   const scale = Math.max(...sol.K.map((r) => Math.max(...r.map(Math.abs))), 1e-9);
   const unitOf = (k: number) => (ks.unknowns[k].kind === 'rot' ? '\\mathrm{rad}' : '\\mathrm{m}');
+  const settled = residualSettled(sol);
   const eqs = sol.K.map((row, i) => `${row.map((v, j) => `${par(v)}\\,${syms[j]}`).join(' + ')} = ${num(-sol.R0[i])}`);
   return { title: tx(`${P}sys.title`), blocks: [
     { kind: 'p', text: tx(`${P}sys.intro`) },
@@ -306,7 +313,8 @@ export function systemStep(sol: DispSolution): Step {
       formula: '\\mathbf{K}\\,\\mathbf{D} = -\\mathbf{R}^{0}',
       subst: n <= 4 ? `\\begin{aligned} ${eqs.join(' \\\\ ')} \\end{aligned}` : `\\mathbf{D} = -\\mathbf{K}^{-1}\\mathbf{R}^{0}`,
       result: `\\begin{aligned} ${sol.D.map((v, k) => `&\\boxed{${syms[k]} = ${num(v)}\\ ${unitOf(k)}}`).join(' \\\\ ')} \\end{aligned}`,
-      check: `\\max\\left|\\mathbf{K}\\mathbf{D} + \\mathbf{R}^{0}\\right| = ${num(sol.residual)}\\ \\checkmark` },
+      check: `\\max\\left|\\mathbf{K}\\mathbf{D} + \\mathbf{R}^{0}\\right| = ${num(sol.residual)}${settled ? '\\ \\checkmark' : ''}` },
+    ...(settled ? [] : [{ kind: 'note', tone: 'warn', text: tx(`${P}sys.residualOff`) } as Block]),
     { kind: 'p', text: tx(`${P}sys.why`), detail: true },
   ] };
 }

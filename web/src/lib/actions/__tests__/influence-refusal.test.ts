@@ -112,3 +112,22 @@ describe('the envelope follows the quantity', () => {
     expect(influenceTool.envelope).toBeNull();
   });
 });
+
+describe('a click on a support while a member quantity is chosen', () => {
+  it('draws a reaction the support develops: Rx at a vertical roller, My at a rotational spring', () => {
+    modelStore.clear();
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(8, 0);
+    modelStore.addElement(a, b); modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(b, 'rollerZ');
+    const s = modelStore.addSupport(c, 'spring'); modelStore.updateSupport(s, { kx: 0, ky: 0, kz: 500 });
+    uiStore.ilQuantity = 'M';
+    const solve = vi.spyOn(modelStore, 'computeInfluenceLine').mockReturnValue('refused');
+    pickInfluenceTarget({ x: 4, y: 0 }, b, undefined, 0);
+    expect(solve).toHaveBeenLastCalledWith('Rx', b, undefined, 0.5, 20, 'vertical');
+    pickInfluenceTarget({ x: 8, y: 0 }, c, undefined, 0);
+    expect(solve).toHaveBeenLastCalledWith('My', c, undefined, 0.5, 20, 'vertical');
+    pickInfluenceTarget({ x: 0, y: 0 }, a, undefined, 0);
+    expect(solve).toHaveBeenLastCalledWith('Rz', a, undefined, 0.5, 20, 'vertical');
+    modelStore.clear();
+  });
+});

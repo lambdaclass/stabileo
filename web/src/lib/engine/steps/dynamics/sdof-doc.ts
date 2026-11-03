@@ -239,7 +239,7 @@ export function buildSdof(ctx: MethodContext): StepDoc {
         ...(h.resonant ? [note('warn', 'sdof.harm.resonantUndamped')] : [
           { kind: 'calc', label: dt('sdof.harm.xLabel'), formula: 'u_{st} = \\frac{F_0}{k}, \\quad X = D\\,u_{st}', subst: `u_{st} = \\frac{${num(h.F0)}}{${num(k)}} = ${num(h.ust * MM)}\\ \\text{mm}`, result: `X = ${num(h.X * MM)}\\ \\text{mm}` } as Block,
           { kind: 'calc', label: dt('sdof.harm.phiLabel'), formula: '\\tan\\varphi = \\frac{2\\xi\\beta}{1-\\beta^2}', result: `\\varphi = ${num(h.phi)}\\ \\text{rad} = ${num((h.phi * 180) / Math.PI)}°` } as Block,
-          { kind: 'eq', tex: `u_p(t) = X\\sin(\\Omega t - \\varphi) = ${num(h.X)}\\sin(${num(h.Omega)}\\,t - ${num(h.phi)})` } as Block,
+          { kind: 'eq', tex: `u_p(t) = X\\sin(\\Omega t - \\varphi) = ${num(h.X * MM)}\\sin(${num(h.Omega)}\\,t - ${num(h.phi)})\\ \\text{mm}` } as Block,
         ]),
         { kind: 'plot', plot: dafPlotOf(s.xi, h.beta), caption: dt('sdof.dafCaption') },
         p(h.beta < 0.9 ? 'sdof.harm.below' : h.beta > 1.1 ? 'sdof.harm.above' : 'sdof.harm.near', undefined, true),

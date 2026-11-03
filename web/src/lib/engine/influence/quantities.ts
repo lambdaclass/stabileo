@@ -70,3 +70,25 @@ export function quantitySymbol(q: InfluenceQuantity): string {
 export function plainSymbol(q: InfluenceQuantity): string {
   return quantitySymbol(q).replace('\\theta', 'θ').replace('_', '');
 }
+
+export interface ReactionSource { type: string; kx?: number; ky?: number; kz?: number; restrainedDofs?: [boolean, boolean, boolean] }
+
+/** `normalZ`: the vertical component of an inclined roller's normal. */
+export function supportReaction(s: ReactionSource, normalZ = 1): 'Rz' | 'Rx' | 'My' | null {
+  const has = (v?: number) => !!v && v > 0;
+  const held: [boolean, boolean, boolean] = s.restrainedDofs ?? (() => {
+    switch (s.type) {
+      case 'fixed': return [true, true, true];
+      case 'pinned': return [true, true, false];
+      case 'rollerX': return [false, true, false];
+      case 'rollerY': case 'rollerZ': return [true, false, false];
+      case 'inclinedRoller': return Math.abs(normalZ) > 1e-9 ? [false, true, false] : [true, false, false];
+      case 'spring': return [has(s.kx), has(s.ky), has(s.kz)];
+      default: return [false, false, false];
+    }
+  })();
+  if (held[1]) return 'Rz';
+  if (held[0]) return 'Rx';
+  if (held[2]) return 'My';
+  return null;
+}

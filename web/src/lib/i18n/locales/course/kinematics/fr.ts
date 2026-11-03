@@ -110,6 +110,7 @@ const words: Translations = {
   'course.kinematics.dm.sys.intro': 'Dans la structure réelle les liaisons fictives n’existent pas : l’effort total dans chacune, celui de l’état 0 plus celui de chaque état multiplié par son inconnue, doit être nul.',
   'course.kinematics.dm.sys.kCaption': 'Matrice de rigidité : k_ij est l’effort dans la liaison i quand l’inconnue j vaut 1.',
   'course.kinematics.dm.sys.symmetric': 'K est symétrique, k_ij = k_ji, comme le garantit le théorème de Betti : un contrôle des calculs.',
+  'course.kinematics.dm.sys.residualOff': 'Le résidu de K·D + R⁰ n\'est pas négligeable devant ses termes : la solution du système n\'est pas fiable.',
   'course.kinematics.dm.sys.rCaption': 'Termes de charge : efforts dans les liaisons de l’état 0.',
   'course.kinematics.dm.sys.solve': 'Système de {n} équations',
   'course.kinematics.dm.sys.why': 'Une rotation sort en radians et une translation en mètres, positives dans le sens où l’inconnue a été dessinée.',

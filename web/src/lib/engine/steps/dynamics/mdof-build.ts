@@ -102,13 +102,15 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
  * other mode whose share at the plotted degree of freedom reaches 10⁻³ of the largest.
  */
 export function shortestPeriodShown(sol: ModalSolution, resp: ModalResponse, at: number, ex: Excitation): number {
+  const resonant = sol.modes.map((m, i) => !!resp.harmonics[i]?.resonant && m.phi[at] !== 0);
   const share = sol.modes.map((m, i) => {
     const h = resp.harmonics[i];
-    const amp = h ? (h.resonant ? Infinity : Math.abs(h.X) * Math.max(1, h.beta)) : Math.hypot(resp.q0[i], resp.qd0[i] / m.omega);
+    if (resonant[i] || h?.resonant) return 0;
+    const amp = h ? Math.abs(h.X) * Math.max(1, h.beta) : Math.hypot(resp.q0[i], resp.qd0[i] / m.omega);
     return Math.abs(m.phi[at]) * amp;
   });
-  const top = Math.max(...share);
-  const periods = sol.modes.filter((_, i) => i < SHOWN_MODES || share[i] >= RELEVANT_SHARE * top).map((m) => m.T);
+  const top = Math.max(0, ...share.filter(Number.isFinite));
+  const periods = sol.modes.filter((_, i) => i < SHOWN_MODES || resonant[i] || (top > 0 && share[i] >= RELEVANT_SHARE * top)).map((m) => m.T);
   if (ex.kind === 'harmonic') periods.push((2 * Math.PI) / ex.Omega);
   return Math.min(...periods);
 }
