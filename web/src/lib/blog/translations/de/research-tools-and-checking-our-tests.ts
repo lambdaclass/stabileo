@@ -16,6 +16,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Wir bringen veröffentlichte Fachartikel zur Tragwerksberechnung und klassische Benchmarks mit Stabileos eigenem Viewer in den Browser. Auf jeder Seite geben wir an, was sie reproduziert, wie wir es geprüft haben und welche Grenzen der Vergleich hat. Seiten mit noch offenen Vergleichen vervollständigen wir derzeit."
     },
+    {"k": "img", "base": "blog/research", "w": 1600, "h": 1000, "alt": "Die Seite Stabileo Research, „Forschung im Ingenieurbau“, mit dem Hinweis, dass es Forschung und kein Bemessungswerkzeug ist, und dem ersten ausführbaren Eintrag, dem Lee-Rahmen (1968), mit seinem Lastpfad.", "caption": "stabileo.com/research: Jede Seite sagt, was sie reproduziert und wie es geprüft wurde."},
     {
       "k": "p",
       "t": "Die verfügbaren Artikelseiten behandeln Phasenfeldbruch nach Shauer (2025), Federnetzwerke nach Grossman und Boudaoud (2026), Topologieoptimierung nach Andreassen et al. (2011), Stabilität des Roorda-Rahmens nach Ferrari und Sigmund (2025), Formfindung von Seilnetzen nach Pastrana et al. (2026), durchschnappende Bögen nach Zmyślony, Khan und Biggins (2026) und Gitterschalen nach Fairclough et al. (2026)."
@@ -62,6 +63,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Wir haben die Mattiasson-Referenzen und die Behandlung der axialen Dehnung (#845), den Vergleich eines biegesteifen Rahmens mit einer rein axialen Fachwerkformel (#846) sowie falsche Lagerungs- und Belastungsmodelle für Schalen (#810) korrigiert. Wir ändern die Art, wie Benchmarks aufgebaut werden, damit solche Fehler nicht erneut unbemerkt bleiben. Der erste Teil ist integriert: Jeder Benchmark ist eine Spezifikation mit zwei unabhängigen Referenzen, die übereinstimmen müssen, und automatischen Prüfungen der aufgebrachten Last, des Gleichgewichts der Auflagerreaktionen und der Symmetrie, einschließlich Vergleichen zwischen Halbmodell und Vollmodell. Wir ergänzen Konvergenzprüfungen mit mindestens drei Netzen, einen Vorzeichenfehlertest, der nachweist, dass jeder Benchmark fehlschlagen kann, und die Freigabe durch einen Ingenieur für den Kernsatz."
     },
+    {"k": "img", "base": "blog/research-mattiasson", "w": 1600, "h": 1000, "alt": "Die Benchmarkseite zur Elastica von Mattiasson (1981), Reiter Ergebnisse: ein Diagramm von u/L und v/L über PL²/EI mit den Kurven von Stabileo und Kreisen für die analytischen Referenzen sowie eine Tabelle der Werte mit ihren relativen Fehlern. Links: 5 von 5 Prüfungen bestanden und der Hinweis, dass es Forschung und kein Bemessungswerkzeug ist.", "caption": "Die korrigierte Mattiasson-Seite: die Antwort der Engine gegen zwei unabhängige analytische Referenzen."},
     {
       "k": "p",
       "t": "Wir integrieren außerdem Einheiten in das Typsystem (#864), damit Verwechslungen zwischen kN/N oder m/mm beim Kompilieren auffallen. Der erste Teil, für den Material- und Querschnittspfad von 2D-Rahmen, ist am 3. November eingeflossen."
@@ -74,6 +76,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Stabileo Tools bietet kostenlose Rechner für einfach gelagerte Balken, Kragarme, elastisches Stützenknicken, Durchlaufträger, einfeldrige Rahmen, ebene Fachwerke, Einflusslinien für bewegliche Lasten und Biegeeigenfrequenzen von Balken. Sie verwenden den Produktionssolver, zeigen unabhängige klassische Vergleiche und nennen ihre Annahmen. Jeder öffnet sein Modell im vollständigen Editor. Es sind Analysewerkzeuge, keine vollständigen Normnachweise."
     },
+    {"k": "img", "base": "blog/tools", "w": 1600, "h": 1000, "alt": "Die Seite Stabileo Tools, „Kostenlose Ingenieurrechner“, beginnend mit dem Rechner für den Einfeldträger: ein Balken unter Streckenlast mit seiner Biegelinie und einer Schaltfläche zum Öffnen.", "caption": "stabileo.com/tools: acht Rechner auf der Produktions-Engine."},
     {
       "k": "h",
       "t": "Falsche Ergebnisse begrenzen"

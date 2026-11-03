@@ -131,6 +131,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Uygulama sıfırı bildirip işin içinden sıyrılmıyor. Sıfırı ürettiği aynı 2. adımda onunla çelişiyor: “Formül g = 0 veriyor (izostatik yapı için gerekli koşul), ancak bu koşul yeterli DEĞİLDİR”. 3. adım global rijitlik matrisini, burada 6×6, kurar ve “g = 0 ≥ 0 olmasına rağmen 1 mekanizma modu tespit edildi” uyarısını verir. 3 numaralı düğümü ve yatay yer değiştirmesini belirtir, 2. adımdaki denklemin bağları nerede olduklarını kontrol etmeden saydığına dikkat çeker ve “✗ Mekanizma — çözülemez” ile kapanır."
     },
+    {"k": "img", "base": "blog/hidden-mechanism", "w": 1600, "h": 1000, "alt": "Stabileo Basic’te üç yatay kayıcı mesnet üzerinde, 10 kN/m altında iki açıklıklı bir kiriş. Kinematik analiz paneli g = 3·2 + 3 − 3·3 = 0 gösteriyor ve bir mesaj, hiçbir mesnet yatay hareketi tutmadığı için yapının kararsız (mekanizma) olduğunu bildiriyor.", "caption": "Aynı kiriş uygulamada: formül sıfır veriyor, çözücü ise onu yine de mekanizma olarak reddediyor."},
     {
       "k": "embed",
       "query": "example=hidden-mechanism&kin=1",

@@ -208,6 +208,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Aşağıda model yer alıyor: 5 m açıklıklı, basit mesnetli, 20×40, H-25 bir kiriş; 12 kN/m ölü yük ve 8 kN/m hareketli yükün yanında kendi öz ağırlığı da var. PRO'nun tasarım akışında, geçerli tasarım yönetmeliği CIRSOC 201 olarak açılır."
     },
+    {"k": "img", "base": "blog/cirsoc-201-beam", "w": 1600, "h": 1000, "alt": "Stabileo PRO, Tasarım alanı, Boyutlandırma adımı; çözüm ve tasarımdan sonra 20×40 kiriş seçili. Eleman paneli CIRSOC 201 (2025) ile “doğrulandı, yerel η 0,90” gösteriyor; My ve Vz eksenlerinde 13 kontrol ve en yüksek kullanım oranı 0,900.", "caption": "Aşağıdaki kiriş “Boyutlandır…” sonrasında: CIRSOC 201 onu 0,90 kullanım oranıyla doğruluyor."},
     {
       "k": "embed",
       "mode": "pro",

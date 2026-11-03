@@ -290,6 +290,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Stabileo hat beide Modi in einem Programm. Der Basismodus rechnet mit Stabelementen und führt in neun Schritten durch das Weggrößenverfahren: Nummerierung der Freiheitsgrade, lokale Matrizen, Transformation, Zusammenbau, Lastvektor, Randbedingungen, Lösung, Auflagerreaktionen und Schnittgrößen. Der PRO-Modus rechnet mit finiten Elementen und verwendet MITC4-Schalen und DKT-Platten neben Stabelementen. Unter den Werkzeugen, die wir untersucht haben, haben wir kein anderes Programm gefunden, mit dem man lernen kann, wie die Berechnung funktioniert, und sie dann auf ein vollständigeres Modell anwenden kann, ohne das Werkzeug zu wechseln."
     },
+    {"k": "img", "base": "blog/deep-beam-shell", "w": 1600, "h": 1000, "alt": "Stabileo PRO, Analysebereich, mit dem 6 m langen und 2 m hohen wandartigen Träger als Wand aus Schalenelementen, gelöst. Das Ergebnispanel listet 225 Verschiebungen und 192 Schalenspannungen; unter den Ergebnisprüfungen schätzt es den Diskretisierungsfehler auf etwa 11 % in der Energienorm und verlangt, das Netz zu verfeinern oder die Konvergenzprüfung laufen zu lassen, bevor die Ergebnisse verwendet werden.", "caption": "Das Schalenmodell unten, gelöst: Die App schätzt den Fehler ihres eigenen Netzes und sagt, wann es zu grob ist, um sich darauf zu verlassen."},
     {
       "k": "embed",
       "query": "example=deep-beam-bar",

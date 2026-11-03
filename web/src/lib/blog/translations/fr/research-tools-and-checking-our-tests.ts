@@ -16,6 +16,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Nous portons des articles publiés de calcul de structures et des benchmarks classiques dans le navigateur, avec le visualiseur de Stabileo. Chaque page précise ce qu’elle reproduit, comment nous l’avons vérifié et les limites de la comparaison. Nous complétons les pages dont certaines comparaisons restent ouvertes."
     },
+    {"k": "img", "base": "blog/research", "w": 1600, "h": 1000, "alt": "La page Stabileo Research, « Recherche en génie des structures », avec la mention qu’il s’agit de recherche et non d’un outil de dimensionnement, et la première entrée exécutable, le portique de Lee (1968), avec son chemin de chargement.", "caption": "stabileo.com/research : chaque page indique ce qu’elle reproduit et comment c’est vérifié."},
     {
       "k": "p",
       "t": "Les pages disponibles couvrent la rupture par champ de phase de Shauer (2025) ; les réseaux de ressorts de Grossman et Boudaoud (2026) ; l’optimisation topologique d’Andreassen et al. (2011) ; la stabilité du portique de Roorda de Ferrari et Sigmund (2025) ; la recherche de forme de réseaux de câbles de Pastrana et al. (2026) ; les arcs à claquage de Zmyślony, Khan et Biggins (2026) ; et les coques réticulées de Fairclough et al. (2026)."
@@ -62,6 +63,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Nous avons corrigé les références de Mattiasson et le traitement de l’allongement axial (#845), un portique à nœuds rigides comparé à une formule de treillis purement axial (#846), ainsi que des modèles d’appuis et de chargement de coques incorrects (#810). Nous changeons la manière de construire les benchmarks pour que cette catégorie d’erreurs ne passe plus. La première partie est intégrée : chaque benchmark est une spécification avec deux références indépendantes qui doivent concorder et des contrôles automatiques de la charge appliquée, de l’équilibre des réactions et de la symétrie, avec comparaison entre demi-modèle et modèle complet. Nous ajoutons la convergence sur au moins trois maillages, un test avec erreur de signe qui prouve que chaque benchmark peut échouer et la validation d’un ingénieur pour l’ensemble principal."
     },
+    {"k": "img", "base": "blog/research-mattiasson", "w": 1600, "h": 1000, "alt": "La page du benchmark de l’élastique de Mattiasson (1981), onglet Résultats : un graphique de u/L et v/L en fonction de PL²/EI avec les courbes de Stabileo et des cercles pour les références analytiques, et un tableau des valeurs avec leurs erreurs relatives. À gauche, 5 vérifications sur 5 réussies et la mention qu’il s’agit de recherche, pas d’un outil de dimensionnement.", "caption": "La page Mattiasson corrigée : la réponse du moteur face à deux références analytiques indépendantes."},
     {
       "k": "p",
       "t": "Nous intégrons aussi les unités au système de types (#864), afin de détecter les confusions kN/N ou m/mm à la compilation. La première étape, pour le chemin des matériaux et des sections des portiques 2D, a été intégrée le 3 novembre."
@@ -74,6 +76,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Stabileo Tools propose des calculateurs gratuits pour les poutres simplement appuyées, les consoles, le flambement élastique des poteaux, les poutres continues, les portiques à une travée, les treillis plans, les lignes d’influence de charges mobiles et les fréquences de flexion des poutres. Ils utilisent le moteur de production, montrent des comparaisons classiques indépendantes et précisent leurs hypothèses. Chacun ouvre son modèle dans l’éditeur complet. Ce sont des outils d’analyse, pas des vérifications réglementaires complètes."
     },
+    {"k": "img", "base": "blog/tools", "w": 1600, "h": 1000, "alt": "La page Stabileo Tools, « Calculateurs d’ingénierie gratuits », qui commence par le calculateur de poutre sur deux appuis : une poutre sous charge répartie avec sa déformée et un bouton pour l’ouvrir.", "caption": "stabileo.com/tools : huit calculateurs sur le moteur de production."},
     {
       "k": "h",
       "t": "Contenir les résultats erronés"

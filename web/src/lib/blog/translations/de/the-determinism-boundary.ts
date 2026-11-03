@@ -80,6 +80,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Nach der Berechnung trägt jede Stütze eine vertikale Auflagerreaktion von 90 kN, und das globale Gleichgewicht ist exakt erfüllt: ΣRz = 180 kN = q·L. Das maßgebende Balkenmoment ist Mu = 80,8 kN·m in Feldmitte. Der Biegenachweis nach CIRSOC 201 für den Balken 25×40 mit 3Ø16 ergibt eine Tragfähigkeit von φMn = 73,3 kN·m; der Balken erfüllt den Nachweis also nicht."
     },
+    {"k": "img", "base": "blog/determinism-portal", "w": 1600, "h": 1000, "alt": "Stabileo Basic mit einem Stahlbetonrahmen, 6 m breit und 4 m hoch, unten eingespannt, gelöst unter 30 kN/m auf dem Riegel. Das Biegemomentendiagramm zeigt 80,8 kN·m in Feldmitte, −54,2 kN·m an den Riegelenden und 27,0 kN·m am Stützenfuß.", "caption": "Der Rahmen aus diesem Abschnitt in Stabileo (H-21, Stützen 30×30, Riegel 25×40): Der Solver liefert das oben genannte Feldmoment von 80,8 kN·m."},
     {
       "k": "table",
       "caption": "Biegenachweis des Rahmenriegels vor und nach der Korrektur.",

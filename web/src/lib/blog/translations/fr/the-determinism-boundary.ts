@@ -80,6 +80,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Une fois le modèle calculé, chaque poteau reprend une réaction verticale de 90 kN et l'équilibre global est exactement vérifié : ΣRz = 180 kN = q·L. Le moment déterminant de la poutre est Mu = 80,8 kN·m à mi-portée. La vérification en flexion selon CIRSOC 201 de la poutre de 25×40 avec 3Ø16 donne une capacité φMn = 73,3 kN·m : la poutre n'est donc pas conforme."
     },
+    {"k": "img", "base": "blog/determinism-portal", "w": 1600, "h": 1000, "alt": "Stabileo Basic avec un portique en béton armé de 6 m de portée et 4 m de haut, encastré en pied, résolu sous 30 kN/m sur la poutre. Le diagramme des moments fléchissants indique 80,8 kN·m à mi-travée, −54,2 kN·m aux extrémités de la poutre et 27,0 kN·m en pied de poteau.", "caption": "Le portique de cette section dans Stabileo (H-21, poteaux 30×30, poutre 25×40) : le solveur donne le moment de 80,8 kN·m à mi-travée cité plus haut."},
     {
       "k": "table",
       "caption": "Vérification en flexion de la poutre du portique, avant et après la correction.",

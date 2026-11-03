@@ -290,6 +290,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Stabileo iki modu tek programda sunar. Temel mod çubuk elemanlarla çözer ve rijitlik yöntemini dokuz adımda gösterir: serbestlik derecesi numaralandırması, yerel matrisler, dönüşüm, birleştirme, yük vektörü, sınır koşulları, çözüm, mesnet tepkileri ve iç kuvvetler. PRO mod ise sonlu elemanlarla, çubuk elemanların yanında MITC4 kabuklar ve DKT plaklar kullanarak çözer. İncelediğimiz araçlar arasında, analizin nasıl çalıştığını öğrenip ardından araç değiştirmeden daha kapsamlı bir modele uygulamanıza olanak tanıyan başka bir program bulamadık."
     },
+    {"k": "img", "base": "blog/deep-beam-shell", "w": 1600, "h": 1000, "alt": "Stabileo PRO, Analiz alanı; 6 m’ye 2 m yüksek kiriş kabuk elemanlardan bir duvar olarak modellenmiş ve çözülmüş. Sonuç paneli 225 yer değiştirme ve 192 kabuk gerilmesi listeliyor; sonuç kontrollerinde ayrıklaştırma hatasını enerji normunda yaklaşık %11 olarak tahmin ediyor ve sonuçları kullanmadan önce ağın sıklaştırılmasını ya da yakınsama kontrolünün çalıştırılmasını istiyor.", "caption": "Aşağıdaki kabuk modeli, çözülmüş hâliyle: uygulama kendi ağının hatasını tahmin ediyor ve ağ güvenilemeyecek kadar kaba olduğunda bunu söylüyor."},
     {
       "k": "embed",
       "query": "example=deep-beam-bar",

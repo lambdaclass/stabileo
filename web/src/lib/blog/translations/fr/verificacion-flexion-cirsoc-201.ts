@@ -208,6 +208,7 @@ const body: PostBody = {
       "k": "p",
       "t": "Voici le modèle : une poutre de 5 m sur appuis simples, 20×40, H-25, avec 12 kN/m de charge permanente et 8 kN/m de charge d'exploitation, plus son poids propre. Il s'ouvre dans le flux de dimensionnement de PRO, avec CIRSOC 201 comme norme de dimensionnement en vigueur."
     },
+    {"k": "img", "base": "blog/cirsoc-201-beam", "w": 1600, "h": 1000, "alt": "Stabileo PRO, espace Dimensionnement, étape Dimensionner, avec la poutre 20×40 sélectionnée après calcul et dimensionnement. Le panneau de la barre indique « vérifiée, η local 0,90 » selon le CIRSOC 201 (2025), avec 13 vérifications sur les axes My et Vz et une utilisation maximale de 0,900.", "caption": "La poutre ci-dessous après « Dimensionner… » : le CIRSOC 201 la vérifie avec une utilisation de 0,90."},
     {
       "k": "embed",
       "mode": "pro",

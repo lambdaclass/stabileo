@@ -16,6 +16,7 @@ const body: PostBody = {
       "k": "note",
       "t": "État au 28 octobre 2026 : SA-2026-001 à 020 sont corrigés dans la version 0.3.0 et SA-2026-021 à 024 dans la version 0.4.0 (en ligne sur stabileo.com, SA-2026-021 et 022 depuis le 22 octobre et SA-2026-023 et 024 depuis le 25 et le 26 octobre). Les publier fait partie de notre manière de vérifier les résultats ; ce n'est pas le signe qu'ils sont encore ouverts. Un avis est considéré comme corrigé lorsque la correction est en ligne sur stabileo.com, et non lorsque la modification existe. Tant qu'un avis est ouvert, appliquez sa solution de contournement et vérifiez à la main le résultat concerné avant de signer."
     },
+    {"k": "img", "base": "blog/recheck-stale", "w": 1600, "h": 1000, "alt": "Stabileo PRO avec un portique en béton enregistré avant que les résultats soient versionnés. Un bandeau en bas indique des résultats périmés : le projet a été résolu avec une version antérieure et 19 changements enregistrés le concernent, avec les boutons pour voir ce qui a changé et relancer le calcul.", "caption": "Comment une correction atteint un projet enregistré : tant qu’il n’est pas recalculé, ses résultats restent marqués périmés, et les changements qui le concernent sont à un clic."},
     {
       "k": "h",
       "t": "Résumé"

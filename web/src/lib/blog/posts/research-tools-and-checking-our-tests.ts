@@ -28,6 +28,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "We are putting published structural-engineering papers and classic benchmarks in the browser, with Stabileo’s own viewer. Every page states what it reproduces, how it was checked and the limits of the comparison. We are completing pages that still show open comparisons."
         },
+        {"k": "img", "base": "blog/research", "w": 1600, "h": 1000, "alt": "The Stabileo Research page, “Research in structural engineering”, with the note “Research, not a design tool” and the first runnable entry, the Lee frame (1968), shown with its traced load path.", "caption": "stabileo.com/research: each page states what it reproduces and how it was checked."},
         {
           "k": "p",
           "t": "The live paper pages cover Shauer (2025) phase-field fracture; Grossman and Boudaoud (2026) spring networks; Andreassen et al. (2011) topology optimization; Ferrari and Sigmund (2025) Roorda-frame stability; Pastrana et al. (2026) cable-net form finding; Zmyślony, Khan and Biggins (2026) snapping arches; and Fairclough et al. (2026) gridshells."
@@ -74,6 +75,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "We corrected the Mattiasson references and treatment of axial extension (#845), a rigid-jointed frame compared against an axial-only truss formula (#846), and incorrect shell support and loading models (#810). We are changing how benchmarks are built so this class of mistake can't pass again. The first part is in: each benchmark is a specification with two independent references that must agree, and automatic checks of applied load, reaction balance and symmetry, including half-model against full-model. We are adding convergence over three or more meshes, a sign-error test that proves each benchmark can fail, and engineer sign-off on the core set."
         },
+        {"k": "img", "base": "blog/research-mattiasson", "w": 1600, "h": 1000, "alt": "The Mattiasson (1981) cantilever elastica benchmark page, Results tab: a plot of u/L and v/L against PL²/EI with Stabileo’s curves and circles for the analytical references, and a table of the values with their relative errors. On the left, “5 of 5 checks pass” and “Research, not a design tool”.", "caption": "The corrected Mattiasson page: the engine’s response against two independent analytical references."},
         {
           "k": "p",
           "t": "We are also building units into the type system (#864), so kN/N or m/mm mix-ups are caught at compile time. The first slice, for the material and section path of 2D frames, landed on 3 November."
@@ -86,6 +88,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Stabileo Tools now has free calculators for simply supported beams, cantilevers, elastic column buckling, continuous beams, single-bay portals, planar trusses, moving-load influence lines and beam bending frequencies. They use the production engine, show independent classical comparisons and state their assumptions. Each opens its model in the full editor. These are analysis tools, not complete code design checks."
         },
+        {"k": "img", "base": "blog/tools", "w": 1600, "h": 1000, "alt": "The Stabileo Tools page, “Free engineering calculators”, opening with the simply supported beam calculator: a beam under a distributed load with its deflected shape and an Open button.", "caption": "stabileo.com/tools: eight calculators on the production engine."},
         {
           "k": "h",
           "t": "Containing wrong results"
@@ -139,6 +142,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Estamos llevando artículos publicados de ingeniería estructural y benchmarks clásicos al navegador, con el visor de Stabileo. Cada página indica qué reproduce, cómo lo verificamos y los límites de la comparación. Estamos completando las páginas que todavía muestran comparaciones pendientes."
         },
+        {"k": "img", "base": "blog/research", "w": 1600, "h": 1000, "alt": "La página de Stabileo Research, «Investigación en ingeniería estructural», con la nota de que es investigación y no una herramienta de diseño, y la primera entrada ejecutable, el pórtico de Lee (1968), con su trayectoria de carga.", "caption": "stabileo.com/research: cada página dice qué reproduce y cómo se verificó."},
         {
           "k": "p",
           "t": "Las páginas de artículos disponibles cubren fractura de campo de fase de Shauer (2025); redes de resortes de Grossman y Boudaoud (2026); optimización topológica de Andreassen et al. (2011); estabilidad del pórtico de Roorda de Ferrari y Sigmund (2025); búsqueda de forma de redes de cables de Pastrana et al. (2026); arcos con salto de Zmyślony, Khan y Biggins (2026); y estructuras reticuladas de Fairclough et al. (2026)."
@@ -185,6 +189,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Corregimos las referencias de Mattiasson y el tratamiento del alargamiento axial (#845), un pórtico de nudos rígidos comparado con una fórmula de reticulado puramente axial (#846) y modelos incorrectos de apoyos y cargas en láminas (#810). Estamos cambiando cómo se construyen los benchmarks para que esta clase de error no vuelva a pasar. La primera parte ya está incorporada: cada benchmark es una especificación con dos referencias independientes que deben coincidir y controles automáticos de carga aplicada, equilibrio de reacciones y simetría, incluidas comparaciones entre medio modelo y modelo completo. Estamos agregando convergencia en tres o más mallas, una prueba con error de signo que demuestra que cada benchmark puede fallar y la aprobación de un ingeniero para el conjunto principal."
         },
+        {"k": "img", "base": "blog/research-mattiasson", "w": 1600, "h": 1000, "alt": "La página del benchmark de la elástica de Mattiasson (1981), pestaña Resultados: un gráfico de u/L y v/L en función de PL²/EI con las curvas de Stabileo y círculos para las referencias analíticas, y una tabla de valores con sus errores relativos. A la izquierda, 5 de 5 verificaciones aprobadas y la nota de que es investigación, no una herramienta de diseño.", "caption": "La página de Mattiasson corregida: la respuesta del motor contra dos referencias analíticas independientes."},
         {
           "k": "p",
           "t": "También estamos incorporando unidades al sistema de tipos (#864), para detectar confusiones entre kN/N o m/mm al compilar. La primera parte, para el camino de materiales y secciones de los pórticos 2D, se integró el 3 de noviembre."
@@ -197,6 +202,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Stabileo Tools tiene calculadoras gratuitas de vigas simplemente apoyadas, ménsulas, pandeo elástico de columnas, vigas continuas, pórticos de un vano, reticulados planos, líneas de influencia de cargas móviles y frecuencias de flexión de vigas. Usan el motor de producción, muestran comparaciones clásicas independientes y explicitan sus hipótesis. Cada una abre su modelo en el editor completo. Son herramientas de análisis, no verificaciones normativas completas."
         },
+        {"k": "img", "base": "blog/tools", "w": 1600, "h": 1000, "alt": "La página de Stabileo Tools, «Calculadoras de ingeniería gratuitas», que empieza con la calculadora de viga simplemente apoyada: una viga bajo carga distribuida con su deformada y un botón para abrirla.", "caption": "stabileo.com/tools: ocho calculadoras sobre el motor de producción."},
         {
           "k": "h",
           "t": "Contener los resultados incorrectos"
@@ -250,6 +256,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Estamos trazendo artigos publicados de engenharia estrutural e benchmarks clássicos ao navegador, com o visualizador do Stabileo. Cada página informa o que reproduz, como verificamos os resultados e os limites da comparação. Estamos concluindo as páginas que ainda mostram comparações pendentes."
         },
+        {"k": "img", "base": "blog/research", "w": 1600, "h": 1000, "alt": "A página do Stabileo Research, «Pesquisa em engenharia estrutural», com a nota de que é pesquisa e não uma ferramenta de projeto, e a primeira entrada executável, o pórtico de Lee (1968), com sua trajetória de carga.", "caption": "stabileo.com/research: cada página diz o que reproduz e como foi verificada."},
         {
           "k": "p",
           "t": "As páginas de artigos disponíveis cobrem fratura por campo de fase de Shauer (2025); redes de molas de Grossman e Boudaoud (2026); otimização topológica de Andreassen et al. (2011); estabilidade do pórtico de Roorda de Ferrari e Sigmund (2025); busca de forma de redes de cabos de Pastrana et al. (2026); arcos com salto de Zmyślony, Khan e Biggins (2026); e cascas reticuladas de Fairclough et al. (2026)."
@@ -296,6 +303,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Corrigimos as referências de Mattiasson e o tratamento do alongamento axial (#845), um pórtico de nós rígidos comparado com uma fórmula de treliça puramente axial (#846) e modelos incorretos de apoios e cargas em cascas (#810). Estamos mudando como os benchmarks são construídos para que essa classe de erro não volte a passar. A primeira parte já está incorporada: cada benchmark é uma especificação com duas referências independentes que devem concordar e verificações automáticas de carga aplicada, equilíbrio das reações e simetria, incluindo comparações entre meio modelo e modelo completo. Estamos adicionando convergência em três ou mais malhas, um teste com erro de sinal que comprova que cada benchmark pode falhar e a aprovação de um engenheiro para o conjunto principal."
         },
+        {"k": "img", "base": "blog/research-mattiasson", "w": 1600, "h": 1000, "alt": "A página do benchmark da elástica de Mattiasson (1981), aba Resultados: um gráfico de u/L e v/L em função de PL²/EI com as curvas do Stabileo e círculos para as referências analíticas, e uma tabela de valores com seus erros relativos. À esquerda, 5 de 5 verificações aprovadas e a nota de que é pesquisa, não uma ferramenta de projeto.", "caption": "A página de Mattiasson corrigida: a resposta do motor contra duas referências analíticas independentes."},
         {
           "k": "p",
           "t": "Também estamos incorporando unidades ao sistema de tipos (#864), para detectar confusões entre kN/N ou m/mm na compilação. A primeira parte, para o caminho de materiais e seções dos pórticos 2D, foi integrada em 3 de novembro."
@@ -308,6 +316,7 @@ export const researchToolsAndCheckingOurTests: Post = {
           "k": "p",
           "t": "Stabileo Tools tem calculadoras gratuitas para vigas biapoiadas, balanços, flambagem elástica de pilares, vigas contínuas, pórticos de um vão, treliças planas, linhas de influência de cargas móveis e frequências de flexão de vigas. Usam o motor de produção, mostram comparações clássicas independentes e declaram suas hipóteses. Cada uma abre seu modelo no editor completo. São ferramentas de análise, não verificações normativas completas."
         },
+        {"k": "img", "base": "blog/tools", "w": 1600, "h": 1000, "alt": "A página do Stabileo Tools, «Calculadoras de engenharia gratuitas», que começa com a calculadora de viga simplesmente apoiada: uma viga sob carga distribuída com sua deformada e um botão para abri-la.", "caption": "stabileo.com/tools: oito calculadoras sobre o motor de produção."},
         {
           "k": "h",
           "t": "Conter resultados errados"
