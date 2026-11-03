@@ -78,14 +78,14 @@ export function cholesky(a: Mat): Mat {
 }
 
 /** Eigenvalues and eigenvectors (columns) of a symmetric matrix, by cyclic Jacobi rotations. */
-export function symmetricEigen(a0: Mat): { values: number[]; vectors: Mat } {
+export function symmetricEigen(a0: Mat, maxSweeps = 100): { values: number[]; vectors: Mat } {
   const n = a0.length;
   const big = a0.reduce((acc, r) => r.reduce((m, x) => Math.max(m, Math.abs(x)), acc), 0);
   const f = big > 0 && Number.isFinite(big) ? 2 ** Math.max(-1000, Math.min(1000, -Math.round(Math.log2(big)))) : 1;
   const a = a0.map((r) => r.map((x) => x * f));
   const scaled = a.map((r) => [...r]);
   const v = identity(n);
-  for (let sweep = 0; sweep < 100; sweep++) {
+  for (let sweep = 0; sweep < maxSweeps; sweep++) {
     const small = (p: number, q: number) => Math.abs(a[p][q]) <= 1e-15 * Math.sqrt(Math.abs(a[p][p])) * Math.sqrt(Math.abs(a[q][q]));
     let done = true;
     for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }

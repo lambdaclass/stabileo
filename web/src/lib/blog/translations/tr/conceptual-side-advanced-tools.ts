@@ -94,7 +94,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Hiperstatiklik derecesi formülü GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0 verir. Sıfır izostatik demektir ve formülde duran her program tam olarak bunu bildirir. Ancak kirişi yatay olarak tutan hiçbir şey yok: bir mekanizmadır ve çözülemez."
+      "t": "Hiperstatiklik derecesi formülü GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 = 0 verir. Sıfır izostatik demektir ve formülde duran her program tam olarak bunu bildirir. Ancak kirişi yatay olarak tutan hiçbir şey yok: bir mekanizmadır ve çözülemez."
     },
     {
       "k": "table",

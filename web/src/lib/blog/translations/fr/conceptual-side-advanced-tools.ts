@@ -94,7 +94,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "La formule du degré d'hyperstaticité donne GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 − 0 = 0. Zéro signifie isostatique, et tout programme qui s'arrête à la formule annoncera exactement cela. Mais rien ne retient la poutre horizontalement : c'est un mécanisme, et elle ne peut pas être calculée."
+      "t": "La formule du degré d'hyperstaticité donne GH = 3·m + r − 3·n − c = 3×2 + 3 − 3×3 = 0. Zéro signifie isostatique, et tout programme qui s'arrête à la formule annoncera exactement cela. Mais rien ne retient la poutre horizontalement : c'est un mécanisme, et elle ne peut pas être calculée."
     },
     {
       "k": "table",

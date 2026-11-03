@@ -46,6 +46,17 @@ describe('a small linear program', () => {
     if (e.status === 'optimal') expect(e.x[0]).toBeCloseTo(0.5, 12);
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '=', b: -1e-8 }] }).status).toBe('infeasible');
   });
+  it('refuses a unit infeasibility beside an unrelated huge variable, whatever the costs', () => {
+    for (const c of [[0, 0], [1, 1], [-1, 0]]) {
+      const r = solveLp({ c, rows: [{ a: [1, 0], op: '<=', b: 0 }, { a: [1, 0], op: '=', b: 1 }, { a: [0, 1], op: '=', b: 1e12 }] });
+      expect(r.status).toBe('infeasible');
+    }
+    const g = solveLp({ c: [0, 0], rows: [{ a: [1, 0], op: '>=', b: 1 }, { a: [1, 0], op: '<=', b: 0 }, { a: [0, 1], op: '>=', b: 1e12 }] });
+    expect(g.status).toBe('infeasible');
+    const ok = solveLp({ c: [0, 0], rows: [{ a: [1, 0], op: '<=', b: 1 }, { a: [1, 0], op: '=', b: 1 }, { a: [0, 1], op: '=', b: 1e12 }] });
+    expect(ok.status).toBe('optimal');
+    if (ok.status === 'optimal') { expect(ok.x[0]).toBe(1); expect(ok.x[1]).toBe(1e12); }
+  });
   it('keeps the smaller ratio when two rows tie within the absolute noise of tiny right-hand sides', () => {
     const r = solveLp({ c: [-1], rows: [{ a: [1], op: '<=', b: 2e-10 }, { a: [1], op: '<=', b: 1e-10 }] });
     expect(r.status).toBe('optimal');

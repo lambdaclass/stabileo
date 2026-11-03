@@ -42,6 +42,39 @@ const G5 = [
   [0, 0.5688888888888889], [0.5384693101056831, 0.4786286704993665], [0.906179845938664, 0.2369268850561891],
 ] as const;
 
+const MAX_PANELS = 4096;
+
+/**
+ * Gauss points and weights over [a, b] for integrands built from e^{±k·x} (`decaying`, tension) or sin/cos of k·x.
+ * Decaying kernels peak at the interval ends, so the panels grow geometrically away from both ends and their number
+ * only grows with log(k·(b − a)). Null when an oscillating integrand needs more than MAX_PANELS panels.
+ */
+export function quadrature(a: number, b: number, k: number, decaying: boolean): Array<[number, number]> | null {
+  if (!(b > a)) return [];
+  const edges: number[] = [];
+  if (decaying) {
+    const half = (b - a) / 2;
+    const h0 = k > 0 ? Math.min(half, 1 / (4 * k)) : half;
+    const steps = [0];
+    for (let h = h0, t = h0; t < half; h *= 1.25, t += h) steps.push(t);
+    steps.push(half);
+    for (const t of steps) edges.push(a + t);
+    for (let i = steps.length - 2; i >= 0; i--) edges.push(b - steps[i]);
+  } else {
+    const parts = Math.max(2, Math.ceil(4 * k * (b - a)));
+    if (parts > MAX_PANELS) return null;
+    for (let j = 0; j <= parts; j++) edges.push(a + ((b - a) * j) / parts);
+  }
+  const out: Array<[number, number]> = [];
+  for (let i = 0; i + 1 < edges.length; i++) {
+    const lo = edges[i], hi = edges[i + 1];
+    if (!(hi > lo)) continue;
+    const c = (lo + hi) / 2, h = hi - lo;
+    for (const [g, w] of G5) out.push([c + (h / 2) * g, (w * h) / 2]);
+  }
+  return out;
+}
+
 /**
  * The transverse equivalent end loads [Vᵢ, Mᵢ, Vⱼ, Mⱼ] along local v and θ (the member's own axes,
  * uncondensed) of `loads` under the axial force N, tension positive. Null at a pole (the clamped
@@ -77,16 +110,12 @@ export function beamColumnEndLoads(m: Pick<PMember, 'L' | 'EI'>, N: number, load
     } else if (l.kind === 'dist') {
       const { a, b, qa, qb } = l;
       if (!(b > a)) continue;
-      const parts = Math.max(4, Math.ceil(2 * k * (b - a)));
-      const h = (b - a) / parts;
-      for (let j = 0; j < parts; j++) {
-        const c = a + h * (j + 0.5);
-        for (const [g, w] of G5) {
-          const x = c + (h / 2) * g;
-          const q = qa + ((qb - qa) * (x - a)) / (b - a);
-          const s = shape(x);
-          for (let i = 0; i < 4; i++) out[i] += (w * h / 2) * q * s[i];
-        }
+      const pts = quadrature(a, b, k, mu < 0);
+      if (!pts) return null;
+      for (const [x, w] of pts) {
+        const q = qa + ((qb - qa) * (x - a)) / (b - a);
+        const s = shape(x);
+        for (let i = 0; i < 4; i++) out[i] += w * q * s[i];
       }
     }
   }

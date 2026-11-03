@@ -95,3 +95,27 @@ describe('a horizontal-only point mass on an inclined roller', () => {
     expect(omega[0] / ref[0]).toBeCloseTo(1, 8);
   });
 });
+
+describe('a rotational inertia at a node', () => {
+  it('goes on the rotation diagonal, and changing only it changes the frequencies as det(K − ω²M) = 0 says', () => {
+    cantilever();
+    const opts = { nPerMember: 1, massModel: 'lumped' as const, barMass: false };
+    const bare = modelSystem(modelStore.model, [{ nodeId: 2, m: 2 }], opts);
+    const spun = modelSystem(modelStore.model, [{ nodeId: 2, m: 2, izz: 0.7 }], opts);
+    const iz = spun.fullDofs.findIndex((d) => d.nodeId === 2 && d.dir === 'uz');
+    const ir = spun.fullDofs.findIndex((d) => d.nodeId === 2 && d.dir === 'ry');
+    expect(spun.fullM[ir][ir]).toBeCloseTo(0.7, 12);
+    expect(bare.dofs.some((d) => d.dir === 'ry')).toBe(false);
+    expect(spun.dofs.some((d) => d.dir === 'ry')).toBe(true);
+    const K = spun.fullK;
+    const kzz = K[iz][iz], kzr = K[iz][ir], krr = K[ir][ir];
+    const a = 2 * 0.7, b = -(kzz * 0.7 + krr * 2), c = kzz * krr - kzr * kzr;
+    const w2 = (-b - Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+    const omega = (s: typeof spun) => modalSolve(s.K, s.M, s.dofs, s.ground).modes.map((q) => q.omega);
+    const bending = omega(spun).filter((w) => Math.abs(w * w - w2) / w2 < 1e-9);
+    expect(bending).toHaveLength(1);
+    const w0 = Math.sqrt((kzz - (kzr * kzr) / krr) / 2);
+    expect(Math.min(...omega(bare).map((w) => Math.abs(w - w0) / w0))).toBeLessThan(1e-9);
+    expect(Math.sqrt(w2)).toBeLessThan(w0 * (1 - 1e-3));
+  });
+});

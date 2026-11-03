@@ -45,6 +45,23 @@ describe('beam-column span loads at N = 0 are the first-order fixed-end actions'
   }
 });
 
+describe('beam-column span loads under large tension', () => {
+  const m = { id: 1, L, EI, EA: 1e6, truss: false, hingeI: false, hingeJ: false } as unknown as PMember;
+  const w = 4;
+  for (const kL of [20, 1e3, 1e7]) {
+    it(`kL = ${kL}: the fixed-end moment of a uniform load is (wL²/12)·3(u − tanh u)/(u² tanh u), u = kL/2, in bounded work`, () => {
+      const k = kL / L, T = EI * k * k, u = kL / 2;
+      const t0 = performance.now();
+      const got = beamColumnEndLoads(m, T, [{ kind: 'dist', member: 1, a: 0, b: L, qa: w, qb: w }])!;
+      expect(performance.now() - t0).toBeLessThan(2000);
+      const exact = (w * L * L) / 12 * (3 * (u - Math.tanh(u))) / (u * u * Math.tanh(u));
+      expect(Math.abs(Math.abs(got[1]) - exact) / exact).toBeLessThan(1e-8);
+      expect(Math.abs(Math.abs(got[3]) - exact) / exact).toBeLessThan(1e-8);
+      expect(Math.abs(Math.abs(got[0]) - (w * L) / 2) / ((w * L) / 2)).toBeLessThan(1e-8);
+    });
+  }
+});
+
 describe('φ with span loads against the closed-form beam-column', () => {
   const w = 4, Q = 10;
   const u = (P: number) => (L / 2) * Math.sqrt(Math.abs(P) / EI);

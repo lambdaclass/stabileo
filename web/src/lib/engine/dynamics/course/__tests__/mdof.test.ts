@@ -172,4 +172,12 @@ describe('an unfinished eigen solve is an error, not frequencies', () => {
     const A = [[1, Infinity], [Infinity, 1]];
     expect(() => symmetricEigen(A)).toThrow();
   });
+
+  it('a finite matrix whose sweeps run out before convergence is refused by the residual check', () => {
+    const A = [[4, 1, 0.5, 0.2], [1, 3, 0.7, 0.1], [0.5, 0.7, 2, 0.3], [0.2, 0.1, 0.3, 1]];
+    expect(() => symmetricEigen(A, 0)).toThrow();
+    expect(() => symmetricEigen(A, 1)).toThrow();
+    const ok = symmetricEigen(A);
+    expect(ok.values.every(Number.isFinite)).toBe(true);
+  });
 });

@@ -1,11 +1,6 @@
 import type { ElementForces } from '../types';
 import { computeDiagramValueAt } from '../diagrams';
-import { basis } from './beam-column-loads';
-
-const G5 = [
-  [-0.906179845938664, 0.2369268850561891], [-0.5384693101056831, 0.4786286704993665],
-  [0, 0.5688888888888889], [0.5384693101056831, 0.4786286704993665], [0.906179845938664, 0.2369268850561891],
-] as const;
+import { basis, quadrature } from './beam-column-loads';
 
 type Diagram = Pick<ElementForces, 'mStart' | 'mEnd' | 'vStart' | 'vEnd' | 'nStart' | 'nEnd' | 'qI' | 'qJ' | 'length' | 'pointLoads' | 'distributedLoads' | 'distributedLoadsX'>;
 
@@ -17,19 +12,14 @@ function breaks(ef: Diagram): number[] {
   return out.filter((x) => x >= 0 && x <= L);
 }
 
-function integrate(lo: number, hi: number, cuts: number[], k: number, f: (x: number) => number): number {
+function integrate(lo: number, hi: number, cuts: number[], k: number, decaying: boolean, f: (x: number) => number): number {
   if (!(hi > lo)) return 0;
   const pts = [lo, hi, ...cuts.filter((c) => c > lo && c < hi)].sort((a, b) => a - b);
   let sum = 0;
   for (let i = 0; i + 1 < pts.length; i++) {
-    const a = pts[i], b = pts[i + 1];
-    if (!(b > a)) continue;
-    const parts = Math.max(2, Math.ceil(4 * k * (b - a)));
-    const h = (b - a) / parts;
-    for (let j = 0; j < parts; j++) {
-      const c = a + h * (j + 0.5);
-      for (const [g, w] of G5) sum += (w * h) / 2 * f(c + (h / 2) * g);
-    }
+    const q = quadrature(pts[i], pts[i + 1], k, decaying);
+    if (!q) return NaN;
+    for (const [x, w] of q) sum += w * f(x);
   }
   return sum;
 }
@@ -62,7 +52,7 @@ export function interiorMoments(ef: Diagram, EI: number, compression: number, xs
   const DL = compression * dv;
   if (!(mu > 0 && k * L > 2.5) || (thetaI === null && thetaJ === null)) {
     const { G, ramp } = dirichlet(mu, L);
-    const out = xs.map((x) => M0(x) + DL * ramp(x) + mu * integrate(0, L, [...cuts, x], k, (s) => (s <= x ? G(s, x) : G(x, s)) * M0(s)));
+    const out = xs.map((x) => M0(x) + DL * ramp(x) + mu * integrate(0, L, [...cuts, x], k, mu < 0, (s) => (s <= x ? G(s, x) : G(x, s)) * M0(s)));
     return out.every(Number.isFinite) ? out : null;
   }
   const fromStart = thetaI !== null;
@@ -71,7 +61,7 @@ export function interiorMoments(ef: Diagram, EI: number, compression: number, xs
   const out = xs.map((x) => {
     const y = fromStart ? x : L - x;
     const b = basis(mu, y);
-    const part = integrate(0, y, cutsM, k, (s) => basis(mu, y - s).s1 * -mu * M0m(s));
+    const part = integrate(0, y, cutsM, k, false, (s) => basis(mu, y - s).s1 * -mu * M0m(s));
     const free = fromStart ? compression * thetaI! * b.s1 : DL * (1 - mu * b.b2) - compression * thetaJ! * b.s1;
     return M0(x) + part + free;
   });

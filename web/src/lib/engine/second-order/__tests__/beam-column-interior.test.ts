@@ -30,6 +30,28 @@ describe('the moment inside a member under its axial force, from the beam-column
   }
 });
 
+describe('the moment inside a member in tension, against the closed form of a pin-ended beam under a uniform load', () => {
+  const L = 4, q = 3;
+  const ef = { mStart: 0, mEnd: 0, vStart: -q * L / 2, vEnd: q * L / 2, nStart: 0, nEnd: 0, qI: q, qJ: q, length: L, pointLoads: [], distributedLoads: [{ a: 0, b: L, qI: q, qJ: q }] };
+  const exact = (k: number, x: number) => {
+    const d = Math.abs(x - L / 2);
+    return (q / (k * k)) * (1 - (Math.exp(k * (d - L / 2)) * (1 + Math.exp(-2 * k * d))) / (1 + Math.exp(-k * L)));
+  };
+  const xs = [0, 0.05, 0.2, 0.37, 0.5, 0.81, 0.99, 1].map((t) => t * L);
+  for (const kL of [0.5, 1.5, 8, 40, 1e3, 1e7]) {
+    it(`kL = ${kL}: M = (q/k²)·(1 − cosh k(x − L/2)/cosh(kL/2)), zero at both ends, within 1e-9 of the first-order moment, in bounded work`, () => {
+      const k = kL / L, T = EI * k * k;
+      const t0 = performance.now();
+      const got = interiorMoments(ef, EI, -T, xs, null, null)!;
+      expect(performance.now() - t0).toBeLessThan(2000);
+      const tol = 1e-8 * (q / (k * k)) + 1e-9 * (q * L * L / 8);
+      expect(Math.abs(got[0])).toBeLessThan(tol);
+      expect(Math.abs(got[xs.length - 1])).toBeLessThan(tol);
+      got.forEach((m, i) => expect(Math.abs(m - exact(k, xs[i]))).toBeLessThan(tol));
+    });
+  }
+});
+
 describe('φ draws the second-order moment inside a member', () => {
   const L = 5, w = 4;
   const Pe = (Math.PI ** 2 * EI) / (L * L);

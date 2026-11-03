@@ -19,6 +19,7 @@ export type LpResult =
   | { status: 'infeasible' | 'unbounded' | 'iterationLimit' | 'inaccurate' };
 
 const EPS = 1e-9;
+const ROUND = 64 * Number.EPSILON;
 const MAX_ITER = 5000;
 
 export function solveLp(p: LpProblem): LpResult {
@@ -40,8 +41,10 @@ export function solveLp(p: LpProblem): LpResult {
   const basis: number[] = [];
   let si = nx, ai = nx + nSlack;
   const artCols: number[] = [];
+  const artRow = new Map<number, number>();
   const unitCol: Array<{ k: number; s: 1 | -1 }> = [];
   for (const r of rows) {
+    if (r.op !== '<=') artRow.set(ai, T.length);
     const row = new Array(width).fill(0);
     cols.forEach((c, k) => { row[k] = c.s * (r.a[c.v] ?? 0); });
     row[width - 1] = r.b;
@@ -51,8 +54,7 @@ export function solveLp(p: LpProblem): LpResult {
     T.push(row);
   }
   const A0 = T.map((r) => r.slice(0, nx));
-  let bScale = 0;
-  for (const r of T) bScale = Math.max(bScale, Math.abs(r[width - 1]));
+  const b0 = T.map((r) => r[width - 1]);
   const rowTol = (row: number[]) => {
     let m = 0;
     for (let k = 0; k < width - 1; k++) m = Math.max(m, Math.abs(row[k]));
@@ -102,9 +104,16 @@ export function solveLp(p: LpProblem): LpResult {
     const cost1 = new Array(width).fill(0);
     for (const a of artCols) cost1[a] = 1;
     if (run(cost1, () => true) === 'iterationLimit') return { status: 'iterationLimit' };
-    let infeas = 0;
-    for (let r = 0; r < T.length; r++) if (artCols.includes(basis[r])) infeas += T[r][width - 1];
-    if (infeas > 1e-9 * Math.max(bScale, 1e-300)) return { status: 'infeasible' };
+    const xc = new Array(nx).fill(0);
+    for (let r = 0; r < T.length; r++) if (basis[r] < nx) xc[basis[r]] = T[r][width - 1];
+    const xs = Math.max(...xc.map(Math.abs), 0);
+    for (let r = 0; r < T.length; r++) {
+      const i = artRow.get(basis[r]);
+      if (i === undefined) continue;
+      let scale = Math.abs(b0[i]), norm = 0;
+      for (let k = 0; k < nx; k++) { scale += Math.abs(A0[i][k] * xc[k]); norm += Math.abs(A0[i][k]); }
+      if (T[r][width - 1] > 1e-9 * scale + ROUND * norm * xs + 1e-300) return { status: 'infeasible' };
+    }
     for (let r = 0; r < T.length; r++) {
       if (!artCols.includes(basis[r])) continue;
       const tol = rowTol(T[r]);
@@ -155,10 +164,17 @@ function optimalDual(rows: LpRow[], A: number[][], c: number[], y: number[], val
 /** The returned x checked against the problem as given: every row and every sign bound, to a tolerance scaled by its terms. */
 function satisfies(p: LpProblem, x: number[], free: boolean[]): boolean {
   const xs = Math.max(...x.map(Math.abs), 0);
-  if (x.some((v, j) => !free[j] && v < -1e-9 * Math.max(xs, 1e-300))) return false;
-  return p.rows.every((r) => {
+  const scale = p.rows.map((r) => Math.abs(r.b) + r.a.reduce((s, a, j) => s + Math.abs(a * (x[j] ?? 0)), 0));
+  const norm = p.rows.map((r) => r.a.reduce((s, a) => s + Math.abs(a), 0));
+  for (let j = 0; j < x.length; j++) {
+    if (free[j] || x[j] >= 0) continue;
+    let bound = 0;
+    p.rows.forEach((r, i) => { const a = Math.abs(r.a[j] ?? 0); if (a > 0) bound = Math.max(bound, scale[i] / a); });
+    if (-x[j] > 1e-9 * bound + ROUND * xs + 1e-300) return false;
+  }
+  return p.rows.every((r, i) => {
     const ax = r.a.reduce((s, a, j) => s + a * (x[j] ?? 0), 0);
-    const tol = 1e-7 * (Math.abs(r.b) + r.a.reduce((s, a, j) => s + Math.abs(a * (x[j] ?? 0)), 0)) + 1e-12 * Math.max(...r.a.map(Math.abs), 0) * xs + 1e-300;
+    const tol = 1e-7 * scale[i] + ROUND * norm[i] * xs + 1e-300;
     return r.op === '<=' ? ax <= r.b + tol : r.op === '>=' ? ax >= r.b - tol : Math.abs(ax - r.b) <= tol;
   });
 }

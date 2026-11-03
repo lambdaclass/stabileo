@@ -119,7 +119,10 @@ export function modelSystem(model: ModelData, points: readonly PointMass[], opts
   const frameAngle = new Map(det.nodeFrames.map((f) => [f.nodeId, f.angle]));
   const indexOf = (nodeId: number, ld: number) => det.dofNumbering.dofs.find((d) => d.nodeId === nodeId && d.localDof === ld)?.globalIndex;
   for (const p of points) {
-    if (!(p.m > 0) || !input.nodes.has(p.nodeId)) continue;
+    if (!input.nodes.has(p.nodeId)) continue;
+    const ir = indexOf(p.nodeId, 2), J = p.izz ?? 0;
+    if (J > 0 && ir !== undefined) { Mt[ir][ir] += J; own[ir] = Math.max(own[ir], J); }
+    if (!(p.m > 0)) continue;
     const mz = p.horizontalOnly ? 0 : p.m;
     pts.push({ nodeId: p.nodeId, mx: p.m, mz });
     const ix = indexOf(p.nodeId, 0), iz = indexOf(p.nodeId, 1);

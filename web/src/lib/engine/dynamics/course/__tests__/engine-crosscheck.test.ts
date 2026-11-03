@@ -108,6 +108,12 @@ describe('point masses in Basic reach the engine', () => {
     expect(mine).toBeCloseTo(after, 6);
   });
 
+  it('a rotational inertia at the tip is not taken for the bare exact cantilever', () => {
+    cantilever(3);
+    expect(exactBeam(modelStore.model, [{ nodeId: 2, m: 0, izz: 0.5 }])).toBeNull();
+    expect(exactBeam(modelStore.model, [{ nodeId: 2, m: 0, izz: 0 }])).not.toBeNull();
+  });
+
   it('a cantilever propped by a spring is not taken for the exact cantilever', () => {
     cantilever(3);
     modelStore.addSupport(2, 'spring', { ky: 500 });

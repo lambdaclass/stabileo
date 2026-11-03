@@ -113,3 +113,16 @@ describe('P-Δ without compression, and past buckling', () => {
   });
 });
 
+
+describe('a geometric matrix that cannot represent the buckling mode', () => {
+  it('one pin-ended column with the chord matrix has no finite positive λ: the document stops with the reason, and no critical load, K or Euler check is computed from it', () => {
+    const input = column('pinned', 'rollerZ', 5, 200);
+    const doc = methodById('so-buckling-kg')!.build!(ctxOf(input, { chord: true }));
+    const text = JSON.stringify(doc);
+    expect(text).toContain('course.second-order.refuse.noModeRepresented');
+    expect(text).not.toMatch(/NaN|Infinity/);
+    expect(keys(doc)).not.toContain('course.second-order.doc.bk.modes.title');
+    const ok = methodById('so-buckling-kg')!.build!(ctxOf(input));
+    expect(JSON.stringify(ok)).not.toContain('course.second-order.refuse.noModeRepresented');
+  });
+});

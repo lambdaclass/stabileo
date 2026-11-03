@@ -38,7 +38,7 @@ const holdsX = (t: string) => t === 'fixed' || t === 'pinned' || t === 'rollerZ'
 const holdsZ = (t: string) => t === 'fixed' || t === 'pinned' || t === 'rollerX';
 
 export function exactBeam(model: ModelData, points: readonly PointMass[], count = 6): ExactBeam | null {
-  if (model.elements.size !== 1 || points.some((p) => p.m > 0)) return null;
+  if (model.elements.size !== 1 || points.some((p) => p.m > 0 || (p.izz ?? 0) > 0)) return null;
   if ((model.plates?.size ?? 0) || (model.quads?.size ?? 0) || (model.connectors?.size ?? 0) || (model.constraints?.length ?? 0)) return null;
   const e = [...model.elements.values()][0];
   if (e.type !== 'frame' || e.releaseI?.mz || e.releaseJ?.mz || e.variableSection) return null;

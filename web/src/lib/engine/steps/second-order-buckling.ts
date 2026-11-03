@@ -76,6 +76,10 @@ export function buildBucklingDoc(ctx: MethodContext, sys: SoSystem, id: string, 
 
   const compressed = sys.members.filter((m) => (N0.get(m.id) ?? 0) < 0);
   const l1 = modes[0]?.lambda ?? NaN;
+  if (!(Number.isFinite(l1) && l1 > 0)) {
+    const note = { kind: 'note' as const, tone: 'warn' as const, text: tx('course.second-order.refuse.noModeRepresented') };
+    return { method: id, title: tx(`steps.m.${id}.title`), intro: [note], steps: [...steps, { title: tx(`${P}.cannot`), blocks: [note] }] };
+  }
   if (method === 'phi') {
     const matBlocks: Block[] = [{ kind: 'p', text: tx(`${P}.bk.phi.what`) }, ...symbolicMatrix('phi'), { kind: 'eq', tex: '\\det \\mathbf{K}(\\lambda) = 0,\\qquad N_e = \\lambda\\,N_e^{(0)}' }];
     for (const m of compressed.slice(0, 4)) matBlocks.push({ kind: 'sub', title: tx(`${P}.bk.memberAt`, { name: m.name, lambda: num(l1) }), blocks: memberMatrixBlocks(sys, m, l1 * (N0.get(m.id) ?? 0), 'phi') });
