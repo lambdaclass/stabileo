@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Where a generated structure goes, as a paste does: with the mouse (its ghost follows the
    * pointer and snaps to nodes; R turns it, F mirrors it, Tab changes the anchor, Shift+click
@@ -263,7 +264,7 @@
 {:else}
 <div class="go-out" data-testid="gen-actions">
   {#if editingGroupId !== null}
-    <p class="go-hint">{t('generator.out.regenerateHint')}</p>
+    <Hint text={t('generator.out.regenerateHint')} />
     <button class="go" type="button" disabled={!canGenerate} onclick={regen} data-testid="gen-regenerate">{t('generator.out.regenerate')}</button>
   {:else if st.mode === 'atPoint'}
     {#if previewing}
@@ -294,7 +295,6 @@
   .go-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
   .go-modes { display: flex; gap: 12px; flex-wrap: wrap; font-size: 0.7rem; color: var(--st-text); }
   .go-mode { display: flex; gap: 4px; align-items: center; }
-  .go-hint { margin: 0; font-size: 0.62rem; color: var(--st-text-3); }
   /* Under the box column, where the field it explains starts. */
   .go-note, .go-schema { margin: 0 0 0 calc(var(--gr-l, 8.5rem) + 8px); }
   .go-note { font-size: 0.62rem; line-height: 1.4; color: var(--st-text-3); }

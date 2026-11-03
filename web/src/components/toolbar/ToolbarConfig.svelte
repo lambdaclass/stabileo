@@ -507,6 +507,16 @@
           <span>{t('config.designInPro')}</span>
         </label>
         <p class="cfg-hint">{t('config.designInProHint')}</p>
+        <label class="cfg-check">
+          <input
+            type="checkbox"
+            checked={uiStore.inlineHelp}
+            onchange={(e) => { uiStore.inlineHelp = e.currentTarget.checked; }}
+            data-testid="cfg-inline-help"
+          />
+          <span>{t('config.inlineHelp')}</span>
+        </label>
+        <p class="cfg-hint">{t('config.inlineHelpHint')}</p>
         <details class="cfg-limits" data-testid="cfg-design-limits">
           <summary>{t('config.designLimits.title')}</summary>
           <p class="cfg-hint">{t('config.designLimits.rule')}</p>

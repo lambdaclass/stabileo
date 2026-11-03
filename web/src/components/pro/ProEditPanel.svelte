@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { defaultShellMaterial } from '../../lib/pro/design-home';
   import { untrack } from 'svelte';
   /**
@@ -239,13 +240,13 @@
       <label>{t('edit.parts')} <input type="number" min="2" max="20" step="1" bind:value={parts} data-testid="ep-parts" /></label>
       <button class="pk-btn" onclick={doSubdivide} disabled={members.length === 0} data-testid="ep-subdivide">{t('edit.subdivide')}</button>
     </div>
-    <p class="pk-hint">{t('edit.cutNote')}</p>
+    <Hint text={t('edit.cutNote')} />
   </section>
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('edit.mergeTitle')}</h4>
     <button class="pk-btn" onclick={doMerge} data-testid="ep-merge">{t('edit.merge')}</button>
-    <p class="pk-hint">{t('edit.mergeNote')}</p>
+    <Hint text={t('edit.mergeNote')} />
   </section>
 
   <section class="pk-card">
@@ -254,7 +255,7 @@
       <button class="pk-btn" onclick={doPerpendicular} disabled={selNodes.length !== 1 || members.length !== 1} data-testid="ep-perpendicular">{t('edit.perpendicular')}</button>
       <button class="pk-btn" onclick={doMidpoints} disabled={members.length !== 2} data-testid="ep-midpoints">{t('edit.midpoints')}</button>
     </div>
-    <p class="pk-hint">{t('edit.constructNote')}</p>
+    <Hint text={t('edit.constructNote')} />
   </section>
 
   <section class="pk-card">
@@ -265,7 +266,7 @@
       <label>{t('edit.fillSize')} <QuantityInput min={0} bind:value={fillSize} quantity="length" cls="ep-num" /></label>
       <button class="pk-btn" onclick={doFill} disabled={scope.length < 3} data-testid="ep-fill">{t('edit.fill')}</button>
     </div>
-    <p class="pk-hint">{t('edit.fillNote')}</p>
+    <Hint text={t('edit.fillNote')} />
   </section>
 
   <section class="pk-card">
@@ -303,7 +304,7 @@
             {/each}
             {#if findings.overlaps.length > 12}<li class="pk-hint">{tp('edit.overlapMore', { n: findings.overlaps.length - 12 })}</li>{/if}
           </ul>
-          <p class="pk-hint">{t('edit.overlapHint')}</p>
+          <Hint text={t('edit.overlapHint')} />
         {/if}
       </li>
       <li>{tp('edit.found.zero', { n: findings.zero })} <button class="pk-btn" disabled={findings.zero === 0} onclick={() => (message = cleanupMessage(removeZeroLengthMembers()))}>{t('edit.fix')}</button></li>

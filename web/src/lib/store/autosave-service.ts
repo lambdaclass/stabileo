@@ -27,8 +27,10 @@
  */
 
 import { modelStore } from './model.svelte';
+import { uiStore } from './ui.svelte';
 import { saveAutosave } from './file';
 import type { AutosaveWriteResult } from './autosave-db';
+import { saveStatus } from './save-status.svelte';
 
 /** What prompted a save. Recorded so "when did this last save?" has a real answer. */
 export type AutosaveReason =
@@ -64,6 +66,7 @@ export function resetAutosaveService(): void {
   inFlight = null;
   pendingReason = null;
   last = null;
+  saveStatus.reset();
 }
 
 /**
@@ -79,6 +82,8 @@ function statesProjectData(): boolean {
 }
 
 export function requestAutosave(reason: AutosaveReason): Promise<AutosaveWriteResult | null> {
+  // An embedded or viewed link is someone else's model: it never takes the reader's autosave slot.
+  if (uiStore.embedMode || uiStore.viewerMode) return Promise.resolve(null);
   // A project with no nodes yet can still hold work: its grid and levels, its analysis rules, its
   // data. It is saved when it states any of that.
   if (modelStore.nodes.size === 0 && !statesProjectData()) return Promise.resolve(null);
@@ -92,8 +97,10 @@ export function requestAutosave(reason: AutosaveReason): Promise<AutosaveWriteRe
 }
 
 async function runOne(reason: AutosaveReason): Promise<AutosaveWriteResult | null> {
+  const mark = saveStatus.begin();
+  let result: AutosaveWriteResult | null = null;
   try {
-    const result = await saveAutosave();
+    result = await saveAutosave();
     last = {
       reason,
       at: new Date().toISOString(),
@@ -104,6 +111,7 @@ async function runOne(reason: AutosaveReason): Promise<AutosaveWriteResult | nul
     };
     return result;
   } finally {
+    saveStatus.end(mark, result);
     inFlight = null;
     const queued = pendingReason;
     pendingReason = null;

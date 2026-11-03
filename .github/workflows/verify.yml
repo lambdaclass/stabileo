@@ -13,11 +13,12 @@ name: Verify
 # (Kani's nightly tier included); a failure alerts (verification-alert.yml).
 
 on:
-  # Every pull request, so that lean, symbolic and kani can be required checks
-  # on main: a required check that never reports blocks the merge. The
-  # `changes` job skips them when nothing they check changed (a skipped job
-  # counts as passed for branch protection).
+  # Every pull request and merge-queue entry, so that lean, symbolic and kani
+  # can be required checks on main: a required check that never reports blocks
+  # the merge. The `changes` job skips them when nothing they check changed (a
+  # skipped job counts as passed for branch protection).
   pull_request:
+  merge_group:
   push:
     branches: [main]
   schedule:
@@ -33,30 +34,43 @@ env:
   VERIFY_PATHS: '^(verify/|engine/src/|engine/Cargo\.toml$|Cargo\.lock$|docs/verification/|tools/symbolic/|engine/tests/symbolic_elements\.rs$|flake\.(nix|lock)$|scripts/kani|\.github/workflows/verify\.yml$)'
 
 jobs:
-  # Pull requests only. If this job fails, the proofs run anyway (fail safe).
+  # Pull requests and merge-queue entries only. If this job fails, the proofs run anyway (fail safe).
   changes:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      contents: read
       pull-requests: read
     outputs:
       verify: ${{ steps.filter.outputs.verify }}
     steps:
+      - if: github.event_name == 'merge_group'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.merge_group.head_sha }}
+          fetch-depth: 1
       - id: filter
         env:
           GH_TOKEN: ${{ github.token }}
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
+          BASE: ${{ github.event.merge_group.base_sha }}
+          HEAD: ${{ github.event.merge_group.head_sha }}
         run: |
-          files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          if [ -n "$PR" ]; then
+            files=$(gh api "repos/$REPO/pulls/$PR/files" --paginate --jq '.[].filename')
+          else
+            git fetch -q --depth=1 --no-tags origin "$BASE"
+            files=$(git diff --name-only "$BASE" "$HEAD")
+          fi
           echo "$files"
           if grep -qE "$VERIFY_PATHS" <<<"$files"; then verify=true; else verify=false; fi
           echo "verify=$verify" | tee -a "$GITHUB_OUTPUT"
 
   lean:
     needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
+    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -70,6 +84,9 @@ jobs:
             .tools/elan
             verify/.lake
           key: lean-${{ runner.os }}-${{ hashFiles('verify/lean-toolchain', 'verify/lake-manifest.json') }}
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Fetch Mathlib build cache
         working-directory: verify
         run: nix develop ..#verify -c lake exe cache get
@@ -95,7 +112,7 @@ jobs:
   # generated test itself runs in ci.yml's engine suite.
   symbolic:
     needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
+    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -110,7 +127,7 @@ jobs:
 
   kani:
     needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
+    if: ${{ !cancelled() && ((github.event_name != 'pull_request' && github.event_name != 'merge_group') || needs.changes.result != 'success' || needs.changes.outputs.verify == 'true') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
@@ -122,18 +139,21 @@ jobs:
         with:
           path: .tools
           key: kani-${{ runner.os }}-${{ hashFiles('flake.lock', 'scripts/kani-setup.sh') }}
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Install Kani
         run: nix develop .#verify -c ./scripts/kani-setup.sh
       # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
       # per float-heavy harness, and the runner has 16 GB.
-      # Pull requests run the fast tier; the nightly schedule and manual runs
+      # Pull requests and the merge queue run the fast tier; the nightly schedule and manual runs
       # also run harnesses marked `// kani: nightly`.
       - name: Kani harnesses
         env:
           KANI_MEM_GB: 12
           # The nightly-tier harnesses take up to ~10 min locally, ~2x that on the runner.
-          KANI_TIMEOUT_S: ${{ github.event_name == 'pull_request' && 900 || 2400 }}
-          KANI_TIER: ${{ github.event_name == 'pull_request' && 'fast' || 'all' }}
+          KANI_TIMEOUT_S: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 900 || 2400 }}
+          KANI_TIER: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'fast' || 'all' }}
         run: nix develop .#verify -c ./scripts/kani-safe.sh
       - name: Kani report
         if: always()

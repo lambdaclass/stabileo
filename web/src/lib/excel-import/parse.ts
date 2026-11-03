@@ -29,10 +29,13 @@
  */
 
 import type { JSONModel } from '../templates/load-fixture';
+import { defaultLoadCases } from '../model/default-loads';
 import { profileByName as catalogueProfile, profileToSectionFull } from '../data/steel-profiles';
 import { t, tp } from '../i18n';
 import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
 import { unguardText } from '../export/workbook-cells';
+
+const DEFAULT_CASE_IDS = new Set(defaultLoadCases().map((c) => c.id));
 
 /**
  * A catalogue profile by the name a person would write.
@@ -730,7 +733,7 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     }
     const caseId = reqNum(row, 'case', 'Loads', problems);
     if (caseId === null) continue;
-    if (caseIds.size > 0 && !caseIds.has(caseId)) {
+    if (caseIds.size > 0 ? !caseIds.has(caseId) : !DEFAULT_CASE_IDS.has(caseId)) {
       problems.push({ sheet: 'Loads', row: row.n, message: tp('xls.err.caseMissing', { id: caseId }) });
       continue;
     }

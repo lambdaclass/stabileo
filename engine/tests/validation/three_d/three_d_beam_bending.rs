@@ -163,21 +163,21 @@ fn validation_3d_bending_ss_y() {
     let e_eff = E * 1000.0;
 
     let mid = n / 2 + 1;
-    let fixed = vec![true, true, true, true, true, true];
+    let pinned = vec![true, true, true, true, false, false];
     let roller = vec![false, true, true, false, false, false];
 
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: mid, fx: 0.0, fy: -p, fz: 0.0,
         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
     })];
-    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, Some(roller), loads);
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, pinned, Some(roller), loads);
     let results = linear::solve_3d(&input).unwrap();
 
     // δ_mid = PL³/(48EIz) for SS beam with center load
     let delta_exact = p * l * l * l / (48.0 * e_eff * IZ);
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap().uy.abs();
-    assert_close(d_mid, delta_exact, 0.05,
+    assert_close(d_mid, delta_exact, 1e-6,
         "SS 3D Y: δ = PL³/(48EIz)");
 }
 
@@ -193,21 +193,21 @@ fn validation_3d_bending_ss_z() {
     let e_eff = E * 1000.0;
 
     let mid = n / 2 + 1;
-    let fixed = vec![true, true, true, true, true, true];
+    let pinned = vec![true, true, true, true, false, false];
     let roller = vec![false, true, true, false, false, false];
 
     let loads = vec![SolverLoad3D::Nodal(SolverNodalLoad3D {
         node_id: mid, fx: 0.0, fy: 0.0, fz: -p,
         mx: 0.0, my: 0.0, mz: 0.0, bw: None,
     })];
-    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, fixed, Some(roller), loads);
+    let input = make_3d_beam(n, l, E, NU, A, IY, IZ, J, pinned, Some(roller), loads);
     let results = linear::solve_3d(&input).unwrap();
 
     // δ_mid = PL³/(48EIy) for SS beam with center load in Z
     let delta_exact = p * l * l * l / (48.0 * e_eff * IY);
     let d_mid = results.displacements.iter()
         .find(|d| d.node_id == mid).unwrap().uz.abs();
-    assert_close(d_mid, delta_exact, 0.05,
+    assert_close(d_mid, delta_exact, 1e-6,
         "SS 3D Z: δ = PL³/(48EIy)");
 }
 

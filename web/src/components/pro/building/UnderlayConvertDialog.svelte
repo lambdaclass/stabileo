@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Converting part of a template into members (`model/underlay-convert.ts`): the layers that hold
    * members and columns, the sections they take, the tolerance; then the plan, what it adds, what
@@ -79,7 +80,7 @@
     {#if Object.keys(plan.skipped).length || u.leftOut}
       <p class="cv-hint">{tp('convert.notConverted', { list: Object.entries({ ...(u.leftOut ?? {}), ...plan.skipped }).map(([k, n]) => `${k} ${n}`).join(', ') })}</p>
     {/if}
-    <p class="cv-hint">{t('convert.labelsNote')}</p>
+    <Hint text={t('convert.labelsNote')} />
     {#if result}<p class="cv-msg" data-testid="convert-result">{result}</p>{/if}
     <div class="cv-actions">
       <button class="cv-btn" onclick={onclose}>{t('plates.close')}</button>
