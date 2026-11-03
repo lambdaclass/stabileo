@@ -632,15 +632,14 @@ fn reported_buckling_741_818_plain_and_certified() {
     let result = solve_buckling_3d(&input, 1).unwrap();
     assert!((result.modes[0].load_factor - 4691.397553909858).abs() < 1e-6);
     assert_warning(&result.structured_diagnostics, "BU-ACCURACY", 818.0);
-    let certified = certify_buckling_3d(&input, 1).unwrap();
-    assert!(!certified.certificate.is_certified(), "{:?}", certified.certificate);
-    let dedaliano_engine::certify::buckling::BucklingCertificate::Uncertified { refusal: Some(dedaliano_engine::certify::buckling::BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }), .. } = certified.certificate else {
-        panic!("not a computedAboveUpperBound refusal: {:?}", certified.certificate);
+    let error = certify_buckling_3d(&input, 1).unwrap_err();
+    assert!(error.contains("BU-BOUND"), "{error}");
+    let certificate = dedaliano_engine::certify::buckling::buckling_certificate_3d(&input, 1).unwrap();
+    let dedaliano_engine::certify::buckling::BucklingCertificate::Uncertified { refusal: Some(dedaliano_engine::certify::buckling::BucklingRefusal::ComputedAboveUpperBound { lambda_computed, lambda_upper }), .. } = certificate else {
+        panic!("not a computedAboveUpperBound refusal: {certificate:?}");
     };
-    assert_eq!(lambda_computed, certified.results.modes[0].load_factor);
+    assert_eq!(lambda_computed, result.modes[0].load_factor);
     assert!(lambda_computed > lambda_upper, "{lambda_computed} {lambda_upper}");
-    assert_warning(&certified.results.structured_diagnostics, "BU-ACCURACY", 818.0);
-    assert!(dedaliano_engine::known_issues::buckling_bound(lambda_computed, 0.0, Some(lambda_upper)).unwrap_err().contains("BU-BOUND"));
 }
 
 #[test]

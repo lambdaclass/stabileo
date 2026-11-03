@@ -256,10 +256,12 @@ fn exact_pencil_positive(
 
 #[test]
 fn buckling_741_certificate_contains_reported_and_reference_factors() {
-    use dedaliano_engine::certify::buckling::{certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
-    use dedaliano_engine::solver::buckling::buckling_system_3d;
+    use dedaliano_engine::certify::buckling::{buckling_certificate_3d, certify_buckling_3d, BucklingCertificate, BucklingRefusal::ComputedAboveUpperBound};
+    use dedaliano_engine::solver::buckling::{buckling_system_3d, solve_buckling_3d};
     let input = buckling_741_input();
-    let out = certify_buckling_3d(&input, 3).unwrap();
+    assert!(certify_buckling_3d(&input, 3).unwrap_err().contains("BU-BOUND"));
+    let certificate = buckling_certificate_3d(&input, 3).unwrap();
+    let factor = solve_buckling_3d(&input, 3).unwrap().modes[0].load_factor;
     let sys = buckling_system_3d(&input).unwrap();
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 0.0));
     let (mut lo, mut hi) = (4600.0, 4800.0);
@@ -269,13 +271,12 @@ fn buckling_741_certificate_contains_reported_and_reference_factors() {
         let mid = (lo + hi) / 2.0;
         if exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, mid) { lo = mid; } else { hi = mid; }
     }
-    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {:.12}; certificate: {:?}", out.results.modes[0].load_factor, out.certificate);
+    eprintln!("exact-rational dense inertia eigenvalue bracket: [{lo:.12}, {hi:.12}]; reported: {factor:.12}; certificate: {certificate:?}");
     assert!(lo > 4688.9203 && hi < 4688.9204);
     assert!(exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4644.4835783707595));
     assert!(!exact_pencil_positive(&sys.k_ff, &sys.neg_kg_csc, 4688.92209616787));
-    let factor = out.results.modes[0].load_factor;
-    refusal_741_holds(&out.certificate, factor, &sys, hi).unwrap();
-    let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&out.certificate).unwrap();
+    refusal_741_holds(&certificate, factor, &sys, hi).unwrap();
+    let ComputedAboveUpperBound { lambda_upper, .. } = refusal_of(&certificate).unwrap();
     let doctored = |lambda_computed, lambda_upper| BucklingCertificate::Uncertified {
         reason: "computed load factor exceeds certified upper bound".into(),
         refusal: Some(ComputedAboveUpperBound { lambda_computed, lambda_upper }),
@@ -330,7 +331,8 @@ fn refusal_741_holds(
 }
 
 fn generated_buckling_enclosures(cases: u64) {
-    use dedaliano_engine::certify::buckling::{certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
+    use dedaliano_engine::certify::buckling::{buckling_certificate_2d, buckling_certificate_3d, certify_buckling_2d, certify_buckling_3d, BucklingCertificate, BucklingRefusal};
+    use dedaliano_engine::solver::buckling::{solve_buckling_2d, solve_buckling_3d};
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::StdRng::seed_from_u64(741);
     let mut certified = [0; 2];
@@ -358,9 +360,22 @@ fn generated_buckling_enclosures(cases: u64) {
             "loads": [{ "type": "nodal", "data": { "nodeId": 2, "fx": 0, "fz": -10f64.powf(rng.gen_range(-1.0..5.0)), "my": 0 } }]
         })).unwrap();
         let outputs = [
-            certify_buckling_2d(&column, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
-            certify_buckling_3d(&input, 3).map(|o| (o.certificate, o.results.modes[0].load_factor)),
+            buckling_certificate_2d(&column, 3).and_then(|c| solve_buckling_2d(&column, 3).map(|r| (c, r.modes[0].load_factor))),
+            buckling_certificate_3d(&input, 3).and_then(|c| solve_buckling_3d(&input, 3).map(|r| (c, r.modes[0].load_factor))),
         ];
+        let public = [
+            certify_buckling_2d(&column, 3).map(|o| o.results.modes[0].load_factor),
+            certify_buckling_3d(&input, 3).map(|o| o.results.modes[0].load_factor),
+        ];
+        for (output, public) in outputs.iter().zip(&public) {
+            match output {
+                Ok((BucklingCertificate::Uncertified { refusal: Some(BucklingRefusal::ComputedAboveUpperBound { .. }), .. }, _)) => {
+                    assert!(public.as_ref().unwrap_err().contains("BU-BOUND"), "seed {seed}: a factor above its bound was returned");
+                }
+                Ok((_, factor)) => assert_eq!(public.as_ref().ok(), Some(factor), "seed {seed}"),
+                Err(_) => assert!(public.is_err(), "seed {seed}"),
+            }
+        }
         for (dimension, output) in outputs.into_iter().enumerate() {
             match output {
                 Ok((certificate, factor)) => match certificate {
