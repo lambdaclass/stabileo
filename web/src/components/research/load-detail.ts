@@ -20,6 +20,10 @@ export const researchDetails: Record<string, () => Promise<{ default: Component 
   '/research/benchmarks/riks-crisfield': () => import('./riksCrisfield/RiksCrisfieldPage.svelte'),
 };
 
+const researchData: Record<string, () => Promise<unknown>> = {
+  '/research/fracture/shauer-2025': () => import('./shauer2025/replay-data').then(m => m.shauerReplay()),
+};
+
 /** Resolved before the router commits, so detail content and hash targets render together. */
 export const loadedResearchDetails: Record<string, Component> = {};
 const pending = new Map<string, Promise<Component>>();
@@ -27,6 +31,9 @@ export function loadResearchDetail(path: string): Promise<Component | null> {
   const route = path.replace(/\/+$/, '');
   const load = researchDetails[route];
   if (!load) return Promise.resolve(null);
-  if (!pending.has(route)) pending.set(route, load().then(m => (loadedResearchDetails[route] = m.default)).catch(error => { pending.delete(route); throw error; }));
+  if (!pending.has(route)) {
+    const data = researchData[route]?.().catch(() => null);
+    pending.set(route, Promise.all([load(), data]).then(([m]) => (loadedResearchDetails[route] = m.default)).catch(error => { pending.delete(route); throw error; }));
+  }
   return pending.get(route)!;
 }

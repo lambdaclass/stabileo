@@ -54,6 +54,27 @@ test.describe('@smoke research', () => {
     }
   });
 
+  test('the phase-field page replaces its prerendered copy only once the replay has arrived, so the viewer does not jump', async ({ page }) => {
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(/shauer-2025\/replay\.srpl$/, async (route) => { await held; await route.continue(); });
+    await page.addInitScript(() => {
+      new MutationObserver((_, observer) => {
+        if (document.getElementById('prerender') || !document.querySelector('#app .rs-app')) return;
+        (window as unknown as { __steps: string | null }).__steps = document.querySelector('#app .rs-app')!.getAttribute('data-steps');
+        observer.disconnect();
+      }).observe(document, { childList: true, subtree: true });
+    });
+    await page.goto('/en/research/fracture/shauer-2025/');
+    await expect(page.locator('#prerender .rs-app')).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(page.locator('#prerender')).toHaveCount(1);
+    release();
+    await expect(page.locator('#prerender')).toHaveCount(0);
+    await expect(page.locator('#app .rs-compare-line')).toBeVisible();
+    expect(Number(await page.evaluate(() => (window as unknown as { __steps: string | null }).__steps))).toBeGreaterThan(0);
+  });
+
   test('the phase-field experiment replays, then runs load steps live and plots the force', async ({ page }) => {
     const wasm: string[] = [];
     page.on('request', (r) => {

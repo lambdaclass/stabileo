@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { researchAssetBase, replayMatchesBuild } from '../shell/assets';
+  import { replayMatchesBuild } from '../shell/assets';
   /**
    * /research/fracture/shauer-2025: the AT2 phase-field notched plate. On load it replays a run of
    * our solver precomputed at build time; Recompute live runs the same Rust solver in the
@@ -20,7 +20,7 @@
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import { Playback, type Source } from '../shell/playback.svelte';
-  import { fetchReplay } from '../shell/replay';
+  import { shauerReplay, loadedShauerReplay } from './replay-data';
   import { num, qty } from '../shell/format';
   import Sci from '../shell/Sci.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
@@ -32,7 +32,6 @@
   const strings = $derived(rs());
   const STABILEO = 'var(--rs-plot-ours)';
   const REFERENCE = 'var(--rs-plot-ref)';
-  const BASE = `${researchAssetBase}shauer-2025/`;
   /** This experiment shows its mesh by default: the refined band is part of the method. */
   const MESH_BY_DEFAULT = true;
 
@@ -96,21 +95,25 @@
     clearTimeout(flashTimer);
   });
 
-  let replay = $state.raw<{ nodes: Float64Array; elements: Uint32Array; frames: Frame[] } | null>(null);
-  let replayVerified = $state(false);
-  let replayConfig = $state<unknown>(null);
+  const arrived = loadedShauerReplay();
+  let replay = $state.raw<{ nodes: Float64Array; elements: Uint32Array; frames: Frame[] } | null>(arrived && { nodes: arrived.nodes, elements: arrived.elements, frames: arrived.frames });
+  let replayVerified = $state(!!arrived && replayMatchesBuild(arrived.header, JSON.parse(REFERENCE_KEY)));
+  let replayConfig = $state<unknown>(arrived?.header.config ?? null);
+  if (arrived) playback.setCount(arrived.frames.length);
   let replayError = $state<string | null>(null);
   let pane: HTMLElement | undefined = $state();
 
   onMount(() => {
     const abort = new AbortController();
-    fetchReplay<Step>(`${BASE}replay.srpl`, abort.signal)
+    shauerReplay()
       .then((d) => {
         if (abort.signal.aborted) return;
-        replayConfig = d.header.config;
-        replayVerified = replayMatchesBuild(d.header, JSON.parse(REFERENCE_KEY));
-        replay = { nodes: d.nodes, elements: d.elements, frames: d.frames };
-        playback.setCount(d.frames.length);
+        if (d !== arrived) {
+          replayConfig = d.header.config;
+          replayVerified = replayMatchesBuild(d.header, JSON.parse(REFERENCE_KEY));
+          replay = { nodes: d.nodes, elements: d.elements, frames: d.frames };
+          playback.setCount(d.frames.length);
+        }
         // A link can open the page at a step, with or without the mesh (?step=57&mesh=0).
         const q = new URLSearchParams(location.search);
         if (q.get('mesh') === '0') showMesh = false;
