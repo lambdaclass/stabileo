@@ -365,6 +365,27 @@ export const SHEETS: SheetSpec[] = [
   },
 
   {
+    name: 'MassSource',
+    titleKey: 'xls.sheet.massSource',
+    columns: [
+      { key: 'item', required: true, helpKey: 'xls.col.massItem', example: 'source' },
+      { key: 'key', helpKey: 'xls.col.massKey', example: 'custom' },
+      { key: 'value', helpKey: 'xls.col.massValue', example: '' },
+      { key: 'case', helpKey: 'xls.col.massCase', example: 1 },
+      { key: 'factor', helpKey: 'xls.col.massFactor', example: 1 },
+      { key: 'on', helpKey: 'xls.col.massOn', example: 'floor' },
+      { key: 'w', helpKey: 'xls.col.massW', example: 1.5 },
+      { key: 'region', helpKey: 'xls.col.massRegion', example: 'all' },
+    ],
+    examples: [
+      ['source', 'custom', '', '', '', '', '', ''],
+      ['factor', '', '', 1, 1, '', '', ''],
+      ['factor', '', '', 2, 0.25, '', '', ''],
+      ['weight', '', '', '', '', 'floor', 1.5, 'all'],
+    ],
+  },
+
+  {
     name: 'Loads',
     titleKey: 'xls.sheet.loads',
     columns: [

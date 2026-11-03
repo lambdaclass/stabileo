@@ -16,7 +16,7 @@ import type { ModelData } from '../engine/solver-service';
 import type { SolverInput3D } from '../engine/types-3d';
 import type { LoadCase, LoadCombination } from '../store/model.svelte';
 import { selfWeightFor } from '../engine/self-weight';
-import type { PointMass } from '../engine/dynamics/mass-source';
+import type { MassSource, PointMass } from '../engine/dynamics/mass-source';
 import { safeText, type WorkbookSheet } from './workbook-cells';
 
 export interface WorkbookModel extends ModelData {
@@ -27,6 +27,7 @@ export interface WorkbookModel extends ModelData {
   /** Full groups, with names and kinds; `ModelData.groups` carries only the members. */
   namedGroups?: ReadonlyArray<{ id: number; name: string; kind: string; members: { nodes?: number[]; elements?: number[]; plates?: number[]; quads?: number[] } }>;
   pointMasses?: readonly PointMass[];
+  massSource?: MassSource;
 }
 
 const b = (v: boolean | undefined) => (v ? 1 : 0);
@@ -139,6 +140,22 @@ function pointMassesSheet(m: WorkbookModel): WorkbookSheet | null {
   return { name: 'PointMasses', rows };
 }
 
+/** Long form, as the importer reads it: the source, then a preset's parameters, a table's factors and the weights. */
+function massSourceSheet(m: WorkbookModel): WorkbookSheet | null {
+  const ms = m.massSource;
+  if (!ms) return null;
+  const rows: WorkbookSheet['rows'] = [['item', 'key', 'value', 'case', 'factor', 'on', 'w', 'region']];
+  if (ms.kind === 'preset') {
+    rows.push(['source', 'preset', safeText(ms.presetId), '', '', '', '', '']);
+    for (const [k, v] of Object.entries(ms.params)) rows.push(['param', safeText(k), typeof v === 'boolean' ? (v ? 'yes' : 'no') : typeof v === 'number' ? v : safeText(v), '', '', '', '', '']);
+  } else {
+    rows.push(['source', 'custom', '', '', '', '', '', '']);
+    for (const f of ms.factors) rows.push(['factor', '', '', f.caseId, f.factor, '', '', '']);
+  }
+  for (const w of ms.weights ?? []) rows.push(['weight', '', '', '', '', w.on, w.w, w.region.kind === 'all' ? 'all' : safeText(JSON.stringify(w.region))]);
+  return { name: 'MassSource', rows };
+}
+
 /** The unit of a load field, by the model's naming. Empty where the field has none. */
 function loadFieldUnit(type: string, field: string): string {
   const f = field.toLowerCase();
@@ -205,7 +222,7 @@ function selfWeightSheet(m: WorkbookModel): WorkbookSheet {
 
 /** The model's sheets' names, in the order `modelSheets` writes them (`Shells` stands for the shell sheets). */
 export const MODEL_SHEET_NAMES = [
-  'Nodes', 'Members', 'Materials', 'Sections', 'Supports', 'Shells', 'LoadCases', 'LoadData', 'SelfWeight', 'Combinations', 'Constraints', 'PointMasses', 'Groups',
+  'Nodes', 'Members', 'Materials', 'Sections', 'Supports', 'Shells', 'LoadCases', 'LoadData', 'SelfWeight', 'Combinations', 'Constraints', 'PointMasses', 'MassSource', 'Groups',
 ] as const;
 
 /** The model's sheets, in the order a reader looks for them; `want` leaves sheets out by name. */
@@ -215,7 +232,8 @@ export function modelSheets(m: WorkbookModel, solved: SolverInput3D | null, want
     ['Sections', () => sectionsSheet(m, solved)], ['Supports', () => supportsSheet(m, solved)],
     ['Shells', () => shellSheets(m)], ['LoadCases', () => casesSheet(m)], ['LoadData', () => loadsSheet(m)],
     ['SelfWeight', () => selfWeightSheet(m)], ['Combinations', () => combinationsSheet(m)],
-    ['Constraints', () => constraintsSheet(m)], ['PointMasses', () => pointMassesSheet(m)], ['Groups', () => groupsSheet(m)],
+    ['Constraints', () => constraintsSheet(m)], ['PointMasses', () => pointMassesSheet(m)],
+    ['MassSource', () => massSourceSheet(m)], ['Groups', () => groupsSheet(m)],
   ];
   return all.filter(([name]) => want(name)).flatMap(([, build]) => build() ?? []);
 }

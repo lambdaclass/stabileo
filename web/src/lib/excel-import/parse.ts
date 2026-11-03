@@ -33,6 +33,8 @@ import { profileByName as catalogueProfile, profileToSectionFull } from '../data
 import { t, tp } from '../i18n';
 import { SHEETS, sheetSpec, keyFromHeader, LOAD_TYPES, type LoadTypeName } from './schema';
 import { unguardText } from '../export/workbook-cells';
+import { massPresetById, type MassPresetParamValue } from '../engine/dynamics/mass-presets';
+import type { MassSource, MassSourceFactor, MassWeight } from '../engine/dynamics/mass-source';
 
 /**
  * A catalogue profile by the name a person would write.
@@ -264,6 +266,100 @@ function idGuard(sheet: string, problems: RowProblem[]) {
     first.set(id, row.n);
     return true;
   };
+}
+
+const MASS_ON = ['members', 'slabs', 'floor'] as const;
+const NO = ['no', 'n', 'false', 'falso', '0'];
+
+function massRegion(v: unknown): MassWeight['region'] | 'ref' | null {
+  const text = unguardText(str(v));
+  if (text === '' || text.toLowerCase() === 'all') return { kind: 'all' };
+  let r: unknown;
+  try { r = JSON.parse(text); } catch { return null; }
+  if (!r || typeof r !== 'object') return null;
+  const x = r as Record<string, unknown>;
+  if (x.kind === 'all') return { kind: 'all' };
+  if (x.kind === 'zone' || x.kind === 'group') return 'ref';
+  if (x.kind !== 'box') return null;
+  const box: { kind: 'box'; x?: [number, number]; y?: [number, number]; z?: [number, number] } = { kind: 'box' };
+  for (const k of ['x', 'y', 'z'] as const) {
+    const pair = x[k];
+    if (pair === undefined) continue;
+    if (!Array.isArray(pair) || pair.length !== 2 || !pair.every((n) => typeof n === 'number' && Number.isFinite(n))) return null;
+    box[k] = [pair[0], pair[1]];
+  }
+  return box;
+}
+
+function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: RowProblem[]): MassSource | undefined {
+  const S = 'MassSource';
+  const fail = (row: Row, message: string, column?: string) => problems.push({ sheet: S, row: row.n, ...(column ? { column } : {}), message });
+  let kind: 'preset' | 'custom' | null = null;
+  let presetId = '';
+  let sourceRow: number | null = null;
+  for (const row of rows) {
+    if (str(row.cells.item).toLowerCase() !== 'source') continue;
+    if (sourceRow !== null) { fail(row, tp('xls.err.massSourceTwice', { first: sourceRow })); continue; }
+    const k = str(row.cells.key).toLowerCase();
+    if (k !== 'preset' && k !== 'custom') { fail(row, tp('xls.err.massKind', { v: str(row.cells.key) }), 'key'); sourceRow = row.n; kind = null; continue; }
+    sourceRow = row.n;
+    if (k === 'custom' && str(row.cells.value) !== '') fail(row, t('xls.err.massCustomValue'), 'value');
+    if (k === 'preset') {
+      const id = str(row.cells.value);
+      if (!massPresetById(id)) { fail(row, tp('xls.err.massPreset', { v: id }), 'value'); continue; }
+      presetId = id;
+    }
+    kind = k;
+  }
+  if (sourceRow !== null && kind === null) return undefined;
+  const preset = kind === 'preset' ? massPresetById(presetId) : undefined;
+  const params: Record<string, MassPresetParamValue> = {};
+  const factors: MassSourceFactor[] = [];
+  const weights: MassWeight[] = [];
+  const firstCase = idGuard(S, problems);
+  for (const row of rows) {
+    const item = str(row.cells.item).toLowerCase();
+    if (item === 'source') continue;
+    if (item === 'param') {
+      if (!preset) { fail(row, t('xls.err.massParamNoPreset'), 'item'); continue; }
+      const key = str(row.cells.key);
+      const spec = preset.params.find((p) => p.key === key);
+      if (!spec) { fail(row, tp('xls.err.massParam', { k: key }), 'key'); continue; }
+      const raw = str(row.cells.value);
+      if (spec.kind === 'enum') {
+        if (!spec.options.some((o) => o.value === raw)) { fail(row, tp('xls.err.massParamValue', { k: key, v: raw }), 'value'); continue; }
+        params[key] = raw;
+      } else {
+        const yes = truthy(row.cells.value), no = NO.includes(raw.toLowerCase()) || row.cells.value === false;
+        if (!yes && !no) { fail(row, tp('xls.err.massParamValue', { k: key, v: raw }), 'value'); continue; }
+        params[key] = yes;
+      }
+    } else if (item === 'factor') {
+      if (kind === 'preset') { fail(row, t('xls.err.massFactorNoCustom'), 'item'); continue; }
+      const caseId = reqNum(row, 'case', S, problems);
+      const factor = reqNum(row, 'factor', S, problems);
+      if (caseId === null || factor === null) continue;
+      if (!caseIds.has(caseId)) { fail(row, tp('xls.err.caseMissing', { id: caseId }), 'case'); continue; }
+      if (factor < 0) { fail(row, t('xls.err.massFactorNegative'), 'factor'); continue; }
+      if (!firstCase(caseId, row, 'xls.err.massFactorDuplicate')) continue;
+      factors.push({ caseId, factor });
+    } else if (item === 'weight') {
+      const on = MASS_ON.find((o) => o === str(row.cells.on).toLowerCase());
+      if (!on) { fail(row, tp('xls.err.massOn', { v: str(row.cells.on), list: MASS_ON.join(', ') }), 'on'); continue; }
+      const w = reqNum(row, 'w', S, problems);
+      if (w === null) continue;
+      if (w < 0) { fail(row, t('xls.err.massNegative'), 'w'); continue; }
+      const region = massRegion(row.cells.region);
+      if (region === 'ref') { fail(row, t('xls.err.massRegionRef'), 'region'); continue; }
+      if (!region) { fail(row, tp('xls.err.massRegion', { v: str(row.cells.region) }), 'region'); continue; }
+      weights.push({ on, w, region });
+    } else {
+      fail(row, tp('xls.err.massItem', { v: str(row.cells.item) }), 'item');
+    }
+  }
+  if (kind === null && !factors.length && !weights.length) return undefined;
+  const withW = weights.length ? { weights } : {};
+  return preset ? { kind: 'preset', presetId, params, ...withW } : { kind: 'custom', factors, ...withW };
 }
 
 /**
@@ -740,6 +836,10 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
   }
   if (pointMasses.length) model.pointMasses = pointMasses;
   counts.PointMasses = pointMasses.length;
+
+  const massSource = readMassSource(readSheet(grab('MassSource'), 'MassSource', problems), caseIds, problems);
+  if (massSource) model.massSource = massSource;
+  counts.MassSource = massSource ? 1 : 0;
 
   // ── Loads ────────────────────────────────────────────────────────
   const elemIds = new Set(model.elements.map((e) => e.id));

@@ -102,6 +102,21 @@ describe('the Excel importer keeps up with the model', () => {
   });
 });
 
+describe('the workbook carries the whole mass source', () => {
+  it('every field of MassSource is written by the MassSource sheet, or by PointMasses for the points', () => {
+    const src = read('engine/dynamics/mass-source.ts');
+    const start = src.indexOf('export type MassSource =');
+    const body = src.slice(start, src.indexOf(';\n', start));
+    const fields = [...new Set([...body.matchAll(/([a-zA-Z]+)\??:/g)].map((m) => m[1]))];
+    expect(fields).toEqual(expect.arrayContaining(['kind', 'presetId', 'params', 'factors', 'weights', 'points']));
+    const writer = read('export/workbook-model.ts');
+    const sheet = writer.slice(writer.indexOf('function massSourceSheet'), writer.indexOf('\n}\n', writer.indexOf('function massSourceSheet')));
+    const unwritten = fields.filter((f) => (f === 'points' ? !writer.includes('m.pointMasses') : !sheet.includes(`ms.${f}`)));
+    expect(unwritten, `the workbook drops these mass source fields: ${unwritten.join(', ')}`).toEqual([]);
+    expect(SHEETS.some((s) => s.name === 'MassSource')).toBe(true);
+  });
+});
+
 describe('the share link keeps up with the model', () => {
   /**
    * `url-sharing.ts` packs a snapshot into a compact array-of-arrays. Every
