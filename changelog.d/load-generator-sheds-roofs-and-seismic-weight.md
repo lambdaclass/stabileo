@@ -5,7 +5,8 @@ In PRO, "Generate loads from the code" took the panel closed by a trussed shed's
 eave beams for a covered floor: it put the occupancy live load and the floor finishes (screed and
 tile) at the eaves, with their four pattern cases, and loaded rings of wall girts 20 m across the
 same way. Panels within the roof's structure (less than 2.2 m under its trusses, rafters or
-purlins) and panels more than 12 m both ways with no beam or slab inside now take no area load;
+purlins everywhere the roof is over them) and panels more than 12 m both ways with no beam or slab
+inside now take no area load; a floor with storey height under part of a sloped roof keeps its load;
 the derivation lists them, and "Load every panel" in Applying keeps the old behaviour for a real
 mezzanine or loft. A pitched roof (5° or more) with no slab, whose dead load is "the floors'" in a model with no
 floors, now stops the plan with a message, instead of carrying the floors' screed and tile; a flat

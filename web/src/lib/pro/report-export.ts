@@ -20,7 +20,7 @@
  * rather than not going out.
  */
 
-import { captureProvenanceToken, provenanceForExport, provenanceLabels, ExportChangedError } from '../store/result-provenance';
+import { captureProvenanceToken, provenanceForExport, provenanceLabels, scopeOfResultSet, ExportChangedError } from '../store/result-provenance';
 import { reportProvenanceLines } from '../export/provenance-attach';
 import { runEngineActionAsync } from '../store/engine-action';
 import { tick } from 'svelte';
@@ -111,7 +111,7 @@ async function exportReportWithEngine(input: ReportExportInputs, token: ReturnTy
   if (!data) return;
   data.resultFigures = figures;
   try {
-    data.resultProvenance = { record: await provenanceForExport(token), labels: provenanceLabels() };
+    data.resultProvenance = { record: await provenanceForExport(token, scopeOfResultSet(input.config.resultSetKey)), labels: provenanceLabels() };
   } catch (e) {
     if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return; }
     throw e;

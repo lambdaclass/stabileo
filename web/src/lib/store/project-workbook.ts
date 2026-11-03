@@ -31,7 +31,7 @@ import { specificationRows } from '../pro/specification-list';
 import { APP_VERSION, BUILD_COMMIT } from '../build-info';
 import { designSheets, physicalForceRows } from './design-exchange';
 import { detailingStore } from './detailing.svelte';
-import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, ExportChangedError } from './result-provenance';
+import { currentResultProvenance, provenanceLabels, captureProvenanceToken, provenanceForExport, assertExportCurrent, ExportChangedError, type ProvenanceToken } from './result-provenance';
 import type { ResultProvenance } from '../provenance/result-provenance';
 import { provenanceTextLines } from '../provenance/result-provenance';
 
@@ -146,7 +146,7 @@ export function workbookEstimate(stations: StationSpec, opts: WorkbookOptions = 
  * a sheet are held whole, only the compressed file. Hands the event loop back every few thousand
  * rows so the tab stays responsive.
  */
-export async function streamWorkbookZip(parts: readonly WorkbookPart[]): Promise<Blob> {
+export async function streamWorkbookZip(parts: readonly WorkbookPart[], stillCurrent: () => void = () => {}): Promise<Blob> {
   const chunks: Uint8Array[] = [];
   let failure: Error | null = null;
   const zip = new Zip((err, data) => { if (err) failure = err; else chunks.push(data); });
@@ -160,7 +160,7 @@ export async function streamWorkbookZip(parts: readonly WorkbookPart[]): Promise
     for (const row of body) {
       text += '\n' + row.map((c) => csvCell(c)).join(',');
       if (text.length > 1 << 20) { file.push(strToU8(text)); text = ''; }
-      if (++sinceYield >= 20_000) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); }
+      if (++sinceYield >= 20_000) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); stillCurrent(); }
     }
     file.push(strToU8(text), true);
     if (failure) throw failure;
@@ -191,13 +191,25 @@ export function workbookZip(sheets: readonly WorkbookSheet[]): Uint8Array {
  * sheet alone, without the units and the signs its numbers are in.
  */
 export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
-  const record = await workbookRecord();
+  const token = captureProvenanceToken();
+  const record = await workbookRecord(token);
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
   const parts = currentWorkbookParts(stations, opts, record);
   const data = parts.filter((s) => s.name !== 'Cover' && s.name !== 'Conventions');
   const name = data.length === 1 ? `${safeName}_${data[0]!.name}_csv.zip` : `${safeName}_csv.zip`;
-  downloadBlob(await streamWorkbookZip(parts), name);
+  const zip = await zipUnlessChanged(parts, token);
+  if (zip) downloadBlob(zip, name);
+}
+
+/** The zip, or null (said) when the project moved while its rows were being written: never a file of two states. */
+async function zipUnlessChanged(parts: readonly WorkbookPart[], token: ProvenanceToken): Promise<Blob | null> {
+  try {
+    return await streamWorkbookZip(parts, () => assertExportCurrent(token));
+  } catch (e) {
+    if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
+    throw e;
+  }
 }
 
 /**
@@ -205,9 +217,9 @@ export async function downloadProjectCsv(stations: StationSpec, opts: WorkbookOp
  * engine hashes were computed (`provenanceForExport`); the sheets are then built in the same tick.
  * Null, said, when the project changed: nothing is exported.
  */
-async function workbookRecord(): Promise<ResultProvenance | null> {
+async function workbookRecord(token: ProvenanceToken): Promise<ResultProvenance | null> {
   try {
-    return await provenanceForExport(captureProvenanceToken());
+    return await provenanceForExport(token);
   } catch (e) {
     if (e instanceof ExportChangedError) { uiStore.toast(e.message, 'error'); return null; }
     throw e;
@@ -216,7 +228,8 @@ async function workbookRecord(): Promise<ResultProvenance | null> {
 
 /** Write the project workbook: xlsx when it fits, a zip of CSVs otherwise. */
 export async function downloadProjectWorkbook(stations: StationSpec, opts: WorkbookOptions = {}): Promise<void> {
-  const record = await workbookRecord();
+  const token = captureProvenanceToken();
+  const record = await workbookRecord(token);
   if (!record) return;
   const safeName = modelStore.model.name.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ _-]/g, '').trim() || t('file.defaultAnalysis');
   const parts = currentWorkbookParts(stations, opts, record);
@@ -225,6 +238,8 @@ export async function downloadProjectWorkbook(stations: StationSpec, opts: Workb
     await exportToExcel({ filename: `${safeName}.xlsx`, onlyExtras: true, extraSheets: parts.map(materialize), provenance: false });
     return;
   }
-  downloadBlob(await streamWorkbookZip(parts), `${safeName}.zip`);
+  const zip = await zipUnlessChanged(parts, token);
+  if (!zip) return;
+  downloadBlob(zip, `${safeName}.zip`);
   uiStore.toast(t('wb.zipped'), 'info');
 }

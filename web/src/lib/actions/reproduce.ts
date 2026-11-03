@@ -41,11 +41,11 @@ export async function reproduceFrom(claimed: ResultProvenance, report?: string):
   return outcome;
 }
 
-/** The report's printed tables against the same tables printed from the results on hand; null when it marks none. */
+/** The report's printed tables against the same tables printed from the results on hand; null for a report that embeds no choices. */
 export function comparePrintedReport(report: string): PrintedComparison | null {
   const config = embeddedReportConfig(report);
   const claimedTables = printedTables(report);
-  if (!config || claimedTables.length === 0) return null;
+  if (!config) return null;
   const data = buildProReportData({ config, t });
   if (!data) return null;
   return comparePrinted(claimedTables, printedTables(generateReportHtml(data)));

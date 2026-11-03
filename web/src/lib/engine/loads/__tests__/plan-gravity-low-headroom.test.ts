@@ -66,6 +66,37 @@ describe('a trussed shed has no floor at its eaves', () => {
   });
 });
 
+/** A 6 × 6 m floor at 3 m under a gable roof: 2 m clear at the eaves, 4 m under the ridge. */
+function atticFloor(): GravityModel {
+  const nodes = new Map<number, { id: number; x: number; y: number; z: number }>();
+  const elements = new Map<number, { id: number; nodeI: number; nodeJ: number }>();
+  let n = 1, e = 1;
+  const node = (x: number, y: number, z: number) => { nodes.set(n, { id: n, x, y, z }); return n++; };
+  const bar = (a: number, b: number) => { elements.set(e, { id: e++, nodeI: a, nodeJ: b }); };
+  const ground = [node(0, 0, 0), node(6, 0, 0), node(6, 6, 0), node(0, 6, 0)];
+  const floor = [node(0, 0, 3), node(6, 0, 3), node(6, 6, 3), node(0, 6, 3)];
+  const eave = [node(0, 0, 5), node(6, 0, 5), node(6, 6, 5), node(0, 6, 5)];
+  const ridge = [node(3, 0, 7), node(3, 6, 7)];
+  for (let i = 0; i < 4; i++) { bar(ground[i]!, floor[i]!); bar(floor[i]!, eave[i]!); bar(floor[i]!, floor[(i + 1) % 4]!); }
+  bar(eave[0]!, eave[3]!); bar(eave[1]!, eave[2]!);
+  bar(eave[0]!, ridge[0]!); bar(ridge[0]!, eave[1]!); bar(eave[3]!, ridge[1]!); bar(ridge[1]!, eave[2]!);
+  bar(ridge[0]!, ridge[1]!);
+  return { nodes, elements };
+}
+
+describe('a real floor under a sloped roof keeps its load', () => {
+  it('a panel with storey headroom somewhere is a floor, though its eaves are low', () => {
+    const layout = gravityLayout(atticFloor(), { mode: 'panels', tributaryWidth: 3 });
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 6);
+    expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.lowHeadroom')).toBe(false);
+  });
+
+  it('gives the same area as loading every panel', () => {
+    const every = gravityLayout(atticFloor(), { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true });
+    expect(every.areaByLevel.get(3)).toBeCloseTo(36, 6);
+  });
+});
+
 describe('the industrial hall and the stadium of the examples', () => {
   const fixture = async (id: string): Promise<GravityModel> => {
     const f = (await import(`../../../templates/fixtures/${id}.json`)).default as {

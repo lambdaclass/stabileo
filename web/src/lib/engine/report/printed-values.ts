@@ -68,11 +68,14 @@ export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly
   for (const t of fresh) (freshByKey.get(t.key) ?? freshByKey.set(t.key, []).get(t.key)!).push(t);
   for (const t of claimed) {
     const f = freshByKey.get(t.key)?.shift();
-    if (!f || f.rows.length !== t.rows.length) { structural.push(t.key); continue; }
-    const numHeaders = t.headers.slice(t.headers.length - Math.max(0, ...t.rows.map((r) => r.cells.length)));
+    if (!f || f.rows.length !== t.rows.length || f.headers.join('\u0000') !== t.headers.join('\u0000')) { structural.push(t.key); continue; }
+    const numCount = Math.max(0, ...t.rows.map((r) => r.cells.length));
+    const numHeaders = t.headers.slice(t.headers.length - numCount);
+    const labelHeader = t.headers.slice(0, t.headers.length - numCount).join(' · ');
     t.rows.forEach((row, i) => {
       const other = f.rows[i]!;
       if (other.cells.length !== row.cells.length) { structural.push(t.key); return; }
+      if (other.label !== row.label) differences.push({ table: t.key, row: other.label, column: labelHeader, printed: row.label, recomputed: other.label });
       row.cells.forEach((printed, c) => {
         compared++;
         const recomputed = other.cells[c]!;
@@ -80,5 +83,6 @@ export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly
       });
     });
   }
+  for (const [key, left] of freshByKey) if (left.length > 0) structural.push(key);
   return { compared, differences, structural: [...new Set(structural)] };
 }
