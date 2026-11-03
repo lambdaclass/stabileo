@@ -15,8 +15,11 @@ Linear time history (Newmark and HHT-α), 2D and 3D, in the PRO dynamics panel a
 points, when the mass matrix is singular (a node or a rotation with no mass: members of a
 material without density, nodes carrying only nodal masses, lumped-mass rotations) **and** a
 force history is nonzero at t = 0 on such a DOF. In the app that is a step force with its start
-at 0 s on a node with no translational mass in its direction. Ground motion is not affected: its
-load M·r never acts on a massless DOF. Sine forces start at zero and are not affected.
+at 0 s on a node with no translational mass in its direction. The numbers of ground motion and
+sine forces do not change (M·r never acts on a massless DOF; a sine starts at zero), but any time
+history, ground motion included, can now refuse with `TH-MASS-SINGULAR` or
+`TH-MASSLESS-MECHANISM` where it used to give numbers (see "Fixed in"). The re-check registry
+flags only forced histories: a refusal shows itself when the history is run again.
 
 ## What was wrong
 
