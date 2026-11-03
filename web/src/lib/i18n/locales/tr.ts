@@ -14265,6 +14265,7 @@ const tr: Translations = {
   'post.partial': "{name}: denge tam kontrol edilmedi; kontrol, durumun tüm yüklerini toplamıyor.",
   'post.singleSolve': "Çözüm",
   'post.balanced': "{n} durumda denge kontrol edildi: yükler ve tepkiler uyuşuyor (en büyük fark {residual}).",
+  'post.balancedOne': "1 durumda denge kontrol edildi: yükler ve tepkiler uyuşuyor (fark {residual}).",
   'post.pdeltaConverged': "P-Delta: {n} iterasyonda yakınsadı; B2 = {b2}.",
   'post.pdeltaNotConverged': "P-Delta: {n} iterasyonda yakınsamadı; ikinci mertebe sonuçlar kesin değil (B2 = {b2}).",
   'post.pdeltaUnstable': "P-Delta: yapı bu yükler altında kararsız ({n} iterasyon).",

@@ -52,8 +52,8 @@ export const storeyScope = {
   },
   /**
    * Draw member `id`'s copies on the storeys in scope, inside the caller's undo step: the same plan
-   * position and heights above each level, and every property of the member but its name and the
-   * references to other objects. A copy of another length drops what is stated in metres along the
+   * position and heights above each level, and every property of the member but its name, the tag
+   * of the arc it was drawn in and its references to other objects. A copy of another length drops what is stated in metres along the
    * member. Their ids; `lastReplication` says what was skipped.
    */
   replicateMember(id: number): number[] {

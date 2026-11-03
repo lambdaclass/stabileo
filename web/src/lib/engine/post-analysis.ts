@@ -66,7 +66,7 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
         out.push({ part: 'analysis', severity: 'warning', text: tr('post.partial', { name: name(r) }), ...uncovered(r) });
       } else balanced.push(r.worstRelative);
     }
-    if (balanced.length) out.push({ part: 'analysis', severity: 'ok', text: tr('post.balanced', { n: balanced.length, residual: Math.max(...balanced).toExponential(1) }) });
+    if (balanced.length) out.push({ part: 'analysis', severity: 'ok', text: tr(balanced.length === 1 ? 'post.balancedOne' : 'post.balanced', { n: balanced.length, residual: Math.max(...balanced).toExponential(1) }) });
   }
 
   if (input.pdelta) {

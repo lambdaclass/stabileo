@@ -149,6 +149,9 @@ describe('the storey scope', () => {
       const { id: _cid, nodeI: _ci, nodeJ: _cj, ...copy } = modelStore.elements.get(c)!;
       expect(copy).toEqual(kept);
     }
+    const ends = (e: number) => { const m = modelStore.elements.get(e)!; return [m.nodeI, m.nodeJ].map((n) => modelStore.nodes.get(n)!).map((p) => [p.x, p.y, p.z]); };
+    expect(copies.map(levelOf).sort()).toEqual(['N2', 'N3', 'N4', 'N5']);
+    for (const c of copies) { const [i, j] = ends(c); expect([i![0], i![1], j![0], j![1]]).toEqual([0, 5, 6, 5]); expect(i![2]).toBe(j![2]); }
     expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [] });
   });
 

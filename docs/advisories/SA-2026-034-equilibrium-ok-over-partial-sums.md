@@ -58,7 +58,7 @@ PR #1255. A case balances only with every load in the sum (`staticsVerdict`): ot
 "not fully checked", with the loads left out named, in the report after the analysis, the statics
 panel and the project report; the cases that balance are reported even when others do not.
 Members are matched across storeys by type as well as place; a copy keeps every property of the
-member but its name and its references to other objects, drops the unbraced length and the
+member but its name, the tag of the arc it was drawn in and its references to other objects, drops the unbraced length and the
 bracing (stated in metres along the member) when its length differs, and the storeys it could
 not reach are reported. Regression tests: `post-analysis.test.ts`, `statics-verdict.test.ts`,
 `similar-storeys.test.ts`, `storey-scope.test.ts`.

@@ -7,6 +7,7 @@ import type { AnalysisResults3D } from '../engine/types-3d';
 import { shellComponentMeta, type ShellContourComponent } from '../engine/shell-stress';
 import { bandValue } from '../engine/contour-scale';
 import { shellContourColor } from '../three/stress-heatmap';
+import { faceVertexWeights } from '../three/create-shell-mesh';
 import { currentShellContourField } from '../store/shell-contour';
 import { contourOptions } from '../store/contour-options.svelte';
 import type { createLabelCollector } from '../canvas/label-layout';
@@ -25,41 +26,24 @@ export function bandColour(v: number, min: number, max: number, style: string): 
   return `${RAW_INK}#${shellContourColor(v, min, max).toString(16).padStart(6, '0')}`;
 }
 
-const SUBDIVISIONS = 6;
-
 /**
- * A face cut into small pieces, each with the value its corners give at the piece's centre:
- * bilinear over a quad, linear over a triangle, as the screen's mesh interpolates them.
+ * A face cut into the triangles the screen draws it with (`faceVertexWeights`), each with the mean of
+ * its vertices' values: the value a linear blend takes at the triangle's centre.
  */
-export function shellPatches(pts: readonly XY[], values: readonly number[], n = SUBDIVISIONS): Array<{ pts: XY[]; value: number }> {
+export function shellPatches(pts: readonly XY[], values: readonly number[]): Array<{ pts: XY[]; value: number }> {
+  const n = pts.length;
+  if (values.length !== n || n < 3) return [];
+  const ws = faceVertexWeights(n);
+  const at = (w: readonly number[]) => ({
+    x: w.reduce((a, k, i) => a + k * pts[i]!.x, 0), y: w.reduce((a, k, i) => a + k * pts[i]!.y, 0),
+    value: w.reduce((a, k, i) => a + k * values[i]!, 0),
+  });
   const out: Array<{ pts: XY[]; value: number }> = [];
-  if (pts.length === 4 && values.length === 4) {
-    const at = (u: number, v: number) => {
-      const w = [(1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v];
-      return { x: w.reduce((a, k, i) => a + k * pts[i]!.x, 0), y: w.reduce((a, k, i) => a + k * pts[i]!.y, 0), value: w.reduce((a, k, i) => a + k * values[i]!, 0) };
-    };
-    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-      const [u0, u1, v0, v1] = [i / n, (i + 1) / n, j / n, (j + 1) / n];
-      out.push({ pts: [at(u0, v0), at(u1, v0), at(u1, v1), at(u0, v1)].map(({ x, y }) => ({ x, y })), value: at((u0 + u1) / 2, (v0 + v1) / 2).value });
-    }
-    return out;
+  for (let t = 0; t + 2 < ws.length; t += 3) {
+    const v = [at(ws[t]!), at(ws[t + 1]!), at(ws[t + 2]!)];
+    out.push({ pts: v.map(({ x, y }) => ({ x, y })), value: (v[0]!.value + v[1]!.value + v[2]!.value) / 3 });
   }
-  if (pts.length === 3 && values.length === 3) {
-    const at = (a: number, b: number) => {
-      const w = [1 - a - b, a, b];
-      return { x: w.reduce((s, k, i) => s + k * pts[i]!.x, 0), y: w.reduce((s, k, i) => s + k * pts[i]!.y, 0), value: w.reduce((s, k, i) => s + k * values[i]!, 0) };
-    };
-    const tri = (p: Array<[number, number]>) => {
-      const c = at(p.reduce((s, q) => s + q[0], 0) / 3, p.reduce((s, q) => s + q[1], 0) / 3);
-      out.push({ pts: p.map(([a, b]) => { const q = at(a, b); return { x: q.x, y: q.y }; }), value: c.value });
-    };
-    for (let i = 0; i < n; i++) for (let j = 0; i + j < n; j++) {
-      tri([[i / n, j / n], [(i + 1) / n, j / n], [i / n, (j + 1) / n]]);
-      if (i + j + 1 < n) tri([[(i + 1) / n, j / n], [(i + 1) / n, (j + 1) / n], [i / n, (j + 1) / n]]);
-    }
-    return out;
-  }
-  return [{ pts: [...pts], value: values.reduce((a, v) => a + v, 0) / Math.max(1, values.length) }];
+  return out;
 }
 
 export type DrawShells = (fill?: (key: string) => string | null, move?: (nodeId: number) => P3 | undefined, paint?: (key: string, pts: XY[]) => boolean) => void;

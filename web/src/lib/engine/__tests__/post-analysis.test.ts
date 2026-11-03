@@ -25,7 +25,7 @@ describe('the report after the analysis', () => {
     expect(off[0]).toMatchObject({ severity: 'error', part: 'analysis' });
     expect(off[0]!.text).toContain('W');
     expect(off[0]!.detail).toContain('thermal');
-    expect(off[1]).toMatchObject({ severity: 'ok', text: expect.stringContaining('1 cases') });
+    expect(off[1]).toMatchObject({ severity: 'ok', text: expect.stringContaining('in 1 case:') });
     expect(postAnalysisLines({ ...none, statics: [{ caseName: 'W', worstRelative: POST_ANALYSIS_UNBALANCED / 10, uncovered: [] }] }, tr)[0]!.severity).toBe('warning');
     const ok = postAnalysisLines({ ...none, statics: [{ caseName: 'D', worstRelative: 1e-9, uncovered: [] }, { caseName: 'L', worstRelative: 3e-9, uncovered: [] }] }, tr);
     expect(ok).toEqual([{ part: 'analysis', severity: 'ok', text: expect.stringContaining('2 cases') }]);
@@ -36,7 +36,7 @@ describe('the report after the analysis', () => {
     expect(partial.filter((l) => l.severity === 'ok')).toEqual([]);
     expect(partial).toEqual([{ part: 'analysis', severity: 'warning', text: expect.stringContaining('S'), detail: expect.stringContaining('surface3d') }]);
     const mixed = postAnalysisLines({ ...none, statics: [{ caseName: 'D', worstRelative: 1e-9, uncovered: [] }, { caseName: 'S', worstRelative: 2e-9, uncovered: ['nodal'] }] }, tr);
-    expect(mixed.find((l) => l.severity === 'ok')!.text).toContain('1 cases');
+    expect(mixed.find((l) => l.severity === 'ok')!.text).toContain('in 1 case:');
     expect(mixed.find((l) => l.severity === 'warning')).toMatchObject({ text: expect.stringContaining('S'), detail: expect.stringContaining('nodal') });
   });
 

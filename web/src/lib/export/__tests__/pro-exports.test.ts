@@ -193,7 +193,7 @@ describe('the figures of a model with shells', () => {
       expect(shellFills.size).toBeGreaterThan(1);
       expect(shellFills.size).toBeLessThanOrEqual(4);
     } finally {
-      contourOptions.auto = true; contourOptions.bands = 0;
+      contourOptions.auto = true; contourOptions.min = 0; contourOptions.max = 0; contourOptions.bands = 0;
     }
   });
 

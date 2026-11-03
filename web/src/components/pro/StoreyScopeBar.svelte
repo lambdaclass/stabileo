@@ -60,6 +60,8 @@
   @media (max-width: 640px) {
     .ss { left: 8px; bottom: 8px; max-width: calc(100% - 16px); }
     .ss-label { display: none; }
+  }
+  @media (max-width: 1024px), (pointer: coarse) {
     .ss-seg button { min-height: 32px; padding: 4px 10px; font-size: 0.75rem; }
   }
   .ss-seg button + button { border-left: 1px solid var(--st-hair-strong); }

@@ -14265,6 +14265,7 @@ const de: Translations = {
   'post.partial': "{name}: Gleichgewicht nicht vollständig geprüft; die Prüfung summiert nicht alle Lasten des Lastfalls.",
   'post.singleSolve': "Die Berechnung",
   'post.balanced': "Gleichgewicht in {n} Lastfällen geprüft: Lasten und Auflagerkräfte stimmen überein (größte Differenz {residual}).",
+  'post.balancedOne': "Gleichgewicht in 1 Lastfall geprüft: Lasten und Auflagerkräfte stimmen überein (Differenz {residual}).",
   'post.pdeltaConverged': "P-Delta: in {n} Iterationen konvergiert; B2 = {b2}.",
   'post.pdeltaNotConverged': "P-Delta: in {n} Iterationen nicht konvergiert; die Ergebnisse zweiter Ordnung sind nicht endgültig (B2 = {b2}).",
   'post.pdeltaUnstable': "P-Delta: Das Tragwerk ist unter diesen Lasten instabil ({n} Iterationen).",

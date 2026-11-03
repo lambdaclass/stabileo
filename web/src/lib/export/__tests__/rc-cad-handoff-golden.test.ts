@@ -57,7 +57,7 @@ const REPORTED = {
    * rebuilt from it either way.
    */
   // Moved when the fixture gained its solve stamp (`snapshot.solvedWith`), and when the stamp
-  // moved to results versions 2, 3, 4 and 5; the model is unchanged.
+  // moved to results versions 2, 3, 4, 5 and 16; the model is unchanged.
   fixtureSha256: '951d93b5a9a724e34d052da0c3cfa049f6434c32cb1ef4a277972d51e272c0bd',
 };
 

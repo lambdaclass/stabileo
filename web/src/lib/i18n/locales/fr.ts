@@ -14265,6 +14265,7 @@ const fr: Translations = {
   'post.partial': "{name} : équilibre non vérifié entièrement ; la vérification n'additionne pas toutes les charges du cas.",
   'post.singleSolve': "Le calcul",
   'post.balanced': "Équilibre vérifié dans {n} cas : charges et réactions concordent (écart maximal {residual}).",
+  'post.balancedOne': "Équilibre vérifié dans 1 cas : charges et réactions concordent (écart {residual}).",
   'post.pdeltaConverged': "P-Delta : convergé en {n} itérations ; B2 = {b2}.",
   'post.pdeltaNotConverged': "P-Delta : n'a pas convergé en {n} itérations ; les résultats du second ordre ne sont pas définitifs (B2 = {b2}).",
   'post.pdeltaUnstable': "P-Delta : la structure est instable sous ces charges ({n} itérations).",

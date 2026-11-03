@@ -14426,6 +14426,7 @@ const en: Record<string, string> = {
   'post.partial': "{name}: equilibrium not fully checked; the check does not add up every load of the case.",
   'post.singleSolve': "The solve",
   'post.balanced': "Equilibrium checked in {n} cases: loads and reactions agree (largest difference {residual}).",
+  'post.balancedOne': "Equilibrium checked in 1 case: loads and reactions agree (difference {residual}).",
   'post.pdeltaConverged': "P-Delta: converged in {n} iterations; B2 = {b2}.",
   'post.pdeltaNotConverged': "P-Delta: did not converge in {n} iterations; the second-order results are not final (B2 = {b2}).",
   'post.pdeltaUnstable': "P-Delta: the structure is unstable under these loads ({n} iterations).",
