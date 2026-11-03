@@ -1,6 +1,7 @@
 ### Changed
-#### CI jobs use four threads on every runner (2026-11-03)
+#### CI tools use a GitHub runner's thread counts on every runner (2026-11-03)
 
-Cargo, the Rust test harnesses, rayon, vitest, binaryen and esbuild are capped at a GitHub
-runner's four threads in CI and Research, so jobs on the shared self-hosted runner no longer
-each claim every core of the machine. On GitHub's runners nothing changes.
+Cargo, the Rust test harnesses, rayon, vitest, binaryen and esbuild get the thread counts they
+already pick on GitHub's four-vCPU runners, in CI and Research, so each tool on the shared
+self-hosted runner no longer sizes itself to every core of the machine. These are per-tool
+limits, not a cap on a whole job; nothing changes on GitHub's runners.
