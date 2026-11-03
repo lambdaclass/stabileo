@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * One template (`store/underlays.ts`): seen or not, its level, lock and strength, and, open,
    * what it is (file, unit, region, the point it was laid by), its placement, its alignment by two
@@ -70,7 +71,7 @@
     </div>
     <details class="ul-align">
       <summary>{t('underlay.alignTitle')}</summary>
-      <p class="pk-hint">{t('underlay.alignHint')}</p>
+      <Hint text={t('underlay.alignHint')} />
       {#each pairs as _p, k (k)}
         <div class="pk-row ul-pair">
           <span>{k + 1}.</span>
@@ -97,7 +98,7 @@
           {/each}
         </tbody>
       </table>
-      <p class="pk-hint">{t('underlay.snapRule')}</p>
+      <Hint text={t('underlay.snapRule')} />
     {/if}
     <div class="pk-row">
       <label class="pk-btn ul-file" class:disabled={u.locked}>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import ProWriteLoadCard from './loads/ProWriteLoadCard.svelte';
   import ProLoadTables from './loads/ProLoadTables.svelte';
   import ProLoadCases from './ProLoadCases.svelte';
@@ -150,6 +151,7 @@
     <button class="pro-btn-autogen" data-testid="pro-auto-loads-btn"
       onclick={() => showAutoLoadsDialog = true}>{t('autoLoad.autoGenBtn')}</button>
   </div>
+  <Hint text={t('pro.loadsHint')} />
 
   <!-- Add a load: the card the "Add load" button opens. -->
   {#if drawState.writing === 'load'}

@@ -350,6 +350,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'plates.max',
   'plates.min',
   'pointMasses.izz',
+  'post.col.detail',
+  'post.sev.ok',
   'pro.adv.pdelta',
   'pro.amplitude',
   'pro.caseTypeW',

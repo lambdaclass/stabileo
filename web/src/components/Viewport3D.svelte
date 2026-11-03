@@ -23,6 +23,12 @@
   import { setGeometryDrag } from '../lib/store/physical-frame';
   import { discretizationStore } from '../lib/store/discretization.svelte';
   import { syncStructuralGrid } from '../lib/three/structural-grid-3d';
+  import { sceneHost } from '../lib/viewport3d/scene-host.svelte';
+  import SplitView3D from './viewport/SplitView3D.svelte';
+  import { currentShellContourField, shellStressInputs } from '../lib/store/shell-contour';
+  import { shellComponentValue, shellComponentMeta, shellComponentLabelKey } from '../lib/engine/shell-stress';
+  import { toneObject } from '../lib/viewport3d/category-tone';
+  import { viewCategories, type ViewCategory } from '../lib/store/view-categories.svelte';
   import { syncUnderlays } from '../lib/three/underlay-3d';
   import { syncFootings } from '../lib/three/footings-3d';
   import { osnapUnderlays } from '../lib/model/osnap';
@@ -739,6 +745,7 @@
     const ro = new ResizeObserver(() => { if (buildTimelapse.active) applyTimelapseSize(); else handleResize(); invalidate(); });
     ro.observe(container);
     handleResize();
+    sceneHost.attach({ scene, redraw: () => { toneDirty = true; invalidate(); } });
 
     // Initialize sync contexts (must be after parent groups are created)
     initSyncContexts();
@@ -971,7 +978,9 @@
 
       const _perfT0 = perfHud.on ? performance.now() : 0;
       nodesInstanced.setPixelRatio(renderer.getPixelRatio());
+      if (toneDirty) { toneDirty = false; applyCategoryTones(); }
       renderer.render(scene, camera);
+      splitView?.render();
       drawFreeBody3D();
       if (timelapseInfo && timelapseFrame) composeTimelapse(timelapseInfo);
       else renderInset();
@@ -1219,6 +1228,7 @@
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
+      sceneHost.attach(null);
       ghost?.dispose(); ghost = null; ghostFragment = null;
       previewGhost?.dispose(); previewGhost = null; previewFragment = null;
       initialized = false;
@@ -1318,11 +1328,24 @@
 
   // Thin wrappers that delegate to extracted modules + keep local refs in sync.
   // Wrapped in perfTimed so the HUD can attribute per-edit CPU cost to scene sync.
-  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); }
-  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); }
-  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); }
-  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); }
-  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); }
+  function syncNodes() { perfTimed(() => _syncNodes(sceneCtx)); toneDirty = true; }
+  function syncElements() { perfTimed(() => _syncElements(sceneCtx)); toneDirty = true; }
+  function syncSupports() { perfTimed(() => _syncSupports(sceneCtx)); toneDirty = true; }
+  function syncLoads() { perfTimed(() => _syncLoads(sceneCtx)); toneDirty = true; }
+  function syncShells() { perfTimed(() => _syncShells(sceneCtx)); toneDirty = true; }
+  /** Set by every rebuild of a category's objects: the next frame draws them in their state again. */
+  let toneDirty = true;
+  function applyCategoryTones() {
+    const s = (c: ViewCategory) => viewCategories.state(c);
+    toneObject(elementsParent, s('members'));
+    toneObject(nodesParent, s('nodes'));
+    toneObject(shellsParent, s('shells'));
+    toneObject(supportsParent, s('supports'));
+    toneObject(loadsParent, s('loads'));
+    for (const g of [resultsCtx?.nodeLabelsGroup, resultsCtx?.elementLabelsGroup, resultsCtx?.shellLabelsGroup]) toneObject(g, s('labels'));
+    toneObject(underlaysGroup, s('underlays'));
+    for (const [obj, c] of sceneHost.toned) toneObject(obj, s(c));
+  }
   // Decorative overlays (member/shell local-axis triads, offset viz) fully rebuild
   // on every call. The nodes $effect re-runs them on every modelVersion bump, i.e.
   // every node-drag tick. Suppress them while a node is being dragged (the cheap,
@@ -1439,6 +1462,7 @@
   }
   function syncLabels3D() {
     _syncLabels3D(resultsCtx);
+    toneDirty = true;
   }
 
   // ─── Clear stress query when leaving stress mode ────────────
@@ -1458,10 +1482,17 @@
   // are rebuilt from the visible part of the model. Nothing in the model changes.
   $effect(() => {
     viewVisibility.version;
+    void viewCategories.hiddenKey;
     untrack(() => {
       syncNodes(); syncElements(); syncSupports(); syncLoads(); syncShells();
       syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions();
     });
+    invalidate();
+  });
+
+  $effect(() => {
+    void viewCategories.version;
+    toneDirty = true;
     invalidate();
   });
 
@@ -1922,6 +1953,7 @@
     const z = uiStore.workingPlane === 'XY' ? uiStore.nodeCreateZ : null;
     if (!scene) return;
     underlaysGroup = syncUnderlays(scene, underlaysGroup, list, z);
+    toneDirty = true;
     invalidate();
   });
 
@@ -3135,7 +3167,7 @@
   /** Every load whose drawing is within a few pixels of the pointer, with its distance, nearest first. */
   function loadsNearPointer(e: MouseEvent): { id: number; d: number }[] {
     const fp = sceneCtx?.loadFootprints;
-    if (!fp || fp.size === 0) return [];
+    if (!fp || fp.size === 0 || viewCategories.isHidden('loads')) return [];
     const rect = container.getBoundingClientRect();
     const pointLoads = new Set<number>();
     for (const l of modelStore.loads) if (l.type === 'nodal' || l.type === 'nodal3d' || l.type === 'pointOnElement' || l.type === 'pointOnElement3d') pointLoads.add(l.data.id);
@@ -3437,7 +3469,7 @@
         if (dsmStepsStore.isOpen) dsmStepsStore.selectElement(pick.id);
         hit = true;
       } else if (pick?.kind === 'load') { uiStore.selectLoad(pick.id, addToSel); hit = true; }
-      if (!hit && uiStore.selectsKind('supports')) {
+      if (!hit && uiStore.selectsKind('supports') && !viewCategories.isHidden('supports')) {
         for (const h of raycaster.intersectObjects(supportsParent.children, true)) {
           const ud = findUserData(h.object);
           if (ud?.type === 'support') {
@@ -3460,7 +3492,7 @@
     }
 
     if (sm === 'supports') {
-      const supHits = raycaster.intersectObjects(supportsParent.children, true);
+      const supHits = !viewCategories.isHidden('supports') ? raycaster.intersectObjects(supportsParent.children, true) : [];
       for (const hit of supHits) {
         const ud = findUserData(hit.object);
         if (ud?.type === 'support') {
@@ -3716,6 +3748,8 @@
       } else if (newHover.type === 'plate' || newHover.type === 'quad') {
         const sh = newHover.type === 'plate' ? modelStore.plates.get(newHover.id) : modelStore.quads.get(newHover.id);
         if (sh) tooltipText = `${newHover.type === 'plate' ? 'Plate' : 'Quad'} ${newHover.id} · t=${sh.thickness}m`;
+        const reading = sh && shellContourActive() ? shellReading(newHover.type === 'plate' ? 'p' : 'q', newHover.id) : null;
+        if (reading) tooltipText += ` · ${reading}`;
       }
       if (tooltipText) {
         hoverTooltip = { text: tooltipText, x: e.clientX - rect.left + 15, y: e.clientY - rect.top - 10 };
@@ -3877,6 +3911,23 @@
 
   /** Mirror of scene-sync's contour check (so hover/selection don't clobber an
    *  active shell contour). */
+  /** The contour's value on one shell, as the hover reads it: the element's own, and the painted corners' span. */
+  function shellReading(prefix: 'p' | 'q', id: number): string | null {
+    const r3d = resultsStore.results3D;
+    if (!r3d) return null;
+    const c = resultsStore.shellContourComponent;
+    const inputs = shellStressInputs(r3d, c);
+    const st = (prefix === 'p' ? inputs.plates : inputs.quads).find((x) => x.elementId === id);
+    if (!st) return null;
+    const v = shellComponentValue(st, c, contourOptions.face);
+    if (!Number.isFinite(v)) return null;
+    const meta = shellComponentMeta(c);
+    const fmt = (x: number) => (Math.abs(x) >= 100 ? x.toFixed(0) : Math.abs(x) >= 1 ? x.toFixed(2) : x.toPrecision(3));
+    const corners = currentShellContourField(r3d, c)?.corners.get(`${prefix}${id}`);
+    const span = corners && corners.length ? ` (${fmt(Math.min(...corners))} … ${fmt(Math.max(...corners))})` : '';
+    return `${t(shellComponentLabelKey(c))} = ${fmt(v)} ${meta.unit}${span}`;
+  }
+
   function shellContourActive(): boolean {
     if (resultsStore.diagramType !== 'colorMap') return false;
     const k = resultsStore.colorMapKind;
@@ -4229,11 +4280,15 @@
   function addAxisLabels() {
     axisLabelSprites = _addAxisLabels(scene);
   }
+  /** The view split in two (PRO, not on a phone): this view on the left, the other half beside it. */
+  const splitOn = $derived(viewState.split && uiStore.analysisMode === 'pro' && !uiStore.isMobile);
+  let splitView: { render: () => void } | undefined = $state();
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="viewport3d-wrapper"
+  class:split-main={splitOn}
   bind:this={container}
   style="cursor: {cursorStyle};"
   onmousedown={handleMouseDown}
@@ -4246,6 +4301,7 @@
   oncontextmenu={handleContextMenu3D}
 >
   {#if uiStore.planView3D}<PlanViewChip />{/if}
+
   <!-- The despiece, drawn over the scene in screen space (`canvas/free-body.ts`); only while it is on. -->
   {#if resultsStore.diagramType === 'despiece'}
     <canvas class="fb-overlay" bind:this={fbCanvas} aria-hidden="true"></canvas>
@@ -4407,6 +4463,11 @@
                   title={uiStore.planView3D ? t('viewport.planViewOff') : t('viewport.planViewOn')} data-testid="nav-plan-view">
             <span class="cam-glyph">▦</span><span>{t('viewport.planView')}</span>
           </button>
+          {#if uiStore.analysisMode === 'pro' && !uiStore.isMobile}
+            <button class="cam-item" class:on={viewState.split} onclick={() => { viewState.split = !viewState.split; }} data-testid="nav-split-view">
+              <span class="cam-glyph">◫</span><span>{t('viewport.split')}</span>
+            </button>
+          {/if}
           <button class="cam-item" onclick={toggleCameraMode}>
             <span class="cam-glyph">{uiStore.cameraMode3D === 'perspective' ? 'P' : 'O'}</span>
             <span>{uiStore.cameraMode3D === 'perspective'
@@ -4635,6 +4696,10 @@
   <ShellContourLegend />
   <QuickInfoCard />
 </div>
+{#if splitOn && scene}
+  <SplitView3D bind:this={splitView} {scene} parents={() => ({ elements: elementsParent, nodes: nodesParent })} />
+{/if}
+
 
 <style>
   .viewport3d-wrapper {
@@ -4643,6 +4708,7 @@
     position: relative;
     overflow: hidden;
   }
+  .viewport3d-wrapper.split-main { width: 50%; }
 
   /* Dev perf HUD — measurement only (Shift+P / ?perf). */
   .perf-hud {

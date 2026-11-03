@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › Surfaces: whether the selected quads are curved shells, and the offset of
    * the selected shells' mid-surface. Thickness is the shell's section, set where the shell is.
@@ -112,7 +113,7 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('pro.shellCurvature')}</h4>
-    <p class="pk-hint">{t('pro.shellCurvatureHint')}</p>
+    <Hint text={t('pro.shellCurvatureHint')} />
     {#if selectedQuads.length === 0}
       <p class="pk-hint">{t('pro.shellCurvatureSelect')}</p>
     {:else}
@@ -126,7 +127,7 @@
 
   <section class="pk-card">
     <h4 class="pk-heading">{t('pro.shellOffset')}</h4>
-    <p class="pk-hint">{t('pro.shellOffsetHint')}</p>
+    <Hint text={t('pro.shellOffsetHint')} />
     {#if current.mixed}<p class="pk-hint" data-testid="shell-offset-mixed">{t('behaviour.mixed')}</p>{/if}
     <label class="pk-row">{t('pro.offsetFrame')}
       <select bind:value={offFrame}>

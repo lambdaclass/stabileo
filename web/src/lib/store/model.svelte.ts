@@ -487,6 +487,10 @@ export interface SavedViewDisplay {
   hidden?: { elements: number[]; shells: string[] };
   labels: { nodes: boolean; members: boolean; memberLabel: string; lengths: boolean; shells: boolean };
   colourBy?: string;
+  /** Categories not drawn as they are: in halftone or hidden (`store/view-categories`). Absent: all drawn. */
+  categories?: Partial<Record<import('./view-categories.svelte').ViewCategory, import('./view-categories.svelte').CategoryState>>;
+  /** How members are drawn: lines, thick bars, extruded sections or the physical geometry. */
+  style?: 'wireframe' | 'solid' | 'sections' | 'physical';
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -4215,6 +4219,11 @@ function createModelStore() {
       _pushUndoView?.();
       model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target }, ...(display ? { display: JSON.parse(JSON.stringify(display)) } : {}) }];
       return id;
+    },
+    /** A view takes the camera and the display it is looked at with now. */
+    updateView(id: number, position: SavedView['position'], target: SavedView['target'], display: SavedViewDisplay): void {
+      _pushUndoView?.();
+      model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, position: { ...position }, target: { ...target }, display: JSON.parse(JSON.stringify(display)) } : v));
     },
     renameView(id: number, name: string): void {
       _pushUndoView?.();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * PRO's "Exportar imagen": Basic's figures (`lib/export/view-figure.ts`), with what a PRO model
    * adds: its shells, as faces and as a result in colour; a fixed view (plan, the two elevations,
@@ -170,7 +171,7 @@
           {#each choices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
         </select>
       </label>
-      <p class="xs-note">{t('proExport.resultsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.resultsNote')} />
     </ExportSection>
   {/if}
 

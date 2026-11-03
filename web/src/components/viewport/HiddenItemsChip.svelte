@@ -3,17 +3,25 @@
    * Over the drawing while part of the model is hidden (context menu › Hide
    * the selection / Show only the selection): says so, and brings it back.
    * Without it a hidden member looks deleted. PRO has the same button in its
-   * View panel, so this is Basic's.
+   * View panel, so this is Basic's; in PRO it names the categories hidden from the View panel.
    */
   import { uiStore } from '../../lib/store';
   import { viewVisibility } from '../../lib/store/view-state.svelte';
-  import { t } from '../../lib/i18n';
+  import { viewCategories } from '../../lib/store/view-categories.svelte';
+  import { t, tp } from '../../lib/i18n';
+
+  const hiddenCats = $derived(viewCategories.hiddenKey ? viewCategories.hiddenKey.split(',') : []);
 </script>
 
 {#if viewVisibility.active && uiStore.analysisMode !== 'pro'}
   <div class="hidden-chip" data-testid="hidden-items-chip">
     <span>{t('view.partHidden')}</span>
     <button onclick={() => viewVisibility.showAll()} data-testid="hidden-items-show-all">{t('view.showAll')}</button>
+  </div>
+{:else if hiddenCats.length > 0}
+  <div class="hidden-chip" data-testid="hidden-categories-chip">
+    <span>{tp('view.catsHidden', { list: hiddenCats.map((c) => t(`view.cat.${c}`)).join(', ') })}</span>
+    <button onclick={() => viewCategories.reset()} data-testid="hidden-categories-show-all">{t('view.catReset')}</button>
   </div>
 {/if}
 
