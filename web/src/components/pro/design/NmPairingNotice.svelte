@@ -3,13 +3,14 @@
   import { verificationStore } from '../../../lib/store/verification.svelte';
 
   let { elementId }: { elementId: number } = $props();
+  const issue = 1316;
 
   const paired = $derived((verificationStore.designMap.get(elementId)?.checks ?? []).filter(c => c.notice === 'RC-NM-PAIRING'));
 </script>
 
 {#if paired.length > 0}
   <div class="nm-pairing" role="alert" data-testid={`nm-pairing-${elementId}`}>
-    <p>{t('knownIssue.RC-NM-PAIRING')} (#1316)</p>
+    <p>{t('knownIssue.RC-NM-PAIRING')} (#{issue})</p>
     <ul>
       {#each paired as c (c.name)}
         <li><span>{c.name}</span>: <span class="combo">{c.comboName}</span></li>
