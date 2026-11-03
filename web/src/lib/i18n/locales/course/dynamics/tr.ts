@@ -124,7 +124,7 @@ const words: Translations = {
   'course.dynamics.mdof.mass.lumped': 'Toplanmış kütle: her parçanın kütlesi ρ·A·L, iki ucuna yarı yarıya, iki ötelenme doğrultusunda verilir. Dönmelerin kütlesi yoktur.',
   'course.dynamics.mdof.mass.lumped.why': 'Derste kullanılan idealleştirmedir: M köşegendir ve her kütle çizimde görülür. Dönme ataleti ve kütlenin çubuk boyunca dağılımı kaybolur; çubuklar bölündükçe hata azalır.',
   'course.dynamics.mdof.mass.consistent': 'Tutarlı kütle: her parça, rijitlik matrisiyle aynı şekil fonksiyonlarıyla kurulan 6 × 6 kütle matrisini katar. Ötelenmeleri ve dönmeleri bağlaştırır.',
-  'course.dynamics.mdof.mass.consistent.why': 'Motorun modal analizinin kullandığı kütle budur. Frekansları kesin değerlerin hiçbir zaman altında değildir, genellikle biraz üstündedir; çubuklar bölündükçe hızla yakınsarlar.',
+  'course.dynamics.mdof.mass.consistent.why': 'Motorun modal analizinin kullandığı kütle budur. Tüm çubuklar tutarlı kütle kullandığında frekanslar kesin değerlerin hiçbir zaman altında değildir, genellikle biraz üstündedir; toplanmış kütleye dönen mafsallı uçlu çubuklar bu güvenceyi kaldırır. Frekanslar çubuklar bölündükçe hızla yakınsarlar.',
   'course.dynamics.mdof.mass.guyan': 'Yoğunlaştırılmış tutarlı kütle: tutarlı kütle kurulur, sonra dönmeler yoğunlaştırılır; geriye yalnızca kütleli ötelenmeler kalır.',
   'course.dynamics.mdof.mass.guyan.why': 'Problemi toplanmış kütle durumunun boyutuna indirir ve tutarlı kütlenin bilgisinin büyük kısmını korur. Dönmelerin ötelenmeleri statik şekil değiştirmedeki gibi izlediği varsayılır, bu yüzden ilk modlara en iyi yaklaşır.',
   'course.dynamics.mdof.mass.piece': 'Parça',
