@@ -69,9 +69,10 @@ response near that node changes, most in the first steps.
 PR #1247. At t = 0 the massless rows Z are met by K_ZZ·(u_Z + a1·v_Z) = r_Z: with damping
 (C_ZZ = a1·K_ZZ on those rows) the load at t = 0 makes their velocity jump and u_Z(0) stays as
 given; undamped, the massless part starts settled (a jump in u). The massive rows take the rest,
-massless accelerations follow from differentiating their rows with the load held (undamped,
-K_ZZ·a_Z = −K_Zm·a_m), and every row of step 0 holds; an undamped massless tip now accelerates
-with the mass it hangs from, where it used to start at zero and alternate about it. Reciprocity now holds to
+massless accelerations follow from differentiating their rows (undamped, K_ZZ·a_Z = −K_Zm·a_m;
+damped, the load's slope over the first step enters too), and every row of step 0 holds; a
+massless tip now accelerates with the mass it hangs from, and under a ramp load as its
+first-order closed form, where it used to start at zero and alternate about it. Reciprocity now holds to
 round-off on the fuzz models of #760 and on the chain and cantilever above. Two cases that used
 to give numbers now refuse, on any time history: a singular mass whose null direction mixes
 several DOFs (`TH-MASS-SINGULAR`; the solver divided by the diagonal of M instead), and a massless
