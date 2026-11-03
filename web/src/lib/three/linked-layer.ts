@@ -21,8 +21,8 @@ export function createLinkedLayer() {
   };
   return {
     show(host: Host | null, refs: readonly IfcReference[]): void {
-      takeOut();
-      if (!host || !refs.length) { host?.redraw(); return; }
+      const was = takeOut();
+      if (!host || !refs.length) { (host ?? was)?.redraw(); return; }
       const next = new THREE.Group();
       next.name = 'linkedModels';
       for (const r of refs) next.add(buildLinkedReference(r));
