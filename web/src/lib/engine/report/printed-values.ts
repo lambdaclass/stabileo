@@ -9,22 +9,36 @@ export interface PrintedTable {
 
 export interface PrintedDifference { table: string; row: string; column: string; printed: string; recomputed: string }
 
-export interface PrintedComparison { compared: number; differences: PrintedDifference[]; structural: string[] }
+/** `labels`: whether row labels and column headers were compared too (only in the report's own language). */
+export interface PrintedComparison { compared: number; differences: PrintedDifference[]; structural: string[]; labels: boolean }
 
 const CONFIG_ID = 'stabileo-report-config';
 
-/** The report's choices of what to print, embedded so a check can print the same tables again; the letterhead stays out. */
-export function reportConfigScript(config: ReportConfig | undefined): string {
+/** The report's choices of what to print and its language, embedded so a check can print the same tables again; the letterhead stays out. */
+export function reportConfigScript(config: ReportConfig | undefined, locale?: string): string {
   if (!config) return '';
   const { companyName: _name, companyLogo: _logo, projectAddress: _address, engineerName: _engineer, revision: _revision, figures: _figures, ...rest } = config;
-  const json = JSON.stringify(rest).replace(/</g, '\\u003c');
+  const json = JSON.stringify(locale ? { ...rest, reportLocale: locale } : rest).replace(/</g, '\\u003c');
   return `<script type="application/json" id="${CONFIG_ID}">${json}</script>`;
 }
 
-export function embeddedReportConfig(html: string): ReportConfig | null {
+function embedded(html: string): Record<string, unknown> | null {
   const m = new RegExp(`<script[^>]*id=["']${CONFIG_ID}["'][^>]*>([\\s\\S]*?)</script>`, 'i').exec(html);
   if (!m) return null;
-  try { return { companyName: '', companyLogo: null, ...JSON.parse(m[1]!) } as ReportConfig; } catch { return null; }
+  try { return JSON.parse(m[1]!) as Record<string, unknown>; } catch { return null; }
+}
+
+export function embeddedReportConfig(html: string): ReportConfig | null {
+  const e = embedded(html);
+  if (!e) return null;
+  const { reportLocale: _locale, ...config } = e;
+  return { companyName: '', companyLogo: null, ...config } as ReportConfig;
+}
+
+/** The language the report was written in, when it says. */
+export function embeddedReportLocale(html: string): string | null {
+  const l = embedded(html)?.reportLocale;
+  return typeof l === 'string' ? l : null;
 }
 
 const text = (cell: string) => cell
@@ -60,7 +74,7 @@ export function printedTables(html: string): PrintedTable[] {
 }
 
 /** The printed numbers against the same tables printed again from a fresh solve: cell by cell. */
-export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly PrintedTable[]): PrintedComparison {
+export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly PrintedTable[], labels = true): PrintedComparison {
   const differences: PrintedDifference[] = [];
   const structural: string[] = [];
   let compared = 0;
@@ -68,14 +82,14 @@ export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly
   for (const t of fresh) (freshByKey.get(t.key) ?? freshByKey.set(t.key, []).get(t.key)!).push(t);
   for (const t of claimed) {
     const f = freshByKey.get(t.key)?.shift();
-    if (!f || f.rows.length !== t.rows.length || f.headers.join('\u0000') !== t.headers.join('\u0000')) { structural.push(t.key); continue; }
+    if (!f || f.rows.length !== t.rows.length || (labels && f.headers.join('\u0000') !== t.headers.join('\u0000'))) { structural.push(t.key); continue; }
     const numCount = Math.max(0, ...t.rows.map((r) => r.cells.length));
     const numHeaders = t.headers.slice(t.headers.length - numCount);
     const labelHeader = t.headers.slice(0, t.headers.length - numCount).join(' · ');
     t.rows.forEach((row, i) => {
       const other = f.rows[i]!;
       if (other.cells.length !== row.cells.length) { structural.push(t.key); return; }
-      if (other.label !== row.label) differences.push({ table: t.key, row: other.label, column: labelHeader, printed: row.label, recomputed: other.label });
+      if (labels && other.label !== row.label) differences.push({ table: t.key, row: other.label, column: labelHeader, printed: row.label, recomputed: other.label });
       row.cells.forEach((printed, c) => {
         compared++;
         const recomputed = other.cells[c]!;
@@ -84,5 +98,5 @@ export function comparePrinted(claimed: readonly PrintedTable[], fresh: readonly
     });
   }
   for (const [key, left] of freshByKey) if (left.length > 0) structural.push(key);
-  return { compared, differences, structural: [...new Set(structural)] };
+  return { compared, differences, structural: [...new Set(structural)], labels };
 }

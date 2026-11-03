@@ -12,13 +12,13 @@ import { runGlobalSolve } from '../engine/live-calc';
 import { currentResultProvenance, provenanceForScope, ensureEngineHashes } from '../store/result-provenance';
 import { compareProvenance, type ResultProvenance, type ReproduceVerdict } from '../provenance/result-provenance';
 import { errorText } from '../utils/error-text';
-import { t } from '../i18n';
+import { i18n, t } from '../i18n';
 import { buildProReportData } from '../engine/pro-report-inputs';
 import { generateReportHtml } from '../engine/pro-report';
-import { comparePrinted, embeddedReportConfig, printedTables, type PrintedComparison } from '../engine/report/printed-values';
+import { comparePrinted, embeddedReportConfig, embeddedReportLocale, printedTables, type PrintedComparison } from '../engine/report/printed-values';
 
 export type ReproduceOutcome =
-  | { ok: true; verdict: ReproduceVerdict; fresh: ResultProvenance; printed?: PrintedComparison | null }
+  | { ok: true; verdict: ReproduceVerdict; fresh: ResultProvenance; printed?: PrintedComparison | null; reportLocale?: string | null }
   | { ok: false; error: string };
 
 /**
@@ -37,7 +37,7 @@ export async function reproduceFrom(claimed: ResultProvenance, report?: string):
   if ((claimed.certificates ?? []).length > 0) await settledCertificate();
   await ensureEngineHashes();
   const outcome = compareWithResultsOnHand(claimed);
-  if (outcome.ok && report) outcome.printed = comparePrintedReport(report);
+  if (outcome.ok && report) { outcome.printed = comparePrintedReport(report); outcome.reportLocale = embeddedReportLocale(report); }
   return outcome;
 }
 
@@ -48,7 +48,8 @@ export function comparePrintedReport(report: string): PrintedComparison | null {
   if (!config) return null;
   const data = buildProReportData({ config, t });
   if (!data) return null;
-  return comparePrinted(claimedTables, printedTables(generateReportHtml(data)));
+  const locale = embeddedReportLocale(report);
+  return comparePrinted(claimedTables, printedTables(generateReportHtml(data)), !locale || locale === i18n.locale);
 }
 
 /**

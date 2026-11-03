@@ -149,6 +149,8 @@ export interface ReportData {
   t?: TFunc;
   // Report configuration (project info + section toggles)
   config?: ReportConfig;
+  /** The language the report is written in. */
+  locale?: string;
 }
 
 function fmtNum(n: number, dec: number = 2): string {
@@ -774,7 +776,7 @@ export function generateReportHtml(data: ReportData): string {
   }
 
   if (data.resultProvenance) html.push(provenanceBlockHtml(data.resultProvenance.record, data.resultProvenance.labels));
-  html.push(reportConfigScript(data.config));
+  html.push(reportConfigScript(data.config, data.locale));
   html.push(`</body></html>`);
   return html.join('\n');
 }

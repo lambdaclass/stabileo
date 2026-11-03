@@ -13971,6 +13971,7 @@ const es: Record<string, string> = {
   'provenance.reproduce.printedDiffers': "{m} de los {n} valores impresos no coinciden con el recálculo:",
   'provenance.reproduce.printedLine': "{table}, {row}, {column}: impreso {printed}, recalculado {recomputed}",
   'provenance.reproduce.printedStructure': "Estas tablas no tienen las mismas filas que al recalcular: {tables}.",
+  'provenance.reproduce.printedLabelsOther': "Los rótulos y encabezados están en {language}: abrí la verificación con la interfaz en ese idioma para compararlos también.",
   'provenance.reproduce.printedTampered': "Los números impresos no coinciden con el recálculo",
   'provenance.reproduce.printedNone': "Este archivo no trae las tablas marcadas para comparar valor por valor (es de una versión anterior, o no es un reporte HTML): se comparan sólo las huellas.",
   'provenance.reproduce.table.reactions': "Reacciones",

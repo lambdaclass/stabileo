@@ -13821,6 +13821,7 @@ const fr: Translations = {
   'provenance.reproduce.printedDiffers': "{m} des {n} valeurs imprimées ne correspondent pas au recalcul :",
   'provenance.reproduce.printedLine': "{table}, {row}, {column} : imprimé {printed}, recalculé {recomputed}",
   'provenance.reproduce.printedStructure': "Ces tableaux n’ont pas les mêmes lignes que le recalcul : {tables}.",
+  'provenance.reproduce.printedLabelsOther': "Les libellés et les en-têtes sont en {language} : ouvrez la vérification avec l’interface dans cette langue pour les comparer aussi.",
   'provenance.reproduce.printedTampered': "Les chiffres imprimés ne correspondent pas au recalcul",
   'provenance.reproduce.printedNone': "Ce fichier ne contient pas de tableaux marqués pour une comparaison valeur par valeur (il provient d’une version antérieure, ou n’est pas un rapport HTML) : seules les empreintes sont comparées.",
   'provenance.reproduce.table.reactions': "Réactions",
