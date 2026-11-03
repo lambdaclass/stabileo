@@ -301,6 +301,16 @@ describe('a floor beam holds a column top only when its far end is held up', () 
     expect(r.floors[0].columns.map((c) => c.factor)).toEqual([3]);
     expect(r.floors[0].k).toBeCloseTo((3 * EI) / 27, 3);
   });
+  it('a floor beam that reaches the other column only through a pin-ended link is refused, not taken as holding the column top', () => {
+    const rel = { my: false, mz: true, t: false };
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), m = modelStore.addNode(2, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, m);
+      modelStore.updateElement(modelStore.addElement(m, c), { releaseI: rel, releaseJ: rel } as never);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+    });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('floorHinge');
+  });
   it('a floor beam split at a free node between two fixed columns still holds both tops: 12EI/h³ each', () => {
     build(() => {
       const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), m = modelStore.addNode(2, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);

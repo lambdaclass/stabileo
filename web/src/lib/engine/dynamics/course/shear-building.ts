@@ -42,7 +42,7 @@ export interface ShearBuilding {
   dofs: DofRef[];
 }
 
-export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad' | 'otherParts';
+export type ShearRefusal = 'notFrames' | 'base' | 'shape' | 'noColumns' | 'noMass' | 'floorSplit' | 'variableSection' | 'unsupportedBase' | 'continuousColumn' | 'memberLoad' | 'otherParts' | 'floorHinge';
 
 const TOL = 1e-6;
 
@@ -75,25 +75,33 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
   const beams = els.filter(isBeam);
   const heldUp = new Set(supported);
   for (const e of els) if (!isBeam(e)) { heldUp.add(e.nodeI); heldUp.add(e.nodeJ); }
-  const anchored = (beam: (typeof els)[number], near: number, from: number): boolean => {
-    const seen = new Set([near, from]), stack = [from];
+  const rigidAt = (e: (typeof els)[number], n: number) => (e.nodeI === n ? e.releaseI?.mz : e.releaseJ?.mz) !== true;
+  const anchored = (beam: (typeof els)[number], near: number, from: number): boolean | 'released' => {
+    const seen = new Set([near, from]), stack: Array<[(typeof els)[number], number]> = [[beam, from]];
+    let blocked = false;
     while (stack.length) {
-      const n = stack.pop()!;
+      const [via, n] = stack.pop()!;
       if (heldUp.has(n)) return true;
       for (const e of beams) {
-        if (e === beam || (e.nodeI !== n && e.nodeJ !== n)) continue;
+        if (e === via || (e.nodeI !== n && e.nodeJ !== n)) continue;
+        if (!rigidAt(via, n) || !rigidAt(e, n)) { blocked = true; continue; }
         const m = e.nodeI === n ? e.nodeJ : e.nodeI;
-        if (!seen.has(m)) { seen.add(m); stack.push(m); }
+        if (heldUp.has(m)) return true;
+        if (!seen.has(m)) { seen.add(m); stack.push([e, m]); }
       }
     }
-    return false;
+    return blocked ? 'released' : false;
   };
   const beamHolds = new Set<number>();
   const rigidEnds = new Map<number, number>();
   for (const e of els) {
     if (isBeam(e)) {
-      if (e.releaseI?.mz !== true && anchored(e, e.nodeI, e.nodeJ)) beamHolds.add(e.nodeI);
-      if (e.releaseJ?.mz !== true && anchored(e, e.nodeJ, e.nodeI)) beamHolds.add(e.nodeJ);
+      for (const [n, far] of [[e.nodeI, e.nodeJ], [e.nodeJ, e.nodeI]] as const) {
+        if (!rigidAt(e, n)) continue;
+        const a = anchored(e, n, far);
+        if (a === 'released') return 'floorHinge';
+        if (a) beamHolds.add(n);
+      }
       continue;
     }
     for (const [node, rel] of [[e.nodeI, e.releaseI?.mz], [e.nodeJ, e.releaseJ?.mz]] as const) if (rel !== true) rigidEnds.set(node, (rigidEnds.get(node) ?? 0) + 1);
