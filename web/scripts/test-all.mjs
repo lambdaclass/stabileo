@@ -48,9 +48,9 @@
  * the test is the only proof that a production artifact does not ship the browser-test
  * hooks.
  *
- * The project-scale wall-clock budgets run in a serial pass of their own, `timing`: in the
- * parallel pool, report generation exceeded its 2,000 ms budget by 26 ms while other workers
- * were busy. CI runs that pass alone on the timing runners, outside the merge queue.
+ * The project-scale timing budgets also run in the serial pass. In the parallel pool,
+ * report generation exceeded its 2,000 ms budget by 26 ms while other workers were busy.
+ * Isolating that measurement keeps the fixture and thresholds intact.
  *
  * ── What was deliberately NOT done ─────────────────────────────────
  *
@@ -72,8 +72,7 @@ const filtered = forwarded.length > 0;
 
 const PASSES = [
   { project: 'unit', label: 'unit + integration (bounded parallel pool)' },
-  { project: 'build', label: 'production builds (serial, whole machine)' },
-  { project: 'timing', label: 'wall-clock budgets at project scale (serial, whole machine)' },
+  { project: 'build', label: 'production builds and performance budgets (serial, whole machine)' },
   // The results snapshot gate (#716): the reference corpus solved through the app's path and
   // compared with web/results-snapshots/. Its own pass so a result change reads as one.
   { project: 'results', label: 'results snapshots (the reference corpus against web/results-snapshots/)' },

@@ -43,7 +43,6 @@ const PRODUCTION_BUILD_TESTS = configArray('PRODUCTION_BUILD_TESTS');
 const NOT_VITEST = configArray('NOT_VITEST');
 /** The results snapshot gate's directory (#716): its own pass, `results`. */
 const RESULTS_SNAPSHOT_TESTS = configArray('RESULTS_SNAPSHOT_TESTS');
-const TIMING_BUDGET_TESTS = configArray('TIMING_BUDGET_TESTS');
 const inResultsPass = (f: string) => RESULTS_SNAPSHOT_TESTS.some((g) => f.startsWith(g.replace(/\*\*$/, '')));
 
 /** Every Vitest file in the tree, as a repo-relative path with forward slashes. */
@@ -98,13 +97,13 @@ describe('Vitest harness architecture', () => {
       + 'or stop them spawning processes').toEqual([]);
   });
 
-  it('the unit pass excludes ONLY dependencies, Playwright, the build tests, the timing budgets and the results snapshots', () => {
+  it('the unit pass excludes ONLY dependencies, Playwright, the build tests and the results snapshots', () => {
     // The split must never become a way to drop a file. The only legitimate exclusions are
     // the two known groups; anything else means a test stopped running and nobody noticed.
     const unitExclude = CONFIG.match(/name: 'unit',[\s\S]*?exclude: \[([\s\S]*?)\]/);
     expect(unitExclude, "the 'unit' project no longer declares an exclude list").not.toBeNull();
     const spread = [...unitExclude![1].matchAll(/\.\.\.(\w+)/g)].map((m) => m[1]).sort();
-    expect(spread).toEqual(['NOT_VITEST', 'PRODUCTION_BUILD_TESTS', 'RESULTS_SNAPSHOT_TESTS', 'TIMING_BUDGET_TESTS']);
+    expect(spread).toEqual(['NOT_VITEST', 'PRODUCTION_BUILD_TESTS', 'RESULTS_SNAPSHOT_TESTS']);
     // and no extra inline literal alongside the two spreads
     expect([...unitExclude![1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])).toEqual([]);
   });
@@ -141,22 +140,15 @@ describe('Vitest harness architecture', () => {
     expect(files.filter(inResultsPass).length).toBeGreaterThan(0);
   });
 
-  it('the project-scale timing budgets run alone, serially, outside the unit and build passes', () => {
-    expect(TIMING_BUDGET_TESTS).toEqual(['src/lib/engine/__tests__/scale-budget.test.ts']);
-    expect(PRODUCTION_BUILD_TESTS).not.toContain('src/lib/engine/__tests__/scale-budget.test.ts');
-    for (const p of TIMING_BUDGET_TESTS) expect(existsSync(resolve(WEB_ROOT, p)), p).toBe(true);
-    const timing = CONFIG.match(/name: 'timing',([\s\S]*?)\n\s{8}\}/);
-    expect(timing).not.toBeNull();
-    expect(timing![1]).toMatch(/include: TIMING_BUDGET_TESTS/);
-    expect(timing![1]).toMatch(/fileParallelism: false/);
-    expect(timing![1]).toMatch(/maxWorkers: 1/);
+  it('the project-scale timing budgets run outside the parallel unit pool', () => {
+    expect(PRODUCTION_BUILD_TESTS).toContain('src/lib/engine/__tests__/scale-budget.test.ts');
   });
 
-  it('`npm test` runs every pass and propagates any failure', () => {
+  it('`npm test` runs BOTH passes and propagates either failure', () => {
     expect(PKG.scripts.test).toBe('node scripts/test-all.mjs');
     const projects = [...RUNNER.matchAll(/project: '(\w+)'/g)].map((m) => m[1]);
-    expect(projects).toEqual(['unit', 'build', 'timing', 'results']);
-    // Every pass runs before the verdict, so one broken pass cannot hide another.
+    expect(projects).toEqual(['unit', 'build', 'results']);
+    // Both passes run before the verdict, so one broken pass cannot hide the other.
     expect(RUNNER).toMatch(/process\.exit\(1\)/);
     expect(RUNNER).toMatch(/results\.filter\(\(r\) => r\.code !== 0\)/);
   });
@@ -186,13 +178,10 @@ describe('Vitest harness architecture', () => {
     // The arithmetic that proves it: nothing is excluded except the declared build tests,
     // and those are exactly what the build pass includes.
     const inBuildPass = files.filter((f) => PRODUCTION_BUILD_TESTS.includes(f));
-    const inTimingPass = files.filter((f) => TIMING_BUDGET_TESTS.includes(f));
     const inResults = files.filter(inResultsPass);
-    const inUnitPass = files.filter((f) => !PRODUCTION_BUILD_TESTS.includes(f)
-      && !TIMING_BUDGET_TESTS.includes(f) && !inResultsPass(f));
+    const inUnitPass = files.filter((f) => !PRODUCTION_BUILD_TESTS.includes(f) && !inResultsPass(f));
     expect(inBuildPass.sort()).toEqual([...PRODUCTION_BUILD_TESTS].sort());
-    expect(inTimingPass.sort()).toEqual([...TIMING_BUDGET_TESTS].sort());
-    expect(inUnitPass.length + inBuildPass.length + inTimingPass.length + inResults.length).toBe(files.length);
+    expect(inUnitPass.length + inBuildPass.length + inResults.length).toBe(files.length);
     expect(inUnitPass.length).toBeGreaterThan(200);
   });
 

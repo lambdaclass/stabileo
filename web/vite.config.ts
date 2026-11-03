@@ -89,11 +89,12 @@ const NOT_VITEST = ['**/node_modules/**', '**/dist/**', 'e2e/**', 'determinism/*
  */
 const RESULTS_SNAPSHOT_TESTS = ['src/lib/results-snapshot/__tests__/**'];
 
-const TIMING_BUDGET_TESTS = ['src/lib/engine/__tests__/scale-budget.test.ts'];
-
 const PRODUCTION_BUILD_TESTS = [
   'src/lib/utils/__tests__/benchmark-build.test.ts',
   'src/lib/provenance/__tests__/notice-bundle.test.ts',
+  // Wall-clock budgets must not compete with the parallel unit workers. Keep the full
+  // 5,000-member fixture and thresholds; run it in the serial pass, including in CI.
+  'src/lib/engine/__tests__/scale-budget.test.ts',
   'src/lib/utils/__tests__/e2e-hook-gating.test.ts',
   // Runs `scripts/typecheck.mjs` itself, to prove the gate cannot report a green it has not
   // earned. It spawns a Node process rather than a vite build, but it is the same reason for
@@ -246,7 +247,7 @@ export default defineConfig({
           name: 'unit',
           setupFiles: ['./vitest.setup.ts'],
           // Everything except the production-build tests, which get their own pass.
-          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...TIMING_BUDGET_TESTS, ...RESULTS_SNAPSHOT_TESTS],
+          exclude: [...NOT_VITEST, ...PRODUCTION_BUILD_TESTS, ...RESULTS_SNAPSHOT_TESTS],
           // THREADS, NOT FORKS — and this is the line that fixed the RPC timeout.
           //
           // `onTaskUpdate` is the worker → coordinator RPC, and birpc gives it a SIXTY
@@ -298,17 +299,6 @@ export default defineConfig({
           // parallel rollup/esbuild job: it does not occupy one worker slot, it occupies
           // the machine. Measured at 58.9 s of a 60.3 s run — it set the wall-clock floor
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
-          fileParallelism: false,
-          maxWorkers: 1,
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: 'timing',
-          setupFiles: ['./vitest.setup.ts'],
-          include: TIMING_BUDGET_TESTS,
-          pool: 'forks',
           fileParallelism: false,
           maxWorkers: 1,
         },

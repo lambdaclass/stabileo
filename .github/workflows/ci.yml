@@ -864,46 +864,6 @@ jobs:
           UNIT_AREA: ${{ needs.changes.outputs.unit_area }}
         run: make test.web.unit SHARD=${{ matrix.shard }}/4
 
-  web-timing:
-    name: Web Timing Budgets
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && github.event_name != 'pull_request') && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
-    timeout-minutes: 30
-    needs: [changes, wasm]
-    if: needs.changes.outputs.web == 'true' && github.event_name != 'merge_group'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - if: runner.environment == 'github-hosted'
-        uses: ./.github/actions/free-disk
-      - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
-        continue-on-error: true
-      - if: runner.environment == 'github-hosted'
-        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
-        continue-on-error: true
-        with:
-          use-flakehub: false
-      - name: Prepare Nix shell (infrastructure retries)
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command true
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        continue-on-error: true
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('web/package-lock.json') }}
-      # Built once per run by the `wasm` job, the same build as the shipped app.
-      - name: WASM engine (from the wasm job)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-        run: .github/scripts/retry-infra.sh nix develop --command gh run download "$RUN_ID" --name wasm --dir web/src/lib/wasm
-      - name: Install dependencies
-        run: .github/scripts/retry-infra.sh make web.deps
-      - name: Wall-clock budgets
-        run: make test.web.timing
-
   web-build:
     name: Web Build
     runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name != 'pull_request' && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
@@ -980,7 +940,7 @@ jobs:
       - name: Build and production-build tests
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-          NO_WALL_CLOCK: ${{ github.event_name == 'merge_group' && runner.environment == 'self-hosted' && '1' || '' }}
+          NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make test.web.build NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
@@ -1245,7 +1205,7 @@ jobs:
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
         if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
         env:
-          NO_WALL_CLOCK: ${{ github.event_name == 'merge_group' && runner.environment == 'self-hosted' && '1' || '' }}
+          NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
@@ -1390,7 +1350,7 @@ jobs:
     name: Timing Budgets
     runs-on: ubuntu-24.04
     needs: [changes, wasm, site-e2e]
-    if: github.event_name == 'merge_group' && needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')
     timeout-minutes: 60
     env:
       E2E_PREBUILT: '1'
@@ -1455,7 +1415,6 @@ jobs:
       - research
       - site-e2e
       - web-unit
-      - web-timing
       - web-build
       - results-snapshot
       - determinism

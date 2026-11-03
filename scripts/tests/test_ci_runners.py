@@ -65,19 +65,6 @@ class CiRunners(unittest.TestCase):
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
 
-    def test_wall_clock_budgets_run_alone_on_the_timing_pool_outside_the_merge_queue(self):
-        ci = jobs('ci.yml')
-        timing = ci['web-timing']
-        self.assertEqual(labels(timing['runs-on']), {'stabileo-timing'})
-        self.assertIn("github.event_name != 'merge_group'", timing['if'])
-        self.assertIn('make test.web.timing', timing['block'])
-        self.assertNotIn('test.web.timing', ci['web-build']['block'])
-        makefile = (ROOT / 'Makefile').read_text()
-        build = makefile.split('\ntest.web.build:\n', 1)[1].split('\n\n', 1)[0]
-        self.assertIn('--project build', build)
-        self.assertNotIn('--project timing', build)
-        self.assertIn('npx vitest run --project timing', makefile.split('\ntest.web.timing:\n', 1)[1].split('\n\n', 1)[0])
-
     def test_nightly_fuzz_never_takes_a_ci_runner(self):
         fuzz = jobs('nightly.yml')['fuzz']['runs-on']
         self.assertEqual(labels(fuzz), {'stabileo-nightly'})
