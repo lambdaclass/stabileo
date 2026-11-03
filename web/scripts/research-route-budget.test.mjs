@@ -23,18 +23,19 @@ for (const [route, budget] of Object.entries({
 })) {
   test(`${route} product growth passes at the budget and fails one byte over`, () => {
     compareRouteSizes({ [route]: 1000 }, { [route]: 1000 + budget }, false);
-    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false), /grew/);
+    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false),
+      new RegExp(`${budget} byte tolerance, product budget from web/scripts/product-route-growth-budgets\\.json`));
     compareRouteSizes({ [route]: 1000 }, { [route]: 1128 }, true);
-    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1129 }, true), /128 byte tolerance/);
+    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1129 }, true), /128 byte tolerance, research isolation/);
   });
 }
 
 test('isolation caps a larger product budget at 128 bytes; product mode uses the budget', () => {
   const budgets = { '/en/': 512 };
   compareRouteSizes({ '/en/': 1000 }, { '/en/': 1512 }, false, budgets);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1513 }, false, budgets), /512 byte tolerance/);
+  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1513 }, false, budgets), /512 byte tolerance, product budget/);
   compareRouteSizes({ '/en/': 1000 }, { '/en/': 1128 }, true, budgets);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1129 }, true, budgets), /128 byte tolerance/);
+  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1129 }, true, budgets), /128 byte tolerance, research isolation/);
 });
 test('environment selects product budgets only when isolation is explicitly false', () => {
   for (const [mode, growth, status] of [
@@ -50,7 +51,7 @@ test('environment selects product budgets only when isolation is explicitly fals
       compareRouteSizes({ '/en/': 1000 }, { '/en/': ${1000 + growth} }, undefined, { '/en/': 512 });
     `], { env, encoding: 'utf8' });
     assert.equal(result.status, status, result.stderr);
-    if (status) assert.match(result.stderr, /grew/);
+    if (status) assert.match(result.stderr, mode === 'false' ? /product budget/ : /research isolation/);
   }
 });
 
