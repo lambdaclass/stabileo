@@ -323,3 +323,17 @@ fn same_model_checks_carry_no_eigen_budget() {
     let (with, without) = (crate::checks2::rel_for(a.name, a.iter_tol, &cond), crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond));
     assert!((with - without - 2.0 * cond.eig).abs() <= 1e-12 * with, "{with} {without} {}", cond.eig);
 }
+
+#[test]
+fn a_bound_check_past_the_reliability_limit_is_inconclusive() {
+    let factor = |v: f64, bound: bool| {
+        let mut r = Resp::default();
+        r.scalar("collapse_factor", crate::response::Dim::NONE, v);
+        if bound {
+            r.scalar(LOWER_BOUND, crate::response::Dim::NONE, 1.0);
+        }
+        r
+    };
+    assert!(matches!(crate::checks2::bounded(&factor(2.01, true), &factor(2.0, false), 2e-3), Some(Verdict::Inconclusive(_))));
+    assert!(matches!(crate::checks2::bounded(&factor(2.01, true), &factor(2.0, false), 1e-4), Some(Verdict::Fail(_))));
+}

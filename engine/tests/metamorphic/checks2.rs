@@ -138,6 +138,7 @@ pub fn bounded(got: &Resp, expected: &Resp, rel: f64) -> Option<Verdict> {
     let (bound, exact) = match (is_lower_bound(got), is_lower_bound(expected)) {
         (false, false) => return None,
         (true, true) => return Some(Verdict::Inconclusive(rel)),
+        _ if rel > INCONCLUSIVE => return Some(Verdict::Inconclusive(rel)),
         (true, false) => (factor(got)?, factor(expected)?),
         (false, true) => (factor(expected)?, factor(got)?),
     };
