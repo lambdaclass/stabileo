@@ -209,3 +209,23 @@ fn an_undamped_massless_tip_accelerates_with_the_mass_it_hangs_from() {
     let off = aa.iter().zip(&exact).map(|(a, e)| (a - e).abs()).fold(0.0f64, f64::max);
     assert!(off <= 2e-3 * p / MASS, "a_A off the undamped SDOF P/m·cos(ωt) by {:.3e} of P/m", off / (p / MASS));
 }
+
+#[test]
+fn a_damped_massless_tip_under_a_ramp_accelerates_as_its_first_order_closed_form() {
+    let slope = 10.0;
+    let dt = period() / 400.0;
+    let mut input = serde_json::to_value(chain(dt, 800, 0.05, 3, 0.0)).unwrap();
+    let record = |t: f64| json!({"time": t, "loads": [{"nodeId": 3, "fx": slope * t, "fz": 0.0, "my": 0.0}]});
+    input["forceHistory"] = json!([record(0.0), record(1e3)]);
+    let input: TimeHistoryInput = serde_json::from_value(input).unwrap();
+    let (r, trace) = solve_time_history_2d_traced(&input).unwrap();
+    let a1 = trace.a1;
+    assert!(dt < 2.0 * a1, "dt {dt} a1 {a1}");
+    let scale = slope / (k2() * a1);
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    let worst = r.time_steps.iter().enumerate().map(|(n, &t)| {
+        let exact = scale * (-t / a1).exp();
+        ((ab[n] - aa[n]) - exact).abs()
+    }).fold(0.0f64, f64::max);
+    assert!(worst <= 3e-2 * scale, "a_B − a_A off (s/(k2·a1))·e^(−t/a1) by {:.3e} of s/(k2·a1)", worst / scale);
+}

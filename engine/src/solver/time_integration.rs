@@ -178,7 +178,10 @@ fn solve_time_history_2d_inner(
     // Force is computed in nf space then reduced
     let f_0_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, ns, &[], &mut a_vec)?;
+    let f_1_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 1, dt);
+    let f_1 = if let Some(ref cs) = cs { cs.reduce_vector(&f_1_nf) } else { f_1_nf };
+    let f_dot: Vec<f64> = f_1.iter().zip(&f_0).map(|(b, a)| (b - a) / dt).collect();
+    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &[], &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -464,11 +467,12 @@ fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec
 
 /// Also moves u or v: a load at t = 0 on a massless direction is met by a jump in
 /// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds;
-/// massless accelerations follow from differentiating those rows with the load held.
+/// massless accelerations follow from differentiating those rows, with `f_dot` the load's
+/// slope over the first step.
 #[allow(clippy::too_many_arguments)]
 fn compute_initial_state(
     m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64,
-    u: &mut [f64], v: &mut [f64], f: &[f64],
+    u: &mut [f64], v: &mut [f64], f: &[f64], f_dot: &[f64],
     n: usize, triads: &[[usize; 3]], a: &mut [f64],
 ) -> Result<(), String> {
     let residual = |u: &[f64], v: &[f64]| -> Vec<f64> {
@@ -527,7 +531,8 @@ fn compute_initial_state(
         let mut g: Vec<f64> = kt.sym_mat_vec(&at).iter().map(|x| -x).collect();
         if c.is_some() && a1 > 0.0 {
             let kv = kt.sym_mat_vec(&rotate_vector(v, &basis));
-            g.iter_mut().zip(&kv).for_each(|(x, k)| *x -= k / a1);
+            let fd = rotate_vector(f_dot, &basis);
+            g.iter_mut().zip(kv.iter().zip(&fd)).for_each(|(x, (k, d))| *x += (d - k) / a1);
         }
         at.iter_mut().zip(condense(&g)?).for_each(|(x, d)| *x += d);
     }
@@ -1244,8 +1249,11 @@ fn solve_time_history_3d_inner(
     // Force computed in nf space, then reduced
     let f_0_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
+    let f_1_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 1, dt);
+    let f_1 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_1_nf) } else { f_1_nf };
+    let f_dot: Vec<f64> = f_1.iter().zip(&f_0).map(|(b, a)| (b - a) / dt).collect();
     let triads = rotation_triads(&dof_num, cs3.as_ref());
-    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, ns, &triads, &mut a_vec)?;
+    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &triads, &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
