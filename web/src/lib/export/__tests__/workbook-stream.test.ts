@@ -63,13 +63,13 @@ describe('the workbook written as it is produced', () => {
     const long = { name: 'Long', header: ['n'], count: () => 50_000, body: function* () { for (let i = 0; i < 50_000; i++) yield [i]; } };
     const section = [...modelStore.sections.keys()][0]!;
     setTimeout(() => modelStore.updateSection(section, { a: 0.5 }), 0);
-    await expect(streamWorkbookZip([long as never], () => assertExportCurrent(token))).rejects.toBeInstanceOf(ExportChangedError);
+    await expect(streamWorkbookZip([long as never], (last) => assertExportCurrent(token, !last))).rejects.toBeInstanceOf(ExportChangedError);
   });
 
   it('an unchanged project writes the whole zip with the check on', async () => {
     const token = captureProvenanceToken();
     const long = { name: 'Long', header: ['n'], count: () => 50_000, body: function* () { for (let i = 0; i < 50_000; i++) yield [i]; } };
-    const files = unzipSync(new Uint8Array(await (await streamWorkbookZip([long as never], () => assertExportCurrent(token))).arrayBuffer()));
+    const files = unzipSync(new Uint8Array(await (await streamWorkbookZip([long as never], (last) => assertExportCurrent(token, !last))).arrayBuffer()));
     expect(strFromU8(files['01-Long.csv']!).split('\n')).toHaveLength(50_001);
   });
 

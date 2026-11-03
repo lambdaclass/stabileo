@@ -218,8 +218,18 @@ function tokenStillCurrent(t: ProvenanceToken): boolean {
     && now.scope === t.scope && now.stampId === t.stampId && now.modelHash === t.modelHash;
 }
 
-/** Throws `ExportChangedError` when the project moved since `token`: for an export that yields while it writes. */
-export function assertExportCurrent(token: ProvenanceToken): void {
+/**
+ * Throws `ExportChangedError` when the project moved since `token`, for an export that yields while
+ * it writes. `quick` skips the model hash, for the pauses in between; the last check is the full one.
+ */
+export function assertExportCurrent(token: ProvenanceToken, quick = false): void {
+  if (quick) {
+    const is3D = uiStore.is3DWorkspace;
+    const results = (is3D ? resultsStore.results3D : resultsStore.results) ?? null;
+    if (modelStore.modelVersion === token.version && results === token.results && baseInput === token.base
+      && (recheckStore.stamp?.id ?? null) === token.stampId && JSON.stringify(currentScopeRef()) === token.scope) return;
+    throw new ExportChangedError();
+  }
   if (!tokenStillCurrent(token)) throw new ExportChangedError();
 }
 
