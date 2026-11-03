@@ -41,6 +41,8 @@ section and re-check registry entry in the same way.
 | [SA-2026-028](SA-2026-028-ec2-flexure-strain-compatibility.md) | EN 1992-1-1 flexure (PRO other codes, certified) assumed the tension steel yields and did not iterate the top bars: MRd up to 22 % high | High | [#534](https://github.com/lambdaclass/stabileo/issues/534) | #1236 | — | Draft |
 | [SA-2026-029](SA-2026-029-3d-design-axes.md) | 3D design checks read the lateral moment or shear: CIRSOC 201 rectangular columns bent about Mz checked over their depth (36 % too little steel in an example); engine 3D certified steel and RC demand extraction (API) used Vy / Mz | Critical | [#532](https://github.com/lambdaclass/stabileo/issues/532) | #1233 | — | Draft |
 | [SA-2026-030](SA-2026-030-cirsoc301-q-nonpositive.md) | CIRSOC 301 compression: a section whose area is smaller than its plates got a negative Qa and a capacity above the squash load, and passed (1 098 908 kN on a 976 kN section in #467) | High | [#467](https://github.com/lambdaclass/stabileo/issues/467) | #1246 | — | Draft |
+| [SA-2026-025](SA-2026-025-aisc-shear-without-web-area.md) | AISC 360 G2 shear passed at ratio 0, and was certified, when the web area was not given (engine/WASM only) | Medium | — (agy b2) | #1234 | — | Draft |
+| [SA-2026-026](SA-2026-026-ec3-shear-area-half-a.md) | EC3 6.2.6 took Av = 0.5·A without a shear area: Vpl,Rd 57 % high for HEB 300, and certified (engine/WASM only) | Medium | — (agy b1) | #1234 | — | Draft |
 
 Other open `safety` issues (the derivation-review findings #406–#433, #338, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the

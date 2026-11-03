@@ -163,6 +163,18 @@ const body: PostBody = {
           "Corrigé dans la 0.3.0"
         ],
         [
+          "SA-2026-025",
+          "Effort tranchant G2 de l'AISC 360 (moteur et WASM uniquement) : sans aire d'âme, vérifié avec un taux 0, et certifié",
+          "Moyenne",
+          "Corrigé sur stabileo.com (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "Effort tranchant 6.2.6 de l'EC3 (moteur et WASM uniquement) : sans aire de cisaillement, Av = 0,5·A, Vpl,Rd 57 % trop élevé pour un HEB 300, et certifié",
+          "Moyenne",
+          "Corrigé sur stabileo.com (#1234)"
+        ],
+        [
           "SA-2026-010",
           "Le certificat spectral acceptait des résultats non finis",
           "Moyenne",

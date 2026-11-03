@@ -163,6 +163,18 @@ const body: PostBody = {
           "Behoben in 0.3.0"
         ],
         [
+          "SA-2026-025",
+          "AISC 360 G2 Querkraft (nur Rechenkern und WASM): ohne Stegfläche mit Ausnutzung 0 bestanden, und zertifiziert",
+          "Mittel",
+          "Behoben auf stabileo.com (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "EC3 6.2.6 Querkraft (nur Rechenkern und WASM): ohne Schubfläche Av = 0,5·A angesetzt, Vpl,Rd bei HEB 300 57 % zu hoch, und zertifiziert",
+          "Mittel",
+          "Behoben auf stabileo.com (#1234)"
+        ],
+        [
           "SA-2026-010",
           "Spektrales Zertifikat ließ nicht endliche Ergebnisse durch",
           "Mittel",
