@@ -111,3 +111,14 @@ it('prints escaped modal warnings before modal frequencies', () => {
   expect(html).not.toContain('<unsafe>');
   expect(html.indexOf('WARN: modal')).toBeLessThan(html.indexOf('12.345'));
 });
+
+it.each(['warning', 'error'] as const)('contains a modal known issue carried only in its diagnostics (%s)', severity => {
+  const data = makeData({});
+  data.advancedResults = { modal: {
+    modes: [{ frequency: 12.345, period: 1 / 12.345 }],
+    structuredDiagnostics: [{ code: 'known_issue', severity, phase: 'MD-ORTHOGONALITY', value: 759, message: 'ENGINE' }],
+  } };
+  data.config = { sections: { diagnostics: false } } as ReportData['config'];
+  if (severity === 'error') expect(() => generateReportHtml(data)).toThrow('#759');
+  else expect(generateReportHtml(data)).toContain('#759');
+});

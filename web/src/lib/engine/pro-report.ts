@@ -360,7 +360,7 @@ export function generateReportHtml(data: ReportData): string {
   // ─── Table of Contents ──────────────────────────────────
   html.push(`<div class="page-break"></div>`);
   html.push(`<div class="toc"><h2>${escHtml(tr('report.toc') || 'Table of Contents')}</h2>`);
-  const dispositions = [knownIssueResultDisposition([data.results, data.resultSets]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
+  const dispositions = [knownIssueResultDisposition([data.results, data.resultSets, ...Object.values(data.advancedResults ?? {})]), data.containment, ...Object.values(data.advancedResults ?? {}).map(value => (value as { disposition?: ReturnType<typeof knownIssueDisposition> }).disposition)].filter(Boolean);
   if (dispositions.some(d => d?.refused)) throw new ContainmentExportError(dispositions.flatMap(d => d?.messages ?? []).join('\n'));
   const reportWarnings = [...new Set(dispositions.flatMap(d => d?.messages ?? []))];
   if (reportWarnings.length) html.push(`<section id="stabileo-warnings">${reportWarnings.map(message => `<p role="alert">${escHtml(message)}</p>`).join('')}</section>`);
