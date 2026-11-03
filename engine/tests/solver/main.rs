@@ -42,6 +42,8 @@ mod silent_errors_settlement_winkler_imperfections;
 mod sparse_solver_paths;
 #[path = "../stiffness_definiteness_warning.rs"]
 mod stiffness_definiteness_warning;
+#[path = "../time_history_massless_dofs.rs"]
+mod time_history_massless_dofs;
 #[path = "../tower_fixture_test.rs"]
 mod tower_fixture_test;
 
