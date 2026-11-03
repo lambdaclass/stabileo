@@ -12,6 +12,7 @@ import { AISC360, EC3, aiscGaps } from '../steel-codes';
 import { ec3Class, ec3Curves } from '../ec3-classify';
 import { steelProps } from '../steel-props';
 import { steelSectionConstants } from '../../../steel/section-constants';
+import type { OtherCode } from '../types';
 
 const IPE300 = { name: 'IPE 300', profileFamily: 'IPE', a: 53.8e-4, iy: 8356e-8, iz: 603.8e-8, h: 0.3, b: 0.15, tw: 0.0071, tf: 0.0107, j: 20.1e-8, shape: 'I' as const };
 const E = 200_000, FY = 235, L = 4, P = 300;
@@ -224,5 +225,58 @@ describe('shear across the web', () => {
     const p = steelProps(IPE300 as never);
     if ('skip' in p) throw new Error('skip');
     expect(p.AwWeak).toBeCloseTo(2 * 0.15 * 0.0107, 9);
+  });
+});
+
+describe('a shear check with no shear area', () => {
+  const without = (code: OtherCode, ...keys: string[]): OtherCode => ({
+    ...code,
+    member(ctx) {
+      const m = code.member(ctx);
+      if ('skip' in m) return m;
+      const data = { ...m.data };
+      for (const k of keys) delete data[k];
+      return { ...m, data };
+    },
+  });
+  const checked = (code: OtherCode) => {
+    const row = runOtherCode(code, beam(4, 10)).rows[0]!;
+    if (row.status !== 'checked') throw new Error(row.status);
+    return row.reading;
+  };
+
+  it('AISC 360 without aw reads G2 as not evaluated, not as a pass', () => {
+    const r = checked(without(AISC360, 'aw'));
+    expect(r.unevaluated).toContain('Shear G2');
+    expect(r.pass).toBe(false);
+    expect(checked(AISC360).unevaluated).not.toContain('Shear G2');
+  });
+
+  it('EN 1993-1-1 without av or geometry reads 6.2.6 as not evaluated, not as a pass on 0,5·A', () => {
+    const r = checked(without(EC3, 'av', 'geometry'));
+    expect(r.unevaluated).toContain('Shear 6.2.6');
+    expect(r.pass).toBe(false);
+  });
+
+  it('EN 1993-1-1 without av cannot clear 6.2.8, so moment and shear together are not evaluated', () => {
+    const ctx = beam(4, 10)[0]!;
+    const m = EC3.member(ctx);
+    if ('skip' in m) throw new Error(m.skip);
+    const d = { forces: { n: 0, my: 20, mz: 0, vy: 0, vz: 5 } } as never;
+    const flags = (data: Record<string, unknown>) => (EC3.at!(ctx, d, data) as { unevaluated?: string[] }).unevaluated ?? [];
+    expect(flags(m.data)).not.toContain('otherCodes.check.ec3ShearBending');
+    const { av: _av, ...noAv } = m.data;
+    expect(flags(noAv)).toContain('otherCodes.check.ec3ShearBending');
+  });
+
+  it('EN 1993-1-1 without av takes 6.2.6(3)(d) from the geometry the app sends (r = 0)', () => {
+    const m = EC3.member(beam(4, 10)[0]!);
+    if ('skip' in m) throw new Error(m.skip);
+    const { av: _av, ...data } = m.data;
+    const V = 100e3;
+    const [r] = EC3.run({ members: [data], forces: [{ elementId: data.elementId, vEd: V }] }) as Array<Record<string, unknown>>;
+    const vpl = ((IPE300.h - 2 * IPE300.tf) * IPE300.tw * FY * 1e6) / Math.sqrt(3);
+    expect(r!.shearRatio as number).toBeCloseTo(V / vpl, 9);
+    expect(r!.unevaluated).toEqual([]);
   });
 });

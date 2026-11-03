@@ -126,14 +126,23 @@ fn aisc_shear_can_govern_the_unity_ratio() {
     assert!((r.unity_ratio - r.shear_ratio).abs() < 1e-12);
 }
 
-/// With no web area supplied there is no shear check to report.
 #[test]
-fn aisc_shear_absent_without_web_area() {
+fn aisc_shear_without_web_area_is_unevaluated_not_passed() {
     let r = steel_run(w14x22(), ElementDesignForces {
         element_id: 1, n: 0.0, my: 10e3, mz: None, v_weak: None, v_strong: Some(400e3),
     });
     assert_eq!(r.phi_vn, 0.0);
     assert_eq!(r.shear_ratio, 0.0);
+    assert_eq!(r.unevaluated, vec!["Shear G2".to_string()]);
+    assert!(r.governing_check.ends_with("(incomplete)"), "{}", r.governing_check);
+}
+
+#[test]
+fn aisc_shear_without_web_area_or_shear_is_not_flagged() {
+    let r = steel_run(w14x22(), ElementDesignForces {
+        element_id: 1, n: 0.0, my: 10e3, mz: None, v_weak: None, v_strong: None,
+    });
+    assert!(r.unevaluated.is_empty(), "{:?}", r.unevaluated);
 }
 
 // ==================== Masonry: Vn upper limit ====================
