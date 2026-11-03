@@ -219,7 +219,7 @@
     "pdelta.converged": true,
     "pdelta.iterations": 2,
     "pdelta.results.allZero": false,
-    "pdelta.results.diagnosticCodes": "",
+    "pdelta.results.diagnosticCodes": "warning:known_issue",
     "pdelta.results.displacements[n1]": {"rx":0,"ry":0,"rz":0,"ux":0,"uy":0,"uz":0},
     "pdelta.results.displacements[n2]": {"rx":0,"ry":0,"rz":0,"ux":0,"uy":0,"uz":0},
     "pdelta.results.displacements[n3]": {"rx":0,"ry":0,"rz":0,"ux":0,"uy":0,"uz":0},

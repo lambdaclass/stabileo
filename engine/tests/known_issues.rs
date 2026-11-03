@@ -961,6 +961,28 @@ fn buckling_2d_with_axial_span_loads_warns_1323() {
 }
 
 #[test]
+fn pdelta_with_axial_span_loads_warns_1329() {
+    use dedaliano_engine::solver::pdelta::{solve_pdelta_2d, solve_pdelta_3d};
+    let tip = SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -100.0, fz: -1.0, my: 0.0 });
+    let lateral_span = SolverLoad::Distributed(SolverDistributedLoad { element_id: 1, q_i: -1.0, q_j: -1.0, a: None, b: None });
+    let axial_span = SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 25.0, q_j: 25.0, a: None, b: None });
+    let axial_point = SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 2.0, p: 0.0, px: Some(-50.0), my: None });
+    for (loads, warns) in [(vec![tip.clone(), lateral_span], false), (vec![tip.clone(), axial_span], true), (vec![tip, axial_point], true)] {
+        let input = make_beam(1, 4.0, E, 0.01, 1e-4, "fixed", None, loads);
+        let ds = solve_pdelta_2d(&input, 20, 1e-6).unwrap().results.structured_diagnostics;
+        assert_eq!(ids(&ds).contains(&"PD-SPAN-AXIAL".into()), warns, "2D {:?}", ids(&ds));
+        assert!(!ids(&solve_2d(&input).unwrap().structured_diagnostics).contains(&"PD-SPAN-AXIAL".into()), "linear analysis is not affected");
+    }
+    let tip = SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: -100.0, fy: 1.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None });
+    let span = |qx: f64| SolverLoad3D::Distributed(SolverDistributedLoad3D { q_xi: qx, q_xj: qx, element_id: 1, q_yi: 1.0, q_yj: 1.0, q_zi: 0.0, q_zj: 0.0, a: None, b: None });
+    for (qx, warns) in [(0.0, false), (25.0, true)] {
+        let input = make_3d_beam(1, 4.0, E, 0.3, 0.01, 1e-4, 1e-4, 1e-5, vec![true; 6], None, vec![tip.clone(), span(qx)]);
+        let ds = solve_pdelta_3d(&input, 20, 1e-6).unwrap().results.structured_diagnostics;
+        assert_eq!(ids(&ds).contains(&"PD-SPAN-AXIAL".into()), warns, "3D qx {qx}: {:?}", ids(&ds));
+    }
+}
+
+#[test]
 fn kinematic_classification_is_not_refused_by_a_result_known_issue() {
     use dedaliano_engine::solver::kinematic::analyze_kinematics_3d;
     let mut input = beam3d();

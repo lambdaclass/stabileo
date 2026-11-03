@@ -47,6 +47,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
     Entry { id: "BU-SPAN-COMPRESSION", issue: 456, mode: Mode::Warn, message: "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor" },
     Entry { id: "BU-SPAN-AXIAL-2D", issue: 1323, mode: Mode::Warn, message: "2D buckling builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can overstate the buckling factor. Subdivide the loaded members and check that the factor converges" },
+    Entry { id: "PD-SPAN-AXIAL", issue: 1329, mode: Mode::Warn, message: "P-Delta builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can understate the second-order amplification. Subdivide the loaded members and check that the results converge" },
     Entry { id: "AC-PLANE-MAPPING", issue: 466, mode: Mode::Warn, message: "2D constraints assume the original model lies in the X-Z plane. Constraints converted from another plane may be wrong; use the 3D solve or independently verify the mapping" },
 
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
@@ -266,6 +267,22 @@ pub fn conditioning(report: &crate::solver::conditioning::ConditioningReport) ->
     (report.diagonal_ratio > 1e8 || !report.near_zero_dofs.is_empty()).then(|| diagnostic("NUM-INVARIANCE"))
 }
 
+fn axial_span_loads_2d(loads: &[SolverLoad]) -> bool {
+    loads.iter().any(|l| match l {
+        SolverLoad::AxialDistributed(q) => q.q_i != 0.0 || q.q_j != 0.0,
+        SolverLoad::PointOnElement(p) => p.px.is_some_and(|px| px != 0.0),
+        _ => false,
+    })
+}
+
+pub fn pdelta_span_axial_2d(loads: &[SolverLoad]) -> Vec<StructuredDiagnostic> {
+    if axial_span_loads_2d(loads) { vec![diagnostic("PD-SPAN-AXIAL")] } else { vec![] }
+}
+
+pub fn pdelta_span_axial_3d(loads: &[SolverLoad3D]) -> Vec<StructuredDiagnostic> {
+    if loads.iter().any(|l| matches!(l, SolverLoad3D::Distributed(q) if q.q_xi != 0.0 || q.q_xj != 0.0)) { vec![diagnostic("PD-SPAN-AXIAL")] } else { vec![] }
+}
+
 pub fn refuse_distorted(known_model: &[StructuredDiagnostic]) -> Result<(), String> {
     let Some(distorted) = known_model.iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) else { return Ok(()) };
     let mut finding = diagnostic("SH-MITC4-DISTORTION").with_elements(distorted.element_ids.clone());
@@ -471,11 +488,7 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
     let mut out = for_analysis(analysis);
 
     if !input.constraints.is_empty() { out.push(diagnostic("AC-PLANE-MAPPING")); }
-    if analysis == Analysis::Buckling && loads.iter().any(|l| match l {
-        SolverLoad::AxialDistributed(q) => q.q_i != 0.0 || q.q_j != 0.0,
-        SolverLoad::PointOnElement(p) => p.px.is_some_and(|px| px != 0.0),
-        _ => false,
-    }) {
+    if analysis == Analysis::Buckling && axial_span_loads_2d(loads) {
         out.push(diagnostic("BU-SPAN-AXIAL-2D"));
     }
     if all_hinged_demand_2d(input, loads) {
