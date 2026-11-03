@@ -195,7 +195,7 @@ const fr: Translations = {
   'landing.pricePerToken': 'Payé au token',
   'landing.colUnis': 'Universités',
   'landing.colFirms': 'Entreprises et particuliers',
-  'landing.proCalcShots': 'Importe DXF, Excel et IFC. En plus de Basique : dalles et voiles, matériaux et sections mixtes détaillés, assemblages, export tableur.',
+  'landing.proCalcShots': 'Importe DXF, Excel et IFC. En plus de Basique : dalles et voiles, matériaux et sections composées détaillés, assemblages, export tableur.',
   'landing.shotEduAlt': 'Mode Enseignement : le portique à gauche ; les étapes et les champs de réactions à remplir à droite.',
   'landing.shotEduTitle': 'Un exercice de statique',
   'landing.shotAiTitle': 'Il propose la modification ; vous l\'appliquez',

@@ -157,7 +157,7 @@ test.describe('@landing landing page', () => {
     await expect(fit.locator('.card').nth(1)).toContainText('OpenSees, Code_Aster, CalculiX');
     await expect(fit.locator('a[href*="/sap2000-alternative"]')).toBeVisible();
     await expect(page.locator('section[data-section="basic"] .tick-list li')).toHaveCount(5);
-    await expect(page.locator('section[data-section="pro-design"]')).toContainText('#532');
+    await expect(page.locator('section[data-section="pro-design"] p.lead').nth(1)).toContainText('#532: 3D design demands may be taken about the wrong axis');
     await expect(page.locator('section[data-section="pro-design"] a[href="https://github.com/lambdaclass/stabileo/issues/532"]')).toBeVisible();
 
     await fit.locator('a[href*="/reliability"]').click();
