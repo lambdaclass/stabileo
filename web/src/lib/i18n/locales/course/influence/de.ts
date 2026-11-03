@@ -51,7 +51,7 @@ const words: Translations = {
   'course.influence.load.zones': 'Nach Bereichen',
   'course.influence.load.spans': 'Feldweise',
   'course.influence.load.zonesTip': 'q genau dort, wo die Linie positiv (für das Maximum) oder negativ (für das Minimum) ist.',
-  'course.influence.load.spansTip': 'q auf ganzen Stäben: Belastet wird jeder Stab, dessen Nettofläche beiträgt. Das ist die feldweise ungünstige Laststellung.',
+  'course.influence.load.spansTip': 'q auf ganzen Stäben: Belastet wird jeder Stab, dessen Nettofläche zum gesuchten Extremwert beiträgt (positiv für das Maximum, negativ für das Minimum). Das ist die feldweise ungünstige Laststellung.',
   'course.influence.load.loadedAll': 'Lasten auf den Stäben quer zur Last. Um nur einige zu belasten (eine Fahrbahn), wählen Sie diese vorher aus.',
   'course.influence.load.loadedSelected': 'Lasten auf den {n} ausgewählten Stäben.',
   'course.influence.load.max': 'Maximum',

@@ -41,7 +41,7 @@ const words: Translations = {
   'course.plastic.doc.notAdmissible': 'Moment Mp değerinin {ratio} katına ulaşıyor: dağılım uygun değil. λ = {lambda} bir üst sınırdır. Tüm momentler {ratio} ile bölündüğünde uygun bir dağılım elde edilir; bu yüzden λ = {lower} bir alt sınırdır.',
   'course.plastic.doc.compareNote': 'Adım adım hesapla karşılaştırma (mafsallar oluştukça uygulanan matris yöntemi). Yayılı yükler altında bu hesap mafsalı çubuk başına 200 kesitten birine yerleştirir; dördüncü anlamlı basamakta farklılık olabilir.',
   'course.plastic.doc.noIncremental': 'Adım adım hesap bu yükler altında bir mekanizmaya ulaşmadı; karşılaştırılacak bir değer yok.',
-  'course.plastic.doc.noCollapse': 'Bu yapının hiçbir mekanizması yüklerle hareket etmiyor: bu yükler altında yapı eğilmeden göçmez.',
+  'course.plastic.doc.noCollapse': 'Bu yapının hiçbir mekanizması yüklerle hareket etmiyor: bu yükler altında yapı eğilme ile göçmez.',
 
   'course.plastic.sec.support': 'Ankastre mesnet {node}, {member} ucu',
   'course.plastic.sec.joint': 'Düğüm {node} (Mp değeri küçük olan {member} çubuğunda)',
@@ -169,7 +169,7 @@ const words: Translations = {
   'course.plastic.user.combined': 'En küçük λ veren birleşim kullanıldı; dönmeyen mafsallar işaretlendi.',
   'course.plastic.user.noWork': 'Yükler bu mekanizmada iş yapmaz: onu oluşturamazlar.',
   'course.plastic.user.type.complete': 'Tam mekanizma: {n} mafsal = GH + 1 = {need}. Momentler yalnızca dengeden çıkar.',
-  'course.plastic.user.type.partial': 'Kısmi mekanizma: {n} mafsal, GH + 1 = {need} değerinden az. {free} bilinmeyen serbest kalır; |M|/Mp mümkün olduğunca küçük olacak şekilde seçilir.',
+  'course.plastic.user.type.partial': 'Kısmi mekanizma: {n} mafsal, GH + 1 = {need} değerinden az. {free} bilinmeyen serbest kalır; en büyük |M|/Mp oranı mümkün olduğunca küçük olacak şekilde seçilir.',
   'course.plastic.user.type.overcomplete': 'Fazla mafsallı mekanizma: {n} mafsal, GH + 1 = {need} değerinden fazla.',
   'course.plastic.user.admissible': 'Momentler hiçbir yerde Mp değerini aşmıyor: λ = {lambda} göçme yüküdür (teklik teoremi).',
   'course.plastic.user.exceeds': 'M, {member} çubuğunda x = {x} konumunda Mp değerini aşıyor: |M| = {M} > Mp = {mp}. λ = {lambda} bir üst sınır, λ / maks(|M|/Mp) = {lower} bir alt sınırdır.',

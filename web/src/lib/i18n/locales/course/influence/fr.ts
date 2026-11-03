@@ -51,7 +51,7 @@ const words: Translations = {
   'course.influence.load.zones': 'Par zones',
   'course.influence.load.spans': 'Par travées entières',
   'course.influence.load.zonesTip': 'q exactement là où la ligne est positive (pour le maximum) ou négative (pour le minimum).',
-  'course.influence.load.spansTip': 'q sur des barres entières : on charge chaque barre dont l’aire nette s’ajoute. C’est le chargement alterné des travées.',
+  'course.influence.load.spansTip': 'q sur des barres entières : on charge chaque barre dont l’aire nette s’ajoute à l’extremum cherché (positive pour le maximum, négative pour le minimum). C’est le chargement alterné des travées.',
   'course.influence.load.loadedAll': 'Charges sur les barres transversales à la charge. Pour n’en charger que certaines (un tablier), sélectionnez-les d’abord.',
   'course.influence.load.loadedSelected': 'Charges sur les {n} barres sélectionnées.',
   'course.influence.load.max': 'Maximum',

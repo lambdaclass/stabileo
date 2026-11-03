@@ -70,7 +70,7 @@ const words: Translations = {
   'course.statics.fm.s5.axialKept': '{list} ne travaille qu\'axialement : sa ligne et sa colonne conservent le terme axial, car sans lui son équation ne dirait rien.',
   'course.statics.fm.s5.axialAll': 'Garder le terme axial dans quelques lignes seulement ne suffit pas ici : la matrice mélangée ne serait pas définie positive, donc pas une souplesse. Tous les coefficients gardent le terme axial.',
   'course.statics.fm.s9.axialOff': 'Sans déformation axiale, la structure est plus rigide que celle de la méthode des rigidités, qui l\'inclut. L\'écart maximal est de {d}, soit {pct} de l\'effort le plus grand : c\'est l\'apport du terme axial que vous avez laissé de côté.',
-  'course.statics.fm.s9.rigidOk': 'Cela concorde avec la méthode des déplacements résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie.',
+  'course.statics.fm.s9.rigidOk': 'Cela concorde avec la méthode des rigidités résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie.',
 
   // Travaux virtuels
   'course.statics.vw.choose': 'Au-dessus du document, dans Objet du calcul, vous choisissez la grandeur (déplacement, rotation, déplacement relatif ou rotation relative), le ou les nœuds et la direction. Vous pouvez aussi sélectionner un nœud dans le modèle avant d\'ouvrir le pas à pas.',
@@ -86,7 +86,7 @@ const words: Translations = {
   'course.statics.vw.target.relRot': 'Rotation relative entre {n} et {m} : la rotation de {m} moins celle de {n}, positive dans le sens antihoraire.',
   'course.statics.vw.why.disp': 'Une force unitaire ne travaille que dans le déplacement de son point d\'application, selon sa propre direction : c\'est pourquoi le travail virtuel extérieur vaut 1·δ.',
   'course.statics.vw.why.rot': 'Un couple unitaire travaille dans la rotation du nœud où il agit : le travail virtuel extérieur vaut 1·θ. C\'est pourquoi, pour une rotation, la charge virtuelle est un moment.',
-  'course.statics.vw.why.relDisp': 'Deux forces unitaires égales et opposées, l’une en {n} et l’autre en {m}, travaillent dans la différence de leurs déplacements : 1·δ_{m} − 1·δ_{n} = 1·Δδ. Le long de la droite qui joint les deux nœuds, leur résultante et leur moment sont nuls ; les réactions découlent tout de même de l’équilibre de la structure et ne sont pas forcément nulles.',
+  'course.statics.vw.why.relDisp': 'Deux forces unitaires égales et opposées, l’une en {n} et l’autre en {m}, travaillent dans la différence de leurs déplacements : 1·δ_{m} − 1·δ_{n} = 1·Δδ. Si elles agissent le long de la droite qui joint les deux nœuds, leur résultante et leur moment sont nuls ; dans toute autre direction la résultante reste nulle mais elles forment un couple ; les réactions découlent tout de même de l’équilibre de la structure et ne sont pas forcément nulles.',
   'course.statics.vw.why.relRot': 'Deux couples unitaires opposés, l\'un en {n} et l\'autre en {m}, travaillent dans la différence des rotations : 1·θ_{m} − 1·θ_{n} = 1·Δθ.',
   'course.statics.vw.extrasWhy': 'Les ressorts, les tassements et la température entrent aussi dans le bilan des travaux. Un ressort se déforme de R/k ; il absorbe donc r·R/k. Un appui qui tasse de c fait travailler sa réaction virtuelle, et ce travail se retranche : −r·c. La température provoque une déformation libre α·ΔT et une courbure α·Δt/h, dans lesquelles travaillent les efforts virtuels n et m.',
   'course.statics.vw.unit.rot': 'On applique en {n} un couple unitaire, dans le sens antihoraire, sans aucune autre charge.',
@@ -98,7 +98,7 @@ const words: Translations = {
   'course.statics.vw.col.comp': 'Composante',
   'course.statics.vw.settleLead': 'Chaque déplacement imposé c d\'un appui apporte −r·c, où r est la réaction virtuelle dans cette direction.',
   'course.statics.vw.settleCaption': 'Tassements : réaction virtuelle et contribution.',
-  'course.statics.vw.thermalLead': 'Chaque barre soumise à une variation de température apporte n·α·ΔT·L (l\'allongement libre) plus ∫ m·α·Δt/h dx (la courbure libre), avec m̄ le moment virtuel moyen de la barre.',
+  'course.statics.vw.thermalLead': 'Chaque barre soumise à une variation de température apporte n·α·ΔT·L (l\'allongement libre) plus ∫ m·α·Δt/h dx = m̄·L·α·Δt/h (la courbure libre), avec m̄ le moment virtuel moyen de la barre.',
   'course.statics.vw.thermalCaption': 'Température : déformations libres et leur travail virtuel.',
   'course.statics.vw.sense.rotPos': 'Le résultat est positif : le nœud {n} tourne dans le sens antihoraire, comme le couple unitaire.',
   'course.statics.vw.sense.rotNeg': 'Le résultat est négatif : le nœud {n} tourne dans le sens horaire, à l\'inverse du couple unitaire.',

@@ -3,7 +3,7 @@ import type { Translations } from '../../../types';
 const words: Translations = {
   'steps.group.plastic': 'Calcul plastique',
   'steps.m.plasticKinematic.title': 'Méthode cinématique',
-  'steps.m.plasticKinematic.help': 'Cherche la charge de ruine parmi les mécanismes possibles. Elle repère les sections critiques, forme les mécanismes élémentaires (de poutre, de nœud et de panneau), écrit pour chacun l\'équation des travaux virtuels et les combine pour supprimer des rotules et abaisser λ. Le plus petit λ est une borne supérieure ; si les moments y restent partout inférieurs à Mp, c\'est la charge de ruine.',
+  'steps.m.plasticKinematic.help': 'Cherche la charge de ruine parmi les mécanismes possibles. Elle repère les sections critiques, forme les mécanismes élémentaires (de poutre, de nœud et de panneau), écrit pour chacun l\'équation des travaux virtuels et les combine pour supprimer des rotules et abaisser λ. Le plus petit λ est une borne supérieure ; si les moments n\'y dépassent Mp nulle part, c\'est la charge de ruine.',
   'steps.m.plasticKinematic.requires': 'une poutre ou un portique plan à barres fléchies, chargé, sans ressorts ni couples appliqués sur les barres, avec Mp défini pour chaque section.',
   'steps.m.plasticKinematic.what': 'Les charges croissent ensemble, multipliées par un facteur λ. La méthode cinématique propose des mécanismes de ruine et calcule, par les travaux virtuels, le λ qui produit chacun. D\'après le théorème cinématique, chacun de ces λ est supérieur ou égal à la charge de ruine λc : le plus petit des mécanismes proposés donne une borne supérieure. C\'est λc seulement si l\'on a minimisé sur tous les mécanismes admissibles, ou si une distribution de moments en équilibre vérifie |M| ≤ Mp partout.',
   'steps.m.plasticStatic.title': 'Méthode statique',
@@ -41,7 +41,7 @@ const words: Translations = {
   'course.plastic.doc.notAdmissible': 'Le moment atteint {ratio} fois Mp : la distribution n\'est pas admissible. λ = {lambda} est une borne supérieure. En divisant tous les moments par {ratio}, on obtient une distribution admissible, donc λ = {lower} est une borne inférieure.',
   'course.plastic.doc.compareNote': 'Comparaison avec le calcul pas à pas (méthode matricielle avec les rotules au fur et à mesure qu\'elles se forment). Sous charges réparties, ce calcul place la rotule dans l\'une de 200 sections par barre : il peut différer au quatrième chiffre.',
   'course.plastic.doc.noIncremental': 'Le calcul pas à pas n\'atteint pas de mécanisme sous ces charges : il n\'y a rien à comparer.',
-  'course.plastic.doc.noCollapse': 'Aucun mécanisme de cette structure n\'est mis en mouvement par les charges : sous ces charges, la structure ne périt pas en flexion.',
+  'course.plastic.doc.noCollapse': 'Aucun mécanisme de cette structure n\'est mis en mouvement par les charges : sous ces charges, la structure ne se ruine pas en flexion.',
 
   'course.plastic.sec.support': 'Encastrement {node}, extrémité de {member}',
   'course.plastic.sec.joint': 'Nœud {node} (dans la barre {member}, celle de plus petit Mp)',
@@ -169,7 +169,7 @@ const words: Translations = {
   'course.plastic.user.combined': 'La combinaison de plus petit λ a été utilisée ; les rotules qui ne tournent pas sont signalées.',
   'course.plastic.user.noWork': 'Les charges ne travaillent pas dans ce mécanisme : elles ne peuvent pas le produire.',
   'course.plastic.user.type.complete': 'Mécanisme complet : {n} rotules = GH + 1 = {need}. Les moments découlent de l\'équilibre seul.',
-  'course.plastic.user.type.partial': 'Mécanisme partiel : {n} rotules, moins que GH + 1 = {need}. Il reste {free} inconnues libres, choisies pour que |M|/Mp soit le plus petit possible.',
+  'course.plastic.user.type.partial': 'Mécanisme partiel : {n} rotules, moins que GH + 1 = {need}. Il reste {free} inconnues libres, choisies pour que le plus grand |M|/Mp soit le plus petit possible.',
   'course.plastic.user.type.overcomplete': 'Mécanisme surabondant : {n} rotules, plus que GH + 1 = {need}.',
   'course.plastic.user.admissible': 'Les moments ne dépassent Mp nulle part : λ = {lambda} est la charge de ruine (théorème d\'unicité).',
   'course.plastic.user.exceeds': 'M dépasse Mp dans la barre {member}, x = {x} : |M| = {M} > Mp = {mp}. λ = {lambda} est une borne supérieure et λ / max(|M|/Mp) = {lower} une borne inférieure.',

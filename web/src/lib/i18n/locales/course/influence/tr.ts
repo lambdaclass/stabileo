@@ -51,7 +51,7 @@ const words: Translations = {
   'course.influence.load.zones': 'Bölgelere göre',
   'course.influence.load.spans': 'Tam açıklıklara göre',
   'course.influence.load.zonesTip': 'q tam olarak çizginin pozitif (en büyük için) veya negatif (en küçük için) olduğu yere.',
-  'course.influence.load.spansTip': 'q tam çubuklara: Net alanı katkı veren her çubuk yüklenir. Bu, hareketli yükün açıklıklara göre dama tahtası gibi yerleştirilmesidir.',
+  'course.influence.load.spansTip': 'q tam çubuklara: Net alanı aranan uç değere katkı veren her çubuk yüklenir (en büyük için pozitif, en küçük için negatif). Bu, hareketli yükün açıklıklara göre dama tahtası gibi yerleştirilmesidir.',
   'course.influence.load.loadedAll': 'Yükler, yüke dik doğrultudaki çubuklara uygulanır. Yalnızca bazılarını (bir tabliye) yüklemek için önce onları seçin.',
   'course.influence.load.loadedSelected': 'Yükler seçili {n} çubuğa uygulanır.',
   'course.influence.load.max': 'En büyük',
