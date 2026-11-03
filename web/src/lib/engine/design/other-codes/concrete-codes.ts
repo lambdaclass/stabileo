@@ -116,7 +116,7 @@ export const ACI318: OtherCode = {
       n: upScaled(sb.axial, N),
       my: upScaled(data.axis === 'My' ? sb.momentY : sb.momentZ, N),
       mz: 0,
-      vy: upScaled(data.shearAxis === 'Vy' ? sb.shearY : sb.shearZ, N),
+      vStrong: upScaled(data.shearAxis === 'Vy' ? sb.shearY : sb.shearZ, N),
     }),
   },
   read(r): CheckReading {
@@ -165,7 +165,7 @@ export const EC2: OtherCode = {
       n: upScaled(sb.axial, N),
       my: upScaled(data.axis === 'My' ? sb.momentY : sb.momentZ, N),
       mz: 0,
-      vy: upScaled(data.shearAxis === 'Vy' ? sb.shearY : sb.shearZ, N),
+      vStrong: upScaled(data.shearAxis === 'Vy' ? sb.shearY : sb.shearZ, N),
     }),
   },
   read(r): CheckReading {

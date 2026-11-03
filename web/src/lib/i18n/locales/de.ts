@@ -10550,6 +10550,8 @@ const de: Translations = {
   'design.floor.state.scopeVsAll': '„Bemessen…“ bemisst die markierten Gruppen, darunter den Rahmen. „Decken bemessen und bewehren“ bearbeitet nur Schalen und Fundamente, lässt den Rahmen unberührt und erzeugt außerdem ihre Biegelisten.',
   'design.memo.flexure': 'Biegung',
   'design.memo.shear': 'Querkraft',
+  'design.memo.shearSecondary': 'Querkraft, Nebenachse',
+  'design.memo.slenderSecondary': 'Schlankheit, Nebenachse',
   'design.memo.column': 'Normalkraft mit Biegung',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (vernachlässigbar)',

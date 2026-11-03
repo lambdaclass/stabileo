@@ -1,8 +1,36 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 6,
+  "currentResultsVersion": 8,
   "changes": [
+    {
+      "id": "ec2-flexure-strain-compatibility",
+      "resultsVersion": 8,
+      "date": "2026-11-02",
+      "prs": [1236],
+      "area": "design",
+      "when": { "any": ["concreteMembers"] },
+      "title": {
+        "en": "EN 1992-1-1 flexure in other codes by strain compatibility",
+        "es": "Flexión EN 1992-1-1 en otras normas por compatibilidad de deformaciones",
+        "pt": "Flexão EN 1992-1-1 em outras normas por compatibilidade de deformações",
+        "de": "Biegung nach EN 1992-1-1 unter anderen Normen über Dehnungsverträglichkeit",
+        "fr": "Flexion EN 1992-1-1 dans les autres normes par compatibilité des déformations",
+        "tr": "Diğer yönetmeliklerde EN 1992-1-1 eğilmesi şekil değiştirme uygunluğuyla"
+      },
+      "explanation": {
+        "en": "The EN 1992-1-1 check in PRO other codes assumed the tension steel yields and took the compression-steel strain from the singly reinforced neutral axis, so MRd came out up to about 20 % high on heavily reinforced beams and on beams with top bars, and could pass, certified, a beam that fails (SA-2026-028). The neutral axis is now solved by strain compatibility. Re-run the EN 1992-1-1 check under other codes on concrete beams.",
+        "es": "La verificación EN 1992-1-1 de otras normas en PRO suponía que el acero traccionado fluye y tomaba la deformación del acero comprimido del eje neutro sin armadura de compresión, así que MRd salía hasta un 20 % alto en vigas muy armadas y en vigas con armadura superior, y podía aprobar, certificada, una viga que no verifica (SA-2026-028). El eje neutro ahora se resuelve por compatibilidad de deformaciones. Vuelva a ejecutar la verificación EN 1992-1-1 de otras normas en las vigas de hormigón.",
+        "pt": "A verificação EN 1992-1-1 de outras normas no PRO supunha que o aço tracionado escoa e tomava a deformação do aço comprimido da linha neutra sem armadura de compressão, então MRd saía até 20 % alto em vigas muito armadas e em vigas com armadura superior, e podia aprovar, certificada, uma viga que não verifica (SA-2026-028). A linha neutra agora é resolvida por compatibilidade de deformações. Execute novamente a verificação EN 1992-1-1 de outras normas nas vigas de concreto.",
+        "de": "Der Nachweis nach EN 1992-1-1 unter den anderen Normen in PRO nahm an, dass der Zugstahl fließt, und übernahm die Dehnung des Druckstahls aus der Nulllinie ohne Druckbewehrung. MRd lag daher bei stark bewehrten Balken und bei Balken mit oberer Bewehrung bis zu etwa 20 % zu hoch, und ein Balken, der versagt, konnte zertifiziert bestehen (SA-2026-028). Die Nulllinie wird jetzt über Dehnungsverträglichkeit bestimmt. Führen Sie den Nachweis nach EN 1992-1-1 unter den anderen Normen für die Betonbalken erneut aus.",
+        "fr": "La vérification EN 1992-1-1 des autres normes dans PRO supposait que l’acier tendu plastifie et prenait la déformation de l’acier comprimé à partir de l’axe neutre sans armatures comprimées : MRd était jusqu’à environ 20 % trop élevé sur les poutres fortement armées et sur les poutres avec armatures supérieures, et une poutre défaillante pouvait passer, certifiée (SA-2026-028). L’axe neutre est désormais résolu par compatibilité des déformations. Relancez la vérification EN 1992-1-1 des autres normes sur les poutres en béton.",
+        "tr": "PRO'daki diğer yönetmeliklerin EN 1992-1-1 kontrolü çekme donatısının aktığını varsayıyor ve basınç donatısının şekil değiştirmesini basınç donatısız tarafsız eksenden alıyordu; bu yüzden yoğun donatılı kirişlerde ve üst donatılı kirişlerde MRd yaklaşık %20'ye kadar yüksek çıkıyor ve göçen bir kiriş sertifikalı olarak geçebiliyordu (SA-2026-028). Tarafsız eksen artık şekil değiştirme uygunluğuyla çözülüyor. Beton kirişlerde diğer yönetmeliklerin EN 1992-1-1 kontrolünü yeniden çalıştırın."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-028-ec2-flexure-strain-compatibility.md",
+        "heading": "SA-2026-028: EN 1992-1-1 flexure assumed the tension steel yields and did not iterate the compression steel"
+      }
+    },
     {
       "id": "buckling-certificate-rejects-outside-factor",
       "resultsVersion": 6,
@@ -1127,6 +1155,31 @@
         "pt": "Com cargas H nunca se geravam 0,9 D + 1,6 H nem 1,2 D + 1,6 H, então onde o peso próprio resiste ao empuxo (tombamento ou deslizamento de um muro) o efeito saía baixo: 27 % num exemplo em que D dá −0,8 do que H dá (SA-2026-022). Afeta modelos com cargas H e combinações CIRSOC."
       },
       "changelog": { "file": "docs/advisories/SA-2026-022-earth-pressure-dead-load-resisting.md", "heading": "SA-2026-022: with earth pressure (H), the combination where the dead load resists it was missing" }
+    },
+    {
+      "id": "cirsoc201-column-design-axes",
+      "resultsVersion": 7,
+      "date": "2026-11-02",
+      "prs": [1233],
+      "area": "design",
+      "when": { "any": ["cirsoc201"] },
+      "title": {
+        "en": "RC columns are checked about the axis each moment bends them",
+        "es": "Las columnas de hormigón se verifican en el eje en que las flexiona cada momento",
+        "pt": "Os pilares de concreto são verificados no eixo em que cada momento os flexiona",
+        "de": "Stahlbetonstützen werden um die Achse nachgewiesen, um die jedes Moment sie biegt",
+        "fr": "Les poteaux en béton armé sont vérifiés selon l’axe autour duquel chaque moment les fléchit",
+        "tr": "Betonarme kolonlar, her momentin onları eğdiği eksene göre kontrol ediliyor"
+      },
+      "explanation": {
+        "en": "The CIRSOC 201 column check took Mz as the column's moment and checked it over the section depth h, while Mz bends it over its width b. A rectangular column bent mainly about Mz was designed with too few bars: 36 % less steel in a 20×40 cm example (SA-2026-029). The larger moment now governs over its own depth, and the shear of the other axis, which was not checked in any column, is checked too. It concerns models with CIRSOC 201 columns or walls: rectangular ones for the moment, any section for the shear.",
+        "es": "La verificación de columnas CIRSOC 201 tomaba Mz como momento de la columna y lo verificaba sobre la altura h de la sección, cuando Mz la flexiona sobre su ancho b. Una columna rectangular flexionada sobre todo por Mz se dimensionaba con menos barras de las necesarias: un 36 % menos de acero en un ejemplo de 20×40 cm (SA-2026-029). Ahora gobierna el momento mayor sobre su propia altura, y también se verifica el corte del otro eje, que no se verificaba en ninguna columna. Afecta a modelos con columnas o tabiques CIRSOC 201: rectangulares por el momento, de cualquier sección por el corte.",
+        "pt": "A verificação de pilares CIRSOC 201 tomava Mz como momento do pilar e o verificava sobre a altura h da seção, quando Mz o flexiona sobre sua largura b. Um pilar retangular flexionado sobretudo por Mz era dimensionado com menos barras do que o necessário: 36 % menos aço num exemplo de 20×40 cm (SA-2026-029). Agora governa o momento maior sobre sua própria altura, e o cortante do outro eixo, que não era verificado em nenhum pilar, também é verificado. Afeta modelos com pilares ou paredes CIRSOC 201: retangulares pelo momento, de qualquer seção pelo cortante.",
+        "de": "Der Stützennachweis nach CIRSOC 201 nahm Mz als Moment der Stütze und wies es über die Querschnittshöhe h nach, obwohl Mz sie über ihre Breite b biegt. Eine rechteckige Stütze, die überwiegend durch Mz gebogen wird, wurde mit zu wenigen Stäben bemessen: 36 % weniger Stahl in einem Beispiel mit 20×40 cm (SA-2026-029). Jetzt ist das größere Moment über seine eigene Höhe maßgebend, und die Querkraft der anderen Achse, die bei keiner Stütze nachgewiesen wurde, wird ebenfalls nachgewiesen. Betroffen sind Modelle mit Stützen oder Wänden nach CIRSOC 201: rechteckige wegen des Moments, jeder Querschnitt wegen der Querkraft.",
+        "fr": "La vérification des poteaux selon le CIRSOC 201 prenait Mz comme moment du poteau et le vérifiait sur la hauteur h de la section, alors que Mz le fléchit sur sa largeur b. Un poteau rectangulaire fléchi principalement par Mz était dimensionné avec trop peu de barres : 36 % d’acier en moins dans un exemple de 20×40 cm (SA-2026-029). Désormais, le plus grand moment est déterminant sur sa propre hauteur, et l’effort tranchant de l’autre axe, qui n’était vérifié dans aucun poteau, est vérifié lui aussi. Cela concerne les modèles comportant des poteaux ou des voiles CIRSOC 201 : rectangulaires pour le moment, de toute section pour l’effort tranchant.",
+        "tr": "CIRSOC 201 kolon kontrolü Mz'yi kolonun momenti olarak alıp kesit yüksekliği h üzerinden kontrol ediyordu; oysa Mz kolonu genişliği b üzerinden eğer. Ağırlıklı olarak Mz ile eğilen dikdörtgen bir kolon gerekenden az donatıyla boyutlandırılıyordu: 20×40 cm'lik bir örnekte %36 daha az çelik (SA-2026-029). Artık büyük olan moment kendi yüksekliği üzerinden belirleyici oluyor ve hiçbir kolonda kontrol edilmeyen diğer eksenin kesme kuvveti de kontrol ediliyor. CIRSOC 201 kolon veya perdesi olan modelleri etkiler: moment için dikdörtgen olanları, kesme için her kesiti."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-029-3d-design-axes.md", "heading": "SA-2026-029: 3D design checks read the lateral moment or shear where the strong-axis one acts" }
     }
   ]
 }

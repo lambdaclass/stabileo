@@ -116,6 +116,25 @@ describe('which registered changes concern a model', () => {
     expect(a.changes).toEqual([]);
   });
 
+  it('tells projects with concrete members about the EN 1992-1-1 flexure fix, whatever their bound code', () => {
+    const change = 'ec2-flexure-strain-compatibility';
+    for (const concrete of [undefined, 'cirsoc201', 'aci-aisc', 'eurocode2']) {
+      const beam = model({
+        elements: [member(1, 2, 'frame')],
+        ...(concrete ? { regulations: { roles: { concrete: { adapterId: concrete } } } } : {}),
+      });
+      expect(ids(beam, { resultsVersion: 5, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 7, analyses: ['linear'] } as SolveStamp)).toContain(change);
+      expect(ids(beam, { resultsVersion: 8, analyses: ['linear'] } as SolveStamp)).not.toContain(change);
+    }
+    expect(ids(model({ elements: [member(1, 1, 'frame')] }))).not.toContain(change);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
   it('tells prior buckling runs about certificate refusals in both dimensions and on shells', () => {
     const change = 'buckling-certificate-rejects-outside-factor';
     for (const analysisMode of ['2d', '3d', 'pro']) {
