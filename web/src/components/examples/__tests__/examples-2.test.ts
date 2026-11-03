@@ -26,13 +26,13 @@ const gap = (out: Ok, key: string) => {
 
 describe('rc-column', () => {
   it('squash load equals 0.85 f′c (Ag − Ast) + fy Ast', () => {
-    for (const extra of [{}, { b: 0.3, h: 0.6, perFace: 4, barDia: 25, fc: 40, steel: 1 }, { b: 0.25, h: 0.25, perFace: 2, barDia: 12, fc: 20 }]) {
+    for (const extra of [{}, { b: 0.3, h: 0.6, perFace: 4, barDia: 25, fc: 40, steel: 1 }, { b: 0.25, h: 0.25, perFace: 2, barDia: 12, fc: 20 }] as Values[]) {
       const out = run(rcColumn, extra);
       expect(gap(out, 'squashLoad')).toBeLessThan(1e-9);
     }
   });
   it('the balanced point matches the hand calculation', () => {
-    for (const extra of [{}, { b: 0.3, h: 0.8, perFace: 5, barDia: 25, fc: 35, steel: 1 }, { fc: 50 }]) {
+    for (const extra of [{}, { b: 0.3, h: 0.8, perFace: 5, barDia: 25, fc: 35, steel: 1 }, { fc: 50 }] as Values[]) {
       const out = run(rcColumn, extra);
       expect(gap(out, 'balancedP')).toBeLessThan(1e-6);
       expect(gap(out, 'balancedM')).toBeLessThan(1e-6);
@@ -106,13 +106,13 @@ describe('tower', () => {
     expect(c).toBeCloseTo(7.854757, 5);
   });
   it('a heavy tip mass tends to the massless-beam spring–mass frequency √(3EI/MH³)', () => {
-    const v = { ...defaults(tower.params), topMass: 300 };
+    const v: Values = { ...defaults(tower.params), topMass: 300 };
     const t = tube(v.diameter, v.thickness), EI = STEEL.e * 1000 * t.i, m = STEEL.density / 1000 * t.a;
     const rayleigh = Math.sqrt(3 * EI / ((v.topMass + 0.2235 * m * v.height) * v.height ** 3)) / (2 * Math.PI);
     expect(towerClosedForm(v).frequencies[0] / rayleigh).toBeCloseTo(1, 2);
   });
   it('frequencies match the frequency equation, with and without a tip mass', () => {
-    for (const extra of [{}, { topMass: 50 }, { topMass: 300, height: 100 }, { height: 30, diameter: 2 }]) {
+    for (const extra of [{}, { topMass: 50 }, { topMass: 300, height: 100 }, { height: 30, diameter: 2 }] as Values[]) {
       const out = run(tower, extra);
       expect(gap(out, 'f1')).toBeLessThan(1e-4);
       expect(gap(out, 'f2')).toBeLessThan(1e-3);
@@ -120,7 +120,7 @@ describe('tower', () => {
     }
   });
   it('the buckling factor matches π²EI/4H²P', () => {
-    for (const extra of [{}, { height: 150, topLoad: 500 }, { diameter: 1, thickness: 8 }]) {
+    for (const extra of [{}, { height: 150, topLoad: 500 }, { diameter: 1, thickness: 8 }] as Values[]) {
       const out = run(tower, extra);
       expect(gap(out, 'bucklingFactor')).toBeLessThan(1e-4);
       expect(gap(out, 'criticalLoad')).toBeLessThan(1e-4);
