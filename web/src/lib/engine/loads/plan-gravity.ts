@@ -536,8 +536,8 @@ function notADeck(
    * The share of `area` that no load already kept less than a storey above carries: a loaded
    * panel, the tributary strip of a member kept by width, a shell loaded by panels, or the cells
    * a panel or member within the roof's structure kept for itself (its `mask`). By a 20 × 20 grid,
-   * each cell weighted by its part of `area`, a cell carried only when it lies wholly within one
-   * of them; cells along their edges count as not carried, so the share errs high.
+   * each cell weighted by its part of `area`, that part carried only when it lies wholly within
+   * one of them; parts across their edges count as not carried, so the share errs high.
    */
   const uncarried = (area: Array<[number, number]>, z: number, held: Held): { share: number; mask: Mask } => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
@@ -549,8 +549,8 @@ function notADeck(
       const ux = b[0] - a[0], uy = b[1] - a[1], L2 = ux * ux + uy * uy;
       if (L2 === 0) return false;
       const t = ((q[0] - a[0]) * ux + (q[1] - a[1]) * uy) / L2;
-      return t >= 0 && t <= 1 && low(a[2] + t * (b[2] - a[2]) - z)
-        && Math.abs((q[0] - a[0]) * uy - (q[1] - a[1]) * ux) / Math.sqrt(L2) <= half;
+      return t >= -1e-9 && t <= 1 + 1e-9 && low(a[2] + t * (b[2] - a[2]) - z)
+        && Math.abs((q[0] - a[0]) * uy - (q[1] - a[1]) * ux) / Math.sqrt(L2) <= half + 1e-9;
     };
     const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
     const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
@@ -559,14 +559,16 @@ function notADeck(
     let total = 0, open = 0;
     for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
       const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
-      const part = Math.abs(polygonArea(clipToBox(area, box)));
+      const piece = clipToBox(area, box);
+      const part = Math.abs(polygonArea(piece));
       if (part <= 0) continue;
       total += part;
-      const cell: Array<[number, number]> = [[box.x0, box.y0], [box.x1, box.y0], [box.x1, box.y1], [box.x0, box.y1]];
-      const carried = held.members.some((m) => cell.every((q) => inStrip(m, q)))
-        || over.some((p) => within(cell, box, p.poly))
-        || masks.some((m) => maskHolds(m, cell, box))
-        || shells.some((c) => within(cell, box, c.poly) && cell.every((q) => low(heightIn(c.pts, [q[0], q[1], z]) - z)));
+      const px = piece.map((q) => q[0]), py = piece.map((q) => q[1]);
+      const pbox = { x0: Math.min(...px), y0: Math.min(...py), x1: Math.max(...px), y1: Math.max(...py) };
+      const carried = held.members.some((m) => piece.every((q) => inStrip(m, q)))
+        || over.some((p) => within(piece, pbox, p.poly))
+        || masks.some((m) => maskHolds(m, piece, pbox))
+        || shells.some((c) => within(piece, pbox, c.poly) && piece.every((q) => low(heightIn(c.pts, [q[0], q[1], z]) - z)));
       if (!carried) { open += part; mask.open[i * 20 + j] = true; }
     }
     return { share: total > 0 ? open / total : 1, mask };
@@ -630,7 +632,7 @@ type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; membe
 
 type Axis = { p: [number, number]; u: [number, number]; L: number };
 
-/** Adds the area of each cell the mask kept to `bins` along `axis`, spread over the stretch the cell's outline projects onto. */
+/** Adds the area of each cell the mask kept to `bins` along `axis`, spread evenly about where its centroid projects, as wide as its outline's projection allows. */
 function openCellsAlong(m: Mask, axis: Axis, bins: number[], pick?: (c: [number, number]) => boolean): void {
   const n = bins.length, w = axis.L / n;
   for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
@@ -638,10 +640,12 @@ function openCellsAlong(m: Mask, axis: Axis, bins: number[], pick?: (c: [number,
     const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
     const area = Math.abs(polygonArea(part));
     if (!(area > 0) || (pick && !pick(centroid(part)))) continue;
-    const ss = part.map((v) => Math.max(0, Math.min(axis.L, (v[0] - axis.p[0]) * axis.u[0] + (v[1] - axis.p[1]) * axis.u[1])));
-    const s0 = Math.min(...ss), s1 = Math.max(...ss);
-    if (s1 - s0 <= 1e-12) { bins[Math.min(n - 1, Math.floor(s0 / w))]! += area; continue; }
-    for (let k = Math.min(n - 1, Math.floor(s0 / w)); k < n && k * w < s1; k++) {
+    const at = (v: [number, number]) => Math.max(0, Math.min(axis.L, (v[0] - axis.p[0]) * axis.u[0] + (v[1] - axis.p[1]) * axis.u[1]));
+    const ss = part.map(at), mid = at(areaCentroid(part));
+    const half = Math.min((Math.max(...ss) - Math.min(...ss)) / 2, mid, axis.L - mid);
+    const s0 = mid - half, s1 = mid + half;
+    if (s1 - s0 <= 1e-12) { bins[Math.min(n - 1, Math.floor(s0 / w + 1e-9))]! += area; continue; }
+    for (let k = Math.min(n - 1, Math.floor(s0 / w + 1e-9)); k < n && k * w < s1 - 1e-9; k++) {
       const overlap = Math.min(s1, (k + 1) * w) - Math.max(s0, k * w);
       if (overlap > 0) bins[k]! += (area * overlap) / (s1 - s0);
     }
@@ -675,7 +679,7 @@ function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): {
     return Math.hypot(c[0] - bm.p[0] - t * bm.u[0], c[1] - bm.p[1] - t * bm.u[1]);
   };
   const put = (bm: B, s: number, a: number) => {
-    const k = Math.min(BINS - 1, Math.floor((s / bm.L) * BINS));
+    const k = Math.min(BINS - 1, Math.floor((s / bm.L) * BINS + 1e-9));
     bm.area[k]! += a;
     bm.first[k]! += a * s;
   };

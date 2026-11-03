@@ -344,3 +344,28 @@ describe('a member whose cover above ends inside one of its stretches, by width'
     expect(force - right).toBeCloseTo(1.5 * 0.25 / 10, 6);
   });
 });
+
+describe('a member turned in plan whose cover above ends inside one of its stretches, by width', () => {
+  it('keeps the reactions of the uncovered end, as a hand calculation gives them', () => {
+    const r = Math.PI / 6, at = (d: number): [number, number] => [d * Math.cos(r), d * Math.sin(r)];
+    const b = builder();
+    const ends = [b.node(...at(0), 3), b.node(...at(10), 3)];
+    ends.forEach((id, i) => b.bar(b.node(...at(i * 10), 0), id));
+    b.bar(ends[0]!, ends[1]!);
+    b.bar(b.node(...at(0), 4), b.node(...at(9.5), 4));
+    b.bar(b.node(...at(9.5), 4), b.node(...at(10), 4), 'truss');
+    const layout = gravityLayout(b.model(), { mode: 'width', tributaryWidth: 3 });
+    const area = planAreaLoads({
+      layout, tributaryWidth: 3, floor: { dead: 0, lo: 0, liveOf: () => 0 },
+      roof: { dead: 1, use: 'maintenance', weight: 'light' as never, slopePercent: 0 },
+    });
+    const dead = area.distributed.filter((d) => d.elementId === 3 && d.caseType === 'D');
+    const force = dead.reduce((s, d) => s + -d.q * (d.b! - d.a!), 0);
+    const right = dead.reduce((s, d) => s + (-d.q * (d.b! - d.a!) * (d.a! + d.b!)) / 2, 0) / 10;
+    expect(force).toBeGreaterThanOrEqual(1.5 - 1e-6);
+    expect(force).toBeLessThanOrEqual(1.5 + 3 * 0.05 * 2 + 1e-6);
+    expect(right / force).toBeGreaterThanOrEqual(9.5 / 10 + 0.02);
+    expect(right / force).toBeLessThanOrEqual(1);
+    expect(right).toBeCloseTo((force * 9.75) / 10, 1);
+  });
+});
