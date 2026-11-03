@@ -204,6 +204,9 @@ jobs:
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - run: nix develop -c cargo test --release --locked --manifest-path research/optimization/andreassen-2011/Cargo.toml
       - run: nix develop -c cargo test --release --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
       - run: nix develop -c node --test research/optimization/andreassen-2011/wasm/check.test.mjs
@@ -364,6 +367,9 @@ jobs:
           persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
   riks-crisfield:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
