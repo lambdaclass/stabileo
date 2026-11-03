@@ -55,6 +55,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-041",
+          "Stahlbetonstützen: das größte Moment wurde nur mit der größten Druckkraft nachgewiesen",
+          "Hoch",
+          "In der nächsten Version behoben"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

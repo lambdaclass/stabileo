@@ -49,6 +49,7 @@ const RELEASED: Record<number, string[]> = {
   ],
   5: ['solid-shell-local-stress-axes'],
   6: ['buckling-certificate-rejects-outside-factor'],
+  7: ['rc-column-least-compression'],
 };
 
 describe('results versions', () => {

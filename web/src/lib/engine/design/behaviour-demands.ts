@@ -49,7 +49,8 @@ export function maskAxialDemand<T extends { Nc: number; Nt: number }>(demand: T,
 export function maskDemands(d: ElementDesignDemands, behaviour: Behaviour): ElementDesignDemands {
   if (!noCompression(behaviour) && !noTension(behaviour)) return d;
   const drop = noCompression(behaviour) ? 'N_compression' : 'N_tension';
-  return { ...d, demands: d.demands.filter((x) => x.category !== drop) };
+  const { leastCompression, ...rest } = d;
+  return { ...rest, demands: d.demands.filter((x) => x.category !== drop), ...(drop === 'N_tension' && leastCompression !== undefined ? { leastCompression } : {}) };
 }
 
 /** Every member's demands as design reads them: inactive members out, the rest masked. */

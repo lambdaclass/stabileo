@@ -101,6 +101,12 @@ export interface ElementDesignDemands {
   elementId: number;
   length: number;
   demands: GoverningDemand[];
+  /**
+   * The least compression (kN) at any station of any combination, when every one is compressed.
+   * Below the balance point a column's moment capacity falls with its compression, so the
+   * enveloped moment has to be checked under this force as well as under the largest.
+   */
+  leastCompression?: number;
 }
 
 // ─── Geometry-Aware Beam Critical Sections ───────────────
@@ -288,8 +294,10 @@ export function extractGoverningDemands(esr: ElementStationResult): ElementDesig
     }
   }
 
+  let leastCompression = Infinity;
   for (const cr of esr.comboResults) {
     for (const s of cr.stations) {
+      leastCompression = Math.min(leastCompression, -s.n);
       // Mz: positive (sagging/bottom tension) and negative (hogging/top tension) tracked separately
       if (s.mz > 0) updateBest('Mz+', s.mz, s.mz, s, cr.comboId, cr.comboName);
       if (s.mz < 0) updateBest('Mz-', s.mz, Math.abs(s.mz), s, cr.comboId, cr.comboName);
@@ -315,6 +323,7 @@ export function extractGoverningDemands(esr: ElementStationResult): ElementDesig
     elementId: esr.elementId,
     length: esr.length,
     demands: Array.from(best.values()).sort((a, b) => b.absValue - a.absValue),
+    ...(leastCompression > 0 && Number.isFinite(leastCompression) ? { leastCompression } : {}),
   };
 }
 
