@@ -139,7 +139,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | `/examples` 4 to 7 and the engine work they need (see "Live examples gallery") | [#1300](https://github.com/lambdaclass/stabileo/pull/1300) (RC column, outrigger sweep, steel tower), [#1308](https://github.com/lambdaclass/stabileo/pull/1308) (RC column pushover with fibre sections) | drafts, stacked on #1229 |
 | Landing positioning: open-source structural engineering software, AI marked in development (no provider-key claim until [#1064](https://github.com/lambdaclass/stabileo/pull/1064)); where it fits; Basic and PRO Design copy | [#1230](https://github.com/lambdaclass/stabileo/pull/1230) | ready, Codex clean on 6affce7167; landing −3362 B; reconcile with [#1061](https://github.com/lambdaclass/stabileo/pull/1061) if that lands second |
 | Research and Tools faster on phones ([#880](https://github.com/lambdaclass/stabileo/pull/880) folded in) | [#1065](https://github.com/lambdaclass/stabileo/pull/1065) | draft; in progress under a new owner (merging main, retry fix, re-measure, Codex) |
-| Basic course, units 1 to 7, split into six module PRs | [#1070](https://github.com/lambdaclass/stabileo/pull/1070); [#1302](https://github.com/lambdaclass/stabileo/pull/1302) to [#1307](https://github.com/lambdaclass/stabileo/pull/1307) | the modules are drafts (1 shell and shared modules, 2 statics and force/displacement methods, 3 influence lines, 4 second order and buckling, 5 plastic analysis, 6 dynamics); #1070 was blocked by the per-route product budget |
+| Basic course, units 1 to 7 ([#871](https://github.com/lambdaclass/stabileo/pull/871)), six stacked module PRs replacing [#1070](https://github.com/lambdaclass/stabileo/pull/1070) | [#1302](https://github.com/lambdaclass/stabileo/pull/1302) shell and shared modules, [#1303](https://github.com/lambdaclass/stabileo/pull/1303) statics and force method, [#1304](https://github.com/lambdaclass/stabileo/pull/1304) influence lines, [#1305](https://github.com/lambdaclass/stabileo/pull/1305) second order and buckling, [#1306](https://github.com/lambdaclass/stabileo/pull/1306) plastic, [#1307](https://github.com/lambdaclass/stabileo/pull/1307) dynamics (SDOF/MDOF) | drafts, handed to the merge captain. **Decision:** the `/app` route budget (+21 to +405 KB per PR against 128 B). #1070 to close as superseded (user) |
 | Website changelog, week to 2026-11-06 | [#1292](https://github.com/lambdaclass/stabileo/pull/1292) | ready, Codex clean; held until [#1290](https://github.com/lambdaclass/stabileo/pull/1290) lands (its entry text counts against the `/app` route budget through the blog page) |
 | Blog: Research, Tools and checking our tests; blog images | [#1293](https://github.com/lambdaclass/stabileo/pull/1293) (carries #882) | draft; lands once the blog is lazy ([#1290](https://github.com/lambdaclass/stabileo/pull/1290)) |
 | Present PRO as available | [#1250](https://github.com/lambdaclass/stabileo/pull/1250) | draft |
@@ -162,6 +162,11 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 
 **Safety (wrong results first)**
 
+- **#1255 statics verdict** (high-effort Codex): `statics-check.ts:65` reports "unbalanced" from a
+  residual over incomplete load sums, so a balanced case with an omitted surface load can be flagged
+  (a false alarm, never a false pass); return partial whenever loads are left out.
+- **Fiber nonlinear with constraints** (#1296): compute the constraint multipliers so the
+  equilibrium gate can check constrained models, then lift the refusal.
 - **Static self-check floor** ([#865](https://github.com/lambdaclass/stabileo/pull/865), found on [#1285](https://github.com/lambdaclass/stabileo/pull/1285)): `engine/src/solver/self_checks.rs` floors the
   balance force scale at 1 kN, so the imbalance is compared with 1e-3 × 1 kN: a load below
   1e-3 kN left fully unbalanced passes (applied 1e-4 kN, reactions 0, imbalance 1e-4 < 1e-3).
@@ -208,6 +213,11 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 
 **Product**
 
+- **Time-history input near 1.7e308 g** (#1285): the app shows the raw "Parse error: invalid type:
+  null" instead of a translated refusal (a visible refusal, not a wrong result).
+- **Blog:** a release post for Stabileo 0.4.0 (released 2026-10-28), like 0.3.0's.
+- **Basic course:** each module PR's deferred should-fixes are in its body; #1070's last
+  uncommitted round carries over only its wrong-result fixes.
 - **[#1255](https://github.com/lambdaclass/stabileo/pull/1255) leftovers:** the report prints `0.00 %` for an unbalanced residual between about 1e-6 and
   5e-5; a plan-view member crossing the cut with both ends outside is drawn but not pickable;
   `StoreyScopeBar` lacks the bottom safe-area inset; similar storeys skip a zero-length copy
@@ -221,6 +231,11 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 **CI and infrastructure**
 
 - **Per-route product budgets** (open user question): 128 B per route nearly freezes product work.
+- **Restore after wave B:** route budgets back to 128 B and the exact-value assertion in
+  `research-route-budget.test.mjs` restored.
+- **Nightly harness noise** (zero-displacement floor, time-history Lanczos tolerance, eigen-gap,
+  warned plastic bounds inconclusive): in progress; #1299's same-model time-history budgets
+  (2e-9 to 8e-9) can be dropped where both runs share the pencil. Issue closures wait for the user.
 - **Vite build parse error:** es-module-lexer reads a minified `of` followed by `/` as a regex and
   fails the E2E build (hit on [#1070](https://github.com/lambdaclass/stabileo/pull/1070), worked around). Bump es-module-lexer or Vite, or add a guard.
 - **Hosted-runner Nix flakiness:** Magic Nix Cache HTTP 418 and dropped cache.nixos.org downloads;
