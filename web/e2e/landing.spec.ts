@@ -91,6 +91,7 @@ test.describe('@landing landing page', () => {
 
     const links = page.locator('.landing nav.nav .nav-links a.nav-link');
     const ids = await links.evaluateAll((els) => els.map((e) => e.getAttribute('data-nav')));
+    expect(ids).toContain('blog');
     expect(ids[ids.indexOf('blog') + 1]).toBe('changelog');
     const changelog = page.locator('.landing nav.nav .nav-links a.nav-link[data-nav="changelog"]');
     await expect(changelog).toHaveText('Changelog');
