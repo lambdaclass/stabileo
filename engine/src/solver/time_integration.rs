@@ -178,7 +178,7 @@ fn solve_time_history_2d_inner(
     // Force is computed in nf space then reduced
     let f_0_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
-    compute_initial_state(&m_s, c_s, &k_s, a1, dt, &mut u, &mut v, &f_0, ns, &[], &mut a_vec)?;
+    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, ns, &[], &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -329,6 +329,8 @@ fn solve_time_history_2d_inner(
 // ============================================================================
 
 pub const NON_FINITE_RESPONSE: &str = "TH-NONFINITE";
+pub const MASSLESS_MECHANISM: &str = "TH-MASSLESS-MECHANISM";
+pub const MASS_SINGULAR: &str = "TH-MASS-SINGULAR";
 
 fn first_non_finite(series: &[&Vec<f64>]) -> Option<usize> {
     series.iter().filter_map(|s| s.iter().position(|v| !v.is_finite())).min()
@@ -461,10 +463,10 @@ fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec
 }
 
 /// Also moves u or v: a load at t = 0 on a massless direction is met by a jump in
-/// u (undamped, or dt ≥ 2·a1) or in v, so that every row of step 0 holds.
+/// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds.
 #[allow(clippy::too_many_arguments)]
 fn compute_initial_state(
-    m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64, dt: f64,
+    m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64,
     u: &mut [f64], v: &mut [f64], f: &[f64],
     n: usize, triads: &[[usize; 3]], a: &mut [f64],
 ) -> Result<(), String> {
@@ -490,7 +492,7 @@ fn compute_initial_state(
     let condense = |r: &[f64]| -> Result<Vec<f64>, String> {
         let r_z: Vec<f64> = massless.iter().map(|&i| r[i]).collect();
         let y_z = solve_spd_sparse_or_dense(&k_zz, &r_z, "massless part at t = 0").map_err(|_| {
-            "Time history: part of the model has neither mass nor stiffness in some direction (a massless mechanism), so its motion is undetermined; no result is returned".to_string()
+            format!("{MASSLESS_MECHANISM}: Time history: part of the model has neither mass nor stiffness in some direction (a massless mechanism), so its motion is undetermined; no result is returned")
         })?;
         let mut y = vec![0.0; n];
         for (j, &i) in massless.iter().enumerate() {
@@ -499,37 +501,22 @@ fn compute_initial_state(
         Ok(y)
     };
 
-    let mut at = vec![0.0; n];
     if !massless.is_empty() {
         let y = from_basis(&condense(&rotate_vector(&rhs, &basis))?, &basis);
-        let settles_within_step = c.is_none() || a1 <= 0.0 || dt >= 2.0 * a1;
-        if settles_within_step {
-            u.iter_mut().zip(&y).for_each(|(x, d)| *x += d);
-        } else {
-            v.iter_mut().zip(&y).for_each(|(x, d)| *x += d / a1);
+        match c {
+            Some(_) if a1 > 0.0 => v.iter_mut().zip(&y).for_each(|(x, d)| *x += d / a1),
+            _ => u.iter_mut().zip(&y).for_each(|(x, d)| *x += d),
         }
     }
     let rt = rotate_vector(&residual(u, v), &basis);
     let rhs_m: Vec<f64> = massive.iter().map(|&i| rt[i]).collect();
     let m_mm = mt.extract_principal_submatrix(&massive);
     let x = solve_spd_sparse_or_dense(&m_mm, &rhs_m, "initial acceleration").map_err(|_| {
-        "Time history: the mass matrix is singular in a direction that combines several DOFs, so the state at t = 0 cannot be computed; no result is returned".to_string()
+        format!("{MASS_SINGULAR}: Time history: the mass matrix is singular in a direction that combines several DOFs, so the state at t = 0 cannot be computed; no result is returned")
     })?;
+    let mut at = vec![0.0; n];
     for (j, &i) in massive.iter().enumerate() {
         at[i] = x[j];
-    }
-    if !massless.is_empty() {
-        let mut coupling = kt.sym_mat_vec(&at);
-        let vt = rotate_vector(v, &basis);
-        let kv = kt.sym_mat_vec(&vt);
-        let damped_z = c.is_some() && a1 > 0.0;
-        for &i in &massless {
-            coupling[i] = -coupling[i] - if damped_z { kv[i] / a1 } else { 0.0 };
-        }
-        let a_z = condense(&coupling)?;
-        for &i in &massless {
-            at[i] = a_z[i];
-        }
     }
     a.copy_from_slice(&from_basis(&at, &basis));
     Ok(())
@@ -1245,7 +1232,7 @@ fn solve_time_history_3d_inner(
     let f_0_nf = compute_force_at_step_3d(input, &dof_num, its, &m_ground_r_3d, &f_static, 0, dt);
     let f_0 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_0_nf) } else { f_0_nf };
     let triads = rotation_triads(&dof_num, cs3.as_ref());
-    compute_initial_state(&m_s, c_s, &k_s, a1, dt, &mut u, &mut v, &f_0, ns, &triads, &mut a_vec)?;
+    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, ns, &triads, &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);

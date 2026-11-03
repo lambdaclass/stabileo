@@ -41,7 +41,7 @@ export const FEATURE_IDS = [
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements',
   'connectors', 'connectorsWithShear',
   'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads',
-  'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind',
+  'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistoryForces',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
 export type FeatureId = (typeof FEATURE_IDS)[number];
@@ -223,6 +223,8 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     f.add('combinations');
     if (loadsCode === null || loadsCode.startsWith('cirsoc')) f.add('cirsocCombinations');
   }
+
+  if (((s.dynamics?.timeHistory as { forces?: unknown[] } | undefined)?.forces?.length ?? 0) > 0) f.add('timeHistoryForces');
 
   // Analyses: what the stamp recorded, plus what the model itself implies; nothing recorded: all.
   const run = ctx.analysesRun;

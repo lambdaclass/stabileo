@@ -26,6 +26,7 @@ import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import { errorText } from '../utils/error-text';
 import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
+import { modalMechanismRefusal } from './dynamics/time-history-refusal';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -588,6 +589,11 @@ function refuse(msg: string | null | undefined): void {
 
 const NO_FREE_DOFS = /^No free DOFs/;
 
+function translateModalMechanism(e: unknown): void {
+  const m = guards ? modalMechanismRefusal(thrownText(e)) : null;
+  if (m) throw new Error(guards!.text(m.key, m.params as Record<string, string | number>));
+}
+
 /** Largest nodal translation or rotation of a result. */
 function maxDisplacement(r: { displacements?: Array<Record<string, number>> } | undefined): number {
   let m = 0;
@@ -669,9 +675,12 @@ function mechanismOnly(): never {
 
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
 export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { nodeId: number; dof: string }) => ({ value: 0, nodeId: m.nodeId, dof: m.dof }));
+  const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
   if (!kept.length) mechanismOnly();
+  if (!below.length) return { ...result, discardedModes: discarded };
   const out: any = { ...result, modes: kept, discardedModes: discarded };
   for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);
   if (result.rayleigh && Array.isArray(result.rayleigh.dampingRatios)) {
@@ -1130,6 +1139,7 @@ export function solveModal(
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
   } catch (e) {
     if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   return tagCertifyJob(filterModal(result, ['X', 'Y']), { name: 'certify_modal_2d', args: [payload, numModes] });
@@ -1264,6 +1274,7 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
     }), numModes)));
   } catch (e) {
     if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   const out = filterModal(run.result, ['X', 'Y', 'Z']);

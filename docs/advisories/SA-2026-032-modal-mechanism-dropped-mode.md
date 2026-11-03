@@ -31,10 +31,13 @@ whose true response is unbounded.
 
 A modal or spectral analysis that returned fewer modes than requested, or a low cumulative mass
 participation, on a model whose static analysis warns about excessive displacements or a
-singular or indefinite stiffness. Re-run it: it now refuses and names the mechanism.
+singular or indefinite stiffness. Re-run it: it now refuses and names the mechanism, or lists the zero mode when it moves no mass.
 
 ## Fixed in
 
-PR #1247. Modal analysis refuses when any computed eigenvalue is at or below 1e-10 rad²/s²,
-saying the structure is a mechanism or unstable, and returns no modes
+PR #1247. Modal analysis refuses when its zero-frequency modes (ω² ≤ 1e-10 rad²/s²) carry more
+than 1e-6 of the mass in any direction, naming the mechanism and returning no modes. A zero mode
+that moves no translational mass (a column free to spin about its own axis, which the static
+solve accepts and no ground motion excites) is reported in the result's `nullModes`, with its
+node and DOF, and the app lists it with the discarded modes instead of dropping it unnoticed
 (`engine/tests/modal_mechanism_refusal.rs`). Models without a mechanism return the same modes.

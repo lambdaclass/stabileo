@@ -17,6 +17,8 @@ pub struct ModalResult {
     pub cumulative_mass_ratio_x: f64,
     pub cumulative_mass_ratio_y: f64,
     pub rayleigh: Option<RayleighDamping>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub null_modes: Vec<NullMode>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -32,6 +34,16 @@ pub struct ModeShape {
     pub effective_mass_y: f64,
     pub mass_ratio_x: f64,
     pub mass_ratio_y: f64,
+}
+
+/// A zero-frequency mode left out of `modes`: the structure moves there without
+/// deforming and without exciting any translational mass, so it is reported, not refused.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NullMode {
+    pub omega_sq: f64,
+    pub node_id: usize,
+    pub dof: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -172,7 +184,14 @@ pub fn solve_modal_2d(
         None => (m_r_x, m_r_y),
     };
 
-    refuse_mechanism(&result.values)?;
+    let null_modes = {
+        let m_mul = |x: &[f64]| match &m_csc_opt {
+            Some(m_csc) => m_csc.sym_mat_vec(x),
+            None => mat_vec_sub(&m_solve, x, ns),
+        };
+        let shape = |phi: &[f64]| to_global(&cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf], n, &its);
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &shape, &dof_num, &["ux", "uz", "ry"])?
+    };
 
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
@@ -283,16 +302,53 @@ pub fn solve_modal_2d(
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,
         rayleigh,
+        null_modes,
     })
 }
 
-fn refuse_mechanism(eigenvalues: &[f64]) -> Result<(), String> {
-    match eigenvalues.iter().find(|v| v.is_finite() && **v <= 1e-10) {
-        Some(lambda) => Err(format!(
-            "Modal analysis: the structure is a mechanism or unstable: a mode has ω² = {lambda:.3e} rad²/s² (zero or negative frequency), so a release, hinge or missing support lets part of it move without deforming. No modes are returned."
-        )),
-        None => Ok(()),
+pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
+const NULL_EIGENVALUE: f64 = 1e-10;
+const NULL_MODE_MASS_RATIO: f64 = 1e-6;
+
+#[allow(clippy::type_complexity)]
+fn null_modes_or_mechanism(
+    result: &EigenResult,
+    ns: usize,
+    m_mul: &dyn Fn(&[f64]) -> Vec<f64>,
+    loads: &[(&Vec<f64>, f64)],
+    shape: &dyn Fn(&[f64]) -> Vec<f64>,
+    dof_num: &DofNumbering,
+    dof_names: &[&str],
+) -> Result<Vec<NullMode>, String> {
+    let nk = result.values.len();
+    let mut ratio = vec![0.0f64; loads.len()];
+    let mut out = Vec::new();
+    for (idx, &lambda) in result.values.iter().enumerate() {
+        if !(lambda.is_finite() && lambda <= NULL_EIGENVALUE) {
+            continue;
+        }
+        let phi: Vec<f64> = (0..ns).map(|i| result.vectors[i * nk + idx]).collect();
+        let pmp: f64 = phi.iter().zip(m_mul(&phi)).map(|(a, b)| a * b).sum();
+        for (k, (l, mass)) in loads.iter().enumerate() {
+            let pl: f64 = phi.iter().zip(l.iter()).map(|(a, b)| a * b).sum();
+            if pmp.abs() > 1e-30 && *mass > 1e-20 {
+                ratio[k] += pl * pl / pmp / mass;
+            }
+        }
+        let u = shape(&phi);
+        let at = (0..u.len()).max_by(|&a, &b| u[a].abs().total_cmp(&u[b].abs())).unwrap_or(0);
+        let (node_id, dof) = dof_num.map.iter().find(|(_, &g)| g == at)
+            .map_or((0, String::new()), |(&(node, local), _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
+        out.push(NullMode { omega_sq: lambda, node_id, dof });
     }
+    let worst = ratio.iter().fold(0.0f64, |m, r| m.max(*r));
+    if worst > NULL_MODE_MASS_RATIO {
+        return Err(format!(
+            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative frequency (ω² ≤ {NULL_EIGENVALUE:e} rad²/s², first at node {} {}) carry {:.1} % of the mass in a direction, so a release, hinge or missing support lets part of it move without deforming. No modes are returned.",
+            out.len(), out[0].node_id, out[0].dof, 100.0 * worst
+        ));
+    }
+    Ok(out)
 }
 
 /// M*v product for a submatrix (nf×nf flat array)
@@ -317,6 +373,8 @@ pub struct ModalResult3D {
     pub cumulative_mass_ratio_y: f64,
     pub cumulative_mass_ratio_z: f64,
     pub rayleigh: Option<RayleighDamping>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub null_modes: Vec<NullMode>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -411,7 +469,11 @@ pub fn solve_modal_3d(
     };
     let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
 
-    refuse_mechanism(&result.values)?;
+    let null_modes = {
+        let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
+        let shape = |phi: &[f64]| to_global(&cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf], n, its);
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"])?
+    };
 
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
@@ -498,5 +560,6 @@ pub fn solve_modal_3d(
         cumulative_mass_ratio_y: cum_mry,
         cumulative_mass_ratio_z: cum_mrz,
         rayleigh,
+        null_modes,
     })
 }

@@ -54,7 +54,10 @@ fn column_with_hinged_arm_2d(hinged: bool) -> SolverInput {
 
 fn refusal(result: Result<Vec<f64>, String>, what: &str) -> String {
     match result {
-        Err(e) => e,
+        Err(e) => {
+            assert!(e.starts_with("MODAL-MECHANISM: ") || e.starts_with("Eigenvalue decomposition failed"), "{what}: refused for another reason: {e}");
+            e
+        }
         Ok(freqs) => panic!("{what}: a mechanism returned {} modes with no refusal: {freqs:?}", freqs.len()),
     }
 }
@@ -74,7 +77,7 @@ fn the_mystran_differential_mechanism_is_refused_instead_of_dropping_its_zero_mo
     let input: SolverInput3D = serde_json::from_value(model).unwrap();
     let result = solve_modal_3d(&input, &densities, 12).map(|r| r.modes.iter().map(|m| m.frequency).collect());
     let e = refusal(result, "modal3d_lumped-744196");
-    assert!(e.contains("mechanism") && e.contains("No modes are returned"), "{e}");
+    assert!(e.starts_with("MODAL-MECHANISM: ") && e.contains("No modes are returned"), "{e}");
 }
 
 #[test]
@@ -99,3 +102,28 @@ fn the_same_frames_without_the_hinge_return_every_requested_mode() {
     assert_eq!(f.len(), 4, "{f:?}");
 }
 
+
+#[test]
+fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
+    let input: SolverInput3D = serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
+            "2": {"id": 2, "x": 0.13, "y": 0.07, "z": 3.0},
+        },
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "releaseTStart": true}},
+        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "loads": [],
+        "masses": {"nodal": [{"nodeId": 2, "mass": 0.0, "ixx": 0.1, "iyy": 0.1, "izz": 0.1}]},
+    }))
+    .unwrap();
+    match solve_modal_3d(&input, &densities(), 4) {
+        Ok(r) => {
+            assert!(!r.null_modes.is_empty(), "the free twist is neither returned nor reported: {:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+            assert!(r.null_modes.iter().all(|m| m.node_id == 2 && m.dof.starts_with('r')), "{:?}", r.null_modes);
+            assert!(r.modes.iter().all(|m| m.frequency > 0.1));
+        }
+        Err(e) => assert!(!e.starts_with("MODAL-MECHANISM"), "a twist with no translational mass refused as a mechanism: {e}"),
+    }
+}

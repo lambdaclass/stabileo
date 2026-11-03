@@ -61,13 +61,13 @@ struct Regime {
     steps_per_period: f64,
     xi: f64,
     tol_a: f64,
-    tol_w: f64,
+    tol_w: Option<f64>,
 }
 
 const REGIMES: [Regime; 3] = [
-    Regime { name: "undamped", steps_per_period: 400.0, xi: 0.0, tol_a: 1e-3, tol_w: 1e-9 },
-    Regime { name: "damped, step below 2·a1", steps_per_period: 400.0, xi: 0.05, tol_a: 1e-3, tol_w: 2e-2 },
-    Regime { name: "damped, step above 2·a1", steps_per_period: 40.0, xi: 0.05, tol_a: 2e-2, tol_w: 2e-2 },
+    Regime { name: "undamped", steps_per_period: 400.0, xi: 0.0, tol_a: 1e-3, tol_w: Some(1e-9) },
+    Regime { name: "damped, step below 2·a1", steps_per_period: 400.0, xi: 0.05, tol_a: 1e-3, tol_w: Some(2e-2) },
+    Regime { name: "damped, step above 2·a1", steps_per_period: 40.0, xi: 0.05, tol_a: 2e-2, tol_w: None },
 ];
 
 fn period() -> f64 {
@@ -90,15 +90,27 @@ fn a_step_load_on_a_massless_dof_matches_the_two_dof_closed_form() {
         }
         let (ua, ub) = (ux(&r, 2), ux(&r, 3));
         let c = a0 * MASS + a1 * k1();
-        let (mut err_a, mut err_w) = (0.0f64, 0.0f64);
-        for (n, &t) in r.time_steps.iter().enumerate().skip(1) {
-            let exact_a = damped_step(MASS, c, k1(), p, t);
+        let rho = (1.0 - dt / (2.0 * a1)) / (1.0 + dt / (2.0 * a1));
+        let (mut err_a, mut err_w, mut err_trapezoid) = (0.0f64, 0.0f64, 0.0f64);
+        for (n, &t) in r.time_steps.iter().enumerate() {
+            let w = ub[n] - ua[n];
+            if a1 > 0.0 {
+                err_trapezoid = err_trapezoid.max((w - p / k2() * (1.0 - rho.powi(n as i32))).abs() / (p / k2()));
+            }
+            if n == 0 {
+                continue;
+            }
             let exact_w = if a1 > 0.0 { p / k2() * (1.0 - (-t / a1).exp()) } else { p / k2() };
-            err_a = err_a.max((ua[n] - exact_a).abs() / (p / k1()));
-            err_w = err_w.max((ub[n] - ua[n] - exact_w).abs() / (p / k2()));
+            err_a = err_a.max((ua[n] - damped_step(MASS, c, k1(), p, t)).abs() / (p / k1()));
+            err_w = err_w.max((w - exact_w).abs() / (p / k2()));
         }
-        if err_a > g.tol_a || err_w > g.tol_w {
-            failures.push(format!("{}: u_A off the damped SDOF by {err_a:.3e} of P/k1, u_B − u_A off P/k2·(1 − e^(−t/a1)) by {err_w:.3e} of P/k2", g.name));
+        let w0 = (ub[0] - ua[0]) / (p / k2());
+        let expected_w0 = if a1 > 0.0 { 0.0 } else { 1.0 };
+        if err_a > g.tol_a || g.tol_w.is_some_and(|tol| err_w > tol) || err_trapezoid > 1e-9 || (w0 - expected_w0).abs() > 1e-9 {
+            failures.push(format!(
+                "{}: u_A off the damped SDOF by {err_a:.3e} of P/k1; u_B − u_A off P/k2·(1 − e^(−t/a1)) by {err_w:.3e} and off the trapezoidal rule's P/k2·(1 − ρ^n) by {err_trapezoid:.3e} of P/k2; at t = 0 it is {w0:.3e} of P/k2",
+                g.name
+            ));
         }
     }
     assert!(failures.is_empty(), "{failures:#?}");
