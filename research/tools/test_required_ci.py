@@ -17,7 +17,7 @@ filters = yaml.safe_load(jobs['changes']['steps'][1]['with']['filters'])
 assert {'research/**', 'web/**', '.github/workflows/research.yml'} <= set(x for x in filters['research'] if isinstance(x, str))
 assert 'workflow_call' in research.get('on', research.get(True))
 for job in research['jobs'].values():
-    assert job['runs-on'] == 'ubuntu-latest'
+    assert job['runs-on'] == 'ubuntu-24.04' or job['runs-on'].endswith("|| 'ubuntu-24.04' }}")
 assert {'phasefield', 'catalog', 'isolation', 'route-size'} <= research['jobs'].keys()
 # Network checks never run inside the required CI OK (the caller's workflow name is CI there).
 assert workflow['name'] == 'CI'
@@ -122,5 +122,5 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
 print('ok required research CI propagates failures and accepts skipped jobs')
 
 koiter = research["jobs"]["koiter"]
-assert koiter["runs-on"] == "ubuntu-latest" and "if" not in koiter
+assert koiter["runs-on"] == "ubuntu-24.04" and "if" not in koiter
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
