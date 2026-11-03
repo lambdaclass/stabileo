@@ -78,7 +78,7 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
 ### 2. Other bugs
 
 - **Route byte budgets:** the per-route product budget (128 B) blocks wave B's advisory rows (the Basic course
-  modules avoid it as a lazy route boundary, [#1302](https://github.com/lambdaclass/stabileo/pull/1302)). One-time acceptance for wave B in [#1291](https://github.com/lambdaclass/stabileo/pull/1291) (user decision 2026-11-03), restored to 128 B by
+  modules avoid it as a lazy route boundary, [#1302](https://github.com/lambdaclass/stabileo/pull/1302)). One-time acceptance for wave B in [#1291](https://github.com/lambdaclass/stabileo/pull/1291) (landed; user decision 2026-11-03), restored to 128 B by
   [#1322](https://github.com/lambdaclass/stabileo/pull/1322) right after [#1285](https://github.com/lambdaclass/stabileo/pull/1285) lands; then [#1289](https://github.com/lambdaclass/stabileo/pull/1289) (the lazy blog as its own route boundary) and
   [#1290](https://github.com/lambdaclass/stabileo/pull/1290) (the blog loads only when shown: landing −724 KB, `/app` −215 KB, no budget changes).
   [#1288](https://github.com/lambdaclass/stabileo/pull/1288) (landed) makes a budget failure name which limit it hit.
@@ -129,7 +129,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 
 | Workstream | PR | State |
 |---|---|---|
-| One-time route budget for wave B, then the restore to 128 B | [#1291](https://github.com/lambdaclass/stabileo/pull/1291), [#1322](https://github.com/lambdaclass/stabileo/pull/1322) | both ready; [#1322](https://github.com/lambdaclass/stabileo/pull/1322) restores all six route budgets to 128 B right after [#1285](https://github.com/lambdaclass/stabileo/pull/1285) lands |
+| One-time route budget for wave B, then the restore to 128 B | [#1291](https://github.com/lambdaclass/stabileo/pull/1291), [#1322](https://github.com/lambdaclass/stabileo/pull/1322) | [#1291](https://github.com/lambdaclass/stabileo/pull/1291) landed; [#1322](https://github.com/lambdaclass/stabileo/pull/1322) ready, restores all six route budgets to 128 B right after [#1285](https://github.com/lambdaclass/stabileo/pull/1285) lands |
 | The lazy blog as its own route boundary; the blog loads only when shown | [#1289](https://github.com/lambdaclass/stabileo/pull/1289), [#1290](https://github.com/lambdaclass/stabileo/pull/1290) (stacked) | both ready, Codex clean; land after [#1285](https://github.com/lambdaclass/stabileo/pull/1285) and the restore, [#1289](https://github.com/lambdaclass/stabileo/pull/1289) first |
 | Live-site integration: soft 404 [#1059](https://github.com/lambdaclass/stabileo/pull/1059), unprefixed redirects [#1224](https://github.com/lambdaclass/stabileo/pull/1224), landing visible without scrolling [#1223](https://github.com/lambdaclass/stabileo/pull/1223), changelog counts [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | [#1227](https://github.com/lambdaclass/stabileo/pull/1227) | draft |
 | GitHub Actions bumps | [#1284](https://github.com/lambdaclass/stabileo/pull/1284) | open (Dependabot) |
@@ -148,6 +148,7 @@ review, fixed forward by [#1253](https://github.com/lambdaclass/stabileo/pull/12
 | Blog: Research, Tools and checking our tests; blog images | [#1293](https://github.com/lambdaclass/stabileo/pull/1293) (carries #882) | draft; lands once the blog is lazy ([#1290](https://github.com/lambdaclass/stabileo/pull/1290)) |
 | Present PRO as available | [#1250](https://github.com/lambdaclass/stabileo/pull/1250) | draft |
 | Accounts: terms, usage data, cloud projects, admin site; advertising measurement on top | [#1071](https://github.com/lambdaclass/stabileo/pull/1071), [#1251](https://github.com/lambdaclass/stabileo/pull/1251) | Codex clean. **Decision:** owner OK on the legal text, company line, usage sharing on by default |
+| Research: never show the review-round note | [#1320](https://github.com/lambdaclass/stabileo/pull/1320) | ready |
 | Research round 2; research PRs it carries | [#1068](https://github.com/lambdaclass/stabileo/pull/1068) | draft |
 | Research papers indexable; research and tools SEO | [#988](https://github.com/lambdaclass/stabileo/pull/988), [#881](https://github.com/lambdaclass/stabileo/pull/881) | open |
 | Research frozen versions | [#777](https://github.com/lambdaclass/stabileo/pull/777) | **Decision:** host approval and DNS for `snapshots.stabileo.com` |
