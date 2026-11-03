@@ -70,8 +70,8 @@ fn same(a: &Ana3, tc: &Case3, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| judge(compare_with_compliance(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)), rel)),
-        Err(e) if is_lower_bound(&expected) && !e.starts_with("PANIC") => Verdict::Inconclusive(rel),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| judge(compare_with_compliance(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_3d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)), rel * crate::response::gap_amplification(&expected))),
+        Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }
 }
@@ -254,7 +254,7 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
                 }
                 bounded(&r, &exp, rel).unwrap_or_else(|| judge(compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_3d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
             }
-            Err(e) if is_lower_bound(base) && !e.starts_with("PANIC") => Verdict::Inconclusive(rel),
+            Err(e) if is_lower_bound(base) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
             Err(e) => Verdict::Fail(format!("scaled loads failed: {e}")),
         };
     }

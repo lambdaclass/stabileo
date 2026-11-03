@@ -247,3 +247,31 @@ fn a_lower_bound_above_the_collapse_factor_is_caught() {
     assert!(matches!(crate::checks2::bounded(&factor(2.0, false), &factor(2.01, true), rel), Some(Verdict::Fail(_))));
     assert!(matches!(crate::checks2::bounded(&factor(3.0, true), &factor(1.0, true), rel), Some(Verdict::Inconclusive(_))));
 }
+
+#[test]
+fn a_widened_effective_mass_tolerance_past_the_limit_is_inconclusive() {
+    let factor = crate::response::eigen_gap_factor(1.0, 1.0005);
+    assert!(factor > 900.0, "{factor}");
+    let mut r = Resp::default();
+    r.scalar("total_mass", crate::response::Dim::MASS, 10.0);
+    r.push(None, None, "meff00", crate::response::Kind::T3(crate::response::Dim::MASS), vec![4.0; 6]);
+    r.set_floor("meff00", 10.0 * factor);
+    let amp = crate::response::gap_amplification(&r);
+    assert!((amp - factor).abs() < 1e-9 * factor, "{amp} vs {factor}");
+    let mut wrong = r.clone();
+    nudge(&mut wrong, "meff00", None, 0, 0.01);
+    let rel = 2e-6;
+    let res = dedaliano_engine::metamorphic::compare::compare(&wrong.flat(), &r.flat(), 1.0, rel);
+    assert!(res.is_ok(), "the widened tolerance alone passes a 0.25 % error");
+    assert!(matches!(crate::checks2::judge(res.clone(), rel), Verdict::Pass(_)));
+    assert!(matches!(crate::checks2::judge(res, rel * amp), Verdict::Inconclusive(_)));
+}
+
+#[test]
+fn only_an_incomplete_collapse_refusal_is_inconclusive_next_to_a_lower_bound() {
+    let refusal = "Plastic (pushover) analysis: after λ = 9669.504276 no section reaches its plastic moment under further load and the structure is not a mechanism — the loads are carried without bending (axially), so a bending-only plastic analysis has no collapse factor to report. Check axial capacity and buckling instead.";
+    assert!(crate::response::incomplete_collapse(refusal));
+    for other in ["did not converge", "PANIC: index out of bounds", "Plastic (pushover) analysis needs a mechanical load to scale to collapse", "singular stiffness matrix"] {
+        assert!(!crate::response::incomplete_collapse(other), "{other}");
+    }
+}

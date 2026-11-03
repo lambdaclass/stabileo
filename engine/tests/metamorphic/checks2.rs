@@ -74,7 +74,7 @@ fn run(a: &Ana2, c: &Case2) -> Result<Resp, String> {
     })
 }
 
-fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, rel: f64) -> Verdict {
+pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>, rel: f64) -> Verdict {
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -96,8 +96,8 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| judge(compare_with_compliance(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)), rel)),
-        Err(e) if is_lower_bound(&expected) && !e.starts_with("PANIC") => Verdict::Inconclusive(rel),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| judge(compare_with_compliance(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)), rel * crate::response::gap_amplification(&expected))),
+        Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }
 }
@@ -396,7 +396,7 @@ fn inverse_law(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdict
             }
             bounded(&r, &exp, rel).unwrap_or_else(|| judge(compare_with_compliance(&r.flat(), &exp.flat(), cond.lchar, rel, load_floor_2d(&c.s, cond.lchar) * k, crate::checks2::compliance(a.name, &cond)), rel))
         }
-        Err(e) if is_lower_bound(base) && !e.starts_with("PANIC") => Verdict::Inconclusive(rel),
+        Err(e) if is_lower_bound(base) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => Verdict::Fail(format!("scaled loads failed: {e}")),
     }
 }

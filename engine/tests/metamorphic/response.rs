@@ -439,6 +439,15 @@ pub fn eigen_gap_factor(lower: f64, upper: f64) -> f64 {
     1.0 + a / (b - a)
 }
 
+pub fn gap_amplification(r: &Resp) -> f64 {
+    let total = r.0.iter().find(|i| i.tag == "total_mass").map_or(0.0, |i| i.v[0].abs());
+    r.0.iter().filter(|i| i.tag.starts_with("meff") && total > 0.0).map(|i| i.floor / total).fold(1.0, f64::max)
+}
+
+pub fn incomplete_collapse(e: &str) -> bool {
+    e.contains("no section reaches its plastic moment") && e.contains("is not a mechanism")
+}
+
 /// Tag of the marker a plastic row adds when its factor is only a lower bound
 /// (no mechanism formed).
 pub const LOWER_BOUND: &str = "lower_bound";
