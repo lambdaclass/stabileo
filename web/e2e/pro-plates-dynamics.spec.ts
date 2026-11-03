@@ -118,7 +118,7 @@ test.describe('@smoke PRO plates and dynamics', () => {
     await page.getByTestId('pr-cmd-advanced').click();
     await page.getByTestId('adv-chip-timehistory').click();
     await page.getByTestId('th-steps').fill('20');
-    await page.getByTestId('th-scale-x').fill('1e306');
+    await page.getByTestId('th-scale-x').fill('1e307');
     await page.getByTestId('th-run').click();
     await expect(page.locator('.adv-error')).toContainText(/no es finita|is not finite/);
     await expect(page.locator('.adv-error')).not.toContainText('TH-NONFINITE');
