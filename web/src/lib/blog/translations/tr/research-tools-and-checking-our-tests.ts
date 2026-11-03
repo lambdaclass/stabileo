@@ -64,7 +64,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Birimleri de tip sistemine ekliyoruz (#864); böylece kN/N veya m/mm karışıklıkları derleme sırasında yakalanacak. 2B çerçeveler için ilk bölüm incelemede."
+      "t": "Birimleri de tip sistemine ekliyoruz (#864); böylece kN/N veya m/mm karışıklıkları derleme sırasında yakalanacak. 2B çerçevelerin malzeme ve kesit yolu için ilk bölüm 3 Kasım’da birleştirildi."
     },
     {
       "k": "h",
@@ -85,6 +85,21 @@ const body: PostBody = {
     {
       "k": "p",
       "t": "Metamorfik testler değişmezlik hatalarını ortaya çıkardı: Eşdeğer modeller döndürme, aynalama veya birim ölçeklendirmesinden sonra reddedilebiliyordu. Bu gerilemeleri yakalamak için artık metamorfik test kümesini her değişiklikte çalıştırıyoruz. Bulguları kök nedene göre gruplayan ve her kök neden için tek bir sorun kaydı açan, rastgele modellerin her gece çalıştırıldığı bir süreç ekliyoruz."
+    },
+    {
+      "k": "h",
+      "t": "O günden bu yana: 1–3 Kasım"
+    },
+    {
+      "k": "ul",
+      "items": [
+        "PRO’nun analiz modu tamamlandı. Uyarı vermeden yanlış çıkan sonuçlar düzeltildi: yük üreteci artık bir hangarın saçak bölgesini kat döşemesi gibi yüklemiyor ve her katın deprem ağırlığı, daha önce dışarıda kalan, kabuk olarak çizilmiş döşeme ve duvarları da içeriyor (#1076).",
+        "Dışa aktarımlar gerçek binalarda çalışıyor. Büyük Excel sayfaları satır satır yazılıyor ve altı katlı bir binanın raporu dört dakika yerine yaklaşık on saniye sürüyor. “Dışa aktarılmış raporu doğrula” artık yalnızca parmak izlerini değil, basılan sayıları da karşılaştırıyor (#1076).",
+        "PRO’ya kapatılabilen satır içi yardım, başlıkta kayıt durumu, analizden sonra rapor, plak sonuçları ve paylaşılan modeller için “Çoğalt ve düzenle” seçeneği olan salt okunur bir görüntüleyici eklendi (#1077, #1078).",
+        "Bağımsız olarak sertifikalanmış üst sınırının üzerindeki bir burkulma katsayısı artık 2B ve 3B’de reddediliyor (#817, sonuç sürümü 6). Önceki bir burkulma sertifikasına güvenmeden önce sertifikalamayı yeniden çalıştırın.",
+        "Sonlu olmayan sayılar içeren ya da eksik bir şeye işaret eden çubuk, mesnet veya yük barındıran paylaşım bağlantıları açılmak yerine reddediliyor (#1058).",
+        "Değişmezlik paketi artık altı öncelikli analizi döndürme, yansıtma ve süperpozisyon altında, bunlardan dördünü de rijitliğin düzgün ölçeklenmesi altında kontrol ediyor (#1060)."
+      ]
     },
     {
       "k": "h",

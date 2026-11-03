@@ -64,7 +64,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Nous intégrons aussi les unités au système de types (#864), afin de détecter les confusions kN/N ou m/mm à la compilation. La première étape, pour les portiques 2D, est en cours de revue."
+      "t": "Nous intégrons aussi les unités au système de types (#864), afin de détecter les confusions kN/N ou m/mm à la compilation. La première étape, pour le chemin des matériaux et des sections des portiques 2D, a été intégrée le 3 novembre."
     },
     {
       "k": "h",
@@ -85,6 +85,21 @@ const body: PostBody = {
     {
       "k": "p",
       "t": "Les tests métamorphiques ont révélé des défauts d’invariance : des modèles équivalents pouvaient être refusés après rotation, réflexion ou changement d’échelle des unités. Nous exécutons désormais la suite métamorphique à chaque modification pour détecter ces régressions. Nous ajoutons une exécution nocturne de modèles aléatoires qui regroupe les observations par cause racine et ouvre une issue par cause racine."
+    },
+    {
+      "k": "h",
+      "t": "Depuis : du 1er au 3 novembre"
+    },
+    {
+      "k": "ul",
+      "items": [
+        "Le mode d’analyse de PRO est terminé. Des résultats faux sans aucun avertissement sont corrigés : le générateur de charges ne charge plus les avant-toits d’un hangar comme un plancher, et le poids sismique de chaque niveau inclut désormais les dalles et les murs dessinés en coques, qu’il oubliait (#1076).",
+        "Les exports fonctionnent sur de vrais bâtiments. Les grandes feuilles Excel sont écrites ligne par ligne, et la note de calcul d’un bâtiment de six étages prend une dizaine de secondes au lieu de quatre minutes. « Vérifier un rapport exporté » compare maintenant les nombres imprimés, pas seulement les empreintes (#1076).",
+        "PRO a reçu une aide en ligne désactivable, un état d’enregistrement dans l’en-tête, une note de calcul après l’analyse, des résultats de plaques et une visionneuse en lecture seule pour les modèles partagés, avec « Dupliquer et modifier » (#1077, #1078).",
+        "Un facteur de flambement supérieur à sa borne supérieure certifiée indépendamment est désormais refusé, en 2D et en 3D (#817, version de résultats 6). Relancez la certification avant de vous fier à un certificat de flambement antérieur.",
+        "Les liens partagés contenant des nombres non finis, ou des barres, appuis ou charges qui renvoient à un élément manquant, sont refusés au lieu d’être ouverts (#1058).",
+        "La suite d’invariance vérifie maintenant six analyses prioritaires sous rotation, symétrie et superposition, et quatre d’entre elles sous mise à l’échelle uniforme de la rigidité (#1060)."
+      ]
     },
     {
       "k": "h",

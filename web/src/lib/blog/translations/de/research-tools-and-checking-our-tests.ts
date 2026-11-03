@@ -64,7 +64,7 @@ const body: PostBody = {
     },
     {
       "k": "p",
-      "t": "Wir integrieren außerdem Einheiten in das Typsystem (#864), damit Verwechslungen zwischen kN/N oder m/mm beim Kompilieren auffallen. Der erste Teil für 2D-Rahmen wird derzeit geprüft."
+      "t": "Wir integrieren außerdem Einheiten in das Typsystem (#864), damit Verwechslungen zwischen kN/N oder m/mm beim Kompilieren auffallen. Der erste Teil, für den Material- und Querschnittspfad von 2D-Rahmen, ist am 3. November eingeflossen."
     },
     {
       "k": "h",
@@ -85,6 +85,21 @@ const body: PostBody = {
     {
       "k": "p",
       "t": "Metamorphe Tests haben Invarianzfehler aufgedeckt: Gleichwertige Modelle konnten nach Drehung, Spiegelung oder Einheitenskalierung abgelehnt werden. Wir führen die metamorphe Testsuite jetzt bei jeder Änderung aus, um solche Regressionen zu erkennen. Wir ergänzen einen nächtlichen Lauf mit Zufallsmodellen, der die Befunde nach Grundursache gruppiert und pro Grundursache ein Issue erstellt."
+    },
+    {
+      "k": "h",
+      "t": "Seitdem: 1. bis 3. November"
+    },
+    {
+      "k": "ul",
+      "items": [
+        "Der Analysemodus von PRO ist fertig. Ergebnisse, die ohne Warnung falsch waren, sind korrigiert: Der Lastgenerator belastet die Traufe einer Halle nicht mehr wie eine Geschossdecke, und das seismische Gewicht jeder Ebene enthält jetzt die als Schalen gezeichneten Platten und Wände, die es ausgelassen hatte (#1076).",
+        "Exporte funktionieren bei realen Gebäuden. Große Excel-Blätter werden Zeile für Zeile geschrieben, und der Bericht eines sechsgeschossigen Gebäudes dauert etwa zehn Sekunden statt vier Minuten. „Exportierten Bericht prüfen“ vergleicht jetzt die gedruckten Zahlen, nicht nur die Fingerabdrücke (#1076).",
+        "PRO hat abschaltbare Hilfetexte, einen Speicherstatus in der Kopfzeile, einen Bericht nach der Analyse, Plattenergebnisse und einen schreibgeschützten Viewer für geteilte Modelle mit „Duplizieren und bearbeiten“ bekommen (#1077, #1078).",
+        "Ein Knickfaktor über seiner unabhängig zertifizierten oberen Schranke wird jetzt abgelehnt, in 2D und 3D (#817, Ergebnisversion 6). Zertifizieren Sie erneut, bevor Sie sich auf ein früheres Knickzertifikat verlassen.",
+        "Geteilte Links mit nicht endlichen Zahlen oder mit Stäben, Auflagern oder Lasten, die auf etwas Fehlendes verweisen, werden abgelehnt statt geöffnet (#1058).",
+        "Die Invarianz-Suite prüft jetzt sechs vorrangige Analysen unter Drehung, Spiegelung und Superposition und vier davon unter gleichmäßiger Skalierung der Steifigkeit (#1060)."
+      ]
     },
     {
       "k": "h",

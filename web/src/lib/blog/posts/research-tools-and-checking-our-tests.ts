@@ -2,7 +2,7 @@ import type { Post } from '../types';
 
 export const researchToolsAndCheckingOurTests: Post = {
   slug: 'research-tools-and-checking-our-tests',
-  date: '2026-10-30',
+  date: '2026-11-03',
   "order": 11,
   "authors": [
     "Federico Carrone"
@@ -76,7 +76,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "We are also building units into the type system (#864), so kN/N or m/mm mix-ups are caught at compile time. The first slice, for 2D frames, is in review."
+          "t": "We are also building units into the type system (#864), so kN/N or m/mm mix-ups are caught at compile time. The first slice, for the material and section path of 2D frames, landed on 3 November."
         },
         {
           "k": "h",
@@ -97,6 +97,21 @@ export const researchToolsAndCheckingOurTests: Post = {
         {
           "k": "p",
           "t": "Metamorphic tests exposed invariance bugs: equivalent models could be refused after rotation, mirroring or unit scaling. We now run the metamorphic suite on every change to catch these regressions. We are adding a nightly run of random models that groups findings by root cause and files one issue per root cause."
+        },
+        {
+          "k": "h",
+          "t": "Since then: 1 to 3 November"
+        },
+        {
+          "k": "ul",
+          "items": [
+            "PRO’s analysis mode is finished. Results that were wrong without a warning are fixed: the load generator no longer loads a shed’s eaves as a floor, and a level’s seismic weight now includes the slabs and walls drawn as shells, which it had left out (#1076).",
+            "Exports work on real buildings. Large Excel sheets are written row by row, and the report of a six-storey building takes about ten seconds instead of four minutes. “Check an exported report” now compares the printed numbers, not only the fingerprints (#1076).",
+            "PRO gained inline help that can be turned off, a save status in the header, a report after the analysis, plate results, and a read-only viewer for shared models with “Duplicate and edit” (#1077, #1078).",
+            "A buckling factor above its independently certified upper bound is now refused, in 2D and 3D (#817, results version 6). Re-run the certification before relying on an earlier buckling certificate.",
+            "Share links with non-finite numbers, or with members, supports or loads that point to something missing, are refused instead of opened (#1058).",
+            "The invariance suite now checks six priority analyses under rotation, mirroring and superposition, and four of them under uniform stiffness scaling (#1060)."
+          ]
         },
         {
           "k": "h",
@@ -172,7 +187,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "También estamos incorporando unidades al sistema de tipos (#864), para detectar confusiones entre kN/N o m/mm al compilar. La primera parte, para pórticos 2D, está en revisión."
+          "t": "También estamos incorporando unidades al sistema de tipos (#864), para detectar confusiones entre kN/N o m/mm al compilar. La primera parte, para el camino de materiales y secciones de los pórticos 2D, se integró el 3 de noviembre."
         },
         {
           "k": "h",
@@ -193,6 +208,21 @@ export const researchToolsAndCheckingOurTests: Post = {
         {
           "k": "p",
           "t": "Las pruebas metamórficas revelaron errores de invariancia: modelos equivalentes podían rechazarse después de rotarlos, reflejarlos o cambiar la escala de sus unidades. Ahora ejecutamos la batería metamórfica con cada cambio para detectar estas regresiones. Estamos agregando una ejecución nocturna de modelos aleatorios que agrupa los hallazgos por causa raíz y abre una incidencia por cada causa raíz."
+        },
+        {
+          "k": "h",
+          "t": "Desde entonces: del 1 al 3 de noviembre"
+        },
+        {
+          "k": "ul",
+          "items": [
+            "El modo de análisis de PRO está terminado. Corregimos resultados que estaban mal sin ningún aviso: el generador de cargas ya no carga los aleros de una nave como si fueran un piso, y el peso sísmico de cada nivel ahora incluye las losas y los muros dibujados como cáscaras, que dejaba afuera (#1076).",
+            "Las exportaciones funcionan en edificios reales. Las hojas grandes de Excel se escriben fila por fila, y la memoria de un edificio de seis pisos tarda unos diez segundos en lugar de cuatro minutos. “Verificar un reporte exportado” ahora compara los números impresos, no solo las huellas (#1076).",
+            "PRO sumó ayuda en línea que se puede apagar, un estado de guardado en el encabezado, una memoria después del análisis, resultados de placas y un visor de solo lectura para modelos compartidos con “Duplicar y editar” (#1077, #1078).",
+            "Un factor de pandeo por encima de su cota superior certificada de forma independiente ahora se rechaza, en 2D y en 3D (#817, versión de resultados 6). Volvé a certificar antes de confiar en un certificado de pandeo anterior.",
+            "Los enlaces compartidos con números no finitos, o con barras, apoyos o cargas que apuntan a algo que no existe, se rechazan en lugar de abrirse (#1058).",
+            "La suite de invariancia ahora verifica seis análisis prioritarios ante rotación, simetría y superposición, y cuatro de ellos ante un escalado uniforme de la rigidez (#1060)."
+          ]
         },
         {
           "k": "h",
@@ -268,7 +298,7 @@ export const researchToolsAndCheckingOurTests: Post = {
         },
         {
           "k": "p",
-          "t": "Também estamos incorporando unidades ao sistema de tipos (#864), para detectar confusões entre kN/N ou m/mm na compilação. A primeira parte, para pórticos 2D, está em revisão."
+          "t": "Também estamos incorporando unidades ao sistema de tipos (#864), para detectar confusões entre kN/N ou m/mm na compilação. A primeira parte, para o caminho de materiais e seções dos pórticos 2D, foi integrada em 3 de novembro."
         },
         {
           "k": "h",
@@ -289,6 +319,21 @@ export const researchToolsAndCheckingOurTests: Post = {
         {
           "k": "p",
           "t": "Os testes metamórficos revelaram erros de invariância: modelos equivalentes podiam ser recusados após rotação, espelhamento ou mudança de escala das unidades. Agora executamos a suíte metamórfica a cada alteração para detectar essas regressões. Estamos adicionando uma execução noturna de modelos aleatórios que agrupa os achados por causa raiz e abre uma issue por causa raiz."
+        },
+        {
+          "k": "h",
+          "t": "Desde então: de 1 a 3 de novembro"
+        },
+        {
+          "k": "ul",
+          "items": [
+            "O modo de análise do PRO está concluído. Corrigimos resultados que estavam errados sem nenhum aviso: o gerador de cargas não carrega mais os beirais de um galpão como se fossem um piso, e o peso sísmico de cada nível agora inclui as lajes e paredes desenhadas como cascas, que ficavam de fora (#1076).",
+            "As exportações funcionam em edifícios reais. As planilhas grandes do Excel são escritas linha por linha, e o memorial de um edifício de seis andares leva cerca de dez segundos em vez de quatro minutos. “Verificar um relatório exportado” agora compara os números impressos, não só as impressões digitais (#1076).",
+            "O PRO ganhou ajuda em linha que pode ser desligada, um estado de salvamento no cabeçalho, um memorial depois da análise, resultados de placas e um visualizador somente leitura para modelos compartilhados com “Duplicar e editar” (#1077, #1078).",
+            "Um fator de flambagem acima do seu limite superior certificado de forma independente agora é recusado, em 2D e em 3D (#817, versão de resultados 6). Refaça a certificação antes de confiar num certificado de flambagem anterior.",
+            "Links compartilhados com números não finitos, ou com barras, apoios ou cargas que apontam para algo inexistente, são recusados em vez de abertos (#1058).",
+            "A suíte de invariância agora verifica seis análises prioritárias sob rotação, espelhamento e superposição, e quatro delas sob escala uniforme da rigidez (#1060)."
+          ]
         },
         {
           "k": "h",
