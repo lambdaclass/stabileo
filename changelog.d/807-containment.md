@@ -6,3 +6,4 @@
 - Preserve warnings across influence and moving-load sweeps and standalone spectral certification; warn on all 3D buckling factors pending #818. Run the read-only containment audit as an advisory check. Numerical values are unchanged.
 - Preserve the model viewport during containment, retire failed advanced reruns, and carry localized refusals and warnings through tables and exports. Warn on MITC4 shell convergence uncertainty (#810); non-static rotated-shell operations remain available.
 - Correct 2D reactions of a settled rigid support that also carries a spring on the settled DOF (#1113): the spring force −k·u is now included, so the reactions balance the loads. Fiber analyses now warn on near-singular tangents like the other nonlinear solvers (#1093).
+- Warn on CIRSOC 201 column and biaxial checks whose axial force and moment come from different combinations (#1316): the check names both combinations and a passing member becomes a warning. Ratios are unchanged.

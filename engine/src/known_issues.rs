@@ -65,6 +65,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "MD-ORTHOGONALITY", issue: 759, mode: Mode::Warn, message: "3D modal analysis can return non-orthogonal or duplicate modes. Effective masses and response-spectrum combinations may be wrong; independently verify the modal basis" },
     Entry { id: "TH-RECIPROCITY", issue: 760, mode: Mode::Warn, message: "Linear time history has failed reciprocity checks by up to a factor of 33. The affected input class is not yet isolated; independently verify this response before design" },
     Entry { id: "CUT-SECTION-AXIS", issue: 1238, mode: Mode::Refuse, message: "Results withheld: a 2D cut of this 3D model would bend some members with another section inertia than the 3D model does, or could not represent their coupled in-plane and out-of-plane bending. Solve in 3D, or cut a plane where every member\'s section axes line up with the plane" },
+    Entry { id: "RC-NM-PAIRING", issue: 1316, mode: Mode::Warn, message: "This CIRSOC 201 column check pairs the axial force of one combination with the moment of another, which can be unconservative below the balance point. Check the column under each named combination" },
 ];
 
 pub fn diagnostic(id: &str) -> StructuredDiagnostic {

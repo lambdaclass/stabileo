@@ -95,15 +95,19 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       comboName: v.governingCombos?.shear?.comboName,
     });
 
+    const { axial, flexure, momentY } = v.governingCombos ?? {};
+    const mixed = !!axial && [flexure, momentY].some(m => m && m.comboId !== axial.comboId);
+    const pairedName = mixed ? `N ${axial!.comboName} · M ${[flexure, momentY].filter(m => m && m.comboId !== axial!.comboId).map(m => m!.comboName).join(', ')}` : axial?.comboName;
     if (v.column) {
+      const status = v.column.status as CheckStatus;
       checks.push({
         name: 'Axial + Moment',
         demand: Math.abs(v.Nu),
         capacity: v.column.phiPn,
         ratio: v.column.ratio,
         unit: 'kN',
-        status: v.column.status as CheckStatus,
-        comboName: v.governingCombos?.axial?.comboName,
+        status: mixed && status === 'ok' ? 'warn' : status,
+        comboName: pairedName,
       });
     }
 
@@ -126,8 +130,8 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         capacity: v.biaxial.phiMn,
         ratio: v.biaxial.ratio,
         unit: 'kN·m',
-        status: v.biaxial.status as CheckStatus,
-        comboName: v.governingCombos?.axial?.comboName,
+        status: mixed && v.biaxial.status === 'ok' ? 'warn' : v.biaxial.status as CheckStatus,
+        comboName: pairedName,
       });
     }
 
@@ -141,7 +145,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
       codeName: 'CIRSOC 201',
       governingCheck: governing.name,
       utilization: governing.ratio,
-      status: v.overallStatus as CheckStatus,
+      status: v.overallStatus === 'ok' && checks.some(c => c.status === 'warn') ? 'warn' : v.overallStatus as CheckStatus,
       comboName: governing.comboName,
       checks,
     };

@@ -68,6 +68,25 @@ describe('normalizeCirsoc201', () => {
     expect(results[0].governingCheck).toBe('Axial + Moment');
     expect(results[0].utilization).toBe(0.95);
   });
+
+  it('warns when the axial force and the moment of an N-M check come from different combinations (#1316)', () => {
+    const column = { Nu: 500, Mu: 80, phiPn: 600, phiMn: 100, ratio: 0.62, status: 'ok', AsProv: 12, steps: [], spacing: 0.15, bars: '4φ16' };
+    const verif = (axial: { comboId: number; comboName: string }) => ({
+      ...mockVerif, elementId: 2, elementType: 'column', Nu: 500, column,
+      governingCombos: { flexure: { comboId: 3, comboName: '1.2D+1.0L+1.6W' }, axial },
+    }) as any;
+    const [mixed] = normalizeCirsoc201([verif({ comboId: 1, comboName: '1.2D+1.6L' })], sectionNames);
+    const row = mixed!.checks.find(c => c.name === 'Axial + Moment')!;
+    expect(row.status).toBe('warn');
+    expect(row.comboName).toBe('N 1.2D+1.6L · M 1.2D+1.0L+1.6W');
+    expect(mixed!.status).toBe('warn');
+    const [paired] = normalizeCirsoc201([verif({ comboId: 3, comboName: '1.2D+1.0L+1.6W' })], sectionNames);
+    expect(paired!.checks.find(c => c.name === 'Axial + Moment')!.status).toBe('ok');
+    expect(paired!.status).toBe('ok');
+    const [failing] = normalizeCirsoc201([{ ...verif({ comboId: 1, comboName: '1.2D+1.6L' }), column: { ...column, ratio: 1.2, status: 'fail' }, overallStatus: 'fail' }], sectionNames);
+    expect(failing!.checks.find(c => c.name === 'Axial + Moment')!.status).toBe('fail');
+    expect(failing!.status).toBe('fail');
+  });
 });
 
 // ─── CIRSOC 301 (Steel) normalization ───────────────────────────
