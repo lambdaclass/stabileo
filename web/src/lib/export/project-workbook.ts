@@ -11,8 +11,8 @@ import type { SolverInput3D } from '../engine/types-3d';
 import type { ProjectInfo } from '../model/project-info';
 import { currentRevision } from '../model/project-info';
 import { modelSheets, type WorkbookModel } from './workbook-model';
-import { resultSheets, type ResultSheetsInput } from './workbook-results';
-import { safeText, type WorkbookSheet } from './workbook-cells';
+import { resultSheetParts, type ResultSheetsInput } from './workbook-results';
+import { materialize, safeText, type WorkbookPart, type WorkbookSheet } from './workbook-cells';
 
 export interface ProjectWorkbookInput {
   model: WorkbookModel;
@@ -74,8 +74,8 @@ function conventionsSheet(tr: (key: string) => string): WorkbookSheet {
   return { name: 'Conventions', rows: [['topic', 'convention'], ...CONVENTIONS.map((k) => [k, safeText(tr(`wb.conv.${k}`))])] };
 }
 
-/** Every sheet of the workbook, in order. */
-export function projectWorkbookSheets(input: ProjectWorkbookInput): WorkbookSheet[] {
+/** Every sheet of the workbook, in order, the large result sheets streamed (`StreamedSheet`). */
+export function projectWorkbookParts(input: ProjectWorkbookInput): WorkbookPart[] {
   const warnings = input.include?.results === false ? [] : exportWarnings(input.results.sources.map(s => s.results));
   const only = input.include?.sheets;
   const want = (name: string) => !only || only.has(name);
@@ -83,7 +83,12 @@ export function projectWorkbookSheets(input: ProjectWorkbookInput): WorkbookShee
     coverSheet(input), conventionsSheet(input.tr),
     ...(warnings.length ? [{ name: 'Warnings', rows: warnings.map(message => [safeText(message)]) }] : []),
     ...(input.include?.model === false ? [] : modelSheets(input.model, input.solved, want)),
-    ...(input.include?.results === false ? [] : resultSheets(input.results, want)),
+    ...(input.include?.results === false ? [] : resultSheetParts(input.results, want)),
     ...(input.extra ?? []).filter((s) => want(s.name)),
   ];
+}
+
+/** Every sheet of the workbook, in order, with all its rows. */
+export function projectWorkbookSheets(input: ProjectWorkbookInput): WorkbookSheet[] {
+  return projectWorkbookParts(input).map(materialize);
 }

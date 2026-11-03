@@ -255,6 +255,9 @@
     groups: 'groups.title',
     code: 'code.title',
     view: 'view.title',
+    building: 'building.title',
+    foundations: 'fdn.title',
+    physical: 'physical.title',
   };
 </script>
 

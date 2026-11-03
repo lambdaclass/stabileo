@@ -83,6 +83,7 @@ pub(crate) fn run(a: &Ana3, c: &Case3) -> Result<Resp, String> {
         }
         Ok(r)
     })
+    .map(|r| r.tag_shell_families(&c.s))
 }
 
 fn judge(res: Result<Report, String>, rel: f64) -> Verdict {

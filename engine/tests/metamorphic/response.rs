@@ -137,27 +137,10 @@ impl Resp {
         Resp(self.0.iter().filter(|i| keys.contains(&(i.node, i.elem, i.tag.clone()))).cloned().collect(), self.1.clone())
     }
     /// Keep only items on the given nodes/elements (drop padding).
+    /// `elems` are frame element ids: shell stresses are keyed by shell id
+    /// (the padding adds no shells), so they are kept.
     pub fn retain_ids(&mut self, nodes: &std::collections::HashSet<usize>, elems: &std::collections::HashSet<usize>) {
-        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && (matches!(i.kind, Kind::Stress) || i.elem.map_or(true, |e| elems.contains(&e))));
-    }
-
-    /// The engine reports quad, quad9, solid-shell and curved-shell stresses in one list keyed by
-    /// each family's own ids, which can coincide; tag each entry with its family.
-    pub fn tag_shell_families(mut self, s: &SolverInput3D) -> Resp {
-        use dedaliano_engine::ordered::values;
-        let families: Vec<(&str, usize)> = values(&s.quads).map(|q| ("vm_quad", q.id))
-            .chain(values(&s.quad9s).map(|q| ("vm_quad9", q.id)))
-            .chain(values(&s.solid_shells).map(|q| ("vm_solid_shell", q.id)))
-            .chain(values(&s.curved_shells).map(|q| ("vm_curved_shell", q.id)))
-            .collect();
-        let items: Vec<usize> = (0..self.0.len()).filter(|&k| self.0[k].tag == "vm_quad").collect();
-        if items.is_empty() { return self; }
-        assert!(items.len() == families.len() && items.iter().zip(&families).all(|(&k, f)| self.0[k].elem == Some(f.1)),
-            "shell stresses do not follow the model's shell order: {:?} vs {families:?}", items.iter().map(|&k| self.0[k].elem).collect::<Vec<_>>());
-        for (&k, f) in items.iter().zip(&families) {
-            self.0[k].tag = f.0.into();
-        }
-        self
+        self.0.retain(|i| i.node.map_or(true, |n| nodes.contains(&n)) && i.elem.map_or(true, |e| matches!(i.kind, Kind::Stress) || elems.contains(&e)));
     }
 
     pub fn iso2(&self, iso: &Iso2) -> Result<Resp, String> {
@@ -296,20 +279,45 @@ impl Resp {
         let mut o = self.clone();
         for it in o.0.iter_mut() {
             it.node = it.node.map(|n| rl.n(n));
-            let table = match it.tag.as_str() {
-                "vm_plate" => Some(&rl.plate),
-                "vm_quad" => Some(&rl.quad),
-                "vm_quad9" => Some(&rl.quad9),
-                "vm_solid_shell" => Some(&rl.solid_shell),
-                "vm_curved_shell" => Some(&rl.curved_shell),
-                _ => None,
+            let tables: &[&std::collections::BTreeMap<usize, usize>] = match it.tag.as_str() {
+                "vm_plate" => &[&rl.plate],
+                "vm_quad" => &[&rl.quad],
+                "vm_quad9" => &[&rl.quad9],
+                "vm_solid_shell" => &[&rl.solid_shell],
+                "vm_curved_shell" => &[&rl.curved_shell],
+                _ => &[],
             };
-            it.elem = it.elem.map(|e| match table {
-                Some(t) => *t.get(&e).unwrap_or(&e),
-                None => rl.e(e),
+            it.elem = it.elem.map(|e| {
+                if tables.is_empty() {
+                    rl.e(e)
+                } else {
+                    tables.iter().find_map(|t| t.get(&e)).copied().unwrap_or(e)
+                }
             });
         }
         o
+    }
+
+    /// `quad_stresses` lists the MITC4 quads, then the MITC9 quads, the
+    /// solid shells and the curved shells (compute_quad_stresses), each by
+    /// the id of its own family, and ids repeat across families (a model
+    /// may hold quad 1 and solid shell 1). Tag each entry with its family,
+    /// so a relabelling maps it through the right table and the comparison
+    /// pairs it with the same element. Left as is when the counts do not
+    /// match the model.
+    pub fn tag_shell_families(mut self, s: &SolverInput3D) -> Resp {
+        let idx: Vec<usize> = self.0.iter().enumerate().filter(|(_, i)| i.tag == "vm_quad").map(|(k, _)| k).collect();
+        let fams = [("vm_quad", s.quads.len()), ("vm_quad9", s.quad9s.len()), ("vm_solid_shell", s.solid_shells.len()), ("vm_curved_shell", s.curved_shells.len())];
+        if idx.len() != fams.iter().map(|f| f.1).sum::<usize>() {
+            return self;
+        }
+        let mut k = idx.into_iter();
+        for (tag, n) in fams {
+            for j in k.by_ref().take(n) {
+                self.0[j].tag = tag.into();
+            }
+        }
+        self
     }
 
     pub fn units(&self, u: &Units) -> Resp {
@@ -459,4 +467,16 @@ pub fn disp_3d(r: &AnalysisResults3D) -> Resp {
         o.push(Some(d.node_id), None, "r", Kind::V3(Dim::NONE), vec![d.rx, d.ry, d.rz]);
     }
     o
+}
+
+pub fn frequency_index(tag: &str) -> Option<usize> {
+    tag.strip_prefix('f')
+        .filter(|k| !k.is_empty() && k.bytes().all(|b| b.is_ascii_digit()))
+        .and_then(|k| k.parse().ok())
+}
+
+/// Cumulative effective mass is compared only at a boundary with a known gap
+/// above; modes inside a cluster can mix.
+pub fn modal_gap(lower: f64, upper: f64) -> bool {
+    upper > lower * (1.0 + 1e-3)
 }

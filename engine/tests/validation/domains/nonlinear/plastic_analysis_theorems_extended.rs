@@ -690,7 +690,7 @@ fn validation_ext_portal_gravity_lateral_interaction() {
     // Gravity alone: symmetric, so base moments should be equal
     let r1_grav = res_grav.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r4_grav = res_grav.reactions.iter().find(|r| r.node_id == 4).unwrap();
-    assert_close(r1_grav.my.abs(), r4_grav.my.abs(), 0.05,
+    assert_close_abs(r1_grav.my.abs(), r4_grav.my.abs(), 0.05, 1e-6,
         "Gravity: symmetric base moments");
 
     // Lateral load breaks symmetry in the combined case

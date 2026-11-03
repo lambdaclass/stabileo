@@ -112,12 +112,11 @@ fn validation_rigid_link_moment_transfer() {
     // Reference: cantilever with moment at tip
     let ref_loads = vec![
         SolverLoad::Nodal(SolverNodalLoad {
-            node_id: 2, fx: 0.0, fz: 0.0, my: mz_applied,
+            node_id: 3, fx: 0.0, fz: 0.0, my: mz_applied,
         }),
     ];
     let ref_input = make_beam(2, l, E, A, IZ, "fixed", Some("free"), ref_loads);
     let ref_results = linear::solve_2d(&ref_input).unwrap();
-    let _ref_d2 = ref_results.displacements.iter().find(|d| d.node_id == 2).unwrap();
 
     // Now with rigid link: load on node 3, linked to node 2
     let nodes = vec![
@@ -156,8 +155,8 @@ fn validation_rigid_link_moment_transfer() {
     let ref_d_tip = ref_results.displacements.iter()
         .find(|d| d.node_id == 3)
         .unwrap();
-    assert_close(d3.uz, ref_d_tip.uz, 1e-3, "rigid link uy transfer");
-    assert_close(d3.ry, ref_d_tip.ry, 1e-3, "rigid link rz transfer");
+    assert_close(d3.uz, ref_d_tip.uz, 1e-6, "rigid link uy transfer");
+    assert_close(d3.ry, ref_d_tip.ry, 1e-6, "rigid link rz transfer");
 
     // Slave should have identical displacements to master (zero offset)
     let d4 = results.displacements.iter().find(|d| d.node_id == 4).unwrap();

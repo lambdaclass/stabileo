@@ -11,6 +11,7 @@ import {
   emptyDetailingStore, migrateDetailingStore, type DetailingStore,
 } from '../engine/detailing/assembly';
 import { migrateRegulations, type StoredRegulations } from '../codes/roles';
+import { defaultLoadCases, defaultCombinations, DEFAULT_CASE_NAME_KEYS } from '../model/default-loads';
 import {
   cloneStoredJointDesigns, type StoredJointDesigns,
 } from '../connection/joint-choices';
@@ -486,6 +487,10 @@ export interface SavedViewDisplay {
   hidden?: { elements: number[]; shells: string[] };
   labels: { nodes: boolean; members: boolean; memberLabel: string; lengths: boolean; shells: boolean };
   colourBy?: string;
+  /** Categories not drawn as they are: in halftone or hidden (`store/view-categories`). Absent: all drawn. */
+  categories?: Partial<Record<import('./view-categories.svelte').ViewCategory, import('./view-categories.svelte').CategoryState>>;
+  /** How members are drawn: lines, thick bars, extruded sections or the physical geometry. */
+  style?: 'wireframe' | 'solid' | 'sections' | 'physical';
 }
 
 export type ReleaseEnd = 'i' | 'j';
@@ -1134,18 +1139,8 @@ function createModelStore() {
     elements: new Map(),
     supports: new Map(),
     loads: [],
-    loadCases: [
-      { id: 1, type: 'D', name: 'Dead Load' },
-      { id: 2, type: 'L', name: 'Live Load' },
-      { id: 3, type: 'W', name: 'Wind' },
-      { id: 4, type: 'E', name: 'Earthquake' },
-    ],
-    combinations: [
-      { id: 1, name: '1.2D + 1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] },
-      { id: 2, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
-      { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
-      { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
-    ],
+    loadCases: defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type])),
+    combinations: defaultCombinations(),
     plates: new Map(),
     quads: new Map(),
     // A new project has no groups. Absent and empty mean the same here, unlike
@@ -3872,20 +3867,10 @@ function createModelStore() {
       // unresolved is what made a freshly loaded example report its section as
       // amorphous even after the engine was up.
       model.sections = new Map([[1, resolveDefaultSection(defaultSection)]]);
-      model.loadCases = [
-        { id: 1, type: 'D', name: 'Dead Load' },
-        { id: 2, type: 'L', name: 'Live Load' },
-        { id: 3, type: 'W', name: 'Wind' },
-        { id: 4, type: 'E', name: 'Earthquake' },
-      ];
+      model.loadCases = defaultLoadCases((type) => t(DEFAULT_CASE_NAME_KEYS[type]));
       // A new model has one case in use: Basic shows no load cases until they are switched on.
       uiStore.loadCasesEnabled = false;
-      model.combinations = [
-        { id: 1, name: '1.2D + 1.6L', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.6 }] },
-        { id: 2, name: '1.4D', factors: [{ caseId: 1, factor: 1.4 }] },
-        { id: 3, name: '1.2D + L + 1.6W', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 3, factor: 1.6 }] },
-        { id: 4, name: '1.2D + L + E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 2, factor: 1.0 }, { caseId: 4, factor: 1.0 }] },
-      ];
+      model.combinations = defaultCombinations();
       nextId.node = 1;
       nextId.material = 2;
       nextId.section = 2;
@@ -4235,6 +4220,11 @@ function createModelStore() {
       _pushUndoView?.();
       model.views = [...(model.views ?? []), { id, name, position: { ...position }, target: { ...target }, ...(display ? { display: JSON.parse(JSON.stringify(display)) } : {}) }];
       return id;
+    },
+    /** A view takes the camera and the display it is looked at with now. */
+    updateView(id: number, position: SavedView['position'], target: SavedView['target'], display: SavedViewDisplay): void {
+      _pushUndoView?.();
+      model.views = (model.views ?? []).map((v) => (v.id === id ? { ...v, position: { ...position }, target: { ...target }, display: JSON.parse(JSON.stringify(display)) } : v));
     },
     renameView(id: number, name: string): void {
       _pushUndoView?.();

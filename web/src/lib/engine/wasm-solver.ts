@@ -1,4 +1,5 @@
 import { isContainmentRefusal } from './containment-error';
+import { materialToWire, sectionToWire, type ElasticMaterialWire, type ElasticSectionWire } from './unit-types';
 import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
@@ -466,11 +467,14 @@ export function assertFiniteWire(value: any, path = 'input'): void {
 
 /** Convert SolverInput (with Maps) to the plain JSON-ready wire object,
  *  without a string round trip. */
-export function input2DToWireObject(input: SolverInput): Record<string, any> {
+export function input2DToWireObject(input: SolverInput): Record<string, any> & {
+  materials: Record<string, ElasticMaterialWire>;
+  sections: Record<string, ElasticSectionWire>;
+} {
   return {
     nodes: mapToObj(input.nodes),
-    materials: mapToObj(input.materials),
-    sections: mapToObj(input.sections),
+    materials: Object.fromEntries(Array.from(input.materials, ([id, m]) => [String(id), materialToWire(plainDeepCopy(m))])),
+    sections: Object.fromEntries(Array.from(input.sections, ([id, s]) => [String(id), sectionToWire(plainDeepCopy(s))])),
     elements: mapToObj(input.elements),
     supports: mapToObj(input.supports),
     loads: input.loads,
@@ -933,7 +937,10 @@ export interface MultiCaseCertificate<F = ForceBound2D | ForceBound3D, S = Stati
  */
 export type BucklingCertificate =
   | { status: 'certified'; lambdaLower: number; lambdaUpper: number | null; lambdaComputed: number }
-  | { status: 'uncertified'; reason: string };
+  | { status: 'uncertified'; reason: string; refusal?: BucklingRefusal };
+
+/** A buckling refusal stated by code, so the app can word it in the reader's language. */
+export type BucklingRefusal = { code: 'computedAboveUpperBound'; lambdaComputed: number; lambdaUpper: number };
 
 /** Whether this WASM build carries the certificate exports. */
 export function hasCertifyExport(): boolean {

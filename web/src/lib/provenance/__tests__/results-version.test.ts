@@ -48,7 +48,8 @@ const RELEASED: Record<number, string[]> = {
     'strip-footings-under-walls-whole-strip',
   ],
   5: ['solid-shell-local-stress-axes'],
-  6: ['safety-containment-diagnostics'],
+  6: ['buckling-certificate-rejects-outside-factor'],
+  7: ['safety-containment-diagnostics'],
 };
 
 describe('results versions', () => {

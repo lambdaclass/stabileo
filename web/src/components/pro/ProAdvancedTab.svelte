@@ -1,6 +1,7 @@
 <script lang="ts">
   import KnownIssueResult from "../KnownIssueResult.svelte";
   import { knownIssueDisposition, knownIssueResultDisposition } from '../../lib/engine/known-issues';
+  import Hint from './Hint.svelte';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
@@ -1099,6 +1100,7 @@
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
+      <Hint text={t('adv.help.modal')} />
       {#each knownIssueResultDisposition(modalResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if modalResult && !knownIssueResultDisposition(modalResult).refused}
         <div class="adv-inline">
@@ -1182,6 +1184,7 @@
           <input type="number" class="adv-num" min="0" max="0.3" step="0.01" bind:value={spectralXi} data-testid="spectral-xi" />
         </label>
       </div>
+      <Hint text={t('adv.help.spectral')} />
       <div class="adv-hint" data-testid="spectral-basis">
         {#if isBlocked(codeSpectrum)}
           {te(codeSpectrum.blocked)}
@@ -1228,6 +1231,7 @@
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
+      <Hint text={t('adv.help.buckling')} />
       {#each knownIssueResultDisposition(bucklingResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if bucklingResult && !knownIssueResultDisposition(bucklingResult).refused}
         {#if bucklingElapsed != null}
@@ -1308,6 +1312,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
+      <Hint text={t('adv.help.harmonic')} />
       {#each knownIssueDisposition(harmResult?.structuredDiagnostics).messages as message}<div role="alert">{message}</div>{/each}
       {#if harmResult && !knownIssueDisposition(harmResult.structuredDiagnostics).refused}
         <div class="adv-inline">
@@ -1363,7 +1368,7 @@
               </select>
             </label>
             {#if pushTargetKind !== 'none'}<QuantityInput cls="adv-num adv-num-wide" bind:value={pushTarget} quantity={pushTargetKind === 'shear' ? 'force' : 'displacement'} testid="push-target" />{/if}
-            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<p class="adv-hint">{t('pushover.patternHint')}</p>{/if}
+            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<Hint text={t('pushover.patternHint')} />{/if}
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
@@ -1372,6 +1377,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
+      <Hint text={t('adv.help.nonlinear')} />
       {#each knownIssueResultDisposition(nlResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if nlResult && !knownIssueResultDisposition(nlResult).refused}
         <!--
@@ -1412,6 +1418,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
+      <Hint text={t('adv.help.imperfections')} />
       {#each knownIssueResultDisposition(imperfResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if imperfResult && !knownIssueResultDisposition(imperfResult).refused}
         <div class="adv-inline">
@@ -1461,6 +1468,7 @@
         {/if}
         <button class="adv-run-btn" onclick={handleWinkler} disabled={!hasModel || solving || !wasmAvailable || winklerSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveWinkler')}</button>
       </div>
+      <Hint text={t('adv.help.winkler')} />
       {#each knownIssueResultDisposition(winklerResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if winklerResult && !knownIssueResultDisposition(winklerResult).refused}
         <div class="adv-result-title">{t('pro.resultWinkler')}</div>
@@ -1547,6 +1555,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleSSI} disabled={!hasModel || solving || !wasmAvailable || ssiSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveSsi')}</button>
       </div>
+      <Hint text={t('adv.help.ssi')} />
       {#each knownIssueResultDisposition(ssiResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if ssiResult && !knownIssueResultDisposition(ssiResult).refused}
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
@@ -1615,6 +1624,7 @@
         {/each}
         <button class="adv-run-btn" onclick={handleStaged} disabled={!hasModel || solving || !wasmAvailable || stages.length === 0}>{solving ? t('pro.solving') : t('pro.solveStaged')}</button>
       </div>
+      <Hint text={t('adv.help.staged')} />
       {#each knownIssueResultDisposition(stagedResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if stagedResult && !knownIssueResultDisposition(stagedResult).refused}
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
@@ -1655,6 +1665,7 @@
         <button class="adv-btn-sm" onclick={addCreepStep}>{t('pro.addStep')}</button>
         <button class="adv-run-btn" onclick={handleCreep} disabled={!hasModel || solving || !wasmAvailable || creepTimeSteps.length === 0}>{solving ? t('pro.calculating') : t('pro.calcCreep')}</button>
       </div>
+      <Hint text={t('adv.help.creep')} />
       {#each knownIssueResultDisposition(creepResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if creepResult && !knownIssueResultDisposition(creepResult).refused}
         <div class="adv-result-title">{t('pro.resultCreep')}</div>
@@ -1712,6 +1723,7 @@
           disabled={!hasModel || solving || !wasmAvailable || (ilResponse === 'reaction' ? ilNodeId == null : ilElementId == null)}
         >{solving ? t('pro.solving') : t('pro.computeIL')}</button>
       </div>
+      <Hint text={t('adv.help.influence')} />
       <KnownIssueResult result={ilResult}>
       {#if ilResult?.points?.length}
         <div class="adv-inline">
@@ -1782,6 +1794,7 @@
         {/if}
         <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
       </div>
+      <Hint text={t('adv.help.section')} />
       {#each knownIssueResultDisposition(secResult).messages as message}<div role="alert">{message}</div>{/each}
       {#if secResult && !knownIssueResultDisposition(secResult).refused}
         <!-- The engine names these a / yc / zc / syTop / szRight, not

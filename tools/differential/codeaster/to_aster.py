@@ -865,9 +865,11 @@ def _constraint_rows(d, pts):
     documented in engine/src/types/input.rs + solver/constraints.rs:
       rigidLink   u_s = u_m + th_m x r (dofs listed; default translations),
                   rotations listed: th_s = th_m; r = x_s - x_m
-      diaphragm   each slave follows the master's in-plane rigid motion,
-                  u_s = u_m + th_m x r in the plane, and its in-plane rotation
-                  is the master's (the diaphragm rotates as one body)
+      diaphragm   in-plane translations of each slave follow the master's
+                  in-plane rigid motion, theta x r (right-handed: XY about z,
+                  YZ about x, XZ about y), and the slave's in-plane rotation
+                  equals the master's (a rigid floor turns as one body; the
+                  engine ties it since 89bed56b4, as SAP2000/OpenSees do)
       equalDOF    u_s,k = u_m,k
       linearMPC   sum c_i u_i = 0
       eccentricConnection  rigidLink with an explicit offset, every DOF not
@@ -908,12 +910,13 @@ def _constraint_rows(d, pts):
         elif t == "diaphragm":
             plane = (x.get("plane") or "XY").upper()
             d0, d1, dr = {"XZ": (0, 2, 4), "YZ": (1, 2, 3)}.get(plane, (0, 1, 5))
-            axis = [1.0 if k == dr - 3 else 0.0 for k in range(3)]
             ms = x["masterNode"]
             for sl in x["slaveNodes"]:
-                lever = _cross(axis, [pts[sl][k] - pts[ms][k] for k in range(3)])
-                for dk in (d0, d1):
-                    rows.append([t_ for t_ in [(sl, dk, 1.0), (ms, dk, -1.0), (ms, dr, -lever[dk])] if abs(t_[2]) > 1e-15])
+                dx, dy, dz = (pts[sl][k] - pts[ms][k] for k in range(3))
+                # u_slave = u_master + c * theta_master (constraints.rs, diaphragm_lever)
+                c0, c1 = {"XZ": (dz, -dx), "YZ": (-dz, dy)}.get(plane, (-dy, dx))
+                rows.append([t_ for t_ in [(sl, d0, 1.0), (ms, d0, -1.0), (ms, dr, -c0)] if abs(t_[2]) > 1e-15])
+                rows.append([t_ for t_ in [(sl, d1, 1.0), (ms, d1, -1.0), (ms, dr, -c1)] if abs(t_[2]) > 1e-15])
                 rows.append([(sl, dr, 1.0), (ms, dr, -1.0)])
         else:
             raise Unsupported(f"constraint {t}")

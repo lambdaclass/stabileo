@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * Specifications › Node links: ties between the degrees of freedom of nodes (rigid links,
@@ -278,7 +279,7 @@
         <span class="pk-label">{t('pro.terms')}</span>
         <input type="text" bind:value={mpcTerms} placeholder={t('pro.mpcPlaceholder')} />
       </label>
-      <p class="pk-hint">{t('pro.formatHint')}</p>
+      <Hint text={t('pro.formatHint')} />
     {:else}
       <div class="pk-row ln-fields">
         {#if selectedKind === 'rigidLink'}
@@ -322,7 +323,7 @@
             </label>
           {/each}
         </div>
-        {#if selectedKind === 'eccentricConnection'}<p class="pk-hint">{t('pro.eccentricHint')}</p>{/if}
+        {#if selectedKind === 'eccentricConnection'}<Hint text={t('pro.eccentricHint')} />{/if}
       {/if}
     {/if}
 
@@ -368,7 +369,7 @@
         {/if}
       {/if}
     </div>
-    <p class="pk-hint">{t('pro.connectorIntro')}</p>
+    <Hint text={t('pro.connectorIntro')} />
     <div class="pk-row ln-fields">
       <label class="ln-field"><span class="pk-label">{t('pro.nodeI')}</span><input class="ln-id" type="text" bind:value={connNodeI} placeholder="ID" /></label>
       <label class="ln-field"><span class="pk-label">{t('pro.nodeJ')}</span><input class="ln-id" type="text" bind:value={connNodeJ} placeholder="ID" /></label>
@@ -385,7 +386,7 @@
       <label class="ln-field"><span class="pk-label">kBendY</span><QuantityInput cls="ln-num" bind:value={connKBendY} quantity="springKr" placeholder="0" /></label>
       <label class="ln-field"><span class="pk-label">kBendZ</span><QuantityInput cls="ln-num" bind:value={connKBendZ} quantity="springKr" placeholder="0" /></label>
     </div>
-    <p class="pk-hint">{t('pro.connectorHint')}</p>
+    <Hint text={t('pro.connectorHint')} />
     <div class="pk-row">
       <button class="pk-btn pk-btn-primary" onclick={addConnector} data-testid="connector-add">{t('pro.addConnector')}</button>
     </div>

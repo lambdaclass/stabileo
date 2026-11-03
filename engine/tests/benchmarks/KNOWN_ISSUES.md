@@ -47,6 +47,27 @@ while halving t gives 1.08 and doubling it 2.21. The engine now withholds both e
 the measured 5 % level and warns above 1.5 % (docs/verification/CONTAINMENT.md, #1057). The
 formulation fix is open in #1057 and must be checked against both references.
 
+SHB8-ANS on the same model, load B: 4×1 0.8995, 8×1 0.9715.
+
+References: MacNeal & Harder (1985) 0.005424 / 0.001754; Euler–Bernoulli bending of the
+twisted strip (`twisted_beam_beam_theory` in `shell_benchmark.rs`) 0.0054259 / 0.0017462.
+Altair OptiStruct verification OS-V 0700 reports 0.992 / 0.988 for its QUAD4 on this problem.
+
+The model is not the cause: the curved shell and SHB8-ANS converge to the references on the
+same geometry, supports and load, a tip load spread over all tip nodes changes MITC4 by
+< 0.03 %, and with zero twist MITC4 and MITC9 match beam theory (A 0.006592 vs 0.006612,
+B 5.62·10⁻⁴ vs 5.60·10⁻⁴ plus shear). The error grows with the twist and does not vanish
+as the warp per element goes to zero (24×8 → 48×16): MITC4 A is +0.6 % at 15°, +8 % at 45°,
++32 % at 90°; MITC9 A is +5 % at 15°, +45 % at 45°, +141 % at 90° (Q9 12×4, the table's
+24×8 column), and MITC9 A is still rising with refinement (1.70 → 2.14 → 2.41). An element
+that is consistent on smooth twisted geometry would converge, so this points at the
+warped-element treatment (warp offsets / local frame) of `element/quad.rs` and
+`element/quad9.rs`, not at locking. Over-flexibility is the conservative direction for
+deflection but distributes forces wrongly in a statically indeterminate shell structure.
+
+Tests: `benchmark_twisted_beam_load_{a,b}` and `benchmark_q9_twisted_beam_load_{a,b}` assert the
+refusal on the 90° meshes (MITC4 6×2 to 24×8, MITC9 3×1 to 12×4).
+
 ## MH-REFERENCE-PROVENANCE
 
 Geometry of the straight cantilever is Fig. 4, p. 7; patch geometry is Fig. 2, p. 5, and

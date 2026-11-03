@@ -38,7 +38,9 @@ fn validation_stiffness_stiff_beam() {
     let h = 4.0;
     let w = 6.0;
     let f_lat = 10.0;
-    let iz_beam = IZ * 1000.0; // very stiff beam
+    let iz_beam = IZ * 1000.0;
+    // Equal drift also needs an axially rigid beam; with A its shortening is ~1% of the drift.
+    let a_beam = A * 1e4;
 
     let nodes = vec![(1, 0.0, 0.0), (2, 0.0, h), (3, w, h), (4, w, 0.0)];
     let elems = vec![
@@ -52,7 +54,7 @@ fn validation_stiffness_stiff_beam() {
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
-        vec![(1, A, IZ), (2, A, iz_beam)],
+        vec![(1, A, IZ), (2, a_beam, iz_beam)],
         elems, sups, loads,
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -60,7 +62,7 @@ fn validation_stiffness_stiff_beam() {
     // With rigid beam: columns share equally, so lateral drift at nodes 2 and 3 is equal
     let d2 = results.displacements.iter().find(|d| d.node_id == 2).unwrap().ux;
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
-    assert_close(d2, d3, 0.01, "Stiff beam: equal column drift");
+    assert_close(d2, d3, 1e-5, "Stiff beam: equal column drift");
 
     // Horizontal reactions should be approximately equal
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
@@ -216,7 +218,8 @@ fn validation_stiffness_rigid_floor() {
     let h = 3.5;
     let w = 5.0;
     let f = 10.0;
-    let iz_beam = IZ * 10000.0; // extremely stiff beam
+    let iz_beam = IZ * 10000.0;
+    let a_beam = A * 1e4;
 
     let nodes = vec![
         (1, 0.0, 0.0), (2, 0.0, h),
@@ -236,7 +239,7 @@ fn validation_stiffness_rigid_floor() {
     })];
     let input = make_input(
         nodes, vec![(1, E, 0.3)],
-        vec![(1, A, IZ), (2, A, iz_beam)],
+        vec![(1, A, IZ), (2, a_beam, iz_beam)],
         elems, sups, loads,
     );
     let results = linear::solve_2d(&input).unwrap();
@@ -246,8 +249,8 @@ fn validation_stiffness_rigid_floor() {
     let d3 = results.displacements.iter().find(|d| d.node_id == 3).unwrap().ux;
     let d5 = results.displacements.iter().find(|d| d.node_id == 5).unwrap().ux;
 
-    assert_close(d2, d3, 0.01, "Rigid floor: d2 = d3");
-    assert_close(d3, d5, 0.01, "Rigid floor: d3 = d5");
+    assert_close(d2, d3, 1e-5, "Rigid floor: d2 = d3");
+    assert_close(d3, d5, 1e-5, "Rigid floor: d3 = d5");
 }
 
 // ================================================================

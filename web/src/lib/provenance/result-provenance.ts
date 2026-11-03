@@ -116,6 +116,11 @@ function stripModel(snapshot: unknown): unknown {
   if (!snapshot || typeof snapshot !== 'object') return snapshot;
   const out: Record<string, unknown> = { ...(snapshot as Record<string, unknown>) };
   for (const k of MODEL_HASH_OMIT) delete out[k];
+  const design = out.designData as { loadBasis?: { at?: unknown } } | undefined;
+  if (design?.loadBasis && 'at' in design.loadBasis) {
+    const { at: _at, ...loadBasis } = design.loadBasis;
+    out.designData = { ...design, loadBasis };
+  }
   return out;
 }
 

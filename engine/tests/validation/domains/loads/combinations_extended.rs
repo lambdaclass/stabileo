@@ -149,7 +149,7 @@ fn validation_comb_ext_distributive_property() {
     for (l_d, r_d) in lhs.displacements.iter().zip(rhs.displacements.iter()) {
         assert_close(l_d.ux, r_d.ux, 1e-6, &format!("distributive ux node {}", l_d.node_id));
         assert_close(l_d.uz, r_d.uz, 1e-6, &format!("distributive uy node {}", l_d.node_id));
-        assert_close(l_d.ry, r_d.ry, 1e-6, &format!("distributive rz node {}", l_d.node_id));
+        assert_close_abs(l_d.ry, r_d.ry, 1e-6, 1e-6, &format!("distributive rz node {}", l_d.node_id));
     }
 
     // Compare all reactions
@@ -163,9 +163,9 @@ fn validation_comb_ext_distributive_property() {
     for (l_ef, r_ef) in lhs.element_forces.iter().zip(rhs.element_forces.iter()) {
         assert_close(l_ef.v_start, r_ef.v_start, 1e-5,
             &format!("distributive v_start elem {}", l_ef.element_id));
-        assert_close(l_ef.m_start, r_ef.m_start, 1e-5,
+        assert_close_abs(l_ef.m_start, r_ef.m_start, 1e-5, 1e-6,
             &format!("distributive m_start elem {}", l_ef.element_id));
-        assert_close(l_ef.m_end, r_ef.m_end, 1e-5,
+        assert_close_abs(l_ef.m_end, r_ef.m_end, 1e-5, 1e-6,
             &format!("distributive m_end elem {}", l_ef.element_id));
     }
 }

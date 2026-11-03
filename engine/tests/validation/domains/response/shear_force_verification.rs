@@ -144,10 +144,10 @@ fn validation_shear_ss_udl_linear() {
             .unwrap();
         let x_start = (i - 1) as f64 * elem_len;
         let v_analytical_start = v_left + q * x_start; // q is negative
-        assert_close(
+        assert_close_abs(
             ef.v_start,
             v_analytical_start,
-            0.05,
+            0.05, 1e-6,
             &format!("SS UDL: V at elem {} start (x={:.1})", i, x_start),
         );
     }

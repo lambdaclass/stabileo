@@ -50,8 +50,11 @@ export interface LabelCollector {
   add(entry: { text: string; colour: string; font: string; box: LabelBox }): void;
   /** Declare something labels must avoid — an arrow, a member, a node marker. */
   block(seg: SegmentObstacle): void;
-  /** Lay everything out and draw it. Safe to call with nothing queued. */
-  flush(ctx: CanvasRenderingContext2D, extra?: SegmentObstacle[]): void;
+  /**
+   * Lay everything out and draw it. Safe to call with nothing queued. With `drop`, a label with
+   * no room is left out instead of drawn over another; the count left out is returned.
+   */
+  flush(ctx: CanvasRenderingContext2D, extra?: SegmentObstacle[], opts?: { drop?: boolean }): number;
 }
 
 export function createLabelCollector(): LabelCollector {
@@ -60,8 +63,8 @@ export function createLabelCollector(): LabelCollector {
   return {
     add(entry) { entries.push(entry); },
     block(seg) { blockers.push(seg); },
-    flush(ctx, extra = []) {
-      if (entries.length === 0) return;
+    flush(ctx, extra = [], opts = {}) {
+      if (entries.length === 0) return 0;
       const obstacles = [...blockers, ...extra].flatMap((s) => segmentToBoxes(s));
       /*
        * Measure the text instead of trusting a declared width.
@@ -80,13 +83,15 @@ export function createLabelCollector(): LabelCollector {
         const size = parseFloat(/(\d+(?:\.\d+)?)px/.exec(ctx.font)?.[1] ?? '') || parseFloat(e.font) || 12;
         return { ...e.box, width: ctx.measureText(e.text).width, height: size + 2 };
       });
-      const placed = placeLabels(boxes, obstacles);
+      const placed = placeLabels(boxes, obstacles, undefined, undefined, opts);
       const prevAlign = ctx.textAlign;
       const prevBaseline = ctx.textBaseline;
       // Everything is measured from the alphabetic baseline, so anything the
       // caller left set would move the text away from the box that was tested.
       ctx.textBaseline = 'alphabetic';
+      let hidden = 0;
       for (let i = 0; i < entries.length; i++) {
+        if (placed[i].hidden) { hidden++; continue; }
         ctx.textAlign = entries[i].box.anchorX ?? 'center';
         ctx.font = entries[i].font;
         ctx.fillStyle = entries[i].colour;
@@ -96,6 +101,7 @@ export function createLabelCollector(): LabelCollector {
       ctx.textBaseline = prevBaseline;
       entries.length = 0;
       blockers.length = 0;
+      return hidden;
     },
   };
 }
@@ -174,6 +180,8 @@ export interface PlacedLabel {
   y: number;
   /** How far it had to move, in pixels. Zero means it got its first choice. */
   displaced: number;
+  /** Left out: with `drop`, no spot clear of the labels already placed. */
+  hidden?: boolean;
 }
 
 /** An axis-aligned box that a label must not cover. */
@@ -209,6 +217,98 @@ const overlaps = (a: Obstacle, b: Obstacle): boolean =>
  * Exact for an axis-aligned member — a beam or a column, which is most of what
  * a frame is made of. For anything diagonal use `segmentToBoxes`.
  */
+/**
+ * Obstacles kept by the screen cells they cover, so a box asks only its neighbours. `near` returns
+ * them in the order they were added: a sum over them (the free body's covered area) is then the
+ * same, to the bit, as the sum over every obstacle, where the others only added zero.
+ */
+export class ObstacleGrid {
+  private readonly all: Obstacle[] = [];
+  private readonly fine = new Map<string, number[]>();
+  /** Obstacles too large for the fine cells (an area load across a slab at print resolution). */
+  private readonly coarse = new Map<string, number[]>();
+  private readonly loose: number[] = [];
+  /** Per obstacle, the last query that visited it: each is visited once per query without a set. */
+  private stamp = new Int32Array(64);
+  private query = 0;
+  constructor(initial: Iterable<Obstacle> = [], private readonly size = 64, private readonly coarseSize = 1024) { for (const o of initial) this.push(o); }
+  push(o: Obstacle): void {
+    const i = this.all.push(o) - 1;
+    if (i >= this.stamp.length) { const grown = new Int32Array(this.stamp.length * 2); grown.set(this.stamp); this.stamp = grown; }
+    const f = range(o, this.size);
+    if (f) { add(this.fine, f, i); return; }
+    const c = range(o, this.coarseSize);
+    if (c) { add(this.coarse, c, i); return; }
+    this.loose.push(i);
+  }
+  /**
+   * Call `fn` once for each obstacle that may overlap `b`, in no particular order; `fn` returning
+   * true stops the visit. What `near` gives, without building and sorting a list per query.
+   */
+  visit(b: Obstacle, fn: (o: Obstacle) => boolean | void): void {
+    const f = range(b, this.size);
+    if (!f) { for (const o of this.all) if (fn(o) === true) return; return; }
+    const q = ++this.query;
+    const stamp = this.stamp, all = this.all;
+    const each = (i: number) => { if (stamp[i] === q) return false; stamp[i] = q; return fn(all[i]!) === true; };
+    for (const i of this.loose) if (each(i)) return;
+    for (let cx = f.x0; cx <= f.x1; cx++) for (let cy = f.y0; cy <= f.y1; cy++) {
+      const list = this.fine.get(`${cx},${cy}`);
+      if (list) for (const i of list) if (each(i)) return;
+    }
+    if (!this.coarse.size) return;
+    const c = range(b, this.coarseSize);
+    if (c) {
+      for (let cx = c.x0; cx <= c.x1; cx++) for (let cy = c.y0; cy <= c.y1; cy++) {
+        const list = this.coarse.get(`${cx},${cy}`);
+        if (list) for (const i of list) if (each(i)) return;
+      }
+    } else for (const list of this.coarse.values()) for (const i of list) if (each(i)) return;
+  }
+  /** Whether anything overlaps `b`. */
+  blocked(b: Obstacle): boolean {
+    let hit = false;
+    this.visit(b, (o) => (hit = overlaps(b, o)));
+    return hit;
+  }
+  near(b: Obstacle): Obstacle[] {
+    const f = range(b, this.size);
+    if (!f) return [...this.all];
+    if (f.x0 === f.x1 && f.y0 === f.y1 && !this.loose.length && !this.coarse.size) {
+      return (this.fine.get(`${f.x0},${f.y0}`) ?? []).map((i) => this.all[i]!);
+    }
+    const hit = new Set<number>(this.loose);
+    collect(this.fine, f, hit);
+    if (this.coarse.size) {
+      const c = range(b, this.coarseSize);
+      if (c) collect(this.coarse, c, hit);
+      else for (const list of this.coarse.values()) for (const i of list) hit.add(i);
+    }
+    return [...hit].sort((a, b) => a - b).map((i) => this.all[i]!);
+  }
+}
+
+type CellRange = { x0: number; x1: number; y0: number; y1: number };
+
+function range(o: Obstacle, size: number): CellRange | null {
+  const x0 = Math.floor(o.x / size), x1 = Math.floor((o.x + o.width) / size);
+  const y0 = Math.floor(o.y / size), y1 = Math.floor((o.y + o.height) / size);
+  if (![x0, x1, y0, y1].every(Number.isFinite) || (x1 - x0 + 1) * (y1 - y0 + 1) > 4096) return null;
+  return { x0, x1, y0, y1 };
+}
+
+function add(cells: Map<string, number[]>, r: CellRange, i: number): void {
+  for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) {
+    const k = `${cx},${cy}`;
+    const list = cells.get(k);
+    if (list) list.push(i); else cells.set(k, [i]);
+  }
+}
+
+function collect(cells: Map<string, number[]>, r: CellRange, into: Set<number>): void {
+  for (let cx = r.x0; cx <= r.x1; cx++) for (let cy = r.y0; cy <= r.y1; cy++) for (const i of cells.get(`${cx},${cy}`) ?? []) into.add(i);
+}
+
 export function segmentToBox(s: SegmentObstacle, pad = 3): Obstacle {
   const p = s.pad ?? pad;
   const x = Math.min(s.x1, s.x2) - p;
@@ -260,15 +360,21 @@ export function segmentToBoxes(s: SegmentObstacle, pad = 3, span = 24): Obstacle
  *
  * Returned in the SAME ORDER as the input, whatever order they were placed in,
  * because the caller indexes by its own list.
+ *
+ * `drop` is for a drawing that cannot be zoomed (an exported figure): a label with no spot clear
+ * of everything takes one clear of the other labels, over a member, and one with neither is
+ * hidden rather than written over another.
  */
 export function placeLabels(
   labels: LabelBox[],
   obstacles: Obstacle[] = [],
   step = 10,
   maxSteps = 10,
+  opts: { drop?: boolean } = {},
 ): PlacedLabel[] {
   const out: PlacedLabel[] = new Array(labels.length);
-  const taken: Obstacle[] = [...obstacles];
+  const taken = new ObstacleGrid(obstacles);
+  const placedOnly = new ObstacleGrid();
 
   /*
    * Grouped labels are placed as one block, ungrouped ones on their own.
@@ -289,9 +395,18 @@ export function placeLabels(
 
     let shift: [number, number] = [0, 0];
     let free = false;
-    for (const cand of candidateOffsets(ux, uy, sweep, step, maxSteps)) {
-      const moved = { ...bounds, x: bounds.x + cand[0], y: bounds.y + cand[1] };
-      if (!taken.some((o) => overlaps(moved, o))) { shift = cand; free = true; break; }
+    const candidates = candidateOffsets(ux, uy, sweep, step, maxSteps);
+    const clearOf = (grid: ObstacleGrid) => {
+      for (const cand of candidates) {
+        const moved = { ...bounds, x: bounds.x + cand[0], y: bounds.y + cand[1] };
+        if (!grid.blocked(moved)) { shift = cand; return true; }
+      }
+      return false;
+    };
+    free = clearOf(taken) || (!!opts.drop && clearOf(placedOnly));
+    if (!free && opts.drop) {
+      for (const i of unit.members) out[i] = { x: labels[i].x, y: labels[i].y, displaced: 0, hidden: true };
+      continue;
     }
     /*
      * Nothing free: keep the preferred spot rather than the last thing tried.
@@ -302,6 +417,7 @@ export function placeLabels(
     if (!free) shift = [0, 0];
 
     taken.push({ ...bounds, x: bounds.x + shift[0], y: bounds.y + shift[1] });
+    placedOnly.push({ ...bounds, x: bounds.x + shift[0], y: bounds.y + shift[1] });
     for (let k = 0; k < unit.members.length; k++) {
       const i = unit.members[k];
       out[i] = {

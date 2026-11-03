@@ -91,7 +91,7 @@ export async function exportView(req: ViewExportRequest): Promise<boolean> {
   // Taken when the figures are drawn (after any solve); checked again once the hashes are in.
   let token = captureProvenanceToken();
   const drawn = await files(req, () => { token = captureProvenanceToken(); });
-  if (drawn.length === 0) return false;
+  if (drawn.length === 0) { uiStore.toast(t('viewExport.nothingDrawn'), 'error'); return false; }
   let record;
   try {
     record = await provenanceForExport(token);
