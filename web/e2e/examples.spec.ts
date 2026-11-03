@@ -57,7 +57,7 @@ test('@smoke examples report the engine refusing a model with no load', async ({
   await expect(page.getByTestId('readout-maxMoment')).toHaveCount(0);
 });
 
-const CERTIFICATE: Record<string, string> = { 'rc-column': 'unavailable' };
+const CERTIFICATE: Record<string, string> = { 'rc-column': 'unavailable', 'rc-pushover': 'unavailable' };
 
 for (const id of EXAMPLE_IDS) test(`@smoke example ${id} solves in the browser`, async ({ page }) => {
   await page.goto(`/en/examples/${id}/?e2e=1`);
@@ -77,6 +77,16 @@ for (const [id, query, key, tolerance] of CLOSED_FORMS) test(`@smoke example ${i
   await page.goto(`/en/examples/${id}/${query}&e2e=1`);
   await expect(page.getByTestId(`reference-${key}`)).toBeVisible({ timeout: 30000 });
   near(await value(page, `readout-${key}`), await value(page, `reference-${key}`), tolerance);
+});
+
+test('@smoke the pushover past its capacity is shown as stopped, below the target', async ({ page }) => {
+  await page.goto('/en/examples/rc-pushover/?target=1.4&e2e=1');
+  await expect(page.getByTestId('stopped')).toBeVisible({ timeout: 60000 }); // slow-ok: 80 fibre increments with Newton iterations run in the worker before the first result.
+  await expect(page.getByTestId('stopped')).toContainText('not converged');
+  near(await value(page, 'readout-peakShear'), await value(page, 'reference-peakShear'), 0.1);
+  await page.getByTestId('param-target').fill('0.6');
+  await expect(page.getByTestId('stopped')).toHaveCount(0, { timeout: 60000 }); // slow-ok: the second fibre run re-solves all increments.
+  near(await value(page, 'readout-peakShear'), 0.6 * await value(page, 'readout-nominalShear'), 1e-9);
 });
 
 test('@smoke the outrigger slider moves the result and the sweep marker', async ({ page }) => {
