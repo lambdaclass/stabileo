@@ -50,8 +50,12 @@ pub fn rect(a: f64, i: f64) -> (f64, f64) {
     (a / h, h)
 }
 
+/// Young's modulus of the fibers of section `sec`. A section shared by
+/// members of different materials gets the smallest of their moduli: taking
+/// the first member found would depend on the map order, which a
+/// renumbering changes (and the fiber section then with it).
 fn mat_e(s: &SolverInput, sec: usize) -> f64 {
-    s.elements.values().find(|e| e.section_id == sec).map_or(200_000.0, |e| s.materials[&e.material_id.to_string()].e)
+    s.elements.values().filter(|e| e.section_id == sec).map(|e| s.materials[&e.material_id.to_string()].e).reduce(f64::min).unwrap_or(200_000.0)
 }
 
 fn rect_fibers(b: f64, h: f64, ny: usize, nz: usize, e: f64) -> FiberSectionDef {
