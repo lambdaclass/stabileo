@@ -10937,6 +10937,7 @@ const en: Record<string, string> = {
   'otherCodes.check.ec3ShearBuckling': 'web shear buckling (6.2.6(6))',
   'otherCodes.check.ec2Axial': 'flexure with axial force (6.1)',
   'otherCodes.check.aciShearTension': 'shear with axial tension (22.5)',
+  'otherCodes.check.torsion': 'torsion above the threshold that lets it be neglected: not checked',
   'otherCodes.check.cfsDistortional': 'distortional buckling',
   'otherCodes.check.cfsFlexuralTorsional': 'flexural-torsional buckling in compression (E2)',
   'otherCodes.check.cfsWeakAxis': 'weak-axis bending',

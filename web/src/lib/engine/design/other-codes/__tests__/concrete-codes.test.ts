@@ -26,7 +26,16 @@ const BARS: ProvidedReinforcement = {
   stirrups: { diameter: 8, legs: 2, spacing: 0.15 },
 };
 
-function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean } = {}) {
+const BOTH_FACES: ProvidedReinforcement = {
+  regions: {
+    bottomSpan: { count: 4, diameter: 16 },
+    topStart: { count: 4, diameter: 16 }, topEnd: { count: 4, diameter: 16 },
+    continuity: { topStartIntoSpan: true, topEndIntoSpan: true },
+  },
+  stirrups: { diameter: 8, legs: 2, spacing: 0.15 },
+};
+
+function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number } = {}) {
   modelStore.clear();
   const mat = modelStore.addMaterial({ name: 'H-25', e: 25_000, nu: 0.2, rho: 25, fy: FC } as never);
   const sec = modelStore.addSection({ name: '30x50', shape: 'rect', b: B, h: H, a: B * H, iy: B * H ** 3 / 12, iz: H * B ** 3 / 12 } as never);
@@ -46,6 +55,7 @@ function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; colum
   const dead = modelStore.addLoadCase('D', 'D');
   if (opts.column) modelStore.addNodalLoad3D(b, 20, 0, -400, 0, 0, 0, dead);
   else modelStore.addDistributedLoad3D(el, 0, 0, -Q, -Q, undefined, undefined, dead);
+  if (opts.torque) modelStore.addNodalLoad3D(b, 0, 0, 0, opts.torque, 0, 0, dead);
   modelStore.addCombination('1.0D', [{ caseId: dead, factor: 1 }]);
   modelStore.reinforcementTransaction((tx) => tx.setReinforcement(el, opts.bars ?? BARS));
   const r = modelStore.solveCombinations3D(false, false, true);
@@ -145,3 +155,26 @@ describe('reinforced concrete under other codes', () => {
     expect(runOtherCode(ACI318, [ctx]).rows[0]).toEqual({ elementId: ctx.elementId, status: 'skipped', reasonKey: 'otherCodes.skip.noReinforcement' });
   });
 });
+
+describe('torsion, which neither checker designs for (#1314)', () => {
+  // ACI 318 22.7.1.1 for 30×50, f'c 25: φ·0,083·√f'c·Acp²/pcp = 0,75·0,083·5·150000²/1600 N·mm = 4,38 kN·m.
+  const neglectable = 0.75 * 0.083 * Math.sqrt(FC) * (300 * 500) ** 2 / (2 * (300 + 500)) * 1e-6;
+
+  for (const code of [ACI318, EC2]) {
+    it(`${code.id}: a torque above the neglect threshold leaves the check incomplete, not passed`, () => {
+      const row = runOtherCode(code, frame({ cantilever: true, torque: 2 * neglectable, bars: BOTH_FACES })).rows[0]!;
+      expect(row.status).toBe('checked');
+      if (row.status === 'checked') {
+        expect(row.reading.unevaluated).toContain('otherCodes.check.torsion');
+        expect(row.reading.pass).toBe(false);
+      }
+    });
+
+    it(`${code.id}: a torque below it is neglected, as the code allows`, () => {
+      const row = runOtherCode(code, frame({ cantilever: true, torque: 0.5 * neglectable, bars: BOTH_FACES })).rows[0]!;
+      expect(row.status).toBe('checked');
+      if (row.status === 'checked') expect(row.reading.unevaluated).not.toContain('otherCodes.check.torsion');
+    });
+  }
+});
+

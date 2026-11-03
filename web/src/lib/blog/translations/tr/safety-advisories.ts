@@ -55,6 +55,12 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-040",
+          "ACI 318 ve EN 1992 kontrolleri: betonarme çubuklar burulmaları kontrol edilmeden geçiyordu",
+          "Yüksek",
+          "Bir sonraki sürümde sınırlandırıldı"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

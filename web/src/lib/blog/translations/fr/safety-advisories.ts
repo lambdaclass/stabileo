@@ -55,6 +55,12 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-040",
+          "Vérifications ACI 318 et EN 1992 : barres en béton armé validées sans vérification de leur torsion",
+          "Élevée",
+          "Confiné dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",

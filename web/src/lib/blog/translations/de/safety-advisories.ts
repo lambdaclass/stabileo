@@ -55,6 +55,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-040",
+          "ACI-318- und EN-1992-Nachweise: Stahlbetonstäbe bestanden, ohne dass ihre Torsion nachgewiesen wurde",
+          "Hoch",
+          "In der nächsten Version eingedämmt"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

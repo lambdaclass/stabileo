@@ -10771,6 +10771,7 @@ const fr: Translations = {
   'otherCodes.check.ec3ShearBuckling': 'voilement de l\'âme par cisaillement (6.2.6(6))',
   'otherCodes.check.ec2Axial': 'flexion avec effort normal (6.1)',
   'otherCodes.check.aciShearTension': 'cisaillement avec traction axiale (22.5)',
+  'otherCodes.check.torsion': 'torsion au-delà du seuil permettant de la négliger : non vérifiée',
   'otherCodes.check.cfsDistortional': 'flambement par distorsion',
   'otherCodes.check.cfsFlexuralTorsional': 'flambement par flexion-torsion en compression (E2)',
   'otherCodes.check.cfsWeakAxis': 'flexion selon l\'axe faible',
