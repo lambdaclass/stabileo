@@ -15,6 +15,9 @@ import type { MethodContext } from '../registry';
 import type { Block, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
 import { methods, displacementSolution } from '../methods/displacement';
+import { systemStep } from '../displacement-doc';
+import { residualSettled } from '../displacement-solve';
+import { thermalOf } from '../kinematic-unknowns';
 import { endKey } from '../sway-modes';
 import { stepsEs, stepsEn, stepsPt } from '../../../i18n/locales/steps';
 import es from '../../../i18n/locales/es';
@@ -183,12 +186,96 @@ describe('hand-checked cases', () => {
     againstEngine(input);
   });
 
+  it('the 3EI/L equation names the end each member is released at, and the results agree', () => {
+    for (const reversed of [false, true]) {
+      modelStore.clear();
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0), c = modelStore.addNode(12, 0);
+      const e1 = modelStore.addElement(a, b), e2 = reversed ? modelStore.addElement(c, b) : modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(b, 'rollerX'); modelStore.addSupport(c, 'pinned');
+      modelStore.addDistributedLoad(e1, -12, -12); modelStore.addDistributedLoad(e2, -12, -12);
+      const input = modelStore.buildSolverInput(false)!;
+      const sol = solution(input);
+      const [zero, kept] = reversed ? (['i', 'j'] as const) : (['j', 'i'] as const);
+      expect(M(sol, e2, zero)).toBeCloseTo(0, 9);
+      expect(Math.abs(M(sol, e2, kept))).toBeCloseTo(36 + 72 / 7, 9);
+      const doc = build(ctxOf(input));
+      const eqs = doc.steps.flatMap((st) => st.blocks).filter((x): x is Extract<Block, { kind: 'eq' }> => x.kind === 'eq' && x.tex.includes('\\frac{3EI}{L}'));
+      expect(eqs.length).toBe(1);
+      const near = kept, far = zero;
+      expect(eqs[0].tex).toContain(`M_{${near}${far}} = \\frac{3EI}{L}\\,\\theta_${near}`);
+      expect(eqs[0].tex).toContain(`M_{${far}${near}} = 0`);
+      expect(eqs[0].tex).not.toContain(`\\theta_${far}`);
+      expect(() => katex.renderToString(eqs[0].tex, { throwOnError: true })).not.toThrow();
+    }
+  });
+
+  it('a member released at one end under span load and settlement: the written formula, as substituted, gives the result', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0), c = modelStore.addNode(12, 0);
+    const e1 = modelStore.addElement(a, b), e2 = modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed'); const sb = modelStore.addSupport(b, 'rollerX'); modelStore.addSupport(c, 'rollerX');
+    modelStore.updateSupport(sb, { dz: -0.01 });
+    modelStore.addDistributedLoad(e1, -12, -12); modelStore.addDistributedLoad(e2, -12, -12);
+    const doc = build(ctxOf(modelStore.buildSolverInput(false)!));
+    const all = (bs: Block[]): Block[] => bs.flatMap((x) => (x.kind === 'sub' ? [x, ...all(x.blocks)] : [x]));
+    const calcs = all(doc.steps.flatMap((st) => st.blocks)).filter((x): x is Extract<Block, { kind: 'calc' }> => x.kind === 'calc' && isTxt(x.label) && x.label.key.endsWith('state.memberThree'));
+    expect(calcs.length).toBeGreaterThan(0);
+    const value = (tex: string) => Function(`return ${tex
+      .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '(($1)/($2))')
+      .replace(/\\cdot 10\^\{(-?\d+)\}/g, '*1e$1').replace(/(^|[^\d.])10\^\{(-?\d+)\}/g, '$11e$2')
+      .replace(/\\cdot/g, '*').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')};`)() as number;
+    let carried = 0;
+    for (const x of calcs) {
+      const rhs = x.subst!.split('=')[1];
+      if (x.formula.includes('\\frac{M_{')) carried++;
+      const res = x.result.match(/= (.*)\\ /)![1];
+      expect(value(rhs)).toBeCloseTo(value(res), 1);
+      expect(Math.abs(value(rhs) - value(res))).toBeLessThan(2e-3 * Math.max(1, Math.abs(value(res))));
+    }
+    expect(carried).toBeGreaterThan(0);
+  });
+
   it('temperature in estado 0: a gradient bends, a uniform rise stretches (rigid members take it as an imposed elongation)', () => {
     const p = portal();
     modelStore.addThermalLoad(p.beam, 30, 10);
     const input = modelStore.buildSolverInput(false)!;
     const sol = solution(input);
     expect([...sol.ks.up.values()].some((u) => Math.abs(u.x) > 0)).toBe(true);
+    againstEngine(input);
+  });
+
+  it('temperature with each load\'s own α: a load with α = 0 adds nothing and mixed α add their strains, as the engine does', () => {
+    const p = portal();
+    modelStore.addThermalLoad(p.beam, 30, 10);
+    modelStore.addThermalLoad(p.beam, 20, 5);
+    modelStore.addThermalLoad(p.col1, 15, 8);
+    modelStore.addThermalLoad(p.col1, -10, 4);
+    const base = modelStore.buildSolverInput(false)!;
+    const alphas = [0, 12e-6, 10e-6, 23e-6];
+    let k = 0;
+    const input = { ...base, loads: base.loads.map((l) => (l.type === 'thermal' ? { ...l, data: { ...l.data, alpha: alphas[k++], depth: 0.4 } } : l)) };
+    const th = thermalOf(input, planeModel(input));
+    const loads = input.loads.flatMap((l) => (l.type === 'thermal' ? [l.data] : []));
+    const sum = (id: number, f: (d: (typeof loads)[number]) => number) => loads.filter((d) => d.elementId === id).reduce((t, d) => t + f(d), 0);
+    expect(loads.map((d) => d.alpha)).toEqual(alphas);
+    for (const id of [p.beam, p.col1]) {
+      expect(th.get(id)!.eps).toBeCloseTo(sum(id, (d) => d.alpha! * d.dtUniform), 15);
+      expect(th.get(id)!.kap).toBeCloseTo(sum(id, (d) => (d.alpha! * d.dtGradient) / 0.4), 15);
+    }
+    expect(th.get(p.beam)!.eps).toBeCloseTo(12e-6 * 20, 15);
+    for (const t of th.values()) expect(Number.isFinite(t.eps) && Number.isFinite(t.kap)).toBe(true);
+    againstEngine(input);
+  });
+
+  it('axial span loads reach both joints: a point load along an inclined member and a uniform axial load, against the engine', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 4), c = modelStore.addNode(8, 4);
+    const e1 = modelStore.addElement(a, b);
+    modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'pinned');
+    modelStore.addPointLoadOnElement(e1, 1.5, -8, { px: 30 });
+    modelStore.addDistributedLoad(e1, -6, -6, 0, true);
+    const input = modelStore.buildSolverInput(false)!;
+    expect(input.loads.some((l) => l.type === 'pointOnElement' && (l.data.px ?? 0) !== 0)).toBe(true);
+    expect(input.loads.some((l) => l.type === 'axialDistributed')).toBe(true);
     againstEngine(input);
   });
 
@@ -339,7 +426,11 @@ describe('the document', () => {
     modelStore.addElement(a, b); modelStore.addElement(b, c);
     modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'pinned'); modelStore.addSupport(b, 'spring', { ky: 2000, kz: 500 });
     modelStore.addNodalLoad(b, 0, -10, 3);
-    docs.push(build(ctxOf(modelStore.buildSolverInput(false)!)));
+    const sprung = build(ctxOf(modelStore.buildSolverInput(false)!));
+    docs.push(sprung);
+    const general = (doc: StepDoc) => texs(doc).find((t) => t.startsWith('R^{0}_i = '))!;
+    expect(general(sprung)).toContain('\\sum k\\,u\\,\\phi');
+    expect(general(docs[0])).not.toContain('k\\,u');
     const missing: string[] = [];
     for (const doc of docs) {
       for (const t of texs(doc)) expect(() => katex.renderToString(t, { throwOnError: true }), t).not.toThrow();
@@ -377,5 +468,40 @@ describe('slope-deflection and moment distribution show the GIC too', () => {
     const doc = frames.find((m) => m.id === 'slopeDeflection')!.build!(ctxOf(input));
     const calcs = doc.steps[0].blocks.filter((b): b is Extract<Block, { kind: 'calc' }> => b.kind === 'calc');
     expect(calcs.some((c) => c.subst === 'GIC = 2 + 1' && c.result.includes('GIC = 3'))).toBe(true);
+  });
+});
+
+describe('system step residual', () => {
+  const solveCalc = (sol: ReturnType<typeof solution>) => {
+    const step = systemStep(sol);
+    const calc = step.blocks.find((b): b is Extract<Block, { kind: 'calc' }> => b.kind === 'calc' && !!b.check)!;
+    const warned = step.blocks.some((b) => b.kind === 'note' && b.tone === 'warn' && isTxt(b.text) && b.text.key.endsWith('sys.residualOff'));
+    return { check: calc.check!, warned };
+  };
+
+  it('ticks the residual of the true solution', () => {
+    portal({ w: 10, H: 5 });
+    const sol = solution(modelStore.buildSolverInput(false)!);
+    expect(residualSettled(sol)).toBe(true);
+    const { check, warned } = solveCalc(sol);
+    expect(check).toContain('\\checkmark');
+    expect(warned).toBe(false);
+  });
+
+  it('does not tick, and warns, when D does not satisfy K·D = −R⁰', () => {
+    portal({ w: 10, H: 5 });
+    const sol = solution(modelStore.buildSolverInput(false)!);
+    const D = sol.D.map((v, k) => (k === 0 ? v * (1 + 1e-4) : v));
+    const residual = sol.K.reduce((s, row, i) => Math.max(s, Math.abs(row.reduce((t, v, j) => t + v * D[j], 0) + sol.R0[i])), 0);
+    const off = { ...sol, D, residual };
+    expect(residualSettled(off)).toBe(false);
+    const { check, warned } = solveCalc(off);
+    expect(check).not.toContain('\\checkmark');
+    expect(warned).toBe(true);
+  });
+
+  it('judges each row against its own terms, so a tiny model is not waved through', () => {
+    expect(residualSettled({ K: [[1e-12]], D: [1], R0: [-0.5e-12] })).toBe(false);
+    expect(residualSettled({ K: [[1e-12]], D: [0.5], R0: [-0.5e-12] })).toBe(true);
   });
 });

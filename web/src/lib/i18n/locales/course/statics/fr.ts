@@ -1,7 +1,7 @@
 import type { Translations } from '../../../types';
 
 const words: Translations = {
-  'course.statics.gh.what': 'Le degré d\'hyperstaticité GH compte les efforts en trop : les inconnues de liaison et de barre moins les équations d\'équilibre disponibles. Avec GH = 0, la statique suffit ; avec GH > 0, il faut GH équations de compatibilité.',
+  'course.statics.gh.what': 'Le degré d\'hyperstaticité GH compte les efforts en trop : les inconnues de liaison et de barre moins les équations d\'équilibre disponibles. Avec GH = 0 et une structure cinématiquement stable, la statique suffit ; avec GH > 0, il faut GH équations de compatibilité. Le compte seul ne prouve pas la stabilité.',
   'course.statics.gh.legend.frame': 'm = {m} barres, r = {r} réactions (un ressort compte pour une réaction), n = {n} nœuds avec trois équations chacun (ΣFx, ΣFz, ΣM) et c = {c} conditions libérées par les rotules internes.',
   'course.statics.gh.legend.truss': 'm = {mb} barres, r = {r} réactions et n = {nb} nœuds. Dans un treillis, chaque nœud fournit deux équations (ΣFx, ΣFz), car toutes les forces passent par lui.',
   'course.statics.gh.legend.mixed': 'm = {m} barres de portique et m_b = {mb} bielles (une bielle n\'a qu\'une inconnue, son effort normal), r = {r} réactions, n = {n} nœuds avec trois équations, n_b = {nb} nœuds où n\'aboutissent que des bielles, avec deux, et c = {c} conditions de rotule.',
@@ -12,7 +12,7 @@ const words: Translations = {
   'course.statics.gh.hingeCaption': 'Conditions des rotules, nœud par nœud : c = {c}.',
   'course.statics.gh.splitLabel': 'Externe et interne',
   'course.statics.gh.split': 'GH_e = {e} est l\'hyperstaticité externe : les réactions en excès pour maintenir la structure dans son ensemble (r − 3 par corps, moins les {mech} mouvements internes que les liaisons doivent empêcher, comme dans un arc à trois rotules ou une poutre Gerber). GH_i = {i} est l\'hyperstaticité interne : contours fermés et barres en excès, que la statique ne résout pas même avec les réactions connues.',
-  'course.statics.gh.verdict.iso': 'La structure est isostatique (GH = 0) : les équations d\'équilibre suffisent pour trouver toutes les réactions et tous les efforts.',
+  'course.statics.gh.verdict.iso': 'Le compte donne GH = 0 : autant d\'inconnues que d\'équations d\'équilibre. Si la structure est cinématiquement stable, elle est isostatique et l\'équilibre donne toutes les réactions et tous les efforts ; des appuis comme trois appuis simples parallèles donnent GH = 0 et pourtant un mécanisme.',
   'course.statics.gh.verdict.hyper': 'La structure est hyperstatique de degré {g} : il y a {g} inconnues de plus que d\'équations d\'équilibre.',
   'course.statics.gh.verdict.hypo': 'La structure est hypostatique (GH = {g}) : il lui manque des liaisons et c\'est un mécanisme.',
   'course.statics.gh.redundants': 'Pour la méthode des forces, GH = {g} est le nombre d\'inconnues hyperstatiques X_i : il faut libérer exactement {g} liaisons ou efforts pour obtenir une structure de base isostatique.',
@@ -21,7 +21,7 @@ const words: Translations = {
   'course.statics.err.count': 'Vos libérations totalisent {chosen} inconnues et GH = {gh} : la structure de base en demande exactement {gh}. Avec moins, elle reste hyperstatique ; avec plus, elle devient un mécanisme.',
   'course.statics.err.unstable': 'Avec ces libérations, la structure de base est un mécanisme : les nœuds {nodes} se déplacent librement. Vous avez supprimé une liaison dont la structure a besoin pour rester immobile. Essayez d\'en libérer une autre à la place.',
   'course.statics.err.hingeAll': 'Au nœud {node}, cette libération n\'ajoute rien : une fois libérées, toutes les barres y arrivent articulées. Une rotule qui relie {k} barres libère {k1} conditions, une de moins que le nombre de barres. Choisissez une autre libération.',
-  'course.statics.err.singular': 'La structure de base est bien tenue, mais {which} ne travaille pas : son état unitaire ne déforme aucune barre ni aucun ressort, et sa ligne de [δ] est nulle ou dépend des autres. Le système de compatibilité n\'a pas de solution unique ; il n\'est donc pas résolu. Choisissez une autre libération.',
+  'course.statics.err.singular': 'La structure de base est bien tenue, mais le système de compatibilité ne détermine pas {which} : sa ligne de [δ] est nulle, parce que son état unitaire ne déforme aucune barre ni aucun ressort, ou c\'est une combinaison des lignes d\'autres inconnues, même si leurs états déforment des barres. Le système n\'a pas de solution unique ; il n\'est donc pas résolu. Choisissez une autre libération.',
   'course.statics.err.clash': 'Vous avez choisi deux libérations à la même extrémité de barre (une coupure et une rotule). N\'en gardez qu\'une.',
   'course.statics.err.partialCut': 'Cette combinaison de libérations à une même extrémité ne peut pas être représentée. Coupez la barre entière ou placez une rotule.',
   'course.statics.err.nothing': 'Cette libération ne correspond pas à ce modèle. Choisissez de nouveau.',
@@ -33,7 +33,7 @@ const words: Translations = {
 
   // Méthode des forces
   'course.statics.fm.axial.label': 'Inclure la déformation axiale',
-  'course.statics.fm.axial.help': 'Ajoute à chaque coefficient le terme ∫ nᵢ·nⱼ/EA dx des barres de portique. Dans les poutres et portiques courants, il apporte peu et la solution de cours le néglige. Il compte dans les tirants, les arcs (ils travaillent presque uniquement en compression), les poteaux à fort effort normal et les structures contreventées. Les bielles le conservent dans tous les cas : c\'est leur seule façon de se déformer. Si vous le désactivez, l\'étape 9 compare quand même avec la méthode des rigidités, qui l\'inclut, et montre l\'écart.',
+  'course.statics.fm.axial.help': 'Ajoute à chaque coefficient le terme ∫ nᵢ·nⱼ/EA dx des barres de portique. Dans les poutres et portiques courants, il apporte peu et la solution de cours le néglige. Il compte dans les tirants, les arcs (surtout comprimés seulement sous des charges proches de leur funiculaire ; des charges dissymétriques ou concentrées les fléchissent aussi nettement), les poteaux à fort effort normal et les structures contreventées. Les bielles le conservent dans tous les cas : c\'est leur seule façon de se déformer. Si vous le désactivez, l\'étape 9 compare quand même avec la méthode des rigidités, qui l\'inclut, et montre l\'écart.',
   'course.statics.fm.fund.summaryAuto': 'Structure de base : choisie automatiquement',
   'course.statics.fm.fund.summaryMine': 'Structure de base : votre choix',
   'course.statics.fm.fund.change': 'Modifier',
@@ -68,7 +68,10 @@ const words: Translations = {
   'course.statics.fm.terms.springRedundant': 'Le ressort libéré est l\'inconnue hyperstatique : X est son effort. L\'appui se déplace de −X/k ; c\'est pourquoi δᵢᵢ ajoute la flexibilité du ressort, 1/k.',
   'course.statics.fm.s5.axialOff': 'Sans déformation axiale : les barres de portique n\'apportent que la flexion. Les bielles conservent leur terme axial.',
   'course.statics.fm.s5.axialKept': '{list} ne travaille qu\'axialement : sa ligne et sa colonne conservent le terme axial, car sans lui son équation ne dirait rien.',
+  'course.statics.fm.s5.axialAll': 'Garder le terme axial dans quelques lignes seulement ne suffit pas ici : la matrice mélangée ne serait pas définie positive, donc pas une souplesse. Tous les coefficients gardent le terme axial.',
   'course.statics.fm.s9.axialOff': 'Sans déformation axiale, la structure est plus rigide que celle de la méthode des rigidités, qui l\'inclut. L\'écart maximal est de {d}, soit {pct} de l\'effort le plus grand : c\'est l\'apport du terme axial que vous avez laissé de côté.',
+  'course.statics.fm.s9.axialUnverified': 'Le plus grand écart avec la méthode des rigidités est {d}, soit {pct} de la plus grande force. Il peut venir du terme axial que vous avez omis, mais aucune solution de référence avec la même hypothèse ne permet de le vérifier ; le résultat n\'est donc pas vérifié.',
+  'course.statics.fm.s9.rigidOk': 'Cela concorde avec la méthode des rigidités résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie.',
 
   // Travaux virtuels
   'course.statics.vw.choose': 'Au-dessus du document, dans Objet du calcul, vous choisissez la grandeur (déplacement, rotation, déplacement relatif ou rotation relative), le ou les nœuds et la direction. Vous pouvez aussi sélectionner un nœud dans le modèle avant d\'ouvrir le pas à pas.',
@@ -76,13 +79,15 @@ const words: Translations = {
   'course.statics.vw.target.dispAngle': 'Déplacement du nœud {n} dans la direction à {a}° de l\'horizontale, mesuré dans le sens de la charge unitaire.',
   'course.statics.vw.target.rot': 'Rotation du nœud {n}, positive dans le sens antihoraire.',
   'course.statics.vw.target.relDispLine': 'Déplacement relatif entre {n} et {m} selon la droite qui les relie : positif quand ils s\'éloignent.',
+  'course.statics.vw.err.coincident': '{n} et {m} sont au même point : aucune droite ne les relie. Choisissez une direction (x, z ou un angle).',
+  'course.statics.vw.err.angle': 'L\'angle de la direction doit être un nombre.',
   'course.statics.vw.target.relDispX': 'Déplacement relatif horizontal entre {n} et {m} : celui de {m} moins celui de {n}, positif vers la droite.',
   'course.statics.vw.target.relDispZ': 'Déplacement relatif vertical entre {n} et {m} : celui de {m} moins celui de {n}, positif vers le bas.',
   'course.statics.vw.target.relDispAngle': 'Déplacement relatif entre {n} et {m} dans la direction à {a}° de l\'horizontale : celui de {m} moins celui de {n}.',
   'course.statics.vw.target.relRot': 'Rotation relative entre {n} et {m} : la rotation de {m} moins celle de {n}, positive dans le sens antihoraire.',
   'course.statics.vw.why.disp': 'Une force unitaire ne travaille que dans le déplacement de son point d\'application, selon sa propre direction : c\'est pourquoi le travail virtuel extérieur vaut 1·δ.',
   'course.statics.vw.why.rot': 'Un couple unitaire travaille dans la rotation du nœud où il agit : le travail virtuel extérieur vaut 1·θ. C\'est pourquoi, pour une rotation, la charge virtuelle est un moment.',
-  'course.statics.vw.why.relDisp': 'Deux forces unitaires égales et opposées, l\'une en {n} et l\'autre en {m}, travaillent dans la différence de leurs déplacements : 1·δ_{m} − 1·δ_{n} = 1·Δδ. Elles s\'équilibrent entre elles ; dans une structure isostatique, elles ne provoquent donc aucune réaction.',
+  'course.statics.vw.why.relDisp': 'Deux forces unitaires égales et opposées, l’une en {n} et l’autre en {m}, travaillent dans la différence de leurs déplacements : 1·δ_{m} − 1·δ_{n} = 1·Δδ. Si elles agissent le long de la droite qui joint les deux nœuds, leur résultante et leur moment sont nuls ; dans toute autre direction la résultante reste nulle mais elles forment un couple ; les réactions découlent tout de même de l’équilibre de la structure et ne sont pas forcément nulles.',
   'course.statics.vw.why.relRot': 'Deux couples unitaires opposés, l\'un en {n} et l\'autre en {m}, travaillent dans la différence des rotations : 1·θ_{m} − 1·θ_{n} = 1·Δθ.',
   'course.statics.vw.extrasWhy': 'Les ressorts, les tassements et la température entrent aussi dans le bilan des travaux. Un ressort se déforme de R/k ; il absorbe donc r·R/k. Un appui qui tasse de c fait travailler sa réaction virtuelle, et ce travail se retranche : −r·c. La température provoque une déformation libre α·ΔT et une courbure α·Δt/h, dans lesquelles travaillent les efforts virtuels n et m.',
   'course.statics.vw.unit.rot': 'On applique en {n} un couple unitaire, dans le sens antihoraire, sans aucune autre charge.',
@@ -94,7 +99,7 @@ const words: Translations = {
   'course.statics.vw.col.comp': 'Composante',
   'course.statics.vw.settleLead': 'Chaque déplacement imposé c d\'un appui apporte −r·c, où r est la réaction virtuelle dans cette direction.',
   'course.statics.vw.settleCaption': 'Tassements : réaction virtuelle et contribution.',
-  'course.statics.vw.thermalLead': 'Chaque barre soumise à une variation de température apporte n·α·ΔT·L (l\'allongement libre) plus ∫ m·α·Δt/h dx (la courbure libre), avec m̄ le moment virtuel moyen de la barre.',
+  'course.statics.vw.thermalLead': 'Chaque barre soumise à une variation de température apporte n·α·ΔT·L (l\'allongement libre) plus ∫ m·α·Δt/h dx = m̄·L·α·Δt/h (la courbure libre), avec m̄ le moment virtuel moyen de la barre.',
   'course.statics.vw.thermalCaption': 'Température : déformations libres et leur travail virtuel.',
   'course.statics.vw.sense.rotPos': 'Le résultat est positif : le nœud {n} tourne dans le sens antihoraire, comme le couple unitaire.',
   'course.statics.vw.sense.rotNeg': 'Le résultat est négatif : le nœud {n} tourne dans le sens horaire, à l\'inverse du couple unitaire.',
@@ -120,7 +125,8 @@ const words: Translations = {
   'course.statics.vw.p.help': 'La charge virtuelle dépend de ce que vous cherchez : une force unitaire pour un déplacement, un couple unitaire pour une rotation, deux forces opposées pour un déplacement relatif entre deux nœuds et deux couples opposés pour une rotation relative. Automatique prend le nœud sélectionné dans le modèle ou celui qui se déplace le plus ; pour une grandeur relative, la direction automatique est la droite qui relie les deux nœuds.',
   'course.statics.cast.realCouple': 'Un moment P = {P} kN·m agit déjà en {n} : la rotation est la dérivée de l\'énergie par rapport à ce moment.',
   'course.statics.cast.dummyCouple': 'Aucun moment n\'agit en {n} : on ajoute un moment fictif Q, on dérive l\'énergie par rapport à Q, puis on fait Q = 0.',
-  'course.statics.cast.dummyPair': 'Pour une grandeur relative, on ajoute une paire de charges fictives opposées Q, en {n} et en {m} : la dérivée de l\'énergie par rapport à Q donne la grandeur relative, puis on fait Q = 0.',
+  'course.statics.cast.dummyPair': 'Pour une grandeur relative, on ajoute une paire de charges fictives opposées Q, en {n} et en {m} (des forces, ou des couples pour une rotation relative) : la dérivée de l\'énergie par rapport à Q donne la grandeur relative, puis on fait Q = 0.',
+  'course.statics.fm.fund.section': 'Pour couper une barre en un point intermédiaire, subdivisez-la d’abord (clic droit sur la barre, Subdiviser en) et coupez au nouveau nœud.',
 };
 
 export default words;

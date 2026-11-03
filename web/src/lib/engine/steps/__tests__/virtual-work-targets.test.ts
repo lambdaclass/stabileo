@@ -9,6 +9,7 @@ import { modelStore } from '../../../store/model.svelte';
 import * as wasm from '../../wasm-solver';
 import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
+import { pickTarget, unitLoadInput } from '../unit-target';
 import { methods } from '../methods/deformation';
 import type { MethodContext } from '../registry';
 import type { Block, CompareRow, StepDoc } from '../doc';
@@ -109,6 +110,11 @@ describe('virtual work: what to compute', () => {
 
 describe('virtual work: springs, settlements, temperature', () => {
   const extras = (doc: StepDoc) => doc.steps.find((s) => s.title.key === 'course.statics.vw.extrasTitle');
+  const springComps = (doc: StepDoc): string[] => {
+    const table = extras(doc)!.blocks.find((b) => b.kind === 'table' && b.caption?.key === 'course.statics.vw.springsCaption');
+    if (!table || table.kind !== 'table') throw new Error('no springs table');
+    return table.rows.map((r) => (r[1] as { tex: string }).tex);
+  };
 
   it('a beam on a spring: Σ r·R/k joins the bar integrals', async () => {
     await modelStore.loadExample('spring-support');
@@ -118,12 +124,64 @@ describe('virtual work: springs, settlements, temperature', () => {
     agrees(build('virtualWork', { quantity: 'rot', node: '1' }), 'rad');
   });
 
+  it('a cantilever on a vertical and a rotational spring: each spring works in its own component', () => {
+    const P = 10, L = 4, ky = 3000, kz = 800;
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(L, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'spring', { kx: 1e6, ky, kz });
+    modelStore.addNodalLoad(b, 0, -P, 0);
+    const EI = planeModel(modelStore.buildSolverInput(false)!).members.values().next().value!.EI;
+    const doc = build('virtualWork', { quantity: 'disp', node: String(b), dir: 'z' });
+    expect(agrees(doc, 'mm') / 1000).toBeCloseTo(P * (L ** 3 / (3 * EI) + L ** 2 / kz + 1 / ky), 12);
+    expect(agrees(build('virtualWork', { quantity: 'rot', node: String(b) }), 'rad')).toBeCloseTo(-P * (L ** 2 / (2 * EI) + L / kz), 12);
+  });
+
+  for (const angle of [30, -50]) {
+    it(`a spring turned ${angle}°: its work is taken in its own axes and agrees with the matrix solve`, () => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(4, 3);
+      modelStore.addElement(a, b); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'pinned');
+      const sp = modelStore.addSupport(c, 'spring', { kx: 2000, ky: 500, kz: 0 });
+      modelStore.updateSupport(sp, { angle });
+      modelStore.addNodalLoad(b, 6, -10, 0);
+      const input = modelStore.buildSolverInput(false)!;
+      expect(Math.abs(Math.abs([...input.supports.values()].find((s) => s.type === 'spring')!.angle ?? 0) - Math.abs(angle * Math.PI) / 180)).toBeLessThan(1e-12);
+      for (const dir of ['x', 'z']) {
+        const doc = build('virtualWork', { quantity: 'disp', node: String(c), dir });
+        expect(extras(doc)).toBeDefined();
+        agrees(doc, 'mm');
+        const comps = springComps(doc);
+        expect(comps).toHaveLength(2);
+        expect(comps[0]).toMatch(new RegExp(`^x'.*\\\\alpha = ${angle}\\^`));
+        expect(comps[1]).toMatch(new RegExp(`^z'.*\\\\alpha = ${angle}\\^`));
+      }
+    });
+  }
+
+  it('a spring in global axes keeps the plain x, z, θ labels', () => {
+    const P = 10, L = 4;
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(L, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'spring', { kx: 1e6, ky: 3000, kz: 800 });
+    modelStore.addNodalLoad(b, 0, -P, 0);
+    expect(springComps(build('virtualWork', { quantity: 'disp', node: String(b), dir: 'z' }))).toEqual(['x', 'z', '\\theta']);
+  });
+
   it('a settled support: − Σ r·c', async () => {
     await modelStore.loadExample('settlement');
     for (const id of planeModel(modelStore.buildSolverInput(false)!).nodeOrder) {
       agrees(build('virtualWork', { quantity: 'disp', node: String(id), dir: 'z' }), 'mm');
       agrees(build('virtualWork', { quantity: 'rot', node: String(id) }), 'rad');
     }
+  });
+
+  it('the virtual state carries the unit load alone, never the settlement', async () => {
+    await modelStore.loadExample('settlement');
+    const input = modelStore.buildSolverInput(false)!;
+    const virt = solveReference(unitLoadInput(input, { loads: [{ node: 3, fx: 0, fz: 1, my: 0 }] } as Parameters<typeof unitLoadInput>[1]))!;
+    expect(Math.abs(virt.displacements.get(2)!.uz)).toBeLessThan(1e-15);
+    const still = solveReference({ ...input, loads: [] })!;
+    expect(Math.abs(still.displacements.get(2)!.uz + 0.01)).toBeLessThan(1e-12);
   });
 
   it('temperature: the free elongation and curvature', async () => {
@@ -165,5 +223,83 @@ describe('Castigliano\'s second theorem on the force method\'s chosen primary st
     const rows = rowsOf(doc);
     expect(rows.length).toBeGreaterThan(0);
     for (const r of rows) expect(Math.abs(r.method - r.matrix), r.label).toBeLessThan(1e-6 * Math.max(1, Math.abs(r.matrix)));
+  });
+});
+
+describe('a relative quantity between the nodes the reader chose', () => {
+  it('the same node twice is kept: its relative displacement is zero, not that of another node', async () => {
+    await modelStore.loadExample('portal-frame');
+    const params = { quantity: 'relDisp', node: '2', node2: '2', dir: 'x' };
+    const tg = pickTarget(ctxOf(params));
+    expect([tg.node, tg.node2]).toEqual([2, 2]);
+    const rows = rowsOf(build('virtualWork', params));
+    expect(rows).toHaveLength(1);
+    expect(Math.abs(rows[0].method)).toBeLessThan(1e-12);
+    expect(Math.abs(rows[0].matrix)).toBeLessThan(1e-12);
+  });
+
+  it('two distinct nodes at one point have no line between them: refused until a direction is chosen', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    const c = modelStore.addNode(8, 0), d = modelStore.addNode(4, 0);
+    expect(d).not.toBe(b);
+    modelStore.addElement(a, b); modelStore.addElement(c, d);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'fixed');
+    modelStore.addNodalLoad(b, 0, -10, 0);
+    for (const id of ['virtualWork', 'castigliano']) {
+      const m = methods.find((x) => x.id === id)!;
+      const refused = m.applies(ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'auto' }));
+      expect(refused.ok).toBe(false);
+      if (!refused.ok) expect(refused.reason.key).toBe('course.statics.vw.err.coincident');
+      const rows = rowsOf(m.build!(ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'z' })));
+      expect(Math.abs(rows[0].method - rows[0].matrix)).toBeLessThan(1e-9 * Math.max(Math.abs(rows[0].matrix), 1e-3));
+      expect(Math.abs(rows[0].matrix)).toBeGreaterThan(1e-6);
+    }
+  });
+
+  it('a hyperstatic structure: Castigliano solves its redundants and ignores the target, so a target it cannot use does not refuse it', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0);
+    const c = modelStore.addNode(8, 0), d = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b); modelStore.addElement(c, d);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(c, 'fixed'); modelStore.addSupport(b, 'pinned');
+    modelStore.addNodalLoad(d, 0, -10, 0);
+    const m = methods.find((x) => x.id === 'castigliano')!;
+    const ctx = ctxOf({ quantity: 'relDisp', node: String(b), node2: String(d), dir: 'auto' });
+    expect(m.applies(ctx).ok).toBe(true);
+    expect(m.build!(ctx).noParams).toBe(true);
+  });
+
+  it('a direction angle that is not a finite number is refused', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(4, 3);
+    modelStore.addElement(a, b); modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addNodalLoad(c, 5, -10, 0);
+    for (const id of ['virtualWork', 'castigliano']) {
+      const m = methods.find((x) => x.id === id)!;
+      for (const angle of ['abc', 'Infinity', '-Infinity', '']) {
+        const v = m.applies(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle }));
+        if (angle === '') { expect(v.ok).toBe(true); continue; }
+        expect(v.ok, `${id} ${angle}`).toBe(false);
+        if (!v.ok) expect(v.reason.key).toBe('course.statics.vw.err.angle');
+      }
+      expect(m.applies(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle: '45' })).ok).toBe(true);
+    }
+  });
+
+  it('a huge but finite angle is the same direction as the angle modulo 360°', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(4, 0), c = modelStore.addNode(4, 3);
+    modelStore.addElement(a, b); modelStore.addElement(b, c);
+    modelStore.addSupport(a, 'fixed');
+    modelStore.addNodalLoad(c, 5, -10, 0);
+    for (const angle of [1e308, -1e308, 7.2e17 + 30, Number.MAX_VALUE]) {
+      const deg = angle % 360;
+      const tg = pickTarget(ctxOf({ quantity: 'disp', node: '3', dir: 'angle', angle: String(angle) }));
+      expect(tg.loads[0].fx).toBeCloseTo(Math.cos((deg * Math.PI) / 180), 14);
+      expect(tg.loads[0].fz).toBeCloseTo(Math.sin((deg * Math.PI) / 180), 14);
+      for (const id of ['virtualWork', 'castigliano']) {
+        const value = agrees(build(id, { quantity: 'disp', node: '3', dir: 'angle', angle: String(angle) }), 'mm');
+        const same = agrees(build(id, { quantity: 'disp', node: '3', dir: 'angle', angle: String(deg) }), 'mm');
+        expect(value).toBeCloseTo(same, 12);
+      }
+    }
   });
 });

@@ -14,6 +14,7 @@
    * face it stretches: the tension side, as it is taught here.
    */
   import type { Geometry, StateResult, Redundant } from '../../lib/engine/force-method/solve';
+  import type { ReleaseOption } from '../../lib/engine/force-method/releases';
 
   type Component = 'm' | 'my' | 't' | 'n';
   interface Props {
@@ -25,10 +26,14 @@
     component?: Component;
     stateLabel?: string;
     testId?: string;
+    /** Releases offered on the drawing: clicking one toggles it. */
+    pick?: { options: ReleaseOption[]; picked: string[]; onPick: (key: string) => void; title: (o: ReleaseOption) => string };
+    /** Nodes to ring: the ones a wrong fundamental lets move. */
+    highlight?: number[];
   }
   let {
     geometry, redundants = [], focus = null, state = null, component = 'm',
-    stateLabel = 'M', testId = 'fm-sketch',
+    stateLabel = 'M', testId = 'fm-sketch', pick, highlight = [],
   }: Props = $props();
 
   type V3 = [number, number, number];
@@ -103,22 +108,27 @@
   });
 
   type Mark = {
-    r: Redundant; on: boolean; tag: string; kind: 'force' | 'moment' | 'bar' | 'cut';
+    r: Redundant; on: boolean; tag: string; kind: 'force' | 'moment' | 'bar' | 'cut' | 'hinge';
     x: number; y: number; dx?: number; dy?: number; axis?: string;
   };
   const AXES: V3[] = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  const forceDir = (nodeId: number, c: number): V3 => {
+    if (is3D) return AXES[c];
+    if (c === 0) return AXES[0];
+    const a = geometry.supports.find((s) => s.nodeId === nodeId)?.angle;
+    return a === undefined ? AXES[2] : [Math.sin(a), 0, Math.cos(a)];
+  };
   const marks = $derived(redundants.map((r): Mark | null => {
     const on = focus === null || focus === r.index;
     const tag = `X${sub(r.index)}`;
-    if (r.kind === 'reaction') {
+    if (r.kind === 'reaction' || r.kind === 'spring') {
       const p3 = pos3(node(r.nodeId));
       const p = P(p3);
       const c = r.component ?? 1;
       const nForce = is3D ? 3 : 2;
       if (c >= nForce) return { r, on, tag, kind: 'moment', x: p.x, y: p.y, axis: is3D ? ['x', 'y', 'z'][c - 3] : '' };
       /* Plane: 0 is x, 1 is z. Space: 0, 1, 2 are x, y, z. */
-      const dir = is3D ? AXES[c] : (c === 0 ? AXES[0] : AXES[2]);
-      const q = P(along(p3, dir, -1));
+      const q = P(along(p3, forceDir(r.nodeId, c), -1));
       const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
       return { r, on, tag, kind: 'force', x: p.x, y: p.y, dx: (q.x - p.x) / len, dy: (q.y - p.y) / len };
     }
@@ -131,14 +141,14 @@
     const c = P(along(bar.a, bar.ex, bar.L * (r.end === 'J' ? 0.86 : 0.14)));
     const pa = P(bar.a), pb = P(bar.b);
     const len = Math.hypot(pb.x - pa.x, pb.y - pa.y) || 1;
-    return { r, on, tag, kind: 'cut', x: c.x, y: c.y, dx: (pb.x - pa.x) / len, dy: (pb.y - pa.y) / len };
+    return { r, on, tag, kind: r.hinge ? 'hinge' : 'cut', x: c.x, y: c.y, dx: (pb.x - pa.x) / len, dy: (pb.y - pa.y) / len };
   }).filter((m): m is Mark => m !== null));
 
   /* One label per cut, not several stacked on the same spot. */
   const cutLabels = $derived.by(() => {
     const byElem = new Map<number, { x: number; y: number; tags: string[]; on: boolean }>();
     for (const m of marks) {
-      if (m.kind !== 'cut') continue;
+      if (m.kind !== 'cut' && m.kind !== 'hinge') continue;
       const k = m.r.elementId!;
       const cur = byElem.get(k) ?? { x: m.x, y: m.y, tags: [], on: false };
       cur.tags.push(m.tag);
@@ -147,6 +157,36 @@
     }
     return [...byElem.values()];
   });
+
+  /** Where each offered release is drawn on the structure, to be clicked. */
+  const spots = $derived((pick?.options ?? []).map((o) => {
+    if (o.kind === 'cut') return null;
+    if (o.kind === 'reaction' || o.kind === 'spring') {
+      const p3 = pos3(node(o.nodeId));
+      const p = P(p3);
+      const c = o.component ?? 1;
+      if (c === 2) return { o, kind: 'moment' as const, x: p.x - 13, y: p.y - 13, ax: p.x, ay: p.y };
+      if (c === 0) return { o, kind: 'force' as const, x: p.x - 22, y: p.y, ax: p.x - 6, ay: p.y };
+      const q = P(along(p3, forceDir(o.nodeId, c), -1));
+      const len = Math.hypot(q.x - p.x, q.y - p.y) || 1;
+      const dx = (q.x - p.x) / len, dy = (q.y - p.y) / len;
+      return { o, kind: 'force' as const, x: p.x + 24 * dx, y: p.y + 24 * dy, ax: p.x + 8 * dx, ay: p.y + 8 * dy };
+    }
+    const bar = bars.find((b) => b.id === o.elementId);
+    if (!bar) return null;
+    const at = o.kind === 'biela' ? 0.5 : o.end === 'J' ? 0.82 : 0.18;
+    const q = P(along(bar.a, bar.ex, bar.L * at));
+    return { o, kind: o.kind === 'biela' ? 'biela' as const : 'hinge' as const, x: q.x, y: q.y, ax: q.x, ay: q.y };
+  }).filter((s): s is NonNullable<typeof s> => s !== null));
+  const isPicked = (k: string) => pick?.picked.includes(k) ?? false;
+  const countOf = (k: string) => pick?.options.find((o) => o.key === k)?.count ?? 1;
+  const order = (k: string) => {
+    const at = pick?.picked.indexOf(k) ?? -1;
+    return at < 0 ? 0 : pick!.picked.slice(0, at).reduce((s, q) => s + countOf(q), 0) + 1;
+  };
+  function onSpotKey(e: KeyboardEvent, k: string) {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick?.onPick(k); }
+  }
 
   function sub(n: number): string {
     return String(n).split('').map((d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]).join('');
@@ -215,13 +255,41 @@
       </g>
     {:else if m.kind === 'bar'}
       <text x={m.x + 3} y={m.y - 3} class="fm-xlbl" class:fm-x-off={!m.on}>{m.tag}</text>
-    {:else}
+    {:else if m.kind === 'hinge'}
+      <circle cx={m.x} cy={m.y} r="3.4" class="fm-hinge" />
+    {:else if m.kind === 'cut'}
       <line x1={m.x + m.dy! * 6 - m.dx! * 2} y1={m.y - m.dx! * 6 - m.dy! * 2} x2={m.x - m.dy! * 6 - m.dx! * 2} y2={m.y + m.dx! * 6 - m.dy! * 2} class="fm-cut" />
       <line x1={m.x + m.dy! * 6 + m.dx! * 2} y1={m.y - m.dx! * 6 + m.dy! * 2} x2={m.x - m.dy! * 6 + m.dx! * 2} y2={m.y + m.dx! * 6 + m.dy! * 2} class="fm-cut" />
     {/if}
   {/each}
   {#each cutLabels as c, k (k)}
     <text x={c.x + 7} y={c.y - 7} class="fm-xlbl" class:fm-x-off={!c.on}>{c.tags.join(', ')}</text>
+  {/each}
+
+  {#each highlight as id (id)}
+    {#if geometry.nodes.some((n) => n.id === id)}
+      {@const p = P(pos3(node(id)))}
+      <circle cx={p.x} cy={p.y} r="8" class="fm-move" />
+    {/if}
+  {/each}
+
+  {#each spots as sp (sp.o.key)}
+    {@const on = isPicked(sp.o.key)}
+    <g class="fm-spot" class:on role="button" tabindex="0" aria-pressed={on} data-testid="fm-spot-{sp.o.key}"
+      onclick={() => pick?.onPick(sp.o.key)} onkeydown={(e) => onSpotKey(e, sp.o.key)}>
+      <title>{pick?.title(sp.o)}</title>
+      {#if sp.kind === 'force'}
+        <line x1={sp.x} y1={sp.y} x2={sp.ax} y2={sp.ay} class="fm-spot-line" marker-end="url(#fm-ah)" />
+      {:else if sp.kind === 'moment'}
+        <path d="M{sp.ax - 9},{sp.ay} A9,9 0 0 1 {sp.ax},{sp.ay - 9}" class="fm-spot-line" marker-end="url(#fm-ah)" />
+      {:else if sp.kind === 'hinge'}
+        <circle cx={sp.x} cy={sp.y} r="3.2" class="fm-spot-hinge" />
+      {:else}
+        <line x1={sp.x - 4} y1={sp.y + 5} x2={sp.x + 4} y2={sp.y - 5} class="fm-spot-line" />
+      {/if}
+      <circle cx={sp.x} cy={sp.y} r="9" class="fm-spot-hit" />
+      {#if on}<text x={sp.x + 6} y={sp.y - 6} class="fm-xlbl">X{sub(order(sp.o.key))}</text>{/if}
+    </g>
   {/each}
 
   {#if state}
@@ -246,4 +314,12 @@
   .fm-x-off { opacity: 0.3; }
   .fm-cut { stroke: #e5484d; stroke-width: 1.4; }
   .fm-legend { fill: var(--st-text-3); font-size: 7px; }
+  .fm-move { fill: none; stroke: var(--st-danger); stroke-width: 1.4; stroke-dasharray: 2 1.5; }
+  .fm-spot { cursor: pointer; outline: none; }
+  .fm-spot-line { fill: none; stroke: var(--st-text-3); stroke-width: 1.2; stroke-dasharray: 3 2; }
+  .fm-spot-hinge { fill: var(--st-surface); stroke: var(--st-text-3); stroke-width: 1; stroke-dasharray: 2 1.5; }
+  .fm-spot-hit { fill: transparent; stroke: none; }
+  .fm-spot:hover .fm-spot-hit, .fm-spot:focus-visible .fm-spot-hit { fill: color-mix(in srgb, var(--st-accent) 14%, transparent); }
+  .fm-spot.on .fm-spot-line { stroke: #e5484d; stroke-dasharray: none; stroke-width: 1.6; }
+  .fm-spot.on .fm-spot-hinge { fill: #e5484d; stroke: #e5484d; stroke-dasharray: none; }
 </style>

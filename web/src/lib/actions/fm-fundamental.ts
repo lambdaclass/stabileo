@@ -6,11 +6,12 @@
 import { modelStore, uiStore, fmStepsStore } from '../store';
 import { fmChoice, type FmChoiceError } from '../store/fm-choice.svelte';
 import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
+import { blocked, refused } from './wizard-guard';
 
 const xName = (i: number) => `X${String(i).split('').map((d) => '₀₁₂₃₄₅₆₇₈₉'[Number(d)]).join('')}`;
 
 export function choiceError(e: unknown): FmChoiceError {
-  if (!(e instanceof ForceMethodError)) return { key: 'course.statics.err.noRedundants', params: {}, nodes: [] };
+  if (!(e instanceof ForceMethodError)) return { key: 'toast.detailedSolverError', params: {}, nodes: [] };
   const d = e.detail;
   const nodes = d.nodes ?? [];
   const params: Record<string, string | number> = {
@@ -23,8 +24,9 @@ export function choiceError(e: unknown): FmChoiceError {
 
 /** Solve again with `releases` (null: the method chooses) and `axial`, each kept as it is when not given. */
 export function resolveFlexibility(next: { releases?: string[] | null; axial?: boolean }): boolean {
+  if (blocked()) return false;
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-  if (!input) return false;
+  if (!input || refused(input, false)) return false;
   const releases = next.releases !== undefined ? next.releases : fmChoice.applied;
   const axial = next.axial ?? fmChoice.axial;
   try {
@@ -37,4 +39,17 @@ export function resolveFlexibility(next: { releases?: string[] | null; axial?: b
     fmChoice.fail(choiceError(e));
     return false;
   }
+}
+
+export function switchFlexibilityAxial(box: { checked: boolean }, applied: boolean): boolean {
+  if (resolveFlexibility({ axial: box.checked })) return true;
+  box.checked = applied;
+  return false;
+}
+
+/** Back to the method's own primary structure; the toggle stays on manual when that solve is refused. */
+export function chooseAutoFundamental(onScreen: 'auto' | 'manual'): boolean {
+  if (onScreen === 'manual' && !resolveFlexibility({ releases: null })) return false;
+  fmChoice.setMode('auto');
+  return true;
 }

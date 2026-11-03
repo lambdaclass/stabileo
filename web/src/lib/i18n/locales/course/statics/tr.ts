@@ -1,7 +1,7 @@
 import type { Translations } from '../../../types';
 
 const words: Translations = {
-  'course.statics.gh.what': 'Hiperstatiklik derecesi GH, kaç kuvvetin fazla olduğunu sayar: mesnet ve çubuk bilinmeyenlerinin sayısından kurulabilecek denge denklemlerinin sayısı çıkarılır. GH = 0 ise statik yeterlidir; GH > 0 ise GH adet süreklilik (uygunluk) denklemi gerekir.',
+  'course.statics.gh.what': 'Hiperstatiklik derecesi GH, kaç kuvvetin fazla olduğunu sayar: mesnet ve çubuk bilinmeyenlerinin sayısından kurulabilecek denge denklemlerinin sayısı çıkarılır. GH = 0 ve yapı kinematik olarak stabil ise statik yeterlidir; GH > 0 ise GH adet süreklilik (uygunluk) denklemi gerekir. Sayım tek başına stabiliteyi kanıtlamaz.',
   'course.statics.gh.legend.frame': 'm = {m} çubuk, r = {r} mesnet tepkisi (bir yay bir tepki sayılır), her birinde üç denklem (ΣFx, ΣFz, ΣM) bulunan n = {n} düğüm ve iç mafsalların serbest bıraktığı c = {c} koşul.',
   'course.statics.gh.legend.truss': 'm = {mb} çubuk, r = {r} mesnet tepkisi ve n = {nb} düğüm. Kafes kirişte her düğüm iki denklem verir (ΣFx, ΣFz), çünkü bütün kuvvetler düğümden geçer.',
   'course.statics.gh.legend.mixed': 'm = {m} çerçeve çubuğu ve m_b = {mb} pandül çubuk (pandül çubuğun tek bilinmeyeni eksenel kuvvetidir), r = {r} mesnet tepkisi, üç denklemli n = {n} düğüm, yalnızca pandül çubukların ulaştığı iki denklemli n_b = {nb} düğüm ve c = {c} mafsal koşulu.',
@@ -12,7 +12,7 @@ const words: Translations = {
   'course.statics.gh.hingeCaption': 'Mafsal koşulları, düğüm düğüm: c = {c}.',
   'course.statics.gh.splitLabel': 'Dış ve iç',
   'course.statics.gh.split': 'GH_e = {e} dış hiperstatikliktir: yapıyı bir bütün olarak yerinde tutmak için gerekenden fazla olan tepkiler (cisim başına r − 3, eksi bağların engellemesi gereken {mech} iç hareket; üç mafsallı kemerde veya Gerber kirişinde olduğu gibi). GH_i = {i} iç hiperstatikliktir: kapalı çevreler ve fazla çubuklar. Tepkiler bilinse bile statik bunları çözemez.',
-  'course.statics.gh.verdict.iso': 'Yapı izostatiktir (GH = 0): denge denklemleri bütün tepkileri ve iç kuvvetleri bulmaya yeter.',
+  'course.statics.gh.verdict.iso': 'Sayım GH = 0 verir: denge denklemi kadar bilinmeyen vardır. Yapı kinematik olarak stabil ise izostatiktir ve denge bütün tepkileri ve iç kuvvetleri verir; üç paralel kayıcı mesnet gibi mesnetler GH = 0 verir ama yine de bir mekanizmadır.',
   'course.statics.gh.verdict.hyper': 'Yapı {g}. dereceden hiperstatiktir: bilinmeyen sayısı denge denklemi sayısından {g} fazladır.',
   'course.statics.gh.verdict.hypo': 'Yapı labildir (GH = {g}): bağları eksik olduğu için bir mekanizmadır.',
   'course.statics.gh.redundants': 'Kuvvet yönteminde GH = {g}, X_i hiperstatik bilinmeyenlerinin sayısıdır: izostatik bir esas sistem elde etmek için tam olarak {g} bağ veya iç kuvvet serbest bırakılır.',
@@ -21,7 +21,7 @@ const words: Translations = {
   'course.statics.err.count': 'Serbest bıraktıklarınız {chosen} bilinmeyen ediyor ve GH = {gh}: esas sistem için tam olarak {gh} gerekir. Daha azıyla yapı hiperstatik kalır; daha fazlasıyla mekanizma olur.',
   'course.statics.err.unstable': 'Bu serbest bırakmalarla esas sistem bir mekanizmadır: {nodes} düğümleri serbestçe hareket ediyor. Yapının yerinde kalması için gereken bir bağı kaldırdınız. Onun yerine başka bir bağı serbest bırakmayı deneyin.',
   'course.statics.err.hingeAll': '{node} düğümünde bu serbest bırakma bir şey eklemiyor: serbest bıraktıktan sonra oraya ulaşan bütün çubuklar mafsallı bağlanıyor. {k} çubuğu birleştiren bir mafsal {k1} koşul serbest bırakır, yani çubuk sayısından bir eksik. Başka bir serbest bırakma seçin.',
-  'course.statics.err.singular': 'Esas sistem iyi bağlanmış, ancak {which} iş yapmıyor: birim durumu hiçbir çubukta ve yayda şekil değiştirme oluşturmuyor; [δ] içindeki satırı sıfır veya diğerlerine bağlı. Uygunluk sisteminin tek bir çözümü yok, bu yüzden çözülmüyor. Başka bir serbest bırakma seçin.',
+  'course.statics.err.singular': 'Esas sistem iyi bağlanmış, ancak uygunluk sistemi {which} değerini belirlemiyor: [δ] içindeki satırı ya sıfırdır, çünkü birim durumu hiçbir çubukta ve yayda şekil değiştirme oluşturmaz, ya da durumları çubukları şekil değiştirse bile diğer bilinmeyenlerin satırlarının bir birleşimidir. Sistemin tek bir çözümü yok, bu yüzden çözülmüyor. Başka bir serbest bırakma seçin.',
   'course.statics.err.clash': 'Bir çubuğun aynı ucunda iki serbest bırakma seçtiniz (bir kesim ve bir mafsal). Yalnızca birini tutun.',
   'course.statics.err.partialCut': 'Aynı uçtaki bu serbest bırakma birleşimi modellenemiyor. Çubuğu tümüyle kesin veya bir mafsal koyun.',
   'course.statics.err.nothing': 'Bu serbest bırakma bu modele ait değil. Yeniden seçin.',
@@ -33,7 +33,7 @@ const words: Translations = {
 
   // Kuvvet yöntemi
   'course.statics.fm.axial.label': 'Eksenel şekil değiştirmeyi dahil et',
-  'course.statics.fm.axial.help': 'Her katsayıya çerçeve çubuklarının ∫ nᵢ·nⱼ/EA dx terimini ekler. Sıradan kiriş ve çerçevelerde katkısı küçüktür ve ders çözümü bunu ihmal eder. Gergi çubuklarında, kemerlerde (neredeyse yalnızca basınç altında çalışırlar), eksenel kuvveti büyük kolonlarda ve çaprazlı yapılarda önemlidir. Pandül çubuklar bu terimi her durumda korur: şekil değiştirmelerinin tek yolu budur. Kapatırsanız 9. adım yine de bu terimi içeren rijitlik yöntemiyle karşılaştırır ve farkı gösterir.',
+  'course.statics.fm.axial.help': 'Her katsayıya çerçeve çubuklarının ∫ nᵢ·nⱼ/EA dx terimini ekler. Sıradan kiriş ve çerçevelerde katkısı küçüktür ve ders çözümü bunu ihmal eder. Gergi çubuklarında, kemerlerde (yalnızca basınç çizgisine yakın yüklerde ağırlıklı olarak basınçla çalışırlar; simetrik olmayan veya tekil yükler belirgin eğilme de oluşturur), eksenel kuvveti büyük kolonlarda ve çaprazlı yapılarda önemlidir. Pandül çubuklar bu terimi her durumda korur: şekil değiştirmelerinin tek yolu budur. Kapatırsanız 9. adım yine de bu terimi içeren rijitlik yöntemiyle karşılaştırır ve farkı gösterir.',
   'course.statics.fm.fund.summaryAuto': 'Esas sistem: otomatik seçildi',
   'course.statics.fm.fund.summaryMine': 'Esas sistem: sizin seçiminiz',
   'course.statics.fm.fund.change': 'Değiştir',
@@ -68,7 +68,10 @@ const words: Translations = {
   'course.statics.fm.terms.springRedundant': 'Serbest bırakılan yay bilinmeyendir: X onun kuvvetidir. Mesnet −X/k kadar hareket eder; bu yüzden δᵢᵢ terimine yayın esnekliği 1/k eklenir.',
   'course.statics.fm.s5.axialOff': 'Eksenel şekil değiştirme yok: çerçeve çubukları yalnızca eğilme katkısı yapar. Pandül çubuklar eksenel terimlerini korur.',
   'course.statics.fm.s5.axialKept': '{list} yalnızca eksenel çalışır: satırı ve sütunu eksenel terimi korur, çünkü bu terim olmadan denklemi bir şey söylemez.',
+  'course.statics.fm.s5.axialAll': 'Eksenel terimi yalnızca bazı satırlarda tutmak burada yetmez: karışık matris pozitif tanımlı olmaz, yani bir esneklik matrisi olmaz. Tüm katsayılar eksenel terimi korur.',
   'course.statics.fm.s9.axialOff': 'Eksenel şekil değiştirme olmadan yapı, bunu hesaba katan rijitlik yöntemindekinden daha rijittir. En büyük fark {d}, en büyük kuvvete oranı {pct}: dışarıda bıraktığınız eksenel terimin katkısı budur.',
+  'course.statics.fm.s9.axialUnverified': 'Rijitlik yöntemiyle en büyük fark {d}, en büyük kuvvetin {pct}\'i. Dışarıda bıraktığınız eksenel terimden gelebilir, ancak aynı varsayımla bir referans çözüm bunu doğrulayamadığından sonuç doğrulanmamıştır.',
+  'course.statics.fm.s9.rigidOk': 'Eksenel olarak rijit çubuklarla çözülen rijitlik yöntemiyle, yani seçtiğiniz aynı varsayımla uyuşuyor.',
 
   // Virtüel iş
   'course.statics.vw.choose': 'Belgenin üstünde, Ne hesaplanacak bölümünde büyüklüğü (yer değiştirme, dönme, göreli yer değiştirme veya göreli dönme), düğümü veya düğümleri ve doğrultuyu seçersiniz. Adım adım çözümü açmadan önce modelde bir düğüm de seçebilirsiniz.',
@@ -76,13 +79,15 @@ const words: Translations = {
   'course.statics.vw.target.dispAngle': '{n} düğümünün yataydan {a}° açılı doğrultudaki yer değiştirmesi; birim yükün yönünde ölçülür.',
   'course.statics.vw.target.rot': '{n} düğümünün dönmesi; saat yönünün tersi pozitif.',
   'course.statics.vw.target.relDispLine': '{n} ile {m} arasında, onları birleştiren doğru boyunca göreli yer değiştirme: birbirlerinden uzaklaşıyorlarsa pozitif.',
+  'course.statics.vw.err.coincident': '{n} ve {m} aynı noktada: aralarında doğru yok. Bir doğrultu seçin (x, z veya bir açı).',
+  'course.statics.vw.err.angle': 'Doğrultu açısı bir sayı olmalı.',
   'course.statics.vw.target.relDispX': '{n} ile {m} arasındaki yatay göreli yer değiştirme: {m} düğümününki eksi {n} düğümününki, sağa doğru pozitif.',
   'course.statics.vw.target.relDispZ': '{n} ile {m} arasındaki düşey göreli yer değiştirme: {m} düğümününki eksi {n} düğümününki, aşağı doğru pozitif.',
   'course.statics.vw.target.relDispAngle': '{n} ile {m} arasında, yataydan {a}° açılı doğrultudaki göreli yer değiştirme: {m} düğümününki eksi {n} düğümününki.',
   'course.statics.vw.target.relRot': '{n} ile {m} arasındaki göreli dönme: {m} düğümünün dönmesi eksi {n} düğümününki, saat yönünün tersi pozitif.',
   'course.statics.vw.why.disp': 'Birim kuvvet yalnızca uygulandığı noktanın kendi doğrultusundaki yer değiştirmesi üzerinde iş yapar: dış virtüel işin 1·δ olmasının nedeni budur.',
   'course.statics.vw.why.rot': 'Birim moment, uygulandığı düğümün dönmesi üzerinde iş yapar: dış virtüel iş 1·θ olur. Bu yüzden bir dönme için virtüel yük bir momenttir.',
-  'course.statics.vw.why.relDisp': 'Biri {n}, diğeri {m} noktasında olan eşit ve zıt iki birim kuvvet, yer değiştirmelerinin farkı üzerinde iş yapar: 1·δ_{m} − 1·δ_{n} = 1·Δδ. Birbirlerini dengeledikleri için izostatik bir yapıda tepki oluşturmazlar.',
+  'course.statics.vw.why.relDisp': 'Biri {n}, diğeri {m} noktasında olan eşit ve zıt iki birim kuvvet, yer değiştirmelerinin farkı üzerinde iş yapar: 1·δ_{m} − 1·δ_{n} = 1·Δδ. İki düğümü birleştiren doğru boyunca etkirlerse bileşkeleri ve momentleri sıfırdır; başka her doğrultuda bileşke yine sıfırdır ama bir kuvvet çifti oluştururlar; tepkiler yine de yapının dengesinden çıkar ve sıfır olmak zorunda değildir.',
   'course.statics.vw.why.relRot': 'Biri {n}, diğeri {m} noktasında olan zıt iki birim moment, dönmelerin farkı üzerinde iş yapar: 1·θ_{m} − 1·θ_{n} = 1·Δθ.',
   'course.statics.vw.extrasWhy': 'Yaylar, mesnet çökmeleri ve sıcaklık da iş eşitliğine girer. Bir yay R/k kadar şekil değiştirir, bu yüzden r·R/k kadar iş alır. c kadar çöken bir mesnet, virtüel tepkisine iş yaptırır ve bu iş çıkarılır: −r·c. Sıcaklık serbest bir α·ΔT birim şekil değiştirmesi ve α·Δt/h eğriliği oluşturur; virtüel n ve m kuvvetleri bunlar üzerinde iş yapar.',
   'course.statics.vw.unit.rot': '{n} noktasına, başka yük olmadan, saat yönünün tersine bir birim moment uygulanır.',
@@ -94,7 +99,7 @@ const words: Translations = {
   'course.statics.vw.col.comp': 'Bileşen',
   'course.statics.vw.settleLead': 'Bir mesnedin her c zorunlu yer değiştirmesi −r·c katkısı yapar; r o doğrultudaki virtüel tepkidir.',
   'course.statics.vw.settleCaption': 'Mesnet çökmeleri: virtüel tepki ve katkı.',
-  'course.statics.vw.thermalLead': 'Sıcaklık değişimi olan her çubuk n·α·ΔT·L (serbest uzama) artı ∫ m·α·Δt/h dx (serbest eğrilik) katkısı yapar; m̄ çubuğun ortalama virtüel momentidir.',
+  'course.statics.vw.thermalLead': 'Sıcaklık değişimi olan her çubuk n·α·ΔT·L (serbest uzama) artı ∫ m·α·Δt/h dx = m̄·L·α·Δt/h (serbest eğrilik) katkısı yapar; m̄ çubuğun ortalama virtüel momentidir.',
   'course.statics.vw.thermalCaption': 'Sıcaklık: serbest şekil değiştirmeler ve virtüel işleri.',
   'course.statics.vw.sense.rotPos': 'Sonuç pozitif: {n} düğümü birim momentle aynı yönde, saat yönünün tersine döner.',
   'course.statics.vw.sense.rotNeg': 'Sonuç negatif: {n} düğümü birim momentin tersine, saat yönünde döner.',
@@ -120,7 +125,8 @@ const words: Translations = {
   'course.statics.vw.p.help': 'Virtüel yük aradığınız büyüklüğe bağlıdır: yer değiştirme için birim kuvvet, dönme için birim moment, iki düğüm arasındaki göreli yer değiştirme için zıt iki kuvvet ve göreli dönme için zıt iki moment. Otomatik seçenek, modelde seçili düğümü veya en çok hareket eden düğümü alır; göreli bir büyüklükte otomatik doğrultu, iki düğümü birleştiren doğrudur.',
   'course.statics.cast.realCouple': '{n} noktasında zaten P = {P} kN·m büyüklüğünde bir moment etkiyor: dönme, enerjinin bu momente göre türevidir.',
   'course.statics.cast.dummyCouple': '{n} noktasında moment etkimiyor: hayali bir Q momenti eklenir, enerjinin Q momentine göre türevi alınır ve en sonda Q = 0 alınır.',
-  'course.statics.cast.dummyPair': 'Göreli bir büyüklük için {n} ve {m} noktalarına zıt yönlü iki hayali Q yükü eklenir: enerjinin Q yüküne göre türevi göreli büyüklüğü verir ve en sonda Q = 0 alınır.',
+  'course.statics.cast.dummyPair': 'Göreli bir büyüklük için {n} ve {m} noktalarına zıt yönlü iki hayali Q yükü eklenir (kuvvetler, göreli dönme için ise momentler): enerjinin Q yüküne göre türevi göreli büyüklüğü verir ve en sonda Q = 0 alınır.',
+  'course.statics.fm.fund.section': 'Bir çubuğu ara bir noktada kesmek için önce onu bölün (çubuğa sağ tıklayın, Parçalara böl) ve yeni düğümde kesin.',
 };
 
 export default words;

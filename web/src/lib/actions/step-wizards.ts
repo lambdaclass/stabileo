@@ -6,13 +6,15 @@
  * small enough to print its matrices, no joints they do not model) and say
  * which limit it crossed when it is not. See `step-by-step-scope.ts`.
  */
-import { t } from '../i18n';
+import { t, tp } from '../i18n';
 import { uiStore, modelStore, dsmStepsStore, fmStepsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
 import { solveDetailed } from '../engine/solver-detailed';
 import { solveDetailed3D } from '../engine/solver-detailed-3d';
 import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
 import { solveForceMethod3D } from '../engine/force-method/solve-3d';
+import { fmChoice } from '../store/fm-choice.svelte';
+import { choiceError } from './fm-fundamental';
 import { blocked, refused } from './wizard-guard';
 
 function inputFor(threeD: boolean) {
@@ -62,6 +64,18 @@ export function openStiffnessWizard(): boolean {
   }
 }
 
+/** The reader's fundamental and axial choice, while the model is the one they were made on. */
+function solvePlaneWithChoice(input: Parameters<typeof solveForceMethod>[0]) {
+  const opts = fmChoice.optionsFor(modelStore.modelVersion);
+  try { return solveForceMethod(input, opts); } catch (e) {
+    if (!opts.releases || !(e instanceof ForceMethodError)) throw e;
+    const why = choiceError(e);
+    fmChoice.reset(modelStore.modelVersion);
+    uiStore.toast(tp(why.key, why.params), 'error');
+    return solveForceMethod(input, { axial: opts.axial });
+  }
+}
+
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
 export function openFlexibilityWizard(): boolean {
   if (blocked()) return false;
@@ -70,7 +84,7 @@ export function openFlexibilityWizard(): boolean {
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
   try {
-    const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
+    const result = threeD ? solveForceMethod3D(input as never) : solvePlaneWithChoice(input as never);
     dsmStepsStore.close();
     explainedSteps.leaveForWizard();
     fmStepsStore.setResult(result);

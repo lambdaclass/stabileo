@@ -20,6 +20,7 @@ import { allMethods } from '../methods';
 import type { ExplainedMethod, MethodContext } from '../registry';
 import type { Block, Cell, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
+import type { SolverInput, SolverLoad } from '../../types';
 import { fixtureNames2D, INTENTIONALLY_UNSOLVABLE } from '../../../templates/fixture-index';
 import { stepsEs, stepsEn, stepsPt } from '../../../i18n/locales/steps';
 import es from '../../../i18n/locales/es';
@@ -34,9 +35,13 @@ const DICTS = { es: { ...es, ...stepsEs }, en: { ...en, ...stepsEn }, pt: { ...p
  * How closely each method must agree with the matrix solve, relative to the
  * largest value compared in the same unit. The classical frame methods keep
  * members at their length, so they differ by the axial deformation the
- * matrix method includes; everything else is exact up to round-off.
+ * matrix method includes. The one-degree-of-freedom response is checked
+ * against the engine's step-by-step time integration, which carries its own
+ * time-step error. The plastic methods compare with the step-by-step collapse,
+ * whose hinge under a distributed load sits on one of 200 sections.
+ * Everything else is exact up to round-off.
  */
-const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02 };
+const TOL: Record<string, number> = { crossNoSway: 0.02, crossSway: 0.02, slopeDeflection: 0.02, displacement: 0.02, sdof: 0.005, plasticKinematic: 1e-3, plasticStatic: 1e-3 };
 const tolOf = (m: ExplainedMethod, opts: Record<string, boolean>) =>
   Object.keys(opts).length ? 1e-5 : (TOL[m.id] ?? 1e-5);
 
@@ -125,8 +130,12 @@ function compareProblems(rows: CompareRow[], tol: number, floor?: Map<string, nu
   return out;
 }
 
+/** Whether `mine` misses `ref` by more than `tol`; any non-finite value counts as a miss. */
+const differs = (mine: number, ref: number, tol: number) =>
+  !(Number.isFinite(mine) && Number.isFinite(ref) && Number.isFinite(tol)) || Math.abs(mine - ref) > tol;
+
 /** The classical frame methods keep members at their length: with axially rigid members they must match the matrix solve. */
-const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection']);
+const INEXTENSIBLE = new Set(['crossNoSway', 'crossSway', 'slopeDeflection', 'displacement']);
 
 function rigidAxially(ctx: MethodContext): MethodContext {
   const input = { ...ctx.input, sections: new Map([...ctx.input.sections].map(([id, sec]) => [id, { ...sec, a: sec.a * 1e5 }])) };
@@ -136,7 +145,7 @@ function rigidAxially(ctx: MethodContext): MethodContext {
 function context(opts: Record<string, boolean> = {}, selection = { members: [] as number[], nodes: [] as number[] }): MethodContext | null {
   const input = modelStore.buildSolverInput(false);
   if (!input || input.elements.size === 0) return null;
-  return { input, pm: planeModel(input), ref: solveReference(input), selection, options: opts };
+  return { input, pm: planeModel(input), ref: solveReference(input), selection, options: opts, model: modelStore.model };
 }
 
 /** Run every applicable method (and each switchable assumption both ways) on the model now loaded. */
@@ -155,6 +164,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
     for (const o of m.options ?? []) variants.push({ [o.id]: !o.default });
     for (const opts of variants) {
       const ctx = { ...base, options: opts };
+      if (!m.applies(ctx).ok) continue;
       let doc: StepDoc;
       try { doc = m.build(ctx); } catch (e) { failures.push(`${label} ${m.id} ${JSON.stringify(opts)}: build threw ${String((e as Error)?.stack ?? e).slice(0, 300)}`); continue; }
       let found = problems(m, doc, opts);
@@ -165,7 +175,7 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
       // at their length): it changes the answer on purpose, by exactly the
       // axial deformation, so with rigid members the answer is exact again.
       const switched = Object.keys(opts).length > 0;
-      if (found.length && (INEXTENSIBLE.has(m.id) || switched) && found.every((p) => p.startsWith('compare'))) {
+      if (found.length && !m.id.startsWith('so-') && (INEXTENSIBLE.has(m.id) || switched) && found.every((p) => p.startsWith('compare'))) {
         const rigid = rigidAxially(ctx);
         const floor = new Map([...unitScales(collect(doc).compare)].map(([u, v]) => [u, 1e-4 * v]));
         found = compareProblems(collect(m.build(rigid)).compare, 1e-4, floor).map((p) => `with rigid members: ${p}`);
@@ -282,6 +292,14 @@ function truss(seed: number) {
 // ── The sweep ───────────────────────────────────────────────────────
 
 describe('every explained method, everywhere it applies', () => {
+  it('counts a non-finite answer, reference or tolerance as a miss', () => {
+    expect(differs(1, 1, 0)).toBe(false);
+    expect(differs(Number.NaN, 1, 1)).toBe(true);
+    expect(differs(1, Number.NaN, 1)).toBe(true);
+    expect(differs(1, 1, Number.NaN)).toBe(true);
+    expect(differs(Infinity, Infinity, 1)).toBe(true);
+  });
+
   it('on every 2D example', async () => {
     const tally = new Map<string, number>();
     const failures: string[] = [];
@@ -296,16 +314,21 @@ describe('every explained method, everywhere it applies', () => {
     for (const m of allMethods()) if (!m.wizard) expect(tally.get(m.id) ?? 0, m.id).toBeGreaterThan(0);
   }, 300_000);
 
-  it('on generated continuous beams, frames and trusses', () => {
-    const tally = new Map<string, number>();
-    const failures: string[] = [];
-    for (let seed = 1; seed <= 120; seed++) { continuousBeam(seed); runAll(`beam#${seed}`, tally, failures); }
-    for (let seed = 1; seed <= 80; seed++) { frame(seed); runAll(`frame#${seed}`, tally, failures); }
-    for (let seed = 1; seed <= 60; seed++) { truss(seed); runAll(`truss#${seed}`, tally, failures); }
-    expect(failures.slice(0, 40)).toEqual([]);
-    // Each family exercised the methods meant for it many times.
+  const generated = new Map<string, number>();
+  const families: Array<[string, number, number, (seed: number) => void]> = [
+    ['continuous beams', 1, 120, continuousBeam], ['frames', 1, 40, frame], ['frames', 41, 80, frame], ['trusses', 1, 60, truss],
+  ];
+  for (const [family, first, last, build] of families) {
+    it(`on generated ${family} ${first} to ${last}`, () => {
+      const failures: string[] = [];
+      for (let seed = first; seed <= last; seed++) { build(seed); runAll(`${family}#${seed}`, generated, failures); }
+      expect(failures.slice(0, 40)).toEqual([]);
+    }, 600_000);
+  }
+
+  it('each generated family exercised the methods meant for it many times', () => {
     for (const id of ['threeMoments', 'crossBeams', 'doubleIntegration', 'cuts', 'slopeDeflection', 'crossSway', 'compatibility', 'joints', 'sections', 'virtualWork', 'castigliano']) {
-      expect(tally.get(id) ?? 0, id).toBeGreaterThan(10);
+      expect(generated.get(id) ?? 0, id).toBeGreaterThan(10);
     }
-  }, 600_000);
+  });
 });

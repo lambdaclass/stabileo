@@ -14,6 +14,7 @@ import { planeModel } from '../engine/steps/plane-model';
 import { solveReference } from '../engine/steps/reference';
 import type { MethodContext } from '../engine/steps/registry';
 import { methodById } from '../engine/steps/methods';
+import { fmChoice } from './fm-choice.svelte';
 
 type View = 'catalog' | 'doc';
 
@@ -45,6 +46,7 @@ export function methodContext(methodId?: string): MethodContext | null {
     selection: { members: [...uiStore.selectedElements], nodes: [...uiStore.selectedNodes] },
     options: { ...(methodId ? optionsOf(methodId) : {}) },
     params: { ...(methodId ? paramsOf(methodId) : {}) },
+    fundamental: fmChoice.releasesFor(modelStore.modelVersion),
     model: modelStore.model,
   };
 }

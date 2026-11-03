@@ -117,6 +117,8 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'contour.face',
   'contour.max',
   'contour.min',
+  'course.statics.vw.p.dir',
+  'course.statics.vw.p.quantity.rot',
   'data.sections',
   'defl.limits.dirShort.localY',
   'defl.limits.dirShort.localZ',

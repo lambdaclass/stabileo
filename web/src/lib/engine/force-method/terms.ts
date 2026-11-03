@@ -45,12 +45,14 @@ export function springRows(sup: SolverSupport, a: Disp, b: Disp): TermRow[] {
 
 /**
  * Which unknowns a square system cannot determine: Gaussian elimination with
- * complete pivoting, stopping where every pivot left is below 1e-9 of the
- * largest entry. The columns never pivoted are the unknowns left free.
+ * complete pivoting on the system scaled by 1/√|aᵢᵢ| on both sides (so forces and
+ * moments, stiff and soft, weigh alike), stopping where every pivot left is below
+ * 1e-9 of the largest entry. The columns never pivoted are the unknowns left free.
  */
 export function undetermined(A: number[][]): number[] {
   const n = A.length;
-  const M = A.map((r) => [...r]);
+  const d = A.map((r, i) => (Math.abs(r[i]) > 0 ? 1 / Math.sqrt(Math.abs(r[i])) : 1));
+  const M = A.map((r, i) => r.map((v, j) => v * d[i] * d[j]));
   const cols = [...Array(n).keys()];
   let big = 0;
   for (const r of M) for (const v of r) big = Math.max(big, Math.abs(v));
@@ -75,7 +77,8 @@ export function undetermined(A: number[][]): number[] {
  * horizontal reaction of a beam) would have no flexibility at all and its
  * equation would say nothing. Such redundants keep the axial term in their
  * row and column; the rest go without it. `droppable` marks the rows that the
- * option removes (frame members' axial terms; a biela's stays).
+ * option removes (frame members' axial terms; a biela's stays). When that mix is
+ * not positive definite it is no flexibility, and every coefficient keeps its axial term.
  */
 export function axialKept(terms: TermRow[][][], full: number[][], droppable: (row: TermRow) => boolean): Set<number> {
   const n = full.length;
@@ -83,8 +86,7 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
   const reduced = () => terms.map((r, i) => r.map((rows, j) => (kept.has(i) || kept.has(j)
     ? full[i][j] : rows.filter((q) => !droppable(q)).reduce((s, q) => s + q.value, 0))));
   let D = reduced();
-  const maxDiag = Math.max(0, ...D.map((r, j) => Math.abs(r[j])));
-  for (let j = 0; j < n; j++) if (!(Math.abs(D[j][j]) > 1e-9 * Math.max(maxDiag, Math.abs(full[j][j])))) kept.add(j);
+  for (let j = 0; j < n; j++) if (!(Math.abs(D[j][j]) > 1e-9 * Math.abs(full[j][j]))) kept.add(j);
   D = reduced();
   for (let pass = 0; pass < n; pass++) {
     const free = undetermined(D);
@@ -92,5 +94,25 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
     for (const j of free) kept.add(j);
     D = reduced();
   }
+  if (kept.size && kept.size < n && !positiveDefinite(D)) return new Set(D.keys());
   return kept;
+}
+
+function positiveDefinite(B: number[][]): boolean {
+  const n = B.length;
+  if (!B.every((r, i) => r[i] > 0)) return false;
+  const s = B.map((r, i) => 1 / Math.sqrt(r[i]));
+  const A = B.map((r, i) => r.map((v, j) => v * s[i] * s[j]));
+  const L = A.map(() => new Array(n).fill(0));
+  for (let j = 0; j < n; j++) {
+    for (let i = j; i < n; i++) {
+      let v = A[i][j];
+      for (let k = 0; k < j; k++) v -= L[i][k] * L[j][k];
+      if (i === j) {
+        if (!(v > 1e-12)) return false;
+        L[j][j] = Math.sqrt(v);
+      } else L[i][j] = v / L[j][j];
+    }
+  }
+  return true;
 }

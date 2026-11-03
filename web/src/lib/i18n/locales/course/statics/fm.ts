@@ -3,7 +3,7 @@ import type { Translations } from '../../../types';
 export const esFm: Translations = {
   'course.statics.fm.fund.section': 'Para cortar una barra en un punto intermedio, dividila antes (clic derecho sobre la barra, Dividir en) y cortá en el nodo nuevo.',
   'course.statics.fm.axial.label': 'Incluir deformación axil',
-  'course.statics.fm.axial.help': 'Suma a cada coeficiente el término ∫ nᵢ·nⱼ/EA dx de las barras de pórtico. En vigas y pórticos comunes aporta poco y la solución de clase lo desprecia. Importa en tensores, arcos (trabajan casi solo a compresión), columnas con axil grande y estructuras arriostradas. Las bielas lo conservan siempre: es la única forma en que se deforman. Si lo apagás, el paso 9 compara igual con el método de rigidez, que sí lo incluye, y muestra la diferencia.',
+  'course.statics.fm.axial.help': 'Suma a cada coeficiente el término ∫ nᵢ·nⱼ/EA dx de las barras de pórtico. En vigas y pórticos comunes aporta poco y la solución de clase lo desprecia. Importa en tensores, arcos (trabajan sobre todo a compresión solo con cargas cercanas a la antifunicular; con cargas asimétricas o concentradas también flexan mucho), columnas con axil grande y estructuras arriostradas. Las bielas lo conservan siempre: es la única forma en que se deforman. Si lo apagás, el paso 9 compara igual con el método de rigidez, que sí lo incluye, y muestra la diferencia.',
   'course.statics.fm.fund.summaryAuto': 'Fundamental: elegida automáticamente',
   'course.statics.fm.fund.summaryMine': 'Fundamental: la elegiste vos',
   'course.statics.fm.fund.change': 'Cambiar',
@@ -38,13 +38,16 @@ export const esFm: Translations = {
   'course.statics.fm.terms.springRedundant': 'El resorte liberado es la incógnita: X es su fuerza. El apoyo se mueve −X/k, por eso δᵢᵢ suma la flexibilidad del resorte, 1/k.',
   'course.statics.fm.s5.axialOff': 'Sin deformación axil: las barras de pórtico aportan solo flexión. Las bielas conservan su término axil.',
   'course.statics.fm.s5.axialKept': '{list} trabaja solo a axil: su fila y su columna conservan el término axil, porque sin él su ecuación no diría nada.',
+  'course.statics.fm.s5.axialAll': 'Acá no alcanza con conservar el término axil solo en algunas filas: la matriz mezclada no sería definida positiva, es decir no sería una flexibilidad. Todos los coeficientes conservan el término axil.',
   'course.statics.fm.s9.axialOff': 'Sin deformación axil la estructura es más rígida que la del método de rigidez, que sí la incluye. La mayor diferencia es {d}, el {pct} de la mayor fuerza: es lo que aporta el término axil que dejaste afuera.',
+  'course.statics.fm.s9.axialUnverified': 'La mayor diferencia con el método de rigidez es {d}, el {pct} de la mayor fuerza. Puede venir del término axil que dejaste afuera, pero no hay una solución de referencia con la misma hipótesis para comprobarlo, así que el resultado queda sin verificar.',
+  'course.statics.fm.s9.rigidOk': 'Coincide con el método de rigidez resuelto con las barras axialmente rígidas, la misma hipótesis que elegiste.',
 };
 
 export const enFm: Translations = {
   'course.statics.fm.fund.section': 'To cut a member at an intermediate point, divide it first (right-click the member, Subdivide into) and cut at the new node.',
   'course.statics.fm.axial.label': 'Include axial deformation',
-  'course.statics.fm.axial.help': 'Adds the term ∫ nᵢ·nⱼ/EA dx of the frame members to each coefficient. In ordinary beams and frames it contributes little, and the classroom solution leaves it out. It matters in ties, arches (they work almost entirely in compression), columns with a large axial force and braced structures. Two-force members always keep it: it is the only way they deform. If you turn it off, Step 9 still compares with the stiffness method, which includes it, and shows the difference.',
+  'course.statics.fm.axial.help': 'Adds the term ∫ nᵢ·nⱼ/EA dx of the frame members to each coefficient. In ordinary beams and frames it contributes little, and the classroom solution leaves it out. It matters in ties, arches (mostly in compression only under loads close to their funicular; asymmetric or concentrated loads also bend them substantially), columns with a large axial force and braced structures. Two-force members always keep it: it is the only way they deform. If you turn it off, Step 9 still compares with the stiffness method, which includes it, and shows the difference.',
   'course.statics.fm.fund.summaryAuto': 'Primary structure: chosen automatically',
   'course.statics.fm.fund.summaryMine': 'Primary structure: your choice',
   'course.statics.fm.fund.change': 'Change',
@@ -79,20 +82,23 @@ export const enFm: Translations = {
   'course.statics.fm.terms.springRedundant': 'The released spring is the redundant: X is its force. The support moves −X/k, which is why δᵢᵢ adds the spring flexibility, 1/k.',
   'course.statics.fm.s5.axialOff': 'Without axial deformation: frame members contribute bending only. Two-force members keep their axial term.',
   'course.statics.fm.s5.axialKept': '{list} works only axially: its row and column keep the axial term, because without it its equation would say nothing.',
+  'course.statics.fm.s5.axialAll': 'Keeping the axial term in only some rows is not enough here: the mixed matrix would not be positive definite, so it would not be a flexibility. Every coefficient keeps the axial term.',
   'course.statics.fm.s9.axialOff': 'Without axial deformation the structure is stiffer than the stiffness method\'s, which includes it. The largest difference is {d}, {pct} of the largest force: that is what the axial term you left out contributes.',
+  'course.statics.fm.s9.axialUnverified': 'The largest difference from the stiffness method is {d}, {pct} of the largest force. It may come from the axial term you left out, but no reference solution with the same assumption can check it, so the result is not verified.',
+  'course.statics.fm.s9.rigidOk': 'It agrees with the stiffness method solved with axially rigid members, the same assumption you chose.',
 };
 
 export const ptFm: Translations = {
   'course.statics.fm.fund.section': 'Para cortar uma barra num ponto intermediário, divida-a antes (clique direito na barra, Subdividir em) e corte no nó novo.',
   'course.statics.fm.axial.label': 'Incluir deformação axial',
-  'course.statics.fm.axial.help': 'Soma a cada coeficiente o termo ∫ nᵢ·nⱼ/EA dx das barras de pórtico. Em vigas e pórticos comuns contribui pouco e a solução de aula o despreza. Importa em tirantes, arcos (trabalham quase só à compressão), pilares com esforço normal grande e estruturas contraventadas. As bielas o conservam sempre: é a única forma como se deformam. Se você desligar, o passo 9 compara igual com o método da rigidez, que o inclui, e mostra a diferença.',
+  'course.statics.fm.axial.help': 'Soma a cada coeficiente o termo ∫ nᵢ·nⱼ/EA dx das barras de pórtico. Em vigas e pórticos comuns contribui pouco e a solução de aula o despreza. Importa em tirantes, arcos (trabalham sobretudo à compressão só com cargas próximas da antifunicular; cargas assimétricas ou concentradas também os fletem muito), pilares com esforço normal grande e estruturas contraventadas. As bielas o conservam sempre: é a única forma como se deformam. Se você desligar, o passo 9 compara igual com o método da rigidez, que o inclui, e mostra a diferença.',
   'course.statics.fm.fund.summaryAuto': 'Fundamental: escolhida automaticamente',
   'course.statics.fm.fund.summaryMine': 'Fundamental: escolhida por você',
   'course.statics.fm.fund.change': 'Mudar',
   'course.statics.fm.fund.title': 'Estrutura fundamental',
   'course.statics.fm.fund.auto': 'Automática',
-  'course.statics.fm.fund.manual': 'Escolher eu',
-  'course.statics.fm.fund.autoNote': 'O programa escolheu o que liberar. Para testar outra fundamental, toque em Escolher eu.',
+  'course.statics.fm.fund.manual': 'Escolher eu mesmo',
+  'course.statics.fm.fund.autoNote': 'O programa escolheu o que liberar. Para testar outra fundamental, toque em Escolher eu mesmo.',
   'course.statics.fm.fund.how': 'Toque no desenho ou marque na lista os vínculos e esforços que você libera. Cada um vira uma incógnita X, numerada na ordem em que você a escolhe. São necessárias {gh}.',
   'course.statics.fm.fund.counter': 'Incógnitas escolhidas: {n} de {gh}',
   'course.statics.fm.fund.solve': 'Resolver com esta fundamental',
@@ -120,5 +126,8 @@ export const ptFm: Translations = {
   'course.statics.fm.terms.springRedundant': 'A mola liberada é a incógnita: X é a sua força. O apoio se desloca −X/k, por isso δᵢᵢ soma a flexibilidade da mola, 1/k.',
   'course.statics.fm.s5.axialOff': 'Sem deformação axial: as barras de pórtico contribuem só com flexão. As bielas conservam seu termo axial.',
   'course.statics.fm.s5.axialKept': '{list} trabalha só a esforço normal: sua linha e sua coluna conservam o termo axial, porque sem ele sua equação não diria nada.',
+  'course.statics.fm.s5.axialAll': 'Aqui não basta conservar o termo axial só em algumas linhas: a matriz misturada não seria definida positiva, ou seja, não seria uma flexibilidade. Todos os coeficientes conservam o termo axial.',
   'course.statics.fm.s9.axialOff': 'Sem deformação axial a estrutura é mais rígida que a do método da rigidez, que a inclui. A maior diferença é {d}, {pct} da maior força: é o que contribui o termo axial que você deixou de fora.',
+  'course.statics.fm.s9.axialUnverified': 'A maior diferença com o método da rigidez é {d}, {pct} da maior força. Pode vir do termo axial que você deixou de fora, mas não há uma solução de referência com a mesma hipótese para comprová-lo, então o resultado fica sem verificar.',
+  'course.statics.fm.s9.rigidOk': 'Coincide com o método da rigidez resolvido com as barras axialmente rígidas, a mesma hipótese que você escolheu.',
 };

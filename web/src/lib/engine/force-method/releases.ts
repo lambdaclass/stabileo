@@ -120,7 +120,9 @@ const prescribedOf = (input: SolverInput, nodeId: number, c: number) => {
 export function redundantsFromKeys(input: SolverInput, keys: string[]): Redundant[] {
   const items: Item[] = [];
   const ends = new Set<string>();
+  const offered = new Set(releaseOptions(input).map((o) => o.key));
   for (const key of keys) {
+    if (!offered.has(key)) throw new ForceMethodError('nothing');
     const [t, a, b] = key.split(':');
     if (t === 'r') items.push({ kind: 'reaction', nodeId: +a, component: +b, prescribed: prescribedOf(input, +a, +b) });
     else if (t === 's') items.push({ kind: 'spring', nodeId: +a, component: +b });

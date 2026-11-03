@@ -32,7 +32,7 @@ export const fmChoice = {
     return version === modelVersion && applied ? [...applied] : undefined;
   },
   reset(modelVersion: number): void {
-    mode = 'auto'; draft = []; applied = null; error = null; version = modelVersion;
+    mode = 'auto'; draft = []; applied = null; axial = true; error = null; version = modelVersion;
   },
   setMode(m: 'auto' | 'manual'): void {
     mode = m;

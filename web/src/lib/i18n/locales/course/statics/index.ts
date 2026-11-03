@@ -3,7 +3,7 @@ import { esFm, enFm, ptFm } from './fm';
 import { esVw, enVw, ptVw } from './vw';
 
 export const es: Translations = {
-  'course.statics.gh.what': 'El grado de hiperestaticidad GH cuenta cuántas fuerzas sobran: las incógnitas de vínculo y de barra menos las ecuaciones de equilibrio que se pueden plantear. Con GH = 0 la estática alcanza; con GH > 0 hacen falta GH ecuaciones de compatibilidad.',
+  'course.statics.gh.what': 'El grado de hiperestaticidad GH cuenta cuántas fuerzas sobran: las incógnitas de vínculo y de barra menos las ecuaciones de equilibrio que se pueden plantear. Con GH = 0 y una estructura cinemáticamente estable la estática alcanza; con GH > 0 hacen falta GH ecuaciones de compatibilidad. La cuenta sola no prueba la estabilidad.',
   'course.statics.gh.legend.frame': 'm = {m} barras, r = {r} reacciones (un resorte cuenta como una reacción), n = {n} nodos con tres ecuaciones cada uno (ΣFx, ΣFz, ΣM) y c = {c} condiciones que liberan las rótulas internas.',
   'course.statics.gh.legend.truss': 'm = {mb} barras, r = {r} reacciones y n = {nb} nodos. En un reticulado cada nodo da dos ecuaciones (ΣFx, ΣFz), porque todas las fuerzas pasan por él.',
   'course.statics.gh.legend.mixed': 'm = {m} barras de pórtico y m_b = {mb} bielas (una biela tiene una sola incógnita, su esfuerzo axil), r = {r} reacciones, n = {n} nodos con tres ecuaciones, n_b = {nb} nodos a los que llegan solo bielas, con dos, y c = {c} condiciones de rótula.',
@@ -14,7 +14,7 @@ export const es: Translations = {
   'course.statics.gh.hingeCaption': 'Condiciones de las rótulas, nodo por nodo: c = {c}.',
   'course.statics.gh.splitLabel': 'Externa e interna',
   'course.statics.gh.split': 'GH_e = {e} es la hiperestaticidad externa: las reacciones que sobran para sostener la estructura como un todo (r − 3 por cuerpo, menos los {mech} movimientos internos que los vínculos deben impedir, como en un arco triarticulado o una viga Gerber). GH_i = {i} es la interna: anillos cerrados y barras de más, que la estática no resuelve aunque se conozcan las reacciones.',
-  'course.statics.gh.verdict.iso': 'La estructura es isostática (GH = 0): las ecuaciones de equilibrio alcanzan para hallar todas las reacciones y esfuerzos.',
+  'course.statics.gh.verdict.iso': 'La cuenta da GH = 0: tantas incógnitas como ecuaciones de equilibrio. Si la estructura es cinemáticamente estable es isostática y el equilibrio da todas las reacciones y esfuerzos; vínculos como tres apoyos móviles paralelos dan GH = 0 y aun así un mecanismo.',
   'course.statics.gh.verdict.hyper': 'La estructura es hiperestática de grado {g}: sobran {g} incógnitas respecto de las ecuaciones de equilibrio.',
   'course.statics.gh.verdict.hypo': 'La estructura es hipostática (GH = {g}): le faltan vínculos y es un mecanismo.',
   'course.statics.gh.redundants': 'Para el método de las fuerzas, GH = {g} es la cantidad de incógnitas hiperestáticas X_i: hay que liberar exactamente {g} vínculos o esfuerzos para obtener una estructura fundamental isostática.',
@@ -23,7 +23,7 @@ export const es: Translations = {
   'course.statics.err.count': 'Tus liberaciones suman {chosen} incógnitas y GH = {gh}: la fundamental necesita exactamente {gh}. Con menos queda hiperestática; con más, un mecanismo.',
   'course.statics.err.unstable': 'Con estas liberaciones la fundamental es un mecanismo: se mueven libremente los nodos {nodes}. Sacaste un vínculo que la estructura necesita para quedarse quieta. Probá liberar otro en su lugar.',
   'course.statics.err.hingeAll': 'En el nodo {node} esa liberación no agrega nada: después de liberar, todas las barras llegan articuladas ahí. Una rótula que une {k} barras libera {k1} condiciones, una menos que barras. Elegí otra liberación.',
-  'course.statics.err.singular': 'La fundamental queda bien vinculada, pero {which} no trabaja: su estado unitario no deforma ninguna barra ni resorte, y su fila de [δ] es nula o depende de las otras. El sistema de compatibilidad no tiene solución única, así que no se resuelve. Elegí otra liberación.',
+  'course.statics.err.singular': 'La fundamental queda bien vinculada, pero el sistema de compatibilidad no determina {which}: su fila de [δ] es nula, porque su estado unitario no deforma ninguna barra ni resorte, o es combinación de las filas de otras incógnitas, aunque sus estados deformen barras. El sistema no tiene solución única, así que no se resuelve. Elegí otra liberación.',
   'course.statics.err.clash': 'Elegiste dos liberaciones en el mismo extremo de una barra (un corte y una rótula). Dejá una sola.',
   'course.statics.err.partialCut': 'Esa combinación de liberaciones en un mismo extremo no se puede representar. Cortá la barra completa o poné una rótula.',
   'course.statics.err.nothing': 'Esa liberación no corresponde a este modelo. Volvé a elegir.',
@@ -37,7 +37,7 @@ export const es: Translations = {
 };
 
 export const en: Translations = {
-  'course.statics.gh.what': 'The degree of static indeterminacy GH counts how many forces are left over: the unknown reactions and member forces minus the equilibrium equations available. With GH = 0 statics is enough; with GH > 0 you need GH compatibility equations.',
+  'course.statics.gh.what': 'The degree of static indeterminacy GH counts how many forces are left over: the unknown reactions and member forces minus the equilibrium equations available. With GH = 0 and a kinematically stable structure, statics is enough; with GH > 0 you need GH compatibility equations. The count alone does not prove stability.',
   'course.statics.gh.legend.frame': 'm = {m} members, r = {r} reactions (a spring counts as one reaction), n = {n} joints with three equations each (ΣFx, ΣFz, ΣM) and c = {c} conditions released by internal hinges.',
   'course.statics.gh.legend.truss': 'm = {mb} members, r = {r} reactions and n = {nb} joints. In a truss each joint gives two equations (ΣFx, ΣFz), because every force passes through it.',
   'course.statics.gh.legend.mixed': 'm = {m} frame members and m_b = {mb} two-force members (a two-force member has a single unknown, its axial force), r = {r} reactions, n = {n} joints with three equations, n_b = {nb} joints reached only by two-force members, with two, and c = {c} hinge conditions.',
@@ -48,16 +48,16 @@ export const en: Translations = {
   'course.statics.gh.hingeCaption': 'Hinge conditions, joint by joint: c = {c}.',
   'course.statics.gh.splitLabel': 'External and internal',
   'course.statics.gh.split': 'GH_e = {e} is the external indeterminacy: the reactions beyond what it takes to hold the structure in place as a whole (r − 3 per body, minus the {mech} internal motions the supports must prevent, as in a three-hinged arch or a Gerber beam). GH_i = {i} is the internal one: closed loops and extra members, which statics cannot solve even with the reactions known.',
-  'course.statics.gh.verdict.iso': 'The structure is statically determinate (GH = 0): the equilibrium equations are enough to find every reaction and internal force.',
+  'course.statics.gh.verdict.iso': 'The count gives GH = 0: as many unknowns as equilibrium equations. If the structure is kinematically stable it is statically determinate and equilibrium gives every reaction and internal force; supports such as three parallel rollers give GH = 0 and still a mechanism.',
   'course.statics.gh.verdict.hyper': 'The structure is statically indeterminate of degree {g}: there are {g} more unknowns than equilibrium equations.',
-  'course.statics.gh.verdict.hypo': 'The structure is unstable (GH = {g}): it lacks supports and is a mechanism.',
+  'course.statics.gh.verdict.hypo': 'The structure is unstable (GH = {g}): it lacks restraints and is a mechanism.',
   'course.statics.gh.redundants': 'For the force method, GH = {g} is the number of redundants X_i: you release exactly {g} supports or internal forces to get a statically determinate primary structure.',
-  'course.statics.gh.necessary': 'The count is a necessary condition, not a sufficient one: a structure with GH ≥ 0 can still be a mechanism if its supports are badly placed (three parallel rollers, three hinges in a line). The kinematic analysis checks it.',
+  'course.statics.gh.necessary': 'The count is a necessary condition, not a sufficient one: a structure with GH ≥ 0 can still be a mechanism if its restraints are badly placed (three parallel rollers, three hinges in a line). The kinematic analysis checks it.',
   'course.statics.gh.dsm': 'The stiffness method works the same whatever the degree: its unknowns are the joint displacements.',
   'course.statics.err.count': 'Your releases add up to {chosen} unknowns and GH = {gh}: the primary structure needs exactly {gh}. With fewer it stays indeterminate; with more it becomes a mechanism.',
-  'course.statics.err.unstable': 'With these releases the primary structure is a mechanism: joints {nodes} move freely. You removed a support the structure needs to stay put. Try releasing a different one instead.',
+  'course.statics.err.unstable': 'With these releases the primary structure is a mechanism: joints {nodes} move freely. You released a restraint the structure needs to stay put. Try releasing a different one instead.',
   'course.statics.err.hingeAll': 'At joint {node} that release adds nothing: once released, every member arrives hinged there. A hinge joining {k} members releases {k1} conditions, one fewer than members. Pick another release.',
-  'course.statics.err.singular': 'The primary structure is well supported, but {which} does no work: its unit state deforms no member and no spring, and its row of [δ] is zero or depends on the others. The compatibility system has no unique solution, so it is not solved. Pick another release.',
+  'course.statics.err.singular': 'The primary structure is well supported, but the compatibility system does not determine {which}: its row of [δ] is zero, because its unit state deforms no member and no spring, or it is a combination of other unknowns\' rows, even though their states deform members. The system has no unique solution, so it is not solved. Pick another release.',
   'course.statics.err.clash': 'You chose two releases at the same member end (a cut and a hinge). Keep only one.',
   'course.statics.err.partialCut': 'That combination of releases at one member end cannot be modeled. Cut the whole member or put in a hinge.',
   'course.statics.err.nothing': 'That release does not belong to this model. Choose again.',
@@ -71,7 +71,7 @@ export const en: Translations = {
 };
 
 export const pt: Translations = {
-  'course.statics.gh.what': 'O grau de hiperestaticidade GH conta quantas forças sobram: as incógnitas de vínculo e de barra menos as equações de equilíbrio disponíveis. Com GH = 0 a estática basta; com GH > 0 são necessárias GH equações de compatibilidade.',
+  'course.statics.gh.what': 'O grau de hiperestaticidade GH conta quantas forças sobram: as incógnitas de vínculo e de barra menos as equações de equilíbrio disponíveis. Com GH = 0 e uma estrutura cinematicamente estável a estática basta; com GH > 0 são necessárias GH equações de compatibilidade. A contagem sozinha não prova a estabilidade.',
   'course.statics.gh.legend.frame': 'm = {m} barras, r = {r} reações (uma mola conta como uma reação), n = {n} nós com três equações cada um (ΣFx, ΣFz, ΣM) e c = {c} condições liberadas pelas rótulas internas.',
   'course.statics.gh.legend.truss': 'm = {mb} barras, r = {r} reações e n = {nb} nós. Numa treliça cada nó dá duas equações (ΣFx, ΣFz), porque todas as forças passam por ele.',
   'course.statics.gh.legend.mixed': 'm = {m} barras de pórtico e m_b = {mb} bielas (uma biela tem uma única incógnita, seu esforço normal), r = {r} reações, n = {n} nós com três equações, n_b = {nb} nós aos quais chegam só bielas, com duas, e c = {c} condições de rótula.',
@@ -82,7 +82,7 @@ export const pt: Translations = {
   'course.statics.gh.hingeCaption': 'Condições das rótulas, nó por nó: c = {c}.',
   'course.statics.gh.splitLabel': 'Externa e interna',
   'course.statics.gh.split': 'GH_e = {e} é a hiperestaticidade externa: as reações que sobram para manter a estrutura no lugar como um todo (r − 3 por corpo, menos os {mech} movimentos internos que os vínculos devem impedir, como num arco triarticulado ou numa viga Gerber). GH_i = {i} é a interna: anéis fechados e barras a mais, que a estática não resolve mesmo conhecendo as reações.',
-  'course.statics.gh.verdict.iso': 'A estrutura é isostática (GH = 0): as equações de equilíbrio bastam para achar todas as reações e esforços.',
+  'course.statics.gh.verdict.iso': 'A contagem dá GH = 0: tantas incógnitas quanto equações de equilíbrio. Se a estrutura é cinematicamente estável ela é isostática e o equilíbrio dá todas as reações e esforços; vínculos como três apoios móveis paralelos dão GH = 0 e ainda assim um mecanismo.',
   'course.statics.gh.verdict.hyper': 'A estrutura é hiperestática de grau {g}: sobram {g} incógnitas em relação às equações de equilíbrio.',
   'course.statics.gh.verdict.hypo': 'A estrutura é hipostática (GH = {g}): faltam vínculos e ela é um mecanismo.',
   'course.statics.gh.redundants': 'Para o método das forças, GH = {g} é o número de incógnitas hiperestáticas X_i: é preciso liberar exatamente {g} vínculos ou esforços para obter uma estrutura fundamental isostática.',
@@ -91,7 +91,7 @@ export const pt: Translations = {
   'course.statics.err.count': 'Suas liberações somam {chosen} incógnitas e GH = {gh}: a fundamental precisa de exatamente {gh}. Com menos continua hiperestática; com mais, vira um mecanismo.',
   'course.statics.err.unstable': 'Com essas liberações a fundamental é um mecanismo: os nós {nodes} se movem livremente. Você tirou um vínculo de que a estrutura precisa para ficar parada. Tente liberar outro no lugar.',
   'course.statics.err.hingeAll': 'No nó {node} essa liberação não acrescenta nada: depois de liberar, todas as barras chegam articuladas ali. Uma rótula que une {k} barras libera {k1} condições, uma a menos que o número de barras. Escolha outra liberação.',
-  'course.statics.err.singular': 'A fundamental fica bem vinculada, mas {which} não trabalha: seu estado unitário não deforma nenhuma barra nem mola, e sua linha de [δ] é nula ou depende das outras. O sistema de compatibilidade não tem solução única, então não é resolvido. Escolha outra liberação.',
+  'course.statics.err.singular': 'A fundamental fica bem vinculada, mas o sistema de compatibilidade não determina {which}: sua linha de [δ] é nula, porque seu estado unitário não deforma nenhuma barra nem mola, ou é combinação das linhas de outras incógnitas, ainda que seus estados deformem barras. O sistema não tem solução única, então não é resolvido. Escolha outra liberação.',
   'course.statics.err.clash': 'Você escolheu duas liberações na mesma extremidade de uma barra (um corte e uma rótula). Deixe só uma.',
   'course.statics.err.partialCut': 'Essa combinação de liberações numa mesma extremidade não pode ser representada. Corte a barra inteira ou coloque uma rótula.',
   'course.statics.err.nothing': 'Essa liberação não corresponde a este modelo. Escolha de novo.',

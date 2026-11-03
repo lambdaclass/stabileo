@@ -8,26 +8,29 @@
   import { t } from '../../lib/i18n';
   import { dsmStepsStore, modelStore, uiStore } from '../../lib/store';
   import { solveDetailed } from '../../lib/engine/solver-detailed';
+  import { blocked, refused } from '../../lib/actions/wizard-guard';
 
   const data = $derived(dsmStepsStore.stepData);
   const on = $derived(!!data?.rigidStatus && data.rigidStatus !== 'none');
   let help = $state(false);
 
-  function toggle(v: boolean) {
+  function toggle(v: boolean): boolean {
+    if (blocked()) return false;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-    if (!input) return;
+    if (!input || refused(input, false)) return false;
     const keep = dsmStepsStore.currentStep;
     const keepElem = dsmStepsStore.selectedElemForStep;
     dsmStepsStore.setStepData(solveDetailed(input, { axialRigid: v }));
     dsmStepsStore.goToStep(keep);
     if (keepElem !== null) dsmStepsStore.selectElement(keepElem);
+    return true;
   }
 </script>
 
 <div class="dao" data-testid="dsm-options">
   <div class="dao-row">
     <label>
-      <input type="checkbox" checked={on} onchange={(e) => toggle(e.currentTarget.checked)} data-testid="dsm-opt-rigid" />
+      <input type="checkbox" checked={on} onchange={(e) => { if (!toggle(e.currentTarget.checked)) e.currentTarget.checked = on; }} data-testid="dsm-opt-rigid" />
       {t('course.kinematics.dsm.rigid.label')}
     </label>
     <button class="dao-help" class:on={help} onclick={() => (help = !help)} aria-expanded={help}

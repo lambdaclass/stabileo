@@ -71,8 +71,8 @@ export const released = (ks: KinSet, id: number, e: EndSide) => ks.ends.get(endK
 /** The thermal gradient's fixed-end moments: EI·α·ΔT_g/h, counter-clockwise at I, clockwise at J. */
 export function thermalFem(ks: KinSet, d: MemberData): [number, number] {
   const t = ks.thermal.get(d.m.id);
-  if (!t || !t.dg || !(t.h > 0) || d.m.truss) return [0, 0];
-  const M = (d.m.EI * t.alpha * t.dg) / t.h;
+  if (!t || !t.kap || d.m.truss) return [0, 0];
+  const M = d.m.EI * t.kap;
   return [M, -M];
 }
 
@@ -105,7 +105,7 @@ export function actOf(ks: KinSet, d: MemberData, k: MKin, fixed: [number, number
   let N: number | null = null;
   if (ks.extensible.has(m.id)) {
     const t = ks.thermal.get(m.id);
-    const free = fixed && t ? t.alpha * t.dt * m.L : 0;
+    const free = fixed && t ? t.eps * m.L : 0;
     N = (m.EA / m.L) * (k.e - free) + (fixed ? axialFixedEnd(d) : 0);
   }
   return { Mi, Mj, N };
@@ -139,11 +139,18 @@ export function work(ks: KinSet, kinI: Map<number, MKin>, act: Map<number, MAct>
   return g;
 }
 
+export function residualSettled(sol: Pick<DispSolution, 'K' | 'D' | 'R0'>): boolean {
+  return sol.K.every((row, i) => {
+    const r = row.reduce((t, v, j) => t + v * sol.D[j], 0) + sol.R0[i];
+    const size = row.reduce((t, v, j) => t + Math.abs(v * sol.D[j]), 0) + Math.abs(sol.R0[i]);
+    return Math.abs(r) <= 1e-9 * size;
+  });
+}
+
 export function solveDisplacement(ks: KinSet): DispSolution {
   const pm = ks.pm;
   const fk = ks.fk ?? plainKin(pm);
   const md = memberData(fk);
-  const n = ks.unknowns.length;
 
   const F = new Map<number, { x: number; z: number }>();
   for (const q of ks.nodes) { const l = nodalLoadAt(pm, q); F.set(q, { x: l.fx, z: l.fz }); }
@@ -198,7 +205,8 @@ export function solveDisplacement(ks: KinSet): DispSolution {
   };
   const K = ks.unknowns.map((_, i) => ks.unknowns.map((__, j) => work(ks, kins[i], states[j].act, springAt((k) => (k === j ? 1 : 0), false), i)));
   const R0 = ks.unknowns.map((_, i) => work(ks, kins[i], act0, springAt(() => 0, true), i) - W[i]);
-  const D = solveDense(K, R0.map((v) => -v)) ?? new Array(n).fill(0);
+  const D = solveDense(K, R0.map((v) => -v));
+  if (!D || D.some((v) => !Number.isFinite(v))) throw new Error('displacement method: singular system');
   const residual = K.reduce((s, row, i) => Math.max(s, Math.abs(row.reduce((t, v, j) => t + v * D[j], 0) + R0[i])), 0);
 
   const M = new Map<string, number>();

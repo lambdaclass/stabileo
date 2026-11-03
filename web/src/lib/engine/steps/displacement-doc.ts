@@ -11,9 +11,9 @@ import { endKey as key, type EndSide } from './sway-modes';
 import { fixedEndBlocks } from './fem';
 import { sketchOf, type Sketch } from './sketch';
 import { UF, UM, Mt, extent, subOf, type MemberData } from './frames-common';
-import type { KinSet } from './kinematic-unknowns';
+import type { KinSet, ThermalPart } from './kinematic-unknowns';
 import { transOf, unknownSym } from './kinematic-unknowns';
-import { axialFixedEnd, released, type DispSolution, type MAct, type MKin } from './displacement-solve';
+import { axialFixedEnd, released, residualSettled, type DispSolution, type MAct, type MKin } from './displacement-solve';
 
 const P = 'course.kinematics.dm.';
 const tiny = (v: number) => Math.abs(v) < 1e-12;
@@ -28,19 +28,24 @@ function shape(ks: KinSet, d: MemberData): 'full' | 'i' | 'j' | 'none' {
 export function stiffnessStep(ks: KinSet, md: Map<number, MemberData>): Step {
   const b: Block[] = [{ kind: 'p', text: tx(`${P}stiff.intro`) }];
   const full: Cell[][] = [], three: Cell[][] = [], axial: Cell[][] = [];
+  const releasedEnds = new Set<EndSide>();
   for (const d of md.values()) {
     const { EI, EA, L } = d.m;
     const sh = shape(ks, d);
     if (sh === 'full') full.push([d.m.name, { tex: num((4 * EI) / L) }, { tex: num((2 * EI) / L) }, { tex: num((6 * EI) / L ** 2) }, { tex: num((12 * EI) / L ** 3) }]);
-    else if (sh !== 'none') three.push([d.m.name, tx(`${P}stiff.releasedAt`, { n: sh === 'j' ? d.nj : d.ni }), { tex: num((3 * EI) / L) }, { tex: num((3 * EI) / L ** 2) }, { tex: num((3 * EI) / L ** 3) }]);
+    else if (sh !== 'none') {
+      releasedEnds.add(sh);
+      three.push([d.m.name, tx(`${P}stiff.releasedAt`, { n: sh === 'j' ? d.nj : d.ni }), { tex: num((3 * EI) / L) }, { tex: num((3 * EI) / L ** 2) }, { tex: num((3 * EI) / L ** 3) }]);
+    }
     if (ks.extensible.has(d.m.id)) axial.push([d.m.name, { tex: num(EA) }, { tex: num(EA / L) }]);
   }
   if (full.length) {
-    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{4EI}{L}\\,\\theta_i + \\frac{2EI}{L}\\,\\theta_j - \\frac{6EI}{L^2}\\,\\Delta_{\\perp}, \\qquad V = \\frac{12EI}{L^3}\\,\\Delta_{\\perp}', note: tx(`${P}stiff.fullNote`) });
+    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{4EI}{L}\\,\\theta_i + \\frac{2EI}{L}\\,\\theta_j - \\frac{6EI}{L^2}\\,\\Delta_{\\perp}, \\qquad V = \\frac{12EI}{L^3}\\,\\Delta_{\\perp} - \\frac{6EI}{L^2}\\left(\\theta_i + \\theta_j\\right)', note: tx(`${P}stiff.fullNote`) });
     b.push({ kind: 'table', head: [tx('steps.common.member'), { tex: '4EI/L' }, { tex: '2EI/L' }, { tex: '6EI/L^2' }, { tex: '12EI/L^3' }], rows: full, caption: tx(`${P}stiff.fullCaption`) });
   }
   if (three.length) {
-    b.push({ kind: 'eq', tex: 'M_{ij} = \\frac{3EI}{L}\\,\\theta_i - \\frac{3EI}{L^2}\\,\\Delta_{\\perp}, \\qquad M_{ji} = 0, \\qquad V = \\frac{3EI}{L^3}\\,\\Delta_{\\perp}', note: tx(`${P}stiff.threeNote`) });
+    if (releasedEnds.has('j')) b.push({ kind: 'eq', tex: threeTex('j'), note: tx(`${P}stiff.threeNote`) });
+    if (releasedEnds.has('i')) b.push({ kind: 'eq', tex: threeTex('i') });
     b.push({ kind: 'p', text: tx(`${P}stiff.threeWhy`), detail: true });
     b.push({ kind: 'table', head: [tx('steps.common.member'), tx(`${P}stiff.released`), { tex: '3EI/L' }, { tex: '3EI/L^2' }, { tex: '3EI/L^3' }], rows: three, caption: tx(`${P}stiff.threeCaption`) });
   }
@@ -54,6 +59,11 @@ export function stiffnessStep(ks: KinSet, md: Map<number, MemberData>): Step {
   }
   b.push({ kind: 'p', text: tx(`${P}stiff.why`), detail: true });
   return { title: tx(`${P}stiff.title`), blocks: b };
+}
+
+function threeTex(released: EndSide): string {
+  const n = released === 'j' ? 'i' : 'j', f = released;
+  return `M_{${n}${f}} = \\frac{3EI}{L}\\,\\theta_${n} - \\frac{3EI}{L^2}\\,\\Delta_{\\perp}, \\qquad M_{${f}${n}} = 0, \\qquad V = \\frac{3EI}{L^3}\\,\\Delta_{\\perp} - \\frac{3EI}{L^2}\\,\\theta_${n}`;
 }
 
 /** One member's end actions in a state, written from its coefficients: the slope-deflection equation with the terms that are not zero. */
@@ -90,22 +100,31 @@ function memberCalc(ks: KinSet, d: MemberData, k: MKin, a: MAct, base: { Mi: num
       if (!tiny(th(near))) terms.push(`${num((3 * EI) / L)}\\cdot${par(th(near))}`);
       if (!tiny(k.psi)) terms.push(`- ${num((3 * EI) / L)}\\cdot${par(k.psi)}`);
       const Mn = near === 'i' ? a.Mi : a.Mj, Mf = far === 'i' ? a.Mi : a.Mj;
-      const b0 = base ? (near === 'i' ? base.Mi : base.Mj) + (Mf - (far === 'i' ? base.Mi : base.Mj)) / 2 : 0;
+      const fn = base ? (near === 'i' ? base.Mi : base.Mj) : 0, ff = base ? (far === 'i' ? base.Mi : base.Mj) : 0;
+      const carry = base !== null && !tiny(Mf - ff);
+      const fixedF = base ? `M^{*}_{${sn}} + ${carry ? `\\frac{M_{${sf}} - M^{*}_{${sf}}}{2} + ` : ''}` : '';
+      const fixedS = base && (!tiny(fn) || carry) ? `${num(fn)} + ${carry ? `\\frac{${num(Mf)} - ${par(ff)}}{2} + ` : ''}` : '';
       out.push({ kind: 'calc', label: tx(`${P}state.memberThree`, { m: d.m.name, n: far === 'i' ? d.ni : d.nj }),
-        formula: `M_{${sn}} = ${preF(sn)}\\frac{3EI}{L}\\left(\\theta_{${nn}} - \\psi\\right), \\qquad M_{${sf}} = ${num(Mf)}`,
-        subst: `M_{${sn}} = ${base && !tiny(b0) ? `${num(b0)} + ` : ''}${terms.join(' + ').replace(/\+ -/g, '-') || '0'}`,
+        formula: `M_{${sn}} = ${fixedF}\\frac{3EI}{L}\\left(\\theta_{${nn}} - \\psi\\right), \\qquad M_{${sf}} = ${num(Mf)}`,
+        subst: `M_{${sn}} = ${fixedS}${terms.join(' + ').replace(/\+ -/g, '-') || '0'}`,
         result: `\\boxed{M_{${sn}} = ${num(Mn)}\\ ${UM}}` });
     }
   }
   if (a.N !== null && (!tiny(k.e) || (base && !tiny(a.N)))) {
     const t = ks.thermal.get(d.m.id);
-    const free = base && t && t.dt ? t.alpha * t.dt * L : 0;
+    const free = base && t && t.eps ? t.eps * L : 0;
     const Nfe = base ? axialFixedEnd(d) : 0;
     const f = free ? `\\frac{EA}{L}\\left(e - \\alpha\\,\\Delta T\\,L\\right)` : '\\frac{EA}{L}\\,e';
     const subst = `N_{${d.ni}${d.nj}} = ${num(d.m.EA / L)}\\cdot${free ? `\\left(${par(k.e)} - ${num(free)}\\right)` : par(k.e)}${Nfe ? ` + ${par(Nfe)}` : ''}`;
     out.push({ kind: 'calc', label: tx(`${P}state.axial`, { m: d.m.name }), formula: `N_{${d.ni}${d.nj}} = ${f}${Nfe ? ' + N^{*}' : ''}`, subst, result: `\\boxed{N_{${d.ni}${d.nj}} = ${num(a.N)}\\ ${UF}}` });
   }
   return out;
+}
+
+function gradientSubst(EI: number, parts: ThermalPart[]): string {
+  const one = (q: ThermalPart) => `\\frac{${num(q.alpha)}\\cdot ${par(q.dg)}}{${num(q.h)}}`;
+  if (parts.length === 1) return `\\frac{${num(EI)}\\cdot ${num(parts[0].alpha)}\\cdot ${par(parts[0].dg)}}{${num(parts[0].h)}}`;
+  return `${num(EI)}\\cdot\\left(${parts.map(one).join(' + ')}\\right)`;
 }
 
 /** k_ij or R⁰_i written out: the work of state j's member actions through unknown i's unit displacement. */
@@ -138,7 +157,7 @@ function coefCalc(sol: DispSolution, i: number, act: Map<number, MAct>, value: n
     forms.push(`k_{${s.dir === 'r' ? '\\theta' : s.dir},${ks.pm.nodes.get(s.node)!.name}}\\,u\\,\\phi`);
     terms.push(`${num(s.k)}\\cdot${par(v)}\\cdot${par(phi)}`);
   }
-  if (W !== null && !tiny(W)) { forms.push(`W_{${i + 1}}`); terms.push(`-${par(W)}`); }
+  if (W !== null && !tiny(W)) { forms.push(`-W_{${i + 1}}`); terms.push(`-${par(W)}`); }
   const join = (xs: string[]) => (xs.length ? xs.join(' + ').replace(/\+ -/g, '- ') : '0');
   return { kind: 'calc', formula: `${sym} = ${join(forms)}`, subst: `${sym} = ${join(terms)}`, result: `\\boxed{${sym} = ${num(value)}}` };
 }
@@ -195,7 +214,7 @@ export function state0Step(sol: DispSolution): Step {
       const t = ks.thermal.get(d.m.id)!;
       blocks.push({ kind: 'calc', label: tx(`${P}s0.thermalGrad`),
         formula: `\\mathrm{FEM}^{T}_{${subOf(d, 'i')}} = -\\mathrm{FEM}^{T}_{${subOf(d, 'j')}} = \\frac{EI\\,\\alpha\\,\\Delta T_g}{h}`,
-        subst: `\\frac{${num(d.m.EI)}\\cdot ${num(t.alpha)}\\cdot ${par(t.dg)}}{${num(t.h)}}`,
+        subst: gradientSubst(d.m.EI, t.parts.filter((q) => q.dg && q.h > 0)),
         result: `\\boxed{\\mathrm{FEM}^{T}_{${subOf(d, 'i')}} = ${num(f.thermal[0])}\\ ${UM}}` });
     }
     const loadSum = { Mi: f.load[0] + f.thermal[0], Mj: f.load[1] + f.thermal[1] };
@@ -220,7 +239,7 @@ export function state0Step(sol: DispSolution): Step {
   }
   b.push(endTable(sol, sol.s0.act, tx(`${P}s0.tableCaption`), '0'));
   b.push({ kind: 'p', text: tx(`${P}s0.restraints`) });
-  b.push({ kind: 'eq', tex: 'R^{0}_i = \\sum M^{0}\\,\\theta_i - \\sum \\psi_i\\left(M^{0}_{ij} + M^{0}_{ji}\\right) + \\sum N^{0} e_i - W_i', note: tx(`${P}s0.restraintsNote`) });
+  b.push({ kind: 'eq', tex: `R^{0}_i = \\sum M^{0}\\,\\theta_i - \\sum \\psi_i\\left(M^{0}_{ij} + M^{0}_{ji}\\right) + \\sum N^{0} e_i${ks.springs.length ? ' + \\sum k\\,u\\,\\phi' : ''} - W_i`, note: tx(`${P}s0.restraintsNote`) });
   b.push({ kind: 'p', text: tx(`${P}s0.loadsOnJoints`), detail: true });
   const base = (q: number, dir: 'x' | 'z' | 'r') => (dir === 'r' ? ks.thHeld.get(q) ?? 0 : (ks.up.get(q) ?? { x: 0, z: 0 })[dir]);
   ks.unknowns.forEach((_, i) => {
@@ -282,6 +301,7 @@ export function systemStep(sol: DispSolution): Step {
   const asym = sol.K.reduce((s, row, i) => Math.max(s, ...row.map((v, j) => Math.abs(v - sol.K[j][i]))), 0);
   const scale = Math.max(...sol.K.map((r) => Math.max(...r.map(Math.abs))), 1e-9);
   const unitOf = (k: number) => (ks.unknowns[k].kind === 'rot' ? '\\mathrm{rad}' : '\\mathrm{m}');
+  const settled = residualSettled(sol);
   const eqs = sol.K.map((row, i) => `${row.map((v, j) => `${par(v)}\\,${syms[j]}`).join(' + ')} = ${num(-sol.R0[i])}`);
   return { title: tx(`${P}sys.title`), blocks: [
     { kind: 'p', text: tx(`${P}sys.intro`) },
@@ -293,7 +313,8 @@ export function systemStep(sol: DispSolution): Step {
       formula: '\\mathbf{K}\\,\\mathbf{D} = -\\mathbf{R}^{0}',
       subst: n <= 4 ? `\\begin{aligned} ${eqs.join(' \\\\ ')} \\end{aligned}` : `\\mathbf{D} = -\\mathbf{K}^{-1}\\mathbf{R}^{0}`,
       result: `\\begin{aligned} ${sol.D.map((v, k) => `&\\boxed{${syms[k]} = ${num(v)}\\ ${unitOf(k)}}`).join(' \\\\ ')} \\end{aligned}`,
-      check: `\\max\\left|\\mathbf{K}\\mathbf{D} + \\mathbf{R}^{0}\\right| = ${num(sol.residual)}\\ \\checkmark` },
+      check: `\\max\\left|\\mathbf{K}\\mathbf{D} + \\mathbf{R}^{0}\\right| = ${num(sol.residual)}${settled ? '\\ \\checkmark' : ''}` },
+    ...(settled ? [] : [{ kind: 'note', tone: 'warn', text: tx(`${P}sys.residualOff`) } as Block]),
     { kind: 'p', text: tx(`${P}sys.why`), detail: true },
   ] };
 }

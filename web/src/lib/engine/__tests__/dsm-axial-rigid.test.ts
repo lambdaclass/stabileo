@@ -34,8 +34,16 @@ function check(input: SolverInput): DSMStepData {
   const r = wasm.solve(rigidFrames(input));
   const scale = (xs: number[]) => Math.max(1e-9, ...xs.map(Math.abs));
   const uScale = scale(r.displacements.flatMap((x) => [x.ux, x.uz]));
+  const angles = new Map(d.nodeFrames.map((f) => [f.nodeId, f.angle]));
+  const toFrame = (nodeId: number, x: number, z: number): [number, number] => {
+    const a = angles.get(nodeId);
+    if (a === undefined) return [x, z];
+    const c = Math.cos(a), s = Math.sin(a);
+    return [c * x + s * z, -s * x + c * z];
+  };
   for (const x of r.displacements) {
-    for (const [ld, v] of [[0, x.ux], [1, x.uz]] as const) {
+    const [ux, uz] = toFrame(x.nodeId, x.ux, x.uz);
+    for (const [ld, v] of [[0, ux], [1, uz]] as const) {
       const dof = d.dofNumbering.dofs.find((q) => q.nodeId === x.nodeId && q.localDof === ld)!;
       expect(Math.abs(d.uAll[dof.globalIndex] - v) / uScale, `u ${x.nodeId}:${ld}`).toBeLessThan(1e-4);
     }
@@ -52,7 +60,7 @@ function check(input: SolverInput): DSMStepData {
   d.restrDofLabels.forEach((_, i) => {
     const dof = d.dofNumbering.dofs.find((q) => q.globalIndex === d.dofNumbering.nFree + i)!;
     const e = r.reactions.find((x) => x.nodeId === dof.nodeId)!;
-    const v = [e.rx, e.rz, e.my][dof.localDof];
+    const v = [...toFrame(dof.nodeId, e.rx, e.rz), e.my][dof.localDof];
     expect(Math.abs(d.reactionsRaw[i] - v) / rScale, `R ${dof.nodeId}:${dof.localDof}`).toBeLessThan(1e-4);
   });
   return d;
@@ -88,6 +96,15 @@ describe('stiffness wizard with axially rigid members', () => {
     expect(d.rigid!.members.length).toBe(3);
   });
 
+  it('a portal on an inclined roller: member forces from the node-frame displacements, as the engine with stiff members', () => {
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 4), c = modelStore.addNode(6, 4), dn = modelStore.addNode(6, 0);
+    modelStore.addElement(a, b); const beam = modelStore.addElement(b, c); modelStore.addElement(dn, c);
+    modelStore.addSupport(a, 'fixed'); modelStore.addSupport(dn, 'rollerX', undefined, { angle: 30 });
+    modelStore.addDistributedLoad(beam, -10, -10); modelStore.addNodalLoad(b, 20, 0, 0);
+    const d = check(modelStore.buildSolverInput(false)!);
+    expect(d.nodeFrames.map((f) => f.nodeId)).toEqual([dn]);
+  });
+
   it('the two-story frame example', async () => {
     await modelStore.loadExample('two-story-frame');
     const d = check(modelStore.buildSolverInput(false)!);
@@ -103,6 +120,22 @@ describe('stiffness wizard with axially rigid members', () => {
     check(modelStore.buildSolverInput(false)!);
     modelStore.updateSupport(sc, { dx: 0.01 });
     expect(solveDetailed(modelStore.buildSolverInput(false)!, { axialRigid: true }).rigidStatus).toBe('imposed');
+  });
+
+  it('restraints between free DOFs: free DOFs are numbered first, so the reduced indices read the same labels in both lists', () => {
+    const n = [0, 6, 12, 18].map((x) => modelStore.addNode(x, 0));
+    const e = modelStore.addElement(n[0], n[1]); modelStore.addElement(n[1], n[2]); modelStore.addElement(n[2], n[3]);
+    modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[1], 'rollerX'); modelStore.addSupport(n[2], 'rollerX');
+    modelStore.addDistributedLoad(e, -10, -10);
+    const d = check(modelStore.buildSolverInput(false)!);
+    const nF = d.dofNumbering.nFree;
+    expect(d.dofNumbering.dofs.filter((q) => q.isFree).every((q) => q.globalIndex < nF)).toBe(true);
+    expect(d.dofLabels.slice(0, nF)).toEqual(d.freeDofLabels);
+    const restrainedInside = d.dofNumbering.dofs.filter((q) => !q.isFree && q.nodeId === n[1]);
+    expect(restrainedInside.length).toBeGreaterThan(0);
+    const step6 = rigidStep6(d);
+    const T = step6.find((b) => b.kind === 'matrix' && b.name === '\\mathbf{T}') as Extract<Block, { kind: 'matrix' }>;
+    expect(T.colLabels).toEqual(d.rigid!.indep.map((k) => d.freeDofLabels[k]));
   });
 
   it('a beam between two fixed ends: its axial force is the least-energy one (zero), flagged as such', () => {

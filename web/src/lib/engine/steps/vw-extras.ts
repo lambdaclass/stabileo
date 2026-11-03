@@ -13,7 +13,7 @@ import type { Reference } from './reference';
 import { loadAlpha, loadDepth } from '../thermal-alpha';
 import { gauss } from './deformation-common';
 
-export interface SpringTerm { node: number; comp: 0 | 1 | 2; k: number; R: number; r: number; value: number }
+export interface SpringTerm { node: number; comp: 0 | 1 | 2; angle: number; k: number; R: number; r: number; value: number }
 export interface SettlementTerm { node: number; comp: 0 | 1 | 2; c: number; r: number; value: number }
 export interface ThermalTerm { member: number; dT: number; dTg: number; alpha: number; h: number; L: number; n: number; mMean: number; axial: number; bending: number; value: number }
 
@@ -41,7 +41,7 @@ export function vwExtras(pm: PlaneModel, input: SolverInput, real: Reference, vi
       [s.kx, s.ky, s.kz].forEach((k, comp) => {
         if (!((k ?? 0) > 0)) return;
         const R = springForce(k!, comp, s.angle ?? 0, dr), r = springForce(k!, comp, s.angle ?? 0, dv);
-        springs.push({ node: s.nodeId, comp: comp as 0 | 1 | 2, k: k!, R, r, value: (r * R) / k! });
+        springs.push({ node: s.nodeId, comp: comp as 0 | 1 | 2, angle: s.angle ?? 0, k: k!, R, r, value: (r * R) / k! });
       });
       continue;
     }

@@ -190,6 +190,11 @@ describe('a wrong fundamental is refused, with its reason', () => {
     expect(e.detail.which).toEqual([1]);
   });
 
+  it('a release the structure does not offer is refused: a loaded frame member removed as if it were a biela', () => {
+    expect(() => solveForceMethod(portal(), { releases: ['b:2'] })).toThrow(ForceMethodError);
+    expect(() => solveForceMethod(portal(), { releases: ['r:99:0', 'r:4:1', 'r:4:2'] })).toThrow(ForceMethodError);
+  });
+
   it('the same end cut and hinged at once is a clash', () => {
     expect(refused(portal(), ['c:2:J', 'h:2:J']).key).toBe('clash');
   });
@@ -201,10 +206,38 @@ describe('the axial term, on and off', () => {
     expect(r.axial).toBe(false);
     expect(r.deltaTerms.flat(2).some((t) => t.source === 'axial')).toBe(false);
     expect(r.verification.axialOff).toBe(true);
+    expect(r.verification.rigidOk).toBe(true);
     r.delta.forEach((row, i) => row.forEach((v, j) => expect(v).toBeCloseTo(r.deltaCheck[i][j], 12)));
     const tOn = solveForceMethod(truss()), tOff = solveForceMethod(truss(), { axial: false });
     expect(tOff.X[0]).toBeCloseTo(tOn.X[0], 9);
     expect(tOff.verification.ok).toBe(true);
+  });
+
+  it('off, the rigid reference keeps a soft biela\'s axial flexibility, as the method does', () => {
+    const m = model({ nodes: [[1, 0, 0], [2, 6, 0], [3, 6, -3]], elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', true, true]], supports: [[1, 'fixed'], [3, 'pinned']], loads: [q(1, -10)] });
+    m.sections.set(2, { id: 2, a: 1e-6, iz: 1e-4 } as never);
+    m.elements.set(2, { ...m.elements.get(2)!, sectionId: 2 });
+    const r = solveForceMethod(m, { axial: false });
+    expect(r.axialKept).toEqual([]);
+    expect(r.verification.ok).toBe(true);
+    expect(r.verification.rigidOk).toBe(true);
+  });
+
+  it('off, a soft biela taken as the redundant keeps its flexibility in the rigid reference too', () => {
+    const m = model({ nodes: [[1, 0, 0], [2, 6, 0], [3, 6, -3]], elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', true, true]], supports: [[1, 'fixed'], [3, 'pinned']], loads: [q(1, -10)] });
+    m.sections.set(2, { id: 2, a: 1e-6, iz: 1e-4 } as never);
+    m.elements.set(2, { ...m.elements.get(2)!, sectionId: 2 });
+    const r = solveForceMethod(m, { axial: false, releases: ['b:2'] });
+    expect(r.axialKept).toEqual([]);
+    expect(r.verification.ok).toBe(true);
+    expect(r.verification.rigidOk).toBe(true);
+  });
+
+  it('off, with an axial row kept the rigid reference is not defined, so no verdict is drawn from it', () => {
+    const beam = model({ nodes: [[1, 0, 0], [2, 6, 0]], elements: [[1, 1, 2, 'frame']], supports: [[1, 'fixed'], [2, 'fixed']], loads: [q(1, -10)] });
+    const r = solveForceMethod(beam, { axial: false, releases: ['r:2:0', 'r:2:1', 'r:2:2'] });
+    expect(r.axialKept).toEqual([0]);
+    expect(r.verification.rigidOk).toBeUndefined();
   });
 
   it('off, a redundant that works only axially keeps its axial row (a fixed-fixed beam\'s horizontal reaction)', () => {
@@ -212,6 +245,7 @@ describe('the axial term, on and off', () => {
     const r = solveForceMethod(beam, { axial: false, releases: ['r:2:0', 'r:2:1', 'r:2:2'] });
     expect(r.axialKept).toEqual([0]);
     expect(Math.abs(reaction(r, 1, 2))).toBeCloseTo(30, 6);
+    expect(r.verification.ok).toBe(true);
   });
 
   it('off, the portal\'s redundants are the classical ones, close to the stiffness method', () => {
@@ -219,5 +253,7 @@ describe('the axial term, on and off', () => {
     const off = solveForceMethod(portal(), { releases: ['r:4:0', 'r:4:1', 'r:4:2'], axial: false });
     off.X.forEach((x, i) => expect(Math.abs(x - on.X[i]) / Math.max(...on.X.map(Math.abs))).toBeLessThan(0.02));
     expect(off.X.some((x, i) => Math.abs(x - on.X[i]) > 1e-6)).toBe(true);
+    expect(off.verification.ok).toBe(false);
+    expect(off.verification.rigidOk).toBe(true);
   });
 });
