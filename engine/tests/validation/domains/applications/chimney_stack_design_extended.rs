@@ -410,7 +410,7 @@ fn chimney_ext_twin_connected_walkway() {
 
     // Vertical equilibrium: no vertical loads applied, sum Ry = 0
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.01, "twin chimney: vertical equilibrium");
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6, "twin chimney: vertical equilibrium");
 
     // Due to antisymmetric loading, base moments should be related.
     // For a portal frame with lateral load: M_base_left + M_base_right + P*H = 0
@@ -423,7 +423,7 @@ fn chimney_ext_twin_connected_walkway() {
     // M1 + M4 + Ry4*W - P*H = 0
     // (P at (0,H) in +x direction: moment about origin = -H*P)
     let m_check: f64 = r1.my + r4.my + r4.rz * w - p * h;
-    assert_close(m_check, 0.0, 0.02, "twin chimney: moment equilibrium about base-left");
+    assert_close_abs(m_check, 0.0, 0.02, 1e-6, "twin chimney: moment equilibrium about base-left");
 
     // Both bases should have non-zero moments
     assert!(r1.my.abs() > 1.0, "twin chimney: left base has moment");

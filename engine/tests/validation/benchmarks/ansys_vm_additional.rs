@@ -608,7 +608,6 @@ fn validation_vm39_cantilever_partial_udl() {
 //   For member 2 (bending about z-axis): delta_y from bending = Fy*H^3/(3EIz)
 //   For member 1 (torsion from corner moment): delta_y from torsion = Fy*H^2*L/(GJ)
 //   For member 1 (bending from Fy shear): delta_y from bending = Fy*L^3/(3EIz)
-//                                          + (Fy*L)*H contribution from rotation
 //
 // Total: sum of contributions from bending and torsion of both members.
 //
@@ -678,26 +677,17 @@ fn validation_vm41_3d_l_frame_out_of_plane() {
     let tip = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
 
-    // Tip deflection in Y has three contributions:
-    // 1. Bending of member 2 (cantilever H, load Fy): delta_bend2 = Fy*H^3/(3EIz)
-    // 2. Bending of member 1 (cantilever L, load Fy): delta_bend1 = Fy*L^3/(3EIz)
-    //    Plus rotation at corner from member 1 bending: theta1 = Fy*L^2/(2EIz)
-    //    -> additional tip deflection = theta1 * H = Fy*L^2*H/(2EIz)
-    // 3. Torsion of member 1: moment M_torsion = Fy*H (about x-axis)
-    //    twist angle = Fy*H*L/(GJ)
-    //    -> additional tip deflection = twist * H = Fy*H^2*L/(GJ)
-
+    // The corner rotation about Z from member 1 bending does not move the tip in Y (the arm is along Z).
     let ei = E_EFF * iz;
     let gj = g_eff * j;
 
     let delta_bend1 = fy * l.powi(3) / (3.0 * ei);
-    let delta_rotation1 = fy * l.powi(2) * h / (2.0 * ei);
     let delta_bend2 = fy * h.powi(3) / (3.0 * ei);
     let delta_torsion = fy * h.powi(2) * l / gj;
 
-    let delta_total = delta_bend1 + delta_rotation1 + delta_bend2 + delta_torsion;
+    let delta_total = delta_bend1 + delta_bend2 + delta_torsion;
 
-    assert_close(tip.uy.abs(), delta_total, 0.05,
+    assert_close(tip.uy.abs(), delta_total, 1e-6,
         "VM41 tip Y deflection (bending + torsion)");
 
     // The torsion component should be significant (> 10% of total)

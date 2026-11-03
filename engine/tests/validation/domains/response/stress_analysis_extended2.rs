@@ -448,7 +448,7 @@ fn validation_stress2_ext_stress_transformation() {
     let sin90: f64 = (pi / 2.0).sin();
     let sn90: f64 = sigma_x * cos90.powi(2) + sigma_y * sin90.powi(2)
         + 2.0 * tau_xy * sin90 * cos90;
-    assert_close(sn90, sigma_y, REL_TOL,
+    assert_close_abs(sn90, sigma_y, REL_TOL, 1e-6,
         "sigma_n at theta=pi/2 should equal sigma_y");
 }
 

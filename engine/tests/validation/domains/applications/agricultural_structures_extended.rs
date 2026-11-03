@@ -146,7 +146,7 @@ fn barn_rigid_frame_wind_and_gravity() {
 
     // Check horizontal equilibrium: sum Rx + applied H = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close((sum_rx + f_wind).abs(), 0.0, 0.02, "Barn frame horizontal equilibrium");
+    assert_close_abs((sum_rx + f_wind).abs(), 0.0, 0.02, 1e-6, "Barn frame horizontal equilibrium");
 
     // Check vertical equilibrium: sum Ry + 2*gravity = 0
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
@@ -691,7 +691,7 @@ fn equipment_shed_portal_frame() {
 
     // Horizontal equilibrium: sum Rx = -H (wind)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close((sum_rx + f_wind).abs(), 0.0, 0.02, "Shed horizontal equilibrium");
+    assert_close_abs((sum_rx + f_wind).abs(), 0.0, 0.02, 1e-6, "Shed horizontal equilibrium");
 
     // Vertical equilibrium: sum Ry = -2*f_grav
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();

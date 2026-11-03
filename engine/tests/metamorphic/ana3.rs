@@ -69,8 +69,7 @@ pub fn modal_resp_3d(r: &modal::ModalResult3D) -> Resp {
         for i in 0..6 {
             cum[i] += t[i];
         }
-        // Only boundaries with a known gap above (see the 2D version).
-        if r.modes.get(k + 1).is_some_and(|n| n.frequency > m.frequency * (1.0 + 1e-3)) {
+        if r.modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(m.frequency, n.frequency)) {
             o.push(None, None, &format!("meff{k:02}"), Kind::T3(Dim::MASS), cum.to_vec());
             o.set_floor(&format!("meff{k:02}"), r.total_mass);
         }
@@ -298,7 +297,8 @@ pub fn rows() -> Vec<Ana3> {
                     .values()
                     .map(|x| {
                         let (b, h) = rect3(x);
-                        let e = c.s.elements.values().find(|e| e.section_id == x.id).map_or(200_000.0, |e| c.s.materials[&e.material_id.to_string()].e);
+                        // Smallest modulus of the members sharing the section (see ana2::mat_e).
+                        let e = c.s.elements.values().filter(|e| e.section_id == x.id).map(|e| c.s.materials[&e.material_id.to_string()].e).reduce(f64::min).unwrap_or(200_000.0);
                         (x.id.to_string(), rect_fibers(b, h, 12, 12, e))
                     })
                     .collect();
@@ -402,7 +402,9 @@ pub fn rows() -> Vec<Ana3> {
                 // symmetric (rich3d-5/sym, built from two copies joined at
                 // one node, has such a pair at modes 6 and 7).
                 let md = modal::solve_modal_3d(&c.s, &c.dens, 12)?;
-                let mut n = md.modes.len().min(6);
+                // Strict cantilevers need the higher axial modes as well:
+                // the first six can have zero X participation.
+                let mut n = if crate::generated::strict() { md.modes.len() } else { md.modes.len().min(6) };
                 while n > 0 && n < md.modes.len() && md.modes[n].omega - md.modes[n - 1].omega <= 1e-3 * md.modes[n].omega {
                     n += 1;
                 }

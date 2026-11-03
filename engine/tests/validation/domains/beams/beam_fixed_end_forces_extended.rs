@@ -119,7 +119,7 @@ fn validation_fef_ext_concentrated_moment_midspan() {
 
     // Net vertical reaction should be zero (moment only, no external force)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry.abs(), 0.0, 0.01, "Conc moment: ΣRy ≈ 0");
+    assert_close_abs(sum_ry.abs(), 0.0, 0.01, 1e-6, "Conc moment: ΣRy ≈ 0");
 }
 
 // ================================================================
@@ -330,8 +330,8 @@ fn validation_fef_ext_internal_forces_udl() {
     let ef5 = results.element_forces.iter().find(|e| e.element_id == 5).unwrap();
 
     // Shear at midspan should be approximately zero
-    assert_close(ef4.v_end.abs(), 0.0, 0.05, "UDL int: V(L/2) ≈ 0");
-    assert_close(ef5.v_start.abs(), 0.0, 0.05, "UDL int: V(L/2) ≈ 0 (elem 5)");
+    assert_close_abs(ef4.v_end.abs(), 0.0, 0.05, 1e-6, "UDL int: V(L/2) ≈ 0");
+    assert_close_abs(ef5.v_start.abs(), 0.0, 0.05, 1e-6, "UDL int: V(L/2) ≈ 0 (elem 5)");
 
     // Midspan moment = qL²/24 (sagging, positive)
     let m_mid = q.abs() * l * l / 24.0;

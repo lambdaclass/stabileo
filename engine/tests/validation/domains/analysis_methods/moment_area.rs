@@ -232,15 +232,10 @@ fn validation_moment_area_overhang() {
 
     let tip = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    // For overhang with tip load:
-    // δ_tip = Pa²(L+a)/(3EI) — this is an approximation; exact is more complex.
-    // Actually: δ_tip = Pa²/(3EI) × (a + L) is not exact. The correct formula:
-    // θ at roller = PaL/(6EI) (from main span M/EI diagram)
-    // δ_free = θ × a + Pa³/(3EI) = PaL/(6EI)×a + Pa³/(3EI) = Pa²L/(6EI) + Pa³/(3EI)
-    // = Pa²/(6EI) × (L + 2a)
-    let delta_exact = p * overhang * overhang / (6.0 * e_eff * IZ) * (span + 2.0 * overhang);
-    assert_close(tip.uz.abs(), delta_exact, 0.05,
-        "Overhang: δ_tip = Pa²(L+2a)/(6EI)");
+    // The overhang moment Pa acts at the roller end of the span, so θ_roller = PaL/(3EI), not PaL/(6EI).
+    let delta_exact = p * overhang * overhang / (3.0 * e_eff * IZ) * (span + overhang);
+    assert_close(tip.uz.abs(), delta_exact, 1e-6,
+        "Overhang: δ_tip = Pa²(L+a)/(3EI)");
 }
 
 // ================================================================

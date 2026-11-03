@@ -56,7 +56,7 @@ fn validation_ss_four_point_bending() {
     // Element forces in the constant-moment zone (element between x=5 and x=6):
     // shear should be zero, moment should be P*a = 150
     let mid_elem = results.element_forces.iter().find(|ef| ef.element_id == n / 2).unwrap();
-    assert_close(mid_elem.v_start.abs(), 0.0, 0.01, "4pt V_mid ~ 0");
+    assert_close_abs(mid_elem.v_start.abs(), 0.0, 0.01, 1e-6, "4pt V_mid ~ 0");
     assert_close(mid_elem.m_start.abs(), p * a, 0.01, "4pt M_mid");
 }
 
@@ -254,8 +254,8 @@ fn validation_ss_pure_bending() {
     // Reactions: in pure bending with equal/opposite moments, vertical reactions = 0
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap();
     let r_end = results.reactions.iter().find(|r| r.node_id == n + 1).unwrap();
-    assert_close(r1.rz.abs(), 0.0, 0.01, "pure bending R_A ~ 0");
-    assert_close(r_end.rz.abs(), 0.0, 0.01, "pure bending R_B ~ 0");
+    assert_close_abs(r1.rz.abs(), 0.0, 0.01, 1e-6, "pure bending R_A ~ 0");
+    assert_close_abs(r_end.rz.abs(), 0.0, 0.01, 1e-6, "pure bending R_B ~ 0");
 }
 
 // ═══════════════════════════════════════════════════════════════
