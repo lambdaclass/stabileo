@@ -61,11 +61,21 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok'})
+        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok',
+                                  'test-ci-scripts', 'lint-backend', 'check-migrations-immutable', 'check-migrations', 'results-snapshot'})
+        self.assertEqual({name for name, job in jobs('research.yml').items() if job.get('runs-on') == 'ubuntu-24.04'}, {'isolation', 'catalog'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
+
+    def test_pull_requests_take_the_host_only_for_their_critical_path_builds(self):
+        pr = set()
+        for workflow in ['ci.yml', 'research.yml']:
+            for name, job in jobs(workflow).items():
+                if 'stabileo-pr' in labels(job.get('runs-on', '')):
+                    pr.add(f'{workflow}:{name}')
+        self.assertEqual(pr, {'ci.yml:wasm', 'ci.yml:research-wasm', 'ci.yml:site-e2e'})
 
     def test_nightly_fuzz_never_takes_a_ci_runner(self):
         fuzz = jobs('nightly.yml')['fuzz']['runs-on']
