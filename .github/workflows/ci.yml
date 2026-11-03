@@ -940,7 +940,7 @@ jobs:
       - name: Build and production-build tests
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-          NO_WALL_CLOCK: ${{ github.event_name == 'merge_group' && runner.environment == 'self-hosted' && '1' || '' }}
+          NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make test.web.build NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
@@ -1205,7 +1205,7 @@ jobs:
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
         if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
         env:
-          NO_WALL_CLOCK: ${{ github.event_name == 'merge_group' && runner.environment == 'self-hosted' && '1' || '' }}
+          NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.slow SHARD=${{ matrix.shard }}/10 NIX_RUN= NO_WALL_CLOCK="$NO_WALL_CLOCK"
@@ -1350,7 +1350,7 @@ jobs:
     name: Timing Budgets
     runs-on: ubuntu-24.04
     needs: [changes, wasm, site-e2e]
-    if: github.event_name == 'merge_group' && needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')
     timeout-minutes: 60
     env:
       E2E_PREBUILT: '1'
