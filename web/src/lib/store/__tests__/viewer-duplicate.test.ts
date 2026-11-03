@@ -49,6 +49,13 @@ describe('duplicating the model in the viewer', () => {
     expect(seen).toBe(false);
   });
 
+  it('reports an autosave that throws, and still writes the workspace', async () => {
+    const workspace = vi.fn(() => true);
+    expect(await duplicateViewed({ autosave: async () => { throw new Error('boom'); }, workspace })).toBe(false);
+    expect(workspace).toHaveBeenCalledTimes(1);
+    expect(uiStore.toasts.map((x) => [x.message, x.type])).toEqual([[t('viewer.duplicateNotSaved'), 'error']]);
+  });
+
   it('reports a workspace that could not be written', async () => {
     const autosave = vi.fn(async (): Promise<AutosaveWriteResult> => ({ ok: true, backend: 'indexeddb', revision: 1 }));
     expect(await duplicateViewed({ autosave, workspace: () => false })).toBe(false);
