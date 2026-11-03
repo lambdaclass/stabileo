@@ -360,6 +360,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'underlay.modelY',
   'underlay.name',
   'view.qty.moment',
+  'viewer.mode.plan',
   'viewport.planChip',
   'viewport3d.momentY',
   'viewport3d.momentZ',
