@@ -452,12 +452,13 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         }
     }
 
-    let (reactions, equilibrium) = fiber_reactions_and_equilibrium_2d(
+    let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(),
     );
-    if !equilibrium.residual_ok || (cs.is_none() && !equilibrium.equilibrium_ok) {
-        return Err(not_in_equilibrium(last_lf, &equilibrium));
+    if !balance.summary.residual_ok || !balance.gate {
+        return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
+    let equilibrium = balance.summary;
 
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
@@ -1203,12 +1204,13 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         }
     }
 
-    let (reactions, equilibrium) = fiber_reactions_and_equilibrium_3d(
+    let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
         input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(),
     );
-    if !equilibrium.residual_ok || (cs.is_none() && !equilibrium.equilibrium_ok) {
-        return Err(not_in_equilibrium(last_lf, &equilibrium));
+    if !balance.summary.residual_ok || !balance.gate {
+        return Err(not_in_equilibrium(last_lf, &balance.summary));
     }
+    let equilibrium = balance.summary;
 
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
@@ -1495,7 +1497,8 @@ pub(crate) fn wrench_equilibrium(
     rel_residual: f64,
     tolerance: f64,
     n_dof: usize,
-) -> (EquilibriumSummary, [f64; 6], [f64; 6]) {
+    constraints: &[Constraint],
+) -> WrenchBalance {
     let mut lo = [f64::INFINITY; 3];
     let mut hi = [f64::NEG_INFINITY; 3];
     for p in points {
@@ -1523,20 +1526,53 @@ pub(crate) fn wrench_equilibrium(
     };
     let (a, scale_a) = total(applied);
     let (r, scale_r) = total(reactions);
-    let imbalance = (0..6)
-        .map(|k| (a[k] + r[k]).abs() / if k < 3 { 1.0 } else { size })
-        .fold(0.0f64, f64::max);
-    let scale = scale_a + scale_r;
-    let allowed = 10.0 * (n_dof.max(1) as f64).sqrt() * tolerance * scale;
+    let force = (0..3).map(|k| (a[k] + r[k]).abs()).fold(0.0f64, f64::max);
+    let moment = (3..6).map(|k| (a[k] + r[k]).abs() / size).fold(0.0f64, f64::max);
+    let allowed = 10.0 * (n_dof.max(1) as f64).sqrt() * tolerance * (scale_a + scale_r);
+    let within = |x: f64| x.is_finite() && x <= allowed;
     let summary = EquilibriumSummary {
         relative_residual: rel_residual,
         residual_ok: rel_residual.is_finite() && rel_residual <= tolerance,
         applied_force_sum: vec![],
         reaction_force_sum: vec![],
-        max_imbalance: imbalance,
-        equilibrium_ok: imbalance.is_finite() && imbalance <= allowed,
+        max_imbalance: force.max(moment),
+        equilibrium_ok: within(force) && within(moment),
     };
-    (summary, a, r)
+    let gate = !constraints.is_empty() || summary.equilibrium_ok;
+    WrenchBalance { summary, applied: a, reactions: r, gate }
+}
+
+pub(crate) struct WrenchBalance {
+    pub summary: EquilibriumSummary,
+    pub applied: [f64; 6],
+    pub reactions: [f64; 6],
+    pub gate: bool,
+}
+
+/// Support reactions in global axes: on restrained DOFs the unbalanced force, on free DOFs only
+/// the support springs' force, so constraint forces on a free DOF are not taken as reactions.
+fn support_forces<T: InclinedFrame>(
+    f_int: &[f64],
+    f_ext: &[f64],
+    springs: Vec<(usize, usize, f64)>,
+    u_full: &[f64],
+    its: &[T],
+    nf: usize,
+) -> Vec<f64> {
+    let mut unbalanced: Vec<f64> = f_int.iter().zip(f_ext).map(|(i, e)| i - e).collect();
+    let mut spring = vec![0.0; f_int.len()];
+    for (i, j, k) in springs {
+        spring[i] -= k * u_full[j];
+    }
+    for it in its {
+        it.rotate(&mut unbalanced);
+        it.rotate(&mut spring);
+    }
+    let mut reaction: Vec<f64> = (0..f_int.len()).map(|d| if d >= nf { unbalanced[d] } else { spring[d] }).collect();
+    for it in its {
+        it.reverse(&mut reaction);
+    }
+    reaction
 }
 
 fn support_nodes<I: Iterator<Item = usize>>(ids: I) -> Vec<usize> {
@@ -1558,7 +1594,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     its: &[T],
     art: &[(usize, f64)],
     cs: Option<&FreeConstraintSystem>,
-) -> (Vec<Reaction>, EquilibriumSummary) {
+) -> (Vec<Reaction>, WrenchBalance) {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
     let mut f_int = vec![0.0; n];
@@ -1568,13 +1604,7 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     assemble_elastic_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
     add_springs(&input.solver, dof_num, u_full, &mut f_int, art, &mut ignore);
     let rel_residual = relative_free_residual(&f_ext, &f_int, its, dof_num.n_free, cs);
-    let mut support_force = f_int.clone();
-    for (i, j, k) in assembly::support_spring_entries_2d(&input.solver, dof_num) {
-        support_force[i] -= k * u_full[j];
-    }
-    for (d, f) in support_force.iter_mut().zip(&f_ext) {
-        *d -= f;
-    }
+    let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_2d(&input.solver, dof_num), u_full, its, dof_num.n_free);
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
         let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
@@ -1594,10 +1624,11 @@ fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
     let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
     let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
     let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
-    let (mut summary, a, r) = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
-    summary.applied_force_sum = vec![a[0], a[2], -a[4]];
-    summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
-    (reactions, summary)
+    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free, &input.solver.constraints);
+    let (a, r) = (balance.applied, balance.reactions);
+    balance.summary.applied_force_sum = vec![a[0], a[2], -a[4]];
+    balance.summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
+    (reactions, balance)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1611,7 +1642,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     load_factor: f64,
     its: &[T],
     cs: Option<&FreeConstraintSystem>,
-) -> (Vec<Reaction3D>, EquilibriumSummary) {
+) -> (Vec<Reaction3D>, WrenchBalance) {
     let n = dof_num.n_total;
     let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
     let mut f_int = vec![0.0; n];
@@ -1621,13 +1652,7 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     assemble_elastic_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
     add_springs_3d(&input.solver, dof_num, u_full, &mut f_int, &mut ignore);
     let rel_residual = relative_free_residual(&f_ext, &f_int, its, dof_num.n_free, cs);
-    let mut support_force = f_int.clone();
-    for (i, j, k) in assembly::support_spring_entries_3d(&input.solver, dof_num) {
-        support_force[i] -= k * u_full[j];
-    }
-    for (d, f) in support_force.iter_mut().zip(&f_ext) {
-        *d -= f;
-    }
+    let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_3d(&input.solver, dof_num), u_full, its, dof_num.n_free);
     let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
     let position = |node: usize| {
         let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
@@ -1650,10 +1675,10 @@ fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
     let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
     let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
     let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
-    let (mut summary, a, r) = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free);
-    summary.applied_force_sum = a.to_vec();
-    summary.reaction_force_sum = r.to_vec();
-    (reactions, summary)
+    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free, &input.solver.constraints);
+    balance.summary.applied_force_sum = balance.applied.to_vec();
+    balance.summary.reaction_force_sum = balance.reactions.to_vec();
+    (reactions, balance)
 }
 
 #[cfg(test)]
@@ -1877,17 +1902,28 @@ mod tests {
     fn wrench_equilibrium_judges_a_pure_moment_on_the_model_scale() {
         let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
         let couple = |m: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0; 3], m: [0.0, m, 0.0] };
-        let (eq, _, _) = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-80.0, 0.0)], 0.0, 1e-8, 6);
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-80.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
         assert!(eq.equilibrium_ok && eq.max_imbalance == 0.0, "{eq:?}");
-        let (eq, _, _) = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[], 0.0, 1e-8, 6);
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[], 0.0, 1e-8, 6, &[]).summary;
         assert!(!eq.equilibrium_ok, "an unreacted couple must fail: {eq:?}");
         assert!((eq.max_imbalance - 80.0 / 4.0).abs() < 1e-12, "{eq:?}");
-        let (eq, _, _) = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-79.0, 0.0)], 0.0, 1e-8, 6);
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-79.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
         assert!(!eq.equilibrium_ok, "{eq:?}");
         let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
-        let (eq, _, _) = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0)], 0.0, 1e-8, 6);
+        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
         assert!(!eq.equilibrium_ok, "forces balance but the 40 kN·m couple of the pair is unreacted: {eq:?}");
-        let (eq, _, _) = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6);
+        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
         assert!(eq.equilibrium_ok, "{eq:?}");
+    }
+
+    #[test]
+    fn constraints_leave_the_balance_reported_but_ungated() {
+        let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
+        let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
+        let link = Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 2, dofs: vec![] });
+        let unconstrained = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(9.0, 0.0)], 0.0, 1e-8, 6, &[]);
+        assert!(!unconstrained.gate && !unconstrained.summary.equilibrium_ok);
+        let constrained = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(9.0, 0.0)], 0.0, 1e-8, 6, &[link]);
+        assert!(constrained.gate && !constrained.summary.equilibrium_ok);
     }
 }
