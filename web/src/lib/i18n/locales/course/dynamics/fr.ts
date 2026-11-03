@@ -85,6 +85,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.historyTooLong': 'L\'intégration temporelle du moteur demanderait plus de {max} pas pour ce rapport entre Ω et ω ; elle n\'a donc pas été lancée, et seuls ω et l\'amplitude sont comparés.',
   'course.dynamics.sdof.err.mk': 'm et k doivent être des nombres finis supérieurs à zéro.',
   'course.dynamics.sdof.err.noModel': 'Il n\'y a pas de modèle d\'où prendre m et k : chargez un modèle ou choisissez de les saisir.',
+  'course.dynamics.sdof.err.coupled': 'Ce nœud se déplace dans les deux directions avec de la masse dans les deux, couplées par la structure ; un seul degré de liberté ne serait qu\'une estimation. Utilisez l\'analyse à plusieurs degrés de liberté, ou rendez la masse seulement horizontale si elle ne se déplace qu\'en X.',
   'course.dynamics.sdof.err.tooBig': 'Le modèle a plus de degrés de liberté que ce cours n\'en résout pas à pas. Essayez un modèle plus petit ou saisissez m et k.',
   'course.dynamics.sdof.err.inputs': 'ξ, u₀, v₀, F₀ et Ω doivent être des nombres finis ; ξ et Ω ne peuvent pas être négatifs.',
   'course.dynamics.sdof.err.noNode': 'Choisissez un nœud avec une masse ponctuelle dans le panneau Dynamique, ou saisissez m et k.',

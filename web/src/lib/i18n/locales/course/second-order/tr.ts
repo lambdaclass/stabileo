@@ -11,7 +11,7 @@ const words: Translations = {
   'course.second-order.refuse.tooBig': 'Yapının {n} bilinmeyeni var ve bu yöntem {max} bilinmeyene kadar çalışır. Hesap motorunun çözdüğü tutarlı geometrik matrisi kullanın.',
   'course.second-order.refuse.trussCouple': 'Kafes çubuğuna etkiyen bir moment taşınamaz: çubuk yalnızca düğümlerinde kuvvet alır. Momenti moment taşıyabilen bir düğüme (rijit bağlı bir çerçeve elemanı ya da dönmeyi tutan bir mesnet olan) taşıyın ya da çubuğu çerçeve elemanı yapın.',
   'course.second-order.refuse.interiorNotFinite': 'Bir çubuğun içindeki ikinci mertebe moment sonlu değil: yük o çubuğun kendi burkulma yükünde ya da çok yakınında. Yükleri azaltın ya da φ fonksiyonlarıyla burkulmaya bakın.',
-  'course.second-order.refuse.noModeRepresented': 'Bu ayrıklaştırmayla geometrik matris burkulma modunu gösteremez: sonlu pozitif bir λ yok. Çubuğu daha çok parçaya bölün ya da tutarlı matrisi veya φ fonksiyonlarını kullanın.',
+  'course.second-order.refuse.noModeRepresented': 'Bu ayrıklaştırma ilk burkulma modunu gösteremez: sonlu pozitif bir λ vermez ya da bir çubuğun düğümleri arasında burkulduğu yükün üstünde bir λ verir. Çubukları daha çok parçaya bölün ya da φ fonksiyonlarını kullanın.',
   'course.second-order.refuse.singular': 'Yapı bir mekanizma: birinci mertebe çözümü yok.',
   'course.second-order.refuse.noCompression': 'Hiçbir çubuk basınç altında değil: burkulma yükü yok. P-Δ yine de hesaplanabilir: çekme yapıyı rijitleştirir ve NL²/EI büyük olduğunda sonuçları önemli ölçüde değiştirebilir.',
   'course.second-order.refuse.noPositive': 'Pozitif bir kritik yük katsayısı bulunamadı.',

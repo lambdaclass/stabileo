@@ -21,7 +21,7 @@ import type { ExplainedMethod, MethodContext } from '../registry';
 import type { Block, Cell, CompareRow, StepDoc, Txt } from '../doc';
 import { isTxt } from '../doc';
 import { teachingPDelta, solveState } from '../../second-order/pdelta';
-import { teachingBuckling, linearBuckling, phiBuckling } from '../../second-order/buckling';
+import { teachingBuckling, linearBuckling, phiBuckling, firstOrderAxial } from '../../second-order/buckling';
 import { buildSystem } from '../../second-order/system';
 import type { GeomMethod } from '../../second-order/member-matrices';
 import { refineInput } from '../../second-order/refine';
@@ -157,7 +157,20 @@ const differs = (mine: number, ref: number, tol: number) =>
  * forces it was solved with; λ₁ must be the first root of (F⁻¹ + λK_G(N₀))·x = 0, F the engine's
  * flexibility on the free DOFs and N₀ the engine's first-order forces. Both to 1e-8 / 1e-6.
  */
-function chordProblems(input: SolverInput, buckling: boolean): string[] {
+/** A linear-matrix λ₁ refused as unrepresented: its document says so, and the exact φ λ₁ lies below it. */
+function unrepresentedProblems(input: SolverInput, method: 'string' | 'consistent', axialRigid: boolean, doc: StepDoc): string[] {
+  const tag = `${axialRigid ? 'rigid ' : ''}${method} buckling refused as unrepresented`;
+  if (!JSON.stringify(doc).includes('course.second-order.refuse.noModeRepresented')) return [`${tag}, but its document gave a mode`];
+  const sys = buildSystem(input, { method, axialRigid }, false);
+  const first = sys.ok ? firstOrderAxial(sys.sys) : null;
+  if (!sys.ok || !first?.ok) return [`${tag}: its system could not be rebuilt`];
+  const linear = linearBuckling(sys.sys, method, 1, first.N0)[0]?.lambda;
+  const exact = teachingBuckling(input, { method: 'phi', axialRigid }, 1);
+  if (!exact.ok || linear === undefined) return [`${tag}: no φ or linear λ₁ to compare`];
+  return linear > exact.run.modes[0].lambda ? [] : [`${tag}: its λ₁ ${linear} is not above the exact ${exact.run.modes[0].lambda}`];
+}
+
+function chordProblems(input: SolverInput, buckling: boolean, doc: StepDoc): string[] {
   if ([...input.supports.values()].some((s) => s.angle !== undefined && s.angle !== 0)) return [];
   const chordForces = (sysN: Map<number, number>, D: (node: number, k: number) => number, members: Array<{ id: number; i: number; j: number; c: number; s: number; L: number }>) => {
     const f = new Map<number, [number, number]>();
@@ -188,6 +201,7 @@ function chordProblems(input: SolverInput, buckling: boolean): string[] {
     return out;
   }
   const b = teachingBuckling(input, { method: 'string', axialRigid: false }, 1);
+  if (!b.ok && b.reason.key === 'course.second-order.refuse.noModeRepresented') return unrepresentedProblems(input, 'string', false, doc);
   if (!b.ok || !b.run.modes.length) return [`chord buckling gave no mode although its document built${b.ok ? '' : `: ${b.reason.key}`}`];
   const sys = b.run.sys;
   const free = sys.free;
@@ -287,7 +301,7 @@ function phiProblems(input: SolverInput, buckling: boolean): string[] {
  * Rigid members checked against the same method with every area × 10⁵ at the same axial forces:
  * what is left is that axial deformation, 1e-5 of the answer, so 1e-4 of the largest value.
  */
-function rigidProblems(input: SolverInput, method: GeomMethod, buckling: boolean): string[] {
+function rigidProblems(input: SolverInput, method: GeomMethod, buckling: boolean, doc: StepDoc): string[] {
   const stiff = buildSystem(referenceInput(input, true), { method, axialRigid: false }, method === 'phi');
   if (!stiff.ok) return [`rigid ${method}: the stiff reference was refused: ${stiff.reason.key}`];
   if (!buckling) {
@@ -305,6 +319,7 @@ function rigidProblems(input: SolverInput, method: GeomMethod, buckling: boolean
     return out;
   }
   const b = teachingBuckling(input, { method, axialRigid: true }, 1);
+  if (!b.ok && b.reason.key === 'course.second-order.refuse.noModeRepresented' && (method === 'string' || method === 'consistent')) return unrepresentedProblems(input, method, true, doc);
   if (!b.ok || !b.run.modes.length) return [`rigid ${method} buckling gave no mode although its document built${b.ok ? '' : `: ${b.reason.key}`}`];
   const mine = b.run.modes[0].lambda;
   const ref = method === 'phi'
@@ -351,8 +366,8 @@ function runAll(label: string, tally: Map<string, number>, failures: string[]): 
       if (m.id.startsWith('so-')) {
         const buckles = m.id.startsWith('so-buckling');
         const method: GeomMethod = m.id.endsWith('-phi') ? 'phi' : opts.chord ? 'string' : 'consistent';
-        if (opts.axialRigid) found.push(...rigidProblems(ctx.input, method, buckles));
-        else if (method === 'string') found.push(...chordProblems(ctx.input, buckles));
+        if (opts.axialRigid) found.push(...rigidProblems(ctx.input, method, buckles, doc));
+        else if (method === 'string') found.push(...chordProblems(ctx.input, buckles, doc));
         else if (method === 'phi') found.push(...phiProblems(ctx.input, buckles));
       }
       // A classical frame method that differs from the matrix solve must be

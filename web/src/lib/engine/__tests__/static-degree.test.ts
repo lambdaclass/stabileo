@@ -104,6 +104,15 @@ describe('GH by the classic formula', () => {
     expect(portal.split).toEqual({ external: 1, internal: 0, mechanisms: 2, bodies: 1 });
   });
 
+  it('a cantilever released at its tip: the idle tip rotation is no mechanism, and it splits as isostatic', () => {
+    const tip = ghReport(model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2, 'frame', false, true]], [[1, 'fixed']]), 0, { split: true });
+    expect(tip.gh).toBe(0);
+    expect(tip.split).toEqual({ external: 0, internal: 0, mechanisms: 0, bodies: 1 });
+    const both = ghReport(model([[1, 0, 0], [2, 6, 0], [3, 6, 4]], [[1, 1, 2, 'frame'], [2, 2, 3, 'frame', false, true]], [[1, 'fixed']]), 0, { split: true });
+    expect(both.gh).toBe(0);
+    expect(both.split).toEqual({ external: 0, internal: 0, mechanisms: 0, bodies: 1 });
+  });
+
   it('gives no external/internal split when a constraint ties the model: the classic count does not see it', () => {
     const base = CASES[1].input;
     expect(ghReport(base, 0, { split: true }).split).not.toBeNull();

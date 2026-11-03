@@ -7,6 +7,7 @@ import { refineInput, collapseResults } from '../refine';
 import { computeDiagramValueAt } from '../../diagrams';
 import { buildSystem, TEACHING_MAX_DOFS } from '../system';
 import { runPDelta2D } from '../run-pdelta';
+import { runBuckling2D } from '../run-buckling';
 import { DEFAULT_SETTINGS } from '../settings';
 import { column, clampedColumn, portal, scaleArea, EI, E, I } from './fixtures';
 
@@ -46,11 +47,18 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
     expect(lambda1(column('pinned', 'rollerZ', L, P), 'consistent', 1) / exact).toBeCloseTo(12 / Math.PI ** 2, 6);
   });
 
-  it('a fixed-fixed column of one element has no free rotation to buckle with, and φ still finds it (Wittrick–Williams count)', () => {
-    const b = teachingBuckling(column('fixed', 'guided', L, P), { method: 'consistent', axialRigid: false }, 1);
-    if (!b.ok) throw new Error(b.reason.key);
-    expect(b.run.modes.length).toBeGreaterThan(0);
-    expect(b.run.modes[0].lambda).toBeGreaterThan(1e6);
+  it('a fixed-fixed column of one element has no free rotation to buckle with: the linear matrices refuse, φ still finds it (Wittrick–Williams count)', () => {
+    for (const method of ['consistent', 'string'] as const) {
+      const b = teachingBuckling(column('fixed', 'guided', L, P), { method, axialRigid: false }, 1);
+      expect(b.ok).toBe(false);
+      if (!b.ok) expect(b.reason.key).toBe('course.second-order.refuse.noModeRepresented');
+    }
+    const one = runBuckling2D(column('fixed', 'guided', L, P), { ...DEFAULT_SETTINGS, method: 'consistent', n: 1 });
+    expect(one.ok).toBe(false);
+    if (!one.ok) expect(one.reason.key).toBe('course.second-order.refuse.noModeRepresented');
+    const refined = runBuckling2D(column('fixed', 'guided', L, P), { ...DEFAULT_SETTINGS, method: 'consistent', n: 4 });
+    if (!refined.ok) throw new Error(refined.reason.key);
+    expect(refined.result.modes[0].loadFactor / ((4 * Math.PI ** 2 * EI) / (L * L) / P) - 1).toBeLessThan(1e-2);
     expect(lambda1(column('fixed', 'guided', L, P), 'phi', 1)).toBeCloseTo((4 * Math.PI ** 2 * EI) / (L * L) / P, 3);
   });
 

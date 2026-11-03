@@ -6,9 +6,9 @@
  */
 import type { SolverInput } from '../types';
 import type { BucklingResult, ElementBucklingData } from '../result-types';
-import type { Txt } from '../steps/doc';
+import { tx, type Txt } from '../steps/doc';
 import { solveBuckling } from '../wasm-solver';
-import { teachingBuckling, firstOrderAxial } from './buckling';
+import { teachingBuckling, firstOrderAxial, representsFirstMode } from './buckling';
 import { buildSystem } from './system';
 import { refineInput, refinedGeometry, type Refined } from './refine';
 import { teachingOptions, usesEngine, type SoSettings } from './settings';
@@ -47,11 +47,11 @@ export function memberBucklingData(original: SolverInput, r: Refined, pieceN: Ma
   return out.sort((a, b) => a.elementId - b.elementId);
 }
 
-function axialNoise(input: SolverInput): Map<number, number> | undefined {
+function firstOrder(input: SolverInput) {
   const b = buildSystem(input, { method: 'consistent', axialRigid: false }, true);
   if (!b.ok) return undefined;
   const first = firstOrderAxial(b.sys);
-  return first.ok ? first.noise : undefined;
+  return first.ok ? { sys: b.sys, N0: first.N0, noise: first.noise } : undefined;
 }
 
 export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; result: SoBucklingResult } | { ok: false; reason: Txt } {
@@ -61,7 +61,9 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
     const raw = solveBuckling(r.input, s.modes) as SoBucklingResult;
     const pieceN = new Map(raw.elementData.map((d) => [d.elementId, d.axialForce]));
     const lambda1 = raw.modes[0]?.loadFactor ?? NaN;
-    return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1, axialNoise(r.input)), secondOrder: { settings: s, geometry, engineFactors: null } } };
+    const first = firstOrder(r.input);
+    if (first && !representsFirstMode(first.sys, first.N0, lambda1)) return { ok: false, reason: tx('course.second-order.refuse.noModeRepresented') };
+    return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1, first?.noise), secondOrder: { settings: s, geometry, engineFactors: null } } };
   }
   const got = teachingBuckling(r.input, teachingOptions(s), s.modes);
   if (!got.ok) return got;

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { modelStore, historyStore, uiStore } from '../../../../store';
 import { solveModal, solveHarmonic2D, solveTimeHistory2D, guyanReduce2D, isSolverReady } from '../../../wasm-solver';
-import { withBasicMass } from '../../basic-mass';
+import { withBasicMass, withPointMasses } from '../../basic-mass';
 import { densityRecord } from '../../requests';
 import { modelSystem } from '../mdof-system';
 import { shearBuilding } from '../shear-building';
@@ -45,7 +45,7 @@ const points = () => modelStore.model.massSource?.points ?? [];
 function engineFrequencies(n: number): number[] {
   const sub = subdivideForAnalysis(modelStore.model, n);
   const input = buildSolverInput2D(sub.model)!;
-  const phys = withBasicMass(input, { ...sub.model, massSource: modelStore.model.massSource });
+  const phys = withBasicMass(input, { ...sub.model, massSource: modelStore.model.massSource }, 'iy');
   return solveModal(phys.input, phys.densities, 12).modes.map((m: { frequency: number }) => m.frequency);
 }
 
@@ -106,6 +106,26 @@ describe('point masses in Basic reach the engine', () => {
     expect(Math.abs(after - rayleigh) / rayleigh).toBeLessThan(0.01);
     const mine = convergenceTable(modelStore.model, points(), [4], 1, true)[0].f.consistent[0];
     expect(mine).toBeCloseTo(after, 6);
+  });
+
+  it.each([[1.5, 0.8], [0, 0.8]])('a tip mass %s t with rotary inertia %s t·m²: the engine solves with the inertia, at the course system\'s frequencies', (m, izz) => {
+    cantilever(2);
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m }] });
+    const without = engineFrequencies(4);
+    modelStore.setMassSource({ kind: 'custom', factors: [], points: [{ nodeId: 2, m, izz }] });
+    const eng = engineFrequencies(4);
+    const mine = convergenceTable(modelStore.model, points(), [4], 3, true)[0].f.consistent;
+    expect(mine).toHaveLength(3);
+    mine.forEach((f, i) => expect(f / eng[i]).toBeCloseTo(1, 6));
+    expect(eng.some((f, i) => Math.abs(f / without[i] - 1) > 1e-3)).toBe(true);
+  });
+
+  it('a point mass\'s rotary inertia reaches the engine as the plane rotation in 2D and about the vertical in 3D', () => {
+    const input: { nodes: Map<number, unknown>; masses?: { nodal?: Array<{ nodeId: number; mass: number }> } } = { nodes: new Map([[2, {}]]) };
+    expect(withPointMasses(input, [{ nodeId: 2, m: 1, izz: 0.5 }, { nodeId: 2, m: 0, izz: 0.25, horizontalOnly: true }], 'iy').masses?.nodal)
+      .toEqual([{ nodeId: 2, mass: 1, iy: 0.5 }, { nodeId: 2, mass: 0, massZ: 0, iy: 0.25 }]);
+    expect(withPointMasses(input, [{ nodeId: 2, m: 0, izz: 0.25 }], 'izz').masses?.nodal).toEqual([{ nodeId: 2, mass: 0, izz: 0.25 }]);
+    expect(withPointMasses(input, [{ nodeId: 2, m: 0, izz: 0 }], 'iy')).toBe(input);
   });
 
   it('a rotational inertia at the tip is not taken for the bare exact cantilever', () => {
@@ -190,7 +210,7 @@ describe('ground excitation with a support in a turned frame', () => {
 
 describe('the SDOF from an inclined cantilever', () => {
   for (const dir of ['ux', 'uz'] as const) {
-    it(`a tip mass read along ${dir}: the mass follows the tip's whole deflection, so ω is the MDOF's first to the axial-stiffness error`, () => {
+    it(`a tip mass read along ${dir}: two coupled massive translations, refused for the MDOF analysis`, () => {
       build(() => {
         const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 4);
         modelStore.addElement(a, b);
@@ -200,11 +220,7 @@ describe('the SDOF from an inclined cantilever', () => {
       const s = modelSystem(modelStore.model, pts, { nPerMember: 1, massModel: 'lumped', barMass: false });
       const sol = modalSolve(s.K, s.M, s.dofs, s.ground);
       expect(sol.modes.length).toBeGreaterThan(0);
-      const sd = sdofFromModel(modelStore.model, pts, 2, dir);
-      if (typeof sd === 'string') throw new Error(sd);
-      const ratio = Math.sqrt(sd.k / sd.m) / sol.modes[0].omega;
-      expect(ratio).toBeGreaterThanOrEqual(1 - 1e-12);
-      expect(ratio).toBeLessThan(1 + 1e-3);
+      expect(sdofFromModel(modelStore.model, pts, 2, dir)).toBe('coupled');
     });
   }
 });

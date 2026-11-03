@@ -95,9 +95,9 @@ export const MASS_MODELS: MassModel[] = ['lumped', 'consistent', 'guyan'];
 
 export function frequenciesOf(model: ModelData, points: readonly PointMass[], opts: SystemOptions, count: number): { f: number[]; dofs: number } {
   const s = modelSystem(model, points, opts);
-  let lambda: number[];
-  try { ({ lambda } = generalizedEigen(s.K, s.M)); } catch { throw new SystemError('singular'); }
-  return { f: circularFrequencies(lambda).slice(0, count).map((w) => w / (2 * Math.PI)), dofs: s.dofs.length };
+  let lambda: number[], error: number[];
+  try { ({ lambda, error } = generalizedEigen(s.K, s.M)); } catch { throw new SystemError('singular'); }
+  return { f: circularFrequencies(lambda, error).slice(0, count).map((w) => w / (2 * Math.PI)), dofs: s.dofs.length };
 }
 
 export function convergenceTable(

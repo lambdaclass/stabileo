@@ -69,10 +69,9 @@ export class SystemError extends Error {
   constructor(public code: 'empty' | 'noMass' | 'singular' | 'tooBig' | 'indefinite', public params: Record<string, number> = {}) { super(code); }
 }
 
-/** ω = √λ, refusing a λ below zero beyond n ulps of the largest: K is then not positive semidefinite, an unstable structure. */
-export function circularFrequencies(lambda: readonly number[]): number[] {
-  const scale = Math.max(0, ...lambda.map(Math.abs));
-  if (lambda.some((l) => l < -lambda.length * Number.EPSILON * scale)) throw new SystemError('indefinite');
+/** ω = √λ, refusing a λ below zero beyond that mode's own error bound: K is then not positive semidefinite, an unstable structure. */
+export function circularFrequencies(lambda: readonly number[], error: readonly number[]): number[] {
+  if (lambda.some((l, i) => !(l >= -(error[i] ?? 0)))) throw new SystemError('indefinite');
   return lambda.map((l) => Math.sqrt(Math.max(l, 0)));
 }
 

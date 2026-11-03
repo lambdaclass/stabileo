@@ -135,3 +135,47 @@ describe('the single degree of freedom from a model holds only the mass at its n
   });
 });
 
+
+describe('the single degree of freedom from a model refuses a mass that moves across the chosen direction', () => {
+  function inclined() {
+    uiStore.analysisMode = '2d';
+    historyStore.clear();
+    modelStore.clear();
+    let tip = 0;
+    modelStore.batch(() => {
+      const a = modelStore.addNode(0, 0);
+      tip = modelStore.addNode(3, 3);
+      modelStore.addElement(a, tip);
+      modelStore.addSupport(a, 'fixed');
+    });
+    return tip;
+  }
+
+  it.each(['ux', 'uz'] as const)('an inclined cantilever with an isotropic tip mass is two coupled translations, refused in %s', (dir) => {
+    const tip = inclined();
+    expect(sdofFromModel(modelStore.model, [{ nodeId: tip, m: 1 }], tip, dir)).toBe('coupled');
+  });
+
+  it('an inclined cantilever with a horizontal-only mass keeps ux exact and refuses uz', () => {
+    const tip = inclined();
+    const pts = [{ nodeId: tip, m: 2, horizontalOnly: true }];
+    const x = sdofFromModel(modelStore.model, pts, tip, 'ux');
+    if (typeof x === 'string') throw new Error(x);
+    expect(x.m).toBe(2);
+    expect(sdofFromModel(modelStore.model, pts, tip, 'uz')).toBe('coupled');
+  });
+
+  it.each(['ux', 'uz'] as const)('a horizontal cantilever with an isotropic tip mass stays uncoupled in %s', (dir) => {
+    uiStore.analysisMode = '2d';
+    historyStore.clear();
+    modelStore.clear();
+    modelStore.batch(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(3, 0);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'fixed');
+    });
+    const r = sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, dir);
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.m).toBe(1);
+  });
+});

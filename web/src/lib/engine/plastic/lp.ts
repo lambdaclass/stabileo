@@ -19,7 +19,6 @@ export type LpResult =
   | { status: 'infeasible' | 'unbounded' | 'iterationLimit' | 'inaccurate' };
 
 const EPS = 1e-9;
-const ROUND = 64 * Number.EPSILON;
 const MAX_ITER = 5000;
 
 export function solveLp(p: LpProblem): LpResult {
@@ -55,6 +54,42 @@ export function solveLp(p: LpProblem): LpResult {
   }
   const A0 = T.map((r) => r.slice(0, nx));
   const b0 = T.map((r) => r[width - 1]);
+  const T0 = T.map((r) => r.slice(0, width - 1));
+  const basicValues = (): number[] | null => {
+    const m = T0.length;
+    const B = T0.map((row) => basis.map((k) => row[k]));
+    const lu = B.map((r) => r.slice());
+    const perm = Array.from({ length: m }, (_, i) => i);
+    for (let c = 0; c < m; c++) {
+      let pr = c;
+      for (let r = c + 1; r < m; r++) if (Math.abs(lu[r][c]) > Math.abs(lu[pr][c])) pr = r;
+      if (!(Math.abs(lu[pr][c]) > 0)) return null;
+      [lu[c], lu[pr]] = [lu[pr], lu[c]];
+      [perm[c], perm[pr]] = [perm[pr], perm[c]];
+      for (let r = c + 1; r < m; r++) {
+        const f = (lu[r][c] /= lu[c][c]);
+        if (f !== 0) for (let k = c + 1; k < m; k++) lu[r][k] -= f * lu[c][k];
+      }
+    }
+    const solve = (rhs: number[]) => {
+      const y = perm.map((i) => rhs[i]);
+      for (let r = 0; r < m; r++) for (let k = 0; k < r; k++) y[r] -= lu[r][k] * y[k];
+      for (let r = m - 1; r >= 0; r--) { for (let k = r + 1; k < m; k++) y[r] -= lu[r][k] * y[k]; y[r] /= lu[r][r]; }
+      return y;
+    };
+    const z = solve(b0);
+    for (let step = 0; step < 2; step++) {
+      const res = B.map((row, i) => row.reduce((s, v, j) => s - v * z[j], b0[i]));
+      const dz = solve(res);
+      for (let j = 0; j < m; j++) z[j] += dz[j];
+    }
+    return z.every(Number.isFinite) ? z : null;
+  };
+  const rowScale = (i: number, z: number[]) => {
+    let s = Math.abs(b0[i]);
+    for (let j = 0; j < basis.length; j++) s += Math.abs(T0[i][basis[j]] * z[j]);
+    return s;
+  };
   const rowTol = (row: number[]) => {
     let m = 0;
     for (let k = 0; k < width - 1; k++) m = Math.max(m, Math.abs(row[k]));
@@ -104,15 +139,12 @@ export function solveLp(p: LpProblem): LpResult {
     const cost1 = new Array(width).fill(0);
     for (const a of artCols) cost1[a] = 1;
     if (run(cost1, () => true) === 'iterationLimit') return { status: 'iterationLimit' };
-    const xc = new Array(nx).fill(0);
-    for (let r = 0; r < T.length; r++) if (basis[r] < nx) xc[basis[r]] = T[r][width - 1];
-    const xs = Math.max(...xc.map(Math.abs), 0);
+    const z = basicValues();
+    if (!z) return { status: 'inaccurate' };
     for (let r = 0; r < T.length; r++) {
       const i = artRow.get(basis[r]);
       if (i === undefined) continue;
-      let scale = Math.abs(b0[i]), norm = 0;
-      for (let k = 0; k < nx; k++) { scale += Math.abs(A0[i][k] * xc[k]); norm += Math.abs(A0[i][k]); }
-      if (T[r][width - 1] > 1e-9 * scale + ROUND * norm * xs + 1e-300) return { status: 'infeasible' };
+      if (z[r] > 1e-9 * rowScale(i, z) + 1e-300) return { status: 'infeasible' };
     }
     for (let r = 0; r < T.length; r++) {
       if (!artCols.includes(basis[r])) continue;
@@ -126,10 +158,12 @@ export function solveLp(p: LpProblem): LpResult {
   const isArt = new Set(artCols);
   const phase2 = run(cost2, (col) => !isArt.has(col));
   if (phase2 !== 'optimal') return { status: phase2 };
+  const z = basicValues();
+  if (!z) return { status: 'inaccurate' };
   const x = new Array(n).fill(0);
   for (let r = 0; r < T.length; r++) {
     const k = basis[r];
-    if (k < nx) x[cols[k].v] += cols[k].s * T[r][width - 1];
+    if (k < nx) x[cols[k].v] += cols[k].s * z[r];
   }
   if (!satisfies(p, x, free)) return { status: 'inaccurate' };
   const value = p.c.reduce((s, cj, j) => s + cj * x[j], 0);
@@ -163,18 +197,16 @@ function optimalDual(rows: LpRow[], A: number[][], c: number[], y: number[], val
 
 /** The returned x checked against the problem as given: every row and every sign bound, to a tolerance scaled by its terms. */
 function satisfies(p: LpProblem, x: number[], free: boolean[]): boolean {
-  const xs = Math.max(...x.map(Math.abs), 0);
   const scale = p.rows.map((r) => Math.abs(r.b) + r.a.reduce((s, a, j) => s + Math.abs(a * (x[j] ?? 0)), 0));
-  const norm = p.rows.map((r) => r.a.reduce((s, a) => s + Math.abs(a), 0));
   for (let j = 0; j < x.length; j++) {
     if (free[j] || x[j] >= 0) continue;
     let bound = 0;
     p.rows.forEach((r, i) => { const a = Math.abs(r.a[j] ?? 0); if (a > 0) bound = Math.max(bound, scale[i] / a); });
-    if (-x[j] > 1e-9 * bound + ROUND * xs + 1e-300) return false;
+    if (-x[j] > 1e-9 * bound + 1e-300) return false;
   }
   return p.rows.every((r, i) => {
     const ax = r.a.reduce((s, a, j) => s + a * (x[j] ?? 0), 0);
-    const tol = 1e-7 * scale[i] + ROUND * norm[i] * xs + 1e-300;
+    const tol = 1e-7 * scale[i] + 1e-300;
     return r.op === '<=' ? ax <= r.b + tol : r.op === '>=' ? ax >= r.b - tol : Math.abs(ax - r.b) <= tol;
   });
 }

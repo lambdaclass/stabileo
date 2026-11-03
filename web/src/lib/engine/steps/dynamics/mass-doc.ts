@@ -28,7 +28,8 @@ function system(ctx: MethodContext, n: number, mm: MassModel): MdofSystem {
 }
 
 function hertz(s: Pick<MdofSystem, 'K' | 'M'>): number[] {
-  return circularFrequencies(generalizedEigen(s.K, s.M).lambda).slice(0, MODES).map((w) => w / (2 * Math.PI));
+  const { lambda, error } = generalizedEigen(s.K, s.M);
+  return circularFrequencies(lambda, error).slice(0, MODES).map((w) => w / (2 * Math.PI));
 }
 
 export function massApplies(ctx: MethodContext): Applicability {

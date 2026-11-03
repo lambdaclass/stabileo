@@ -85,6 +85,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.historyTooLong': 'Die Zeitintegration des Rechenkerns bräuchte für dieses Verhältnis von Ω zu ω mehr als {max} Schritte und wurde daher nicht ausgeführt; verglichen werden ω und die Amplitude.',
   'course.dynamics.sdof.err.mk': 'm und k müssen endliche Zahlen größer als null sein.',
   'course.dynamics.sdof.err.noModel': 'Es gibt kein Modell, aus dem m und k genommen werden können: Modell laden oder m und k von Hand eingeben.',
+  'course.dynamics.sdof.err.coupled': 'Dieser Knoten bewegt sich in beide Richtungen mit Masse in beiden, über das Tragwerk gekoppelt; ein einziger Freiheitsgrad wäre nur eine Schätzung. Verwenden Sie die Analyse mit mehreren Freiheitsgraden oder machen Sie die Masse nur horizontal, wenn sie sich nur in X bewegt.',
   'course.dynamics.sdof.err.tooBig': 'Das Modell hat mehr Freiheitsgrade, als dieser Kurs Schritt für Schritt löst. Versuchen Sie ein kleineres Modell oder geben Sie m und k ein.',
   'course.dynamics.sdof.err.inputs': 'ξ, u₀, v₀, F₀ und Ω müssen endliche Zahlen sein; ξ und Ω dürfen nicht negativ sein.',
   'course.dynamics.sdof.err.noNode': 'Wählen Sie im Panel Dynamik einen Knoten mit Punktmasse oder geben Sie m und k von Hand ein.',

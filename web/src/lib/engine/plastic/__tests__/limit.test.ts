@@ -47,10 +47,12 @@ describe('a small linear program', () => {
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '=', b: -1e-8 }] }).status).toBe('infeasible');
   });
   it('refuses a unit infeasibility beside an unrelated huge variable, whatever the costs', () => {
-    for (const c of [[0, 0], [1, 1], [-1, 0]]) {
-      const r = solveLp({ c, rows: [{ a: [1, 0], op: '<=', b: 0 }, { a: [1, 0], op: '=', b: 1 }, { a: [0, 1], op: '=', b: 1e12 }] });
+    for (const big of [1e12, 1e16, 1e100]) for (const c of [[0, 0], [1, 1], [-1, 0]]) {
+      const r = solveLp({ c, rows: [{ a: [1, 0], op: '<=', b: 0 }, { a: [1, 0], op: '=', b: 1 }, { a: [0, 1], op: '=', b: big }] });
       expect(r.status).toBe('infeasible');
     }
+    const h = solveLp({ c: [0, 0], rows: [{ a: [1, 0], op: '<=', b: 0 }, { a: [1, 1e-16], op: '=', b: 1 }, { a: [0, 1], op: '=', b: 1e16 }] });
+    expect(h.status).toBe('optimal');
     const g = solveLp({ c: [0, 0], rows: [{ a: [1, 0], op: '>=', b: 1 }, { a: [1, 0], op: '<=', b: 0 }, { a: [0, 1], op: '>=', b: 1e12 }] });
     expect(g.status).toBe('infeasible');
     const ok = solveLp({ c: [0, 0], rows: [{ a: [1, 0], op: '<=', b: 1 }, { a: [1, 0], op: '=', b: 1 }, { a: [0, 1], op: '=', b: 1e12 }] });

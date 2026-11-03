@@ -443,7 +443,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const physical = withBasicMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'iy');
       const result = solveModal(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
@@ -571,7 +571,7 @@
     try {
       const t0 = performance.now();
       let result: any;
-      const physical = withBasicMass(input, modelStore.model);
+      const physical = withBasicMass(input, modelStore.model, 'izz');
       result = wasmModal3D(physical.input, physical.densities);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }

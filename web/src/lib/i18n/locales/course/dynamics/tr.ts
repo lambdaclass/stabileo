@@ -85,6 +85,7 @@ const words: Translations = {
   'course.dynamics.sdof.engine.historyTooLong': 'Motorun zaman integrasyonu bu Ω/ω oranı için {max} adımdan fazlasını gerektirirdi, bu yüzden çalıştırılmadı; ω ve genlik karşılaştırılır.',
   'course.dynamics.sdof.err.mk': 'm ve k sıfırdan büyük sonlu sayılar olmalıdır.',
   'course.dynamics.sdof.err.noModel': 'm ve k\'nin alınacağı bir model yok: bir model yükleyin ya da elle girmeyi seçin.',
+  'course.dynamics.sdof.err.coupled': 'Bu düğüm, yapı üzerinden bağlı iki yönde de kütleyle hareket ediyor; tek serbestlik derecesi yalnızca bir tahmin olur. Çok serbestlik dereceli analizi kullanın ya da yalnızca X\'te hareket ediyorsa kütleyi yalnızca yatay yapın.',
   'course.dynamics.sdof.err.tooBig': 'Modelin serbestlik derecesi bu dersin adım adım çözebileceğinden fazla. Daha küçük bir model deneyin ya da m ve k\'yi elle girin.',
   'course.dynamics.sdof.err.inputs': 'ξ, u₀, v₀, F₀ ve Ω sonlu sayılar olmalı; ξ ve Ω negatif olamaz.',
   'course.dynamics.sdof.err.noNode': 'Dinamik panelinde tekil kütlesi olan bir düğüm seçin ya da m ve k yi elle girin.',

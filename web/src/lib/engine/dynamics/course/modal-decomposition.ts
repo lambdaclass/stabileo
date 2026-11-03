@@ -65,8 +65,8 @@ function offDiagonal(a: Mat): number {
  * moving too); without it, M·r over `dofs`, which misses the mass coupled to supports in a turned frame.
  */
 export function modalSolve(K: Mat, M: Mat, dofs: readonly DofRef[], ground?: { x: number[]; z: number[] }): ModalSolution {
-  const { lambda, phi } = generalizedEigen(K, M);
-  const omegas = circularFrequencies(lambda);
+  const { lambda, phi, error } = generalizedEigen(K, M);
+  const omegas = circularFrequencies(lambda, error);
   const Mrx = ground?.x ?? matVec(M, influence(dofs, 'ux')), Mrz = ground?.z ?? matVec(M, influence(dofs, 'uz'));
   const cols: number[][] = [];
   const modes: Mode[] = lambda.map((_, i) => {

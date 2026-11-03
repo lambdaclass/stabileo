@@ -15,7 +15,7 @@ import { zeros } from './dense';
 import { MAX_SYSTEM_DOFS } from './mdof-system';
 
 export interface SdofFromModel { nodeId: number; dir: 'ux' | 'uz'; k: number; delta: number; m: number; nFree: number }
-export type SdofModelRefusal = 'noNode' | 'restrained' | 'mechanism' | 'noMass' | 'tooBig' | 'otherMasses';
+export type SdofModelRefusal = 'noNode' | 'restrained' | 'mechanism' | 'noMass' | 'tooBig' | 'otherMasses' | 'coupled';
 
 export function sdofFromModel(model: ModelData, points: readonly PointMass[], nodeId: number | null, dir: 'ux' | 'uz'): SdofFromModel | SdofModelRefusal {
   if (nodeId === null || !model.nodes.has(nodeId)) return 'noNode';
@@ -38,6 +38,8 @@ export function sdofFromModel(model: ModelData, points: readonly PointMass[], no
   const at = points.filter((q) => q.nodeId === nodeId && q.m > 0);
   const mx = at.reduce((sum, q) => sum + q.m, 0);
   const mz = at.reduce((sum, q) => sum + (q.horizontalOnly ? 0 : q.m), 0);
+  const [across, fAcross] = dir === 'ux' ? [mz, f[1]] : [mx, f[0]];
+  if (free.length === 2 && across > 0 && Math.abs(fAcross) > 1e-9 * Math.hypot(f[0], f[1])) return 'coupled';
   const m = (mx * f[0] * f[0] + mz * f[1] * f[1]) / (delta * delta);
   if (!(m > 0)) return 'noMass';
   return { nodeId, dir, k, delta, m, nFree: nF };

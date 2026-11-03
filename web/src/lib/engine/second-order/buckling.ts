@@ -96,6 +96,23 @@ export function linearBuckling(sys: SoSystem, method: 'consistent' | 'string', n
   return pairs.slice(0, nModes).map((p) => ({ lambda: p.lambda, D: expand(sys, p.vector) }));
 }
 
+/**
+ * An upper bound on the true λ₁: with every node held, the first member to buckle between its
+ * ends. A linear-matrix λ₁ above it is a mode the discretization cannot represent.
+ */
+export function clampedBound(sys: SoSystem, N0: Map<number, number>): number {
+  let best = Infinity;
+  for (const m of sys.members) {
+    const n = N0.get(m.id) ?? 0;
+    if (m.truss || !(n < 0) || !(m.EI > 0)) continue;
+    const u = m.hingeI && m.hingeJ ? Math.PI : m.hingeI || m.hingeJ ? 4.493409457909064 : 2 * Math.PI;
+    best = Math.min(best, (u * u * m.EI) / (m.L * m.L * -n));
+  }
+  return best;
+}
+
+export const representsFirstMode = (sys: SoSystem, N0: Map<number, number>, lambda1: number): boolean => !(lambda1 > clampedBound(sys, N0) * (1 + 1e-9));
+
 /** J(λ): how many critical load factors lie below λ. */
 export function criticalCount(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
   return clampedCount(sys, N0, lambda) + negativeEigenvalues(reducedStiffness(sys, scaled(N0, lambda), 'phi'));
@@ -238,6 +255,7 @@ export function teachingBuckling(input: SolverInput, opts: SecondOrderOptions, n
     modes = phiBuckling(b.sys, Math.max(1, nModes), first.N0, est);
   } else {
     modes = linearBuckling(b.sys, opts.method === 'string' ? 'string' : 'consistent', count, first.N0);
+    if (modes.length && !representsFirstMode(b.sys, first.N0, modes[0].lambda)) return { ok: false, reason: tx('course.second-order.refuse.noModeRepresented') };
   }
   if (!modes.length) return { ok: false, reason: tx('course.second-order.refuse.noPositive') };
   return { ok: true, run: { sys: b.sys, method: opts.method, N0: first.N0, N0Noise: first.noise, modes } };

@@ -106,10 +106,23 @@ describe('a stiffness that is not positive semidefinite', () => {
     const I = [[1, 0], [0, 1]];
     expect(() => modalSolve([[-1, 0], [0, 4]], I, dofs)).toThrow(SystemError);
     try { modalSolve([[-1, 0], [0, 4]], I, dofs); } catch (e) { expect((e as SystemError).code).toBe('indefinite'); }
-    expect(circularFrequencies([-1e-15, 4])).toEqual([0, 2]);
-    expect(() => circularFrequencies([-1e-13, 4])).toThrow(SystemError);
-    expect(() => circularFrequencies([-1, 1e12])).toThrow(SystemError);
-    expect(() => circularFrequencies([-0.05, 1e12])).toThrow(SystemError);
+    expect(circularFrequencies([-1e-15, 4], [1e-14, 1e-14])).toEqual([0, 2]);
+    expect(() => circularFrequencies([-1e-13, 4], [1e-14, 1e-14])).toThrow(SystemError);
+    expect(() => circularFrequencies([-1, 1e12], [1e-15, 1e-3])).toThrow(SystemError);
+    expect(() => circularFrequencies([-0.05, 1e12], [1e-15, 1e-3])).toThrow(SystemError);
+  });
+
+  it('judges each mode by its own error bound, so a stiff mode cannot hide an unstable one', () => {
+    const dofs: DofRef[] = [{ nodeId: 1, dir: 'ux' }, { nodeId: 2, dir: 'ux' }];
+    const I = [[1, 0], [0, 1]];
+    for (const big of [1e12, 1e16, 1e20]) {
+      const { lambda, error } = generalizedEigen([[-1, 0], [0, big]], I);
+      expect(error[0]).toBeLessThan(1e-12);
+      expect(() => circularFrequencies(lambda, error)).toThrow(SystemError);
+      expect(() => modalSolve([[-1, 0], [0, big]], I, dofs)).toThrow(SystemError);
+    }
+    const ok = generalizedEigen([[2, -1], [-1, 2]], I);
+    expect(circularFrequencies(ok.lambda, ok.error).map((w) => w * w)).toEqual([expect.closeTo(1, 12), expect.closeTo(3, 12)]);
   });
 });
 
@@ -179,5 +192,14 @@ describe('an unfinished eigen solve is an error, not frequencies', () => {
     expect(() => symmetricEigen(A, 1)).toThrow();
     const ok = symmetricEigen(A);
     expect(ok.values.every(Number.isFinite)).toBe(true);
+  });
+
+  it('an unresolved small block beside a huge one is refused, not underflowed into a pass', () => {
+    const A = [[1e300, 0, 0], [0, 2, 1], [0, 1, 2]];
+    expect(() => symmetricEigen(A, 0)).toThrow();
+    const ok = symmetricEigen(A).values.slice().sort((x, y) => x - y);
+    expect(ok[0]).toBeCloseTo(1, 12);
+    expect(ok[1]).toBeCloseTo(3, 12);
+    expect(ok[2]).toBe(1e300);
   });
 });

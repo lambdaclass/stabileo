@@ -122,7 +122,7 @@ export interface SolverInput {
 }
 
 /** A lumped mass at a plane node, t: `mass` in both translations unless `massX`/`massZ` say otherwise. */
-export interface NodalMass2D { nodeId: number; mass: number; massX?: number; massZ?: number }
+export interface NodalMass2D { nodeId: number; mass: number; massX?: number; massZ?: number; iy?: number }
 
 export interface Displacement {
   nodeId: number;

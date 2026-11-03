@@ -9,7 +9,7 @@ import type { Block, Cell, CompareRow, Step, StepDoc } from './doc';
 import { tx } from './doc';
 import { num } from './format';
 import type { SoSystem } from '../second-order/system';
-import { linearBuckling, phiBuckling, determinantCurve, firstOrderAxial, type TeachingMode } from '../second-order/buckling';
+import { linearBuckling, phiBuckling, representsFirstMode, determinantCurve, firstOrderAxial, type TeachingMode } from '../second-order/buckling';
 import { memberStiffness } from '../second-order/member-matrices';
 import { refineInput } from '../second-order/refine';
 import { solveBuckling } from '../wasm-solver';
@@ -76,7 +76,7 @@ export function buildBucklingDoc(ctx: MethodContext, sys: SoSystem, id: string, 
 
   const compressed = sys.members.filter((m) => (N0.get(m.id) ?? 0) < 0);
   const l1 = modes[0]?.lambda ?? NaN;
-  if (!(Number.isFinite(l1) && l1 > 0)) {
+  if (!(Number.isFinite(l1) && l1 > 0) || (method !== 'phi' && !representsFirstMode(sys, N0, l1))) {
     const note = { kind: 'note' as const, tone: 'warn' as const, text: tx('course.second-order.refuse.noModeRepresented') };
     return { method: id, title: tx(`steps.m.${id}.title`), intro: [note], steps: [...steps, { title: tx(`${P}.cannot`), blocks: [note] }] };
   }
