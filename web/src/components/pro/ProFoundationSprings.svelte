@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * A slab or raft on the ground: vertical springs k = ks · A at the nodes of the selected shells,
    * with ks from the project's soil profile or typed
@@ -54,7 +55,7 @@
 
 <div class="fs" data-testid="foundation-springs">
   <!-- Its card in Specifications › Surfaces carries the title. -->
-  <p class="fs-hint">{t('foundation.hint')}</p>
+  <Hint text={t('foundation.hint')} />
   <label class="fs-row">ks
     <select bind:value={source} data-testid="fs-source">
       <option value="typed">{t('foundation.typed')}</option>

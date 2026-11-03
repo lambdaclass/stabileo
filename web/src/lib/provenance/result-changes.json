@@ -1,8 +1,252 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 8,
+  "currentResultsVersion": 14,
   "changes": [
+    {
+      "id": "joint-weak-axis-moment",
+      "resultsVersion": 14,
+      "date": "2026-11-03",
+      "prs": [
+        1328
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "jointDesigns"
+        ]
+      },
+      "title": {
+        "en": "Steel joints: weak-axis moments are no longer ignored",
+        "es": "Nudos de acero: ya no se ignoran los momentos en el eje débil",
+        "pt": "Ligações de aço: momentos no eixo fraco não são mais ignorados",
+        "de": "Stahlknoten: Momente um die schwache Achse werden nicht mehr ignoriert",
+        "fr": "Assemblages acier : les moments selon l’axe faible ne sont plus ignorés",
+        "tr": "Çelik birleşimler: zayıf eksen momentleri artık yok sayılmıyor"
+      },
+      "explanation": {
+        "en": "Joint typologies read only each member's strong-axis end moment: a beam carrying a moment about its weak axis into a joint had it dropped, and the joint was designed without it. Such a joint is now left unresolved, with the reason. It concerns steel joints whose members bend about their weak axis.",
+        "es": "Las tipologías de nudo leían solo el momento de extremo en el eje fuerte de cada barra: una viga que llevaba momento en su eje débil a un nudo lo perdía, y el nudo se diseñaba sin él. Ese nudo ahora queda sin resolver, con el motivo. Afecta a nudos de acero cuyas barras flexionan en el eje débil.",
+        "pt": "As tipologias de ligação liam só o momento de extremidade no eixo forte de cada barra: uma viga que levava momento no eixo fraco a uma ligação o perdia, e a ligação era dimensionada sem ele. Essa ligação agora fica sem resolver, com o motivo. Afeta ligações de aço cujas barras fletem no eixo fraco.",
+        "de": "Die Knotentypologien lasen nur das Endmoment um die starke Achse jedes Stabs: ein Träger, der ein Moment um seine schwache Achse in einen Knoten einleitete, verlor es, und der Knoten wurde ohne es bemessen. Ein solcher Knoten bleibt jetzt ungelöst, mit Begründung. Betrifft Stahlknoten, deren Stäbe um die schwache Achse biegen.",
+        "fr": "Les typologies d’assemblage ne lisaient que le moment d’extrémité selon l’axe fort de chaque barre : une poutre transmettant un moment selon son axe faible à un nœud le perdait, et l’assemblage était dimensionné sans lui. Un tel assemblage reste désormais non résolu, avec la raison. Concerne les assemblages acier dont les barres fléchissent selon l’axe faible.",
+        "tr": "Birleşim tipolojileri her çubuğun yalnızca güçlü eksen uç momentini okuyordu: zayıf ekseni etrafında moment taşıyan bir kirişin momenti düşüyordu ve birleşim onsuz boyutlandırılıyordu. Böyle bir birleşim artık nedeniyle birlikte çözümsüz bırakılıyor. Çubukları zayıf eksende eğilen çelik birleşimleri etkiler."
+      },
+      "changelog": {
+        "file": "changelog.d/532-joint-weak-axis-moment.md",
+        "heading": "Steel joints with a weak-axis moment are left unresolved (2026-11-03)"
+      }
+    },
+    {
+      "id": "time-history-massless-start",
+      "resultsVersion": 13,
+      "date": "2026-11-03",
+      "prs": [
+        1247
+      ],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "timeHistorySpec"
+        ]
+      },
+      "title": {
+        "en": "Time history: a force applied at t = 0 on a node without mass is no longer lost in the first step",
+        "es": "Historia en el tiempo: una fuerza aplicada en t = 0 sobre un nudo sin masa ya no se pierde en el primer paso",
+        "pt": "Histórico no tempo: uma força aplicada em t = 0 num nó sem massa já não se perde no primeiro passo",
+        "de": "Zeitverlauf: eine bei t = 0 auf einen Knoten ohne Masse aufgebrachte Kraft geht im ersten Schritt nicht mehr verloren",
+        "fr": "Analyse temporelle : une force appliquée à t = 0 sur un nœud sans masse n'est plus perdue au premier pas",
+        "tr": "Zaman tanım alanı: kütlesiz bir düğüme t = 0'da uygulanan kuvvet artık ilk adımda kaybolmuyor"
+      },
+      "explanation": {
+        "en": "When the mass matrix had massless directions (a node whose members have no density and that carries no nodal mass, or lumped-mass rotations), a force that was already on at t = 0 there was left out of the initial state: the first step started out of equilibrium and the response near that node was wrong for many steps, by up to a quarter of the static deflection in a two-DOF example, and Maxwell–Betti reciprocity failed by up to 33× (SA-2026-031). The initial state now satisfies every equation at t = 0. It concerns time histories with forces, when a step force starts at 0 s on such a node. The massless directions now also start with the acceleration their equations require instead of zero, which changes reported accelerations near such nodes in any history, ground motion included, and with damping the response that follows. On any time history, a singular mass that mixes several DOFs, or a massless part with no stiffness, is now refused instead of solved; running the history again shows it. Separately, a damped history whose Rayleigh fit met an infinite eigenvalue (a massless direction) used to come back not finite, ground motion included; it now returns numbers (PR #1239).",
+        "es": "Cuando la matriz de masa tenía direcciones sin masa (un nudo cuyas barras no tienen densidad y que no lleva masa nodal, o giros con masa concentrada), una fuerza que ya actuaba en t = 0 allí quedaba fuera del estado inicial: el primer paso arrancaba fuera de equilibrio y la respuesta cerca de ese nudo era errónea durante muchos pasos, hasta un cuarto de la deformación estática en un ejemplo de dos grados de libertad, y la reciprocidad de Maxwell–Betti fallaba hasta 33 veces (SA-2026-031). Ahora el estado inicial cumple todas las ecuaciones en t = 0. Afecta a historias en el tiempo con una fuerza escalón que empieza en 0 s sobre un nudo así. Las direcciones sin masa además arrancan con la aceleración que exigen sus ecuaciones en lugar de cero, lo que cambia las aceleraciones informadas cerca de esos nudos en cualquier historia, también con movimiento del suelo, y con amortiguamiento la respuesta que sigue. En cualquier historia en el tiempo, una masa singular que mezcla varios grados de libertad, o una parte sin masa ni rigidez, ahora se rechaza en lugar de resolverse; se ve al volver a correr la historia. Aparte, una historia amortiguada cuyo ajuste de Rayleigh encontraba un autovalor infinito (una dirección sin masa) daba resultados no finitos, también con movimiento del suelo; ahora devuelve números (PR #1239).",
+        "pt": "Quando a matriz de massa tinha direções sem massa (um nó cujas barras não têm densidade e que não leva massa nodal, ou rotações com massa concentrada), uma força que já atuava em t = 0 ali ficava fora do estado inicial: o primeiro passo começava fora de equilíbrio e a resposta perto desse nó ficava errada durante muitos passos, até um quarto da deformação estática num exemplo de dois graus de liberdade, e a reciprocidade de Maxwell–Betti falhava até 33 vezes (SA-2026-031). Agora o estado inicial cumpre todas as equações em t = 0. Afeta históricos no tempo com uma força degrau que começa em 0 s num nó assim. As direções sem massa também começam com a aceleração que suas equações exigem em vez de zero, o que muda as acelerações informadas perto desses nós em qualquer histórico, também com movimento do solo, e com amortecimento a resposta que segue. Em qualquer histórico no tempo, uma massa singular que mistura vários graus de liberdade, ou uma parte sem massa nem rigidez, agora é recusada em vez de resolvida; isso aparece ao rodar o histórico de novo. À parte, um histórico amortecido cujo ajuste de Rayleigh encontrava um autovalor infinito (uma direção sem massa) dava resultados não finitos, também com movimento do solo; agora devolve números (PR #1239).",
+        "de": "Hatte die Massenmatrix masselose Richtungen (ein Knoten, dessen Stäbe keine Dichte haben und der keine Knotenmasse trägt, oder Rotationen bei konzentrierter Masse), blieb eine dort bereits bei t = 0 wirkende Kraft im Anfangszustand unberücksichtigt: der erste Schritt begann außerhalb des Gleichgewichts, und die Antwort nahe diesem Knoten war über viele Schritte falsch, in einem Beispiel mit zwei Freiheitsgraden um bis zu ein Viertel der statischen Verformung, und die Reziprozität nach Maxwell–Betti war um bis zum 33-Fachen verletzt (SA-2026-031). Der Anfangszustand erfüllt jetzt alle Gleichungen bei t = 0. Betroffen sind Zeitverläufe mit einer ab 0 s wirkenden Sprungkraft an einem solchen Knoten. Masselose Richtungen beginnen außerdem mit der Beschleunigung, die ihre Gleichungen verlangen, statt mit null; das ändert ausgegebene Beschleunigungen nahe solchen Knoten in jedem Zeitverlauf, auch bei Bodenbewegung, und mit Dämpfung die folgende Antwort. In jedem Zeitverlauf wird eine singuläre Masse, die mehrere Freiheitsgrade mischt, oder ein masseloser Teil ohne Steifigkeit jetzt zurückgewiesen statt berechnet; das zeigt sich, wenn der Zeitverlauf erneut gerechnet wird. Unabhängig davon lieferte ein gedämpfter Zeitverlauf, dessen Rayleigh-Anpassung auf einen unendlichen Eigenwert (eine masselose Richtung) traf, nicht endliche Werte, auch bei Bodenbewegung; jetzt liefert er Zahlen (PR #1239).",
+        "fr": "Lorsque la matrice de masse avait des directions sans masse (un nœud dont les barres n'ont pas de densité et qui ne porte pas de masse nodale, ou des rotations à masse concentrée), une force déjà appliquée à t = 0 à cet endroit était omise de l'état initial : le premier pas partait hors d'équilibre et la réponse près de ce nœud était fausse pendant de nombreux pas, jusqu'au quart de la déformée statique dans un exemple à deux degrés de liberté, et la réciprocité de Maxwell–Betti était violée d'un facteur allant jusqu'à 33 (SA-2026-031). L'état initial satisfait désormais toutes les équations à t = 0. Cela concerne les analyses temporelles avec une force en échelon commençant à 0 s sur un tel nœud. Les directions sans masse démarrent aussi avec l'accélération qu'exigent leurs équations au lieu de zéro, ce qui change les accélérations rapportées près de ces nœuds dans toute analyse, mouvement du sol compris, et avec amortissement la réponse qui suit. Dans toute analyse temporelle, une masse singulière qui mélange plusieurs degrés de liberté, ou une partie sans masse ni rigidité, est désormais refusée au lieu d'être calculée ; cela apparaît en relançant l'analyse. Par ailleurs, une analyse amortie dont l'ajustement de Rayleigh rencontrait une valeur propre infinie (une direction sans masse) donnait des résultats non finis, mouvement du sol compris ; elle renvoie désormais des nombres (PR #1239).",
+        "tr": "Kütle matrisinde kütlesiz doğrultular olduğunda (çubuklarının yoğunluğu olmayan ve düğüm kütlesi taşımayan bir düğüm ya da topaklanmış kütleli dönmeler), orada t = 0'da zaten etkiyen bir kuvvet başlangıç durumunun dışında kalıyordu: ilk adım dengesiz başlıyor ve o düğümün yakınındaki tepki birçok adım boyunca yanlış oluyordu; iki serbestlik dereceli bir örnekte statik şekil değiştirmenin dörtte birine kadar, ve Maxwell–Betti karşıtlığı 33 katına kadar bozuluyordu (SA-2026-031). Başlangıç durumu artık t = 0'da bütün denklemleri sağlıyor. Böyle bir düğümde 0 s'de başlayan basamak kuvvetli zaman tanım alanı analizlerini etkiler. Kütlesiz doğrultular ayrıca sıfır yerine denklemlerinin gerektirdiği ivmeyle başlıyor; bu, zemin hareketi dahil her analizde bu düğümlerin yakınında bildirilen ivmeleri ve sönüm varsa sonraki tepkiyi değiştirir. Herhangi bir zaman tanım alanı analizinde, birkaç serbestlik derecesini karıştıran tekil bir kütle ya da kütlesi ve rijitliği olmayan bir kısım artık çözülmek yerine reddediliyor; analiz yeniden çalıştırıldığında bu görülür. Ayrıca, Rayleigh uyumu sonsuz bir özdeğere (kütlesiz bir doğrultu) denk gelen sönümlü bir analiz, zemin hareketi dahil, sonlu olmayan sonuç veriyordu; artık sayı döndürüyor (PR #1239)."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-031-time-history-massless-start.md",
+        "heading": "SA-2026-031: Time history dropped a load applied at t = 0 on a massless DOF"
+      }
+    },
+    {
+      "id": "modal-mechanism-refused",
+      "resultsVersion": 13,
+      "date": "2026-11-03",
+      "prs": [
+        1247
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "analysis:modal",
+            "analysis:spectral",
+            "seismic"
+          ],
+          [
+            "members",
+            "shells"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Modal analysis refuses a mechanism instead of dropping its zero mode",
+        "es": "El análisis modal rechaza un mecanismo en lugar de descartar su modo de frecuencia cero",
+        "pt": "A análise modal recusa um mecanismo em vez de descartar seu modo de frequência zero",
+        "de": "Die Modalanalyse weist einen Mechanismus zurück, statt seine Eigenform mit Frequenz null zu verwerfen",
+        "fr": "L'analyse modale refuse un mécanisme au lieu d'écarter son mode à fréquence nulle",
+        "tr": "Modal analiz bir mekanizmanın sıfır frekanslı modunu atmak yerine mekanizmayı reddediyor"
+      },
+      "explanation": {
+        "en": "Modes with ω² at or below 1e-10 rad²/s² (a period above a week, or a negative one) were skipped without a word, so a structure that is a mechanism, such as a member with a moment release at one end and a free other end, returned its other modes as if complete: 3 of 12 requested modes in #338, with a low mass participation and no diagnostic, and a spectral analysis combined that incomplete set (SA-2026-032). Modal analysis now refuses such a model when the mechanism moves mass in a direction, and names it; a zero mode that moves none (a column free to spin about its axis) is listed with the discarded modes. Models without a mechanism return the same modes, except a stable structure soft enough for a mode under 1e-3 Hz, which used to lose it and now keeps it, and a free spin no longer takes the place of a requested mode.",
+        "es": "Los modos con ω² igual o menor que 1e-10 rad²/s² (un período de más de una semana, o uno negativo) se descartaban sin aviso, así que una estructura que es un mecanismo, como una barra con una liberación de momento en un extremo y el otro libre, devolvía sus demás modos como si estuvieran completos: 3 de los 12 modos pedidos en #338, con una participación de masa baja y sin diagnóstico, y un análisis espectral combinaba ese conjunto incompleto (SA-2026-032). Ahora el análisis modal rechaza ese modelo cuando el mecanismo mueve masa en alguna dirección, y lo nombra; un modo nulo que no mueve ninguna (una columna libre de girar sobre su eje) se lista entre los modos descartados. Los modelos sin mecanismo devuelven los mismos modos, salvo una estructura estable tan flexible que tiene un modo por debajo de 1e-3 Hz, que antes lo perdía y ahora lo conserva; además, un giro libre ya no ocupa el lugar de un modo pedido.",
+        "pt": "Os modos com ω² igual ou menor que 1e-10 rad²/s² (um período de mais de uma semana, ou um negativo) eram descartados sem aviso, então uma estrutura que é um mecanismo, como uma barra com uma liberação de momento numa extremidade e a outra livre, devolvia seus demais modos como se estivessem completos: 3 dos 12 modos pedidos em #338, com participação de massa baixa e sem diagnóstico, e uma análise espectral combinava esse conjunto incompleto (SA-2026-032). Agora a análise modal recusa esse modelo quando o mecanismo move massa em alguma direção, e o nomeia; um modo nulo que não move nenhuma (um pilar livre para girar sobre seu eixo) é listado entre os modos descartados. Os modelos sem mecanismo devolvem os mesmos modos, salvo uma estrutura estável tão flexível que tem um modo abaixo de 1e-3 Hz, que antes o perdia e agora o mantém; além disso, um giro livre já não ocupa o lugar de um modo pedido.",
+        "de": "Eigenformen mit ω² bis 1e-10 rad²/s² (eine Periode über einer Woche oder eine negative) wurden stillschweigend übersprungen, sodass ein Tragwerk, das ein Mechanismus ist, etwa ein Stab mit einem Momentengelenk an einem Ende und freiem anderen Ende, seine übrigen Eigenformen als vollständig ausgab: 3 von 12 angeforderten Eigenformen in #338, mit geringer Massenbeteiligung und ohne Diagnose, und eine Antwortspektrenberechnung kombinierte diese unvollständige Menge (SA-2026-032). Die Modalanalyse weist ein solches Modell jetzt zurück, wenn der Mechanismus Masse in einer Richtung bewegt, und benennt ihn; eine Nullform, die keine bewegt (eine Stütze, die sich frei um ihre Achse drehen kann), wird bei den verworfenen Eigenformen aufgeführt. Modelle ohne Mechanismus liefern dieselben Eigenformen, außer einem stabilen Tragwerk, das so weich ist, dass es eine Eigenform unter 1e-3 Hz hat: Früher ging sie verloren, jetzt bleibt sie erhalten; außerdem nimmt eine freie Drehung nicht mehr den Platz einer angeforderten Eigenform ein.",
+        "fr": "Les modes avec ω² inférieur ou égal à 1e-10 rad²/s² (une période de plus d'une semaine, ou négative) étaient écartés sans avertissement, de sorte qu'une structure qui est un mécanisme, comme une barre avec un relâchement de moment à une extrémité et l'autre libre, rendait ses autres modes comme s'ils étaient complets : 3 des 12 modes demandés dans #338, avec une participation massique faible et sans diagnostic, et une analyse spectrale combinait cet ensemble incomplet (SA-2026-032). L'analyse modale refuse désormais un tel modèle lorsque le mécanisme met de la masse en mouvement dans une direction, et le nomme ; un mode nul qui n'en met aucune en mouvement (un poteau libre de tourner sur son axe) est listé parmi les modes écartés. Les modèles sans mécanisme rendent les mêmes modes, sauf une structure stable assez souple pour avoir un mode sous 1e-3 Hz, qui le perdait et le garde désormais ; de plus, une rotation libre ne prend plus la place d'un mode demandé.",
+        "tr": "ω²'si 1e-10 rad²/s² veya altında olan modlar (bir haftadan uzun ya da negatif bir periyot) uyarı vermeden atlanıyordu; bu yüzden bir mekanizma olan yapı, örneğin bir ucunda moment serbestliği olan ve diğer ucu boşta bir çubuk, diğer modlarını eksiksizmiş gibi döndürüyordu: #338'de istenen 12 moddan 3'ü, düşük kütle katılımıyla ve tanı olmadan; spektral analiz de bu eksik kümeyi birleştiriyordu (SA-2026-032). Modal analiz artık mekanizma bir doğrultuda kütle hareket ettirdiğinde böyle bir modeli reddediyor ve mekanizmayı belirtiyor; hiç kütle hareket ettirmeyen sıfır mod (ekseni etrafında serbestçe dönebilen bir kolon) atılan modlar arasında listeleniyor. Mekanizması olmayan modeller aynı modları döndürür; bunun istisnası, 1e-3 Hz altında bir modu olacak kadar esnek, kararlı bir yapıdır: eskiden bu modu kaybediyordu, artık koruyor. Ayrıca serbest bir dönme artık istenen bir modun yerini almıyor."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-032-modal-mechanism-dropped-mode.md",
+        "heading": "SA-2026-032: Modal analysis dropped the zero mode of a mechanism and returned the rest"
+      }
+    },
+    {
+      "id": "cirsoc301-q-nonpositive-refused",
+      "resultsVersion": 12,
+      "date": "2026-11-02",
+      "prs": [
+        1246
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "steelCirsoc301"
+        ]
+      },
+      "title": {
+        "en": "CIRSOC 301: a section with Qa ≤ 0 is held, not passed above its squash load",
+        "es": "CIRSOC 301: una sección con Qa ≤ 0 queda retenida, no aprobada por encima de su carga de aplastamiento",
+        "pt": "CIRSOC 301: uma seção com Qa ≤ 0 fica retida, não aprovada acima da sua carga de esmagamento",
+        "de": "CIRSOC 301: ein Querschnitt mit Qa ≤ 0 wird zurückgehalten, nicht über seiner vollplastischen Normalkraft als erfüllt gemeldet",
+        "fr": "CIRSOC 301 : une section avec Qa ≤ 0 est retenue, et non acceptée au-delà de son effort normal plastique",
+        "tr": "CIRSOC 301: Qa ≤ 0 olan bir kesit, tam plastik eksenel yükünün üzerinde geçirilmek yerine bekletilir"
+      },
+      "explanation": {
+        "en": "When a member's area was smaller than the plates its compression elements describe (a box or tube typed with an area that does not match its widths and thicknesses), §E.7 gave a negative Qa, the slenderness came out NaN and the elastic branch returned a capacity above the squash load A·Fy: 1 098 908 kN on a 976 kN section, and the member passed. The compression check now refuses Q ≤ 0 and any Fcr above Fy, and the member is held with the reason (SA-2026-030). A round tube just past D/t = 0.11·E/Fy is also affected: E.7.2(c) gives Q up to 1.012 there, which raised its compression capacity by up to 1.2 %; Q is now capped at 1. Other sections are unchanged. It concerns models with CIRSOC 301 steel members in compression.",
+        "es": "Cuando el área de una barra era menor que las chapas que describen sus elementos comprimidos (un cajón o tubo cargado con un área que no concuerda con sus anchos y espesores), el §E.7 daba un Qa negativo, la esbeltez salía NaN y la rama elástica devolvía una resistencia mayor que la carga de aplastamiento A·Fy: 1 098 908 kN en una sección de 976 kN, y la barra verificaba. Ahora la verificación a compresión rechaza Q ≤ 0 y cualquier Fcr mayor que Fy, y la barra queda retenida con el motivo (SA-2026-030). También cambia un tubo circular apenas por encima de D/t = 0,11·E/Fy: el E.7.2(c) da allí Q de hasta 1,012, que elevaba su resistencia a compresión hasta un 1,2 %; ahora Q se limita a 1. Las demás secciones no cambian. Afecta a modelos con barras de acero CIRSOC 301 comprimidas.",
+        "pt": "Quando a área de uma barra era menor que as chapas que descrevem seus elementos comprimidos (um caixão ou tubo com uma área que não concorda com suas larguras e espessuras), o §E.7 dava um Qa negativo, a esbeltez saía NaN e o ramo elástico devolvia uma resistência maior que a carga de esmagamento A·Fy: 1 098 908 kN numa seção de 976 kN, e a barra verificava. Agora a verificação à compressão recusa Q ≤ 0 e qualquer Fcr maior que Fy, e a barra fica retida com o motivo (SA-2026-030). Também muda um tubo circular logo acima de D/t = 0,11·E/Fy: o E.7.2(c) dá ali Q de até 1,012, que elevava sua resistência à compressão em até 1,2 %; agora Q é limitado a 1. As demais seções não mudam. Afeta modelos com barras de aço CIRSOC 301 comprimidas.",
+        "de": "War die Fläche eines Stabes kleiner als die Bleche, die seine Druckelemente beschreiben (ein Kasten oder Rohr mit einer Fläche, die nicht zu seinen Breiten und Dicken passt), ergab §E.7 ein negatives Qa, die Schlankheit wurde NaN und der elastische Zweig lieferte eine Tragfähigkeit über der vollplastischen Normalkraft A·Fy: 1 098 908 kN bei einem Querschnitt von 976 kN, und der Stab galt als nachgewiesen. Der Drucknachweis weist jetzt Q ≤ 0 und jedes Fcr über Fy zurück, und der Stab wird mit dem Grund zurückgehalten (SA-2026-030). Betroffen ist auch ein Rundrohr knapp über D/t = 0,11·E/Fy: E.7.2(c) liefert dort Q bis 1,012, was seine Drucktragfähigkeit um bis zu 1,2 % erhöhte; Q ist jetzt auf 1 begrenzt. Andere Querschnitte ändern sich nicht. Betroffen sind Modelle mit gedrückten Stahlstäben nach CIRSOC 301.",
+        "fr": "Lorsque l'aire d'une barre était inférieure aux tôles que décrivent ses parois comprimées (un caisson ou un tube saisi avec une aire qui ne concorde pas avec ses largeurs et épaisseurs), le §E.7 donnait un Qa négatif, l'élancement devenait NaN et la branche élastique renvoyait une résistance supérieure à l'effort normal plastique A·Fy : 1 098 908 kN pour une section de 976 kN, et la barre était vérifiée. La vérification en compression refuse désormais Q ≤ 0 et tout Fcr supérieur à Fy, et la barre est retenue avec le motif (SA-2026-030). Un tube circulaire juste au-delà de D/t = 0,11·E/Fy change aussi : le E.7.2(c) y donne Q jusqu'à 1,012, ce qui augmentait sa résistance en compression jusqu'à 1,2 % ; Q est désormais limité à 1. Les autres sections ne changent pas. Cela concerne les modèles avec des barres en acier CIRSOC 301 comprimées.",
+        "tr": "Bir çubuğun alanı, basınç elemanlarının tanımladığı levhalardan küçük olduğunda (genişlik ve kalınlıklarıyla uyuşmayan bir alanla girilmiş bir kutu veya boru), §E.7 negatif bir Qa veriyor, narinlik NaN çıkıyor ve elastik dal tam plastik eksenel yük A·Fy'nin üzerinde bir dayanım döndürüyordu: 976 kN'luk bir kesitte 1 098 908 kN ve çubuk geçiyordu. Basınç kontrolü artık Q ≤ 0'ı ve Fy'nin üzerindeki her Fcr'yi reddediyor ve çubuk gerekçesiyle bekletiliyor (SA-2026-030). D/t = 0,11·E/Fy değerinin hemen üzerindeki dairesel borular da etkilenir: E.7.2(c) orada Q'yu 1,012'ye kadar verir ve basınç dayanımını %1,2'ye kadar artırıyordu; Q artık 1 ile sınırlı. Diğer kesitler değişmez. Basınç altındaki CIRSOC 301 çelik çubuklu modelleri etkiler."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-030-cirsoc301-q-nonpositive.md",
+        "heading": "SA-2026-030: CIRSOC 301 passed a compression member with Qa ≤ 0 above its squash load"
+      }
+    },
+    {
+      "id": "shell-envelope-per-component",
+      "resultsVersion": 11,
+      "date": "2026-11-02",
+      "prs": [1237],
+      "area": "analysis",
+      "when": { "allOf": [["shells"], ["combinations"]] },
+      "title": {
+        "en": "The shell envelope holds each component's own extremes",
+        "es": "La envolvente de las cáscaras toma los extremos de cada componente",
+        "pt": "A envoltória das cascas toma os extremos de cada componente"
+      },
+      "explanation": {
+        "en": "The envelope of plates and quads (the envelope view, its contours, the PRO report and the workbook) kept, for each element, the whole result of the combination with the largest Von Mises. Every other component (σxx, σyy, τxy, mx, my, mxy, qx, qy) was that combination's, not its own extreme: in a mat foundation in pure bending, where Von Mises is zero in every combination, mx read 77.94 kN·m/m where another combination gives 90.93 (14 % low). Each component now shows its own largest magnitude, with the largest and smallest values and the combination of each; principal stresses and required steel are the extremes over the combinations. Slab and wall design read the combinations one by one and are unchanged. Re-check any value read from the shell envelope (SA-2026-027).",
+        "es": "La envolvente de placas y cuadriláteros (la vista de envolvente, sus contornos, el informe PRO y el libro de resultados) tomaba, para cada elemento, el resultado entero de la combinación con mayor Von Mises. Todas las demás componentes (σxx, σyy, τxy, mx, my, mxy, qx, qy) eran las de esa combinación, no su propio extremo: en una platea en flexión pura, donde Von Mises es cero en todas las combinaciones, mx figuraba 77,94 kN·m/m donde otra combinación da 90,93 (14 % menos). Ahora cada componente muestra su propio mayor valor absoluto, con el máximo y el mínimo y la combinación de cada uno; las tensiones principales y la armadura necesaria son los extremos sobre las combinaciones. El diseño de losas y muros lee las combinaciones una por una y no cambia. Revisá cualquier valor leído de la envolvente de las cáscaras (SA-2026-027).",
+        "pt": "A envoltória de placas e quadriláteros (a vista de envoltória, seus contornos, o relatório PRO e a planilha) tomava, para cada elemento, o resultado inteiro da combinação com maior Von Mises. Todas as demais componentes (σxx, σyy, τxy, mx, my, mxy, qx, qy) eram as dessa combinação, não o seu próprio extremo: num radier em flexão pura, onde Von Mises é zero em todas as combinações, mx aparecia 77,94 kN·m/m onde outra combinação dá 90,93 (14 % a menos). Agora cada componente mostra o seu próprio maior valor absoluto, com o máximo e o mínimo e a combinação de cada um; as tensões principais e a armadura necessária são os extremos sobre as combinações. O dimensionamento de lajes e paredes lê as combinações uma a uma e não muda. Revise qualquer valor lido da envoltória das cascas (SA-2026-027)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-027-shell-envelope-von-mises-record.md", "heading": "SA-2026-027: the shell envelope kept the combination with the largest Von Mises, not each component's extreme" }
+    },
+    {
+      "id": "static-modal-runtime-self-checks",
+      "resultsVersion": 10,
+      "date": "2026-10-29",
+      "prs": [865],
+      "area": "analysis",
+      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:linear", "analysis:modal"]] },
+      "title": {
+        "en": "Static and modal results check themselves before publication",
+        "es": "Los resultados estáticos y modales se verifican antes de mostrarse",
+        "pt": "Os resultados estáticos e modais são verificados antes da apresentação"
+      },
+      "explanation": {
+        "en": "Static residual and reaction balance, and modal residual and mass orthogonality, now produce structured diagnostics. Failed checks show a warning; severe or non-finite failures refuse the result. Passing checks leave all numerical results unchanged.",
+        "es": "El residuo y el equilibrio de reacciones estáticos, y el residuo y la ortogonalidad de masa modales, ahora generan diagnósticos. Las fallas muestran una advertencia; las fallas graves o no finitas rechazan el resultado. Las verificaciones aprobadas no cambian los valores numéricos.",
+        "pt": "O resíduo e o equilíbrio de reações estáticos, e o resíduo e a ortogonalidade de massa modais, agora geram diagnósticos. Falhas mostram um aviso; falhas graves ou não finitas recusam o resultado. Verificações aprovadas não alteram valores numéricos."
+      },
+      "changelog": {
+        "file": "docs/safety/self-checks.md",
+        "heading": "First-slice contract and thresholds"
+      }
+    },
+    {
+      "id": "modal-repeated-eigenspace-completeness",
+      "resultsVersion": 9,
+      "date": "2026-10-29",
+      "prs": [827],
+      "area": "analysis",
+      "when": {
+        "allOf": [["members", "shells", "curvedShells", "connectors", "springs"]],
+        "any": [
+          "analysis:modal",
+          "analysis:spectral",
+          "analysis:timeHistory",
+          "analysis:harmonic",
+          "analysis:buckling"
+        ]
+      },
+      "title": {
+        "en": "Repeated eigenvalues retain their multiplicity",
+        "es": "Los autovalores repetidos conservan su multiplicidad",
+        "pt": "Autovalores repetidos preservam sua multiplicidade"
+      },
+      "explanation": {
+        "en": "Repeated modes could be missing. Re-run modal, dependent dynamic and buckling analyses; frequencies, masses and responses may change.",
+        "es": "Podían faltar modos repetidos. Recalcule los análisis modal, dinámicos dependientes y de pandeo; pueden cambiar frecuencias, masas y respuestas.",
+        "pt": "Podiam faltar modos repetidos. Recalcule as análises modal, dinâmicas dependentes e de flambagem; frequências, massas e respostas podem mudar."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-modal-completeness.md",
+        "heading": "Preserve repeated modes and certify finite-spectrum exhaustion"
+      }
+    },
+    {
+      "id": "ec2-flexure-strain-compatibility",
+      "resultsVersion": 8,
+      "date": "2026-11-02",
+      "prs": [1236],
+      "area": "design",
+      "when": { "any": ["concreteMembers"] },
+      "title": {
+        "en": "EN 1992-1-1 flexure in other codes by strain compatibility",
+        "es": "Flexión EN 1992-1-1 en otras normas por compatibilidad de deformaciones",
+        "pt": "Flexão EN 1992-1-1 em outras normas por compatibilidade de deformações",
+        "de": "Biegung nach EN 1992-1-1 unter anderen Normen über Dehnungsverträglichkeit",
+        "fr": "Flexion EN 1992-1-1 dans les autres normes par compatibilité des déformations",
+        "tr": "Diğer yönetmeliklerde EN 1992-1-1 eğilmesi şekil değiştirme uygunluğuyla"
+      },
+      "explanation": {
+        "en": "The EN 1992-1-1 check in PRO other codes assumed the tension steel yields and took the compression-steel strain from the singly reinforced neutral axis, so MRd came out up to about 20 % high on heavily reinforced beams and on beams with top bars, and could pass, certified, a beam that fails (SA-2026-028). The neutral axis is now solved by strain compatibility. Re-run the EN 1992-1-1 check under other codes on concrete beams.",
+        "es": "La verificación EN 1992-1-1 de otras normas en PRO suponía que el acero traccionado fluye y tomaba la deformación del acero comprimido del eje neutro sin armadura de compresión, así que MRd salía hasta un 20 % alto en vigas muy armadas y en vigas con armadura superior, y podía aprobar, certificada, una viga que no verifica (SA-2026-028). El eje neutro ahora se resuelve por compatibilidad de deformaciones. Vuelva a ejecutar la verificación EN 1992-1-1 de otras normas en las vigas de hormigón.",
+        "pt": "A verificação EN 1992-1-1 de outras normas no PRO supunha que o aço tracionado escoa e tomava a deformação do aço comprimido da linha neutra sem armadura de compressão, então MRd saía até 20 % alto em vigas muito armadas e em vigas com armadura superior, e podia aprovar, certificada, uma viga que não verifica (SA-2026-028). A linha neutra agora é resolvida por compatibilidade de deformações. Execute novamente a verificação EN 1992-1-1 de outras normas nas vigas de concreto.",
+        "de": "Der Nachweis nach EN 1992-1-1 unter den anderen Normen in PRO nahm an, dass der Zugstahl fließt, und übernahm die Dehnung des Druckstahls aus der Nulllinie ohne Druckbewehrung. MRd lag daher bei stark bewehrten Balken und bei Balken mit oberer Bewehrung bis zu etwa 20 % zu hoch, und ein Balken, der versagt, konnte zertifiziert bestehen (SA-2026-028). Die Nulllinie wird jetzt über Dehnungsverträglichkeit bestimmt. Führen Sie den Nachweis nach EN 1992-1-1 unter den anderen Normen für die Betonbalken erneut aus.",
+        "fr": "La vérification EN 1992-1-1 des autres normes dans PRO supposait que l’acier tendu plastifie et prenait la déformation de l’acier comprimé à partir de l’axe neutre sans armatures comprimées : MRd était jusqu’à environ 20 % trop élevé sur les poutres fortement armées et sur les poutres avec armatures supérieures, et une poutre défaillante pouvait passer, certifiée (SA-2026-028). L’axe neutre est désormais résolu par compatibilité des déformations. Relancez la vérification EN 1992-1-1 des autres normes sur les poutres en béton.",
+        "tr": "PRO'daki diğer yönetmeliklerin EN 1992-1-1 kontrolü çekme donatısının aktığını varsayıyor ve basınç donatısının şekil değiştirmesini basınç donatısız tarafsız eksenden alıyordu; bu yüzden yoğun donatılı kirişlerde ve üst donatılı kirişlerde MRd yaklaşık %20'ye kadar yüksek çıkıyor ve göçen bir kiriş sertifikalı olarak geçebiliyordu (SA-2026-028). Tarafsız eksen artık şekil değiştirme uygunluğuyla çözülüyor. Beton kirişlerde diğer yönetmeliklerin EN 1992-1-1 kontrolünü yeniden çalıştırın."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-028-ec2-flexure-strain-compatibility.md",
+        "heading": "SA-2026-028: EN 1992-1-1 flexure assumed the tension steel yields and did not iterate the compression steel"
+      }
+    },
     {
       "id": "buckling-certificate-rejects-outside-factor",
       "resultsVersion": 6,
@@ -44,6 +288,7 @@
           "shells"
         ]
       },
+      "quantities": ["quadStresses.sigmaXx", "quadStresses.sigmaYy", "quadStresses.tauXy", "quadStresses.vonMises"],
       "title": {
         "en": "Solid-shell stresses use local shell axes",
         "es": "Las tensiones del sólido-lámina usan ejes locales",
@@ -484,6 +729,7 @@
       "prs": [401],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Solid shell (SHB8) no longer too stiff in thin plates",
         "es": "El sólido-lámina (SHB8) ya no es demasiado rígido en placas delgadas",
@@ -945,6 +1191,7 @@
       "prs": [289, 307],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Shells: warped MITC4 corrected, solid shells frame-invariant",
         "es": "Cáscaras: MITC4 alabeado corregido, cáscaras sólidas invariantes",
@@ -964,6 +1211,7 @@
       "prs": [],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Shell elements: rigid motions, the DKT triangle and three sign conventions",
         "es": "Elementos de cáscara: movimientos rígidos, el triángulo DKT y tres convenciones de signo",
@@ -1152,40 +1400,6 @@
         "tr": "CIRSOC 201 kolon kontrolü Mz'yi kolonun momenti olarak alıp kesit yüksekliği h üzerinden kontrol ediyordu; oysa Mz kolonu genişliği b üzerinden eğer. Ağırlıklı olarak Mz ile eğilen dikdörtgen bir kolon gerekenden az donatıyla boyutlandırılıyordu: 20×40 cm'lik bir örnekte %36 daha az çelik (SA-2026-029). Artık büyük olan moment kendi yüksekliği üzerinden belirleyici oluyor ve hiçbir kolonda kontrol edilmeyen diğer eksenin kesme kuvveti de kontrol ediliyor. CIRSOC 201 kolon veya perdesi olan modelleri etkiler: moment için dikdörtgen olanları, kesme için her kesiti."
       },
       "changelog": { "file": "docs/advisories/SA-2026-029-3d-design-axes.md", "heading": "SA-2026-029: 3D design checks read the lateral moment or shear where the strong-axis one acts" }
-    },
-    {
-      "id": "joint-weak-axis-moment",
-      "resultsVersion": 8,
-      "date": "2026-11-03",
-      "prs": [
-        1328
-      ],
-      "area": "design",
-      "when": {
-        "any": [
-          "jointDesigns"
-        ]
-      },
-      "title": {
-        "en": "Steel joints: weak-axis moments are no longer ignored",
-        "es": "Nudos de acero: ya no se ignoran los momentos en el eje débil",
-        "pt": "Ligações de aço: momentos no eixo fraco não são mais ignorados",
-        "de": "Stahlknoten: Momente um die schwache Achse werden nicht mehr ignoriert",
-        "fr": "Assemblages acier : les moments selon l’axe faible ne sont plus ignorés",
-        "tr": "Çelik birleşimler: zayıf eksen momentleri artık yok sayılmıyor"
-      },
-      "explanation": {
-        "en": "Joint typologies read only each member's strong-axis end moment: a beam carrying a moment about its weak axis into a joint had it dropped, and the joint was designed without it. Such a joint is now left unresolved, with the reason. It concerns steel joints whose members bend about their weak axis.",
-        "es": "Las tipologías de nudo leían solo el momento de extremo en el eje fuerte de cada barra: una viga que llevaba momento en su eje débil a un nudo lo perdía, y el nudo se diseñaba sin él. Ese nudo ahora queda sin resolver, con el motivo. Afecta a nudos de acero cuyas barras flexionan en el eje débil.",
-        "pt": "As tipologias de ligação liam só o momento de extremidade no eixo forte de cada barra: uma viga que levava momento no eixo fraco a uma ligação o perdia, e a ligação era dimensionada sem ele. Essa ligação agora fica sem resolver, com o motivo. Afeta ligações de aço cujas barras fletem no eixo fraco.",
-        "de": "Die Knotentypologien lasen nur das Endmoment um die starke Achse jedes Stabs: ein Träger, der ein Moment um seine schwache Achse in einen Knoten einleitete, verlor es, und der Knoten wurde ohne es bemessen. Ein solcher Knoten bleibt jetzt ungelöst, mit Begründung. Betrifft Stahlknoten, deren Stäbe um die schwache Achse biegen.",
-        "fr": "Les typologies d’assemblage ne lisaient que le moment d’extrémité selon l’axe fort de chaque barre : une poutre transmettant un moment selon son axe faible à un nœud le perdait, et l’assemblage était dimensionné sans lui. Un tel assemblage reste désormais non résolu, avec la raison. Concerne les assemblages acier dont les barres fléchissent selon l’axe faible.",
-        "tr": "Birleşim tipolojileri her çubuğun yalnızca güçlü eksen uç momentini okuyordu: zayıf ekseni etrafında moment taşıyan bir kirişin momenti düşüyordu ve birleşim onsuz boyutlandırılıyordu. Böyle bir birleşim artık nedeniyle birlikte çözümsüz bırakılıyor. Çubukları zayıf eksende eğilen çelik birleşimleri etkiler."
-      },
-      "changelog": {
-        "file": "changelog.d/532-joint-weak-axis-moment.md",
-        "heading": "Steel joints with a weak-axis moment are left unresolved (2026-11-03)"
-      }
     }
   ]
 }

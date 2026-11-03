@@ -80,7 +80,7 @@ fn validation_compat_ext_antisymmetric_loading() {
         "Antisymmetric: ux at node 2 should equal -ux at node 3");
 
     // Vertical displacements should be equal (symmetric about midspan of beam)
-    assert_close(d2.uz, d3.uz, 0.02,
+    assert_close_abs(d2.uz, d3.uz, 0.02, 1e-6,
         "Antisymmetric: uy at node 2 should equal uy at node 3");
 
     // Both nodes must sway (non-zero ux)

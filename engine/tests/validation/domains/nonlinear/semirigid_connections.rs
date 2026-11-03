@@ -374,7 +374,7 @@ fn validation_semirigid_three_hinge() {
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     assert_close(sum_rx, -f, 0.01, "3-hinge: ΣRx = -F");
-    assert_close(sum_ry, 0.0, 0.01, "3-hinge: ΣRy = 0");
+    assert_close_abs(sum_ry, 0.0, 0.01, 1e-6, "3-hinge: ΣRy = 0");
 
     // Moment at hinge = 0 (verified by element forces)
     let ef2 = results.element_forces.iter()

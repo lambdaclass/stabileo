@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The concrete of each kind of element, by level. It changes the analysis model (the members'
    * material), so it stays available with design off; the design data panel shows it too.
@@ -20,7 +21,7 @@
 
 <section class="pk-card" data-testid="design-data-concrete">
   <h5 class="cl-h">{t('designData.concrete')}</h5>
-  <p class="pk-hint cl-hint">{t('designData.concreteHint')}</p>
+  <Hint text={t('designData.concreteHint')} />
   {#if concretes.length === 0}<p class="pk-hint cl-hint">{t('designData.noConcrete')}</p>{:else}
     <div class="cl-row">
       <select bind:value={ckind} aria-label={t('physical.kindCol')}>{#each DESIGN_KINDS.filter((k) => k !== 'footing') as k}<option value={k}>{t(`designData.kind.${k}`)}</option>{/each}</select>

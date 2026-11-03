@@ -52,3 +52,5 @@ mod sparse_ex_analysis_regressions;
 mod unknown_enum_strings;
 #[path = "../unknown_enum_strings_postprocess.rs"]
 mod unknown_enum_strings_postprocess;
+#[path = "../time_history_nonfinite.rs"]
+mod time_history_nonfinite;

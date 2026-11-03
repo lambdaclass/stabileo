@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The surface generator (`model/edit/surfaces.ts`): a cylinder, cone, spherical cap or zone,
    * hyperboloid or hyperbolic paraboloid as curved quadrilateral shells, placed with the ghost
@@ -49,7 +50,7 @@
 </script>
 
 <div class="sf" data-testid="surfaces">
-  <p class="sf-hint">{t('surface.hint')}</p>
+  <Hint text={t('surface.hint')} />
   <label class="sf-row">{t('surface.kind')}
     <select bind:value={kind} data-testid="sf-kind">{#each SURFACE_KINDS as k (k)}<option value={k}>{t(`surface.${k}`)}</option>{/each}</select>
   </label>

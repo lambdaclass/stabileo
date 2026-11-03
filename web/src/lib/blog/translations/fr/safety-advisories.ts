@@ -55,9 +55,39 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-027",
+          "Enveloppe des coques : retenait la combinaison de plus grande contrainte de Von Mises, et non l'extrême de chaque composante (mx inférieur de 14 % dans un exemple)",
+          "Élevée",
+          "Correction en cours de revue"
+        ],
+        [
+          "SA-2026-028",
+          "Flexion EN 1992-1-1 (autres normes en PRO, certifiée) : supposait que l’acier tendu plastifie et n’itérait pas les armatures supérieures ; MRd jusqu’à 22 % trop élevé",
+          "Élevée",
+          "Corrigé après 0.4.0"
+        ],
+        [
           "SA-2026-029",
           "3D : les poteaux CIRSOC 201 de l'application étaient dimensionnés avec Mz sur la hauteur de la section (36 % d'armatures en moins dans un exemple) ; les vérifications certifiées 3D du moteur lisaient l'effort tranchant latéral Vy comme celui de l'âme",
           "Critique",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-030",
+          "CIRSOC 301 en compression : une section dont l'aire est inférieure à ses tôles donnait un Qa négatif et une résistance supérieure à l'effort normal plastique, et était vérifiée",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-031",
+          "Analyse temporelle : une charge appliquée à t = 0 sur un degré de liberté sans masse était perdue au premier pas (réciprocité fausse jusqu'à 33 fois, une chaîne à deux degrés de liberté écartée de 24 % de sa solution exacte)",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-032",
+          "Analyse modale : le mode à fréquence nulle d'un mécanisme était écarté et les autres modes rendus comme complets",
+          "Moyenne",
           "Corrigé dans la prochaine version"
         ],
         [
@@ -143,6 +173,18 @@ const body: PostBody = {
           "Analyse non linéaire matérielle 3D (moteur et WASM uniquement) : surface de plastification moins conservatrice qu'en 2D",
           "Moyenne",
           "Corrigé dans la 0.3.0"
+        ],
+        [
+          "SA-2026-025",
+          "Effort tranchant G2 de l'AISC 360 (moteur et WASM uniquement) : sans aire d'âme, vérifié avec un taux 0, et certifié",
+          "Moyenne",
+          "Corrigé sur stabileo.com (#1234)"
+        ],
+        [
+          "SA-2026-026",
+          "Effort tranchant 6.2.6 de l'EC3 (moteur et WASM uniquement) : sans aire de cisaillement, Av = 0,5·A, Vpl,Rd 57 % trop élevé pour un HEB 300, et certifié",
+          "Moyenne",
+          "Corrigé sur stabileo.com (#1234)"
         ],
         [
           "SA-2026-010",

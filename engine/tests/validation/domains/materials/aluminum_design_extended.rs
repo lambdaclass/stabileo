@@ -464,7 +464,7 @@ fn aluminum_portal_frame_lateral() {
 
     // Total vertical reactions must be zero (no vertical load)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    crate::common::assert_close(sum_ry, 0.0, 0.05, "Sum Ry = 0");
+    crate::common::assert_close_abs(sum_ry, 0.0, 0.05, 1e-6, "Sum Ry = 0");
 
     // For a symmetric portal with equal columns (fixed-fixed), each column
     // carries half the shear: V_col = H/2

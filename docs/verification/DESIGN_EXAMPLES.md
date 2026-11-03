@@ -69,7 +69,7 @@ Tests:
 |---|---|---|---|
 | `steel_check` | AISC 360-16/22 LRFD | Rust | D2 tension (yield, rupture with An·U), E3 flexural buckling, E4-2 torsional buckling of doubly symmetric members (new, `lcz`), F2 yielding + LTB (Lp, Lr, F2-2/F2-4, Cb input), F3 / F6.2 flange local buckling (new, optional `flangeSlenderness`), F6 minor axis, G2.1 shear (φv = 0.90, Cv1 input), H1-1 interaction |
 | `ec3_check` | EN 1993-1-1 | Rust | Class-dependent W/A (6.2), 6.2.3 / 6.2.4 axial, 6.2.5 bending, 6.2.6 shear (Av input), 6.3.1 flexural buckling (curves a–d), 6.3.2.2 LTB general case with Mcr(C1, zg = 0), 6.3.3 interaction (6.61)/(6.62) with Annex B factors (Cm input, default 1.0) |
-| `ec2_check` | EN 1992-1-1 | Rust | 3.1.7 rectangular block flexure (singly, doubly with one-step compression steel), 6.2.2 VRd,c with k1·σcp, 6.2.3 VRd,s and VRd,max (cot θ 1–2.5) |
+| `ec2_check` | EN 1992-1-1 | Rust | 3.1.7 rectangular block flexure by strain compatibility (εcu3 from Table 3.1, top bars at their own strain), 6.2.2 VRd,c with k1·σcp, 6.2.3 VRd,s and VRd,max (cot θ 1–2.5) |
 | `rc_check` | ACI 318-19 | Rust | 22.2 Whitney block flexure (rectangular, doubly, T-beam), P–M point at Nu by strain compatibility, 21.2.2 φ, 22.5.5.1 Vc table with λs, Vs ≤ 0.66√f'c·bw·d |
 | `cirsoc201_check` | CIRSOC 201-2005 | Rust | Flexure (Whitney, doubly), 9.3.2 φ, 11.3.1.1 Vc, 11.5.7.9 Vs cap |
 | `connection_check` | AISC 360 (elastic method) | Rust | Bolt group elastic method with φRn input; fillet weld group elastic method, Fnw = 0.60·FEXX, J2.2b(d) end-loaded β |

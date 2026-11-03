@@ -176,7 +176,7 @@ fn point_load_midspan_equilibrium() {
 
     // Moment about A: R_B*6 + R_C*12 - |P|*3 = 0.
     let moment_about_a = r_b * l + r_c * 2.0 * l - p.abs() * (l / 2.0);
-    assert_close(moment_about_a, 0.0, 1e-4, "moment about A = 0");
+    assert_close_abs(moment_about_a, 0.0, 1e-4, 1e-6, "moment about A = 0");
 }
 
 // ─── Test 4: Interior support moment from element forces ────────────────────

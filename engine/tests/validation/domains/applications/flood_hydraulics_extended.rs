@@ -95,14 +95,13 @@ fn flood_wall_hydrostatic_pressure() {
     assert_close(r_base.rz.abs(), f_total, 0.03, "Flood wall base shear reaction");
     assert_close(r_base.my.abs(), m_base_exact, 0.05, "Flood wall base moment");
 
-    // Tip deflection of cantilever under triangular load:
-    // delta = gamma_w * H^4 / (30 * E * I)
     let e_eff: f64 = e_conc * 1000.0;
-    let delta_exact: f64 = gamma_w * h.powi(4) / (30.0 * e_eff * iz_wall);
+    let q_base: f64 = gamma_w * h;
+    let delta_exact: f64 = q_base * h.powi(4) / (30.0 * e_eff * iz_wall);
     let tip_node = n + 1;
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == tip_node).unwrap();
-    assert_close(tip_disp.uz.abs(), delta_exact, 0.10, "Flood wall tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 1e-6, "Flood wall tip deflection");
 
     // Verify hydrostatic pressure values
     assert_close(f_total, 0.5 * 9.81 * 9.0, 0.001, "Hydrostatic force value");
@@ -423,12 +422,11 @@ fn flood_culvert_headwall() {
     assert_close(r_base.rz.abs(), f_total, 0.05, "Culvert headwall base shear");
     assert_close(r_base.my.abs(), m_base_exact, 0.05, "Culvert headwall base moment");
 
-    // Tip deflection: delta = q_coeff * H^4 / (30 * E * I) [triangular load cantilever]
     let e_eff: f64 = e_conc * 1000.0;
-    let delta_exact: f64 = q_coeff * h_wall.powi(4) / (30.0 * e_eff * iz_wall);
+    let delta_exact: f64 = q_base * h_wall.powi(4) / (30.0 * e_eff * iz_wall);
     let tip_disp = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap();
-    assert_close(tip_disp.uz.abs(), delta_exact, 0.10, "Culvert headwall tip deflection");
+    assert_close(tip_disp.uz.abs(), delta_exact, 1e-6, "Culvert headwall tip deflection");
 
     // Verify combined pressure exceeds either component alone
     let f_water_only: f64 = 0.5 * gamma_w * h_wall * h_wall;
