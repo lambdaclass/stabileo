@@ -475,3 +475,20 @@ describe('a roof-structure ring with another ring inside it', () => {
     expect(my / force).toBeCloseTo(3, 6);
   });
 });
+
+describe('three concentric roof-structure rings', () => {
+  it('each keeps only its own uncovered area', () => {
+    const b = builder();
+    for (const [lo, hi] of [[0, 6], [0.5, 5.5], [1, 5]] as const) {
+      const corners: Array<[number, number]> = [[lo, lo], [hi, lo], [hi, hi], [lo, hi]];
+      const ring = corners.map(([x, y]) => b.node(x, y, 3));
+      ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+      b.bar(b.node(lo, lo, 0), ring[0]!);
+    }
+    for (const y of [0, 0.5, 1, 3, 5, 5.5, 6]) b.bar(b.node(0, y, 4), b.node(6, y, 4));
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 1 });
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(keys(layout)).not.toContain('loadPlan.gravity.headroomUnclear');
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(2 * 6, 6);
+  });
+});

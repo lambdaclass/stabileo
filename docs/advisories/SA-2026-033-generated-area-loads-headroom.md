@@ -58,7 +58,8 @@ their own area (polygon difference; geometry that cannot be
 resolved keeps the whole panel), so a 0.05 m gap between two strips keeps 0.05 m of width and no
 more. A member loaded by width keeps the part of its tributary strip they do not carry, each of
 200 stretches of the member taking the part of it that lies beside that stretch, centred on where
-that part lies; a panel carries what it keeps, cut on a 20 × 20 grid, as a one-way slab, from the
+that part lies, on the member's axis as width mode puts every strip (a part kept on one side of
+the member alone puts no torsion on it); a panel carries what it keeps, cut on a 20 × 20 grid, as a one-way slab, from the
 nearest of its beams across to the beam opposite (in a notch of a concave panel, between the
 beams met either way along a line through the piece), split by the lever rule, so its beams'
 loads keep the resultant and both its moments in plan. The derivation counts those panels and members and asks the engineer to check
