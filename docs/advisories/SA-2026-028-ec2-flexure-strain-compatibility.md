@@ -45,10 +45,12 @@ certified OK) on that capacity.
 | MEd = 220 kN·m | 1.08, fails | 0.92, passes (certified OK) |
 
 The correct value is the closed-form root of η·fcd·λ·b·x = As·Es·εcu3·(d/x − 1) (EN 1992-1-1
-3.1.7, 3.2.7). As an independent check, the CIRSOC 201 strain-compatibility code computes the same
-MRd on an equivalent constitutive model (f'c = 35 MPa so that 0,85·f'c = η·fcd, fy = fyd, Es scaled
-so that Es·0,003 = 200 GPa·0,0035), on the worked cases and on a sweep of 2000 generated sections, compared where any top bars lie
-inside the stress block (CIRSOC 201 deducts their displaced concrete even below it) (`engine/tests/integration/ec2_strain_compatibility.rs`).
+3.1.7, 3.2.7); the C25/30 case above is checked against that closed form. As an independent check
+of the method, the CIRSOC 201 strain-compatibility code computes the same MRd for EN 1992-1-1
+sections with fck = 44.6 MPa (η·fcd = 29.75 MPa = 0,85·f'c at f'c = 35 MPa, fy = fyd, Es scaled so
+that Es·0,003 = 200 GPa·0,0035), on three worked sections and a sweep of 2000 generated sections,
+compared where any top bars lie inside the stress block (CIRSOC 201 deducts their displaced concrete
+even below it) (`engine/tests/integration/ec2_strain_compatibility.rs`).
 
 ## How to tell if your model is affected
 

@@ -27,8 +27,8 @@ returned Fcr = 0.877·Fe with no Q in it. With a short member Fe is very large, 
 was far above the squash load and the member passed. (Qa exactly 0 gave Fcr = 0 and a failing
 member, not a pass; it is refused now too, since it is no capacity either.)
 
-The case in #467, a 521 × 521 mm box with 2 mm walls, A = 4 154 mm² (the walls alone give
-6 366 mm²), L = 0.5 m, Fy = 235 MPa:
+The case in #467, a 521 × 521 mm box with 2 mm webs and 4.17 mm flanges, A = 4 154 mm² (its
+stiffened elements' Σ b·t is about 6 366 mm²), L = 0.5 m, Fy = 235 MPa:
 
 | | Correct | Before the fix |
 |---|---|---|
