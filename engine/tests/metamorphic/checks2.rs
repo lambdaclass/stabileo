@@ -84,6 +84,18 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
     }
 }
 
+pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, cmp: impl Fn(&Resp, &Resp) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
+    if rel > INCONCLUSIVE {
+        return Verdict::Inconclusive(rel);
+    }
+    let widened = crate::response::widened_past(expected, rel, INCONCLUSIVE);
+    match cmp(&got.without_tags(&widened), &expected.without_tags(&widened)) {
+        Err(e) => Verdict::Fail(e),
+        Ok(_) if !widened.is_empty() => Verdict::Inconclusive(rel),
+        Ok(r) => Verdict::Pass(r.worst),
+    }
+}
+
 /// Run `a` on the transformed case and compare with `expected`.
 fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditioning) -> Verdict {
     let expected = match expected {
@@ -96,7 +108,7 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| judge(compare_with_compliance(&got.flat(), &expected.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)), rel * crate::response::gap_amplification(&expected))),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, |g, e| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }

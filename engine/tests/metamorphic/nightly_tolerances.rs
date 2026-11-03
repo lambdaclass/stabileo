@@ -249,22 +249,31 @@ fn a_lower_bound_above_the_collapse_factor_is_caught() {
 }
 
 #[test]
-fn a_widened_effective_mass_tolerance_past_the_limit_is_inconclusive() {
+fn a_widened_effective_mass_tolerance_past_the_limit_is_inconclusive_and_the_rest_still_checked() {
     let factor = crate::response::eigen_gap_factor(1.0, 1.0005);
     assert!(factor > 900.0, "{factor}");
     let mut r = Resp::default();
     r.scalar("total_mass", crate::response::Dim::MASS, 10.0);
+    r.scalar("f00", crate::response::Dim(0, 0, -1), 3.0);
     r.push(None, None, "meff00", crate::response::Kind::T3(crate::response::Dim::MASS), vec![4.0; 6]);
     r.set_floor("meff00", 10.0 * factor);
-    let amp = crate::response::gap_amplification(&r);
-    assert!((amp - factor).abs() < 1e-9 * factor, "{amp} vs {factor}");
-    let mut wrong = r.clone();
-    nudge(&mut wrong, "meff00", None, 0, 0.01);
+    assert!((crate::response::gap_amplification(&r, "meff00") - factor).abs() < 1e-9 * factor);
     let rel = 2e-6;
-    let res = dedaliano_engine::metamorphic::compare::compare(&wrong.flat(), &r.flat(), 1.0, rel);
-    assert!(res.is_ok(), "the widened tolerance alone passes a 0.25 % error");
-    assert!(matches!(crate::checks2::judge(res.clone(), rel), Verdict::Pass(_)));
-    assert!(matches!(crate::checks2::judge(res, rel * amp), Verdict::Inconclusive(_)));
+    let cmp = |g: &Resp, e: &Resp| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
+    let mut wrong_mass = r.clone();
+    nudge(&mut wrong_mass, "meff00", None, 0, 0.01);
+    assert!(cmp(&wrong_mass, &r).is_ok(), "the widened tolerance alone passes a 0.1 %-of-mass error");
+    assert!(matches!(crate::checks2::judge_split(&wrong_mass, &r, rel, cmp), Verdict::Inconclusive(_)));
+    let mut wrong_frequency = wrong_mass.clone();
+    nudge(&mut wrong_frequency, "f00", None, 0, 3e-4);
+    assert!(matches!(crate::checks2::judge_split(&wrong_frequency, &r, rel, cmp), Verdict::Fail(_)));
+    let mut wrong_total = wrong_mass.clone();
+    nudge(&mut wrong_total, "total_mass", None, 0, 1e-3);
+    assert!(matches!(crate::checks2::judge_split(&wrong_total, &r, rel, cmp), Verdict::Fail(_)));
+    assert!(matches!(crate::checks2::judge_split(&r.clone(), &r, rel, cmp), Verdict::Inconclusive(_)));
+    let mut tight = r.clone();
+    tight.set_floor("meff00", 10.0);
+    assert!(matches!(crate::checks2::judge_split(&tight.clone(), &tight, rel, cmp), Verdict::Pass(_)));
 }
 
 #[test]
