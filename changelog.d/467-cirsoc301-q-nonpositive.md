@@ -7,3 +7,5 @@
   compression capacity above A·Fy (1 098 908 kN on a 976 kN section), and passed. The check now
   refuses Q ≤ 0 and any Fcr above Fy: the member is held with the reason. Correct sections are
   unchanged. Re-check custom steel sections whose area was typed by hand.
+  A round tube just past D/t = 0.11·E/Fy got Q up to 1.012 from E.7.2(c) and an Fcr up to 1.2 %
+  above Fy; Q is now capped at 1.

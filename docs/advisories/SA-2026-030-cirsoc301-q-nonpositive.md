@@ -43,6 +43,10 @@ which happens when a custom box or tube is typed with an area that does not matc
 dimensions, or with compression elements that do not belong to it. Sections from the catalogue
 are consistent and were never affected.
 
+A related case on the same path: for a round tube just past D/t = 0.11·E/Fy, E.7.2(c),
+Q = 0.038·E/(Fy·D/t) + 2/3, gives Q above 1 (1.012 at the limit), so Fcr exceeded Fy by up to
+1.2 % on short tubes. Q is a reduction factor and is now capped at 1.
+
 ## How to tell if your results are affected
 
 A CIRSOC 301 steel member in compression whose check lists `Q` at or below zero, or an Fcr above
