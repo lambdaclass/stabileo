@@ -271,8 +271,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]];
   };
   const isSloped = (m: { length: number; horizontalLength: number }) => Math.abs(m.length - m.horizontalLength) > TOL;
-  const heldMembers = out.widthMembers.filter(isSloped).map((m) => segment(m.elementId));
-  const heldPanels: Array<{ poly: Array<[number, number]>; z: number }> = [];
+  const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), masks: [] };
   const dropped = new Set<object>();
   const fringeShare = new Map<object, number>();
   const droppedMembers = new Set<number>();
@@ -297,11 +296,13 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
-        const rest = deck!.uncarried(panel.polygon, z, heldPanels, heldMembers);
-        if (rest <= 0) { dropped.add(panel); continue; }
-        fringeShare.set(panel, rest);
+        const { share, mask } = deck!.uncarried(panel.polygon, z, held);
+        if (share <= 0) { dropped.add(panel); continue; }
+        fringeShare.set(panel, share);
+        held.masks.push(mask);
+        continue;
       }
-      heldPanels.push({ poly: panel.polygon, z });
+      held.panels.push({ poly: panel.polygon, z });
     }
     const flat = (beamsAt.get(z) ?? []).filter((b) => opts.mode === 'width' || (!panelLoadedAt.get(z)?.has(b.id) && !inShell(midpoint(b))));
     for (const e of flat) {
@@ -314,17 +315,20 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       }
       if (why === 'lowHeadroom' && !floorBeside) {
         const spans: WidthSpan[] = [];
+        const masks: Mask[] = [];
         for (let k = 0; k < FRINGE_SLICES; k++) {
           const t0 = k / FRINGE_SLICES, t1 = (k + 1) / FRINGE_SLICES;
           const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-          const rest = deck!.uncarried(tributaryStrip(at(t0), at(t1), opts.tributaryWidth), z, heldPanels, heldMembers);
-          if (rest > 0) spans.push({ t0, t1, width: opts.tributaryWidth * rest });
+          const { share, mask } = deck!.uncarried(tributaryStrip(at(t0), at(t1), opts.tributaryWidth), z, held);
+          if (share > 0) { spans.push({ t0, t1, width: opts.tributaryWidth * share }); masks.push(mask); }
         }
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
+        held.masks.push(...masks);
         fringes++;
+        continue;
       }
-      heldMembers.push([a, b]);
+      held.members.push([a, b]);
     }
   }
 
@@ -449,7 +453,7 @@ function notADeck(
   shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
-  uncarried: (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]) => number;
+  uncarried: (area: Array<[number, number]>, z: number, held: Held) => { share: number; mask: Mask };
 } {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
@@ -498,15 +502,17 @@ function notADeck(
   };
   /**
    * The share of `area` that no load already kept less than a storey above carries: a loaded
-   * panel, the tributary strip of a member kept by width, or a shell loaded by panels. By a
-   * 20 × 20 grid, each cell weighted by its part of `area`, a cell carried only when it lies wholly
-   * within one of them; cells along their edges count as not carried, so the share errs high.
+   * panel, the tributary strip of a member kept by width, a shell loaded by panels, or the cells
+   * a panel or member within the roof's structure kept for itself (its `mask`). By a 20 × 20 grid,
+   * each cell weighted by its part of `area`, a cell carried only when it lies wholly within one
+   * of them; cells along their edges count as not carried, so the share errs high.
    */
-  const uncarried = (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]): number => {
+  const uncarried = (area: Array<[number, number]>, z: number, held: Held): { share: number; mask: Mask } => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
     const half = tributaryWidth / 2;
     const shells = shellsLoaded ? carriers.filter((c) => c.pts.some((p) => low(p[2] - z))) : [];
-    const over = panels.filter((p) => low(p.z - z));
+    const over = held.panels.filter((p) => low(p.z - z));
+    const masks = held.masks.filter((m) => low(m.z - z));
     const inStrip = ([a, b]: Segment, q: [number, number]) => {
       const ux = b[0] - a[0], uy = b[1] - a[1], L2 = ux * ux + uy * uy;
       if (L2 === 0) return false;
@@ -516,7 +522,8 @@ function notADeck(
     };
     const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
     const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
-    if (!(dx > 0 && dy > 0)) return 1;
+    const mask: Mask = { area, z, x0, y0, dx, dy, open: new Array(400).fill(false) };
+    if (!(dx > 0 && dy > 0)) return { share: 1, mask };
     let total = 0, open = 0;
     for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
       const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
@@ -524,12 +531,13 @@ function notADeck(
       if (part <= 0) continue;
       total += part;
       const cell: Array<[number, number]> = [[box.x0, box.y0], [box.x1, box.y0], [box.x1, box.y1], [box.x0, box.y1]];
-      const held = members.some((m) => cell.every((q) => inStrip(m, q)))
+      const carried = held.members.some((m) => cell.every((q) => inStrip(m, q)))
         || over.some((p) => within(cell, box, p.poly))
+        || masks.some((m) => maskHolds(m, cell, box))
         || shells.some((c) => within(cell, box, c.poly) && cell.every((q) => low(heightIn(c.pts, [q[0], q[1], z]) - z)));
-      if (!held) open += part;
+      if (!carried) { open += part; mask.open[i * 20 + j] = true; }
     }
-    return total > 0 ? open / total : 1;
+    return { share: total > 0 ? open / total : 1, mask };
   };
   const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
@@ -581,6 +589,23 @@ function heightIn(p: Array<[number, number, number]>, pt: [number, number, numbe
 }
 
 type Segment = [[number, number, number], [number, number, number]];
+
+/** The cells of a 20 × 20 grid over `area` that a panel or member kept for itself (`open`). */
+type Mask = { area: Array<[number, number]>; z: number; x0: number; y0: number; dx: number; dy: number; open: boolean[] };
+
+/** What the loads already kept carry: whole panels, members' whole strips, and masks. */
+type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; masks: Mask[] };
+
+/** The cell lies within the mask's area and every mask cell it overlaps is one the mask kept. */
+function maskHolds(m: Mask, cell: Array<[number, number]>, box: Box): boolean {
+  if (!within(cell, box, m.area)) return false;
+  const e = 1e-9;
+  const i0 = Math.floor((box.x0 - m.x0) / m.dx + e), i1 = Math.ceil((box.x1 - m.x0) / m.dx - e);
+  const j0 = Math.floor((box.y0 - m.y0) / m.dy + e), j1 = Math.ceil((box.y1 - m.y0) / m.dy - e);
+  if (i0 < 0 || j0 < 0 || i1 > 20 || j1 > 20 || i1 <= i0 || j1 <= j0) return false;
+  for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) if (!m.open[i * 20 + j]) return false;
+  return true;
+}
 
 type Box = { x0: number; y0: number; x1: number; y1: number };
 

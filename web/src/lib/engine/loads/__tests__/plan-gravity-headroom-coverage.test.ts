@@ -252,3 +252,26 @@ describe('a member carried above over half its length, by width', () => {
     expect(dead.reduce((s, d) => s + -d.q * (d.b! - d.a!), 0)).toBeCloseTo(15, 9);
   });
 });
+
+describe('three tiers of roof structure, by width', () => {
+  it('each stretch of roof load is kept once, by the highest member that carries it', () => {
+    const b = builder();
+    for (const z of [3, 4]) {
+      const ends = [b.node(0, 0, z), b.node(10, 0, z)];
+      b.bar(ends[0]!, ends[1]!);
+    }
+    b.bar(b.node(0, 0, 0), b.node(0, 0, 3)); b.bar(b.node(10, 0, 0), b.node(10, 0, 3));
+    b.bar(b.node(0, 0, 3), b.node(0, 0, 4)); b.bar(b.node(10, 0, 3), b.node(10, 0, 4));
+    b.bar(b.node(0, 0, 5), b.node(5, 0, 5));
+    b.bar(b.node(5, 0, 5), b.node(10, 0, 5), 'truss');
+    const [lower, middle, top] = [1, 2, 7];
+    const layout = gravityLayout(b.model(), { mode: 'width', tributaryWidth: 3 });
+    expect(layout.widthMembers.map((m) => m.elementId)).not.toContain(lower);
+    const mid = layout.widthMembers.find((m) => m.elementId === middle)!;
+    expect(Math.min(...mid.spans!.map((s) => s.t0))).toBeCloseTo(0.5, 9);
+    expect(layout.roofAreaOf.get(middle)).toBeCloseTo(15, 9);
+    expect(layout.roofAreaOf.get(top)).toBeCloseTo(15, 9);
+    expect(sum(layout.roofAreaOf)).toBeCloseTo(30, 9);
+    expect(sum(layout.areaOf)).toBe(0);
+  });
+});

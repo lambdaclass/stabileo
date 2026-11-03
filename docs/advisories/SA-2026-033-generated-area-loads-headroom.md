@@ -42,7 +42,8 @@ PR #1253. A panel is left out as roof structure only when roof structure lies ov
 (straight over it, or between roof members on both sides within the panel), all of it less than
 2.2 m above, a deck or beam less than 2.2 m above its center, and the loads already kept less than
 2.2 m above carry all of it: loaded panels, the tributary strips of members loaded by width, and
-(by panels) shells, checked top-down. Otherwise the part of its area they do not carry stays on
+(by panels) shells, and the cells a panel or member within the roof's structure kept for itself,
+checked top-down. Otherwise the part of its area they do not carry stays on
 the panel as roof load: by a 20 × 20 grid, each cell weighted by its part of the panel, a cell
 counts as carried only when it lies wholly within one of them, so the share errs high and a band
 one cell wide along the edges of what is carried above is loaded twice. A member loaded by width
