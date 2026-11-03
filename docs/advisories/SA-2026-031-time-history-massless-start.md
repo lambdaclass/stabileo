@@ -18,8 +18,10 @@ force history is nonzero at t = 0 on such a DOF. In the app that is a step force
 at 0 s on a node with no translational mass in its direction. The numbers of ground motion and
 sine forces do not change (M·r never acts on a massless DOF; a sine starts at zero), but any time
 history, ground motion included, can now refuse with `TH-MASS-SINGULAR` or
-`TH-MASSLESS-MECHANISM` where it used to give numbers (see "Fixed in"). The re-check registry
-flags only forced histories: a refusal shows itself when the history is run again.
+`TH-MASSLESS-MECHANISM` where it used to give numbers (see "Fixed in"), and a damped history whose
+Rayleigh fit met an infinite eigenvalue, which used to come back not finite, now returns numbers
+(the damping fix of PR #1239, under this PR). The re-check registry flags every saved model with a
+time history.
 
 ## What was wrong
 

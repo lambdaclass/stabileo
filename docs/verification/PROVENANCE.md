@@ -59,7 +59,8 @@ instead of dropping them, and reports those that move none (SA-2026-032). A time
 massless directions carry no load at t = 0 gives the same numbers, unless it now refuses: a
 massless part with no stiffness, or a singular mass whose null direction mixes several DOFs (it
 used to divide by the diagonal of M). Those refusals can hit any time history, ground motion
-included; the registry entry flags only forced histories, since a refusal shows itself on re-run.
+included, and so can #1239's Rayleigh fix, which turns runs that were not finite into numbers; the
+registry entry therefore flags every saved model with a time history (`timeHistorySpec`).
 
 ## Solid-shell local stress axes (PR #814, issue #757)
 
