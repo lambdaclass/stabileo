@@ -1,5 +1,9 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  "advanced.finiteSpectrum": "Existem apenas {n} modos finitos. As direções sem massa não têm frequência finita.",
+  "advanced.finiteSpectrumOne": "Existe apenas 1 modo finito. As direções sem massa não têm frequência finita.",
+  "advanced.modalIncomplete": "Análise modal recusada: apenas {n} de {m} modos calculados têm frequência positiva (ω² > 1e-10). Nenhum conjunto incompleto de modos foi retornado. Verifique o condicionamento de rigidez e massa e os apoios.",
+  "advanced.eigenFailure": "Análise de autovalores recusada: não foi possível estabelecer a convergência e a completude de Sturm para {n} graus de liberdade livres. Nenhum conjunto incompleto de resultados foi retornado. Verifique apoios e liberações em busca de mecanismos, o condicionamento de rigidez e massa, ou peça menos modos.",
   "landing.navTools": "Ferramentas",
 
   // Shared scalar-field viewer
@@ -3182,6 +3186,7 @@ const pt: Translations = {
   'file.htmlLang': 'pt',
   'file.internalForces': 'Esforços internos',
   'file.invalidFormat': 'Formato de arquivo inválido. Certifique-se de que é um arquivo .ded do Stabileo.',
+  'file.newerVersion': 'Este arquivo foi salvo por uma versão mais nova do Stabileo (formato de arquivo {version}; esta versão lê até {supported}). Ele não foi aberto e nada foi alterado: abra-o com uma versão mais nova.',
   'file.invalidJson': 'O arquivo não é um JSON válido',
   'file.loadDistributed': 'Distribuída',
   'file.loadNodal': 'Nodal',
@@ -13922,6 +13927,16 @@ const pt: Translations = {
   "sel.copyTitle": "Copiar a seleção (Ctrl+C)",
   "sel.pasteTitle": "Colar a cópia e escolher onde (Ctrl+V)",
   "results.showDisplacements": "Mostrar deslocamentos",
+  "selfCheck.check.static_residual": "resíduo de equilíbrio",
+  "selfCheck.check.static_balance": "balanço das reações",
+  "selfCheck.check.modal_residual": "resíduo da equação do modo {mode}",
+  "selfCheck.check.modal_orthogonality": "ortogonalidade de massa do modo {mode}",
+  "selfCheck.check.modal_mass": "massa modal",
+  "selfCheck.warning": "Autoverificação {check}: {value} (aviso a partir de {threshold}). Revise o modelo antes de usar estes resultados.",
+  "selfCheck.refused": "Resultados recusados: a autoverificação {check} vale {value}, acima do limite {threshold}.",
+  "selfCheck.refusedInvalid": "Resultados recusados: a autoverificação {check} falhou ({reason}).",
+  "selfCheck.reason.nonFinite": "um valor não é finito",
+  "selfCheck.reason.nonPositiveMass": "a massa modal não é positiva",
   "resultChecks.title": "Verificação dos resultados",
   "resultChecks.certified": "certificado",
   "resultChecks.notCertified": "não certificado",

@@ -51,6 +51,8 @@ const RELEASED: Record<number, string[]> = {
   6: ['buckling-certificate-rejects-outside-factor'],
   7: ['cirsoc201-column-design-axes'],
   8: ['ec2-flexure-strain-compatibility'],
+  9: ['modal-repeated-eigenspace-completeness'],
+  10: ['static-modal-runtime-self-checks'],
 };
 
 describe('results versions', () => {
@@ -60,6 +62,20 @@ describe('results versions', () => {
     const sorted = (r: Record<number, string[]>) => Object.fromEntries(Object.entries(r).map(([v, ids]) => [v, [...ids].sort()]));
     expect(sorted(byVersion)).toEqual(sorted(RELEASED));
     expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
+  });
+
+  it('tells a version 4, 5 or 6 frame about modal completeness, and a version 7 frame about self-checks, until it is re-solved', () => {
+    const frame: FeatureSnapshot = {
+      analysisMode: 'pro',
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    };
+    const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
+    const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
+    for (const version of [4, 5, 6, 7, 8]) {
+      expect(ids(version)).toEqual(['modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+    }
+    expect(ids(9)).toEqual(['static-modal-runtime-self-checks']);
+    expect(ids(10)).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {

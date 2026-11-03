@@ -1,6 +1,10 @@
 import type { Translations } from '../types';
 
 const de: Translations = {
+  "advanced.finiteSpectrum": "Es existieren nur {n} endliche Eigenmoden. Masselose Richtungen haben keine endliche Eigenfrequenz.",
+  "advanced.finiteSpectrumOne": "Es existiert nur 1 endliche Eigenmode. Masselose Richtungen haben keine endliche Eigenfrequenz.",
+  "advanced.modalIncomplete": "Modalanalyse abgelehnt: nur {n} von {m} berechneten Moden haben eine positive Frequenz (ω² > 1e-10). Es wurde kein unvollständiger Satz von Moden zurückgegeben. Prüfen Sie die Konditionierung von Steifigkeit und Masse sowie die Lager.",
+  "advanced.eigenFailure": "Eigenwertanalyse abgelehnt: Konvergenz und Sturm-Vollständigkeit konnten für {n} freie Freiheitsgrade nicht nachgewiesen werden. Es wurde kein unvollständiger Ergebnissatz zurückgegeben. Prüfen Sie Lager und Gelenke auf Mechanismen, die Konditionierung von Steifigkeit und Masse, oder fordern Sie weniger Moden an.",
   "landing.navTools": "Werkzeuge",
 
   // ─── Shared scalar-field viewer ───
@@ -3411,6 +3415,7 @@ const de: Translations = {
   'file.workspaceBackupKept': 'Eine vollständige Kopie des vorherigen Arbeitsbereichs wurde in diesem Browser behalten (Schlüssel stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'Es war kein Platz für eine Kopie vorhanden, daher wird der gespeicherte Arbeitsbereich nicht überschrieben, solange diese Seite geöffnet ist. Verwenden Sie „Sitzung speichern“, um zu sichern, was Sie öffnen.',
   'file.invalidFormat': 'Ungültiges Dateiformat. Stellen Sie sicher, dass es eine .ded-Datei von Stabileo ist.',
+  'file.newerVersion': 'Diese Datei wurde mit einer neueren Version von Stabileo gespeichert (Dateiformat {version}; diese Version liest bis {supported}). Sie wurde nicht geöffnet, und nichts wurde geändert: Öffnen Sie sie mit einer neueren Version.',
   'file.loadedNoAxisConvention': 'Ohne Metadaten zur Konvention der lokalen Achsen geladen — wird jetzt mit der korrigierten Konvention lokaler Achsen mit Z nach oben ausgewertet. Berechnen Sie neu und prüfen Sie die Diagramme und Nachweise der Stäbe.',
   'file.supportFixed': 'Einspannung',
   'file.supportPinned': 'Gelenklager',
@@ -14121,6 +14126,16 @@ const de: Translations = {
   "sel.copyTitle": "Auswahl kopieren (Strg+C)",
   "sel.pasteTitle": "Kopie einfügen und Ort wählen (Strg+V)",
   "results.showDisplacements": "Verschiebungen anzeigen",
+  "selfCheck.check.static_residual": "Gleichgewichtsresiduum",
+  "selfCheck.check.static_balance": "Auflagerkraftbilanz",
+  "selfCheck.check.modal_residual": "Residuum der Eigengleichung von Mode {mode}",
+  "selfCheck.check.modal_orthogonality": "Massenorthogonalität von Mode {mode}",
+  "selfCheck.check.modal_mass": "modale Masse",
+  "selfCheck.warning": "Selbstprüfung {check}: {value} (Warnung ab {threshold}). Prüfen Sie das Modell, bevor Sie diese Ergebnisse verwenden.",
+  "selfCheck.refused": "Ergebnisse verworfen: Selbstprüfung {check} beträgt {value} und überschreitet die Grenze {threshold}.",
+  "selfCheck.refusedInvalid": "Ergebnisse verworfen: Selbstprüfung {check} fehlgeschlagen ({reason}).",
+  "selfCheck.reason.nonFinite": "ein Wert ist nicht endlich",
+  "selfCheck.reason.nonPositiveMass": "die modale Masse ist nicht positiv",
   "resultChecks.title": "Ergebnisprüfung",
   "resultChecks.certified": "zertifiziert",
   "resultChecks.notCertified": "nicht zertifiziert",
