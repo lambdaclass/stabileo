@@ -25,7 +25,7 @@
  * stores do. This can.
  *
  * The shed is the case worth pinning: 232 nodes, 633 members, 242 loads, three
- * load cases and four combinations, and a link around 10 700 characters — five
+ * load cases and seven combinations, and a link around 10 700 characters — five
  * times the threshold that used to warn about it.
  */
 
