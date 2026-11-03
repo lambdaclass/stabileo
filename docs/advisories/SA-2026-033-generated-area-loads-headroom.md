@@ -64,9 +64,9 @@ loads keep the resultant and both its moments in plan. The derivation counts tho
 them. A panel is too wide for a slab only when its narrowest width, across any direction (its convex
 hull's, by the normals of its sides), passes 12 m, so a deck takes the same load at any angle in
 plan. Truss members count as roof structure. A panel or member only partly under low
-structure keeps its load, as floor load when a floor or roof stands over its center and otherwise
-as roof load, less what the low structure over it already carries (found as above); kept as
-floor load it keeps all of it, so a low member's strip over such a floor is loaded twice, and the derivation names how many of each. So a panel ends up dropped, kept as
+structure keeps all its load, as floor load when a floor or roof stands over its center and as
+roof load otherwise, so a low member's strip over it is loaded twice (the generator cannot tell
+a terrace's own finishes from the roof above it), and the derivation names how many of each. So a panel ends up dropped, kept as
 roof load, or kept as floor load, and is dropped only when the loads kept above carry all of it. A member loaded by width beside a floor panel keeps its load. The cases above are
 regression tests in `web/src/lib/engine/loads/__tests__/plan-gravity-headroom-coverage.test.ts`
 (all red before the fix but the two that guard against over-correction); the shed, hall,

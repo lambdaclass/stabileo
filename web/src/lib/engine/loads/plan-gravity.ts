@@ -276,7 +276,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const dropped = new Set<object>();
   const fringeShare = new Map<object, number>();
   const fringeKept = new Map<object, Region>();
-  const droppedMembers = new Set<number>(), droppedUnclear = new Set<number>();
+  const droppedMembers = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
     const loaded = new Set<number>();
@@ -297,7 +297,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (cover >= 0.98) continue;
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
-      if (why === 'lowHeadroom' || (why === 'headroomUnclear' && !covered(centroid(panel.polygon), z))) {
+      if (why === 'lowHeadroom') {
         const { share, kept } = deck!.uncarried(panel.polygon, z, held);
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
@@ -317,7 +317,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) {
         if (covered(mid, z)) unclear++; else unclearRoof++;
       }
-      if (!floorBeside && (why === 'lowHeadroom' || (why === 'headroomUnclear' && !covered(mid, z)))) {
+      if (why === 'lowHeadroom' && !floorBeside) {
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const axis = { p: [a[0], a[1]] as [number, number], u: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as [number, number], L };
         const { share, kept } = deck!.uncarried(tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth), z, held);
@@ -333,10 +333,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
           if (last && Math.abs(last.t1 - t0) < 1e-12 && Math.abs(last.width - width) <= 1e-9 * width) last.t1 = t1;
           else spans.push({ t0, t1, width });
         });
-        if (spans.length === 0) { droppedMembers.add(e.id); if (why !== 'lowHeadroom') droppedUnclear.add(e.id); continue; }
+        if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
         held.kept.push({ region: kept, z });
-        if (why === 'lowHeadroom') fringes++;
+        fringes++;
         continue;
       }
       held.members.push([a, b]);
@@ -371,7 +371,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const cover = shellCover(panel.polygon, z);
       if (cover >= 0.98) continue;
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
-      if (dropped.has(panel)) { if (why === 'lowHeadroom') lowPanels++; else unclearRoof++; continue; }
+      if (dropped.has(panel)) { lowPanels++; continue; }
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
@@ -425,7 +425,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // A horizontal member within the roof's structure is a chord or an eave beam: no floor loads it.
-  const beforeDepth = out.widthMembers.filter((m) => !droppedUnclear.has(m.elementId)).length;
+  const beforeDepth = out.widthMembers.length;
   out.widthMembers = out.widthMembers.filter((m) => !droppedMembers.has(m.elementId));
   for (const m of out.widthMembers) {
     const spans = fringeRoof.get(m.elementId);
