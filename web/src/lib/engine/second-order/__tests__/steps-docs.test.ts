@@ -31,8 +31,13 @@ const compare = (doc: StepDoc) => blocks(doc).find((b) => b.kind === 'compare') 
 const keys = (doc: StepDoc) => doc.steps.map((s) => s.title.key);
 
 describe('a mode inside one member', () => {
+  const withArm = (input: SolverInput): SolverInput => ({
+    ...input,
+    nodes: new Map([...input.nodes, [3, { id: 3, x: 2, z: 5 }]]),
+    elements: new Map([...input.elements, [2, { ...input.elements.get(1)!, id: 2, nodeI: 2, nodeJ: 3 }]]),
+  });
   it('is told in words every locale has, under the key the document asks for', () => {
-    const doc = methodById('so-buckling-phi')!.build!(ctxOf(clampedColumn(5, 100)));
+    const doc = methodById('so-buckling-phi')!.build!(ctxOf(withArm(clampedColumn(5, 100))));
     const internal = blocks(doc).filter((b) => b.kind === 'p' && b.text.key.endsWith('internalMode'));
     expect(internal.length).toBeGreaterThan(0);
     for (const b of internal) for (const dict of [es, en, pt, de, fr, tr]) expect(dict[(b as Extract<Block, { kind: 'p' }>).text.key]).toBeTruthy();
