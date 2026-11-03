@@ -114,7 +114,8 @@ it('every DXF archive member carries visible warning TEXT entities', async () =>
 it('DXF warnings sit beside translated geometry and scale with its extent', async () => {
   const { dxfWithProvenance, prepareExportProvenance } = await import('../provenance-attach');
   const record = (await prepareExportProvenance())!;
-  const dxf = '0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n500000\n20\n1000\n30\n0\n11\n500040\n21\n1030\n31\n0\n0\nENDSEC\n0\nEOF\n';
+  const dxf = '0\nSECTION\n2\nHEADER\n9\n$INSBASE\n10\n0\n20\n0\n30\n0\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n500000\n20\n1000\n30\n0\n11\n500040\n21\n1030\n31\n0\n0\nENDSEC\n0\nEOF\n';
+  expect(dxfWithProvenance(dxf, record, ['año ğ #741'])).toContain('\n1\na\\U+00F1o \\U+011F #741\n');
   const out = dxfWithProvenance(dxf, record, ['warning #741']);
   const text = /0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n([^\n]+)\n20\n([^\n]+)\n30\n0\n40\n([^\n]+)\n1\nwarning #741/.exec(out)!;
   expect(text).not.toBeNull();

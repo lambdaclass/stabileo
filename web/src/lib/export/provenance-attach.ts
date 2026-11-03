@@ -65,18 +65,21 @@ export function htmlWithProvenance(html: string, p: ResultProvenance, warnings =
 
 export function dxfWithProvenance(dxf: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   // TEXT entities are visible in CAD; comments alone are not a warning.
-  const coordinates = (code: string) => [...dxf.matchAll(new RegExp(`(?:^|\\n) *${code}\\r?\\n([^\\r\\n]+)`, 'g'))].map(m => Number(m[1])).filter(Number.isFinite);
+  const entitiesAt = /(?:^|\n) *0\r?\n *SECTION\r?\n *2\r?\n *ENTITIES\r?\n/.exec(dxf);
+  const entities = entitiesAt ? dxf.slice(entitiesAt.index, dxf.indexOf('ENDSEC', entitiesAt.index) >>> 0) : '';
+  const coordinates = (code: string) => [...entities.matchAll(new RegExp(`(?:^|\\n) *${code}\\r?\\n([^\\r\\n]+)`, 'g'))].map(m => Number(m[1])).filter(Number.isFinite);
   const xs = coordinates('1[01]'), ys = coordinates('2[01]');
   const bounds = (v: number[]) => v.length ? v.reduce(([lo, hi], x) => [Math.min(lo, x), Math.max(hi, x)], [Infinity, -Infinity]) : [0, 0];
   const [minX, maxX] = bounds(xs), [minY, maxY] = bounds(ys);
   const span = Math.max(maxX - minX, maxY - minY);
   const textHeight = span > 0 ? span / 80 : 3;
   const lines = warnings.flatMap(w => w.split(/[\r\n]+/).flatMap(line => line.match(/.{1,90}/gu) ?? []));
-  const entities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n${minX}\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${line}\n`).join('');
-  if (entities) {
+  const dxfText = (line: string) => [...line].map(ch => ch.codePointAt(0)! < 128 ? ch : `\\U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`).join('');
+  const warningEntities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n${minX}\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${dxfText(line)}\n`).join('');
+  if (warningEntities) {
     const section = /0\r?\nSECTION\r?\n2\r?\nENTITIES\r?\n/.exec(dxf);
-    if (section) { const at = section.index + section[0].length; dxf = dxf.slice(0, at) + entities + dxf.slice(at); }
-    else dxf = dxf.replace(/0\r?\nEOF/, `0\nSECTION\n2\nENTITIES\n${entities}0\nENDSEC\n0\nEOF`);
+    if (section) { const at = section.index + section[0].length; dxf = dxf.slice(0, at) + warningEntities + dxf.slice(at); }
+    else dxf = dxf.replace(/0\r?\nEOF/, `0\nSECTION\n2\nENTITIES\n${warningEntities}0\nENDSEC\n0\nEOF`);
   }
   // Group code 999 is a comment: every reader skips it, and it survives a text round trip.
   const comments = provenanceLines(p).map(([k, v]) => `999\n${`stabileo provenance ${k}: ${v}`.replace(/[\r\n]+/g, ' ')}`).join('\n');

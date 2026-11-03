@@ -1,6 +1,6 @@
 import data from '../../../../../engine/tests/benchmarks/shell_obstacle_course.json';
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
-import { knownIssueRefusal, refusedKnownIssues } from '../../../lib/engine/known-issues';
+import { knownIssueRefusal, knownIssueResultDisposition, refusedKnownIssues } from '../../../lib/engine/known-issues';
 
 // Normalize numeric-keyed maps at the JSON boundary; otherwise every mesh produces
 // a distinct huge object union throughout the viewer and editor type checks.
@@ -63,7 +63,9 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
   for (const c of cases) {
     let row: Result;
     try {
-      row = compare(c, engine.solve3D(inputFor(c)).displacements as unknown as Record<string, number>[]);
+      const result = engine.solve3D(inputFor(c));
+      if (knownIssueResultDisposition(result).refused) throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
+      row = compare(c, result.displacements as unknown as Record<string, number>[]);
     } catch (e) {
       row = refusalFor(c, e);
     }

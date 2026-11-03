@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cases, compare, finest, inputFor, refusalFor, runCases, responseRatio, shown, signedReference, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { prepareSharedSnapshot } from '../../../../lib/utils/share-snapshot';
@@ -77,6 +77,18 @@ describe('shell obstacle course evidence', () => {
       expect(editor.value! / direct.value!).toBeCloseTo(1, 8);
     }
   }, 120_000);
+  it('withholds a returned refusal instead of scoring its displacements', async () => {
+    const solver = await import('../../../../lib/engine/wasm-solver');
+    const spy = vi.spyOn(solver, 'solve3D').mockReturnValue({
+      displacements: Object.values(cases[0]!.input.nodes).map((n: any) => ({ nodeId: n.id, ux: 1, uy: 1, uz: 1, rx: 0, ry: 0, rz: 0 })),
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' }],
+    } as never);
+    try {
+      const rows = await runCases();
+      expect(rows.every(r => r.value === null && r.error === null && r.pass === false)).toBe(true);
+      expect(rows.filter(r => r.refused).map(r => r.id)).toEqual(['hemisphere-4', 'hemisphere-8', 'hemisphere-16']);
+    } finally { spy.mockRestore(); }
+  });
   it('passes corrected roofs and keeps coarse cylinder failures in the denominator', async () => {
     const rows = await runCases();
     expect(rows).toHaveLength(cases.length);
