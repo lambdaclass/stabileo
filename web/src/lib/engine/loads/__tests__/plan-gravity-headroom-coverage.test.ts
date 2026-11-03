@@ -20,8 +20,24 @@ function builder() {
 const sum = (m: Map<number, number>) => [...m.values()].reduce((s, a) => s + a, 0);
 const keys = (l: ReturnType<typeof gravityLayout>) => l.notes.map((x) => x.key);
 
-/** A 6 × 6 m floor at 3 m with one beam 1 m over its front edge and nothing over the rest. */
+/**
+ * A 6 × 6 m floor at 3 m: a storey over its right half (a ring at 6 m over x = 3–6), open sky over
+ * the left half, and one beam at 4 m over its front edge there.
+ */
 function floorUnderOneLowBeam(): GravityModel {
+  const b = builder();
+  const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
+  const floor = corners.map(([x, y]) => b.node(x, y, 3));
+  corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), floor[i]!));
+  floor.forEach((id, i) => b.bar(id, floor[(i + 1) % 4]!));
+  const upper = ([[3, 0], [6, 0], [6, 6], [3, 6]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 6));
+  upper.forEach((id, i) => b.bar(id, upper[(i + 1) % 4]!));
+  b.bar(b.node(0.5, 0, 4), b.node(2.5, 0, 4));
+  return b.model();
+}
+
+/** A 6 × 6 m floor at 3 m with a beam at 4 m over its whole front edge and nothing else above. */
+function floorUnderCanopy(): GravityModel {
   const b = builder();
   const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
   const floor = corners.map(([x, y]) => b.node(x, y, 3));
@@ -34,9 +50,10 @@ function floorUnderOneLowBeam(): GravityModel {
 
 /**
  * A 10 × 6 m ring of beams at 4 m under two gable trusses (truss members) at y = 0 and y = 6,
- * `depth` deep at the ridge, with frame purlins at x = 2.5, 5 and 7.5 when `purlins`.
+ * `depth` deep at the ridge, with frame purlins every 1.25 m when `purlins`, and a 1 m frame beam
+ * over the centre when `stub`.
  */
-function trussedRing(depth: number, purlins: boolean): GravityModel {
+function trussedRing(depth: number, purlins: boolean, stub = false): GravityModel {
   const b = builder();
   const corners: Array<[number, number]> = [[0, 0], [10, 0], [10, 6], [0, 6]];
   const ring = corners.map(([x, y]) => b.node(x, y, 4));
@@ -44,11 +61,12 @@ function trussedRing(depth: number, purlins: boolean): GravityModel {
   ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
   const roofZ = (x: number) => 4 + depth * (1 - Math.abs(x - 5) / 5);
   for (const y of [0, 6]) {
-    const xs = [0, 2.5, 5, 7.5, 10];
+    const xs = [0, 1.25, 2.5, 3.75, 5, 6.25, 7.5, 8.75, 10];
     for (let i = 0; i + 1 < xs.length; i++) b.bar(b.node(xs[i]!, y, roofZ(xs[i]!)), b.node(xs[i + 1]!, y, roofZ(xs[i + 1]!)), 'truss');
     b.bar(b.node(5, y, 4), b.node(5, y, 4 + depth), 'truss');
   }
-  if (purlins) for (const x of [2.5, 5, 7.5]) b.bar(b.node(x, 0, roofZ(x)), b.node(x, 6, roofZ(x)));
+  if (purlins) for (const x of [1.25, 2.5, 3.75, 5, 6.25, 7.5, 8.75]) b.bar(b.node(x, 0, roofZ(x)), b.node(x, 6, roofZ(x)));
+  if (stub) b.bar(b.node(5, 2.5, 5), b.node(5, 3.5, 5));
   return b.model();
 }
 
@@ -56,16 +74,24 @@ describe('a panel only partly under low roof structure keeps its area load', () 
   it('a floor with one low beam over an edge is loaded, and the derivation says so', () => {
     const layout = gravityLayout(floorUnderOneLowBeam(), { mode: 'panels', tributaryWidth: 3 });
     expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 6);
-    expect(sum(layout.areaOf) + sum(layout.roofAreaOf)).toBeGreaterThanOrEqual(36 - 1e-6);
+    expect(sum(layout.areaOf)).toBeCloseTo(36, 6);
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
     expect(keys(layout)).toContain('loadPlan.gravity.headroomUnclear');
   });
 
   it('by width, the beam under the low one keeps its load', () => {
     const layout = gravityLayout(floorUnderOneLowBeam(), { mode: 'width', tributaryWidth: 3 });
-    const floorBeams = [...floorUnderOneLowBeam().elements.values()].filter((e) => e.id >= 5 && e.id <= 8).map((e) => e.id);
+    const floorBeams = [5, 6, 7, 8];
     for (const id of floorBeams) expect(layout.widthMembers.map((m) => m.elementId)).toContain(id);
     expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
+  });
+
+  it('by width, the beam under a canopy keeps its load, the floor beside it not being roof structure', () => {
+    const layout = gravityLayout(floorUnderCanopy(), { mode: 'width', tributaryWidth: 3 });
+    expect(layout.widthMembers.map((m) => m.elementId)).toContain(5);
+    expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
+    const panels = gravityLayout(floorUnderCanopy(), { mode: 'panels', tributaryWidth: 3 });
+    expect(panels.areaByLevel.get(3)).toBeCloseTo(36, 6);
   });
 });
 
@@ -84,10 +110,17 @@ describe('trusses count as the roof\'s structure', () => {
     expect(sum(layout.roofAreaOf)).toBeGreaterThan(0);
   });
 
+  it('a short beam over the centre does not stand in for the roof the ring carries', () => {
+    const layout = gravityLayout(trussedRing(1.5, false, true), { mode: 'panels', tributaryWidth: 3 });
+    expect(layout.areaByLevel.get(4)).toBeCloseTo(60, 6);
+    expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
+  });
+
   it('a ring under trusses that carry no area load takes the roof load itself', () => {
     const layout = gravityLayout(trussedRing(1.5, false), { mode: 'panels', tributaryWidth: 3 });
     expect(layout.areaByLevel.get(4)).toBeCloseTo(60, 6);
     expect(sum(layout.roofAreaOf)).toBeCloseTo(60, 6);
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
+    expect(keys(layout)).not.toContain('loadPlan.gravity.headroomUnclear');
   });
 });

@@ -40,9 +40,11 @@ Generate the loads again and compare.
 
 PR #1253. A panel is left out as roof structure only when roof structure lies over every probe
 (straight over it, or between roof members on both sides within the panel), all of it less than
-2.2 m above, and the deck, slab or beam over its centre is less than 2.2 m above as well. Truss
-members count as roof structure. A panel or member only partly under low structure keeps its
-load, and the derivation names how many ("partly under the roof's structure … loaded as floors").
-A member loaded by width beside a floor panel keeps its load. Over the template fixtures, no floor
-or roof area goes down against #1076; floor area goes up where #1076 had dropped it
-(`plan-gravity-headroom-coverage.test.ts`).
+2.2 m above, and the members and decks less than 2.2 m above it that carry load (by width, as
+panels or as slabs) carry at least the panel's whole plan area, so the roof load it gave up is
+taken above. Truss members count as roof structure. A panel or member only partly under low
+structure keeps its load, and the derivation names how many under a floor or roof ("loaded as
+floors"). A member loaded by width beside a floor panel keeps its load. The cases above are
+regression tests in `web/src/lib/engine/loads/__tests__/plan-gravity-headroom-coverage.test.ts`
+(all red before the fix but the two that guard against over-correction); the shed, hall,
+stadium and pipe-rack cases of `plan-gravity-low-headroom.test.ts` are unchanged.

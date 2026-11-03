@@ -250,7 +250,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const coverAbove = coverage(model, out.zOf, panelsAt);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
   if (opts.mode === 'width') levels.clear();
-  const deckless = opts.loadEveryPanel ? () => null : notADeck(model, carriers, coverAbove);
+  const loadedMembers = [...out.zOf.keys()].map((id) => {
+    const e = model.elements.get(id)!;
+    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
+    return [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]] as [[number, number, number], [number, number, number]];
+  });
+  const deckless = opts.loadEveryPanel ? () => null : notADeck(model, carriers, coverAbove, loadedMembers, opts.tributaryWidth);
 
   if (opts.mode === 'panels') {
     for (const [z, quads] of quadsAt) {
@@ -289,7 +294,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'lowHeadroom') { lowPanels++; continue; }
       if (why === 'wide') { widePanels++; continue; }
-      if (why === 'headroomUnclear') unclear++;
+      if (why === 'headroomUnclear' && covered(centroid(panel.polygon), z)) unclear++;
       const share = cover > 0.02 ? 1 - cover : 1;
       if (share < 1) partly++;
       // The panel's own part of the level's result. Loading its members again on their own found
@@ -326,10 +331,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const z = a.z ?? 0;
-    const why = deckless([[a.x, a.y], [b.x, b.y]], z);
+    const why = deckless([[a.x, a.y], [b.x, b.y]], z, tributaryStrip([a.x, a.y], [b.x, b.y], opts.tributaryWidth));
     const beside = (panelsAt.get(levelKey(z)) ?? []).filter((poly) => onBoundary(model, e, poly)).map((poly) => deckless(poly, z));
     const floorBeside = beside.some((w) => w === null || w === 'headroomUnclear');
-    if (why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) unclear++;
+    if ((why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) && covered([(a.x + b.x) / 2, (a.y + b.y) / 2], z)) unclear++;
     return why !== 'lowHeadroom' || floorBeside;
   });
   if (out.widthMembers.length < beforeDepth) {
@@ -377,7 +382,9 @@ function notADeck(
   model: GravityModel,
   carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }>,
   coverAbove: (pt: [number, number], zTop: number) => number,
-): (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null {
+  loaded: Array<[[number, number, number], [number, number, number]]>,
+  tributaryWidth: number,
+): (poly: Array<[number, number]>, z: number, area?: Array<[number, number]>) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
     const a = model.nodes.get(e.nodeI), b = model.nodes.get(e.nodeJ);
@@ -423,7 +430,33 @@ function notADeck(
     }
     return h;
   };
-  return (poly, z) => {
+  /** Plan area of `area` whose roof load the members and decks less than a storey above it carry. */
+  const carriedAbove = (area: Array<[number, number]>, z: number): number => {
+    const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
+    let carried = 0;
+    for (const [a, b] of loaded) {
+      const n = 20;
+      let w = 0;
+      for (let i = 0; i < n; i++) {
+        const t = (i + 0.5) / n;
+        const pt: [number, number] = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+        if (!low(a[2] + t * (b[2] - a[2]) - z) || !inside(pt, area, 0)) continue;
+        w += area.some((v, k) => nearSegment(pt, v, area[(k + 1) % area.length]!, 0.05)) ? 0.5 : 1;
+      }
+      carried += (w / n) * Math.hypot(b[0] - a[0], b[1] - a[1]) * tributaryWidth;
+    }
+    const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
+    let in_ = 0, decked = 0;
+    for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
+      const pt: [number, number] = [x0 + (i + 0.5) * dx, y0 + (j + 0.5) * dy];
+      if (!inside(pt, area, 0)) continue;
+      in_++;
+      if (low(coverAbove(pt, z))) decked++;
+    }
+    return carried + (in_ > 0 ? (decked / in_) * planArea(area.map(([x, y]) => ({ x, y }))) : 0);
+  };
+  return (poly, z, area = poly) => {
     const probes: Array<[number, number]> = [centroid(poly)];
     poly.forEach((a, i) => {
       const b = poly[(i + 1) % poly.length]!;
@@ -437,7 +470,8 @@ function notADeck(
     });
     const roofed = heights.filter(Number.isFinite);
     const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
-    if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM && coverAbove(centroid(poly), z) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
+    if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM
+      && carriedAbove(area, z) >= planArea(area.map(([x, y]) => ({ x, y }))) - 1e-6) return 'lowHeadroom';
     if (Math.min(hi[0] - lo[0], hi[1] - lo[1]) > MAX_DECK_SPAN) return 'wide';
     return low ? 'headroomUnclear' : null;
   };
@@ -468,6 +502,12 @@ function heightIn(p: Array<[number, number, number]>, pt: [number, number, numbe
     if (out < best) { best = out; z = a[2] + u * (b[2] - a[2]) + v * (c[2] - a[2]); }
   }
   return z;
+}
+
+function tributaryStrip(a: [number, number], b: [number, number], width: number): Array<[number, number]> {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+  const nx = (-(b[1] - a[1]) / L) * (width / 2), ny = ((b[0] - a[0]) / L) * (width / 2);
+  return [[a[0] + nx, a[1] + ny], [b[0] + nx, b[1] + ny], [b[0] - nx, b[1] - ny], [a[0] - nx, a[1] - ny]];
 }
 
 function centroid(poly: Array<[number, number]>): [number, number] {

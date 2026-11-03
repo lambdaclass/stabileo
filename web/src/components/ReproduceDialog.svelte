@@ -87,16 +87,14 @@
           {@const v = outcome.verdict}
           {@const { status, reproduced } = reproduceStatus(outcome)}
           <div class="rp-verdict" class:ok={reproduced} data-testid="reproduce-verdict" data-reproduced={reproduced} data-status={status}>
-            <strong>{status === 'printed-differs' ? t('provenance.reproduce.printedTampered') : status === 'reproduced' ? t('provenance.reproduce.match') : status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
+            <strong>{status === 'printed-differs' && outcome.printed?.structural.includes(OTHER_RESULT_SET) ? t('provenance.reproduce.printedOtherSet') : status === 'printed-differs' ? t('provenance.reproduce.printedTampered') : status === 'reproduced' ? t('provenance.reproduce.match') : status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
             <ul data-testid="reproduce-hashes">
               {#each v.hashes as h (h.field)}
                 <li data-field={h.field} data-verdict={h.verdict}>{FIELD_LABEL[h.field] ?? h.field}: {field(h.verdict)}</li>
               {/each}
             </ul>
             {#if v.model === 'differs'}<p>{t('provenance.reproduce.modelDiffers')}</p>{/if}
-            {#if outcome.printed?.structural.includes(OTHER_RESULT_SET)}
-              <p data-testid="reproduce-printed-other-set">{t('provenance.reproduce.printedOtherSet')}</p>
-            {:else if outcome.printed}
+            {#if outcome.printed && !outcome.printed.structural.includes(OTHER_RESULT_SET)}
               {@const pv = outcome.printed}
               <p data-testid="reproduce-printed" data-differences={pv.differences.length} data-compared={pv.compared}>
                 {pv.differences.length === 0 && pv.structural.length === 0

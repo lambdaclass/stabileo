@@ -126,6 +126,23 @@ describe('checking a report value by value', () => {
     resultsStore.activeCaseId = null;
     const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
     expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })!.structural).toContain('result-set');
+    expect(resultsStore.singleResults3D).not.toBe(resultsStore.results3D);
+    expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
+    expect(comparePrintedReport(screen, { kind: 'other', label: 'sum' })).toBeNull();
+  });
+
+  it('a report of the single solve on screen is compared against the single scope', () => {
+    const r = modelStore.solve3D(false, false, true);
+    if (!r || typeof r === 'string') throw new Error(String(r));
+    resultsStore.setResults3D(r as never);
+    resultsStore.activeView = 'single';
+    resultsStore.activeCaseId = null;
+    expect(resultsStore.results3D).toBe(resultsStore.singleResults3D);
+    const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
+    const v = comparePrintedReport(screen, { kind: 'single' })!;
+    expect(v.compared).toBeGreaterThan(10);
+    expect(v.differences).toEqual([]);
+    expect(v.structural).toEqual([]);
   });
 
   it('refuses to compare tables against a fingerprint with no recorded scope', () => {

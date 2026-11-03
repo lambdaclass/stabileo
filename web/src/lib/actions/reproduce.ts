@@ -52,7 +52,7 @@ export const OTHER_RESULT_SET = 'result-set';
 export function comparePrintedReport(report: string, scope: ScopeRef | undefined): PrintedComparison | null {
   const config = embeddedReportConfig(report);
   const claimedTables = printedTables(report);
-  if (!config || !scope) return null;
+  if (!config || !scope || scope.kind === 'other') return null;
   const key = config.resultSetKey;
   const printedScope: ScopeRef | null = !key || key === 'screen' ? { kind: 'single' } : scopeOfResultSet(key);
   if (!printedScope || !sameScope(printedScope, scope)) return { compared: 0, differences: [], structural: [OTHER_RESULT_SET], labels: true };
