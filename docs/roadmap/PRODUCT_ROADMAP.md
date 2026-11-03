@@ -648,6 +648,9 @@ all of it.
   404. Caddy now serves a prerendered, noindexed 404 page per locale with status 404, keeps the SPA
   fallback for the app only, and a `Caddy Routing` CI job tests it.
 - **Speed:** PR [#880](https://github.com/lambdaclass/stabileo/pull/880) (section "Speed: measured 2026-10-30").
+- **Blog images and the Research/Tools post** (PR [#1293](https://github.com/lambdaclass/stabileo/pull/1293), after #1289 and #1290): a
+  screenshot of the real app in every post (AVIF/WebP, alt and caption in six languages), and #882's post
+  brought up to 3 November. The post was drafted for Federico's review before publishing.
 
 ### Growth: shared models, tools and research (2026-10-29)
 
