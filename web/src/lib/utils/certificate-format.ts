@@ -25,6 +25,19 @@ export function formatLambda(x: number | null, dir: 'up' | 'down'): string {
   return String(roundDirected(x, dir, 4));
 }
 
+/**
+ * `above` rounded down and `below` rounded up, to the fewest significant figures (at least 6)
+ * that still print `above` as the larger, so a refusal for exceeding a bound never reads as equal.
+ */
+export function formatSeparated(above: number, below: number): [string, string] {
+  for (let sig = 6; sig <= 17; sig++) {
+    const a = roundDirected(above, 'down', sig);
+    const b = roundDirected(below, 'up', sig);
+    if (a > b) return [String(a), String(b)];
+  }
+  return [String(above), String(below)];
+}
+
 /** An enclosure endpoint to `sig` significant figures, rounded toward `dir`; `∞` when there is none. */
 export function formatDirected(x: number | null, dir: 'up' | 'down', sig = 6): string {
   if (x === null || !Number.isFinite(x)) return dir === 'up' ? '∞' : '−∞';
