@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The selected members' stiffness factors for the analysis (CIRSOC 201-2025 Tabla
    * 6.6.3.1.1(a) presets, or typed), their global end joints and their semi-rigid ends. Part of
@@ -102,7 +103,7 @@
         {/each}
       </div>
     {/if}
-    {#if presetNow !== 'none' && presetNow !== 'mixed'}<p class="mb-hint">{t('behaviour.stiffnessHint')}</p>{/if}
+    {#if presetNow !== 'none' && presetNow !== 'mixed'}<Hint text={t('behaviour.stiffnessHint')} />{/if}
   </div>
 {:else if ids.length > 0 && part === 'ends'}
   <div class="mb" data-testid="member-ends">
@@ -118,7 +119,7 @@
           {/each}
         </div>
       {/each}
-      <p class="mb-hint">{t('behaviour.releasesHint')}</p>
+      <Hint text={t('behaviour.releasesHint')} />
     </div>
     <div class="mb-joints">
       <span class="pk-label">{t('behaviour.semiRigid')}</span>
@@ -133,7 +134,7 @@
           {/if}
         </div>
       {/each}
-      <p class="mb-hint">{t('behaviour.semiRigidHint')}</p>
+      <Hint text={t('behaviour.semiRigidHint')} />
     </div>
   </div>
 {/if}
@@ -146,5 +147,4 @@
   .mb-joints { display: flex; flex-direction: column; gap: 3px; padding-top: 0.35rem; border-top: 1px solid var(--st-hair); }
   .mb-end { font-weight: 600; width: 12px; }
   .mb-dof { display: flex; gap: 2px; align-items: center; font-family: var(--st-mono); font-size: 0.62rem; }
-  .mb-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
 </style>

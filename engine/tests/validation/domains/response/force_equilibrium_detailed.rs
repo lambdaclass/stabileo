@@ -203,7 +203,7 @@ fn equilibrium_horizontal_portal_lateral_load() {
 
     // Vertical equilibrium: no vertical applied loads => sum(Ry) = 0
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 1e-4, "Portal lateral: sum(Ry) = 0");
+    assert_close_abs(sum_ry, 0.0, 1e-4, 1e-6, "Portal lateral: sum(Ry) = 0");
 
     // Global moment equilibrium about node 1 (at origin (0,0)):
     // Applied: H in +x at node 2 (0, h). Moment about origin = H * (-h) = -H*h.

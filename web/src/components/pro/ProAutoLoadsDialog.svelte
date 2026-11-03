@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { roleSelectOptions } from './design/role-select-options';
   import { untrack } from 'svelte';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
@@ -930,7 +931,7 @@
                       <option value="none">{t('autoLoad.patterns.none')}</option>
                     </select>
                   </label>
-                  <p class="al-hint">{t('autoLoad.patternsHint')}</p>
+                  <Hint text={t('autoLoad.patternsHint')} />
                 </div>
               </div>
             </div>
@@ -978,7 +979,7 @@
                         {/each}
                       </select>
                     </label>
-                    {#if windEditions.some((o) => !optionIsAvailable(o))}<p class="al-hint">{t('autoLoad.windEditionHint')}</p>{/if}
+                    {#if windEditions.some((o) => !optionIsAvailable(o))}<Hint text={t('autoLoad.windEditionHint')} />{/if}
                     <div class="al-grid">
                       <label class="al-field"><span class="al-label">{t('autoLoad.windSpeed')}</span>
                         <QuantityInput bind:value={windV} quantity="speed" min={10} max={120} testid="al-wind-speed" wrap="al-unit-field" />
@@ -1021,7 +1022,7 @@
                     {#if windProfileOn}
                       <textarea class="al-profile" rows="5" bind:value={windProfileText} placeholder="z (m); p (kPa)" data-testid="al-wind-profile-text"></textarea>
                       {#if windProfile}<ProfileChart points={windProfile} />{:else}<p class="al-hint">{t('windProfile.bad')}</p>{/if}
-                      <p class="al-hint">{t('windProfile.hint')}</p>
+                      <Hint text={t('windProfile.hint')} />
                       <!-- A structure other than a building takes the code's coefficients: the profile is not used. -->
                       {#if windStructure.kind !== 'building'}<p class="al-warn" data-testid="al-wind-profile-other">{t('loadPlan.note.windProfileOther')}</p>{/if}
                     {/if}
@@ -1059,7 +1060,7 @@
               {:else}
                 <ProSnowSection bind:config={snowCfg} roof={snowRoof} />
                 <ProActionRegion bind:region={snowRegion} testid="al-snow-roof" />
-                <p class="al-hint">{t('snowRoof.hint')}</p>
+                <Hint text={t('snowRoof.hint')} />
               {/if}
             </div>
 

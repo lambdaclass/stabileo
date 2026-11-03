@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The calculation report, as PDF, Word or HTML (the results as data are the Results export): who
    * it is from, what it carries and how its figures look.
@@ -207,7 +208,7 @@
     <div class="xs-seg">
       {#each FORMATS as f (f)}<button type="button" class:on={format === f} aria-pressed={format === f} onclick={() => (format = f)} data-testid={`rpt-format-${f}`}>{t(`proReport.format.${f}`)}</button>{/each}
     </div>
-    <p class="xs-note">{t(`proReport.formatNote.${format}`)}</p>
+    <Hint class="xs-note" text={t(`proReport.formatNote.${format}`)} />
   </ExportSection>
   <ExportSection title={t('proReport.letterhead')} summary={projectSummary} open={hasProjectInfo} testid="rpt-project">
     <div class="rpt-logo-row">
@@ -254,7 +255,7 @@
                 {#each setChoices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
               </select>
             </label>
-            {#if sumChosen}<p class="xs-note rpt-sum-note" data-testid="rpt-sum-note">{t('proReport.resultSetSumNote')}</p>{/if}
+            {#if sumChosen}<p class="xs-note rpt-sum-note" data-testid="rpt-sum-note">{t('proReport.resultSetSumNote')}</p>{:else}<Hint class="xs-note" text={t('proReport.resultSetHint')} />{/if}
           {/if}
           {#each resultsShown as r (r.id)}
             <label class="rpt-row" class:off={!sec.results || !hasResults}>
@@ -272,6 +273,7 @@
               </label>
             {/if}
           {/each}
+          {#if hasResults && sec.results}<Hint class="xs-note" text={t('proReport.modesHint')} />{/if}
         </div>
         <CheckGroup title={t('proReport.advanced')} items={advItems}
           on={(id) => sec.advancedAnalysis && (advancedPicked[id] ?? true)}
@@ -300,7 +302,7 @@
       </select>
     </label>
     <label class="xs-check"><input type="checkbox" bind:checked={figs.values} onchange={persist} />{t('viewExport.optValuesLong')}</label>
-    <p class="xs-note">{t('proReport.figuresNote')}</p>
+    <Hint class="xs-note" text={t('proReport.figuresNote')} />
 
     <label class="xs-check"><input type="checkbox" bind:checked={sec.figures} onchange={persist} />{t('proReport.addedFigures')} ({reportFigures.list.length})</label>
     <div>
@@ -315,7 +317,7 @@
         <button type="button" class="rpt-small" onclick={() => reportFigures.remove(f.id)} aria-label={t('report.removeFigure')}>×</button>
       </div>
     {/each}
-    <p class="xs-note">{t('report.figuresHint')}</p>
+    <Hint class="xs-note" text={t('report.figuresHint')} />
   </ExportSection>
 
   {#snippet actions()}

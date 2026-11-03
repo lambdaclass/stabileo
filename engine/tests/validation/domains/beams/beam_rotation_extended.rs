@@ -206,7 +206,7 @@ fn validation_rotation_ext_continuous_asymmetric() {
 //
 // Fixed-roller beam with point load P at midspan.
 // Reaction at roller: R_B = 5P/16
-// θ_roller = 7PL²/(768EI)
+// θ_roller = PL²/(32EI)
 // Reference: Timoshenko & Gere, Table D-3
 
 #[test]
@@ -230,13 +230,12 @@ fn validation_rotation_ext_propped_midspan_load() {
     assert_close(r_b.abs(), r_b_expected, 0.02,
         "Propped midspan: R_B = 5P/16");
 
-    // Rotation at roller: θ_B = 7PL²/(768EI)
-    let theta_b: f64 = 7.0 * p * l.powi(2) / (768.0 * e_eff * IZ);
+    let theta_b: f64 = p * l.powi(2) / (32.0 * e_eff * IZ);
     let rz_b = results.displacements.iter()
         .find(|d| d.node_id == n + 1).unwrap().ry;
 
-    assert_close(rz_b.abs(), theta_b, 0.05,
-        "Propped midspan: θ_B = 7PL²/(768EI)");
+    assert_close(rz_b.abs(), theta_b, 1e-6,
+        "Propped midspan: θ_B = PL²/(32EI)");
 
     // Fixed end should have zero rotation
     let rz_fixed = results.displacements.iter()
@@ -311,10 +310,8 @@ fn validation_rotation_ext_superposition() {
 // By superposition: θ_A = Pa(L²-a²)/(6LEI) for each load,
 // where a = L/3 and a = 2L/3.
 // θ_A = P/(6LEI) × [a₁(L²-a₁²) + b₂(L²-b₂²)]
-// For symmetric loads at L/3 and 2L/3: each gives same θ_A
-// θ_A (per load at a=L/3, b=2L/3) = P×(2L/3)×(L²-(2L/3)²)/(6LEI)
-//     = P×(2L/3)×(5L²/9)/(6LEI) = 10PL²/(162EI) = 5PL²/(81EI)
-// Total θ_A = 2 × 5PL²/(81EI) = 10PL²/(81EI)
+// Load at L/3 gives 10PL²/(162EI), load at 2L/3 gives 8PL²/(162EI)
+// Total θ_A = 18PL²/(162EI) = PL²/(9EI)
 // Reference: Hibbeler, "Structural Analysis", superposition tables
 
 #[test]
@@ -366,10 +363,9 @@ fn validation_rotation_ext_ss_two_symmetric_loads() {
     assert!(rz_mid.abs() < 1e-10,
         "SS two symmetric loads: θ_mid = 0 by symmetry");
 
-    // Also verify θ_A1 + θ_A2 = 10PL²/(81EI) as a cross-check
-    let theta_a_formula: f64 = 10.0 * p * l.powi(2) / (81.0 * e_eff * IZ);
-    assert_close(theta_a_total, theta_a_formula, 0.001,
-        "SS two symmetric loads: closed form 10PL²/(81EI)");
+    let theta_a_formula: f64 = p * l.powi(2) / (9.0 * e_eff * IZ);
+    assert_close(theta_a_total, theta_a_formula, 1e-12,
+        "SS two symmetric loads: closed form PL²/(9EI)");
 }
 
 // ================================================================

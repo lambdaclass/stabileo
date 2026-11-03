@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Excel and CSV: the project's data, chosen sheet by sheet.
    *
@@ -147,7 +148,7 @@
       <button type="button" class:on={format === 'xlsx'} onclick={() => (format = 'xlsx')} data-testid="pro-data-format-xlsx">Excel</button>
       <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
     </div>
-    <p class="xs-note">{format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')}</p>
+    <Hint class="xs-note" text={format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')} />
     {#if estimate}
       <p class="xs-note" class:dx-warn={format === 'xlsx' && !estimate.xlsx} data-testid="pro-data-estimate">
         {tp(format === 'xlsx' && !estimate.xlsx ? 'proExport.estimateZip' : 'proExport.estimate', { cells: millions(estimate.cells) })}
@@ -157,7 +158,7 @@
   </ExportSection>
   <ExportSection title={t('viewExport.sectionContent')} summary={contentSummary} open testid="pro-data-export-content">
     <div class="dx-bar">
-      <p class="xs-note">{t('proExport.dataAlways')}</p>
+      <Hint class="xs-note" text={t('proExport.dataAlways')} />
       <span class="dx-all">
         <button type="button" onclick={() => setAll([...modelShown, ...resultsShown], true)}>{t('proExport.all')}</button>
         <button type="button" onclick={() => setAll([...modelShown, ...resultsShown], false)}>{t('proExport.none')}</button>
@@ -194,7 +195,7 @@
           on={(id) => !combosOff.has(Number(id))} toggle={(id) => flipId('combos', Number(id))}
           setAll={(v) => (combosOff = v ? new Set() : new Set(combos.map((c) => c.id)))} />
       </div>
-      <p class="xs-note">{t('proExport.setsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.setsNote')} />
     </ExportSection>
   {/if}
 
@@ -203,7 +204,7 @@
       {#each STATIONS as s (String(s.id))}
         <label class="xs-check"><input type="radio" name="pro-data-stations" checked={stations === s.id} onchange={() => { stations = s.id; save(); }} data-testid={`pro-data-stations-${s.id}`} />{t(s.key)}</label>
       {/each}
-      <p class="xs-note">{t('proExport.stationsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.stationsNote')} />
     </ExportSection>
   {/if}
 

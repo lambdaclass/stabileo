@@ -13,9 +13,11 @@
 #     "print 0.0 below 1e-8 (displacements) / 1e-4 (forces)" cut-offs are
 #     removed.
 # A second binary, frame3dd-norot, also drops two terms stabileo's element
-# does not model (used for modal and P-Delta comparisons, see README.md):
-# the rotary inertia (rho*Iy, rho*Iz) of the consistent mass matrix and the
-# torsional geometric-stiffness term N*J/(A*L).
+# does not model (used for modal comparisons, see README.md): the rotary
+# inertia (rho*Iy, rho*Iz) of the consistent mass matrix and the torsional
+# geometric-stiffness term N*J/(A*L). P-Delta uses the full binary: stabileo's
+# K_G has had the equivalent Wagner term N*(Iy+Iz)/(A*L) since #404, and
+# pdelta3d models are generated with J = Iy + Iz.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
@@ -24,6 +26,8 @@ build="$root/.build/frame3dd"
 url="https://downloads.sourceforge.net/project/frame3dd/frame3dd/0.20140514%2B/Frame3DD_20140514%2B_src.zip"
 sha="3a048ac15c074f412cede1508d0e552927e38377de23677e72f4af587fc2ae48"
 cc="${CC:-cc}"
+# Bump when a patch below changes, so that ci.sh rebuilds a stale .tools build.
+PATCH_LEVEL=2
 
 rm -rf "$build"
 mkdir -p "$build/dl" "$out"
@@ -54,6 +58,15 @@ perl -pi -e '
 perl -0pi -e 's/for \(j=i\+1; j<=DoF; j\+\+\)\n(\s*)K\[j\]\[i\]=K\[i\]\[j\]=M\[j\]\[i\]=M\[i\]\[j\] = 0\.0;/for (j=1; j<=DoF; j++) if (j != i)\n$1K[j][i]=K[i][j]=M[j][i]=M[i][j] = 0.0;/' main.c
 grep -q "if (j != i)" main.c || { echo "frame3dd: modal reaction patch did not apply" >&2; exit 1; }
 
+# Frame3DD bug (frame3dd.c, frame_element_force): with the geometric stiffness
+# on (geom), K_G carries the torsional term T/L*J/Ax (kg[4][4]), but the end
+# torque is computed as -(G*J/Le)*dtheta without it, so the reported torque
+# does not balance the solved (K + K_G) u. Add the term (T is 0 without geom,
+# so static and modal output do not change). stabileo's end torque includes
+# its Wagner term N*(Iy+Iz)/(A*L), the same term for J = Iy + Iz (#404).
+perl -pi -e 's/s\[4\]  =   -\(G\*J\/Le\) \*/s[4]  =   -(G*J\/Le + T\/L*J\/Ax) */' frame3dd.c
+grep -q "G\*J/Le + T/L\*J/Ax" frame3dd.c || { echo "frame3dd: end-torque patch did not apply" >&2; exit 1; }
+
 srcs="main.c frame3dd.c frame3dd_io.c coordtrans.c eig.c HPGmatrix.c HPGutil.c NRutil.c"
 # shellcheck disable=SC2086
 "$cc" -O2 -w -o "$out/frame3dd" $srcs -lm
@@ -63,4 +76,5 @@ grep -q "ry = 0.0;" frame3dd.c && grep -q "kg\[10\]\[10\] = 0.0;" frame3dd.c ||
   { echo "frame3dd: norot patch did not apply" >&2; exit 1; }
 # shellcheck disable=SC2086
 "$cc" -O2 -w -o "$out/frame3dd-norot" $srcs -lm
+echo "$PATCH_LEVEL" > "$out/patch-level"
 echo "built $out/frame3dd and $out/frame3dd-norot"

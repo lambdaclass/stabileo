@@ -169,14 +169,13 @@ fn validation_stability_fixed_fixed() {
     let p_euler = std::f64::consts::PI * std::f64::consts::PI * e_eff * IZ / (l * l);
     let p_cr_ff = 4.0 * p_euler;
 
-    // 30% of fixed-fixed Pcr
-    let p_axial = -0.3 * p_cr_ff;
+    let p = 0.3 * p_cr_ff;
     let h_perturb = 0.001;
 
-    let input = make_beam(n, l, E, A, IZ, "fixed", Some("fixed"),
+    let input = make_beam(n, l, E, A, IZ, "fixed", Some("guidedX"),
         vec![
             SolverLoad::Nodal(SolverNodalLoad {
-                node_id: n + 1, fx: p_axial, fz: 0.0, my: 0.0,
+                node_id: n + 1, fx: -p, fz: 0.0, my: 0.0,
             }),
             SolverLoad::Nodal(SolverNodalLoad {
                 node_id: n / 2 + 1, fx: 0.0, fz: -h_perturb, my: 0.0,
@@ -185,6 +184,20 @@ fn validation_stability_fixed_fixed() {
 
     let res = pdelta::solve_pdelta_2d(&input, 30, 1e-8).unwrap();
     assert!(res.converged, "Fixed-fixed 30% Pcr: converges");
+
+    let mid = |r: &[Displacement]| r.iter().find(|d| d.node_id == n / 2 + 1).unwrap().uz.abs();
+    let d_linear = mid(&linear::solve_2d(&input).unwrap().displacements);
+    let d_pdelta = mid(&res.results.displacements);
+
+    // Beam-column with a central load (Timoshenko & Gere §1.11): δ = (H/P)·(tan(kL/4)/k − L/4).
+    let k = (p / (e_eff * IZ)).sqrt();
+    let delta_exact = h_perturb / p * ((k * l / 4.0).tan() / k - l / 4.0);
+    let delta_linear_exact = h_perturb * l.powi(3) / (192.0 * e_eff * IZ);
+    assert!((d_linear / delta_linear_exact - 1.0).abs() < 1e-9,
+        "Fixed-fixed linear δ = {d_linear:.6e}, HL³/(192EI) = {delta_linear_exact:.6e}");
+    assert!((d_pdelta / delta_exact - 1.0).abs() < 1e-4,
+        "Fixed-fixed 30% Pcr: δ = {d_pdelta:.6e}, beam-column {delta_exact:.6e} (amplification {:.5} vs {:.5})",
+        d_pdelta / d_linear, delta_exact / delta_linear_exact);
 }
 
 // ================================================================
@@ -238,7 +251,7 @@ fn validation_stability_effective_length_ranking() {
 
     let amp_cantilever = get_amplification("fixed", None);
     let amp_pp = get_amplification("pinned", Some("rollerX"));
-    let amp_ff = get_amplification("fixed", Some("fixed"));
+    let amp_ff = get_amplification("fixed", Some("guidedX"));
 
     // Cantilever has most amplification (weakest), fixed-fixed has least
     assert!(amp_cantilever > amp_pp,
