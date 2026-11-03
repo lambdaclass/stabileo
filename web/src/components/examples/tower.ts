@@ -108,7 +108,7 @@ export const tower = defineExample<Model>({
     const lambda = buckling.modes[0].loadFactor;
     if (![lambda, ...modes.map(m => m.frequency)].every(Number.isFinite)) return { status: 'refused', code: 'nonFinite' };
     const exact = closedForm(v);
-    const source = v.topMass > 0 ? `(βL)²√(EI/mL⁴), μ = M/mL = ${(v.topMass / (STEEL.density / 1000 * model.tube.a * model.height)).toPrecision(3)}` : '(βL)²√(EI/mL⁴)';
+    const source = v.topMass > 0 ? `(βL)²√(EI/mL⁴)/2π, μ = M/mL = ${(v.topMass / (STEEL.density / 1000 * model.tube.a * model.height)).toPrecision(3)}` : '(βL)²√(EI/mL⁴)/2π';
     const readouts: Readout[] = [
       ...modes.map((m, k) => ({ key: `f${k + 1}`, value: m.frequency, unit: 'Hz', reference: { value: exact.frequencies[k], source } })),
       { key: 'bucklingFactor', value: lambda, unit: '', reference: { value: exact.pcr / v.topLoad, source: 'π²EI/4H²P' } },
