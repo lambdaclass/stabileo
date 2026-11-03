@@ -547,7 +547,7 @@ fn validation_symmetric_portal_antisymmetric_moments() {
     );
 
     // Base moments equal in magnitude (same sign due to symmetry)
-    assert_close(r1.my.abs(), r4.my.abs(), 0.02, "Symmetric portal: |M1| = |M4|");
+    assert_close_abs(r1.my.abs(), r4.my.abs(), 0.02, 1e-6, "Symmetric portal: |M1| = |M4|");
 
     // Moment balance at node 2: m_end_col1 - m_start_beam = 0
     let m_residual_2: f64 = (ef1.m_end - ef2.m_start).abs();
@@ -566,8 +566,8 @@ fn validation_symmetric_portal_antisymmetric_moments() {
     );
 
     // Beam end moments should be equal in magnitude (symmetric loading)
-    assert_close(
-        ef2.m_start.abs(), ef2.m_end.abs(), 0.02,
+    assert_close_abs(
+        ef2.m_start.abs(), ef2.m_end.abs(), 0.02, 1e-6,
         "Symmetric portal: |m_beam_start| = |m_beam_end|"
     );
 }

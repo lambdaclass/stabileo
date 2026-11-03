@@ -1,5 +1,5 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
-       lint.engine check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
+       lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
        test.ci-scripts test.nightly-scripts \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
@@ -34,7 +34,7 @@ POSTGRES_DIR = $(DATA_DIR)/postgres
 INST_REGISTRY = $(DATA_DIR)/instances
 
 # Not the default 5432 (nor scasaas's 5442), so this runs next to other projects' servers.
-PG_PORT = 5452
+PG_PORT = $(or $(PGPORT),5452)
 DB_USER = postgres
 
 SUBMAKE = $(MAKE) --no-print-directory
@@ -80,10 +80,10 @@ help:
 	@echo "  make lint.engine          - Clippy over the engine"
 	@echo "  make test.engine.gates    - The named engine correctness gates"
 	@echo "  make test.engine.metamorphic - Metamorphic tests, in release"
-	@echo "  make test.engine.suite [SHARD=1/2] - Every engine test outside the gates"
+	@echo "  make test.engine.suite [SHARD=1/4] - Every engine test outside the gates"
 	@echo "  make bench.engine         - Criterion benchmarks (informational)"
 	@echo "  make typecheck.web        - tsc against its baseline + svelte-check gate"
-	@echo "  make test.web.unit [SHARD=1/2] - Vitest unit pass"
+	@echo "  make test.web.unit [SHARD=1/4] - Vitest unit pass"
 	@echo "  make test.web.build       - Production build + build-pass tests"
 	@echo "  make test.web.determinism - WASM results bit-identical across Node and three browsers"
 	@echo "  make e2e.web.build        - The VITE_E2E=1 site the e2e suites run on with E2E_PREBUILT=1"
@@ -229,7 +229,11 @@ check.engine.acceptance-models:
 	$(NIX_RUN) bash -c 'for g in engine/tests/acceptance/generators/*.py; do python3 -I "$$g"; done'
 	git diff --exit-code -- engine/tests/acceptance/models
 
-test.engine.gates: check.engine.acceptance-models
+# nextest does not execute the compile-fail doctests protecting unit boundaries.
+test.engine.units-types:
+	$(NIX_RUN) cargo test -p dedaliano-engine --doc types::units
+
+test.engine.gates: check.engine.acceptance-models test.engine.units-types
 	$(NEXTEST) -E '$(GATE_SHELL_BENCH)'
 	$(NEXTEST) -E '$(GATE_SHELL_ACCEPTANCE)'
 	$(NEXTEST) -E '$(GATE_CONSTRAINT_BENCH)'
@@ -251,10 +255,10 @@ web.deps:
 	$(NIX_RUN) bash -c "cd web && npm ci"
 
 typecheck.web:
-	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run check:gate && node scripts/check-site-header.mjs"
+	$(NIX_RUN) bash -c "cd web && npm run typecheck && npm run test:units:types && npm run check:gate && node scripts/check-site-header.mjs"
 
 test.web.unit:
-	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $(if $(SHARD),--shard=$(SHARD))"
+	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
@@ -354,12 +358,22 @@ check.test-targets:
 
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
+	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 
 test.ci-scripts: test.nightly-scripts
+	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
+	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_cancel_superseded.py
+	python3 -B -I scripts/tests/test_ci_runners.py
+	python3 -B -I scripts/tests/test_ci_events.py
+	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"

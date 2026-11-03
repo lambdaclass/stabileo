@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Specifications › List: each distinct specification the model holds and what it applies to.
    * Derived from the fields of each member, support and shell, which remain the one place a
@@ -33,7 +34,7 @@
         {/each}
       </tbody>
     </table>
-    <p class="sl-hint">{t('spec.list.hint')}</p>
+    <Hint text={t('spec.list.hint')} />
   {/if}
 </div>
 
@@ -41,7 +42,7 @@
   .sl-go { padding: 0; background: none; border: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .sl-go:focus-visible { outline: 2px solid var(--st-interactive); outline-offset: 1px; }
   .sl { padding: 6px 10px; font-size: 0.66rem; color: var(--st-text-2); }
-  .sl-empty, .sl-hint { margin: 4px 0 0; font-size: 0.62rem; color: var(--st-text-3); }
+  .sl-empty { margin: 4px 0 0; font-size: 0.62rem; color: var(--st-text-3); }
   table { width: 100%; border-collapse: collapse; }
   th { text-align: left; font-weight: normal; color: var(--st-text-3); padding: 2px 4px; border-bottom: 1px solid var(--st-hair); }
   td { padding: 2px 4px; border-bottom: 1px solid var(--st-hair); }

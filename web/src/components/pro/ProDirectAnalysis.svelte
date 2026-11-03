@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The direct analysis method, run and read: its settings, a row per combination saying where the
    * notional loads went, the drift ratio, how many members took τb below one, and whether a
@@ -14,7 +15,7 @@
 </script>
 
 <div class="da" data-testid="direct-analysis">
-  <p class="pk-hint">{t('direct.note')}</p>
+  <Hint text={t('direct.note')} />
   <div class="pk-row da-settings">
     <label>{t('direct.notional')}
       <input type="number" min="0" max="0.01" step="0.001" bind:value={directAnalysis.settings.notional} data-testid="direct-notional" />

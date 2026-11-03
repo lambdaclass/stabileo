@@ -262,7 +262,7 @@ fn validation_force_method_ext_portal_lateral() {
         "Portal lateral: Rx4 ≈ -H/2");
 
     // Vertical equilibrium: sum Ry = 0 (no vertical applied load)
-    assert_close(r1.rz + r4.rz, 0.0, 0.01,
+    assert_close_abs(r1.rz + r4.rz, 0.0, 0.01, 1e-6,
         "Portal lateral: sum Ry = 0");
 
     // Moment equilibrium about base 4:

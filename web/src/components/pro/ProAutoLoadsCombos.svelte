@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The regulation dialog's Combinations tab: whether applying makes combinations, and from
    * what. Either CIRSOC 101-2025 (strength, service or both) or the project's own rules, which
@@ -50,9 +51,9 @@
     <div class="al-sub">
       <span class="al-sub-title">{t('autoLoad.combos.howTitle')}</span>
       <label class="al-check"><input type="checkbox" bind:checked={bothSenses} data-testid="al-both-senses" /> {t('autoLoad.seismicBothSenses')}</label>
-      <p class="al-hint">{t('autoLoad.seismicBothSensesHint')}</p>
+      <Hint text={t('autoLoad.seismicBothSensesHint')} />
       <label class="al-check"><input type="checkbox" bind:checked={patternsInCompanions} data-testid="al-patterns-companions" /> {t('autoLoad.combos.patternsInCompanions')}</label>
-      <p class="al-hint">{t('autoLoad.combos.patternsInCompanionsHint')}</p>
+      <Hint text={t('autoLoad.combos.patternsInCompanionsHint')} />
     </div>
   {:else}
     <p class="al-hint">{t('autoLoad.combos.off')}</p>

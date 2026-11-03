@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * Foundations placed as the other elements are: a kind of footing chosen from its drawing and
    * put under the supports (centred, or held at the sides named property lines), two or more
@@ -109,7 +110,7 @@
 <div class="pk fd" data-testid="foundation-model-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('fdn.title')}</h4>
-    <p class="pk-hint">{t('fdn.explain')}</p>
+    <Hint text={t('fdn.explain')} />
     <FootingKindPicker bind:value={kind} />
     <div class="fd-row">
       <label class="fd-inline">{t('building.thickness')} <input type="number" min="0.2" step="0.05" bind:value={thickness} data-testid="foundation-thickness" /></label>
@@ -144,7 +145,7 @@
   {#if footingCount > 0}
     <section class="pk-card" data-testid="foundation-presize">
       <h5 class="fd-h">{t('fdn.presizeTitle')}</h5>
-      <p class="pk-hint">{t('fdn.presizeHint')}</p>
+      <Hint text={t('fdn.presizeHint')} />
       <button class="pk-btn" onclick={presize} data-testid="foundation-presize-run">{t('fdn.presize')}</button>
       {#if presized.length > 0}
         <ul class="fd-list">
@@ -162,7 +163,7 @@
 
     <section class="pk-card" data-testid="foundation-beams">
       <h5 class="fd-h">{t('fdn.beamsTitle')}</h5>
-      <p class="pk-hint">{t('fdn.beamsHint')}</p>
+      <Hint text={t('fdn.beamsHint')} />
       <div class="fd-row">
         <label><input type="checkbox" bind:checked={withTies} /> {t('physical.typ.tie')}</label>
         <label><input type="checkbox" bind:checked={withStraps} /> {t('physical.typ.strap')}</label>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Load zones: a named outline of nodes, picked in order around it; the members picked with it are
    * left out of it; other zones can be its openings. A floor load can target a zone
@@ -35,7 +36,7 @@
 
 <div class="lz" data-testid="load-zones">
   <div class="lz-title">{t('loadZone.title')}</div>
-  <p class="lz-hint">{t('loadZone.hint')}</p>
+  <Hint text={t('loadZone.hint')} />
   <div class="lz-row">
     <PickKind kind="nodes" />
     <span data-testid="lz-count">{tp('loadZone.picked', { n: outline.length, m: uiStore.selectedElements.size })}</span>
