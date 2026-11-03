@@ -8,11 +8,13 @@
   import type { PlasticCollapseResult } from '../../../lib/engine/plastic-collapse';
   import { fmtQ, fmtCoord, unitQ } from '../../../lib/store/display-units.svelte';
   import PlasticSection from './PlasticSection.svelte';
+  import { verifiedCollapse } from './user-compare';
 
   let { r, step }: { r: PlasticCollapseResult; step: number } = $props();
 
   const st = $derived(r.steps[step]);
-  const before = $derived(r.hinges.filter((h) => h.step < step).length);
+  const startLambda = $derived(step > 0 ? r.steps[step - 1].loadFactor : 0);
+  const before = $derived(r.hinges.filter((h) => h.step < step && !(h.unloadedAt !== undefined && h.unloadedAt <= startLambda * (1 + 1e-12))).length);
   const last = $derived(step === r.steps.length - 1);
   const f3 = (v: number) => v.toFixed(3);
   const mom = (v: number) => `${fmtQ(v, 'moment')} ${unitQ('moment')}`;
@@ -58,7 +60,7 @@
       {#each events as e (e.i)}
         <li>{e.axial ? tp('course.plastic.trace.yield', { member: e.h.elementId, i: e.i }) : tp('course.plastic.trace.hinge', { member: e.h.elementId, x: at(e.h.x), i: e.i })}</li>
       {/each}
-      <li class="tr-end">{last && r.isMechanism ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
+      <li class="tr-end">{last && verifiedCollapse(r) ? tp('course.plastic.trace.collapse', { lambda: f3(r.collapseFactor) }) : last && (r.unresolved || r.isMechanism) ? t('course.plastic.unresolved') : last ? t('course.plastic.trace.noMechanism') : t('course.plastic.trace.next')}</li>
     </ol>
   </PlasticSection>
 {/if}

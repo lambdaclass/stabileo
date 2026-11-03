@@ -16,9 +16,10 @@
  */
 import type { SolverInput } from '../types';
 import { buildKinematics, dot, type KinModel } from './kinematics';
-import { buildSections, momentAt, momentForm, checkPoints, type SectionModel, type SectionOptions } from './sections';
+import { buildSections, endCouplesToNodal, momentAt, momentForm, checkPoints, type SectionModel, type SectionOptions } from './sections';
 import { rref } from '../steps/sway-modes';
 import { solveLp } from './lp';
+import { cubicStationaryPoints } from '../cubic-stationary';
 
 export interface LimitModel {
   sm: SectionModel;
@@ -62,7 +63,8 @@ function nullspaceOf(A: number[][], n: number, order?: number[]): number[][] {
 
 const rankOf = (A: number[][], n: number) => (A.length ? rref(A, n).pivots.length : 0);
 
-export function limitModel(input: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): LimitModel {
+export function limitModel(given: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): LimitModel {
+  const input = endCouplesToNodal(given);
   const sm = buildSections(input, mpOf, opts);
   const km = buildKinematics(input, sm.sections.map((s) => ({ member: s.member, t: s.t })));
   const basis = nullspaceOf(km.rows, km.n);
@@ -97,8 +99,8 @@ export function asMechanism(lm: LimitModel, d0: number[]): Mechanism {
   if (W < 0) { d = d.map((v) => -v); W = -W; }
   theta = lm.km.rotation.map((r) => dot(r, d)).map((v) => (Math.abs(v) < TOL * Math.max(big / unit, 1) ? 0 : v));
   const Wi = theta.reduce((s, v, k) => s + lm.sm.sections[k].mp * Math.abs(v), 0);
-  const scale = Math.max(1, ...lm.km.work.map(Math.abs)) * Math.max(1, ...d.map(Math.abs));
-  return { d, theta, W, Wi, lambda: W > 1e-9 * scale ? Wi / W : Infinity };
+  const terms = lm.km.work.reduce((s, v, i) => s + Math.abs(v * d[i]), 0);
+  return { d, theta, W, Wi, lambda: W > 1e-9 * terms ? Wi / W : Infinity };
 }
 
 /** The mechanism of least λ among the combinations of `space` (null when the loads do no work on any). */
@@ -157,7 +159,7 @@ export function elementaryMechanisms(lm: LimitModel): Elementary[] {
   const jointNodes: number[] = [];
   for (const [node, j] of km.joint) {
     const own = sm.sections.filter((s) => s.node === node && s.kind === 'joint').length;
-    if (own < 2 && !(own === 1 && sm.input.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && Math.abs(l.data.my) > 1e-12))) continue;
+    if (own < 2 && !(own === 1 && sm.input.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && (l.data.my ?? 0) !== 0))) continue;
     const d = new Array(km.n).fill(0);
     d[j] = 1;
     if (km.rows.some((r) => Math.abs(dot(r, d)) > 1e-12)) continue;
@@ -217,11 +219,14 @@ export interface Distribution {
   free: number;
 }
 
+const MAX_CUTS = 40;
+
 /**
  * Section moments in equilibrium with λ times the loads, with the moments in
  * `fixed` set; whatever equilibrium leaves free is chosen to make the largest
- * |M|/Mp as small as possible. Null when the fixed moments contradict
- * equilibrium.
+ * |M|/Mp along the members as small as possible (the peaks between check points
+ * are added until none exceeds the optimum). Null when the fixed moments
+ * contradict equilibrium or that choice is not settled.
  */
 export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda: number): Distribution | null {
   const N = lm.N;
@@ -231,7 +236,7 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
   const nf = freeIdx.length;
   const aug = E.map((row, k) => [...freeIdx.map((i) => row[i]), rhs[k]]);
   const { R, pivots } = rref(aug, nf);
-  const scale = Math.max(1, ...rhs.map(Math.abs));
+  const scale = Math.max(0, ...lm.basis.map((d, k) => Math.abs(lambda * dot(lm.km.work, d)) + [...fixed].reduce((s, [i, v]) => s + Math.abs(E[k][i] * v), 0)));
   for (let r = pivots.length; r < R.length; r++) if (Math.abs(R[r][nf]) > 1e-6 * scale) return null;
   const part = new Array(nf).fill(0);
   pivots.forEach((p, r) => { part[p] = R[r][nf]; });
@@ -243,56 +248,85 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
     freeIdx.forEach((i, k) => { M[i] = part[k] + Z.reduce((s, z, j) => s + z[k] * y[j], 0); });
     return M;
   };
+  const unbalanced = (M: number[]) => lm.basis.some((d, k) => {
+    const w = lambda * dot(lm.km.work, d);
+    let sum = 0, size = Math.abs(w);
+    for (let i = 0; i < N; i++) { const t = E[k][i] * M[i]; sum += t; size += Math.abs(t); }
+    return Math.abs(sum - w) > 1e-6 * size;
+  });
   let M = compose([]);
+  if (unbalanced(M)) return null;
   if (Z.length) {
-    const forms: Array<{ c0: number; cy: number[]; mp: number }> = [];
-    for (const [member] of lm.sm.members) {
-      for (const t of checkPoints(lm.sm, member)) {
-        const f = momentForm(lm.sm, member, t);
-        let c0 = lambda * f.load;
-        const cy = new Array(Z.length).fill(0);
-        for (const [s, c] of f.coef) {
-          const at = freeIdx.indexOf(s);
-          if (at < 0) c0 += c * (fixed.get(s) ?? 0);
-          else { c0 += c * part[at]; Z.forEach((z, j) => { cy[j] += c * z[at]; }); }
-        }
-        forms.push({ c0, cy, mp: lm.sm.mpOf(member) });
-      }
-    }
     const nz = Z.length;
-    const rows = forms.flatMap((f) => [
-      { a: [...f.cy, -f.mp], op: '<=' as const, b: -f.c0 },
-      { a: [...f.cy.map((v) => -v), -f.mp], op: '<=' as const, b: f.c0 },
-    ]);
-    const res = solveLp({ c: [...new Array(nz).fill(0), 1], rows, free: [...new Array(nz).fill(true), false] });
-    if (res.status === 'optimal') M = compose(res.x.slice(0, nz));
+    const formAt = (member: number, t: number) => {
+      const f = momentForm(lm.sm, member, t);
+      let c0 = lambda * f.load;
+      const cy = new Array(nz).fill(0);
+      for (const [s, c] of f.coef) {
+        const at = freeIdx.indexOf(s);
+        if (at < 0) c0 += c * (fixed.get(s) ?? 0);
+        else { c0 += c * part[at]; Z.forEach((z, j) => { cy[j] += c * z[at]; }); }
+      }
+      return { c0, cy, mp: lm.sm.mpOf(member) };
+    };
+    const forms: Array<{ c0: number; cy: number[]; mp: number }> = [];
+    for (const [member] of lm.sm.members) for (const t of checkPoints(lm.sm, member)) forms.push(formAt(member, t));
+    let done = false;
+    for (let round = 0; round < MAX_CUTS && !done; round++) {
+      const ys = Array.from({ length: nz }, (_, j) => Math.max(0, ...forms.map((f) => (f.cy[j] !== 0 ? f.mp : 0))) || 1);
+      const rows = forms.flatMap((f) => {
+        const a = f.cy.map((v, j) => (v * ys[j]) / f.mp);
+        return [
+          { a: [...a, -1], op: '<=' as const, b: -f.c0 / f.mp },
+          { a: [...a.map((v) => -v), -1], op: '<=' as const, b: f.c0 / f.mp },
+        ];
+      });
+      const res = solveLp({ c: [...new Array(nz).fill(0), 1], rows, free: [...new Array(nz).fill(true), false] });
+      if (res.status !== 'optimal') return null;
+      M = compose(res.x.slice(0, nz).map((u, j) => u * ys[j]));
+      if (!M.every(Number.isFinite)) return null;
+      const peak = peakRatio(lm.sm, M, lambda);
+      const bound = res.x[nz];
+      if (!(peak.ratio > bound + 1e-9 * Math.max(1, bound)) || !peak.worst) done = true;
+      else forms.push(formAt(peak.worst.member, peak.worst.t));
+    }
+    if (!done) return null;
   }
+  if (!M.every(Number.isFinite) || unbalanced(M)) return null;
   const peak = peakRatio(lm.sm, M, lambda);
+  if (!Number.isFinite(peak.ratio)) return null;
   return { M, lambda, ratio: peak.ratio, worst: peak.worst, free: Z.length };
 }
 
-/** The largest |M|/Mp along every frame member, found on a fine grid and refined around its peak. */
+/** The largest |M|/Mp along every frame member: a fine grid through every load boundary, each local peak refined. */
 export function peakRatio(sm: SectionModel, M: number[], lambda: number): { ratio: number; worst: Distribution['worst'] } {
   let ratio = 0;
   let worst: Distribution['worst'] = null;
+  const take = (member: number, t: number, mp: number) => {
+    const v = momentAt(sm, member, t, M, lambda);
+    if (Math.abs(v) / mp > ratio + 1e-12) { ratio = Math.abs(v) / mp; worst = { member, t, M: v, mp }; }
+  };
   for (const [member] of sm.members) {
     const mp = sm.mpOf(member);
-    const ts = new Set(checkPoints(sm, member, 64));
-    for (const t of [...ts]) {
-      const v = momentAt(sm, member, t, M, lambda);
-      if (Math.abs(v) / mp > ratio + 1e-12) { ratio = Math.abs(v) / mp; worst = { member, t, M: v, mp }; }
-    }
-  }
-  if (worst) {
-    const { member, mp } = worst;
-    let lo = Math.max(0, worst.t - 1 / 64), hi = Math.min(1, worst.t + 1 / 64);
+    const ts = checkPoints(sm, member, 64);
     const f = (t: number) => Math.abs(momentAt(sm, member, t, M, lambda));
-    for (let i = 0; i < 60; i++) {
-      const a = lo + (hi - lo) * 0.382, b = lo + (hi - lo) * 0.618;
-      if (f(a) > f(b)) hi = b; else lo = a;
+    const vs = ts.map(f);
+    ts.forEach((t, k) => {
+      take(member, t, mp);
+      if (k === 0 || k === ts.length - 1 || vs[k] < vs[k - 1] || vs[k] < vs[k + 1]) return;
+      for (const [l0, h0] of [[ts[k - 1], t], [t, ts[k + 1]]]) {
+        let lo = l0, hi = h0;
+        for (let i = 0; i < 60; i++) {
+          const a = lo + (hi - lo) * 0.382, b = lo + (hi - lo) * 0.618;
+          if (f(a) > f(b)) hi = b; else lo = a;
+        }
+        take(member, (lo + hi) / 2, mp);
+      }
+    });
+    const edges = checkPoints(sm, member, 1);
+    for (let k = 0; k + 1 < edges.length; k++) {
+      for (const t of cubicStationaryPoints((x) => momentAt(sm, member, x, M, lambda), edges[k], edges[k + 1])) take(member, t, mp);
     }
-    const t = (lo + hi) / 2;
-    if (f(t) / mp > ratio) { ratio = f(t) / mp; worst = { member, t, M: momentAt(sm, member, t, M, lambda), mp }; }
   }
   return { ratio, worst };
 }

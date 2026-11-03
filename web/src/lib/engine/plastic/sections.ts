@@ -51,7 +51,27 @@ export interface SectionOptions {
 
 export const endKey = (member: number, end: 'I' | 'J') => `${member}:${end}`;
 
+export function endCouplesToNodal(input: SolverInput): SolverInput {
+  const loads: SolverInput['loads'] = [];
+  let moved = false;
+  for (const l of input.loads) {
+    const e = l.type === 'pointOnElement' && (l.data.my ?? 0) !== 0 ? input.elements.get(l.data.elementId) : undefined;
+    if (l.type !== 'pointOnElement' || !e || e.type !== 'frame') { loads.push(l); continue; }
+    const a = input.nodes.get(e.nodeI)!, b = input.nodes.get(e.nodeJ)!;
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    const free = (node: number) => ![...input.supports.values()].some((sp) => sp.nodeId === node && (sp.type === 'fixed' || (sp.type === 'spring' && (sp.kz ?? 0) > 0)));
+    const atI = l.data.a <= 1e-9 * L && !e.hingeStart && free(e.nodeI), atJ = l.data.a >= L * (1 - 1e-9) && !e.hingeEnd && free(e.nodeJ);
+    if (!atI && !atJ) { loads.push(l); continue; }
+    moved = true;
+    loads.push({ type: 'nodal', data: { nodeId: atI ? e.nodeI : e.nodeJ, fx: 0, fz: 0, my: l.data.my! } });
+    if (l.data.p !== 0 || (l.data.px ?? 0) !== 0) loads.push({ type: 'pointOnElement', data: { ...l.data, my: 0 } });
+  }
+  return moved ? { ...input, loads } : input;
+}
+
+/** Throws on a couple applied inside a member: the moment jump it makes is not modelled here. */
 export function buildSections(input: SolverInput, mpOf: (member: number) => number, opts: SectionOptions = {}): SectionModel {
+  if (input.loads.some((l) => l.type === 'pointOnElement' && (l.data.my ?? 0) !== 0)) throw new Error('plastic sections: couple inside a member');
   const frames = [...input.elements.values()].filter((e) => e.type === 'frame');
   const members = new Map<number, { L: number; points: Pt[]; dists: Dist[] }>();
   for (const e of frames) {
@@ -59,12 +79,12 @@ export function buildSections(input: SolverInput, mpOf: (member: number) => numb
     members.set(e.id, { L: Math.hypot(b.x - a.x, b.z - a.z), points: [], dists: [] });
   }
   for (const l of input.loads) {
-    if (l.type === 'pointOnElement' && members.has(l.data.elementId) && Math.abs(l.data.p) > 1e-12) {
+    if (l.type === 'pointOnElement' && members.has(l.data.elementId) && l.data.p !== 0) {
       members.get(l.data.elementId)!.points.push({ x: l.data.a, f: l.data.p });
     } else if (l.type === 'distributed' && members.has(l.data.elementId)) {
       const m = members.get(l.data.elementId)!;
       const a = l.data.a ?? 0, b = l.data.b ?? m.L;
-      if (b - a > 1e-12 && (Math.abs(l.data.qI) > 1e-12 || Math.abs(l.data.qJ) > 1e-12)) m.dists.push({ a, b, qa: l.data.qI, qb: l.data.qJ });
+      if (b > a && (l.data.qI !== 0 || l.data.qJ !== 0)) m.dists.push({ a, b, qa: l.data.qI, qb: l.data.qJ });
     }
   }
 
@@ -72,7 +92,7 @@ export function buildSections(input: SolverInput, mpOf: (member: number) => numb
   const ends = new Map<string, EndLink | null>();
   const extraEnds = new Set((opts.extra ?? []).filter((s) => s.t <= 1e-9 || s.t >= 1 - 1e-9).map((s) => endKey(s.member, s.t < 0.5 ? 'I' : 'J')));
   const holdsRotation = (node: number) => [...input.supports.values()].some((s) => s.nodeId === node && (s.type === 'fixed' || (s.type === 'spring' && (s.kz ?? 0) > 0)));
-  const nodalMoment = (node: number) => input.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && Math.abs(l.data.my) > 1e-12);
+  const nodalMoment = (node: number) => input.loads.some((l) => l.type === 'nodal' && l.data.nodeId === node && (l.data.my ?? 0) !== 0);
 
   const rigidEnds = new Map<number, Array<{ member: number; end: 'I' | 'J' }>>();
   for (const e of frames) {
@@ -96,7 +116,7 @@ export function buildSections(input: SolverInput, mpOf: (member: number) => numb
         : extraEnds.has(endKey(list[0].member, list[0].end)) ? 0 : (mpOf(list[1].member) < mpOf(list[0].member) - 1e-9 ? 1 : 0);
       const a = list[chosen], b = list[1 - chosen];
       const s = sections.length;
-      sections.push({ member: a.member, t: a.end === 'I' ? 0 : 1, kind: 'joint', node, mp: mpOf(a.member) });
+      sections.push({ member: a.member, t: a.end === 'I' ? 0 : 1, kind: 'joint', node, mp: Math.min(mpOf(a.member), mpOf(b.member)) });
       ends.set(endKey(a.member, a.end), { section: s, coef: 1 });
       ends.set(endKey(b.member, b.end), { section: s, coef: -sign(a.end) / sign(b.end) });
     } else {
@@ -202,6 +222,7 @@ export function checkPoints(sm: SectionModel, member: number, inside = 8): numbe
     const loaded = m.dists.some((d) => d.b > a * m.L + 1e-9 && d.a < b * m.L - 1e-9) || m.points.some((p) => p.x > a * m.L + 1e-9 && p.x < b * m.L - 1e-9);
     if (!loaded) continue;
     for (const p of m.points) if (p.x > a * m.L + 1e-9 && p.x < b * m.L - 1e-9) out.push(p.x / m.L);
+    for (const d of m.dists) for (const x of [d.a, d.b]) if (x > a * m.L + 1e-9 && x < b * m.L - 1e-9) out.push(x / m.L);
     for (let i = 1; i < inside; i++) out.push(a + ((b - a) * i) / inside);
   }
   return [...new Set(out)].sort((x, y) => x - y);

@@ -41,6 +41,8 @@ test.describe('@slow plastic collapse, explained', () => {
     await mech.locator('summary').click();
     await page.getByTestId('plastic-mechanism-draw').click();
     await expect(page.getByTestId('plastic-mechanism-vw')).toContainText('71.296');
+    await expect(page.getByTestId('plastic-mechanism-vw')).toContainText(/Σ P·δ = -?[\d.,]+ kN·m·θ/);
+    await expect(page.getByTestId('plastic-mechanism-vw')).toContainText(/λ = -?[\d.,]+ kN·m \/ -?[\d.,]+ kN·m =/);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/mechanism.png` });
 
     const user = page.getByTestId('plastic-user');
@@ -49,8 +51,18 @@ test.describe('@slow plastic collapse, explained', () => {
     for (const [a, b, t] of [[1, 2, 0.05], [1, 2, 0.95], [4, 3, 0.05], [4, 3, 0.95]]) await tapAt(page, a, b, t);
     await expect(page.getByTestId('plastic-user-hinges').locator('li')).toHaveCount(4);
     await expect(page.getByTestId('plastic-user-lambda')).toContainText('168.750');
+    await expect(page.getByTestId('plastic-user-lambda')).toContainText(/= λ·-?[\d.,]+ kN·m·θ/);
     const verdict = page.getByTestId('plastic-user-admissible');
-    await expect(verdict).toContainText(/Mp/);
+    await expect(verdict).toHaveClass(/\bbad\b/);
+    const exceeds = (await verdict.textContent())!;
+    const nums = exceeds.match(/\|M\| = ([\d.,]+) kN·m > Mp = ([\d.,]+) kN·m/);
+    expect(nums).not.toBeNull();
+    const [m, mp] = [Number(nums![1].replace(/,/g, '')), Number(nums![2].replace(/,/g, ''))];
+    expect(m).toBeGreaterThan(mp);
+    const lower = Number(exceeds.match(/= ([\d.,]+)[^=]*$/)![1].replace(/,/g, ''));
+    expect(lower).toBeGreaterThan(0);
+    expect(lower).toBeLessThanOrEqual(71.296);
+    expect(lower).toBeCloseTo((168.75 * mp) / m, 2);
     await expect(page.getByTestId('plastic-user-verdict')).toContainText(/upper bound|cota superior|limite superior/);
     await page.getByTestId('plastic-user-show-moments').click();
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/user-mechanism.png` });

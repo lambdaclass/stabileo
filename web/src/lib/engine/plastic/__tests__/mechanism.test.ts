@@ -113,6 +113,28 @@ describe('the mechanism the step-by-step analysis ends in', () => {
     // Sway to the right: the top-left node moves +x by h·θ.
     expect(v.d[2 * v.km.nodePoint.get(2)!]).toBeCloseTo(4, 9);
   });
+
+  it('a spring support: the collapse mechanism is drawn, the spring node still (its spring takes no motion of a mechanism)', () => {
+    const m = portal(1, 1);
+    const first = [...m.supports.values()][0];
+    m.supports.set(first.id, { id: first.id, nodeId: first.nodeId, type: 'spring', kx: 1e9, ky: 1e9, kz: 1e9 } as never);
+    const r = plasticCollapse2D(m, { mp: uniformMp, np: () => Infinity });
+    expect(r.isMechanism).toBe(true);
+    expect(r.unresolved).toBeFalsy();
+    const v = collapseMechanism(m, r)!;
+    expect(v).not.toBeNull();
+    expect(v.dof).toBe(1);
+    const p = v.km.nodePoint.get(first.nodeId)!;
+    expect(Math.abs(v.d[2 * p])).toBeLessThan(1e-12);
+    expect(Math.abs(v.d[2 * p + 1])).toBeLessThan(1e-12);
+  });
+
+  it('an analysis that stopped unresolved shows no collapse mechanism', () => {
+    const m = portal(1, 1);
+    const r = plasticCollapse2D(m, { mp: uniformMp, np: () => Infinity });
+    expect(collapseMechanism(m, r)).not.toBeNull();
+    expect(collapseMechanism(m, { ...r, unresolved: true })).toBeNull();
+  });
 });
 
 describe('plastic rotation at the hinges', () => {
@@ -177,5 +199,24 @@ describe('placing hinges and drawing their moments', () => {
     for (const t of [0, 0.25, 0.5, 0.8, 1]) {
       expect(-computeDiagramValueAt('moment', t, beam)).toBeCloseTo(momentAt(u.lm.sm, 2, t, v.dist.M, v.mech.lambda), 9);
     }
+  });
+});
+
+describe('a tap near a point load close to a member end', () => {
+  it('takes the load, not the end, when the load is nearer; a tap nearer the end still takes the end', async () => {
+    const { pickHinge } = await import('../pick');
+    const m = model([[1, 0, 0], [2, 6, 0]], [[1, 1, 2]], [[1, 'fixed'], [2, 'fixed']], [pOn(1, 0.5, -10)]);
+    expect(pickHinge(m, { x: 0.45, z: 0 }, 0.2)).toEqual({ member: 1, t: 0.5 / 6 });
+    expect(pickHinge(m, { x: 0.1, z: 0 }, 0.2)).toEqual({ member: 1, t: 0 });
+  });
+});
+
+describe('member end rotations of a zero-length member', () => {
+  it('are not computed, rather than coming out NaN', async () => {
+    const { memberEndRotations } = await import('../rotations');
+    const m = model([[1, 0, 0], [2, 0, 0]], [[1, 1, 2]], [[1, 'fixed']], []);
+    const ef = { elementId: 1, pointLoads: [], distributedLoads: [] } as never;
+    const res = { displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 0, uz: 1, ry: 0 }] } as never;
+    expect(memberEndRotations(m, res, ef)).toBeNull();
   });
 });

@@ -10,6 +10,7 @@
   import { thetaLabel } from '../../../lib/canvas/draw-plastic-course';
   import { fmtQ, fmtCoord, unitQ } from '../../../lib/store/display-units.svelte';
   import PlasticSection from './PlasticSection.svelte';
+  import { verifiedCollapse } from './user-compare';
 
   let { r }: { r: PlasticCollapseResult } = $props();
   let open = $state(false);
@@ -28,7 +29,7 @@
   const mom = (v: number) => `${fmtQ(v, 'moment')} ${unitQ('moment')}`;
 </script>
 
-{#if r.isMechanism && view}
+{#if verifiedCollapse(r) && view}
   <PlasticSection testid="plastic-mechanism" bind:open title={t('course.plastic.mech.title')}
     summary={tp(view.dof === 1 ? 'course.plastic.mech.summaryOne' : 'course.plastic.mech.summaryMany', { n: view.hinges.length, k: view.dof })}
     help={t('course.plastic.mech.help')}>
@@ -54,10 +55,14 @@
       <p>{t('course.plastic.mech.vwLead')}</p>
       <div class="mt-eq" data-testid="plastic-mechanism-vw">
         Σ Mp|θ| = {mom(work.Wi)}·θ<br />
-        Σ P·δ = {fmtQ(work.We, 'moment')}·θ<br />
-        λ = {mom(work.Wi)} / {fmtQ(work.We, 'moment')} = {work.lambda.toFixed(3)}
+        Σ P·δ = {mom(work.We)}·θ<br />
+        λ = {mom(work.Wi)} / {mom(work.We)} = {work.lambda.toFixed(3)}
       </div>
-      <p>{tp('course.plastic.mech.vwAgree', { lambda: r.collapseFactor.toFixed(3) })}</p>
+      {#if Number.isFinite(work.lambda) && Number.isFinite(r.collapseFactor) && Math.abs(work.lambda - r.collapseFactor) <= 1e-3 * Math.abs(r.collapseFactor)}
+        <p>{tp('course.plastic.mech.vwAgree', { lambda: r.collapseFactor.toFixed(3) })}</p>
+      {:else}
+        <p class="mt-bad" data-testid="plastic-mechanism-vw-differ">{t('course.plastic.mech.vwDiffer')}</p>
+      {/if}
     {/if}
   </PlasticSection>
 {/if}
@@ -68,5 +73,6 @@
   .mt td { text-align: right; padding: 1px 3px; color: var(--st-text-2); }
   .mt-eq { font-family: var(--st-mono); font-size: 0.64rem; color: var(--st-value); margin: 2px 0 4px; overflow-wrap: anywhere; }
   .mt-note { color: var(--st-text-3); }
+  .mt-bad { color: var(--st-danger); }
   p { margin: 3px 0; }
 </style>

@@ -579,7 +579,7 @@ function checkPlastic(label: string, meta: GenMeta, input: SolverInput, res: Ana
   const fy = firstYield(input, res, new Map(run.mps.map((m) => [m.sectionId, m.mp])));
   if (!r.isMechanism) {
     // A structure under forces collapses at some factor; only self-equilibrated actions cannot.
-    fail('plastic', `${label}: no mechanism (λ=${r.collapseFactor}, ${r.hinges.length} hinges, first yield at ${fy.lambda.toFixed(3)} in ${fy.where})${meta.thermal || meta.settlement ? ' [has thermal/settlement]' : ''}`);
+    fail('plastic', `${label}: no mechanism (λ=${r.collapseFactor}, ${r.hinges.length} hinges, first yield at ${fy.lambda.toFixed(3)} in ${fy.where})${r.unresolved ? ' unresolved' : ''}${meta.thermal || meta.settlement ? ' [has thermal/settlement]' : ''}`);
     return;
   }
   ran('plastic-bounds');

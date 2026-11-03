@@ -16,7 +16,14 @@ import type { CurveAxis } from '../engine/plastic/curve';
 
 export type PlasticView = 'steps' | 'mechanism' | 'user';
 
-const stampOf = (r: { collapseFactor: number; hinges: unknown[]; steps: unknown[] }) => `${r.collapseFactor}:${r.hinges.length}:${r.steps.length}`;
+type StampHinge = { elementId: number; moment?: number; end?: string; position?: number; x?: number; kind?: string; step?: number; loadFactor?: number; unloadedAt?: number };
+
+/**
+ * What ties a run to its own result: every event's λ and where each hinge formed, not only their
+ * counts. Moments are left out: the results store flips their sign to the drawing convention.
+ */
+export const stampOf = (r: { collapseFactor: number; hinges: readonly StampHinge[]; steps: Array<{ loadFactor: number }> }) =>
+  `${r.collapseFactor}|${r.steps.map((s) => s.loadFactor).join(',')}|${r.hinges.map((h) => [h.elementId, h.end, h.position, h.x, h.kind, h.step, h.loadFactor, h.unloadedAt].join(':')).join(';')}`;
 
 function createPlasticCourse() {
   let run = $state.raw<{ input: SolverInput; mp: Map<number, number>; stamp: string } | null>(null);
