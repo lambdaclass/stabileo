@@ -21,14 +21,15 @@ def nix_jobs(workflow):
 
 
 class RetryInfra(unittest.TestCase):
-    def test_every_job_fetching_the_nix_shell_retries_infrastructure_failures_first(self):
+    def test_every_job_fetching_a_nix_shell_retries_infrastructure_failures_first(self):
         for workflow in ['ci.yml', 'research.yml', 'verify.yml']:
             for name, body in nix_jobs(workflow):
-                with self.subTest(workflow=workflow, job=name):
-                    nix = [m.start() for m in re.finditer(r'(?<!retry-infra\.sh )\b(nix develop|make) ', body)]
-                    wrapped = body.find('retry-infra.sh ')
-                    self.assertNotEqual(wrapped, -1)
-                    self.assertLess(wrapped, min(nix) if nix else len(body))
+                first = {}
+                for use in re.finditer(r'(retry-infra\.sh )?(?:nix develop(?: \.{1,2}#([\w-]+))?|(?<!-c )(?<!--command )\bmake) ', body):
+                    first.setdefault(use.group(2) or 'default', bool(use.group(1)))
+                for shell, wrapped in first.items():
+                    with self.subTest(workflow=workflow, job=name, shell=shell):
+                        self.assertTrue(wrapped)
 
     def test_real_log_patterns(self):
         infrastructure = [
