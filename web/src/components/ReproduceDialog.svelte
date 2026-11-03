@@ -9,9 +9,13 @@
   import { parseProvenance } from '../lib/provenance/result-provenance';
   import { reproduceFrom, type ReproduceOutcome } from '../lib/actions/reproduce';
   import { captureFocus, cycleTabWithin } from '../lib/utils/dialog-focus';
-  import { t, tp } from '../lib/i18n';
+  import { i18n, t, tp } from '../lib/i18n';
   import { baseSolverInputJson } from '../lib/store/result-provenance';
   import { downloadText } from '../lib/store/file';
+
+  const languageName = (code: string) => {
+    try { return new Intl.DisplayNames([i18n.locale], { type: 'language' }).of(code) ?? code; } catch { return code; }
+  };
 
   /** The base solve's engine input, for `cargo run --release --example reproduce`. */
   function downloadInput() {
@@ -82,8 +86,10 @@
         {#if outcome.ok}
           {@const v = outcome.verdict}
           {@const printedOk = !outcome.printed || (outcome.printed.differences.length === 0 && outcome.printed.structural.length === 0)}
-          <div class="rp-verdict" class:ok={v.reproduced && printedOk} data-testid="reproduce-verdict" data-reproduced={v.reproduced && printedOk} data-status={printedOk ? v.status : 'printed-differs'}>
-            <strong>{!printedOk ? t('provenance.reproduce.printedTampered') : v.status === 'reproduced' ? t('provenance.reproduce.match') : v.status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
+          {@const labelsOk = !outcome.printed || outcome.printed.labels}
+          {@const status = !printedOk ? 'printed-differs' : !labelsOk && v.status === 'reproduced' ? 'incomplete' : v.status}
+          <div class="rp-verdict" class:ok={v.reproduced && printedOk && labelsOk} data-testid="reproduce-verdict" data-reproduced={v.reproduced && printedOk && labelsOk} data-status={status}>
+            <strong>{status === 'printed-differs' ? t('provenance.reproduce.printedTampered') : status === 'reproduced' ? t('provenance.reproduce.match') : status === 'incomplete' ? t('provenance.reproduce.incomplete') : t('provenance.reproduce.mismatch')}</strong>
             <ul data-testid="reproduce-hashes">
               {#each v.hashes as h (h.field)}
                 <li data-field={h.field} data-verdict={h.verdict}>{FIELD_LABEL[h.field] ?? h.field}: {field(h.verdict)}</li>
@@ -105,6 +111,7 @@
                 </ul>
               {/if}
               {#if pv.structural.length > 0}<p>{tp('provenance.reproduce.printedStructure', { tables: pv.structural.join(', ') })}</p>{/if}
+              {#if !pv.labels && outcome.reportLocale}<p data-testid="reproduce-printed-labels">{tp('provenance.reproduce.printedLabelsOther', { language: languageName(outcome.reportLocale) })}</p>{/if}
             {:else if outcome.printed === null}
               <p class="rp-muted">{t('provenance.reproduce.printedNone')}</p>
             {/if}

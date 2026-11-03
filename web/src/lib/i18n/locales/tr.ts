@@ -13834,6 +13834,7 @@ const tr: Translations = {
   'provenance.reproduce.printedDiffers': "Basılı {n} değerden {m} tanesi yeniden hesapla eşleşmiyor:",
   'provenance.reproduce.printedLine': "{table}, {row}, {column}: basılı {printed}, yeniden hesaplanan {recomputed}",
   'provenance.reproduce.printedStructure': "Bu tablolar yeniden hesaplamayla aynı satırlara sahip değil: {tables}.",
+  'provenance.reproduce.printedLabelsOther': "Etiketler ve başlıklar {language} dilinde: onları da karşılaştırmak için doğrulamayı arayüz bu dildeyken açın.",
   'provenance.reproduce.printedTampered': "Basılı sayılar yeniden hesapla eşleşmiyor",
   'provenance.reproduce.printedNone': "Bu dosyada değer değer karşılaştırma için işaretlenmiş tablo yok (önceki bir sürüme ait ya da bir HTML raporu değil): yalnızca parmak izleri karşılaştırılıyor.",
   'provenance.reproduce.table.reactions': "Mesnet tepkileri",

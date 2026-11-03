@@ -13635,6 +13635,7 @@ const pt: Translations = {
   'provenance.reproduce.printedDiffers': "{m} dos {n} valores impressos não coincidem com o recálculo:",
   'provenance.reproduce.printedLine': "{table}, {row}, {column}: impresso {printed}, recalculado {recomputed}",
   'provenance.reproduce.printedStructure': "Estas tabelas não têm as mesmas linhas que o recálculo: {tables}.",
+  'provenance.reproduce.printedLabelsOther': "Os rótulos e cabeçalhos estão em {language}: abra a verificação com a interface nesse idioma para compará-los também.",
   'provenance.reproduce.printedTampered': "Os números impressos não coincidem com o recálculo",
   'provenance.reproduce.printedNone': "Este arquivo não traz as tabelas marcadas para comparar valor por valor (é de uma versão anterior, ou não é um relatório HTML): comparam-se só as impressões digitais.",
   'provenance.reproduce.table.reactions': "Reações",

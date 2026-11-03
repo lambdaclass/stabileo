@@ -248,6 +248,7 @@ export function buildProReportData(opts: {
   const data: ReportData = {
     projectName: modelStore.model.name || 'Estructura',
     date: new Date().toLocaleDateString(i18n.locale, { year: 'numeric', month: 'long', day: 'numeric' }),
+    locale: i18n.locale,
     provenance: modelStore.model.provenance,
     nodes: [...modelStore.nodes.values()],
     elements: [...modelStore.elements.values()],

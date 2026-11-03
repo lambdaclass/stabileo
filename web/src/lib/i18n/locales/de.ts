@@ -13834,6 +13834,7 @@ const de: Translations = {
   'provenance.reproduce.printedDiffers': "{m} der {n} gedruckten Werte stimmen nicht mit der Neuberechnung überein:",
   'provenance.reproduce.printedLine': "{table}, {row}, {column}: gedruckt {printed}, neu berechnet {recomputed}",
   'provenance.reproduce.printedStructure': "Diese Tabellen haben nicht dieselben Zeilen wie die Neuberechnung: {tables}.",
+  'provenance.reproduce.printedLabelsOther': "Beschriftungen und Spaltenköpfe sind auf {language}: Öffnen Sie die Prüfung mit der Oberfläche in dieser Sprache, um sie ebenfalls zu vergleichen.",
   'provenance.reproduce.printedTampered': "Die gedruckten Zahlen stimmen nicht mit der Neuberechnung überein",
   'provenance.reproduce.printedNone': "Diese Datei enthält keine für einen Wert-für-Wert-Vergleich markierten Tabellen (sie stammt aus einer früheren Version oder ist kein HTML-Bericht): Nur die Fingerabdrücke werden verglichen.",
   'provenance.reproduce.table.reactions': "Auflagerkräfte",
