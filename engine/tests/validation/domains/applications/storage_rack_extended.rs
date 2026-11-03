@@ -458,7 +458,7 @@ fn validation_rack_down_aisle_stability() {
 
     // Vertical equilibrium (no vertical loads)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.02, "Down-aisle: vertical equilibrium (no gravity)");
+    assert_close_abs(sum_ry, 0.0, 0.02, 1e-6, "Down-aisle: vertical equilibrium (no gravity)");
 }
 
 // ================================================================

@@ -6,6 +6,7 @@ import { shellCentreRows, type ShellModel } from '../../engine/shell-results';
 import { initSolver, computeEnvelope3D } from '../../engine/wasm-solver';
 import { SETTLEMENT_CASE_ID } from '../../engine/settlement-case';
 import { resultSheets, shellCentreTable } from '../workbook-results';
+import { envelopeShellStresses } from '../../engine/shell-combos';
 import type { AnalysisResults3D } from '../../engine/types-3d';
 import type { WorkbookSheet } from '../workbook-cells';
 import { t } from '../../i18n';
@@ -48,7 +49,7 @@ it.each([0, -1, NaN, Infinity])('does not invent face stresses for thickness %s'
   const centre = shellCentreRows(result(2, 100), invalid)[0]!;
   expect(centre.top).toBeUndefined();
   expect(centre.bottom).toBeUndefined();
-  expect(centre.membrane.vonMises).toBe(100);
+  expect(centre.membrane!.vonMises).toBe(100);
 });
 
 it.each([-2, 2])('exports extrema of both principal stresses on both faces for moment %s', (mx) => {
@@ -103,4 +104,42 @@ it('exports the displayed result and its identity through case, combination and 
   assertExport('single', 0, t('advanced.spectral'), 12);
   resultsStore.clear();
   expect(activeWorkbookSource()).toBeNull();
+});
+
+it('the Envelope sheet lists each shell component\'s extremes with the combination of each', () => {
+  const sheets = resultSheets({
+    sources: [
+      { kind: 'combination', id: 1, name: '1.2D', results: result(2, 100) },
+      { kind: 'combination', id: 2, name: '1.4D', results: result(-5, 40) },
+    ],
+    stations: 5, statics: null, shells: model,
+  });
+  const rows = records(sheets.find((s) => s.name === 'Envelope')!).filter((r) => r.table === 'shells');
+  const mx = rows.find((r) => r.component === 'mx')!;
+  expect(mx).toMatchObject({ entity: 'quad 1', unit: 'kN·m/m', max: 2, maxSourceId: 1, maxSourceName: '1.2D', min: -5, minSourceId: 2, minSourceName: '1.4D' });
+  const sxx = rows.find((r) => r.component === 'sigmaXx')!;
+  expect(sxx).toMatchObject({ unit: 'kN/m²', max: 100, maxSourceId: 1, min: 40, minSourceId: 2 });
+  expect(rows.find((r) => r.component === 'qx')).toBeUndefined();
+});
+
+it('an exported envelope keeps the extremes and combinations it holds instead of being enveloped again', () => {
+  const combos = [
+    { kind: 'combination' as const, id: 1, name: '1.2D', results: result(20, 100) },
+    { kind: 'combination' as const, id: 2, name: '1.4D', results: result(-5, 40) },
+  ];
+  const envelope = { ...result(0), ...envelopeShellStresses(combos.map((c) => ({ source: { kind: 'combination' as const, id: c.id }, results: c.results }))) } as AnalysisResults3D;
+  const sheets = resultSheets({
+    sources: [{ kind: 'envelope', id: 0, name: 'Envelope', results: envelope }],
+    stations: 5, statics: null, shells: model,
+  });
+  const env = records(sheets.find((s) => s.name === 'Envelope')!).filter((r) => r.table === 'shells');
+  expect(env.find((r) => r.component === 'mx')).toMatchObject({ max: 20, maxSourceId: 1, maxSourceName: 'combination 1', min: -5, minSourceId: 2, minSourceName: 'combination 2' });
+  const maxima = records(sheets.find((s) => s.name === 'Maxima')!).filter((r) => r.table === 'shells');
+  const mx = maxima.filter((r) => r.component === 'mx');
+  expect(mx.map((r) => [r.extreme, r.value, r.source, r.sourceId, r.sourceName])).toEqual([['max', 20, 'combination', 1, 'combination 1'], ['min', -5, 'combination', 2, 'combination 2']]);
+  const vm = maxima.filter((r) => r.component === 'membraneVonMises');
+  expect(vm.map((r) => [r.extreme, r.value, r.sourceId])).toEqual([['max', 100, 1], ['min', 40, 2]]);
+  const centre = records(sheets.find((s) => s.name === 'ShellCentres')!)[0]!;
+  expect(centre['mx [kN·m/m]']).toBe(20);
+  expect(centre['topVonMises [kN/m²]']).toBe('');
 });

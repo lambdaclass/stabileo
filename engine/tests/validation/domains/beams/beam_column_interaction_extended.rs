@@ -214,7 +214,7 @@ fn validation_bc_ext_truss_triangle_joints() {
 
     assert_close(r1.rz, p / 2.0, 0.02, "Truss triangle: R1y = P/2");
     assert_close(r2.rz, p / 2.0, 0.02, "Truss triangle: R2y = P/2");
-    assert_close(r1.rx, 0.0, 0.02, "Truss triangle: R1x = 0");
+    assert_close_abs(r1.rx, 0.0, 0.02, 1e-6, "Truss triangle: R1x = 0");
 
     // Member forces: equilateral triangle, angle = 60°
     // sin(60) = sqrt(3)/2, cos(60) = 1/2, tan(60) = sqrt(3)
@@ -646,7 +646,7 @@ fn validation_bc_ext_inclined_beam_gravity() {
 
     // Sum Rx = 0 (no horizontal applied loads)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.02, "Inclined beam: sum Rx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.02, 1e-6, "Inclined beam: sum Rx = 0");
 
     // Midspan vertical deflection should be downward
     let d_mid = results.displacements.iter()

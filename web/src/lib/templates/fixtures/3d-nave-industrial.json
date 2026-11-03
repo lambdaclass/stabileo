@@ -12311,5 +12311,157 @@
       "name": "Wind +Y"
     }
   ],
-  "combinations": []
+  "combinations": [
+    {
+      "id": 1,
+      "name": "1.4 D",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.4
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "1",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 2,
+      "name": "1.2 D + 0.5 Lr",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 0.5
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "2-Lr",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 3,
+      "name": "1.2 D + 1.6 Lr + 0.5 W",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1.6
+        },
+        {
+          "caseId": 3,
+          "factor": 0.5
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "3-Lr-W",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 4,
+      "name": "1.2 D + 1.0 W + 0.5 Lr",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 3,
+          "factor": 1
+        },
+        {
+          "caseId": 2,
+          "factor": 0.5
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "4-Lr",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 5,
+      "name": "0.9 D + 1.0 W",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 0.9
+        },
+        {
+          "caseId": 3,
+          "factor": 1
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "6",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 6,
+      "name": "1.2 D + 1.6 Lr",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 2,
+          "factor": 1.6
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "3-Lr-W-noW",
+        "purpose": "strength"
+      }
+    },
+    {
+      "id": 7,
+      "name": "1.2 D + 1.0 W",
+      "factors": [
+        {
+          "caseId": 1,
+          "factor": 1.2
+        },
+        {
+          "caseId": 3,
+          "factor": 1
+        }
+      ],
+      "origin": {
+        "code": "cirsoc101-2025-basis",
+        "family": "cirsoc",
+        "edition": "2025",
+        "rule": "4-Lr-noLr",
+        "purpose": "strength"
+      }
+    }
+  ]
 }

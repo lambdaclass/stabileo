@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * One case's composition and how it is solved (`engine/case-effects.ts`,
    * `engine/combination-methods.ts`): the cases it takes in with their factors, whether it is a
@@ -129,7 +130,7 @@
     </div>
   {/each}
   <button class="pk-btn" onclick={addInclude} disabled={!takeable.length} data-testid="cd-inc-add">+ {t('caseDetails.addInclude')}</button>
-  <p class="cd-hint">{t('caseDetails.includesHint')}</p>
+  <Hint text={t('caseDetails.includesHint')} />
   {#if typedComposite}
     <p class="cd-warn" data-testid="cd-composite-typed">{tp('caseDetails.compositeTyped', { type: lc.type })}
       <button class="pk-btn" onclick={() => modelStore.updateLoadCaseType(lc.id, '')} data-testid="cd-composite-untype">{t('caseDetails.compositeUntype')}</button></p>
@@ -140,7 +141,7 @@
     <label>{t('caseDetails.group')} <input type="text" class="cd-wide" value={lc.alternatives ?? ''} onchange={(e) => update({ alternatives: e.currentTarget.value.trim() || undefined })} data-testid="cd-alt" /></label>
     <label><input type="checkbox" checked={!!lc.pattern} onchange={(e) => update({ pattern: e.currentTarget.checked })} data-testid="cd-pattern" /> {t('caseDetails.pattern')}</label>
   </div>
-  <p class="cd-hint">{t('caseDetails.alternativesHint')}</p>
+  <Hint text={t('caseDetails.alternativesHint')} />
 
   {#if (lc.type ?? '').toUpperCase() === 'N' || notional}
     <div class="cd-title">{t('caseDetails.notional')}</div>
@@ -156,7 +157,7 @@
         {#each ['+X', '-X', '+Y', '-Y'] as d (d)}<option value={d}>{d}</option>{/each}
       </select>
     </div>
-    <p class="cd-hint">{t('caseDetails.notionalHint')}</p>
+    <Hint text={t('caseDetails.notionalHint')} />
   {/if}
 
   {#if (lc.type ?? '').toUpperCase() === 'E'}
@@ -191,7 +192,7 @@
         <p class="cd-warn" data-testid="cd-spec-scale-stale">{tp('spectralCase.scaleStale', { name: lc.name, scale: sp.scale, code: staleScale })}
           <button class="pk-btn" onclick={() => setSpectral({ scale: staleScale! })} data-testid="cd-spec-scale-use">{tp('spectralCase.scaleUse', { code: staleScale })}</button></p>
       {/if}
-      <p class="cd-hint">{t('spectralCase.hint')}</p>
+      <Hint text={t('spectralCase.hint')} />
     {/if}
   {/if}
 

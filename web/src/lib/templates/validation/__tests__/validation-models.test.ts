@@ -177,13 +177,16 @@ describe('validation-04 with its own combinations', () => {
     const cases = modelStore.model.loadCases;
     const r = solveCombinations3D(md() as never, cases, modelStore.combinations, true, false);
     if (!r || typeof r === 'string') throw new Error(String(r));
-    // The unstable ones publish no forces and are listed instead.
     expect(r.perCombo.size + (r.unstable?.length ?? 0)).toBe(SHAPE['validation-04'].combinations);
     const base = buildSolverInput3D({ ...md(), loads: [] } as never, false, false)!;
     const caseLoads = caseSolverLoads3D(md() as never, cases, true, false);
     let stable = 0;
     for (const combo of modelStore.combinations) {
-      const lambda = (solveBuckling3D({ ...base, loads: comboSolverLoads3D(combo, caseLoads) }, 1) as { modes: Array<{ loadFactor: number }> }).modes[0]!.loadFactor;
+      const buckling = solveBuckling3D({ ...base, loads: comboSolverLoads3D(combo, caseLoads) }, 1);
+      if (typeof buckling === 'string') throw new Error(buckling);
+      const lambda = buckling.modes[0]!.loadFactor;
+      expect(Number.isFinite(lambda), combo.name).toBe(true);
+      expect(lambda, combo.name).toBeGreaterThan(0);
       const res = r.perCombo.get(combo.id);
       expect(!!res, `${combo.name}: λ = ${lambda.toFixed(3)}`).toBe(lambda > 1);
       if (!res) { expect(r.unstable).toContain(combo.id); continue; }
@@ -193,10 +196,6 @@ describe('validation-04 with its own combinations', () => {
       expect(so.b2).toBeGreaterThan(1);
       expect(so.b2).toBeLessThan(1 / (1 - 1 / lambda));
     }
-    // Three of the fourteen: with torsional and flexural-torsional buckling in the geometric
-    // stiffness (#434) and the members' real J (#468), several governing modes are almost pure
-    // twist (open sections under compression), so one combination that the bending-only Kg
-    // called stable (λ > 1) buckles. It was 4.
     expect(stable).toBe(3);
   }, 300_000);
 });

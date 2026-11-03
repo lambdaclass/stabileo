@@ -362,7 +362,7 @@ fn validation_braced_ext_two_bay_symmetric_gravity() {
 
     // Horizontal reactions should sum to zero (no lateral load)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.02, "Symmetric: ΣRx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.02, 1e-6, "Symmetric: ΣRx = 0");
 }
 
 // ================================================================
@@ -535,7 +535,7 @@ fn validation_braced_ext_overturning_moment() {
 
     // Total vertical equilibrium (no gravity loads, so ΣRy = 0)
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_ry, 0.0, 0.02, "Overturning: ΣRy = 0");
+    assert_close_abs(sum_ry, 0.0, 0.02, 1e-6, "Overturning: ΣRy = 0");
 }
 
 // ================================================================
@@ -755,5 +755,5 @@ fn validation_braced_ext_column_axial_accumulation() {
 
     // Horizontal equilibrium: no lateral loads
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.05, "Column accumulation: ΣRx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.05, 1e-6, "Column accumulation: ΣRx = 0");
 }

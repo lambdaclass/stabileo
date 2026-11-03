@@ -1246,8 +1246,6 @@ export function verifyElement(input: VerificationInput): ElementVerification {
     slenderSecondary = checkSlender({ ...params, b: params.h, h: params.b }, input.Nu, input.Muy, input.Lu, {
       M1: input.M1Secondary,
       M2: input.M2Secondary,
-      psiA: input.psiA,
-      psiB: input.psiB,
       PuD: input.PuD,
       PuL: input.PuL,
     });

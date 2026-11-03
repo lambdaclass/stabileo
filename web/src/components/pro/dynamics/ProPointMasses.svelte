@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Point masses for the dynamic analyses (`MassSource.points`): t at a node, horizontal only
    * when asked, and Izz about the vertical axis. A floor's mass goes on its diaphragm's master.
@@ -65,7 +66,7 @@
     {/if}
   </div>
   {#if error}<div class="pm-error" role="alert">{error}</div>{/if}
-  <p class="pm-hint">{t('pointMasses.hint')}</p>
+  <Hint text={t('pointMasses.hint')} />
 </div>
 
 <style>
@@ -80,6 +81,5 @@
   }
   .pm-row { display: flex; flex-wrap: wrap; gap: 4px 8px; }
   .pm-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
-  .pm-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
   .pm-error { font-size: 0.62rem; color: var(--st-danger); }
 </style>

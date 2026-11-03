@@ -26,6 +26,8 @@ export type StandingPage = {
   i18n: Localized<
     {
       title: string;
+      /** The <title>, when `<title> — Stabileo` would repeat the name or say too little. */
+      metaTitle?: string;
       /** The meta description, ≤ 160 characters. */
       description: string;
       eyebrow: string;

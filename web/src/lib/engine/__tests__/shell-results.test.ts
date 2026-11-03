@@ -34,7 +34,7 @@ describe('shell result rows', () => {
     const [r] = shellCentreRows(result([quad(1, { sigmaXx: 100, mx: 2 })]), model);
     expect(r!.top!.sxx).toBeCloseTo(100 + (6 * 2) / 0.04, 9);
     expect(r!.bottom!.sxx).toBeCloseTo(100 - (6 * 2) / 0.04, 9);
-    expect(r!.membrane.vonMises).toBeCloseTo(100, 9);
+    expect(r!.membrane!.vonMises).toBeCloseTo(100, 9);
   });
 
   it('turns a wall\'s stresses to global axes, keeping the invariants and nothing out of its plane', () => {
@@ -44,7 +44,7 @@ describe('shell result rows', () => {
     // The wall is in XZ: nothing in Y.
     for (const c of [g.stress.yy, g.stress.xy, g.stress.yz, g.moment.yy, g.moment.xy, g.moment.yz, g.shear![1]]) expect(Math.abs(c)).toBeLessThan(1e-9);
     expect(g.stress.xx + g.stress.zz).toBeCloseTo(s.sigmaXx + s.sigmaYy, 9);
-    expect(vonMisesPlane(g.stress.xx, g.stress.zz, g.stress.zx)).toBeCloseTo(r!.membrane.vonMises, 9);
+    expect(vonMisesPlane(g.stress.xx, g.stress.zz, g.stress.zx)).toBeCloseTo(r!.membrane!.vonMises, 9);
     expect(Math.hypot(...g.shear!)).toBeCloseTo(Math.hypot(s.qx, s.qy), 9);
   });
 
@@ -62,7 +62,7 @@ describe('shell result rows', () => {
     expect(r!.top).toBeUndefined();
     expect(r!.bottom).toBeUndefined();
     expect(r!.mx).toBeUndefined();
-    expect(r!.membrane.vonMises).toBe(10);
+    expect(r!.membrane!.vonMises).toBe(10);
   });
 
   it('averages at a node in global components, over the elements around it', () => {

@@ -306,7 +306,7 @@ fn validation_aisc_notional_load_drift() {
     // Fixed base, guided top (free to translate laterally, rotation fixed)
     let sups = vec![
         (1, 1, "fixed"),
-        (2, n + 1, "guidedY"),
+        (2, n + 1, "guidedX"),
     ];
 
     let loads = vec![
@@ -328,7 +328,7 @@ fn validation_aisc_notional_load_drift() {
 
     let tip = lin.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
     // The column goes up along Y, so lateral displacement is in X
-    assert_close(tip.ux.abs(), delta_expected, 0.05,
+    assert_close(tip.ux.abs(), delta_expected, 1e-6,
         "Notional load drift: Δ = N/(12EI/h³)");
 }
 
@@ -384,7 +384,7 @@ fn validation_aisc_pdelta_symmetric_response() {
 
     assert_close(r1.rz, r4.rz, 0.01,
         "Symmetric Ry reactions");
-    assert_close(r1.rx, -r4.rx, 0.05,
+    assert_close_abs(r1.rx, -r4.rx, 0.05, 1e-6,
         "Antisymmetric Rx reactions");
 
     // Net lateral drift should be near zero at beam level

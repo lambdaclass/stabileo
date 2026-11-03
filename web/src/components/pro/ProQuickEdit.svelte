@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * PRO's double-click editor: what Basic's node and member cards offer, in PRO's terms, and a
@@ -207,7 +208,7 @@
             </label>
             <button class="qe-btn" onclick={mesh} disabled={!(meshSize > 0)} data-testid="qe-mesh">{t('quickEdit.mesh')}</button>
           </div>
-          <p class="qe-hint">{t('quickEdit.meshHint')}</p>
+          <Hint text={t('quickEdit.meshHint')} />
         {/if}
       {/if}
     </div>
@@ -238,6 +239,5 @@
   .qe-btn:disabled { opacity: 0.45; cursor: not-allowed; }
   .qe-link { align-self: flex-start; background: none; border: none; padding: 0; color: var(--st-text-2); text-decoration: underline; font: inherit; cursor: pointer; }
   .qe-link:hover { color: var(--st-text); }
-  .qe-hint { margin: 0; font-size: 0.64rem; color: var(--st-text-3); line-height: 1.4; }
   .qe-err { margin: 0; font-size: 0.66rem; color: var(--st-danger); }
 </style>

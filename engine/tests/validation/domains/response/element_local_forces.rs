@@ -96,7 +96,7 @@ fn validation_local_forces_cantilever() {
 
     // Moment decreases linearly toward tip
     let ef_last = results.element_forces.iter().find(|e| e.element_id == n).unwrap();
-    assert_close(ef_last.m_end.abs(), 0.0, 0.02, "Cantilever: M(L) ≈ 0");
+    assert_close_abs(ef_last.m_end.abs(), 0.0, 0.02, 1e-6, "Cantilever: M(L) ≈ 0");
 
     // Check intermediate: M at element 6 end ≈ P*(L - 6*dx) = P*(L/2)
     let ef6 = results.element_forces.iter().find(|e| e.element_id == 6).unwrap();

@@ -6,6 +6,7 @@
 import importlib.util
 import json
 import os
+import re
 import tempfile
 import unittest
 
@@ -30,6 +31,7 @@ class FakeGH:
         self._runs, self._arts, self._files = runs, artifacts, files or {}
         self.tmp = tempfile.mkdtemp()
         self.branch_args = []
+        self._stamps = {}
 
     def runs(self, workflow, max_runs, branch="main"):
         self.branch_args.append(branch)
@@ -49,7 +51,8 @@ class FakeGH:
         return [{"name": f"mutants ({i})", "conclusion": "success"} for i in range(n)]
 
     def artifacts(self, run_id):
-        return [{"name": n, "expired": False} for n in self._arts.get(run_id, [])]
+        return [{"name": n, "expired": False, "created_at": self._stamps.get((run_id, n))}
+                for n in self._arts.get(run_id, [])]
 
     def download(self, run_id, name):
         files = self._files.get((run_id, name))
@@ -323,7 +326,7 @@ def mutants_dir(caught, missed):
 def ci_gh(require_sha=None, caught=9, missed=1):
     r_verify = dict(run(5), headSha="tagsha")
     r_diff = dict(run(4), headSha="other")
-    gh = FakeGH({"verify.yml": [r_verify], "differential.yml": [r_diff],
+    gh = FakeGH({"verify.yml": [r_verify], "nightly.yml": [r_verify], "differential.yml": [r_diff],
                  "mutation-ts.yml": [dict(run(3), headSha="tagsha")]},
                 {5: ["mutants-report-0", "fuzz-stats-json_static"], 4: ["differential-pynite"], 3: ["stryker-report"]},
                 {(5, "mutants-report-0"): mutants_dir(caught, missed),
@@ -337,13 +340,17 @@ def ci_gh(require_sha=None, caught=9, missed=1):
 class CIEvidence(unittest.TestCase):
     def test_all_ci_metrics_from_artifacts(self):
         m, _ = vm.ci_metrics(ci_gh(), 10)
-        self.assertEqual(set(m), {"differential_compared", "mutation_rust", "mutation_ts", "fuzz_execs"})
+        self.assertEqual(set(m), {"differential_compared", "mutation_rust", "mutation_rotation", "mutation_ts",
+                                  "fuzz_execs"})
         self.assertEqual(m["mutation_rust"]["value"], 90.0)
+        self.assertEqual(m["mutation_rust"]["source"].split(" ")[0], "nightly.yml")
         self.assertEqual(m["fuzz_execs"]["value"], 1234)
 
-    def test_no_artifacts_no_metrics(self):
+    def test_no_artifacts_leaves_only_an_all_stale_rotation(self):
         m, _ = vm.ci_metrics(FakeGH({}, {}), 10)
-        self.assertEqual(m, {})
+        self.assertEqual(set(m), {"mutation_rotation"})
+        self.assertEqual(m["mutation_rotation"]["value"], 0)
+        self.assertEqual(m["mutation_rotation"]["status"], "partial")
 
     def test_release_sha_applies_to_every_ci_reader(self):
         m, _ = vm.ci_metrics(ci_gh(require_sha="tagsha"), 10)
@@ -379,14 +386,14 @@ class AbsentInputsAreNotNumbers(unittest.TestCase):
         self.assertNotIn("differential_compared", m)
 
     def test_mutants_shard_without_outcomes_is_ignored(self):
-        gh = FakeGH({"verify.yml": [run(5)]}, {5: ["mutants-report-0"]},
+        gh = FakeGH({"nightly.yml": [run(5)]}, {5: ["mutants-report-0"]},
                     {(5, "mutants-report-0"): {"debug.log": "x"}})
         self.assertIsNone(vm.rust_mutants(gh, 10))
 
     def test_mutants_unknown_plan_is_partial(self):
         files = mutants_dir(9, 1)
         del files["mutants.json"]
-        gh = FakeGH({"verify.yml": [run(5)]}, {5: ["mutants-report-0"]}, {(5, "mutants-report-0"): files})
+        gh = FakeGH({"nightly.yml": [run(5)]}, {5: ["mutants-report-0"]}, {(5, "mutants-report-0"): files})
         m, _ = vm.ci_metrics(gh, 10)
         self.assertEqual(m["mutation_rust"]["status"], "partial")
         self.assertIn("plan unknown", m["mutation_rust"]["display"])
@@ -460,7 +467,7 @@ class MutantShardsCompleteness(unittest.TestCase):
     def gh(self, present, jobs=4, downloadable=None):
         names = [f"mutants-report-{k}" for k in range(present)]
         files = {(5, n): mutants_dir(9, 1) for n in names[: downloadable if downloadable is not None else present]}
-        g = FakeGH({"verify.yml": [run(5)]}, {5: names}, files)
+        g = FakeGH({"nightly.yml": [run(5)]}, {5: names}, files)
         if jobs is not None:
             g.jobs_by_run = {5: [{"name": f"mutants ({i})", "conclusion": "success" if i < present else "failure"}
                                  for i in range(jobs)]}
@@ -518,6 +525,83 @@ class OfflineRecordProvenance(unittest.TestCase):
     def test_nothing_to_retain(self):
         for key in ("gone", "absent"):
             self.assertEqual(vm.retained(self.prev, key, "x", "s", "offline run")["status"], "not_measured")
+
+
+
+def nightly(i, day, arts, status="completed"):
+    return dict(run(i), createdAt=f"2026-11-{day:02d}T05:00:00Z", status=status), arts
+
+
+class MutantsRotation(unittest.TestCase):
+    NOW = vm.dt.datetime(2026, 11, 20, 12, tzinfo=vm.dt.timezone.utc)
+
+    def rotation(self, nights, total=4, slots=2):
+        runs = [r for r, _ in nights]
+        gh = FakeGH({"nightly.yml": runs}, {r["databaseId"]: arts for r, arts in nights})
+        real, vm.mutants_plan = vm.mutants_plan, lambda: (total, slots)
+        try:
+            return vm.mutants_rotation(gh, self.NOW), vm.check_mutants_rotation(gh, self.NOW)
+        finally:
+            vm.mutants_plan = real
+
+    def test_every_shard_within_the_promise_passes(self):
+        rot, code = self.rotation([nightly(2, 19, ["mutants-done-0-of-4", "mutants-done-1-of-4"]),
+                                   nightly(1, 6, ["mutants-done-2-of-4", "mutants-done-3-of-4"])])
+        self.assertEqual((rot["fresh"], rot["stale"], rot["oldest"], code), (4, [], "2026-11-06", 0))
+
+    def test_old_foreign_or_expired_markers_are_stale_and_a_running_night_counts(self):
+        rot, code = self.rotation([nightly(4, 19, ["mutants-done-0-of-4", "mutants-done-1-of-8",
+                                                   "mutants-report-2"]),
+                                   nightly(3, 18, ["mutants-done-2-of-4"], status="in_progress"),
+                                   nightly(2, 3, ["mutants-done-3-of-4"])])
+        self.assertEqual((rot["fresh"], rot["stale"], code), (2, [1, 3], 1))
+        gh = FakeGH({"nightly.yml": [nightly(1, 19, [])[0]]}, {})
+        gh.artifacts = lambda _: [{"name": "mutants-done-0-of-4", "expired": True}]
+        real, vm.mutants_plan = vm.mutants_plan, lambda: (4, 2)
+        try:
+            self.assertEqual(vm.mutants_rotation(gh, self.NOW)["stale"], [0, 1, 2, 3])
+        finally:
+            vm.mutants_plan = real
+
+    def test_freshness_is_the_marker_upload_time_not_the_run_start(self):
+        late, _ = nightly(2, 4, ["mutants-done-0-of-2"])
+        early, _ = nightly(1, 4, ["mutants-done-1-of-2"])
+        gh = FakeGH({"nightly.yml": [late, early]}, {2: ["mutants-done-0-of-2"], 1: ["mutants-done-1-of-2"]})
+        gh._stamps = {(2, "mutants-done-0-of-2"): "2026-11-04T13:00:00Z",
+                      (1, "mutants-done-1-of-2"): "2026-11-04T11:00:00Z"}
+        real, vm.mutants_plan = vm.mutants_plan, lambda: (2, 2)
+        try:
+            rot = vm.mutants_rotation(gh, self.NOW)
+        finally:
+            vm.mutants_plan = real
+        self.assertEqual((rot["stale"], rot["oldest"]), ([1], "2026-11-04"))
+
+    def test_a_plan_slower_than_the_promise_fails_even_when_fresh(self):
+        names = [f"mutants-done-{k}-of-40" for k in range(40)]
+        rot, code = self.rotation([nightly(1, 19, names)], total=40, slots=2)
+        self.assertEqual((rot["ok"], rot["nights_per_pass"], code), (True, 20, 1))
+
+    def test_unreadable_github_fails_the_check(self):
+        gh = FakeGH({}, {})
+        gh.ok = False
+        self.assertIsNone(vm.mutants_rotation(gh, self.NOW))
+        self.assertEqual(vm.check_mutants_rotation(gh, self.NOW), 1)
+
+    def test_shard_ranges(self):
+        self.assertEqual(vm.shard_ranges([1, 2, 3, 7, 9, 10]), "1-3, 7, 9-10")
+        self.assertEqual(vm.shard_ranges([]), "")
+
+    def test_the_nightly_plan_keeps_the_roadmap_promise(self):
+        total, slots = vm.mutants_plan()
+        self.assertLessEqual(-(-total // slots), vm.MUTANTS_PROMISE_DAYS)
+        roadmap = vm.read("docs/roadmap/PRODUCT_ROADMAP.md")
+        self.assertIn(f"covers all shards at least every {vm.MUTANTS_PROMISE_DAYS} days", roadmap)
+        workflow = vm.read(".github/workflows/nightly.yml")
+        formula = re.search(r'print\(json\.dumps\((\[.*?\])\)\)', workflow).group(1)
+        covered = set()
+        for d in range(20000, 20000 + vm.MUTANTS_PROMISE_DAYS):
+            covered |= set(eval(formula, {}, {"t": total, "s": slots, "d": d}))
+        self.assertEqual(covered, set(range(total)))
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The wind block's second half: which directions and which cases of Fig. 2.4-8 to generate,
    * the enclosure from the openings (§1.10), and qz against height for the inputs as typed.
@@ -75,7 +76,7 @@
       {/each}
     </div>
     {#if directions.length === 0}<p class="al-warn" data-testid="al-wind-no-direction">{t('autoLoad.windNoDirection')}</p>
-    {:else}<p class="al-hint">{t('autoLoad.windDirectionsHint')}</p>{/if}
+    {:else}<Hint text={t('autoLoad.windDirectionsHint')} />{/if}
     <label class="al-field"><span class="al-label">{t('autoLoad.windCaseSet')}</span>
       <select bind:value={caseSet} data-testid="al-wind-caseset">
         {#each ['all', 'cases13', 'case1'] as const as k (k)}
@@ -104,7 +105,7 @@
 
   <details class="al-sub" data-testid="al-wind-openings">
     <summary>{t('autoLoad.windOpenings')}</summary>
-    <p class="al-hint">{t('autoLoad.windOpeningsHint')}</p>
+    <Hint text={t('autoLoad.windOpeningsHint')} />
     <div class="al-grid">
       <label class="al-field"><span class="al-label">A₀</span><QuantityInput bind:value={a0} quantity="planArea" min={0} testid="al-wind-a0" wrap="al-unit-field" /></label>
       <label class="al-field"><span class="al-label">A_g</span><QuantityInput bind:value={ag} quantity="planArea" min={0} testid="al-wind-ag" wrap="al-unit-field" /></label>

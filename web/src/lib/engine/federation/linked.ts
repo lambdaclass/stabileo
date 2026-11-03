@@ -33,6 +33,16 @@ export interface LinkedModel {
   visible: boolean;
   /** Storey elevations of the file, m, by name. */
   storeys: Record<string, number>;
+  /** Its 3D shape as a reference to model over; the geometry is kept in this browser by `hash`. */
+  reference?: LinkedReference;
+}
+
+export interface LinkedReference {
+  /** SHA-256 of the file, hex: the key its geometry is kept under. */
+  hash: string;
+  bytes: number;
+  triangles: number;
+  counts: import('../../ifc/ifc-reference').ReferenceCounts;
 }
 
 /** FNV-1a, 32 bits, as 8 hex digits: stable across runs and machines. */

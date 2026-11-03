@@ -7,6 +7,7 @@
 // UI keeps shell results consistent without any solver change.
 
 import { woodArmer } from './wood-armer';
+import type { ShellEnvelope } from './types-3d';
 
 /** The membrane/bending fields shared by PlateStress and QuadStress. */
 export interface ShellStressLike {
@@ -19,7 +20,20 @@ export interface ShellStressLike {
   vonMises: number;
   /** For the required-steel components: the effective depth, m, and the bars' fy, MPa. */
   steelBasis?: { d: number; fy: number };
+  envelope?: ShellEnvelope;
+  /** Thickness, m: the forces per unit length and the faces read it. */
+  t?: number;
+  /** Transverse shears, kN/m, local: MITC4 quads only. */
+  qx?: number;
+  qy?: number;
 }
+
+/**
+ * Which face a stress is read on: the mid-surface (membrane), the top or bottom fibre, the more
+ * stressed of the two by Von Mises (the engine's own Von Mises), or `auto`: Von Mises on the more
+ * stressed face and every other stress on the mid-surface.
+ */
+export type ShellFace = 'auto' | 'mid' | 'top' | 'bottom' | 'worst';
 
 export interface PrincipalStress {
   sigma1: number;   // max principal
@@ -84,6 +98,9 @@ export type ShellContourComponent =
   | 'sigmaXx' | 'sigmaYy' | 'tauXy'
   | 'sigma1' | 'sigma2'
   | 'mx' | 'my' | 'mxy'
+  | 'mmax' | 'mmin'
+  | 'nx' | 'ny' | 'nxy'
+  | 'vx' | 'vy' | 'vmax'
   | 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY';
 
 /**
@@ -91,7 +108,7 @@ export type ShellContourComponent =
  * unit-consistent "negligible" test (membrane/principal/equiv are all stresses
  * in kN/m²; bending moments are kN·m/m and must be judged against each other).
  */
-export type ShellComponentGroup = 'equiv' | 'membrane' | 'principal' | 'bending' | 'steel';
+export type ShellComponentGroup = 'equiv' | 'membrane' | 'principal' | 'bending' | 'forces' | 'shear' | 'steel';
 
 export interface ShellComponentMeta {
   key: ShellContourComponent;
@@ -107,6 +124,7 @@ export interface ShellComponentMeta {
 
 const STRESS_UNIT = 'kN/m²';
 const MOMENT_UNIT = 'kN·m/m';
+const FORCE_UNIT = 'kN/m';
 
 /** Ordered list for selectors / legend. */
 export const SHELL_CONTOUR_COMPONENTS: ShellComponentMeta[] = [
@@ -119,6 +137,14 @@ export const SHELL_CONTOUR_COMPONENTS: ShellComponentMeta[] = [
   { key: 'mx',       label: 'mx (bending)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
   { key: 'my',       label: 'my (bending)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
   { key: 'mxy',      label: 'mxy (twist)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
+  { key: 'mmax',     label: 'Mmax (principal)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
+  { key: 'mmin',     label: 'Mmin (principal)', unit: MOMENT_UNIT, signed: true, group: 'bending' },
+  { key: 'nx',       label: 'Nx', unit: FORCE_UNIT, signed: true, group: 'forces' },
+  { key: 'ny',       label: 'Ny', unit: FORCE_UNIT, signed: true, group: 'forces' },
+  { key: 'nxy',      label: 'Nxy', unit: FORCE_UNIT, signed: true, group: 'forces' },
+  { key: 'vx',       label: 'Vx', unit: FORCE_UNIT, signed: true, group: 'shear' },
+  { key: 'vy',       label: 'Vy', unit: FORCE_UNIT, signed: true, group: 'shear' },
+  { key: 'vmax',     label: 'Vmax', unit: FORCE_UNIT, signed: false, group: 'shear' },
   { key: 'asBotX',   label: 'As bottom x', unit: 'cm²/m', signed: false, group: 'steel' },
   { key: 'asBotY',   label: 'As bottom y', unit: 'cm²/m', signed: false, group: 'steel' },
   { key: 'asTopX',   label: 'As top x', unit: 'cm²/m', signed: false, group: 'steel' },
@@ -130,6 +156,8 @@ export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> =
   membrane: 'Membrane (in-plane) stress',
   principal: 'Principal stress',
   bending: 'Bending moment / unit width',
+  forces: 'Membrane force / unit width',
+  shear: 'Transverse shear / unit width',
   steel: 'Required steel (Wood-Armer)',
 };
 
@@ -139,9 +167,22 @@ export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> =
  */
 export function requiredSteel(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
   if (!s.steelBasis || !(s.steelBasis.d > 0) || !(s.steelBasis.fy > 0)) return 0;
-  const w = woodArmer(s.mx, s.my, s.mxy);
-  const m = key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+  const m = designMoment(s, key);
   return (m * 1000) / (0.9 * 0.9 * s.steelBasis.d * s.steelBasis.fy * 1e6) * 1e4;
+}
+
+const ENVELOPE_DESIGN_MOMENT = { asBotX: 'woodArmerBottomX', asBotY: 'woodArmerBottomY', asTopX: 'woodArmerTopX', asTopY: 'woodArmerTopY' } as const;
+
+function designMoment(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
+  if (s.envelope) return s.envelope[ENVELOPE_DESIGN_MOMENT[key]]?.max ?? NaN;
+  const w = woodArmer(s.mx, s.my, s.mxy);
+  return key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+}
+
+/** The membrane principals of a shell: of an envelope, the largest σ1 and the smallest σ2 of its sets. */
+export function membranePrincipals(s: ShellStressLike): { sigma1: number; sigma2: number } {
+  if (s.envelope) return { sigma1: s.envelope.sigma1?.max ?? NaN, sigma2: s.envelope.sigma2?.min ?? NaN };
+  return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
 }
 
 /** i18n keys for a component's and a group's name; `label` above stays as the symbol fallback. */
@@ -152,21 +193,105 @@ export function shellComponentMeta(key: ShellContourComponent): ShellComponentMe
   return SHELL_CONTOUR_COMPONENTS.find(c => c.key === key) ?? SHELL_CONTOUR_COMPONENTS[0];
 }
 
-/** Scalar value of a contour component for one shell element (deriving principals). */
-export function shellComponentValue(s: ShellStressLike, key: ShellContourComponent): number {
+/** Principal bending moments of (mx, my, mxy), and the direction of the larger from local x, degrees. */
+export function principalMoments(mx: number, my: number, mxy: number): { m1: number; m2: number; angleDeg: number } {
+  const p = principalStresses(mx, my, mxy);
+  return { m1: p.sigma1, m2: p.sigma2, angleDeg: p.angleDeg };
+}
+
+/** The components a face applies to: the stresses. Forces, moments and shears are of the section. */
+export const FACE_GROUPS: readonly ShellComponentGroup[] = ['equiv', 'membrane', 'principal'];
+
+/** The face a component is read on: `auto` resolved, and the section's own for what is not a stress. */
+export function faceRead(key: ShellContourComponent, face: ShellFace): Exclude<ShellFace, 'auto'> {
+  const group = shellComponentMeta(key).group;
+  if (!FACE_GROUPS.includes(group)) return 'mid';
+  if (face === 'auto') return group === 'equiv' ? 'worst' : 'mid';
+  return face;
+}
+
+/** The in-plane stress on a face; null on a fibre of a shell with no thickness. */
+function planeOn(s: ShellStressLike, face: Exclude<ShellFace, 'auto'>): PlaneStress | null {
+  if (face === 'mid') return { sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy };
+  if (!(s.t && s.t > 0)) return null;
+  const { top, bottom } = faceStresses(s, s.t);
+  if (face === 'top') return top;
+  if (face === 'bottom') return bottom;
+  return vonMisesPlane(top.sxx, top.syy, top.txy) >= vonMisesPlane(bottom.sxx, bottom.syy, bottom.txy) ? top : bottom;
+}
+
+/**
+ * Scalar value of a contour component for one shell element (deriving principals), on `face`.
+ * NaN where the element does not give it: a transverse shear on a triangle, a force or a face with
+ * no thickness.
+ */
+export function shellComponentValue(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'auto'): number {
+  const read = faceRead(key, face);
+  if (s.envelope) return envelopeComponentValue(s, s.envelope, key, read);
+  if (key === 'vonMises' && read === 'worst') return s.vonMises;
+  const f = planeOn(s, read);
+  if (!f) return NaN;
+  const force = (v: number) => (s.t && s.t > 0 ? v * s.t : NaN);
   switch (key) {
-    case 'vonMises': return s.vonMises;
-    case 'sigmaXx': return s.sigmaXx;
-    case 'sigmaYy': return s.sigmaYy;
-    case 'tauXy': return s.tauXy;
+    case 'vonMises': return vonMisesPlane(f.sxx, f.syy, f.txy);
+    case 'sigmaXx': return f.sxx;
+    case 'sigmaYy': return f.syy;
+    case 'tauXy': return f.txy;
     case 'mx': return s.mx;
     case 'my': return s.my;
     case 'mxy': return s.mxy;
-    case 'sigma1': return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy).sigma1;
-    case 'sigma2': return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy).sigma2;
+    case 'mmax': return principalMoments(s.mx, s.my, s.mxy).m1;
+    case 'mmin': return principalMoments(s.mx, s.my, s.mxy).m2;
+    case 'nx': return force(s.sigmaXx);
+    case 'ny': return force(s.sigmaYy);
+    case 'nxy': return force(s.tauXy);
+    case 'vx': return s.qx ?? NaN;
+    case 'vy': return s.qy ?? NaN;
+    case 'vmax': return s.qx === undefined || s.qy === undefined ? NaN : Math.hypot(s.qx, s.qy);
+    case 'sigma1': return principalStresses(f.sxx, f.syy, f.txy).sigma1;
+    case 'sigma2': return principalStresses(f.sxx, f.syy, f.txy).sigma2;
     case 'asBotX': case 'asBotY': case 'asTopX': case 'asTopY': return requiredSteel(s, key);
     default: return 0;
   }
+}
+
+function envelopeComponentValue(s: ShellStressLike, e: ShellEnvelope, key: ShellContourComponent, read: Exclude<ShellFace, 'auto'>): number {
+  const peak = (k: keyof ShellEnvelope) => {
+    const x = e[k];
+    return !x ? NaN : Math.abs(x.max) >= Math.abs(x.min) ? x.max : x.min;
+  };
+  const force = (v: number) => (s.t && s.t > 0 ? v * s.t : NaN);
+  switch (key) {
+    case 'vonMises': return read === 'worst' ? e.vonMises?.max ?? NaN : NaN;
+    case 'sigma1': return read === 'mid' ? e.sigma1?.max ?? NaN : read === 'worst' ? e.faceSigma1?.max ?? NaN : NaN;
+    case 'sigma2': return read === 'mid' ? e.sigma2?.min ?? NaN : read === 'worst' ? e.faceSigma2?.min ?? NaN : NaN;
+    case 'sigmaXx': case 'sigmaYy': case 'tauXy': return read === 'mid' ? peak(key) : NaN;
+    case 'mx': case 'my': case 'mxy': return peak(key);
+    case 'nx': return force(peak('sigmaXx'));
+    case 'ny': return force(peak('sigmaYy'));
+    case 'nxy': return force(peak('tauXy'));
+    case 'vx': return peak('qx');
+    case 'vy': return peak('qy');
+    case 'asBotX': case 'asBotY': case 'asTopX': case 'asTopY': return requiredSteel(s, key);
+    default: return NaN;
+  }
+}
+
+/**
+ * The direction a principal component acts along, degrees from the element's local x; null for a
+ * component without one.
+ */
+export function shellComponentAngle(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'auto'): number | null {
+  if (s.envelope) return null;
+  if (key === 'mmax' || key === 'mmin') {
+    const a = principalMoments(s.mx, s.my, s.mxy).angleDeg;
+    return key === 'mmax' ? a : a + 90;
+  }
+  if (key !== 'sigma1' && key !== 'sigma2') return null;
+  const f = planeOn(s, faceRead(key, face));
+  if (!f) return null;
+  const a = principalStresses(f.sxx, f.syy, f.txy).angleDeg;
+  return key === 'sigma1' ? a : a + 90;
 }
 
 /** Min/max of a component across all supplied shells (for a contour legend). */
@@ -177,6 +302,7 @@ export function shellComponentRange(
   let min = Infinity, max = -Infinity;
   for (const s of shells) {
     const v = shellComponentValue(s, key);
+    if (!Number.isFinite(v)) continue;
     if (v < min) min = v;
     if (v > max) max = v;
   }
@@ -205,25 +331,28 @@ export interface ShellComponentStat {
   status: ShellComponentStatus;
 }
 
-const STRESS_GROUPS: ShellComponentGroup[] = ['equiv', 'membrane', 'principal'];
+/** Components compared with each other, one family per unit. */
+const UNIT_FAMILY: Record<ShellComponentGroup, 'stress' | 'moment' | 'force' | 'steel'> = {
+  equiv: 'stress', membrane: 'stress', principal: 'stress', bending: 'moment', forces: 'force', shear: 'force', steel: 'steel',
+};
 
 /** Classify every contour component for one result set (unit-consistent refs). */
 export function shellComponentStats(
   shells: ShellStressLike[],
 ): Record<ShellContourComponent, ShellComponentStat> {
   const raw = {} as Record<ShellContourComponent, { min: number; max: number; peak: number; span: number; group: ShellComponentGroup }>;
-  let stressRef = 0, momentRef = 0;
+  const refs = { stress: 0, moment: 0, force: 0, steel: 0 };
   for (const meta of SHELL_CONTOUR_COMPONENTS) {
     const { min, max } = shellComponentRange(shells, meta.key);
     const peak = Math.max(Math.abs(min), Math.abs(max));
     raw[meta.key] = { min, max, peak, span: max - min, group: meta.group };
-    if (meta.group === 'bending') momentRef = Math.max(momentRef, peak);
-    else stressRef = Math.max(stressRef, peak);
+    const fam = UNIT_FAMILY[meta.group];
+    refs[fam] = Math.max(refs[fam], peak);
   }
   const out = {} as Record<ShellContourComponent, ShellComponentStat>;
   for (const meta of SHELL_CONTOUR_COMPONENTS) {
     const r = raw[meta.key];
-    const ref = STRESS_GROUPS.includes(meta.group) ? stressRef : momentRef;
+    const ref = refs[UNIT_FAMILY[meta.group]];
     let status: ShellComponentStatus;
     if (ref <= 0 || r.peak < 1e-3 * ref) status = 'negligible';
     else if (r.span < 1e-3 * r.peak) status = 'uniform';
