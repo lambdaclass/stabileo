@@ -119,6 +119,7 @@ const words: Translations = {
   'course.influence.doc.sign.ux': 'İşaret: ux, +X yönünde pozitiftir.',
   'course.influence.doc.sign.ry': 'İşaret: θ saat yönünün tersine pozitiftir.',
   'course.influence.doc.defaulted': 'Ekranda bir çizgi ya da seçili bir çubuk yoktu; bu yüzden ilk çubuğun ortasındaki moment alındı. Başka bir kesit için Tesir çizgisi aracını ve onun Adım adım açıklama düğmesini kullanın.',
+  'course.influence.doc.defaultedN': 'Ekranda bir çizgi ya da seçili bir çubuk yoktu; bu yüzden ilk çubuğun ortasındaki normal kuvvet alındı. Başka bir kesit için Tesir çizgisi aracını ve onun Adım adım açıklama düğmesini kullanın.',
   'course.influence.doc.mb.title': 'Müller-Breslau ilkesi',
   'course.influence.doc.mb.principle': 'Çizgiyi çizmek için etkiyi ileten bağ kaldırılır ve onun yerine etkinin pozitif yönünde birim bir yer değiştirme uygulanır. Ortaya çıkan şekil değiştirmiş eksen, birim yükün tersine ölçüldüğünde, tesir çizgisidir.',
   'course.influence.doc.mb.eqNote': 'Serbest bırakılmış yapı üzerinde virtüel iş: Etki birim yer değiştirme üzerinde, P = 1 yükü ise uygulama noktasının δ(s) yer değiştirmesi üzerinde iş yapar.',

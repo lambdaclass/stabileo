@@ -119,6 +119,7 @@ const words: Translations = {
   'course.influence.doc.sign.ux': 'Signe : ux est positif vers +X.',
   'course.influence.doc.sign.ry': 'Signe : θ est positif dans le sens trigonométrique.',
   'course.influence.doc.defaulted': 'Il n’y avait ni ligne à l’écran ni barre sélectionnée : le moment au milieu de la première barre a été retenu. Pour une autre section, utilisez l’outil Ligne d’influence et son bouton Explication pas à pas.',
+  'course.influence.doc.defaultedN': 'Il n’y avait ni ligne à l’écran ni barre sélectionnée : l’effort normal au milieu de la première barre a été retenu. Pour une autre section, utilisez l’outil Ligne d’influence et son bouton Explication pas à pas.',
   'course.influence.doc.mb.title': 'Principe de Müller-Breslau',
   'course.influence.doc.mb.principle': 'Pour tracer la ligne, on supprime la liaison qui transmet l’effet et on impose à sa place un déplacement unité dans le sens positif de l’effet. La déformée obtenue, mesurée à l’opposé de la charge unité, est la ligne d’influence.',
   'course.influence.doc.mb.eqNote': 'Travaux virtuels sur la structure libérée : l’effet travaille dans le déplacement unité, et la charge P = 1 dans le déplacement δ(s) de son point d’application.',

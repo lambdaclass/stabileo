@@ -146,10 +146,10 @@
 
   /* One label per cut, not several stacked on the same spot. */
   const cutLabels = $derived.by(() => {
-    const byElem = new Map<number, { x: number; y: number; tags: string[]; on: boolean }>();
+    const byElem = new Map<string, { x: number; y: number; tags: string[]; on: boolean }>();
     for (const m of marks) {
       if (m.kind !== 'cut' && m.kind !== 'hinge') continue;
-      const k = m.r.elementId!;
+      const k = `${m.r.elementId}:${m.r.end ?? 'I'}`;
       const cur = byElem.get(k) ?? { x: m.x, y: m.y, tags: [], on: false };
       cur.tags.push(m.tag);
       cur.on = cur.on || m.on;

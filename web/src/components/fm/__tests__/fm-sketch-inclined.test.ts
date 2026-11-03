@@ -41,3 +41,36 @@ describe('the reaction of an inclined roller is drawn along its normal', () => {
     });
   }
 });
+
+describe('the labels of released ends', () => {
+  it('a hinge at each end of one bar gets its own label at its own end', () => {
+    const html = render(FmSketch, {
+      props: {
+        geometry: geometry(),
+        redundants: [
+          { index: 1, kind: 'cutM', nodeId: 1, elementId: 1, end: 'I', hinge: true },
+          { index: 2, kind: 'cutM', nodeId: 2, elementId: 1, end: 'J', hinge: true },
+        ] as never,
+      },
+    }).body;
+    const labels = [...html.matchAll(/<text x="([^"]+)" y="[^"]+" class="fm-xlbl[^"]*">([^<]*)<\/text>/g)].map((m) => ({ x: Number(m[1]), text: m[2] }));
+    expect(labels.map((l) => l.text).sort()).toEqual(['X₁', 'X₂']);
+    const x1 = labels.find((l) => l.text === 'X₁')!.x, x2 = labels.find((l) => l.text === 'X₂')!.x;
+    expect(x2).toBeGreaterThan(x1);
+  });
+
+  it('the components of one interior cut share one label', () => {
+    const html = render(FmSketch, {
+      props: {
+        geometry: geometry(),
+        redundants: [
+          { index: 1, kind: 'cutN', nodeId: 1, elementId: 1 },
+          { index: 2, kind: 'cutV', nodeId: 1, elementId: 1 },
+          { index: 3, kind: 'cutM', nodeId: 1, elementId: 1 },
+        ] as never,
+      },
+    }).body;
+    const labels = [...html.matchAll(/class="fm-xlbl[^"]*">([^<]*)<\/text>/g)].map((m) => m[1]);
+    expect(labels).toEqual(['X₁, X₂, X₃']);
+  });
+});
