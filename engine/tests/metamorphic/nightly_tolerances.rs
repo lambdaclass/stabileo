@@ -1,6 +1,5 @@
 //! Nightly reproducers of harness tolerance defects, each replayed with its
-//! reported seed, and a deliberately wrong result on the same model, which
-//! must still be caught.
+//! reported seed, and deliberately wrong results that must still be caught.
 
 use crate::case::{Case2, Case3};
 use crate::response::{Resp, LOWER_BOUND};
@@ -213,13 +212,14 @@ fn a_wrong_effective_mass_is_caught() {
         let base = (a.run)(&c).unwrap();
         let expected = base.relabel(&rl);
         let mut got = (a.run)(&tc).unwrap();
-        let cmp = |got: &Resp| compare_with_compliance(&got.flat(), &expected.flat(), cond.lchar, rel, 0.0, crate::checks2::compliance(a.name, &cond));
-        cmp(&got).unwrap();
+        let judge = |got: &Resp| crate::checks2::judge_split(got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), cond.lchar, rel, 0.0, crate::checks2::compliance(a.name, &cond)));
+        assert!(matches!(judge(&got), Verdict::Pass(_)), "{}: {:?}", c.name, judge(&got));
         let total = got.0.iter().find(|i| i.tag == "total_mass").unwrap().v[0];
-        let tag = got.0.iter().find(|i| i.tag.starts_with("meff")).unwrap_or_else(|| panic!("{}: no separated mode", c.name)).tag.clone();
+        let widened = crate::response::widened_past(&expected, rel, conditioning::INCONCLUSIVE);
+        let tag = got.0.iter().find(|i| i.tag.starts_with("meff") && !widened.contains(&i.tag)).unwrap_or_else(|| panic!("{}: no separated mode", c.name)).tag.clone();
         let by = if max_rel < 1e-6 { 1e-6 } else { 1e-2 } * total;
         nudge(&mut got, &tag, None, 0, by);
-        assert!(cmp(&got).is_err(), "{}: {tag} wrong by {by:e} passed", c.name);
+        assert!(matches!(judge(&got), Verdict::Fail(_)), "{}: {tag} wrong by {by:e} not caught", c.name);
     }
 }
 
