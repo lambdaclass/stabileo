@@ -6,7 +6,7 @@
  */
 import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
-import { expandToStoreys, placeOn, elementLevel, scopeLevels, STOREY_TOL, type StoreyExpansion, type StoreyScope } from '../model/similar-storeys';
+import { expandToStoreys, placeMemberOn, elementLevel, scopeLevels, STOREY_TOL, type StoreyExpansion, type StoreyScope } from '../model/similar-storeys';
 
 let scope = $state<StoreyScope>('this');
 let last = $state<StoreyExpansion | null>(null);
@@ -47,9 +47,11 @@ export const storeyScope = {
     const out: number[] = [];
     for (const other of scopeLevels(levels(), lv.id, scope)) {
       if (other.id === lv.id) continue;
-      const [i, j] = [a, b].map((p) => nodeAt(placeOn(p, lv, other)));
-      if (i === j) continue;
-      const nid = modelStore.addElement(i!, j!, e.type);
+      const ends = placeMemberOn(a, b, lv, other, levels());
+      if (!ends) continue;
+      const [i, j] = ends.map(nodeAt) as [number, number];
+      if (i === j || joined(i, j)) continue;
+      const nid = modelStore.addElement(i, j, e.type);
       modelStore.updateElementMaterial(nid, e.materialId);
       modelStore.updateElementSection(nid, e.sectionId);
       out.push(nid);
@@ -61,6 +63,12 @@ export const storeyScope = {
 function selectionKey(nodes: Iterable<number>, elements: Iterable<number>, shells: Iterable<string | number>): string {
   const ids = (s: Iterable<string | number>) => [...s].map(String).sort().join(',');
   return `${ids(nodes)}|${ids(elements)}|${ids(shells)}`;
+}
+
+/** Whether a member already joins nodes `i` and `j`, either way round. */
+function joined(i: number, j: number): boolean {
+  for (const e of modelStore.elements.values()) if ((e.nodeI === i && e.nodeJ === j) || (e.nodeI === j && e.nodeJ === i)) return true;
+  return false;
 }
 
 /** The node at a point, or a new one there. */

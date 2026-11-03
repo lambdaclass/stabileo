@@ -74,6 +74,34 @@ describe('the storey scope', () => {
     expect(modelStore.elements.size).toBe(before);
   });
 
+  it('a member drawn where a similar storey already has one adds no second member there', () => {
+    const { beamOn } = thirteen();
+    const beam = modelStore.elements.get(beamOn(1))!;
+    const [a, b] = [beam.nodeI, beam.nodeJ];
+    modelStore.removeElement(beamOn(1));
+    storeyScope.scope = 'similar';
+    const before = modelStore.elements.size;
+    nextMember.add(a, b);
+    expect(modelStore.elements.size).toBe(before + 1);
+    const pairs = [...modelStore.elements.values()].map((e) => [e.nodeI, e.nodeJ].sort((x, y) => x - y).join('-'));
+    expect(new Set(pairs).size).toBe(pairs.length);
+  });
+
+  it('a column drawn on a 3 m storey spans a similar storey of 4 m from its floor to its ceiling', () => {
+    uiStore.analysisMode = 'pro';
+    modelStore.clear();
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3 }, { id: 'L2', name: 'N2', z: 7, similarTo: 'L1' }] });
+    const floor2 = modelStore.addNode(0, 5, 3);
+    storeyScope.scope = 'similar';
+    nextMember.add(modelStore.addNode(0, 5, 0), floor2);
+    const top = (e: { nodeI: number; nodeJ: number }) => Math.max(...[e.nodeI, e.nodeJ].map((n) => modelStore.nodes.get(n)!.z ?? 0));
+    expect(modelStore.elements.size).toBe(2);
+    const copy = [...modelStore.elements.values()].find((e) => top(e) === 7)!;
+    const zs = [copy.nodeI, copy.nodeJ].map((n) => modelStore.nodes.get(n)!.z).sort((x, y) => x! - y!);
+    expect(zs).toEqual([3, 7]);
+    expect([copy.nodeI, copy.nodeJ]).toContain(floor2);
+  });
+
   it('does nothing outside PRO, or with the scope on this storey', () => {
     const { beamOn } = thirteen();
     uiStore.setSelection(new Set(), new Set([beamOn(1)]));
