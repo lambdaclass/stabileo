@@ -57,10 +57,36 @@ test('@smoke examples report the engine refusing a model with no load', async ({
   await expect(page.getByTestId('readout-maxMoment')).toHaveCount(0);
 });
 
+const CERTIFICATE: Record<string, string> = { 'rc-column': 'unavailable' };
+
 for (const id of EXAMPLE_IDS) test(`@smoke example ${id} solves in the browser`, async ({ page }) => {
   await page.goto(`/en/examples/${id}/?e2e=1`);
-  await expect(page.getByTestId('certificate')).toHaveAttribute('data-status', 'certified', { timeout: 30000 });
+  await expect(page.getByTestId('certificate')).toHaveAttribute('data-status', CERTIFICATE[id] ?? 'certified', { timeout: 30000 });
   await expect(page.locator('.ex-viewer canvas').first()).toBeVisible();
+});
+
+const CLOSED_FORMS: [string, string, string, number][] = [
+  ['rc-column', '?b=0.3&h=0.6&fc=30', 'squashLoad', 1e-9],
+  ['rc-column', '?b=0.3&h=0.6&fc=30', 'balancedM', 1e-6],
+  ['outrigger', '?position=0.3&storeys=30', 'topDrift', 1e-6],
+  ['outrigger', '?position=0.3&storeys=30', 'columnForce', 1e-6],
+  ['tower', '?topMass=100', 'f1', 1e-4],
+  ['tower', '?topMass=100', 'bucklingFactor', 1e-4],
+];
+for (const [id, query, key, tolerance] of CLOSED_FORMS) test(`@smoke example ${id} ${key} matches its closed form in the browser`, async ({ page }) => {
+  await page.goto(`/en/examples/${id}/${query}&e2e=1`);
+  await expect(page.getByTestId(`reference-${key}`)).toBeVisible({ timeout: 30000 });
+  near(await value(page, `readout-${key}`), await value(page, `reference-${key}`), tolerance);
+});
+
+test('@smoke the outrigger slider moves the result and the sweep marker', async ({ page }) => {
+  await page.goto('/en/examples/outrigger/?e2e=1');
+  await expect(page.getByTestId('readout-topDrift')).toBeVisible({ timeout: 30000 });
+  const before = await value(page, 'readout-topDrift');
+  await page.getByTestId('param-position').fill('0.9');
+  await expect.poll(() => value(page, 'readout-topDrift')).not.toBe(before);
+  near(await value(page, 'readout-topDrift'), await value(page, 'reference-topDrift'), 1e-6);
+  expect(new URL(page.url()).searchParams.get('position')).toBe('0.9');
 });
 
 for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080], [1440, 900]]) {

@@ -79,12 +79,13 @@
 
   const shareLink = $derived(example ? `${publicUrl(`/examples/${example.id}`, publicI18n.locale)}${writeValues(example.params, values)}` : '');
   const editorLink = $derived.by(() => {
-    if (!example || Object.keys(values).length === 0) return '';
+    if (!example?.editor || Object.keys(values).length === 0) return '';
     try { return editorHref(example.editor(example.build(values), te(`${example.id}.title`)), te(`${example.id}.title`)); } catch { return ''; }
   });
   async function copy() {
     try { await navigator.clipboard.writeText(shareLink); copied = true; setTimeout(() => (copied = false), 2000); } catch { copied = false; }
   }
+  const viewerNote = (notes: string[]) => `note.${['chord', 'drawing', 'modeShapes'].find(n => notes.includes(n)) ?? 'magnified'}`;
   const number = (n: number, digits = 5) => new Intl.NumberFormat(publicI18n.locale, { maximumSignificantDigits: digits }).format(n);
   const view = $derived(outcome?.status === 'ok' ? outcome.views[active] : undefined);
 </script>
@@ -115,7 +116,7 @@
                 view={view.bounds} height="clamp(15rem, 34vh, 26rem)" editorButton={false} />
               </div>
             {/if}
-            <p class="note">{busy ? te('stale') : te(outcome.notes.includes('chord') ? 'note.chord' : 'note.magnified')}</p>
+            <p class="note">{busy ? te('stale') : te(viewerNote(outcome.notes))}</p>
           {:else}
             <div class="placeholder"><ExampleThumb {id} /></div>
           {/if}
@@ -152,6 +153,7 @@
             {#if outcome?.status === 'refused'}
               <p class="warning" role="alert" data-testid="refusal" data-code={outcome.code}>{te('refused')} {te(`refuse.${outcome.code}`)}{#if outcome.reason} <span lang="en">({outcome.reason})</span>{/if}</p>
             {:else if outcome?.status === 'ok' && !busy}
+              {#if outcome.stopped}<p class="warning" role="alert" data-testid="stopped" data-load-factor={outcome.stopped.loadFactor}>{te('stopped').replace('{lambda}', number(outcome.stopped.loadFactor, 3))} <span lang="en">({outcome.stopped.reason})</span></p>{/if}
               <div class="readouts">
                 {#each outcome.readouts as r (r.key)}
                   <div class="readout" data-testid={`readout-${r.key}`} data-value={r.value}>
@@ -173,13 +175,13 @@
               {#each outcome.charts as chart (chart.key)}
                 <div class="chart">
                   <h3>{te(`c.${chart.key}`)} ({chart.yUnit})</h3>
-                  <LineChart ariaLabel={te(`c.${chart.key}`)} series={[{ name: te(`c.${chart.key}`), color: 'var(--lp-accent)', points: chart.points }]} xLabel={chart.xUnit === 's' ? 't (s)' : 'x (m)'} yLabel={chart.yUnit} height={200} marker={chart.marker ?? null} />
+                  <LineChart ariaLabel={te(`c.${chart.key}`)} series={[{ name: te(`c.${chart.key}`), color: 'var(--lp-accent)', points: chart.points }, ...(chart.overlays ?? []).map(o => ({ name: te(`c.${o.key}`), color: 'var(--fg)', points: o.points, dashed: o.dashed, markers: o.markers }))]} xLabel={chart.xLabel ?? (chart.xUnit === 's' ? 't (s)' : 'x (m)')} yLabel={chart.yUnit} height={200} marker={chart.marker ?? null} />
                 </div>
               {/each}
             {/if}
           </div>
           <p>{te(`${id}.about`)}</p>
-          <p>{te('benchmark')}: <PublicLink to={example.benchmark.path}>{te(`${id}.benchmark`)}</PublicLink></p>
+          {#if example.benchmark}<p>{te('benchmark')}: <PublicLink to={example.benchmark.path}>{te(`${id}.benchmark`)}</PublicLink></p>{/if}
           <p class="fine">{te('notDesign')} {te('publisher')}</p>
         </article>
       </div>

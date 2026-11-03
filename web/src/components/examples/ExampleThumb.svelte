@@ -16,6 +16,21 @@
       {/each}
     {/each}
     {#each [0, 1, 2] as r}{#each [0, 1, 2] as c}<circle cx={56 + c * 64} cy={6 + r * 64} r="4" class="column" />{/each}{/each}
+  {:else if id === 'rc-column'}
+    <rect class="member" x="40" y="20" width="80" height="100" />
+    <rect class="load" x="48" y="28" width="64" height="84" />
+    {#each [56, 80, 104] as x}<circle class="column" cx={x} cy="36" r="5" /><circle class="column" cx={x} cy="104" r="5" />{/each}
+    <path class="diagram" d="M140 128 C200 100 214 60 196 36 L170 14" />
+  {:else if id === 'outrigger'}
+    <path class="ground" d="M20 132 H220" />
+    <path class="member" d="M120 132 V8 M64 132 V70 M176 132 V70" />
+    <path class="load" d="M64 70 H176" />
+    <path class="diagram" d="M120 132 C122 100 128 70 134 50 C138 32 140 20 141 8" />
+  {:else if id === 'tower'}
+    <path class="ground" d="M60 132 H180" />
+    <path class="member" d="M120 132 V10" />
+    <path class="diagram" d="M120 132 C120 90 140 40 156 10" />
+    <path class="load" d="M120 132 C118 100 104 70 120 50 C134 30 112 18 104 10" />
   {:else}
     <path class="ground" d="M20 128 H220" />
     <path class="member" d="M80 128 V92 H160 V128 M80 92 V56 H160 V92 M80 56 V20 H160 V56" />

@@ -21,9 +21,11 @@ export type Readout = {
   reference?: { value: number; source: string };
 };
 
+export type CertificateKind = 'linear' | 'timeHistory' | 'buckling' | 'section' | 'fiber';
+
 export type Certificate =
-  | { status: 'certified'; kind: 'linear' | 'timeHistory'; bound: number | null; measure: 'errorBound' | 'residual' }
-  | { status: 'uncertified' | 'failed' | 'unavailable'; kind: 'linear' | 'timeHistory'; code: 'engine' | 'noExport' | 'notStable' | 'noResidual'; reason?: string };
+  | { status: 'certified'; kind: CertificateKind; bound: number | null; measure: 'errorBound' | 'residual' | 'bracket' }
+  | { status: 'uncertified' | 'failed' | 'unavailable'; kind: CertificateKind; code: 'engine' | 'noExport' | 'notStable' | 'noResidual' | 'noCertifier'; reason?: string };
 
 export type View = {
   xy: number[];
@@ -39,10 +41,12 @@ export type View = {
   bounds: [number, number, number, number];
 };
 
-export type Chart = { key: string; xUnit: string; yUnit: string; points: [number, number][]; marker?: number };
+export type Overlay = { key: string; points: [number, number][]; dashed?: boolean; markers?: boolean };
+
+export type Chart = { key: string; xUnit: string; yUnit: string; points: [number, number][]; marker?: number; xLabel?: string; overlays?: Overlay[] };
 
 export type Outcome =
-  | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[] }
+  | { status: 'ok'; readouts: Readout[]; certificate: Certificate; views: Record<string, View>; charts: Chart[]; notes: string[]; stopped?: { loadFactor: number; reason: string } }
   | { status: 'refused'; code: 'engine' | 'noLoad' | 'nonFinite'; reason?: string };
 
 export type EditorModel = { app: 'basic'; model: import('../../lib/engine/types').SolverInput } | { app: 'pro'; model: import('../../lib/engine/types-3d').SolverInput3D };
@@ -52,8 +56,8 @@ export type Example<M> = {
   params: readonly Param[];
   build: (values: Values) => M;
   analyses: (model: M, values: Values, engine: EngineApi) => Outcome;
-  editor: (model: M, name: string) => EditorModel;
-  benchmark: { path: string; title: string };
+  editor?: (model: M, name: string) => EditorModel;
+  benchmark?: { path: string; title: string };
   dimension: '2d' | '3d';
 };
 
