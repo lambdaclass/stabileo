@@ -35,9 +35,9 @@ const BOTH_FACES: ProvidedReinforcement = {
   stirrups: { diameter: 8, legs: 2, spacing: 0.15 },
 };
 
-function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number } = {}) {
+function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number; fc?: number } = {}) {
   modelStore.clear();
-  const mat = modelStore.addMaterial({ name: 'H-25', e: 25_000, nu: 0.2, rho: 25, fy: FC } as never);
+  const mat = modelStore.addMaterial({ name: 'H-25', e: 25_000, nu: 0.2, rho: 25, fy: FC, ...(opts.fc ? { fc: opts.fc } : {}) } as never);
   const sec = modelStore.addSection({ name: '30x50', shape: 'rect', b: B, h: H, a: B * H, iy: B * H ** 3 / 12, iz: H * B ** 3 / 12 } as never);
   const a = modelStore.addNode(0, 0, 0);
   const b = opts.column ? modelStore.addNode(0, 0, 3) : modelStore.addNode(L, 0, 0);
@@ -176,6 +176,17 @@ describe('torsion, which neither checker designs for (#1314)', () => {
     const row = runOtherCode(ACI318, frame({ cantilever: true, torque: 0.5 * neglectable, bars: BOTH_FACES })).rows[0]!;
     expect(row.status).toBe('checked');
     if (row.status === 'checked') expect(row.reading.unevaluated).not.toContain('otherCodes.check.torsion');
+  });
+
+  it('aci318: √f′c is capped at 8.3 MPa½ (22.5.3.1), so a 100 MPa concrete may neglect no more torque than a 69 MPa one', () => {
+    const shape = (300 * 500) ** 2 / (2 * (300 + 500)) * 1e-6;
+    const capped = 0.75 * 0.083 * 8.3 * shape, uncapped = 0.75 * 0.083 * 10 * shape;
+    const row = runOtherCode(ACI318, frame({ cantilever: true, torque: (capped + uncapped) / 2, bars: BOTH_FACES, fc: 100 })).rows[0]!;
+    expect(row.status).toBe('checked');
+    if (row.status === 'checked') {
+      expect(row.reading.unevaluated).toContain('otherCodes.check.torsion');
+      expect(row.reading.pass).toBe(false);
+    }
   });
 
   it('ec2: EN 1992 has no such cutoff, so a torque below it still leaves the check incomplete', () => {
