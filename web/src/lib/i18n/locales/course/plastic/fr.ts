@@ -164,7 +164,7 @@ const words: Translations = {
   'course.plastic.user.ignored.zero': 'Le moment y est déjà nul (articulation ou extrémité libre).',
   'course.plastic.user.ignored.duplicate': 'Il y a déjà une rotule dans cette section.',
   'course.plastic.user.notMechanism': 'Ce n\'est pas un mécanisme : avec {n} rotules, la structure garde {r} inconnues hyperstatiques et reste stable. Les rotules choisies ne laissent bouger aucune partie : un mécanisme partiel demande assez de rotules pour qu\'une partie bouge, un mécanisme complet GH + 1 = {need}.',
-  'course.plastic.user.multi': 'C\'est un mécanisme à {k} degrés de liberté : les {n} rotules permettent {k} mouvements indépendants. Enlevez une rotule pour n\'en garder qu\'un, ou cherchez la combinaison de plus petit λ.',
+  'course.plastic.user.multi': 'C\'est un mécanisme à {k} degrés de liberté : les {n} rotules permettent {k} mouvements indépendants. Enlevez des rotules jusqu\'à ce que le mécanisme recalculé n\'ait qu\'un seul degré de liberté, ou cherchez la combinaison de plus petit λ.',
   'course.plastic.user.combine': 'Utiliser la combinaison de plus petit λ',
   'course.plastic.user.combined': 'La combinaison de plus petit λ a été utilisée ; les rotules qui ne tournent pas sont signalées.',
   'course.plastic.user.noWork': 'Les charges ne travaillent pas dans ce mécanisme : elles ne peuvent pas le produire.',

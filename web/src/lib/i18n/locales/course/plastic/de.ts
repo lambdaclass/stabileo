@@ -164,7 +164,7 @@ const words: Translations = {
   'course.plastic.user.ignored.zero': 'Dort ist das Moment bereits null (Gelenk oder freies Ende).',
   'course.plastic.user.ignored.duplicate': 'In diesem Querschnitt gibt es schon ein Gelenk.',
   'course.plastic.user.notMechanism': 'Kein Mechanismus: Mit {n} Gelenken behält das Tragwerk {r} Unbekannte und bleibt stabil. Die gewählten Gelenke lassen keinen Teil sich bewegen: Ein Teilmechanismus braucht genug Gelenke, damit sich ein Teil bewegt, ein vollständiger GH + 1 = {need}.',
-  'course.plastic.user.multi': 'Ein Mechanismus mit {k} Freiheitsgraden: Die {n} Gelenke erlauben {k} unabhängige Bewegungen. Entfernen Sie ein Gelenk, um eine zu behalten, oder suchen Sie die Kombination mit dem kleinsten λ.',
+  'course.plastic.user.multi': 'Ein Mechanismus mit {k} Freiheitsgraden: Die {n} Gelenke erlauben {k} unabhängige Bewegungen. Entfernen Sie Gelenke, bis der neu berechnete Mechanismus einen einzigen Freiheitsgrad hat, oder suchen Sie die Kombination mit dem kleinsten λ.',
   'course.plastic.user.combine': 'Kombination mit dem kleinsten λ verwenden',
   'course.plastic.user.combined': 'Verwendet wurde die Kombination mit dem kleinsten λ; die Gelenke, die sich nicht drehen, sind markiert.',
   'course.plastic.user.noWork': 'Die Lasten leisten in diesem Mechanismus keine Arbeit: Sie können ihn nicht hervorrufen.',
