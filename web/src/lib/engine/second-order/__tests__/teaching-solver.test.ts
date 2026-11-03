@@ -99,6 +99,16 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
     }
   });
 
+  it('the engine path calls P-Δ unstable past a held-ends load its nodes cannot see, and stable below it', () => {
+    const held = (4 * Math.PI ** 2 * EI) / (L * L);
+    for (const [P, stable] of [[0.9 * held, true], [1.1 * held, false]] as const) {
+      const r = runPDelta2D(column('fixed', 'guided', L, P), { ...DEFAULT_SETTINGS, method: 'consistent', n: 1 });
+      if (!r.ok) throw new Error(r.reason.key);
+      expect(r.result.isStable, `${P / held} of the held-ends load`).toBe(stable);
+      if (!stable) expect(Number.isFinite(r.result.b2Factor)).toBe(false);
+    }
+  });
+
   it('a fixed-fixed column of one element: φ gives its higher modes, each internal, with no nodal shape drawn', () => {
     const b = teachingBuckling(clampedColumn(L, P), { method: 'phi', axialRigid: false }, 3);
     if (!b.ok) throw new Error(b.reason.key);
