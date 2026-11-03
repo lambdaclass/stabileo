@@ -907,6 +907,9 @@ const KNOWN: Array<{ check: string; defect: string; match: (m: string) => boolea
   //       factors found" instead of a (large) factor. Still open in the engine (beam#28,
   //       beam#36); the Basic panel cuts members where a force along them acts, and
   //       'buckling-basic' checks that path whole.
+  { check: 'plastic', defect: 'a second hinge forms a fraction of a millimetre beside a point couple inside a member, and the link between the two leaves no work-doing mechanism the unloading check can verify (unresolved)', match: (m) => /^(beam#18|frame#25|frame#36): .*unresolved/.test(m) },
+  { check: 'plastic', defect: 'a frame member that yields axially is removed whole, and the modes left do no load work (unresolved)', match: (m) => /^arch#30: .*unresolved/.test(m) },
+  { check: 'plastic', defect: 'with a settlement, a hinge drifts station by station past the event budget and ends with no kinematic mode (unresolved)', match: (m) => /^beam#5: .*unresolved/.test(m) },
   { check: 'buckling', defect: 'ENGINE D12 (buckling.rs:91-93): one mean N per member misses partial or small compression (Basic cuts the member: see buckling-basic)', match: (m) => /no compressed elements" but|No positive buckling/.test(m) },
 ];
 
