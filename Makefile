@@ -358,7 +358,9 @@ check.test-targets:
 
 test.nightly-scripts:
 	python3 -B -I scripts/tests/test_nightly.py
+	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
+	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
 
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_aggregate.py
