@@ -138,6 +138,15 @@ function truthy(v: unknown): boolean {
   return ['si', 'sí', 'yes', 'y', 'true', 'verdadero', 'x', '1'].includes(v.trim().toLowerCase());
 }
 
+function yesNoBlank(v: unknown): boolean | null {
+  if (v === undefined || v === null || v === false || v === 0) return false;
+  if (v === true || v === 1) return true;
+  if (typeof v !== 'string') return null;
+  const s = v.trim().toLowerCase();
+  if (s === '' || NO.includes(s)) return false;
+  return truthy(s) ? true : null;
+}
+
 /**
  * A number, or null — and a comma is a decimal point.
  *
@@ -317,6 +326,7 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
   const factors: MassSourceFactor[] = [];
   const weights: MassWeight[] = [];
   const firstCase = idGuard(S, problems);
+  const paramRow = new Map<string, number>();
   for (const row of rows) {
     const item = str(row.cells.item).toLowerCase();
     if (item === 'source') continue;
@@ -325,14 +335,18 @@ function readMassSource(rows: Row[], caseIds: ReadonlySet<number>, problems: Row
       const key = str(row.cells.key);
       const spec = preset.params.find((p) => p.key === key);
       if (!spec) { fail(row, tp('xls.err.massParam', { k: key }), 'key'); continue; }
+      const seen = paramRow.get(key);
+      if (seen !== undefined) { fail(row, tp('xls.err.massParamDuplicate', { k: key, first: seen }), 'key'); continue; }
       const raw = str(row.cells.value);
       if (spec.kind === 'enum') {
         if (!spec.options.some((o) => o.value === raw)) { fail(row, tp('xls.err.massParamValue', { k: key, v: raw }), 'value'); continue; }
         params[key] = raw;
+        paramRow.set(key, row.n);
       } else {
         const yes = truthy(row.cells.value), no = NO.includes(raw.toLowerCase()) || row.cells.value === false;
         if (!yes && !no) { fail(row, tp('xls.err.massParamValue', { k: key, v: raw }), 'value'); continue; }
         params[key] = yes;
+        paramRow.set(key, row.n);
       }
     } else if (item === 'factor') {
       if (kind === 'preset') { fail(row, t('xls.err.massFactorNoCustom'), 'item'); continue; }
@@ -831,8 +845,13 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
       problems.push({ sheet: 'PointMasses', row: row.n, column: m < 0 ? 'm' : 'izz', message: t('xls.err.massNegative') });
       continue;
     }
+    const horizontalOnly = yesNoBlank(row.cells.horizontalonly);
+    if (horizontalOnly === null) {
+      problems.push({ sheet: 'PointMasses', row: row.n, column: 'horizontalOnly', message: t('xls.err.yesNo') });
+      continue;
+    }
     if (!firstMass(nodeId, row, 'xls.err.massDuplicate')) continue;
-    pointMasses.push({ nodeId, m, ...(truthy(row.cells.horizontalonly) ? { horizontalOnly: true } : {}), ...(izz !== null ? { izz } : {}) });
+    pointMasses.push({ nodeId, m, ...(horizontalOnly ? { horizontalOnly: true } : {}), ...(izz !== null ? { izz } : {}) });
   }
   if (pointMasses.length) model.pointMasses = pointMasses;
   counts.PointMasses = pointMasses.length;

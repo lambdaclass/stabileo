@@ -47,9 +47,11 @@ test.describe('@slow structural dynamics in Basic', () => {
     const doc = page.getByTestId('steps-doc');
     await expect(doc).toBeVisible();
     await expect(page.getByTestId('steps-error')).toHaveCount(0);
-    const n = await page.getByTestId('steps-tab').count();
-    expect(n).toBeGreaterThan(9);
-    for (let k = 0; k < n; k++) await page.getByTestId('steps-next').click();
+    const numbered = await page.getByTestId('steps-tab').count();
+    expect(numbered).toBeGreaterThan(9);
+    const allTabs = await page.getByTestId('steps-tab').first().locator('xpath=..').locator(':scope > button').count();
+    expect(allTabs).toBe(numbered + 1);
+    for (let k = 1; k < allTabs; k++) await page.getByTestId('steps-next').click();
     await expect(page.getByTestId('steps-tab').last()).toHaveClass(/\bon\b/);
     await expect(page.getByTestId('steps-next')).toBeDisabled();
     await expect(doc.locator('.sb-compare').or(doc.locator('.sb-table')).first()).toBeVisible();

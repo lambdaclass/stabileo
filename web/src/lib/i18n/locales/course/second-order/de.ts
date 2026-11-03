@@ -47,6 +47,7 @@ const words: Translations = {
   'course.second-order.pd.ampLine': 'Die Verschiebungen wachsen ×{amp} am Knoten {node}, der sich am meisten bewegt.',
   'course.second-order.pd.ampReversed': ' Dort zeigt die Verschiebung nach Theorie II. Ordnung entgegengesetzt zu der nach I. Ordnung.',
   'course.second-order.pd.noCompression': 'Kein Stab ist gedrückt: B₂ = 1.',
+  'course.second-order.pd.firstModeFailed': "Die erste Knickform konnte nicht berechnet werden ({reason}), daher ist B₂ unbekannt.",
   'course.second-order.pd.iterations': 'Iterationen ({n})',
   'course.second-order.pd.iterationsNote': 'Jede Iteration baut K(N) mit den Normalkräften der vorigen auf und löst K(N)·D = F. Sie endet, wenn ‖ΔD‖/‖D‖ < 10⁻⁴.',
   'course.second-order.pd.sameAsEngine': 'Es sind dieselben Iterationen, die der Rechenkern ausführt, und sie erreichen sein Ergebnis.',

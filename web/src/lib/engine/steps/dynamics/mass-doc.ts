@@ -11,7 +11,7 @@ import { tx } from '../doc';
 import { num, numText } from '../format';
 import { plotOf } from '../plot';
 import { dynamicsSettings } from '../../dynamics/course/settings';
-import { modelSystem, SystemError, type MdofSystem } from '../../dynamics/course/mdof-system';
+import { modelSystem, circularFrequencies, SystemError, type MdofSystem } from '../../dynamics/course/mdof-system';
 import { lumpedFrameMass, consistentFrameMass, type MassModel } from '../../dynamics/course/mass-model';
 import { exactBeam, frequenciesOf, MASS_MODELS, type ConvergenceRow } from '../../dynamics/course/convergence';
 import { generalizedEigen } from '../../dynamics/course/dense';
@@ -27,12 +27,17 @@ function system(ctx: MethodContext, n: number, mm: MassModel): MdofSystem {
   return modelSystem(ctx.model!, points, { nPerMember: n, massModel: mm, barMass: true });
 }
 
+function hertz(s: Pick<MdofSystem, 'K' | 'M'>): number[] {
+  return circularFrequencies(generalizedEigen(s.K, s.M).lambda).slice(0, MODES).map((w) => w / (2 * Math.PI));
+}
+
 export function massApplies(ctx: MethodContext): Applicability {
   if (!ctx.model) return { ok: false, reason: tx(KEY + 'mdof.err.empty') };
   try {
     const s = system(ctx, dynamicsSettings().mass.nPerMember, dynamicsSettings().mass.massModel);
     if (!s.members.length) return { ok: false, reason: tx(KEY + 'mass.err.noBars') };
     if (!s.members.some((m) => m.type === 'frame')) return { ok: false, reason: tx(KEY + 'mass.err.noFrames') };
+    hertz(s);
     return { ok: true };
   } catch (e) {
     if (e instanceof SystemError) return { ok: false, reason: tx(KEY + `mdof.err.${e.code}`, e.params) };
@@ -115,7 +120,8 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
   });
 
   let g: MdofSystem | SystemError;
-  try { g = system(ctx, n, 'guyan'); } catch (e) { if (!(e instanceof SystemError)) throw e; g = e; }
+  let fG: number[] = [];
+  try { g = system(ctx, n, 'guyan'); fG = hertz(g); } catch (e) { if (!(e instanceof SystemError)) throw e; g = e; }
   if (g instanceof SystemError) {
     steps.push({
       title: dt('mass.s4'),
@@ -129,7 +135,6 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
     const cond = g.condensation;
     const full = g.fullDofs.map((d) => dofTextN(d, names));
     const kept = g.dofs.map((d) => dofTextN(d, names));
-    const fG = generalizedEigen(g.K, g.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
     steps.push({
       title: dt('mass.s4'),
       blocks: [
@@ -147,7 +152,7 @@ export function buildMass(ctx: MethodContext, engineAt?: EngineAt): StepDoc {
     });
   }
 
-  const chosen = generalizedEigen(sys.K, sys.M).lambda.slice(0, MODES).map((l) => Math.sqrt(Math.max(l, 0)) / (2 * Math.PI));
+  const chosen = hertz(sys);
   const eng = engineAt?.(n) ?? null;
   const sameMass = st.massModel === 'consistent' && !sys.members.some((m) => m.kind === 'released');
   const head = [dt('mdof.mode'), dt(`mass.col.${st.massModel}`), ...(exact ? [dt('mass.col.exact')] : [])];

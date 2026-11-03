@@ -13,7 +13,7 @@
 
   let { result }: { result: any } = $props();
   const K = 'course.second-order.pd';
-  const info = $derived(result.secondOrder as (PDeltaInfo | { lambda1: number | null; b2: number } | undefined));
+  const info = $derived(result.secondOrder as (PDeltaInfo | { lambda1: number | null; b2: number; bucklingError?: string } | undefined));
   const full = $derived(info && 'settings' in info ? info : null);
   const shown = $derived(result.converged && result.isStable);
 
@@ -56,6 +56,8 @@
   </p>
 {:else if info && info.lambda1 === Infinity}
   <p class="pd-line">{t(`${K}.noCompression`)}</p>
+{:else if info && 'bucklingError' in info && info.bucklingError}
+  <p class="pd-line" data-testid="pdelta-first-mode-failed">{tp(`${K}.firstModeFailed`, { reason: info.bucklingError })}</p>
 {/if}
 {#if full}
   {#if full.history?.length}

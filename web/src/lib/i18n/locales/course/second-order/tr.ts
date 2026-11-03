@@ -47,6 +47,7 @@ const words: Translations = {
   'course.second-order.pd.ampLine': 'Yerdeğiştirmeler en çok hareket eden {node} düğümünde ×{amp} büyür.',
   'course.second-order.pd.ampReversed': ' Orada ikinci mertebe yerdeğiştirme birinci mertebedekinin tersi yönündedir.',
   'course.second-order.pd.noCompression': 'Hiçbir çubuk basınç altında değil: B₂ = 1.',
+  'course.second-order.pd.firstModeFailed': "İlk burkulma modu hesaplanamadı ({reason}), bu yüzden B₂ bilinmiyor.",
   'course.second-order.pd.iterations': 'Yinelemeler ({n})',
   'course.second-order.pd.iterationsNote': 'Her yinelemede K(N) bir öncekinin normal kuvvetleriyle kurulur ve K(N)·D = F çözülür. ‖ΔD‖/‖D‖ < 10⁻⁴ olunca durur.',
   'course.second-order.pd.sameAsEngine': 'Bunlar hesap motorunun yaptığı yinelemelerin aynısıdır ve onun sonucuna ulaşır.',

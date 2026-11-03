@@ -4,6 +4,7 @@ import * as solve from '../../engine/force-method/solve';
 import * as scope from '../../engine/step-by-step-scope';
 import { resolveFlexibility, switchFlexibilityAxial, chooseAutoFundamental, choiceError } from '../fm-fundamental';
 import { fmChoice } from '../../store/fm-choice.svelte';
+import { openFlexibilityWizard } from '../step-wizards';
 
 function portal() {
   modelStore.clear();
@@ -82,5 +83,33 @@ describe('why a chosen primary structure was not solved', () => {
   it('a failure of the method itself is reported as a solver error, never as "no redundants"', () => {
     expect(choiceError(new Error('index out of range')).key).toBe('toast.detailedSolverError');
     expect(choiceError(new solve.ForceMethodError('noRedundants')).key).toBe('course.statics.err.noRedundants');
+  });
+});
+
+describe('opening the flexibility wizard with a chosen primary structure', () => {
+  it('an internal solver failure is reported, not replaced by the automatic primary structure', () => {
+    portal();
+    fmChoice.solvedWith(['M:1:i'], modelStore.modelVersion);
+    const run = vi.spyOn(solve, 'solveForceMethod').mockImplementation(() => { throw new Error('index out of range'); });
+    const toast = vi.spyOn(uiStore, 'toast');
+    const before = fmStepsStore.result;
+    expect(openFlexibilityWizard()).toBe(false);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(fmStepsStore.result).toBe(before);
+    expect(fmChoice.applied).toEqual(['M:1:i']);
+    expect(toast).toHaveBeenCalledWith(expect.any(String), 'error');
+  });
+
+  it('a refusal of the chosen releases falls back to the automatic one, with the reason', () => {
+    portal();
+    fmChoice.solvedWith(['M:1:i'], modelStore.modelVersion);
+    const real = solve.solveForceMethod;
+    const run = vi.spyOn(solve, 'solveForceMethod').mockImplementation((input, opts) => {
+      if (opts?.releases) throw new solve.ForceMethodError('noRedundants');
+      return real(input, opts);
+    });
+    expect(openFlexibilityWizard()).toBe(true);
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(fmChoice.applied).toBeNull();
   });
 });

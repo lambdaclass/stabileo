@@ -99,10 +99,11 @@ export function moveInfluenceSection(elementId: number, at: number): void {
 
 /** A quantity chosen with a line on screen: the line follows when its target can carry it. */
 export function setInfluenceQuantity(q: InfluenceQuantity): void {
+  const changed = uiStore.ilQuantity !== q;
   uiStore.ilQuantity = q;
   const il = resultsStore.influenceLine;
+  if (changed || (il && il.quantity !== q)) influenceTool.envelope = null;
   if (!il || il.quantity === q) return;
-  influenceTool.envelope = null;
   const family = familyOf(q);
   if (family === 'reaction' && il.targetNodeId !== undefined) runInfluence(q, il.targetNodeId, undefined, 0.5, true);
   else if (family !== 'reaction' && il.targetElementId !== undefined) runInfluence(q, undefined, il.targetElementId, il.targetPosition ?? 0.5, true);

@@ -91,6 +91,18 @@ describe('the MassSource sheet', () => {
     expect(r.problems.map((p) => [p.row, p.column])).toEqual([[3, 'key'], [4, 'value'], [5, 'value']]);
   });
 
+  it('refuses a parameter stated twice and keeps the first value', () => {
+    const r = withMass(
+      ['source', 'preset', 'cirsoc103-2018', '', '', '', '', ''],
+      ['param', 'occupancy', 'high', '', '', '', '', ''],
+      ['param', 'occupancy', 'mostly', '', '', '', '', ''],
+      ['param', 'snowRetaining', 'yes', '', '', '', '', ''],
+      ['param', 'snowRetaining', 'no', '', '', '', '', ''],
+    );
+    expect(r.model.massSource).toEqual({ kind: 'preset', presetId: 'cirsoc103-2018', params: { occupancy: 'high', snowRetaining: true } });
+    expect(r.problems.map((p) => [p.row, p.column])).toEqual([[4, 'key'], [6, 'key']]);
+  });
+
   it('refuses a parameter without a code', () => {
     const r = withMass(['source', 'custom', '', '', '', '', '', ''], ['param', 'occupancy', 'high', '', '', '', '', '']);
     expect(r.problems.map((p) => [p.row, p.message])).toEqual([[3, 'a parameter needs a preset source with a known code']]);

@@ -53,7 +53,9 @@ export function systemSketch(pm: PlaneModel, sys: MdofSystem, names: Map<number,
   for (const chain of sys.chains.values()) for (let k = 0; k + 1 < chain.length; k++) members.push({ id: mid++, i: chain[k], j: chain[k + 1] });
   const labels: NonNullable<Sketch['labels']> = sys.points.map((q) => {
     const c = sys.coords.get(q.nodeId)!;
-    return { x: c.x, z: c.z, text: `m = ${+q.mx.toPrecision(4)} t`, color: 'accent', anchor: 'ne' };
+    const t = (v: number) => +v.toPrecision(4);
+    const text = q.mx === q.mz ? `m = ${t(q.mx)} t` : `m_x = ${t(q.mx)} t, m_z = ${t(q.mz)} t`;
+    return { x: c.x, z: c.z, text, color: 'accent', anchor: 'ne' };
   });
   return { ...base, nodes, members, hinges: [], labels, ...extra };
 }

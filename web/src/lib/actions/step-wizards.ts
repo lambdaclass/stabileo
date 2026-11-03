@@ -68,7 +68,7 @@ export function openStiffnessWizard(): boolean {
 function solvePlaneWithChoice(input: Parameters<typeof solveForceMethod>[0]) {
   const opts = fmChoice.optionsFor(modelStore.modelVersion);
   try { return solveForceMethod(input, opts); } catch (e) {
-    if (!opts.releases) throw e;
+    if (!opts.releases || !(e instanceof ForceMethodError)) throw e;
     const why = choiceError(e);
     fmChoice.reset(modelStore.modelVersion);
     uiStore.toast(tp(why.key, why.params), 'error');

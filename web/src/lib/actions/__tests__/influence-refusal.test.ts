@@ -111,6 +111,23 @@ describe('the envelope follows the quantity', () => {
     expect(resultsStore.influenceLine).toBeNull();
     expect(influenceTool.envelope).toBeNull();
   });
+
+  it('with no line on screen, a new quantity still drops the envelope of the old one', () => {
+    resultsStore.setInfluenceLine(null);
+    uiStore.ilQuantity = 'M';
+    influenceTool.envelope = { members: [] } as unknown as AlongEnvelope;
+    setInfluenceQuantity('V');
+    expect(influenceTool.envelope).toBeNull();
+  });
+
+  it('choosing the quantity already in use keeps the envelope', () => {
+    resultsStore.setInfluenceLine(null);
+    uiStore.ilQuantity = 'M';
+    const env = { members: [] } as unknown as AlongEnvelope;
+    influenceTool.envelope = env;
+    setInfluenceQuantity('M');
+    expect(influenceTool.envelope).toBe(env);
+  });
 });
 
 describe('a click on a support while a member quantity is chosen', () => {

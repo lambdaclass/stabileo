@@ -47,6 +47,7 @@ const words: Translations = {
   'course.second-order.pd.ampLine': 'Les déplacements augmentent de ×{amp} au nœud {node}, celui qui bouge le plus.',
   'course.second-order.pd.ampReversed': ' Là, le déplacement du second ordre est de sens opposé à celui du premier ordre.',
   'course.second-order.pd.noCompression': 'Aucune barre n\'est comprimée : B₂ = 1.',
+  'course.second-order.pd.firstModeFailed': "Le premier mode de flambement n'a pas pu être calculé ({reason}) ; B₂ reste donc inconnu.",
   'course.second-order.pd.iterations': 'Itérations ({n})',
   'course.second-order.pd.iterationsNote': 'Chaque itération construit K(N) avec les efforts normaux de la précédente et résout K(N)·D = F. Elle s\'arrête quand ‖ΔD‖/‖D‖ < 10⁻⁴.',
   'course.second-order.pd.sameAsEngine': 'Ce sont les mêmes itérations que celles du moteur, et elles aboutissent à son résultat.',

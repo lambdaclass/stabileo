@@ -117,8 +117,10 @@ test.describe('@slow virtual work: what to compute', () => {
     await page.getByTestId('steps-param-node').selectOption('3');
     await expect(page.getByTestId('steps-params')).toContainText(/Rotation|Giro/);
     await shot(page, 'vw-params-open');
-    const tabs = await page.getByTestId('steps-tab').count();
-    for (let k = 0; k < tabs; k++) await page.getByTestId('steps-next').click();
+    const numbered = await page.getByTestId('steps-tab').count();
+    const allTabs = await page.getByTestId('steps-tab').first().locator('xpath=..').locator(':scope > button').count();
+    expect(allTabs).toBe(numbered + 1);
+    for (let k = 1; k < allTabs; k++) await page.getByTestId('steps-next').click();
     await expect(page.getByTestId('steps-tab').last()).toHaveClass(/\bon\b/);
     await expect(page.getByTestId('steps-next')).toBeDisabled();
     await expect(page.locator('.sb-compare')).toBeVisible();

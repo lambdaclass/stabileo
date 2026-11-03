@@ -47,6 +47,14 @@ describe('the PointMasses sheet', () => {
     expect(r.problems[3]!.message).toContain('row 5');
   });
 
+  it('refuses a horizontal-only cell that reads as neither yes nor no, and takes blank, 0 and no as no', () => {
+    const b = frame();
+    b.PointMasses = aoa(['node', 'm [t]', 'horizontalOnly'], [2, 1, 'maybe'], [3, 2, 7], [2, 3, ''], [3, 4, 0]);
+    const r = parseWorkbook(b);
+    expect(r.problems.map((p) => [p.row, p.column, p.message])).toEqual([[2, 'horizontalOnly', 'yes or no was expected'], [3, 'horizontalOnly', 'yes or no was expected']]);
+    expect(r.model.pointMasses).toEqual([{ nodeId: 2, m: 3 }, { nodeId: 3, m: 4 }]);
+  });
+
   it('leaves a workbook without the sheet with no masses', () => {
     const r = parseWorkbook(frame());
     expect(r.model.pointMasses).toBeUndefined();
