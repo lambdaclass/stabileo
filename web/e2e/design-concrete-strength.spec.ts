@@ -4,8 +4,7 @@ import { test, expect, loadModel, designAll, solveModel, sizeAll } from './fixtu
 const BUILDING = JSON.parse(readFileSync('src/lib/templates/fixtures/3d-building.json', 'utf8'));
 
 test.describe('@smoke the 3d-building example in PRO design (#766)', () => {
-  test('CIRSOC 201 designs all 105 members as shipped', async ({ pro: page }) => {
-    test.setTimeout(300_000);
+  test('CIRSOC 201 takes all 105 members into the design as shipped', async ({ pro: page }) => {
     await loadModel(page, '3d-building');
     const counts = await designAll(page);
     expect(counts.total).toBe(105);
@@ -13,7 +12,6 @@ test.describe('@smoke the 3d-building example in PRO design (#766)', () => {
   });
 
   test('a concrete with no f′c is named in the design run, not called steel', async ({ pro: page }) => {
-    test.setTimeout(300_000);
     const model = {
       ...BUILDING,
       materials: BUILDING.materials.map((m: { name: string; fy?: number }) => {
@@ -27,7 +25,7 @@ test.describe('@smoke the 3d-building example in PRO design (#766)', () => {
     await solveModel(page);
     await sizeAll(page);
     const error = page.getByTestId('desk-error');
-    await expect(error).toBeVisible({ timeout: 120_000 });
+    await expect(error).toBeVisible({ timeout: 30_000 });
     await expect(error).toContainText('H-30');
     await expect(error).toContainText('f′c');
     await expect(error).not.toContainText('steel');

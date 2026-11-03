@@ -3442,7 +3442,7 @@ const zh: Translations = {
   'design.error.codeUnsupported': '{code} 无法设计配筋 — 它只能评定给定的配筋方案。',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',
   'design.error.concreteFyReadAsSteel': 'No member could be treated as concrete: material “{material}”, used by {n} members, has fy = {fy} MPa. For a concrete, fy holds f′c (H-30 → 30); the rebar is taken as ADN 420 separately. Correct the material and solve again.',
-  'design.error.concreteStrengthMissing': 'No member could be checked: material “{material}”, used by {n} members, has no f′c. For a concrete material, enter f′c in the fy field (H-30 → 30) and compute again.',
+  'design.error.concreteStrengthMissing': '无法验算任何构件：{n} 个构件使用的材料“{material}”没有 f′c。对于混凝土，fy 字段填写 f′c（H-30 → 30）：请填写后重新计算。',
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) state none. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': '此模型中没有构件经过 {code} 校核。',

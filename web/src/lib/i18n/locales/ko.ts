@@ -3440,7 +3440,7 @@ const ko: Translations = {
   'design.error.codeUnsupported': '{code}는 철근을 설계할 수 없습니다 — 주어진 배근만 평가할 수 있습니다.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',
   'design.error.concreteFyReadAsSteel': 'No member could be treated as concrete: material “{material}”, used by {n} members, has fy = {fy} MPa. For a concrete, fy holds f′c (H-30 → 30); the rebar is taken as ADN 420 separately. Correct the material and solve again.',
-  'design.error.concreteStrengthMissing': 'No member could be checked: material “{material}”, used by {n} members, has no f′c. For a concrete material, enter f′c in the fy field (H-30 → 30) and compute again.',
+  'design.error.concreteStrengthMissing': '검토할 수 있는 부재가 없습니다: {n}개 부재가 사용하는 재료 “{material}”에 f′c가 없습니다. 콘크리트는 fy 칸에 f′c를 입력합니다(H-30 → 30). 입력한 뒤 다시 계산하세요.',
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) state none. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': '이 모델에서 {code}로 검토된 부재가 없습니다.',

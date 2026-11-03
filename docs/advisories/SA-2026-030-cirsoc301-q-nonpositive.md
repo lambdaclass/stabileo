@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Severity | Medium |
+| Severity | High |
 | Status | Draft |
 | Issue | [#467](https://github.com/lambdaclass/stabileo/issues/467) |
 | Fix | PR [#1246](https://github.com/lambdaclass/stabileo/pull/1246) |
@@ -21,10 +21,11 @@ reduction factor: I, U, T, box, RHS and CHS sections, single angles (§E.5) and 
 §E.7 reduces a section with slender stiffened elements by Qa = Aeff / A, with
 Aeff = A − Σ(b − be)·t over its compression elements. The elements' widths and thicknesses come
 from the section's b, h, tw and tf, or from the `compressionElements` the section declares; A is
-the section's own area. When the two disagree, Σ(b − be)·t can reach A, and Qa came out zero or
+the section's own area. When the two disagree, Σ(b − be)·t can exceed A, and Qa came out
 negative. Then λ = √(Q·Fy/Fe) was NaN, the test λ ≤ 1.5 was false, and the elastic branch
 returned Fcr = 0.877·Fe with no Q in it. With a short member Fe is very large, so the capacity
-was far above the squash load and the member passed.
+was far above the squash load and the member passed. (Qa exactly 0 gave Fcr = 0 and a failing
+member, not a pass; it is refused now too, since it is no capacity either.)
 
 The case in #467, a 521 × 521 mm box with 2 mm walls, A = 4 154 mm² (the walls alone give
 6 366 mm²), L = 0.5 m, Fy = 235 MPa:

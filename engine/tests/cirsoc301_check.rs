@@ -651,3 +651,17 @@ fn every_compression_capacity_stays_below_phi_squash() {
         assert!(r.not_evaluated.is_some() || r.capacity <= cap * (1.0 + 1e-12), "L = {l}: φPn {} > φ·A·Fy {}", r.capacity, cap);
     }
 }
+
+#[test]
+fn chs_just_past_e72c_lower_limit_keeps_q_at_one() {
+    let (d, t) = (0.3232848, 0.003369989938147201);
+    let a = std::f64::consts::PI * (d - t) * t;
+    let i = std::f64::consts::PI * (d - t).powi(3) * t / 8.0;
+    let m = member(json!({"A": a, "Iz": i, "Iy": i, "L": 0.5, "shape": "CHS", "h": d, "tw": t}));
+    assert!(d / t > 0.11 * 200000.0 / 235.0);
+    let r = check_compression(&m, 100.0);
+    assert!(r.not_evaluated.is_none(), "{:?}", r.not_evaluated);
+    assert_eq!(val(&r, "Q"), 1.0);
+    assert!(val(&r, "Fcr") <= 235.0);
+    assert!(r.capacity <= PHI_C * a * 235.0 * 1000.0);
+}

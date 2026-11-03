@@ -3445,7 +3445,7 @@ const ru: Translations = {
   'design.error.codeUnsupported': '{code} не может подобрать арматуру — может только оценить заданное расположение.',
   'design.error.noConcreteMembers': '{code} is the reinforced-concrete code and this model has no concrete member: all {n} of its members are steel. The reinforcement design workflow does not apply to this structure.',
   'design.error.concreteFyReadAsSteel': 'No member could be treated as concrete: material “{material}”, used by {n} members, has fy = {fy} MPa. For a concrete, fy holds f′c (H-30 → 30); the rebar is taken as ADN 420 separately. Correct the material and solve again.',
-  'design.error.concreteStrengthMissing': 'No member could be checked: material “{material}”, used by {n} members, has no f′c. For a concrete material, enter f′c in the fy field (H-30 → 30) and compute again.',
+  'design.error.concreteStrengthMissing': 'Ни один стержень не удалось проверить: у материала «{material}», который используют {n} стержней, нет f′c. Для бетона поле fy содержит f′c (H-30 → 30): заполните его и выполните расчёт снова.',
   'design.error.noRectangularSections': '{code} can only check rectangular b×h sections, and {n} concrete member(s) state none. Give them a rectangular section to design them.',
   'design.error.noConcreteMembersMixed': '{code} found no checkable member: {steel} steel and {other} with no usable section or material.',
   'design.error.nothingChecked': '{code} не проверил ни одного элемента для этой модели.',

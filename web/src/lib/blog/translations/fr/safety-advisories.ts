@@ -56,8 +56,8 @@ const body: PostBody = {
         ],
         [
           "SA-2026-030",
-          "CIRSOC 301 en compression : une section dont l'aire est inférieure à ses tôles donnait Qa ≤ 0 et une résistance supérieure à l'effort normal plastique, et était vérifiée",
-          "Moyenne",
+          "CIRSOC 301 en compression : une section dont l'aire est inférieure à ses tôles donnait un Qa négatif et une résistance supérieure à l'effort normal plastique, et était vérifiée",
+          "Élevée",
           "Corrigé dans la prochaine version"
         ],
         [

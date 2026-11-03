@@ -56,8 +56,8 @@ const body: PostBody = {
         ],
         [
           "SA-2026-030",
-          "CIRSOC 301 Druck: ein Querschnitt mit einer Fläche kleiner als seine Bleche ergab Qa ≤ 0 und eine Tragfähigkeit über der vollplastischen Normalkraft und galt als nachgewiesen",
-          "Mittel",
+          "CIRSOC 301 Druck: ein Querschnitt mit einer Fläche kleiner als seine Bleche ergab ein negatives Qa und eine Tragfähigkeit über der vollplastischen Normalkraft und galt als nachgewiesen",
+          "Hoch",
           "Behoben in der nächsten Version"
         ],
         [

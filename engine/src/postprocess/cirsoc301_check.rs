@@ -655,7 +655,7 @@ fn slender_reduction<T: Real>(
         if dt > 0.45 * e / fy {
             return Err(refuse("chsTooSlender", &[("Dt", n(dt, 1)), ("lim", n(0.45 * e / fy, 1))]));
         }
-        let qv: T = q(lit::<T>(0.038) * ex(e), ex::<T>(fy) * ex(dt)) + q(ex::<T>(2.0), ex(3.0));
+        let qv: T = (q(lit::<T>(0.038) * ex(e), ex::<T>(fy) * ex(dt)) + q(ex::<T>(2.0), ex(3.0))).min(one);
         st.push("e.chsQ", &[("Dt", n(dt, 1)), ("Q", n(qv.mid(), 3))]);
         return Ok(QResult { q: qv, qs: one, qa: qv, slender: true, unit: false });
     }

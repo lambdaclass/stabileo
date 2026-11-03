@@ -56,8 +56,8 @@ const body: PostBody = {
         ],
         [
           "SA-2026-030",
-          "CIRSOC 301 basınç: alanı levhalarından küçük olan bir kesit Qa ≤ 0 ve tam plastik eksenel yükün üzerinde bir dayanım veriyor ve geçiyordu",
-          "Orta",
+          "CIRSOC 301 basınç: alanı levhalarından küçük olan bir kesit negatif bir Qa ve tam plastik eksenel yükün üzerinde bir dayanım veriyor ve geçiyordu",
+          "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],
         [
