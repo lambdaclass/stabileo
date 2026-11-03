@@ -35,6 +35,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: verification-alert-${{ github.event.workflow_run.name || github.event_name }}
+  cancel-in-progress: false
+
 jobs:
   alert:
     if: >-

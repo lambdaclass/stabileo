@@ -310,3 +310,12 @@ test('every watched workflow exists and triggers the alert', () => {
   assert.deepEqual([...triggers].sort(), Object.keys(alert.WATCHED).sort());
   for (const name of triggers) assert.ok(names.includes(name), name);
 });
+
+test('alert runs for one workflow are serialized and never cancelled', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const yml = fs.readFileSync(path.join(__dirname, '../../.github/workflows/verification-alert.yml'), 'utf8');
+  const block = yml.split('\nconcurrency:\n')[1]?.split('\n\n')[0] || '';
+  assert.match(block, /^  group: verification-alert-\$\{\{ github\.event\.workflow_run\.name \|\| github\.event_name \}\}$/m);
+  assert.match(block, /^  cancel-in-progress: false$/m);
+});
