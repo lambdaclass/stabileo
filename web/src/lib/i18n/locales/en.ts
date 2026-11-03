@@ -5346,6 +5346,8 @@ const en: Record<string, string> = {
   'contour.face.mid': "mid-surface",
   'contour.face.top': "top",
   'contour.face.bottom': "bottom",
+  'contour.face.auto': "default ({face})",
+  'contour.face.worst': "more stressed face",
   'contour.directions': "Principal directions",
   'contour.values': "Maximum and minimum on the model",
   'contour.line.title': "Results along a line",

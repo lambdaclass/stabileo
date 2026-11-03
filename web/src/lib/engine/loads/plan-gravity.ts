@@ -401,7 +401,8 @@ function notADeck(
       const b = poly[(i + 1) % poly.length]!;
       for (const t of [0.25, 0.5, 0.75]) probes.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
     });
-    if (probes.some((p) => heightAbove(p, z) < MIN_STOREY_HEADROOM)) return 'lowHeadroom';
+    const roofed = probes.map((p) => heightAbove(p, z)).filter(Number.isFinite);
+    if (roofed.length > 0 && Math.max(...roofed) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
     const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
     if (Math.min(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) > MAX_DECK_SPAN) return 'wide';
     return null;

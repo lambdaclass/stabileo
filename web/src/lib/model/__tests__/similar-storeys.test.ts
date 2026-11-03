@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expandToStoreys, masterOf, scopeLevels, similarityIssues, storeyIndex, elementLevel, placeOn, type StoreyModel } from '../similar-storeys';
+import { expandToStoreys, masterOf, scopeLevels, similarityIssues, storeyIndex, StoreyIndex, elementLevel, placeOn, placeMemberOn, type StoreyModel } from '../similar-storeys';
 import type { Level } from '../grid';
 
 /** A frame of `n` storeys 3 m high (the third one 3.5 m), two columns and a beam on each, and an extra beam on storey 2. */
@@ -71,6 +71,25 @@ describe('master and similar storeys', () => {
 
   it('indexes every member once per storey', () => {
     const { m, levels } = building(13);
-    expect(storeyIndex(m, levels).elements.size).toBe(m.elements.size);
+    expect(StoreyIndex.count(storeyIndex(m, levels).elements)).toBe(m.elements.size);
+  });
+
+  it('matches places closer than the tolerance across a cell boundary', () => {
+    const levels: Level[] = [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3 }, { id: 'L2', name: 'N2', z: 6, similarTo: 'L1' }];
+    const nodes = new Map([[1, { x: 0.00495, y: 0, z: 3 }], [2, { x: 6, y: 0, z: 3 }], [3, { x: 0.00515, y: 0, z: 6 }], [4, { x: 6, y: 0, z: 6 }]]);
+    const elements = new Map([[1, { nodeI: 1, nodeJ: 2 }], [2, { nodeI: 3, nodeJ: 4 }]]);
+    const m = { nodes, elements } as StoreyModel;
+    expect(expandToStoreys(m, levels, { elements: [1], nodes: [], shells: [] }, 'similar').elements.sort()).toEqual([1, 2]);
+    expect(expandToStoreys(m, levels, { elements: [], nodes: [1], shells: [] }, 'similar').nodes.sort()).toEqual([1, 3]);
+    const far = new Map(nodes).set(3, { x: 0.0160, y: 0, z: 6 });
+    expect(expandToStoreys({ nodes: far, elements } as StoreyModel, levels, { elements: [1], nodes: [], shells: [] }, 'similar').unmatched).toHaveLength(1);
+  });
+
+  it('places a column on a storey of another height between that storey\'s levels', () => {
+    const levels: Level[] = [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3 }, { id: 'L2', name: 'N2', z: 7, similarTo: 'L1' }];
+    const ends = placeMemberOn({ x: 0, y: 5, z: 0 }, { x: 0, y: 5, z: 3 }, levels[1]!, levels[2]!, levels)!;
+    expect(ends).toEqual([{ x: 0, y: 5, z: 3 }, { x: 0, y: 5, z: 7 }]);
+    expect(placeMemberOn({ x: 0, y: 0, z: 3 }, { x: 6, y: 0, z: 3 }, levels[1]!, levels[2]!, levels)).toEqual([{ x: 0, y: 0, z: 7 }, { x: 6, y: 0, z: 7 }]);
+    expect(placeMemberOn({ x: 0, y: 5, z: 0 }, { x: 0, y: 5, z: 3 }, levels[1]!, levels[0]!, levels)).toBeNull();
   });
 });

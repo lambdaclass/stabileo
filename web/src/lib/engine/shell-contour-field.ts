@@ -11,7 +11,7 @@
  *
  * Pure.
  */
-import { shellComponentValue, type ShellContourComponent, type ShellFace, type ShellStressLike } from './shell-stress';
+import { faceRead, shellComponentValue, type ShellContourComponent, type ShellFace, type ShellStressLike } from './shell-stress';
 import { nodalAverage, contourRange, type ContourAt } from './contour-scale';
 
 export interface ShellStressEntry extends ShellStressLike { elementId: number; nodalVonMises?: readonly number[] }
@@ -31,7 +31,7 @@ export function shellContourField(
   component: ShellContourComponent,
   opts: { at: ContourAt; auto: boolean; min: number; max: number; face?: ShellFace; domainOf?: (key: string) => string },
 ): ContourField {
-  const face = opts.face ?? 'mid';
+  const face = opts.face ?? 'auto';
   const entries: Array<{ key: string; nodes: readonly number[]; s: ShellStressEntry }> = [];
   for (const [prefix, list] of [['p', stresses.plates], ['q', stresses.quads]] as const) {
     for (const s of list) {
@@ -44,7 +44,7 @@ export function shellContourField(
   const corners = new Map<string, number[]>();
   if (opts.at === 'centre') {
     for (const e of entries) corners.set(e.key, e.nodes.map(() => shellComponentValue(e.s, component, face)));
-  } else if (component === 'vonMises' && face === 'mid') {
+  } else if (component === 'vonMises' && faceRead(component, face) === 'worst' && !opts.domainOf) {
     for (const e of entries) {
       const nv = e.s.nodalVonMises;
       corners.set(e.key, nv && nv.length === e.nodes.length ? [...nv] : e.nodes.map(() => e.s.vonMises));

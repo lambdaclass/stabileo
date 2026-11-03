@@ -24,7 +24,7 @@ import { IDENTITY } from '../model/edit/affine';
 import type { IfcMember, IfcSurface } from '../ifc/ifc-mapper';
 import type { Underlay } from '../model/underlay';
 import type { LinkedReference } from '../engine/federation/linked';
-import { fileHash, keepLinkedGeometry, linkedGeometry, dropLinkedGeometry } from './linked-geometry';
+import { fileHash, keepLinkedGeometry, linkedGeometry } from './linked-geometry';
 
 export type { LinkedModel, Discipline, UpdateRules, PublishedVersion, LinkedDiff };
 
@@ -93,10 +93,8 @@ export async function relinkReference(id: string, buffer: ArrayBuffer, w: Wasm =
 }
 
 export function removeLink(id: string): void {
-  const gone = federation().links.find((l) => l.id === id)?.reference?.hash;
   patch({ links: federation().links.filter((l) => l.id !== id) });
   syncUnderlays();
-  if (gone && !federation().links.some((l) => l.reference?.hash === gone)) void dropLinkedGeometry(gone);
 }
 export function setLinkVisible(id: string, visible: boolean): void { patch({ links: federation().links.map((l) => (l.id === id ? { ...l, visible } : l)) }); syncUnderlays(); }
 
@@ -124,14 +122,12 @@ export async function prepareUpdate(linkId: string, buffer: ArrayBuffer, fileNam
 export function applyPendingUpdate(rules: UpdateRules): void {
   if (!pending) return;
   const p = pending;
-  const old = federation().links.find((l) => l.id === p.linkId)?.reference?.hash;
   patch({ links: federation().links.map((l) => (l.id === p.linkId ? {
     ...l, entities: applyUpdate(l.entities, p.diff, rules), fileName: p.fileName, version: p.version, date: new Date().toISOString(),
     storeys: { ...l.storeys, ...Object.fromEntries(p.parsed.storeys.map((s) => [s.name, s.elevation])) },
     ...(p.reference ? { reference: p.reference } : {}),
   } : l)) });
   syncUnderlays();
-  if (old && p.reference && old !== p.reference.hash && !federation().links.some((l) => l.reference?.hash === old)) void dropLinkedGeometry(old);
 }
 export function discardPendingUpdate(): void { pending = null; }
 

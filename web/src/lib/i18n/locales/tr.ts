@@ -5276,6 +5276,8 @@ const tr: Translations = {
   'contour.face.mid': "orta yüzey",
   'contour.face.top': "üst",
   'contour.face.bottom': "alt",
+  'contour.face.auto': "varsayılan ({face})",
+  'contour.face.worst': "daha çok zorlanan yüz",
   'contour.directions': "Asal doğrultular",
   'contour.values': "Model üzerinde maksimum ve minimum",
   'contour.line.title': 'Bir çizgi boyunca sonuçlar',

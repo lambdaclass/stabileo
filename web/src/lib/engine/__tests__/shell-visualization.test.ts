@@ -43,6 +43,29 @@ describe('what a shell contour can show', () => {
   });
 });
 
+describe('Von Mises on each face', () => {
+  const bending = { sigmaXx: 0, sigmaYy: 0, tauXy: 0, mx: 1, my: 0, mxy: 0, vonMises: 150, t: 0.2 };
+
+  it('is zero on the mid-surface of a shell in pure bending', () => {
+    expect(shellComponentValue(bending, 'vonMises', 'mid')).toBe(0);
+    expect(shellComponentValue(bending, 'sigma1', 'mid')).toBe(0);
+  });
+
+  it('is the engine\'s value on the more stressed face, and by default', () => {
+    expect(shellComponentValue(bending, 'vonMises', 'worst')).toBe(150);
+    expect(shellComponentValue(bending, 'vonMises')).toBe(150);
+    expect(shellComponentValue(bending, 'vonMises', 'auto')).toBe(150);
+    expect(shellComponentValue(bending, 'vonMises', 'top')).toBeCloseTo(150);
+  });
+
+  it('reads the other stresses on the mid-surface by default, and on the more stressed face when asked', () => {
+    expect(shellComponentValue(s, 'sigmaXx')).toBe(s.sigmaXx);
+    const f = faceStresses(s, 0.2);
+    const worse = Math.abs(f.top.sxx) > Math.abs(f.bottom.sxx) ? f.top.sxx : f.bottom.sxx;
+    expect(shellComponentValue(s, 'sigmaXx', 'worst')).toBeCloseTo(worse);
+  });
+});
+
 describe('the field averaged within a domain', () => {
   // Two quads sharing the edge 2–3, one per domain.
   const nodes = new Map([['q1', [1, 2, 3, 4]], ['q2', [2, 5, 6, 3]]]);
@@ -55,6 +78,15 @@ describe('the field averaged within a domain', () => {
     const split = shellContourField({ plates: [], quads: [st(1, 10), st(2, 30)] }, (k) => nodes.get(k), 'mx', { ...opts, domainOf: (k) => k });
     expect(split.corners.get('q1')).toEqual([10, 10, 10, 10]);
     expect(split.corners.get('q2')).toEqual([30, 30, 30, 30]);
+  });
+
+  it('averages Von Mises within each domain, not over the whole model', () => {
+    const vm = (id: number, v: number) => ({ ...st(id, 0), vonMises: v, nodalVonMises: [50, 50, 50, 50] });
+    const split = shellContourField({ plates: [], quads: [vm(1, 10), vm(2, 90)] }, (k) => nodes.get(k), 'vonMises', { ...opts, domainOf: (k) => k });
+    expect(split.corners.get('q1')).toEqual([10, 10, 10, 10]);
+    expect(split.corners.get('q2')).toEqual([90, 90, 90, 90]);
+    const all = shellContourField({ plates: [], quads: [vm(1, 10), vm(2, 90)] }, (k) => nodes.get(k), 'vonMises', opts);
+    expect(all.corners.get('q1')).toEqual([50, 50, 50, 50]);
   });
 
   it('leaves an element that does not give the component unpainted', () => {

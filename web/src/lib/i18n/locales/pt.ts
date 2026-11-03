@@ -5008,6 +5008,8 @@ const pt: Translations = {
   'contour.face.mid': "plano médio",
   'contour.face.top': "superior",
   'contour.face.bottom': "inferior",
+  'contour.face.auto': "padrão ({face})",
+  'contour.face.worst': "face mais solicitada",
   'contour.directions': "Direções principais",
   'contour.values': "Máximo e mínimo sobre o modelo",
   'contour.line.title': "Resultados ao longo de uma linha",

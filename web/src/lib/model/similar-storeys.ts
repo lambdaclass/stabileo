@@ -58,7 +58,6 @@ export function levelUnder(levels: readonly Level[], z: number, tol = STOREY_TOL
 }
 
 const zOf = (p: P) => p.z ?? 0;
-const key = (v: number, tol: number) => Math.round(v / tol);
 
 /** The storey of a member: the level its upper end sits on, else the one under it. */
 export function elementLevel(m: StoreyModel, id: number, levels: readonly Level[], tol = STOREY_TOL): Level | null {
@@ -82,45 +81,108 @@ export function shellLevel(m: StoreyModel, key: string, levels: readonly Level[]
   return levelAt(levels, top, tol) ?? levelUnder(levels, top, tol);
 }
 
-/** A point's place relative to its level, as a key: plan position and height above the level. */
-const placeKey = (p: P, level: Level, tol: number) => `${key(p.x, tol)},${key(p.y, tol)},${key(zOf(p) - level.z, tol)}`;
-const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
+/** A point's place on a level: plan position and height above the level; `-Infinity` for "on the level below". */
+type Place = [number, number, number];
+
+const levelBelow = (lv: Level, levels: readonly Level[]): Level | undefined => {
+  const all = sorted(levels);
+  return all[all.findIndex((l) => l.id === lv.id) - 1];
+};
+
+const place = (p: P, lv: Level): Place => [p.x, p.y, zOf(p) - lv.z];
 
 /**
- * A member's place on its level. An end on the level below is "below" whatever the storey's
+ * A member's ends on its level. An end on the level below is "below" whatever the storey's
  * height, so a column of a taller similar storey is still the same column.
  */
-function memberKey(a: P, b: P, lv: Level, levels: readonly Level[], tol: number): string {
-  const all = sorted(levels);
-  const under = all[all.findIndex((l) => l.id === lv.id) - 1];
-  const at = (p: P) => (under && Math.abs(zOf(p) - under.z) <= tol ? `${key(p.x, tol)},${key(p.y, tol)},below` : placeKey(p, lv, tol));
-  return pairKey(at(a), at(b));
+function memberPlaces(a: P, b: P, lv: Level, levels: readonly Level[], tol: number): Place[] {
+  const under = levelBelow(lv, levels);
+  const at = (p: P): Place => (under && Math.abs(zOf(p) - under.z) <= tol ? [p.x, p.y, -Infinity] : place(p, lv));
+  return [at(a), at(b)];
 }
 
-/** Lookups of the model's objects by their place on each level. */
-export interface StoreyIndex {
-  elements: Map<string, number>;
-  nodes: Map<string, number>;
-  shells: Map<string, string>;
+const samePlace = (a: Place, b: Place, tol: number) =>
+  Math.abs(a[0] - b[0]) <= tol && Math.abs(a[1] - b[1]) <= tol
+  && (a[2] === b[2] || (Number.isFinite(a[2]) && Number.isFinite(b[2]) && Math.abs(a[2] - b[2]) <= tol));
+
+/** The same set of places, in any order, within the tolerance. */
+function samePlaces(a: readonly Place[], b: readonly Place[], tol: number): boolean {
+  if (a.length !== b.length) return false;
+  const used = new Set<number>();
+  return a.every((p) => {
+    const i = b.findIndex((q, j) => !used.has(j) && samePlace(p, q, tol));
+    if (i < 0) return false;
+    used.add(i);
+    return true;
+  });
+}
+
+/**
+ * Objects by their places on one level. Each is filed under the cell of every place it has, and a
+ * lookup reads the cells around the first place it asks for, so two places closer than the
+ * tolerance always meet, whichever side of a cell boundary they fall on.
+ */
+class PlaceGrid<T> {
+  private readonly cells = new Map<string, Array<{ places: Place[]; value: T }>>();
+  private n = 0;
+  constructor(private readonly tol: number) {}
+  get size(): number { return this.n; }
+  private cell(p: Place, dx = 0, dy = 0, dh = 0): string {
+    const c = (v: number) => Math.floor(v / this.tol);
+    return `${c(p[0]) + dx},${c(p[1]) + dy},${Number.isFinite(p[2]) ? c(p[2]) + dh : 'below'}`;
+  }
+  add(places: Place[], value: T): void {
+    const entry = { places, value };
+    for (const k of new Set(places.map((p) => this.cell(p)))) (this.cells.get(k) ?? this.cells.set(k, []).get(k)!).push(entry);
+    this.n++;
+  }
+  find(places: readonly Place[]): T | undefined {
+    const q = places[0];
+    if (!q) return undefined;
+    const hs = Number.isFinite(q[2]) ? [-1, 0, 1] : [0];
+    for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) for (const dh of hs) {
+      for (const e of this.cells.get(this.cell(q, dx, dy, dh)) ?? []) if (samePlaces(e.places, places, this.tol)) return e.value;
+    }
+    return undefined;
+  }
+}
+
+/** Lookups of the model's objects by their places, level by level; a shell's level key carries its kind. */
+export class StoreyIndex {
+  readonly elements = new Map<string, PlaceGrid<number>>();
+  readonly nodes = new Map<string, PlaceGrid<number>>();
+  readonly shells = new Map<string, PlaceGrid<string>>();
+  constructor(private readonly tol: number) {}
+  static add<T>(by: Map<string, PlaceGrid<T>>, level: string, places: Place[], value: T, tol: number): void {
+    (by.get(level) ?? by.set(level, new PlaceGrid<T>(tol)).get(level)!).add(places, value);
+  }
+  addElement(level: string, places: Place[], id: number): void { StoreyIndex.add(this.elements, level, places, id, this.tol); }
+  addNode(level: string, places: Place[], id: number): void { StoreyIndex.add(this.nodes, level, places, id, this.tol); }
+  addShell(level: string, places: Place[], key: string): void { StoreyIndex.add(this.shells, level, places, key, this.tol); }
+  static count(by: Map<string, PlaceGrid<unknown>>): number {
+    let n = 0;
+    for (const g of by.values()) n += g.size;
+    return n;
+  }
 }
 
 export function storeyIndex(m: StoreyModel, levels: readonly Level[], tol = STOREY_TOL): StoreyIndex {
-  const idx: StoreyIndex = { elements: new Map(), nodes: new Map(), shells: new Map() };
+  const idx = new StoreyIndex(tol);
   for (const [id, e] of m.elements) {
     const lv = elementLevel(m, id, levels, tol);
     const a = m.nodes.get(e.nodeI), b = m.nodes.get(e.nodeJ);
-    if (lv && a && b) idx.elements.set(`${lv.id}#${memberKey(a, b, lv, levels, tol)}`, id);
+    if (lv && a && b) idx.addElement(lv.id, memberPlaces(a, b, lv, levels, tol), id);
   }
   for (const [id, n] of m.nodes) {
     const lv = nodeLevel(m, id, levels, tol);
-    if (lv) idx.nodes.set(`${lv.id}#${placeKey(n, lv, tol)}`, id);
+    if (lv) idx.addNode(lv.id, [place(n, lv)], id);
   }
   for (const [prefix, map] of [['q', m.quads], ['p', m.plates]] as const) {
     for (const [id, s] of map ?? []) {
       const k = `${prefix}${id}`;
       const lv = shellLevel(m, k, levels, tol);
       const pts = s.nodes.map((n) => m.nodes.get(n)).filter((p): p is P => !!p);
-      if (lv && pts.length === s.nodes.length) idx.shells.set(`${lv.id}#${prefix}#${pts.map((p) => placeKey(p, lv, tol)).sort().join('|')}`, k);
+      if (lv && pts.length === s.nodes.length) idx.addShell(`${lv.id}#${prefix}`, pts.map((p) => place(p, lv)), k);
     }
   }
   return idx;
@@ -157,11 +219,11 @@ export function expandToStoreys(
       const a = e && m.nodes.get(e.nodeI), b = e && m.nodes.get(e.nodeJ);
       if (!lv || !a || !b) continue;
       reached.add(lv.id);
-      const k = memberKey(a, b, lv, levels, tol);
+      const k = memberPlaces(a, b, lv, levels, tol);
       for (const other of scopeLevels(levels, lv.id, scope)) {
         if (other.id === lv.id) continue;
         reached.add(other.id);
-        const hit = idx.elements.get(`${other.id}#${k}`);
+        const hit = idx.elements.get(other.id)?.find(k);
         if (hit !== undefined) elements.add(hit); else unmatched.push({ kind: 'element', id, level: other.id });
       }
     }
@@ -169,11 +231,11 @@ export function expandToStoreys(
       const n = m.nodes.get(id), lv = nodeLevel(m, id, levels, tol);
       if (!n || !lv) continue;
       reached.add(lv.id);
-      const k = placeKey(n, lv, tol);
+      const k = [place(n, lv)];
       for (const other of scopeLevels(levels, lv.id, scope)) {
         if (other.id === lv.id) continue;
         reached.add(other.id);
-        const hit = idx.nodes.get(`${other.id}#${k}`);
+        const hit = idx.nodes.get(other.id)?.find(k);
         if (hit !== undefined) nodes.add(hit); else unmatched.push({ kind: 'node', id, level: other.id });
       }
     }
@@ -183,11 +245,11 @@ export function expandToStoreys(
       const pts = (s?.nodes ?? []).map((n) => m.nodes.get(n)).filter((p): p is P => !!p);
       if (!s || !lv || pts.length !== s.nodes.length) continue;
       reached.add(lv.id);
-      const k = `${sk[0]}#${pts.map((p) => placeKey(p, lv, tol)).sort().join('|')}`;
+      const k = pts.map((p) => place(p, lv));
       for (const other of scopeLevels(levels, lv.id, scope)) {
         if (other.id === lv.id) continue;
         reached.add(other.id);
-        const hit = idx.shells.get(`${other.id}#${k}`);
+        const hit = idx.shells.get(`${other.id}#${sk[0]}`)?.find(k);
         if (hit !== undefined) shells.add(hit); else unmatched.push({ kind: 'shell', id: sk, level: other.id });
       }
     }
@@ -203,6 +265,21 @@ export function expandToStoreys(
 /** A point on `from` placed on `to`: the same plan position and height above its level. */
 export function placeOn(p: P, from: Level, to: Level): { x: number; y: number; z: number } {
   return { x: p.x, y: p.y, z: zOf(p) - from.z + to.z };
+}
+
+/**
+ * A member's ends on `from` placed on `to`. An end on the level below `from` goes to the level
+ * below `to`, so a column of a 3 m storey copied to a 4 m one spans that storey; null when `to` has
+ * no level below for it.
+ */
+export function placeMemberOn(a: P, b: P, from: Level, to: Level, levels: readonly Level[], tol = STOREY_TOL): [{ x: number; y: number; z: number }, { x: number; y: number; z: number }] | null {
+  const under = levelBelow(from, levels), toUnder = levelBelow(to, levels);
+  const end = (p: P) => {
+    if (under && Math.abs(zOf(p) - under.z) <= tol) return toUnder ? { x: p.x, y: p.y, z: toUnder.z } : null;
+    return placeOn(p, from, to);
+  };
+  const [i, j] = [end(a), end(b)];
+  return i && j ? [i, j] : null;
 }
 
 /** Problems with the levels' similarity: a level similar to itself or in a cycle, a master that is not a level. */

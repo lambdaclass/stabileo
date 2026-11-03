@@ -58,6 +58,36 @@ describe('checking a report value by value', () => {
     expect(v.differences[0]).toMatchObject({ table: 'reactions', row: first.label, printed: '10.10', recomputed: original });
   });
 
+  it('finds a row label or a column header changed by hand', () => {
+    const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
+    const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
+    const at = html.indexOf('data-printed="reactions"');
+    const reactions = printedTables(html).find((p) => p.key === 'reactions')!;
+    const editAfter = (from: string, to: string) => {
+      const i = html.indexOf(from, at);
+      return html.slice(0, i) + to + html.slice(i + from.length);
+    };
+    const label = reactions.rows[0]!.label.split(' · ')[0]!;
+    const relabelled = editAfter(`>${label}</td>`, '>N99</td>');
+    expect(relabelled).not.toBe(html);
+    const v = comparePrintedReport(relabelled)!;
+    expect(v.differences.some((d) => d.table === 'reactions' && d.printed.startsWith('N99'))).toBe(true);
+    const header = reactions.headers.at(-1)!;
+    const reheaded = editAfter(`>${header}</th>`, '>Other</th>');
+    expect(reheaded).not.toBe(html);
+    expect(comparePrintedReport(reheaded)!.structural).toContain('reactions');
+  });
+
+  it('finds a printed table removed from the document, and every table removed', () => {
+    const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
+    const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
+    const without = html.replace(/<table[^>]*data-printed="reactions"[\s\S]*?<\/table>/, '');
+    expect(comparePrintedReport(without)!.structural).toContain('reactions');
+    const none = html.replace(/<table[^>]*data-printed="[^"]+"[\s\S]*?<\/table>/g, '');
+    const v = comparePrintedReport(none)!;
+    expect(v.structural).toEqual(expect.arrayContaining(['reactions', 'forces', 'displacements']));
+  });
+
   it('says nothing about a file without marked tables', () => {
     expect(comparePrintedReport('<html><body><table><tr><td class="num">1.00</td></tr></table></body></html>')).toBeNull();
   });

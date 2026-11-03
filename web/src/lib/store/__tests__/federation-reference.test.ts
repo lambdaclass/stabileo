@@ -29,11 +29,15 @@ describe('a linked IFC as a 3D reference', () => {
     expect(await relinkReference(l.id, other, W)).toBe('otherFile');
   });
 
-  it('forgets the shape with the last link that uses it', async () => {
+  it('keeps the shape when a link is removed: another project or an undo may still use the file', async () => {
     const l = await linkIfc(file(), { name: 'Arq', discipline: 'architecture', fileName: 'a.ifc', version: '1' }, W);
     removeLink(l.id);
     await new Promise((r) => setTimeout(r, 20));
     forgetLinkedGeometryCache();
-    expect(await linkedGeometry(l.reference!.hash)).toBeNull();
+    expect((await linkedGeometry(l.reference!.hash))!.meshes.length).toBe(3);
+    modelStore.clear();
+    const again = await linkIfc(file(), { name: 'Arq', discipline: 'architecture', fileName: 'a.ifc', version: '1' }, W);
+    expect(again.reference!.hash).toBe(l.reference!.hash);
+    expect(await referenceAvailable(again)).toBe(true);
   });
 });
