@@ -406,12 +406,14 @@ fn with_replacements(
     classify: &dyn Fn(&EigenResult) -> Result<(EigenResult, Vec<NullMode>), String>,
     eigen: &dyn Fn(usize) -> Option<EigenResult>,
 ) -> Result<(EigenResult, Vec<NullMode>), String> {
-    let (kept, nulls) = classify(result)?;
-    if nulls.is_empty() || kept.values.len() >= num_modes || result.values.len() >= ns {
-        return Ok((kept, nulls));
+    let mut found = classify(result)?;
+    let mut asked = result.values.len();
+    while !found.1.is_empty() && found.0.values.len() < num_modes && asked < ns {
+        asked = (num_modes + found.1.len()).max(2 * asked).min(ns);
+        let more = eigen(asked).ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        found = classify(&more)?;
     }
-    let more = eigen((num_modes + nulls.len()).min(ns)).ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
-    classify(&more)
+    Ok(found)
 }
 
 fn abs_mat_vec_sparse(a: &crate::linalg::CscMatrix, x: &[f64]) -> Vec<f64> {

@@ -49,4 +49,4 @@ its pivot; so is any negative ω² that is not round-off, an instability whateve
 that moves no translational mass (a column free to spin about its own axis, which the static
 solve accepts and no ground motion excites) is reported in the result's `nullModes`, with its
 node and DOF, and the app lists it with the discarded modes instead of dropping it unnoticed
-(`engine/tests/modal_mechanism_refusal.rs`). Models without a mechanism return the same modes, except a stable structure soft enough for a mode with 0 < ω² ≤ 1e-10 rad²/s², which used to lose that mode silently and now keeps it; a free spin no longer takes the place of a requested mode.
+(`engine/tests/modal_mechanism_refusal.rs`). Models without a mechanism return the same modes, except a stable structure soft enough for a mode with 0 < ω² ≤ 1e-10 rad²/s², or a mode under 1e-3 Hz that the app dropped, which used to lose that mode silently and now keeps it; a free spin no longer takes the place of a requested mode.

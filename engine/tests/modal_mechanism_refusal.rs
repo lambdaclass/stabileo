@@ -148,6 +148,58 @@ fn a_free_spin_does_not_take_the_place_of_a_requested_mode() {
     assert!(r.modes[0].frequency > 0.1, "{}", r.modes[0].frequency);
 }
 
+fn spinning_columns(free_mass: bool) -> SolverInput3D {
+    let column = |id: usize, x: f64| {
+        (json!({"id": id, "x": x, "y": 0.0, "z": 0.0}), json!({"id": id + 1, "x": x + 0.13, "y": 0.07, "z": 3.0}))
+    };
+    let mut nodes = Map::new();
+    let mut elements = Map::new();
+    let mut supports = Map::new();
+    let mut nodal = vec![];
+    for (k, x) in [0.0, 5.0].into_iter().enumerate() {
+        let (foot, head) = column(2 * k + 1, x);
+        nodes.insert((2 * k + 1).to_string(), foot);
+        nodes.insert((2 * k + 2).to_string(), head);
+        elements.insert((k + 1).to_string(), json!({"id": k + 1, "type": "frame", "nodeI": 2 * k + 1, "nodeJ": 2 * k + 2, "materialId": 1, "sectionId": 1, "releaseTStart": true}));
+        supports.insert((k + 1).to_string(), json!({"nodeId": 2 * k + 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}));
+        nodal.push(json!({"nodeId": 2 * k + 2, "mass": 0.0, "ixx": 0.1, "iyy": 0.1, "izz": 0.1}));
+    }
+    if free_mass {
+        nodes.insert("5".into(), json!({"id": 5, "x": 10.0, "y": 0.0, "z": 0.0}));
+        nodes.insert("6".into(), json!({"id": 6, "x": 10.1, "y": 0.0, "z": 3.0}));
+        nodes.insert("7".into(), json!({"id": 7, "x": 11.3, "y": 0.7, "z": 3.4}));
+        elements.insert("3".into(), json!({"id": 3, "type": "frame", "nodeI": 5, "nodeJ": 6, "materialId": 1, "sectionId": 1}));
+        elements.insert("4".into(), json!({"id": 4, "type": "frame", "nodeI": 6, "nodeJ": 7, "materialId": 1, "sectionId": 1, "releaseMyStart": true}));
+        supports.insert("3".into(), json!({"nodeId": 5, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}));
+        nodal.push(json!({"nodeId": 6, "mass": 1.0}));
+        nodal.push(json!({"nodeId": 7, "mass": 0.5}));
+    }
+    serde_json::from_value(json!({
+        "nodes": nodes,
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5}},
+        "elements": elements,
+        "supports": supports,
+        "loads": [],
+        "masses": {"nodal": nodal},
+    }))
+    .unwrap()
+}
+
+#[test]
+fn two_free_spins_do_not_take_the_places_of_requested_modes() {
+    let r = solve_modal_3d(&spinning_columns(false), &densities(), 1).expect("one mode of two columns free to spin");
+    assert_eq!(r.null_modes.len(), 2, "{:?}", r.null_modes);
+    assert_eq!(r.modes.len(), 1);
+    assert!(r.modes[0].frequency > 0.1, "{}", r.modes[0].frequency);
+}
+
+#[test]
+fn a_mechanism_behind_two_free_spins_is_still_refused() {
+    let e = refusal(freqs_3d(&spinning_columns(true), 1), "a hinged arm behind two free spins", &[MECHANISM, SINGULAR]);
+    assert!(!e.starts_with(MECHANISM) || e.contains("moves node 7 along u"), "{e}");
+}
+
 #[test]
 fn a_twist_against_a_negative_spring_is_refused_though_it_moves_no_translational_mass() {
     let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", &[MECHANISM]);
