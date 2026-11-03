@@ -29,8 +29,15 @@ fn nightly_reproducers_with_massless_rotations_integrate_to_a_bounded_response()
     for issue in [1196, 1205, 1207] {
         let r = solve_time_history_3d(&ground_motion(nightly_model(issue), 1.0))
             .unwrap_or_else(|e| panic!("#{issue}: {e}"));
+        assert_eq!(r.time_steps.len(), 61, "#{issue}");
+        assert!(!r.node_histories.is_empty(), "#{issue}");
+        for h in &r.node_histories {
+            for series in [&h.ux, &h.uy, &h.uz] { assert_eq!(series.len(), 61, "#{issue}: node {}", h.node_id); }
+        }
         let peak = peak_translation(&r);
-        assert!(peak < 0.01, "#{issue}: peak relative translation {peak:e} m under a 1.2 m/s² record of 0.12 s");
+        assert!(peak > 0.0 && peak < 0.01, "#{issue}: peak relative translation {peak:e} m under a 1.2 m/s² record of 0.12 s");
+        let half = peak_translation(&solve_time_history_3d(&ground_motion(nightly_model(issue), 0.5)).unwrap());
+        assert!((half / peak - 0.5).abs() < 1e-9, "#{issue}: half the record gives {half:e}, not half of {peak:e}");
     }
 }
 

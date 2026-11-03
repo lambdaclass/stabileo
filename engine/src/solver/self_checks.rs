@@ -69,7 +69,13 @@ fn statics(eq: &EquilibriumSummary, reactions: impl Iterator<Item = Vec<f64>>, d
     if applied.iter().chain(components).chain(reactions.iter().flatten()).any(|v| !v.is_finite()) {
         return Err("REFUSE: self-check static_balance: non-finite force".into());
     }
-    let peak = applied.iter().chain(components).chain(reactions.iter().flatten()).fold(1.0_f64, |a,b| a.max(b.abs()));
+    let peak = applied.iter().chain(components).chain(reactions.iter().flatten()).fold(0.0_f64, |a,b| a.max(b.abs()));
+    if peak == 0.0 {
+        return Ok(vec![
+            diagnostic("static_residual", relative_residual, WARN, REFUSE)?,
+            diagnostic("static_balance", 0.0, WARN, REFUSE)?,
+        ]);
+    }
     let mut balance: Vec<_> = applied.iter().map(|v| v/peak).collect();
     let mut scale: f64 = components.iter().map(|v| (v/peak).abs()).sum();
     for reaction in reactions {
@@ -78,7 +84,7 @@ fn statics(eq: &EquilibriumSummary, reactions: impl Iterator<Item = Vec<f64>>, d
             scale += (force/peak).abs();
         }
     }
-    let imbalance = balance.iter().fold(0.0_f64, |a, b| a.max(b.abs())) / scale.max(1.0/peak);
+    let imbalance = balance.iter().fold(0.0_f64, |a, b| a.max(b.abs())) / scale.max(1.0);
     Ok(vec![
         diagnostic("static_residual", relative_residual, WARN, REFUSE)?,
         diagnostic("static_balance", imbalance, WARN, REFUSE)?,
@@ -300,6 +306,13 @@ mod tests {
             max_imbalance: 0.0, equilibrium_ok: true };
         statics(&eq, vec![vec![0.0,10.0]].into_iter(), 2, eq.relative_residual).unwrap();
         assert!(statics(&eq, vec![vec![0.0,9.0]].into_iter(), 2, eq.relative_residual).unwrap_err().contains("static_balance"));
+        for load in [1e-4, 1e-12, 1e-200] {
+            let small = EquilibriumSummary { applied_force_components: vec![0.0, -load], applied_force_sum: vec![0.0, -load], ..eq.clone() };
+            statics(&small, vec![vec![0.0, load]].into_iter(), 2, 0.0).unwrap();
+            assert!(statics(&small, vec![vec![0.0, 0.0]].into_iter(), 2, 0.0).unwrap_err().contains("static_balance"), "{load:e}");
+        }
+        let unloaded = EquilibriumSummary { applied_force_components: vec![0.0, 0.0], applied_force_sum: vec![0.0, 0.0], ..eq.clone() };
+        statics(&unloaded, vec![vec![0.0, 0.0]].into_iter(), 2, 0.0).unwrap();
         eq.relative_residual = (2.0_f64 * 1.1 - 2.0).abs()/2.0;
         assert!(statics(&eq, vec![vec![0.0,10.0]].into_iter(), 2, eq.relative_residual).unwrap_err().contains("static_residual"));
     }
