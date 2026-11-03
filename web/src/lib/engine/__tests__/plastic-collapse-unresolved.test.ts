@@ -46,6 +46,7 @@ describe('a mechanism the consistency check cannot accept', () => {
     lp.forceInfeasible = false;
     expect(r.unresolved).toBe(true);
     expect(verifiedCollapse(r)).toBe(false);
+    expect(r.isMechanism).toBe(false);
   });
 });
 
@@ -53,6 +54,7 @@ describe('an analysis that runs out of events', () => {
   it('is unresolved, not a structure that does not collapse', () => {
     const cut = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 1 });
     expect(cut.unresolved).toBe(true);
+    expect(cut.isMechanism).toBe(false);
     const whole = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
     expect(whole.unresolved).toBeUndefined();
     expect(whole.isMechanism).toBe(true);
@@ -67,6 +69,7 @@ describe('a mechanism formed by the last allowed event', () => {
     expect(r.hinges).toHaveLength(2);
     expect(r.unresolved).toBe(true);
     expect(verifiedCollapse(r)).toBe(false);
+    expect(r.isMechanism).toBe(false);
   });
 });
 
@@ -77,5 +80,6 @@ describe('a mechanism the rigid-plastic model finds no motion for', () => {
     lp.emptyMotion = false;
     expect(r.unresolved).toBe(true);
     expect(verifiedCollapse(r)).toBe(false);
+    expect(r.isMechanism).toBe(false);
   });
 });

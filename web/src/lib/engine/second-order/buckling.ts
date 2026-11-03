@@ -64,7 +64,7 @@ export function firstOrderAxial(sys: SoSystem): { ok: true; N0: Map<number, numb
 }
 
 function elasticUncertainty(sys: SoSystem, m: SoSystem['members'][number], lin: { D: number[] }): number {
-  const at = (node: number) => Math.hypot(lin.D[sys.dof(node, 0)], lin.D[sys.dof(node, 1)]);
+  const at = (node: number) => Math.abs(m.c * lin.D[sys.dof(node, 0)]) + Math.abs(m.s * lin.D[sys.dof(node, 1)]);
   return (m.EA / m.L) * (at(m.i) + at(m.j));
 }
 

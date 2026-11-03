@@ -650,7 +650,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     collapseFactor: lambda,
     steps,
     hinges,
-    isMechanism,
+    isMechanism: isMechanism && !unresolved,
     redundancy: Math.max(0, kin0.degree),
     degree: kin0.degree,
     unloaded,

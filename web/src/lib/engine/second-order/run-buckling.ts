@@ -29,6 +29,7 @@ export function memberBucklingData(original: SolverInput, r: Refined, pieceN: Ma
   const scale = Math.max(0, ...[...pieceN.values()].map(Math.abs));
   for (const [id, list] of r.pieces) {
     const e = original.elements.get(id)!;
+    if (e.type === 'truss') continue;
     const n = Math.min(...list.map((p) => pieceN.get(p.id) ?? 0));
     if (!(n < -1e-9 * scale)) continue;
     const mat = original.materials.get(e.materialId), sec = original.sections.get(e.sectionId);

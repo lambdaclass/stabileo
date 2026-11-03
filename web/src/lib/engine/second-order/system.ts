@@ -48,7 +48,7 @@ export interface SoSystem {
    * With rigid members: free displacements = Tq, and the members' elongations Cf·D (rows by
    * member). q are the free displacements at positions `indep` of `free`; the rest follow.
    */
-  rigid?: { T: Mat; C: Mat; Cfull: Mat; indep: number[] };
+  rigid?: { T: Mat; C: Mat; indep: number[] };
 }
 
 export type Built = { ok: true; sys: SoSystem } | { ok: false; reason: Txt };
@@ -138,18 +138,20 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowN
   sys.idle = idle;
   const joined = new Set(members.flatMap((m) => [dof(m.i, 0), dof(m.i, 1), dof(m.j, 0), dof(m.j, 1)]));
   if (idle.some((d) => joined.has(d))) return { ok: false, reason: tx('course.second-order.refuse.singular') };
-  const loadScale = Math.max(0, ...sys.F.map(Math.abs));
-  if (idle.some((d) => Math.abs(sys.F[d]) > 1e-9 * loadScale)) return { ok: false, reason: tx('course.second-order.refuse.idleLoad') };
+  const memberScale = memberLoadScales(sys);
+  if (idle.some((d) => sys.Fnodal[d] !== 0 || Math.abs(sys.F[d] - sys.Fnodal[d]) > 1e-9 * (memberScale[d] ?? 0))) return { ok: false, reason: tx('course.second-order.refuse.idleLoad') };
   if (free.length === 0 && !allowNoFree) return { ok: false, reason: tx('course.second-order.refuse.noFree') };
   if (free.length > TEACHING_MAX_DOFS) return { ok: false, reason: tx('course.second-order.refuse.tooBig', { n: free.length, max: TEACHING_MAX_DOFS }) };
 
   if (opts.axialRigid) {
-    const Cfull = members.map((m) => {
-      const row = new Array(nTotal).fill(0);
-      row[dof(m.i, 0)] -= m.c; row[dof(m.i, 1)] -= m.s; row[dof(m.j, 0)] += m.c; row[dof(m.j, 1)] += m.s;
+    if (members.length > free.length) return { ok: false, reason: tx('course.second-order.refuse.rigidIndeterminate') };
+    const col = new Map(free.map((d, k) => [d, k]));
+    const C = members.map((m) => {
+      const row = new Array(free.length).fill(0);
+      const put = (d: number, v: number) => { const k = col.get(d); if (k !== undefined) row[k] += v; };
+      put(dof(m.i, 0), -m.c); put(dof(m.i, 1), -m.s); put(dof(m.j, 0), m.c); put(dof(m.j, 1), m.s);
       return row;
     });
-    const C = Cfull.map((row) => free.map((d) => row[d]));
     const CCt = matMul(C, transpose(C));
     const probe = solveDense(CCt, new Array(C.length).fill(1));
     if (!probe) return { ok: false, reason: tx('course.second-order.refuse.rigidIndeterminate') };
@@ -159,9 +161,21 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowN
     basis.forEach((v, j) => v.forEach((x, i) => { T[i][j] = x; }));
     const { pivots } = rref(C, free.length);
     const indep = free.map((_, k) => k).filter((k) => !pivots.includes(k));
-    sys.rigid = { T, C, Cfull, indep };
+    sys.rigid = { T, C, indep };
   }
   return { ok: true, sys };
+}
+
+function memberLoadScales(sys: SoSystem): number[] {
+  const out = new Array(sys.nTotal).fill(0);
+  for (const m of sys.members) {
+    const p = sys.memberLoads.get(m.id);
+    if (!p) continue;
+    const f = Math.max(...[0, 1, 3, 4].map((k) => Math.abs(p[k]))), mo = Math.max(Math.abs(p[2]), Math.abs(p[5]));
+    const force = Math.max(f, mo / m.L), moment = Math.max(mo, f * m.L);
+    memberDofs(sys, m).forEach((d, k) => { out[d] += k % 3 === 2 ? moment : force; });
+  }
+  return out;
 }
 
 function addEquivalentLoads(sys: SoSystem): void {

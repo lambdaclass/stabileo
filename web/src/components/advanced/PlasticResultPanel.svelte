@@ -48,7 +48,7 @@
   </div>
   <div class="adv-result-info" data-testid="plastic-verdict">
     λ = {r.steps[step]?.loadFactor.toFixed(3) ?? '—'}
-    {#if step === r.steps.length - 1}
+    {#if step === r.steps.length - 1 && !r.unresolved}
       · {r.isMechanism
         ? t('plastic.collapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{n}', String(r.hinges.length))
         : t('plastic.noCollapse')}

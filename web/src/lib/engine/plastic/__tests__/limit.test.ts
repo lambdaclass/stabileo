@@ -15,7 +15,13 @@ import type { SolverLoad } from '../../types';
 import { momentAt } from '../sections';
 import { model, fixedBeam, proppedUdl, portal, twoSpanUdl, uniformMp, MP, P, pOn, q } from './helpers';
 
-const incremental = (m: Parameters<typeof plasticCollapse2D>[0]) => plasticCollapse2D(m, { mp: () => MP, np: () => Infinity }).collapseFactor;
+const verified = (r: ReturnType<typeof plasticCollapse2D>) => {
+  expect(r.unresolved).not.toBe(true);
+  expect(r.isMechanism).toBe(true);
+  expect(Number.isFinite(r.collapseFactor) && r.collapseFactor > 0).toBe(true);
+  return r.collapseFactor;
+};
+const incremental = (m: Parameters<typeof plasticCollapse2D>[0]) => verified(plasticCollapse2D(m, { mp: () => MP, np: () => Infinity }));
 
 describe('a small linear program', () => {
   it('finds the optimum of a two-variable problem with free variables and equalities', () => {
@@ -160,7 +166,7 @@ describe('collapse loads: kinematic minimum = static check = step by step', () =
     const s = solveLimit(m, mp)!;
     expect(s.best.lambda).toBeCloseTo(9625 / 135, 9);
     const r = plasticCollapse2D(m, { mp, np: () => Infinity });
-    expect(Math.abs(r.collapseFactor / (9625 / 135) - 1)).toBeLessThan(1e-4);
+    expect(Math.abs(verified(r) / (9625 / 135) - 1)).toBeLessThan(1e-4);
     expect(r.hinges.some((h) => h.unloadedAt !== undefined)).toBe(true);
   });
 
@@ -170,7 +176,7 @@ describe('collapse loads: kinematic minimum = static check = step by step', () =
     const s = solveLimit(m, mp)!;
     const corner = s.lm.sm.sections.filter((x) => x.kind === 'joint');
     expect(corner.every((x) => x.member !== 2)).toBe(true);
-    expect(s.best.lambda).toBeCloseTo(plasticCollapse2D(m, { mp, np: () => Infinity }).collapseFactor, 6);
+    expect(s.best.lambda).toBeCloseTo(verified(plasticCollapse2D(m, { mp, np: () => Infinity })), 6);
   });
 });
 

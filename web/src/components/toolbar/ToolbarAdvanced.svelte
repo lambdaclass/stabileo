@@ -490,7 +490,8 @@
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
-      uiStore.toast(r.isMechanism
+      if (r.unresolved) uiStore.toast(t('course.plastic.unresolved'), 'error');
+      else uiStore.toast(r.isMechanism
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
         : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
     } catch (e: any) {

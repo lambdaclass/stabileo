@@ -204,6 +204,13 @@ describe('effective length factors are never made up', () => {
     const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
     expect(memberBucklingData(flat, r, N, 3)).toEqual([]);
   });
+  it('a compressed truss bar gets no effective length: its bending was never in the eigenproblem', () => {
+    const c = column('pinned', 'rollerZ', 5, 100);
+    const bar = { ...c, elements: new Map([...c.elements].map(([id, e]) => [id, { ...e, type: 'truss' as const }])) };
+    const r = pieces(bar);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
+    expect(memberBucklingData(bar, r, N, 1e6)).toEqual([]);
+  });
   it('a tiny compression keeps its k: the floor is relative to the largest force', () => {
     const c = column('pinned', 'rollerZ', 5, 1e-10);
     const r = pieces(c);

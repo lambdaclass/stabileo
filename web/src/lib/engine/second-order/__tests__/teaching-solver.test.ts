@@ -576,3 +576,16 @@ describe('a nodal and an internal buckling mode at the same load factor', () => 
     expect(Math.max(...drawn[0].D.map(Math.abs))).toBeCloseTo(1, 9);
   });
 });
+
+describe('the compression check ignores displacements that do not stretch the member', () => {
+  it.each([0, 1e6, 1e10, 1e13])('a cantilever column under 100 kN keeps N = −100 kN and Pcr with a lateral load of %s kN', (H) => {
+    const b = buildSystem(column('fixed', null, 4, 100, H), { method: 'consistent', axialRigid: false });
+    if (!b.ok) throw new Error(b.reason.key);
+    const a = firstOrderAxial(b.sys);
+    if (!a.ok) throw new Error(a.reason.key);
+    expect(a.N0.get(1)! / -100).toBeCloseTo(1, 9);
+    const r = teachingBuckling(column('fixed', null, 4, 100, H), { method: 'phi', axialRigid: false }, 1);
+    if (!r.ok) throw new Error(r.reason.key);
+    expect(r.run.modes[0].lambda * 100 / ((Math.PI ** 2 * EI) / (4 * 16))).toBeCloseTo(1, 6);
+  });
+});

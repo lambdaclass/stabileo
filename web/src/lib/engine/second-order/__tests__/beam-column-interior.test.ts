@@ -79,3 +79,32 @@ describe('a compressed member next to a far larger tension elsewhere', () => {
     expect(b.run.modes[0].lambda * 100).toBeCloseTo((Math.PI ** 2 * EI) / (4 * L * L), 3);
   });
 });
+
+describe('φ draws a sway column through its own end moments', () => {
+  const L = 4;
+  const sway = (P: number, H: number, rotationHeld: boolean) => {
+    const input = column('fixed', null, L, P, H);
+    if (rotationHeld) input.supports.set(2, { id: 2, nodeId: 2, type: 'spring', kx: 0, ky: 0, kz: 1e14 });
+    return input;
+  };
+  const cases: Array<[string, number, boolean, (k: number, H: number, x: number) => number]> = [
+    ['cantilever, kL = 1.2', 1.2, false, (k, H, x) => (H / k) * Math.sin(k * (L - x)) / Math.cos(k * L)],
+    ['cantilever, kL = 1.5', 1.5, false, (k, H, x) => (H / k) * Math.sin(k * (L - x)) / Math.cos(k * L)],
+    ['fixed base, top free to sway with its rotation held, kL = 2.8', 2.8, true, (k, H, x) => (H / k) * Math.sin(k * (L / 2 - x)) / Math.cos(k * L / 2)],
+    ['fixed base, top free to sway with its rotation held, kL = 3.05', 3.05, true, (k, H, x) => (H / k) * Math.sin(k * (L / 2 - x)) / Math.cos(k * L / 2)],
+  ];
+  for (const [label, kL, held, exact] of cases) {
+    it(`${label}: M(x) is the closed form and meets mStart and mEnd`, () => {
+      const k = kL / L, P = EI * k * k, H = 10;
+      const got = runPDelta2D(sway(P, H, held), S({ method: 'phi', n: 1 }));
+      if (!got.ok) throw new Error('refused');
+      const ef = got.result.results.elementForces[0];
+      const ref = Math.abs(exact(k, H, 0));
+      const sgn = Math.sign(computeDiagramValueAt('moment', 0, ef)) * Math.sign(exact(k, H, 0));
+      for (const t of [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 0.9, 0.97, 0.99, 1]) {
+        expect(Math.abs(computeDiagramValueAt('moment', t, ef) - sgn * exact(k, H, t * L)) / ref).toBeLessThan(1e-6);
+      }
+      expect(Math.abs(computeDiagramValueAt('moment', 1, ef) - ef.mEnd) / ref).toBeLessThan(1e-9);
+    });
+  }
+});

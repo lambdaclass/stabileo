@@ -66,4 +66,21 @@ describe('the single degree of freedom from a model is judged by its own stiffne
     tipCantilever(scale, 'pinned');
     expect(sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, 'uz')).toBe('mechanism');
   });
+
+  it.each([1e6, 1e12, 1e15])('an unrelated supported member %s times stiffer leaves a flexible cantilever its own k', (ratio) => {
+    tipCantilever(1, 'fixed');
+    const ref = sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, 'uz');
+    if (typeof ref === 'string') throw new Error(ref);
+    const mat = modelStore.model.materials.get(1)!;
+    modelStore.batch(() => {
+      const stiff = modelStore.addMaterial({ ...mat, name: 'stiff', e: mat.e * ratio });
+      const c = modelStore.addNode(0, 5), d = modelStore.addNode(3, 5);
+      const el = modelStore.addElement(c, d);
+      modelStore.updateElement(el, { materialId: stiff });
+      modelStore.addSupport(c, 'fixed');
+    });
+    const r = sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, 'uz');
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.k / ref.k).toBeCloseTo(1, 9);
+  });
 });

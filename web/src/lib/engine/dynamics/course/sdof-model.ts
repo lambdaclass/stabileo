@@ -55,8 +55,7 @@ function nodeDeflection(Kff: number[][], nF: number, free: Array<{ localDof: num
   const gLocal = [c * g[0] + s * g[1], -s * g[0] + c * g[1]];
   let Kc: number[][];
   try { Kc = condense(Kff, zeros(nF), new Array(nF).fill(0), free.map((d) => d.globalIndex)).K; } catch { return 'mechanism'; }
-  const scale = Math.max(...Kff.map((r, i) => Math.abs(r[i])));
-  if (!Kc.every((r, i) => r[i] > 1e-12 * scale)) return 'mechanism';
+  if (!Kc.every((r, i) => r[i] > 1e-12 * Math.abs(Kff[free[i].globalIndex][free[i].globalIndex]))) return 'mechanism';
   const uLocal = [0, 0];
   if (Kc.length === 1) {
     uLocal[free[0].localDof] = gLocal[free[0].localDof] / Kc[0][0];
