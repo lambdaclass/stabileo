@@ -5255,6 +5255,8 @@ const fr: Translations = {
   'contour.face.mid': "plan moyen",
   'contour.face.top': "supérieure",
   'contour.face.bottom': "inférieure",
+  'contour.face.auto': "par défaut ({face})",
+  'contour.face.worst': "face la plus sollicitée",
   'contour.directions': "Directions principales",
   'contour.values': "Maximum et minimum sur le modèle",
   'contour.line.title': 'Résultats le long d\'une ligne',

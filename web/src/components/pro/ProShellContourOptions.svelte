@@ -12,7 +12,7 @@
   import { placementStore } from '../../lib/store/placement.svelte';
   import { editPreview } from '../../lib/store/edit-preview.svelte';
   import { sampleAlongLine, type V3 } from '../../lib/engine/shell-line';
-  import { shellComponentMeta, shellComponentLabelKey, FACE_GROUPS } from '../../lib/engine/shell-stress';
+  import { shellComponentMeta, shellComponentLabelKey, FACE_GROUPS, faceRead } from '../../lib/engine/shell-stress';
   import { toCsv } from '../../lib/engine/result-tables';
   import XYChart from '../charts/XYChart.svelte';
   import { onDestroy } from 'svelte';
@@ -80,9 +80,11 @@
     <div class="sco-row">
       <label>{t('contour.face')}
         <select bind:value={contourOptions.face} data-testid="contour-face">
+          <option value="auto">{tp('contour.face.auto', { face: t(`contour.face.${faceRead(meta.key, 'auto')}`) })}</option>
           <option value="mid">{t('contour.face.mid')}</option>
           <option value="top">{t('contour.face.top')}</option>
           <option value="bottom">{t('contour.face.bottom')}</option>
+          <option value="worst">{t('contour.face.worst')}</option>
         </select>
       </label>
     </div>

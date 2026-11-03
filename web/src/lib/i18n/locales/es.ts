@@ -5326,6 +5326,8 @@ const es: Record<string, string> = {
   'contour.face.mid': "plano medio",
   'contour.face.top': "superior",
   'contour.face.bottom': "inferior",
+  'contour.face.auto': "predeterminada ({face})",
+  'contour.face.worst': "cara más exigida",
   'contour.directions': "Direcciones principales",
   'contour.values': "Máximo y mínimo sobre el modelo",
   'contour.line.title': "Resultados a lo largo de una línea",

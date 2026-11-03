@@ -20,7 +20,7 @@ function createContourOptions() {
   /** Within what the nodes average: the whole model, each physical plate, or each group. */
   let within = $state<'all' | 'physical' | 'group'>('all');
   /** The face the stresses are read on. */
-  let face = $state<import('../engine/shell-stress').ShellFace>('mid');
+  let face = $state<import('../engine/shell-stress').ShellFace>('auto');
   /** The principal directions drawn on each element, for σ1, σ2, Mmax and Mmin. */
   let directions = $state(false);
   /** The largest and smallest values written on the shells. */

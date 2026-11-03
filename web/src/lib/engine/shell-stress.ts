@@ -26,8 +26,12 @@ export interface ShellStressLike {
   qy?: number;
 }
 
-/** Which face a stress is read on: the mid-surface (membrane), or the top or bottom fibre. */
-export type ShellFace = 'mid' | 'top' | 'bottom';
+/**
+ * Which face a stress is read on: the mid-surface (membrane), the top or bottom fibre, the more
+ * stressed of the two by Von Mises (the engine's own Von Mises), or `auto`: Von Mises on the more
+ * stressed face and every other stress on the mid-surface.
+ */
+export type ShellFace = 'auto' | 'mid' | 'top' | 'bottom' | 'worst';
 
 export interface PrincipalStress {
   sigma1: number;   // max principal
@@ -183,18 +187,37 @@ export function principalMoments(mx: number, my: number, mxy: number): { m1: num
 /** The components a face applies to: the stresses. Forces, moments and shears are of the section. */
 export const FACE_GROUPS: readonly ShellComponentGroup[] = ['equiv', 'membrane', 'principal'];
 
+/** The face a component is read on: `auto` resolved, and the section's own for what is not a stress. */
+export function faceRead(key: ShellContourComponent, face: ShellFace): Exclude<ShellFace, 'auto'> {
+  const group = shellComponentMeta(key).group;
+  if (!FACE_GROUPS.includes(group)) return 'mid';
+  if (face === 'auto') return group === 'equiv' ? 'worst' : 'mid';
+  return face;
+}
+
+/** The in-plane stress on a face; null on a fibre of a shell with no thickness. */
+function planeOn(s: ShellStressLike, face: Exclude<ShellFace, 'auto'>): PlaneStress | null {
+  if (face === 'mid') return { sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy };
+  if (!(s.t && s.t > 0)) return null;
+  const { top, bottom } = faceStresses(s, s.t);
+  if (face === 'top') return top;
+  if (face === 'bottom') return bottom;
+  return vonMisesPlane(top.sxx, top.syy, top.txy) >= vonMisesPlane(bottom.sxx, bottom.syy, bottom.txy) ? top : bottom;
+}
+
 /**
  * Scalar value of a contour component for one shell element (deriving principals), on `face`.
  * NaN where the element does not give it: a transverse shear on a triangle, a force or a face with
  * no thickness.
  */
-export function shellComponentValue(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'mid'): number {
-  const onFace = face !== 'mid' && FACE_GROUPS.includes(shellComponentMeta(key).group);
-  if (onFace && !(s.t && s.t > 0)) return NaN;
-  const f = onFace ? faceStresses(s, s.t!)[face === 'top' ? 'top' : 'bottom'] : { sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy };
+export function shellComponentValue(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'auto'): number {
+  const read = faceRead(key, face);
+  if (key === 'vonMises' && read === 'worst') return s.vonMises;
+  const f = planeOn(s, read);
+  if (!f) return NaN;
   const force = (v: number) => (s.t && s.t > 0 ? v * s.t : NaN);
   switch (key) {
-    case 'vonMises': return onFace ? vonMisesPlane(f.sxx, f.syy, f.txy) : s.vonMises;
+    case 'vonMises': return vonMisesPlane(f.sxx, f.syy, f.txy);
     case 'sigmaXx': return f.sxx;
     case 'sigmaYy': return f.syy;
     case 'tauXy': return f.txy;
@@ -220,14 +243,14 @@ export function shellComponentValue(s: ShellStressLike, key: ShellContourCompone
  * The direction a principal component acts along, degrees from the element's local x; null for a
  * component without one.
  */
-export function shellComponentAngle(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'mid'): number | null {
+export function shellComponentAngle(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'auto'): number | null {
   if (key === 'mmax' || key === 'mmin') {
     const a = principalMoments(s.mx, s.my, s.mxy).angleDeg;
     return key === 'mmax' ? a : a + 90;
   }
   if (key !== 'sigma1' && key !== 'sigma2') return null;
-  const onFace = face !== 'mid' && !!s.t && s.t > 0;
-  const f = onFace ? faceStresses(s, s.t!)[face === 'top' ? 'top' : 'bottom'] : { sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy };
+  const f = planeOn(s, faceRead(key, face));
+  if (!f) return null;
   const a = principalStresses(f.sxx, f.syy, f.txy).angleDeg;
   return key === 'sigma1' ? a : a + 90;
 }

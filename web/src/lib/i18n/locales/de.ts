@@ -5255,6 +5255,8 @@ const de: Translations = {
   'contour.face.mid': "Mittelfläche",
   'contour.face.top': "oben",
   'contour.face.bottom': "unten",
+  'contour.face.auto': "Standard ({face})",
+  'contour.face.worst': "stärker beanspruchte Seite",
   'contour.directions': "Hauptrichtungen",
   'contour.values': "Maximum und Minimum am Modell",
   'contour.line.title': 'Ergebnisse entlang einer Linie',
