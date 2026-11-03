@@ -9,7 +9,10 @@ export function compareRouteSizes(baseline, measured, researchIsolation = proces
     if (!Number.isFinite(productBudget) || productBudget < 0) throw new Error(`missing or invalid product budget for ${route}`);
     const tolerance = researchIsolation ? Math.min(128, productBudget) : productBudget;
     if (!Number.isFinite(baseline[route]) || !Number.isFinite(bytes) || bytes > baseline[route] + tolerance) {
-      throw new Error(`${route} grew: ${baseline[route]} -> ${bytes} bytes (${tolerance} byte tolerance)`);
+      const mode = researchIsolation
+        ? 'research isolation: the change touches research code shipped to the browser'
+        : 'product budget from web/scripts/product-route-growth-budgets.json';
+      throw new Error(`${route} grew: ${baseline[route]} -> ${bytes} bytes (${tolerance} byte tolerance, ${mode})`);
     }
   }
 }
