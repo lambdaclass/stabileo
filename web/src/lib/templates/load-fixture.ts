@@ -312,20 +312,23 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
 }
 
 type FixtureCombination = { factors?: ReadonlyArray<{ caseId: number }> };
+type FixtureCase = { id: number; type?: string };
 
 /**
  * The cases and combinations a fixture leaves the model with. A fixture without combinations
- * keeps only the current ones whose every case it has; one naming a case it lacks is refused.
+ * keeps only the current ones whose every case it has with the type the combination was written
+ * for; one whose own combination names a case it lacks is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
   json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations'>,
-  current: { loadCases: ReadonlyArray<{ id: number }>; combinations: readonly C[] },
-): { loadCases: ReadonlyArray<{ id: number }>; combinations: ReadonlyArray<C | JSONModel['combinations'][number]> } {
+  current: { loadCases: ReadonlyArray<FixtureCase>; combinations: readonly C[] },
+): { loadCases: ReadonlyArray<FixtureCase>; combinations: ReadonlyArray<C | JSONModel['combinations'][number]> } {
   const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
-  const ids = new Set(loadCases.map((c) => c.id));
-  const resolves = (c: FixtureCombination) => (c.factors ?? []).every((f) => ids.has(f.caseId));
-  if (json.combinations.length === 0) return { loadCases, combinations: current.combinations.filter(resolves) };
-  const dangling = json.combinations.filter((c) => !resolves(c));
+  const typeOf = (cases: ReadonlyArray<FixtureCase>) => new Map(cases.map((c) => [c.id, c.type ?? '']));
+  const now = typeOf(loadCases), before = typeOf(current.loadCases);
+  const kept = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
+  if (json.combinations.length === 0) return { loadCases, combinations: current.combinations.filter(kept) };
+  const dangling = json.combinations.filter((c) => !(c.factors ?? []).every((f) => now.has(f.caseId)));
   if (dangling.length > 0) {
     throw new Error(`${json.name}: combination ${dangling.map((c) => `"${c.name}"`).join(', ')} names a load case the model does not have`);
   }

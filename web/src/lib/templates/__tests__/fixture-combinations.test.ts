@@ -49,6 +49,17 @@ describe('the 3D shed', () => {
   });
 });
 
+describe('the stadium canopy', () => {
+  it('carries the CIRSOC 101-2025 combinations of its loaded cases, D and Lr', () => {
+    const { json } = fixtures.find((f) => f.name === 'stadium-canopy')!;
+    const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
+    const cases = json.loadCases.filter((c) => loaded.has(c.id));
+    expect(cases.map((c) => c.type)).toEqual(['D', 'Lr']);
+    const expected = expandCombinations(generateCombinations({ present: presentSymbols(cases) }), cases);
+    expect(json.combinations.map((c) => [c.name, c.factors])).toEqual(expected.map((c) => [c.name, c.factors]));
+  });
+});
+
 describe('a fixture that brings its own cases', () => {
   it('drops the default combinations that name a case it lacks, and keeps the rest', async () => {
     uiStore.analysisMode = '3d';
@@ -56,6 +67,12 @@ describe('a fixture that brings its own cases', () => {
     loadFixture(emptyFixture({ loadCases: [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'L', name: 'L' }] }), modelStore.fixtureApi() as never);
     expect(modelStore.model.combinations.map((c) => c.id)).toEqual([1, 2]);
     expect(missingCases(modelStore.model.loadCases, modelStore.model.combinations)).toEqual([]);
+  });
+
+  it('drops the default combinations whose case it has under another type', () => {
+    const json = emptyFixture({ loadCases: [{ id: 1, type: 'D', name: 'D' }, { id: 2, type: 'Lr', name: 'Lr' }, { id: 3, type: 'W', name: 'W' }] });
+    const { combinations } = fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+    expect(combinations.map((c) => c.name)).toEqual(['1.4D']);
   });
 
   it('is refused, before anything is loaded, when its own combination names a case it lacks', () => {

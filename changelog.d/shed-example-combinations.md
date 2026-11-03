@@ -7,6 +7,8 @@ shed does not have: the solver skipped that factor and showed 1.2 D + 1.0 Lr und
 name. Its numbers were those of 1.2 D + 1.0 Lr, which never gave the largest magnitude of any member
 force, reaction or displacement, but the name said the shed had been checked for an earthquake. The
 shed now opens with the seven CIRSOC 101-2025 §2.3.2 combinations for its dead, roof live and wind
-cases. An example, workbook or generated model that brings its own load cases now keeps only the
-combinations whose every case it has, and one whose own combination names a missing case is refused.
-Projects saved with the old combinations solve as before; open the shed again for the new ones.
+cases, and the stadium canopy, which had Basic's "L" combinations applied to its roof live case,
+with the three for its dead and roof live loads. An example, workbook or generated model that brings
+its own load cases now keeps only the combinations whose every case it has, with the type the
+combination was written for, and one whose own combination names a missing case is refused. Projects
+saved with the old combinations solve as before; open the example again for the new ones.
