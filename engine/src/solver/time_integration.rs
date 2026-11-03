@@ -309,6 +309,11 @@ fn solve_time_history_2d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let first_bad = node_histories.iter().filter_map(|h| {
+        first_non_finite(&[&h.ux, &h.uz, &h.ry, &h.vx, &h.vz, &h.ax, &h.az])
+    }).min();
+    refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.rx, r.rz, r.my]))?;
+
     Ok(TimeHistoryResult {
         time_steps,
         node_histories,
@@ -322,6 +327,31 @@ fn solve_time_history_2d_inner(
 // ============================================================================
 // Internal helpers
 // ============================================================================
+
+pub const NON_FINITE_RESPONSE: &str = "TH-NONFINITE";
+
+fn first_non_finite(series: &[&Vec<f64>]) -> Option<usize> {
+    series.iter().filter_map(|s| s.iter().position(|v| !v.is_finite())).min()
+}
+
+fn refuse_non_finite_response(
+    first_bad_step: Option<usize>,
+    time_steps: &[f64],
+    mut peak_reactions: impl Iterator<Item = f64>,
+) -> Result<(), String> {
+    if let Some(k) = first_bad_step {
+        return Err(format!(
+            "{NON_FINITE_RESPONSE}: Time history: the response is not finite (NaN or infinite) from step {k} (t = {} s); no result is returned",
+            time_steps.get(k).copied().unwrap_or(f64::NAN)
+        ));
+    }
+    if peak_reactions.any(|v| !v.is_finite()) {
+        return Err(format!(
+            "{NON_FINITE_RESPONSE}: Time history: the reactions at the peak response are not finite (NaN or infinite); no result is returned"
+        ));
+    }
+    Ok(())
+}
 
 /// Reject integration parameters that make the scheme amplify.
 ///
@@ -1329,6 +1359,11 @@ fn solve_time_history_3d_inner(
         format!("Newmark (beta={:.4}, gamma={:.4})", beta, gamma)
     };
 
+    let first_bad = node_histories.iter().filter_map(|h| {
+        first_non_finite(&[&h.ux, &h.uy, &h.uz, &h.rx, &h.ry, &h.rz, &h.vx, &h.vy, &h.vz, &h.ax, &h.ay, &h.az])
+    }).min();
+    refuse_non_finite_response(first_bad, &time_steps, peak_reactions.iter().flat_map(|r| [r.fx, r.fy, r.fz, r.mx, r.my, r.mz]))?;
+
     Ok(TimeHistoryResult3D {
         time_steps,
         node_histories,
@@ -1605,6 +1640,16 @@ fn compute_reactions_at_state_3d(
 mod tests {
     use super::*;
     use std::collections::HashMap;
+
+    #[test]
+    fn a_non_finite_response_is_refused_at_its_first_step_and_reactions_without_one() {
+        let times = [0.0, 0.01, 0.02];
+        assert!(refuse_non_finite_response(None, &times, [1.0, -2.0].into_iter()).is_ok());
+        let at_step = refuse_non_finite_response(Some(1), &times, [f64::NAN].into_iter()).unwrap_err();
+        assert!(at_step.starts_with("TH-NONFINITE: ") && at_step.contains("from step 1 (t = 0.01 s)"), "{at_step}");
+        let reactions = refuse_non_finite_response(None, &times, [1.0, f64::INFINITY].into_iter()).unwrap_err();
+        assert!(reactions.starts_with("TH-NONFINITE: ") && reactions.contains("reactions") && !reactions.contains("step"), "{reactions}");
+    }
 
     /// Create a simple cantilever beam for testing:
     /// Node 1 (fixed) at (0,0), Node 2 (free) at (1,0).
