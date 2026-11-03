@@ -54,7 +54,7 @@ it('repairs every counter while preserving optional collections and larger count
   const payload = {
     ...legacy(), nextId: { footing: 100, soilProfile: 100 },
     nodes: [...legacy().nodes as unknown[], [3, { id: 3, x: 0, y: 4 }], [4, { id: 4, x: 4, y: 4 }]],
-    loads: [{ type: 'nodal', data: { id: 8, nodeId: 1, fx: 1, fz: 0, my: 0 } }],
+    loads: [{ type: 'nodal', data: { id: 8, caseId: 9, nodeId: 1, fx: 1, fz: 0, my: 0 } }],
     loadCases: [{ id: 9, name: 'Live' }],
     combinations: [{ id: 10, name: 'ULS', factors: [{ caseId: 9, factor: 1.5 }] }],
     plates: [[11, { id: 11, nodes: [1, 2, 3], materialId: 1, thickness: 0.1 }]],

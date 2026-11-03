@@ -55,7 +55,7 @@ export interface JSONModel {
   quads: Array<{ id: number; nodes: number[]; materialId: number; thickness: number }>;
   constraints: Array<Record<string, unknown>>;
   loadCases: Array<{ id: number; type: string; name: string }>;
-  combinations: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }> }>;
+  combinations: Array<{ id: number; name: string; factors: Array<{ caseId: number; factor: number }>; origin?: unknown }>;
   /** Optional model provenance (CAD-derived draft examples carry their source
    *  DXF, assumptions, and review status). Passed through to the model. */
   provenance?: Record<string, unknown>;
@@ -329,24 +329,30 @@ function codeCombinations(cases: ReadonlyArray<FixtureCase>): CodeCombination[] 
 /**
  * The cases and combinations a fixture leaves the model with. A fixture with cases of its own and
  * no combinations keeps the current ones when each of their cases is there with the type it was
- * written for, and otherwise gets CIRSOC 101-2025's for its cases (`rebuilt`). One whose own
- * combination names a case it lacks is refused.
+ * written for and, if it loads several cases, every loaded case is in one of them; otherwise it
+ * gets CIRSOC 101-2025's for its cases (`rebuilt`). One whose own combination names a case it
+ * lacks is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
-  json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations'>,
+  json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations' | 'loads'>,
   current: { loadCases: ReadonlyArray<FixtureCase>; combinations: readonly C[] },
 ): { loadCases: ReadonlyArray<FixtureCase>; combinations: ReadonlyArray<C | CodeCombination>; rebuilt: boolean } {
   const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
   const typeOf = (cases: ReadonlyArray<FixtureCase>) => new Map(cases.map((c) => [c.id, c.type ?? '']));
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
+  const factorsOf = (c: { factors?: unknown }) => (Array.isArray(c.factors) ? c.factors as Array<{ caseId: number; factor?: number } | null> : null);
   if (json.combinations.length === 0) {
     const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
-    if (current.combinations.every(fits)) return { loadCases, combinations: current.combinations, rebuilt: false };
+    const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
+    const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
+    const everyLoadedCombined = loaded.size <= 1 || [...loaded].every((id) => combined.has(id));
+    if (current.combinations.every(fits) && everyLoadedCombined) return { loadCases, combinations: current.combinations, rebuilt: false };
     return { loadCases, combinations: codeCombinations(loadCases), rebuilt: true };
   }
-  const dangling = json.combinations.filter((c) => !c.factors.every((f) => now.has(f.caseId)));
+  const dangling = json.combinations.filter((c) => !factorsOf(c)?.every((f) => f !== null && now.has(f.caseId)));
   if (dangling.length > 0) {
-    throw new Error(`${json.name}: combination ${dangling.map((c) => `"${c.name}"`).join(', ')} names a load case the model does not have`);
+    const names = dangling.map((c) => `"${c.name}"`).join(', ');
+    throw new Error(`${json.name}: ${dangling.length === 1 ? `combination ${names} names` : `combinations ${names} name`} a load case the model does not have`);
   }
   return { loadCases, combinations: json.combinations, rebuilt: false };
 }

@@ -56,6 +56,7 @@ describe('the 3D shed', () => {
     const expected = expandCombinations(generateCombinations({ present: presentSymbols(loadCases) }), loadCases);
     expect(combinations.map((c) => [c.name, c.factors])).toEqual(expected.map((c) => [c.name, c.factors]));
     expect(combinations.some((c) => /\bE\b/.test(c.name))).toBe(false);
+    expect(combinations.map((c) => c.origin?.code)).toEqual(combinations.map(() => 'cirsoc101-2025-basis'));
   });
 });
 
@@ -102,6 +103,23 @@ describe('a fixture that brings its own cases', () => {
     expect(() => loadFixture(json, modelStore.fixtureApi() as never)).toThrow(/"1\.2 D \+ 1\.0 E" names a load case the model does not have/);
     expect(modelStore.nodes.size).toBe(0);
     expect(modelStore.model.combinations).toEqual(defaultCombinations());
+  });
+
+  it('gets them when it loads a case no default combines', () => {
+    const cases = [...defaultLoadCases(), { id: 5, type: 'S', name: 'Snow' }];
+    const loads = [1, 5].map((caseId) => ({ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }));
+    const { combinations, rebuilt } = fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+    expect(rebuilt).toBe(true);
+    expect(combinations.some((c) => c.factors.some((f) => f.caseId === 5 && f.factor !== 0))).toBe(true);
+    expect(missingCases(cases, combinations)).toEqual([]);
+  });
+
+  it('is refused when its own combination has no factor list or a null factor', () => {
+    const cases = [{ id: 1, type: 'D', name: 'D' }];
+    for (const combination of [{ id: 1, name: 'none' }, { id: 1, name: 'null', factors: [null] }]) {
+      const json = emptyFixture({ loadCases: cases, combinations: [combination as never] });
+      expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() }), combination.name).toThrow(/names a load case/);
+    }
   });
 
   it('without cases of its own keeps the four defaults', () => {
