@@ -919,6 +919,27 @@ fn a_negligible_rotational_spring_at_an_all_hinged_node_still_warns() {
 }
 
 #[test]
+fn a_moment_on_a_connector_only_node_without_moment_stiffness_warns() {
+    use dedaliano_engine::known_issues::RotationDemand2D;
+    for (k_moment, hinge_end, warns) in [(0.0, true, true), (0.0, false, true), (1e9, true, true), (1e9, false, false)] {
+        let mut input = make_beam(1, 4.0, E, 0.045, 3.375e-4, "fixed", None, vec![]);
+        input.elements.get_mut("1").unwrap().hinge_end = hinge_end;
+        input.nodes.insert("3".into(), SolverNode { id: 3, x: 4.0, z: 0.0 });
+        input.connectors.insert("1".into(), serde_json::from_value(serde_json::json!({
+            "id": 1, "nodeI": 2, "nodeJ": 3, "kAxial": 1e9, "kShear": 1e9, "kMoment": k_moment
+        })).unwrap());
+        let moment = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: 0.0, my: 1.0 })];
+        assert_eq!(RotationDemand2D::new(&input).demanded(&moment), warns, "kMoment {k_moment}");
+        input.loads = moment;
+        let found = match solve_2d(&input) {
+            Ok(r) => ids(&r.structured_diagnostics),
+            Err(e) => { assert!(warns, "kMoment {k_moment}: {e}"); continue }
+        };
+        assert_eq!(found.contains(&"NUM-INVARIANCE".into()) || found.contains(&"CERT-MECHANISM".into()), warns, "kMoment {k_moment}: {found:?}");
+    }
+}
+
+#[test]
 fn kinematic_classification_is_not_refused_by_a_result_known_issue() {
     use dedaliano_engine::solver::kinematic::analyze_kinematics_3d;
     let mut input = beam3d();
@@ -1027,7 +1048,8 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
         }
         let solver = macneal_strip(distorted, 1);
         let bending = solve_modal_3d(&solver, &densities, 1).unwrap();
-        assert!(bending.modes[0].displacements.iter().all(|d| d.ux.abs() + d.uy.abs() < 1e-9 * d.uz.abs().max(1e-300) || d.uz == 0.0), "the first mode bends out of plane");
+        let (in_plane, out_of_plane) = bending.modes[0].displacements.iter().fold((0.0, 0.0), |(p, o), d| (p + d.ux.abs() + d.uy.abs(), o + d.uz.abs()));
+        assert!(out_of_plane > 0.0 && in_plane < 1e-9 * out_of_plane, "the first mode bends out of plane: in-plane {in_plane}, out-of-plane {out_of_plane}");
         assert_eq!(ids(&bending.structured_diagnostics).contains(&"SH-MITC4-DISTORTION".into()), distorted, "modal: {:?}", ids(&bending.structured_diagnostics));
         let all = solve_modal_3d(&solver, &densities, 4);
         let modes = if distorted {

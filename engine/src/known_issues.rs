@@ -298,6 +298,7 @@ impl RotationDemand2D {
         unrestrained.retain(|id| !stiff.contains(id));
         let rigid_demand = input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(c)
             if unrestrained.contains(&c.master_node) || unrestrained.contains(&c.slave_node)));
+        unrestrained.extend(input.nodes.values().map(|n| n.id).filter(|id| !stiff.contains(id)));
         Self { unrestrained, rigid_demand }
     }
 
