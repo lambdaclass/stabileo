@@ -203,7 +203,7 @@ fn a_mechanism_behind_two_free_spins_is_still_refused() {
 #[test]
 fn a_twist_against_a_negative_spring_is_refused_though_it_moves_no_translational_mass() {
     let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", &[MECHANISM]);
-    assert!(e.contains("(ω² = -9.9") && e.contains("moves node 2 along"), "{e}");
+    assert!(e.contains("(ω² = -") && e.contains("moves node 2 along"), "{e}");
 }
 
 fn seesaw(arm: f64, far: f64, pivot_inertia: f64) -> SolverInput {

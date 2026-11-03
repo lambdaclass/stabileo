@@ -174,14 +174,21 @@ fn a_moment_on_massless_rotations_is_reciprocal_with_a_force_in_3d() {
 fn a_node_with_a_tiny_but_positive_mass_keeps_its_initial_displacement_beside_a_massless_one() {
     let p = 10.0;
     let dt = period() / 400.0;
-    let mut input = chain(dt, 4, 0.0, 3, p);
-    let mut solver = serde_json::to_value(&input.solver).unwrap();
-    solver["nodes"]["4"] = json!({"id": 4, "x": 2.0, "z": 0.0});
-    solver["elements"]["3"] = json!({"id": 3, "type": "truss", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false});
-    solver["supports"]["4"] = json!({"id": 4, "nodeId": 4, "type": "rollerX"});
-    solver["masses"]["nodal"] = json!([{"nodeId": 2, "mass": MASS}, {"nodeId": 3, "mass": MASS * 1e-13}]);
-    input.solver = serde_json::from_value(solver).unwrap();
-    let r = solve_time_history_2d(&input).unwrap();
-    let w0 = ux(&r, 3)[0] - ux(&r, 2)[0];
-    assert_eq!(w0, 0.0, "node 3, of mass {} t, started displaced by {:.3e} of P/k2", MASS * 1e-13, w0 / (p / k2()));
+    for ratio in [1e-13, 1e-15, 1e-20] {
+        let mut input = chain(dt, 4, 0.0, 3, p);
+        let mut solver = serde_json::to_value(&input.solver).unwrap();
+        solver["nodes"]["4"] = json!({"id": 4, "x": 2.0, "z": 0.0});
+        solver["elements"]["3"] = json!({"id": 3, "type": "truss", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false});
+        solver["supports"]["4"] = json!({"id": 4, "nodeId": 4, "type": "rollerX"});
+        solver["masses"]["nodal"] = json!([{"nodeId": 2, "mass": MASS}, {"nodeId": 3, "mass": MASS * ratio}]);
+        input.solver = serde_json::from_value(solver).unwrap();
+        let r = match solve_time_history_2d(&input) {
+            Ok(r) => r,
+            Err(e) if ratio < 1e-18 && e.starts_with("TH-MASS-SINGULAR: ") => continue,
+            Err(e) => panic!("{ratio:e}: {e}"),
+        };
+        let (ua, ub) = (ux(&r, 2), ux(&r, 3));
+        assert_eq!(ub[0] - ua[0], 0.0, "node 3, of {ratio:e} of node 2's mass, started displaced by {:.3e} of P/k2", (ub[0] - ua[0]) / (p / k2()));
+        assert!(ub.iter().chain(&ua).all(|x| x.is_finite()), "{ratio:e}");
+    }
 }

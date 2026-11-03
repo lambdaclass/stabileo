@@ -485,8 +485,12 @@ fn compute_initial_state(
     let basis = mass_triad_basis(m, n, triads);
     let mt = rotate_symmetric(m, &basis);
     let md = mt.diagonal();
-    let max_m = md.iter().fold(0.0f64, |acc, v| acc.max(v.abs()));
-    let (massive, massless): (Vec<usize>, Vec<usize>) = (0..n).partition(|&i| md[i].abs() > max_m * 64.0 * f64::EPSILON);
+    let mut scale = vec![0.0f64; n];
+    for t in triads {
+        let block = t.iter().fold(0.0f64, |acc, &i| acc.max(md[i].abs()));
+        t.iter().for_each(|&i| scale[i] = block);
+    }
+    let (massive, massless): (Vec<usize>, Vec<usize>) = (0..n).partition(|&i| md[i].abs() > scale[i] * 64.0 * f64::EPSILON);
     let kt = rotate_symmetric(k, &basis);
     let k_zz = kt.extract_principal_submatrix(&massless);
     let condense = |r: &[f64]| -> Result<Vec<f64>, String> {
