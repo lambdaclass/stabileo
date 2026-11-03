@@ -42,6 +42,7 @@ const words: Translations = {
   'course.plastic.doc.compareNote': 'Adım adım hesapla karşılaştırma (mafsallar oluştukça uygulanan matris yöntemi). Yayılı yükler altında bu hesap mafsalı çubuk başına 200 kesitten birine yerleştirir; dördüncü anlamlı basamakta farklılık olabilir.',
   'course.plastic.doc.noIncremental': 'Adım adım hesap bu yükler altında bir mekanizmaya ulaşmadı; karşılaştırılacak bir değer yok.',
   'course.plastic.doc.noCollapse': 'Bu yapının hiçbir mekanizması yüklerle hareket etmiyor: bu yükler altında yapı eğilme ile göçmez.',
+  'course.plastic.doc.inconclusive': 'Bu yöntem bu yükler için doğrulanmış bir göçme mekanizması bulamadı ve adım adım hesap göçme olmadığını kanıtlamıyor: sonuç kesin değildir, yapının taşıdığının bir kanıtı değildir.',
 
   'course.plastic.sec.support': 'Ankastre mesnet {node}, {member} ucu',
   'course.plastic.sec.joint': 'Düğüm {node} (Mp değeri küçük olan {member} çubuğunda)',

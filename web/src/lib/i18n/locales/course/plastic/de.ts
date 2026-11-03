@@ -42,6 +42,7 @@ const words: Translations = {
   'course.plastic.doc.compareNote': 'Vergleich mit der schrittweisen Berechnung (Weggrößenverfahren mit den nacheinander entstehenden Gelenken). Unter Streckenlasten setzt diese das Gelenk in einen von 200 Querschnitten je Stab und kann daher in der vierten Stelle abweichen.',
   'course.plastic.doc.noIncremental': 'Die schrittweise Berechnung erreicht unter diesen Lasten keinen Mechanismus; es gibt nichts zu vergleichen.',
   'course.plastic.doc.noCollapse': 'Kein Mechanismus dieses Tragwerks wird von den Lasten bewegt: Unter diesen Lasten versagt das Tragwerk nicht auf Biegung.',
+  'course.plastic.doc.inconclusive': 'Dieses Verfahren fand für diese Lasten keinen verifizierten Kollapsmechanismus, und die schrittweise Berechnung beweist nicht, dass kein Kollaps eintritt: das Ergebnis ist nicht schlüssig, kein Nachweis, dass das Tragwerk hält.',
 
   'course.plastic.sec.support': 'Einspannung {node}, Ende von {member}',
   'course.plastic.sec.joint': 'Knoten {node} (im Stab {member}, dem mit kleinerem Mp)',

@@ -54,12 +54,21 @@ export interface PlasticCase {
   incrementalResult: ReturnType<typeof plasticCollapse2D> | null;
 }
 
+/** True only when the step-by-step analysis ran to the end without any mechanism. */
+export const noCollapseProven = (pc: PlasticCase): boolean =>
+  !!pc.incrementalResult && !pc.incrementalResult.isMechanism && !pc.incrementalResult.unresolved;
+
+/** The note when the limit search found nothing: no collapse only when proven, else inconclusive. */
+export const noSolutionNote = (pc: PlasticCase): Block =>
+  ({ kind: 'note', tone: 'warn', text: tx(noCollapseProven(pc) ? 'course.plastic.doc.noCollapse' : 'course.plastic.doc.inconclusive') });
+
 export function solveCase(ctx: MethodContext): PlasticCase {
   const mp = mpOfContext(ctx);
   const sol = solveLimit(ctx.input, mp);
   let incrementalResult: PlasticCase['incrementalResult'] = null;
   try { incrementalResult = plasticCollapse2D(ctx.input, { mp, np: () => Infinity }); } catch { incrementalResult = null; }
-  const incremental = incrementalResult?.isMechanism ? incrementalResult.collapseFactor : null;
+  const verified = !!incrementalResult && incrementalResult.isMechanism && !incrementalResult.unresolved && Number.isFinite(incrementalResult.collapseFactor) && incrementalResult.collapseFactor > 0;
+  const incremental = verified ? incrementalResult!.collapseFactor : null;
   return { sol, gh: countStaticDegree2D(ctx.input), mp, incremental, incrementalResult };
 }
 
@@ -260,6 +269,6 @@ export function momentCheckBlocks(ctx: MethodContext, lm: LimitModel, dist: Dist
 
 /** This method's λc against the step-by-step analysis of the same model. */
 export function compareBlocks(pc: PlasticCase, lambda: number): Block[] {
-  if (pc.incremental === null) return [{ kind: 'note', tone: 'info', text: tx('course.plastic.doc.noIncremental') }];
+  if (pc.incremental === null) return [{ kind: 'note', tone: 'info', text: tx(noCollapseProven(pc) ? 'course.plastic.doc.noIncremental' : 'course.plastic.unresolved') }];
   return [{ kind: 'compare', rows: [{ label: '\\lambda_c', method: lambda, matrix: pc.incremental, unit: '—' }], caption: tx('course.plastic.doc.compareNote') }];
 }

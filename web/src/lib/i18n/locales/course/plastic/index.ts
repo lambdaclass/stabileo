@@ -45,6 +45,7 @@ export const es: Translations = {
   'course.plastic.doc.compareNote': 'Comparación con el cálculo paso a paso (método matricial con las rótulas que se van formando). Bajo cargas distribuidas ese cálculo ubica la rótula en una de 200 secciones por barra, así que puede diferir en la cuarta cifra.',
   'course.plastic.doc.noIncremental': 'El cálculo paso a paso no llegó a un mecanismo para estas cargas, así que no hay con qué comparar.',
   'course.plastic.doc.noCollapse': 'Ningún mecanismo de esta estructura es movido por las cargas: con estas cargas la estructura no colapsa por flexión.',
+  'course.plastic.doc.inconclusive': 'Este método no encontró un mecanismo de colapso verificado para estas cargas, y el cálculo paso a paso no demuestra que no colapse: el resultado no es concluyente, no es una prueba de que la estructura resista.',
 
   'course.plastic.sec.support': 'Empotramiento {node}, extremo de {member}',
   'course.plastic.sec.joint': 'Nudo {node} (en la barra {member}, la de menor Mp)',
@@ -227,6 +228,7 @@ export const en: Translations = {
   'course.plastic.doc.compareNote': 'Comparison with the step-by-step analysis (matrix method with the hinges as they form). Under distributed loads that analysis places the hinge at one of 200 sections per member, so it may differ in the fourth figure.',
   'course.plastic.doc.noIncremental': 'The step-by-step analysis did not reach a mechanism for these loads, so there is nothing to compare with.',
   'course.plastic.doc.noCollapse': 'No mechanism of this structure is moved by the loads: under these loads the structure does not collapse in bending.',
+  'course.plastic.doc.inconclusive': 'This method did not find a verified collapse mechanism for these loads, and the step-by-step analysis does not prove that it does not collapse: the result is inconclusive, not a proof that the structure holds.',
 
   'course.plastic.sec.support': 'Fixed support {node}, end of {member}',
   'course.plastic.sec.joint': 'Joint {node} (in member {member}, the one with the smaller Mp)',
@@ -409,6 +411,7 @@ export const pt: Translations = {
   'course.plastic.doc.compareNote': 'Comparação com o cálculo passo a passo (método matricial com as rótulas que vão se formando). Sob cargas distribuídas esse cálculo coloca a rótula em uma de 200 seções por barra, então pode diferir no quarto algarismo significativo.',
   'course.plastic.doc.noIncremental': 'O cálculo passo a passo não chegou a um mecanismo para estas cargas, então não há com o que comparar.',
   'course.plastic.doc.noCollapse': 'Nenhum mecanismo desta estrutura é movido pelas cargas: com estas cargas a estrutura não colapsa por flexão.',
+  'course.plastic.doc.inconclusive': 'Este método não encontrou um mecanismo de colapso verificado para estas cargas, e o cálculo passo a passo não demonstra que não colapse: o resultado é inconclusivo, não uma prova de que a estrutura resiste.',
 
   'course.plastic.sec.support': 'Engaste {node}, extremidade de {member}',
   'course.plastic.sec.joint': 'Nó {node} (na barra {member}, a de menor Mp)',

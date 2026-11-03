@@ -148,7 +148,7 @@ export function iteratePDelta(sys: SoSystem, method: GeomMethod, maxIter = PDELT
   }
   const last = history[history.length - 1];
   const lastN = last?.N ?? new Map<number, number>();
-  const stable = !failed && negativeEigenvalues(reducedStiffness(sys, lastN, method)) === 0 && (method !== 'phi' || clampedCount(sys, lastN, 1) === 0);
+  const stable = !failed && negativeEigenvalues(reducedStiffness(sys, lastN, method)) === 0 && clampedCount(sys, lastN, 1) === 0;
   return { sys, method, linear, final: state, finalSolvedWith: lastN, history, iterations: history.length, converged, stable, failed };
 }
 

@@ -188,15 +188,16 @@ function axesOf(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number) {
   return { e, L, c, s };
 }
 
-/** A point load at `a` on member `id` (px along it, p across it), as nodal loads at its ends by the lever rule. */
-function pointToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number, a: number, px: number, p: number): SolverLoad[] {
+/** A point load at `a` on member `id` (px along it, p across it, a couple my), as nodal loads at its ends by the lever rule. */
+function pointToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number, a: number, px: number, p: number, my = 0): SolverLoad[] {
   const { e, L, c, s } = axesOf(input, id);
   const fx = px * c - p * s, fz = px * s + p * c;
-  if (Math.abs(fx) < 1e-15 && Math.abs(fz) < 1e-15) return [];
+  const mx = (-s * my) / L, mz = (c * my) / L;
+  if (Math.abs(fx) < 1e-15 && Math.abs(fz) < 1e-15 && Math.abs(my) < 1e-15) return [];
   const t = Math.min(1, Math.max(0, a / L));
   return [
-    { type: 'nodal', data: { nodeId: e.nodeI, fx: fx * (1 - t), fz: fz * (1 - t), my: 0 } },
-    { type: 'nodal', data: { nodeId: e.nodeJ, fx: fx * t, fz: fz * t, my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeI, fx: fx * (1 - t) - mx, fz: fz * (1 - t) - mz, my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeJ, fx: fx * t + mx, fz: fz * t + mz, my: 0 } },
   ];
 }
 
@@ -217,7 +218,7 @@ export function loadsOffRemoved(input: SolverInput, removed: ReadonlySet<number>
     if (id === undefined || !removed.has(id)) return [l];
     const { L } = axesOf(input, id);
     if (l.type === 'axialDistributed') return axialSpanToNodal2D(input, { ...l.data, a: l.data.a ?? 0, b: l.data.b ?? L });
-    if (l.type === 'pointOnElement') return pointToEnds2D(input, id, l.data.a, l.data.px ?? 0, l.data.p);
+    if (l.type === 'pointOnElement') return pointToEnds2D(input, id, l.data.a, l.data.px ?? 0, l.data.p, l.data.my ?? 0);
     if (l.type === 'distributed') return transverseSpanToEnds2D(input, id, l.data.qI, l.data.qJ, l.data.a ?? 0, l.data.b ?? L);
     return [];
   });
@@ -325,7 +326,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       return axialSpanToNodal2D(original, { ...l.data, elementId: mb.id, a: off + (l.data.a ?? 0), b: off + (l.data.b ?? len) });
     }
     if (l.type === 'pointOnElement') {
-      return pointToEnds2D(original, mb.id, off + l.data.a, l.data.px ?? 0, mb.truss ? l.data.p : 0);
+      return pointToEnds2D(original, mb.id, off + l.data.a, l.data.px ?? 0, mb.truss ? l.data.p : 0, mb.truss ? l.data.my ?? 0 : 0);
     }
     if (l.type === 'distributed' && mb.truss) {
       return transverseSpanToEnds2D(original, mb.id, l.data.qI, l.data.qJ, off + (l.data.a ?? 0), off + (l.data.b ?? len));

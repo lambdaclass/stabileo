@@ -42,6 +42,7 @@ const words: Translations = {
   'course.plastic.doc.compareNote': 'Comparaison avec le calcul pas à pas (méthode matricielle avec les rotules au fur et à mesure qu\'elles se forment). Sous charges réparties, ce calcul place la rotule dans l\'une de 200 sections par barre : il peut différer au quatrième chiffre.',
   'course.plastic.doc.noIncremental': 'Le calcul pas à pas n\'atteint pas de mécanisme sous ces charges : il n\'y a rien à comparer.',
   'course.plastic.doc.noCollapse': 'Aucun mécanisme de cette structure n\'est mis en mouvement par les charges : sous ces charges, la structure ne se ruine pas en flexion.',
+  'course.plastic.doc.inconclusive': 'Cette méthode n’a pas trouvé de mécanisme de ruine vérifié pour ces charges, et le calcul pas à pas ne prouve pas l’absence de ruine : le résultat n’est pas concluant, ce n’est pas une preuve que la structure tient.',
 
   'course.plastic.sec.support': 'Encastrement {node}, extrémité de {member}',
   'course.plastic.sec.joint': 'Nœud {node} (dans la barre {member}, celle de plus petit Mp)',
