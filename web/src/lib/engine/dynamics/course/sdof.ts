@@ -104,12 +104,12 @@ export interface Harmonic {
 }
 
 export function dynamicAmplification(beta: number, xi: number): number {
-  const d = Math.hypot(1 - beta * beta, 2 * xi * beta);
-  return d < 1e-15 ? Infinity : 1 / d;
+  const d = Math.hypot((1 - beta) * (1 + beta), 2 * xi * beta);
+  return d === 0 ? Infinity : 1 / d;
 }
 
 export function phaseLag(beta: number, xi: number): number {
-  return Math.atan2(2 * xi * beta, 1 - beta * beta);
+  return Math.atan2(2 * xi * beta, (1 - beta) * (1 + beta));
 }
 
 export function harmonic(p: SdofProps, F0: number, Omega: number): Harmonic {
@@ -153,7 +153,39 @@ export function forcedResponse(p: SdofProps, h: Harmonic, u0: number, v0: number
   }
   const u0t = u0 - up0, v0t = v0 - vp0;
   const transient = freeResponse(p, u0t, v0t);
-  return { steady, transient, total: (t) => transient(t) + steady(t), u0t, v0t };
+  const total = p.xi < 0.5 ? stableTotal(p, h, u0, v0) : (t: number) => transient(t) + steady(t);
+  return { steady, transient, total, u0t, v0t };
+}
+
+type Cx = [number, number];
+const cmul = (a: Cx, b: Cx): Cx => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+
+function expRelative(z: Cx): Cx {
+  const [x, y] = z;
+  if (x === 0 && y === 0) return [1, 0];
+  const ex = Math.exp(x), half = Math.sin(y / 2);
+  const num: Cx = [Math.expm1(x) * Math.cos(y) - 2 * half * half, ex * Math.sin(y)];
+  const den = x * x + y * y;
+  return [(num[0] * x + num[1] * y) / den, (num[1] * x - num[0] * y) / den];
+}
+
+function stableTotal(p: SdofProps, h: Harmonic, u0: number, v0: number): (t: number) => number {
+  const free = freeResponse(p, u0, v0);
+  const s = p.xi * p.omega, wd = p.omegaD;
+  const roots: Cx[] = [[-s, wd], [-s, -wd]];
+  const scale = h.F0 / p.m / (2 * wd);
+  return (t) => {
+    const term = (r: Cx): Cx => {
+      const z: Cx = [-r[0] * t, (h.Omega - r[1]) * t];
+      const er: Cx = [Math.exp(r[0] * t) * Math.cos(r[1] * t), Math.exp(r[0] * t) * Math.sin(r[1] * t)];
+      if (Math.hypot(z[0], z[1]) < 0.5) return cmul(er, expRelative(z));
+      const num: Cx = [Math.cos(h.Omega * t) - er[0], Math.sin(h.Omega * t) - er[1]];
+      const den = z[0] * z[0] + z[1] * z[1];
+      return [(num[0] * z[0] + num[1] * z[1]) / den, (num[1] * z[0] - num[0] * z[1]) / den];
+    };
+    const a = term(roots[0]), b = term(roots[1]);
+    return free(t) - scale * t * (a[0] - b[0]);
+  };
 }
 
 export function sample(f: (t: number) => number, t1: number, n = 400): Array<[number, number]> {

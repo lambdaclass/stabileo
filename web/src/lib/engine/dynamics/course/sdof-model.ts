@@ -28,9 +28,9 @@ export function sdofFromModel(model: ModelData, points: readonly PointMass[], no
   const f = nodeDeflection(det.Kff, nF, free, angle, g);
   if (f === 'mechanism') return 'mechanism';
   const delta = g[0] * f[0] + g[1] * f[1];
+  if (delta < 0 || !Number.isFinite(delta)) return 'mechanism';
   if (!(delta > 0) || free.length === 0) return 'restrained';
   const k = 1 / delta;
-  if (!(k > 1e-9)) return 'mechanism';
   const at = points.filter((q) => q.nodeId === nodeId && q.m > 0);
   const mx = at.reduce((sum, q) => sum + q.m, 0);
   const mz = at.reduce((sum, q) => sum + (q.horizontalOnly ? 0 : q.m), 0);
@@ -55,9 +55,10 @@ function nodeDeflection(Kff: number[][], nF: number, free: Array<{ localDof: num
   const gLocal = [c * g[0] + s * g[1], -s * g[0] + c * g[1]];
   let Kc: number[][];
   try { Kc = condense(Kff, zeros(nF), new Array(nF).fill(0), free.map((d) => d.globalIndex)).K; } catch { return 'mechanism'; }
+  const scale = Math.max(...Kff.map((r, i) => Math.abs(r[i])));
+  if (!Kc.every((r, i) => r[i] > 1e-12 * scale)) return 'mechanism';
   const uLocal = [0, 0];
   if (Kc.length === 1) {
-    if (!(Kc[0][0] > 0)) return 'mechanism';
     uLocal[free[0].localDof] = gLocal[free[0].localDof] / Kc[0][0];
   } else {
     const det = Kc[0][0] * Kc[1][1] - Kc[0][1] * Kc[1][0];

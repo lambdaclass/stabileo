@@ -204,12 +204,16 @@ export function toAnalysisResults(sys: SoSystem, input: SolverInput, state: Stat
 
 const INTERIOR_SAMPLES = 64;
 
+export class InteriorNotFinite extends Error {
+  constructor(readonly memberId: number) { super(`member ${memberId}: the second-order moment inside it is not finite`); }
+}
+
 function withPDelta(sys: SoSystem, m: SoSystem['members'][number], ef: ElementForces, D: number[], N: number): ElementForces {
   if (m.truss || !(m.EI > 0) || N === 0) return ef;
   const d = localDisplacements(sys, m, D);
   const xs = Array.from({ length: INTERIOR_SAMPLES }, (_, j) => (m.L * (j + 1)) / INTERIOR_SAMPLES);
   const ms = interiorMoments(ef, m.EI, -N, xs, m.hingeI ? null : d[2], m.hingeJ ? null : d[5], d[4] - d[1]);
-  if (!ms) throw new Error(`member ${m.id}: the second-order moment inside it is not finite`);
+  if (!ms) throw new InteriorNotFinite(m.id);
   const exact = ms.map((v, j) => (j === xs.length - 1 ? ef.mEnd : v));
   return throughMoments(withCurvature(ef, -N / m.EI, xs, exact), xs.map((x, j) => ({ x, m: exact[j] })));
 }

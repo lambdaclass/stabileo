@@ -210,6 +210,19 @@ function transverseSpanToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, 
   ];
 }
 
+/** The loads, with those on the `removed` members moved to their end nodes by the lever rule. */
+export function loadsOffRemoved(input: SolverInput, removed: ReadonlySet<number>): SolverLoad[] {
+  return input.loads.flatMap((l): SolverLoad[] => {
+    const id = 'elementId' in l.data ? (l.data as { elementId: number }).elementId : undefined;
+    if (id === undefined || !removed.has(id)) return [l];
+    const { L } = axesOf(input, id);
+    if (l.type === 'axialDistributed') return axialSpanToNodal2D(input, { ...l.data, a: l.data.a ?? 0, b: l.data.b ?? L });
+    if (l.type === 'pointOnElement') return pointToEnds2D(input, id, l.data.a, l.data.px ?? 0, l.data.p);
+    if (l.type === 'distributed') return transverseSpanToEnds2D(input, id, l.data.qI, l.data.qJ, l.data.a ?? 0, l.data.b ?? L);
+    return [];
+  });
+}
+
 /**
  * Positions along member `id` (from its start, m) where |N| can peak under its own loads: the
  * ends, either side of each axial point load, the ends of each axial span load, and where the
@@ -343,7 +356,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     });
     const km = buildKinematics({ ...original, loads }, open.map((x) => ({ member: x.ref!.mb.id, t: x.ref!.t })), new Set(yielded.keys()), 'rigid');
     const space = nullspace(km.rows, km.n);
-    if (!space.length) return false;
+    if (!space.length) { unresolved = true; return false; }
     const dotRow = (row: number[], d: number[]) => row.reduce((acc, w, i) => acc + w * d[i], 0);
     const th = space.map((d) => open.map((_, k) => dotRow(km.rotation[k], d)));
     const sag = open.map((x) => -Math.sign(hinges[x.h].moment));
@@ -628,8 +641,9 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     if (crushed) { isMechanism = true; break; }
   }
 
-  if (!isMechanism) {
-    isMechanism = !analyzeKinematics(work).isSolvable;
+  if (!isMechanism && !analyzeKinematics(work).isSolvable) {
+    if (closeUnloading()) unresolved = true;
+    else isMechanism = true;
   }
   if (event === maxEvents && !isMechanism) unresolved = true;
   return {

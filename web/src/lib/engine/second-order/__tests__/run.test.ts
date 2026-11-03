@@ -6,7 +6,7 @@ import { runBuckling2D, bucklingConvergence, memberBucklingData } from '../run-b
 import { refineInput } from '../refine';
 import { DEFAULT_SETTINGS, firstModeB2, type SoSettings } from '../settings';
 import { generate } from '../../__tests__/helpers/random-models-2d';
-import { column, portal, EI } from './fixtures';
+import { column, clampedColumn, portal, EI } from './fixtures';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
 
@@ -175,7 +175,7 @@ describe('the largest displacement amplification', () => {
 
 describe('internal buckling modes through the wrapper', () => {
   it('a fixed-fixed column of one element with φ: the modes keep their internal flag and draw nothing', () => {
-    const got = runBuckling2D(column('fixed', 'guided', 5, 100), { ...DEFAULT_SETTINGS, method: 'phi', n: 1, modes: 2 });
+    const got = runBuckling2D(clampedColumn(5, 100), { ...DEFAULT_SETTINGS, method: 'phi', n: 1, modes: 2 });
     if (!got.ok) throw new Error(got.reason.key);
     expect(got.result.modes).toHaveLength(2);
     for (const m of got.result.modes) {

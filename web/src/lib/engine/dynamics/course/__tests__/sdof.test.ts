@@ -136,3 +136,56 @@ describe('single degree of freedom: harmonic force F0·sin Ωt', () => {
     expect(r.total(t)).toBeCloseTo((10 / 1600) * (Math.sin(w * t) - w * t * Math.cos(w * t)), 12);
   });
 });
+
+describe('forced response near resonance with tiny damping', () => {
+  const m = 1, k = 4, F0 = 3;
+  const undampedResonance = (w: number, t: number) => (F0 / (2 * k)) * (Math.sin(w * t) - w * t * Math.cos(w * t));
+
+  it('keeps ξ = 1e-16 at β = 1 damped, finite, and on the resonant envelope', () => {
+    const p = sdofProps(m, k, 1e-16);
+    const h = harmonic(p, F0, p.omega);
+    expect(h.resonant).toBe(false);
+    expect(Number.isFinite(h.D)).toBe(true);
+    expect(h.D * 2e-16).toBeCloseTo(1, 10);
+    const r = forcedResponse(p, h, 0, 0);
+    for (const t of [0.1, 1, 7.3, 40]) expect(r.total(t) / undampedResonance(p.omega, t)).toBeCloseTo(1, 9);
+  });
+
+  it('keeps β a hair from 1 with ξ = 0 finite and equal to the resonant growth at early times', () => {
+    const p = sdofProps(m, k, 0);
+    const h = harmonic(p, F0, p.omega * (1 + 1e-13));
+    expect(h.resonant).toBe(false);
+    const r = forcedResponse(p, h, 0, 0);
+    for (const t of [0.5, 3, 20]) expect(r.total(t) / undampedResonance(p.omega, t)).toBeCloseTo(1, 9);
+  });
+
+  it('still calls ξ = 0, β = 1 exactly the undamped resonance', () => {
+    const p = sdofProps(m, k, 0);
+    const h = harmonic(p, F0, p.omega);
+    expect(h.resonant).toBe(true);
+    expect(forcedResponse(p, h, 0, 0).total(2.5) / undampedResonance(p.omega, 2.5)).toBeCloseTo(1, 12);
+  });
+
+  it.each([[0.05, 0.7, 0.2, -0.4], [0.3, 1.4, 0, 1], [0.02, 1.01, 0.1, 0]])('agrees with steady plus transient away from resonance (ξ %f, β %f)', (xi, beta, u0, v0) => {
+    const p = sdofProps(m, k, xi);
+    const h = harmonic(p, F0, beta * p.omega);
+    const r = forcedResponse(p, h, u0, v0);
+    for (const t of [0, 0.3, 2, 9]) expect(r.total(t) - (r.steady(t) + r.transient(t))).toBeCloseTo(0, 10);
+    const dt = 1e-4, t = 1.7;
+    const acc = (r.total(t + dt) - 2 * r.total(t) + r.total(t - dt)) / (dt * dt);
+    const vel = (r.total(t + dt) - r.total(t - dt)) / (2 * dt);
+    expect(m * acc + p.c * vel + k * r.total(t) - F0 * Math.sin(h.Omega * t)).toBeCloseTo(0, 4);
+  });
+});
+
+describe('forced response far into the decay', () => {
+  it('stays finite once e^{ξωt} would overflow, and settles on the steady state', () => {
+    const p = sdofProps(1, 4, 0.2);
+    const h = harmonic(p, 3, 1.3 * p.omega);
+    const r = forcedResponse(p, h, 0.1, 0);
+    for (const t of [2000, 5000, 1e5]) {
+      expect(Number.isFinite(r.total(t))).toBe(true);
+      expect(r.total(t) - r.steady(t)).toBeCloseTo(0, 9);
+    }
+  });
+});

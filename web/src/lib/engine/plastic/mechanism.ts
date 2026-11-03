@@ -10,7 +10,7 @@
  * and λ·Mp/|M|max a lower one.
  */
 import type { SolverInput } from '../types';
-import type { PlasticCollapseResult } from '../plastic-collapse';
+import { loadsOffRemoved, type PlasticCollapseResult } from '../plastic-collapse';
 import { buildKinematics, dot, type KinModel } from './kinematics';
 import {
   limitModel, mechanismSpace, asMechanism, minimumOver, mechanismMoments, remainingRedundants, projectWork,
@@ -31,7 +31,7 @@ export function collapseMechanism(input: SolverInput, r: PlasticCollapseResult):
   const bending = r.hinges.filter((h) => h.kind === 'bending' && h.unloadedAt === undefined);
   const removed = new Set(r.hinges.filter((h) => h.kind === 'axial').map((h) => h.elementId));
   const secs = bending.map((h) => ({ member: h.elementId, t: h.position ?? (h.end === 'start' ? 0 : 1) }));
-  const km = buildKinematics(input, secs, removed, 'rigid');
+  const km = buildKinematics({ ...input, loads: loadsOffRemoved(input, removed) }, secs, removed, 'rigid');
   const { R, pivots } = rref(km.rows, km.n);
   const free = [...Array(km.n).keys()].filter((c) => !pivots.includes(c));
   const space = free.map((f) => { const v = new Array(km.n).fill(0); v[f] = 1; pivots.forEach((p, k) => { v[p] = -R[k][f]; }); return v; });

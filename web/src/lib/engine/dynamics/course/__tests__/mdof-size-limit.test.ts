@@ -67,3 +67,31 @@ describe('massless degrees of freedom are judged by their own masses', () => {
     expect((w[3] / w[1]) / Math.sqrt(1e13)).toBeCloseTo(1, 8);
   });
 });
+
+function rollerBeam(angle: number) {
+  uiStore.analysisMode = '2d';
+  historyStore.clear();
+  modelStore.clear();
+  let b = 0;
+  modelStore.batch(() => {
+    const a = modelStore.addNode(0, 0);
+    b = modelStore.addNode(4, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'pinned');
+    modelStore.addSupport(b, 'rollerX', undefined, { angle });
+  });
+  const s = modelSystem(modelStore.model, [{ nodeId: b, m: 2, horizontalOnly: true }], { nPerMember: 1, massModel: 'lumped', barMass: false });
+  return { s, omega: modalSolve(s.K, s.M, s.dofs, s.ground).modes.map((q) => q.omega) };
+}
+
+describe('a horizontal-only point mass on an inclined roller', () => {
+  it.each([30, 60, 135])('keeps one massive translation along the surface at %i°, with the axial frequency of the horizontal roller', (deg) => {
+    const ref = rollerBeam(0).omega;
+    expect(ref).toHaveLength(1);
+    const { s, omega } = rollerBeam(deg);
+    expect(s.dofs.some((d) => (d.angle ?? 0) !== 0)).toBe(deg !== 0);
+    expect(s.dofs.filter((d) => d.dir !== 'ry')).toHaveLength(1);
+    expect(omega).toHaveLength(1);
+    expect(omega[0] / ref[0]).toBeCloseTo(1, 8);
+  });
+});

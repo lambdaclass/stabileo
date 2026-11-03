@@ -18,6 +18,7 @@ import { clampedCount, reducedStiffness, rigidAxialScale, solveState } from './p
 import { congruent, generalizedEigen, logDet, matMul, matVec, negativeEigenvalues, norm2, transpose, zeros, type Mat } from './dense';
 import { solveDense } from '../steps/sway-modes';
 import { rotation, type GeomMethod } from './member-matrices';
+import { clampedModesBelow } from './stability-functions';
 
 export interface TeachingMode {
   lambda: number;
@@ -98,10 +99,59 @@ export function criticalCount(sys: SoSystem, N0: Map<number, number>, lambda: nu
   return clampedCount(sys, N0, lambda) + negativeEigenvalues(reducedStiffness(sys, scaled(N0, lambda), 'phi'));
 }
 
-/** Whether the root at λ is a buckling of the nodes: there K(λ) gains a negative eigenvalue. */
-function nodalRoot(sys: SoSystem, N0: Map<number, number>, lambda: number): boolean {
-  const s = (f: number) => criticalCount(sys, N0, lambda * f) - clampedCount(sys, N0, lambda * f);
-  return s(1 + 1e-7) > s(1 - 1e-7);
+const ROOT_STEP = 1e-7;
+
+function memberClamped(m: SoSystem['members'][number], N0: Map<number, number>, lambda: number): number {
+  const n = (N0.get(m.id) ?? 0) * lambda;
+  if (m.truss || !(n < 0) || !(m.EI > 0)) return 0;
+  return clampedModesBelow(m.L * Math.sqrt(-n / m.EI), m.hingeI, m.hingeJ);
+}
+
+function columnRank(cols: number[][], tol: number): number {
+  const basis: number[][] = [];
+  for (const c of [...cols].sort((a, b) => norm2(b) - norm2(a))) {
+    const r = [...c];
+    for (const q of basis) { const d = q.reduce((acc, v, i) => acc + v * r[i], 0); q.forEach((v, i) => { r[i] -= d * v; }); }
+    const n = norm2(r);
+    if (n > tol) basis.push(r.map((v) => v / n));
+  }
+  return basis.length;
+}
+
+/**
+ * The buckling modes at a root λ with every joint still: combinations of the members' clamped
+ * modes there whose end forces cancel on the free degrees of freedom.
+ */
+function internalModesAt(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
+  const lo = lambda * (1 - ROOT_STEP), hi = lambda * (1 + ROOT_STEP);
+  const poles = sys.members.map((m) => ({ m, c: memberClamped(m, N0, hi) - memberClamped(m, N0, lo) })).filter((p) => p.c > 0);
+  if (!poles.length) return 0;
+  const at = new Map(sys.free.map((d, k) => [d, k]));
+  const local = memberLocals(sys, scaled(N0, hi), 'phi');
+  const cols: number[][] = [];
+  let scale = 0;
+  for (const { m } of poles) {
+    const R = rotation(m.c, m.s);
+    const k = matMul(transpose(R), matMul(local.get(m.id)!.k, R));
+    const ids = memberDofs(sys, m);
+    for (let b = 0; b < 6; b++) {
+      const col = new Array(sys.free.length).fill(0);
+      for (let a = 0; a < 6; a++) {
+        scale = Math.max(scale, Math.abs(k[a][b]));
+        const r = at.get(ids[a]);
+        if (r !== undefined) col[r] += k[a][b];
+      }
+      cols.push(sys.rigid ? matVec(transpose(sys.rigid.T), col) : col);
+    }
+  }
+  const c = poles.reduce((acc, p) => acc + p.c, 0);
+  return Math.max(0, c - columnRank(cols, 1e-3 * scale));
+}
+
+/** How many of the roots at λ buckle the nodes: all of them but the internal ones. */
+function nodalRootsAt(sys: SoSystem, N0: Map<number, number>, lambda: number): number {
+  const total = criticalCount(sys, N0, lambda * (1 + ROOT_STEP)) - criticalCount(sys, N0, lambda * (1 - ROOT_STEP));
+  return Math.max(0, total - internalModesAt(sys, N0, lambda));
 }
 
 /** λ_i with the stability functions: bisection on the count J(λ) ≥ i. `guess` is an upper estimate. Null when no λ reaches the count. */
@@ -152,8 +202,10 @@ export function phiBuckling(sys: SoSystem, nModes: number, N0: Map<number, numbe
   for (let i = 1; i <= nModes; i++) {
     const lambda = phiRoot(sys, N0, i, guesses[i - 1] ?? (out[out.length - 1]?.lambda ?? 1) * 2);
     if (lambda === null) break;
-    if (!nodalRoot(sys, N0, lambda)) { out.push({ lambda, D: new Array(sys.nTotal).fill(0), internal: true }); continue; }
-    const same = found.filter((f) => Math.abs(f.lambda - lambda) <= 1e-7 * lambda).map((f) => f.x);
+    const first = out.find((o) => Math.abs(o.lambda - lambda) <= ROOT_STEP * lambda)?.lambda ?? lambda;
+    const nodalSoFar = out.filter((o) => Math.abs(o.lambda - first) <= ROOT_STEP * first && !o.internal).length;
+    if (nodalSoFar >= nodalRootsAt(sys, N0, first)) { out.push({ lambda, D: new Array(sys.nTotal).fill(0), internal: true }); continue; }
+    const same = found.filter((f) => Math.abs(f.lambda - lambda) <= ROOT_STEP * lambda).map((f) => f.x);
     const x = phiModeReduced(sys, N0, lambda, same);
     found.push({ lambda, x });
     out.push({ lambda, D: expand(sys, x) });

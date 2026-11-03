@@ -172,3 +172,27 @@ describe('the inertia count', () => {
   });
 });
 
+
+describe('the tan z = z count of a member with one end released', () => {
+  const brute = (u: number) => {
+    let n = 0;
+    for (let k = 1; k * Math.PI < u; k++) {
+      let lo = k * Math.PI + 1e-12, hi = (k + 0.5) * Math.PI - 1e-12;
+      for (let i = 0; i < 200; i++) { const m = (lo + hi) / 2; if (Math.tan(m) - m > 0) hi = m; else lo = m; }
+      if (lo < u) n++;
+    }
+    return n;
+  };
+  it('agrees with bisection on each bracket, roots included on either side', () => {
+    for (const u of [4.49, 4.4935, 7.72, 7.73, 10.9, 10.91, 50, 123.4, 1000]) expect(clampedModesBelow(u, true, false)).toBe(brute(u));
+    expect(clampedModesBelow(4.4934094579 - 1e-9, true, false)).toBe(0);
+    expect(clampedModesBelow(4.4934094579 + 1e-9, true, false)).toBe(1);
+  });
+  it('answers a huge or infinite kL at once instead of walking every root', () => {
+    const t0 = performance.now();
+    expect(clampedModesBelow(1e9, true, false)).toBe(Math.floor(1e9 / Math.PI) - 1 + (1e9 > (Math.floor(1e9 / Math.PI) + 0.5) * Math.PI - 1 / ((Math.floor(1e9 / Math.PI) + 0.5) * Math.PI) ? 1 : 0));
+    expect(clampedModesBelow(Infinity, true, false)).toBe(Infinity);
+    expect(clampedModesBelow(Infinity, false, false)).toBe(Infinity);
+    expect(performance.now() - t0).toBeLessThan(100);
+  });
+});

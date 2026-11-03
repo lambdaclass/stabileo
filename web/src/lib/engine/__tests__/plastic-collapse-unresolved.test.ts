@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 
-const lp = vi.hoisted(() => ({ forceInfeasible: false }));
+const lp = vi.hoisted(() => ({ forceInfeasible: false, emptyMotion: false }));
+
+vi.mock('../steps/sway-modes', async (orig) => {
+  const real = await orig<typeof import('../steps/sway-modes')>();
+  return { ...real, nullspace: (...a: Parameters<typeof real.nullspace>) => (lp.emptyMotion ? [] : real.nullspace(...a)) };
+});
 
 vi.mock('../plastic/lp', async (orig) => {
   const real = await orig<typeof import('../plastic/lp')>();
@@ -51,5 +56,26 @@ describe('an analysis that runs out of events', () => {
     const whole = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
     expect(whole.unresolved).toBeUndefined();
     expect(whole.isMechanism).toBe(true);
+  });
+});
+
+describe('a mechanism formed by the last allowed event', () => {
+  it('goes through the same consistency check as one found inside the loop', () => {
+    lp.forceInfeasible = true;
+    const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity, maxEvents: 2 });
+    lp.forceInfeasible = false;
+    expect(r.hinges).toHaveLength(2);
+    expect(r.unresolved).toBe(true);
+    expect(verifiedCollapse(r)).toBe(false);
+  });
+});
+
+describe('a mechanism the rigid-plastic model finds no motion for', () => {
+  it('is unresolved, not a verified collapse', () => {
+    lp.emptyMotion = true;
+    const r = plasticCollapse2D(propped(), { mp: () => 100, np: () => Infinity });
+    lp.emptyMotion = false;
+    expect(r.unresolved).toBe(true);
+    expect(verifiedCollapse(r)).toBe(false);
   });
 });

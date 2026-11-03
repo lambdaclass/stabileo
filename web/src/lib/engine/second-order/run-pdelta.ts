@@ -8,9 +8,10 @@
 import type { AnalysisResults, SolverInput } from '../types';
 import type { PDeltaResult } from '../result-types';
 import type { Txt } from '../steps/doc';
+import { tx } from '../steps/doc';
 import { solvePDelta, solveBuckling } from '../wasm-solver';
 import { buildSystem } from './system';
-import { iteratePDelta, toAnalysisResults, PDELTA_MAX_ITER, PDELTA_TOL, type TeachingPDelta } from './pdelta';
+import { iteratePDelta, toAnalysisResults, InteriorNotFinite, PDELTA_MAX_ITER, PDELTA_TOL, type TeachingPDelta } from './pdelta';
 import { teachingBuckling } from './buckling';
 import { collapseResults, refineInput, type Refined } from './refine';
 import { firstModeB2, teachingOptions, usesEngine, type SoSettings } from './settings';
@@ -172,7 +173,12 @@ export function runPDelta2D(input: SolverInput, s: SoSettings): { ok: true; resu
   const sys = buildSystem(r.input, teachingOptions(s));
   if (!sys.ok) return sys;
   const run = iteratePDelta(sys.sys, s.method);
-  const { results, linear } = teachingResults(r, input, run);
+  let solved: ReturnType<typeof teachingResults>;
+  try { solved = teachingResults(r, input, run); } catch (e) {
+    if (e instanceof InteriorNotFinite) return { ok: false, reason: tx('course.second-order.refuse.interiorNotFinite') };
+    throw e;
+  }
+  const { results, linear } = solved;
   const lambda1 = teachingLambda1(r.input, s);
   const b2 = firstModeB2(lambda1);
   const stable = run.converged && run.stable && !run.failed && !(lambda1 !== null && lambda1 <= 1);

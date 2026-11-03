@@ -10,6 +10,7 @@ const words: Translations = {
   'course.second-order.refuse.noFree': 'La structure n\'a pas de déplacements de nœud libres, et ce P-Δ en a besoin. Les barres aux extrémités toutes tenues sont tout de même amplifiées à l\'intérieur et peuvent flamber seules : divisez les barres (n > 1) ou utilisez le flambement avec les fonctions φ, qui compte ces modes internes.',
   'course.second-order.refuse.tooBig': 'La structure a {n} inconnues et cette méthode travaille jusqu\'à {max}. Utilisez la matrice géométrique cohérente, que résout le moteur.',
   'course.second-order.refuse.trussCouple': 'Un couple appliqué sur une barre de treillis ne peut pas être repris : une barre ne reçoit des forces qu\'à ses nœuds. Placez le couple sur un nœud ou faites de la barre une barre de portique.',
+  'course.second-order.refuse.interiorNotFinite': 'Le moment du second ordre à l\'intérieur d\'une barre n\'est pas fini : la charge est au flambement de cette barre ou très près. Réduisez les charges ou examinez le flambement avec les fonctions φ.',
   'course.second-order.refuse.singular': 'La structure est un mécanisme : elle n\'a pas de solution au premier ordre.',
   'course.second-order.refuse.noCompression': 'Aucune barre n\'est comprimée : il n\'y a pas de charge critique de flambement. Le P-Δ reste calculable : la traction rigidifie la structure et, quand NL²/EI est grand, peut modifier nettement les résultats.',
   'course.second-order.refuse.noPositive': 'Aucun facteur de charge critique positif n\'a été trouvé.',

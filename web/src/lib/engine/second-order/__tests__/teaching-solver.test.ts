@@ -8,7 +8,7 @@ import { computeDiagramValueAt } from '../../diagrams';
 import { buildSystem, TEACHING_MAX_DOFS } from '../system';
 import { runPDelta2D } from '../run-pdelta';
 import { DEFAULT_SETTINGS } from '../settings';
-import { column, portal, scaleArea, EI } from './fixtures';
+import { column, clampedColumn, portal, scaleArea, EI, E, I } from './fixtures';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
 
@@ -48,13 +48,14 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
 
   it('a fixed-fixed column of one element has no free rotation to buckle with, and φ still finds it (Wittrick–Williams count)', () => {
     const b = teachingBuckling(column('fixed', 'guided', L, P), { method: 'consistent', axialRigid: false }, 1);
-    const ok = b.ok && b.run.modes.length > 0;
-    if (ok) expect(b.run.modes[0].lambda).toBeGreaterThan(1e6);
+    if (!b.ok) throw new Error(b.reason.key);
+    expect(b.run.modes.length).toBeGreaterThan(0);
+    expect(b.run.modes[0].lambda).toBeGreaterThan(1e6);
     expect(lambda1(column('fixed', 'guided', L, P), 'phi', 1)).toBeCloseTo((4 * Math.PI ** 2 * EI) / (L * L) / P, 3);
   });
 
   it('a fixed-fixed column of one element: φ gives its higher modes, each internal, with no nodal shape drawn', () => {
-    const b = teachingBuckling(column('fixed', 'guided', L, P), { method: 'phi', axialRigid: false }, 3);
+    const b = teachingBuckling(clampedColumn(L, P), { method: 'phi', axialRigid: false }, 3);
     if (!b.ok) throw new Error(b.reason.key);
     expect(b.run.modes.length).toBe(3);
     [2 * Math.PI, 8.986818916, 4 * Math.PI].forEach((kL, i) => {
@@ -546,5 +547,32 @@ describe('a couple on a bar cannot be carried', () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason.key).toBe('course.second-order.refuse.trussCouple');
     expect(buildSystem(bar(0), { method: 'consistent', axialRigid: false }).ok).toBe(true);
+  });
+});
+
+describe('a nodal and an internal buckling mode at the same load factor', () => {
+  const frame = (id: number, nodeI: number, nodeJ: number) => ({ id, type: 'frame' as const, nodeI, nodeJ, materialId: 1, sectionId: 1, hingeStart: false, hingeEnd: false });
+  const A = 0.01, NA = 100;
+  const twoColumns = (): SolverInput => ({
+    nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 0, z: 5 }], [3, { id: 3, x: 10, z: 0 }], [4, { id: 4, x: 10, z: 2.5 }]]),
+    materials: new Map([[1, { id: 1, e: E, nu: 0.3 }]]),
+    sections: new Map([[1, { id: 1, a: A, iz: I }]]),
+    elements: new Map([[1, frame(1, 1, 2)], [2, frame(2, 3, 4)]]),
+    supports: new Map([[1, { id: 1, nodeId: 1, type: 'fixed' }], [2, { id: 2, nodeId: 2, type: 'fixed', dz: -(NA * 5) / (E * 1000 * A) }], [3, { id: 3, nodeId: 3, type: 'fixed' }]]),
+    loads: [{ type: 'nodal', data: { nodeId: 4, fx: 0, fz: -NA / 4, my: 0 } }],
+  }) as unknown as SolverInput;
+
+  it('a clamped column and a cantilever tuned to buckle together: one mode is drawn, one is internal', () => {
+    const exact = (4 * Math.PI ** 2 * EI) / (25 * NA);
+    const b = teachingBuckling(twoColumns(), { method: 'phi', axialRigid: false }, 2);
+    if (!b.ok) throw new Error(b.reason.key);
+    expect(b.run.modes).toHaveLength(2);
+    for (const m of b.run.modes) expect(m.lambda / exact).toBeCloseTo(1, 8);
+    const drawn = b.run.modes.filter((m) => !m.internal);
+    const internal = b.run.modes.filter((m) => m.internal);
+    expect(drawn).toHaveLength(1);
+    expect(internal).toHaveLength(1);
+    expect(internal[0].D.every((v) => v === 0)).toBe(true);
+    expect(Math.max(...drawn[0].D.map(Math.abs))).toBeCloseTo(1, 9);
   });
 });
