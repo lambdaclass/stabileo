@@ -1471,6 +1471,8 @@ const steelDe: Translations = {
   'c301.refuse.noShearLag': 'der Anschluss liefert kein U: Erforderlich ist U, alle Teile angeschlossen, ein geschweißtes Blech oder x̄ und L (D.3)',
   'c301.refuse.unknownShape': 'Querschnittsform „{shape}“ ohne Klassifizierung nach Tabelle B.4.1a',
   'c301.refuse.elementInvalid': 'Druckelement „{kind}“ für Tabelle B.4.1a nicht gültig',
+  'c301.refuse.qNonPositive': 'die wirksame Fläche ergibt Qa = {Qa} ≤ 0 (A = {A} mm², Σ(b − be)·t = {lost} mm²): die Querschnittsfläche passt nicht zu den Breiten und Dicken der Druckelemente (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa: die Drucktragfähigkeit läge über der vollplastischen Normalkraft',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0.45·E/Fy = {lim}: E.7.2(c) deckt dieses Rohr nicht ab',
   'c301.refuse.e4NoJCw': '§E.4: kz·Lz > ky·L, und J oder Cw fehlt für das Drillknicken',
   'c301.refuse.e4NoJ': '§E.4: J fehlt für das Biegedrillknicken',
