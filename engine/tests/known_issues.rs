@@ -1044,11 +1044,18 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
                 ("guyan", dedaliano_engine::solver::reduction::guyan_reduce_3d(&dedaliano_engine::solver::reduction::GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![13] }).map(|r| r.structured_diagnostics)),
                 ("craig-bampton", dedaliano_engine::solver::reduction::craig_bampton_3d(&dedaliano_engine::solver::reduction::CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![13], n_modes: 2 }).map(|r| r.structured_diagnostics)),
             ];
-            for (name, outcome) in reductions {
+            let buckling = [
+                ("buckling", dedaliano_engine::solver::buckling::solve_buckling_3d(&solver, 1).map(|r| r.structured_diagnostics)),
+                ("certified buckling", dedaliano_engine::certify::buckling::certify_buckling_3d(&solver, 1).map(|_| vec![])),
+            ];
+            for (name, outcome) in reductions.into_iter().chain(buckling) {
                 if distorted {
                     common::assert_containment(outcome, "SH-MITC4-DISTORTION");
                 } else {
-                    assert!(!ids(&outcome.unwrap_or_else(|e| panic!("{name}: {e}"))).contains(&"SH-MITC4-DISTORTION".into()), "{name}");
+                    match outcome {
+                        Ok(ds) => assert!(!ids(&ds).contains(&"SH-MITC4-DISTORTION".into()), "{name}"),
+                        Err(e) => assert!(name.contains("buckling") && e.contains("No compressed elements") && !e.contains("SH-MITC4-DISTORTION"), "{name}: {e}"),
+                    }
                 }
             }
             for (name, outcome) in [("time history", solve_time_history_3d(&th).map(|r| r.structured_diagnostics))] {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { cases, compare, refusalFor, viewerData } from '../cases';
 import { editorSnapshot, editorURL } from '../editor';
 import { strings } from '../i18n';
@@ -35,6 +35,20 @@ describe('engine benchmark evidence', () => {
       expect(snapshot.includeSelfWeight).toBe(false);
       expect(snapshot.loads).toHaveLength(c.input.loads.length);
     }
+  });
+  it('withholds a returned refusal instead of scoring its displacements', async () => {
+    const solver = await import('../../../../lib/engine/wasm-solver');
+    const refused = (c: typeof cases[number]) => ({
+      displacements: Object.values(c.input.nodes).map((n: any) => ({ nodeId: n.id, ux: 1, uy: 1, uz: 1, rx: 0, ry: 0, rz: 0 })),
+      structuredDiagnostics: [{ code: 'known_issue', severity: 'error', phase: 'SH-MITC4-DISTORTION', value: 798, message: 'ENGINE' }],
+    }) as never;
+    const spies = [vi.spyOn(solver, 'initSolver').mockResolvedValue(undefined as never), vi.spyOn(solver, 'solve').mockReturnValue(refused(cases[0]!)), vi.spyOn(solver, 'solve3D').mockReturnValue(refused(cases[0]!))];
+    try {
+      const { runCases } = await import('../cases');
+      const rows = await runCases();
+      expect(rows.every(r => r.value === null && r.error === null && r.pass === false)).toBe(true);
+      expect(rows.filter(r => r.refused).map(r => r.id)).toEqual(cases.filter(c => c.expectedRefusal?.id === 'SH-MITC4-DISTORTION').map(c => c.id));
+    } finally { spies.forEach(s => s.mockRestore()); }
   });
   it('editor model solves to the same measurements through the product input builders', async () => {
     await initSolver();

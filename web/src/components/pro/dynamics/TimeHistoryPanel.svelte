@@ -96,7 +96,7 @@
 
   let running = $state(false);
   const result = $derived(timeHistoryView.source === 'timeHistory' ? timeHistoryView.result : null);
-  const containment = $derived(knownIssueDisposition(result?.structuredDiagnostics));
+  const containment = $derived(knownIssueDisposition(timeHistoryView.source === 'timeHistory' ? timeHistoryView.storedDiagnostics?.structuredDiagnostics : undefined));
   const stale = $derived(!!result && timeHistoryView.modelVersion !== modelStore.modelVersion);
 
   /** Run a record through: enough steps at the current dt to reach its last sample. */

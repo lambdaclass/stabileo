@@ -69,6 +69,19 @@ describe('normalizeCirsoc201', () => {
     expect(results[0].utilization).toBe(0.95);
   });
 
+  it('warns on a biaxial check whose two moments come from different combinations without an axial one (#1316)', () => {
+    const verif = {
+      ...mockVerif, elementId: 3, elementType: 'column', Nu: 0,
+      biaxial: { Mres: 40, phiMn: 100, ratio: 0.4, status: 'ok' },
+      governingCombos: { flexure: { comboId: 3, comboName: '1.2D+1.6W' }, momentY: { comboId: 4, comboName: '0.9D+1.6W' } },
+    } as any;
+    const [r] = normalizeCirsoc201([verif], sectionNames);
+    const row = r!.checks.find(c => c.name === 'Biaxial (load contour)')!;
+    expect(row.status).toBe('warn');
+    expect(row.comboName).toBe('N — · M 1.2D+1.6W, 0.9D+1.6W');
+    expect(r!.status).toBe('warn');
+  });
+
   it('warns when the axial force and the moment of an N-M check come from different combinations (#1316)', () => {
     const column = { Nu: 500, Mu: 80, phiPn: 600, phiMn: 100, ratio: 0.62, status: 'ok', AsProv: 12, steps: [], spacing: 0.15, bars: '4φ16' };
     const verif = (axial: { comboId: number; comboName: string }) => ({

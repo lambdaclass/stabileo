@@ -1,7 +1,7 @@
 import data from '../../../../../engine/tests/benchmarks/macneal_harder.json';
 import type { SolverInput } from '../../../lib/engine/types';
 import type { SolverInput3D } from '../../../lib/engine/types-3d';
-import { knownIssueRefusal, refusedKnownIssues } from '../../../lib/engine/known-issues';
+import { knownIssueRefusal, knownIssueResultDisposition, refusedKnownIssues } from '../../../lib/engine/known-issues';
 
 export type Case = typeof data.cases[number];
 export const cases = data.cases;
@@ -42,6 +42,7 @@ export async function runCases(onResult?: (r: Result) => void): Promise<Result[]
     try {
       const input = inputFor(c);
       const result = c.dimension === 2 ? engine.solve(input as SolverInput) : engine.solve3D(input as SolverInput3D);
+      if (knownIssueResultDisposition(result).refused) throw new Error(JSON.stringify({ structuredDiagnostics: result.structuredDiagnostics }));
       if (c.expectedRefusal) throw new Error(`Expected containment refusal: ${c.id}`);
       row = compare(c, result.displacements as unknown as Record<string, number>[]);
     } catch (e) {

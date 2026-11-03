@@ -1966,6 +1966,7 @@ pub fn solve_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
 
 pub(crate) fn buckling_preload_3d(input: &SolverInput3D) -> Result<AnalysisResults3D, String> {
     let analysis = crate::known_issues::Analysis::Buckling;
+    crate::known_issues::refuse_distorted(&crate::known_issues::for_3d(input, analysis))?;
     if input.constraints.is_empty() {
         return prepare_static_3d_for_analysis(input, analysis)?.solve_loads(&input.loads);
     }
