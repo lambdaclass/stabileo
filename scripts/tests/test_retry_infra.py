@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -9,7 +10,26 @@ ROOT = Path(__file__).resolve().parents[2]
 WRAPPER = ROOT / '.github/scripts/retry-infra.sh'
 
 
+def nix_jobs(workflow):
+    text = (ROOT / '.github/workflows' / workflow).read_text().split('\njobs:\n', 1)[1]
+    parts = re.split(r'\n  ([a-z0-9_-]+):\n', '\n' + text)
+    for name, body in zip(parts[1::2], parts[2::2]):
+        commands = [line.split('run:', 1)[1].strip() for line in body.splitlines() if re.match(r'\s+(- )?run: ', line)]
+        commands += [line.strip() for line in body.splitlines() if re.match(r'\s+(nix develop|make) ', line)]
+        if any(re.match(r'(\.github/scripts/retry-infra\.sh )?(nix develop|make) ', c) for c in commands):
+            yield name, body
+
+
 class RetryInfra(unittest.TestCase):
+    def test_every_job_fetching_the_nix_shell_retries_infrastructure_failures_first(self):
+        for workflow in ['ci.yml', 'research.yml', 'verify.yml']:
+            for name, body in nix_jobs(workflow):
+                with self.subTest(workflow=workflow, job=name):
+                    nix = [m.start() for m in re.finditer(r'(?<!retry-infra\.sh )\b(nix develop|make) ', body)]
+                    wrapped = body.find('retry-infra.sh ')
+                    self.assertNotEqual(wrapped, -1)
+                    self.assertLess(wrapped, min(nix) if nix else len(body))
+
     def test_real_log_patterns(self):
         infrastructure = [
             'FlakeHub: cache initialized failed: Unauthenticated',

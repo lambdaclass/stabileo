@@ -1362,6 +1362,12 @@ jobs:
       - uses: ./.github/actions/free-disk
       - uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
       - uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39 # v13
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.npm
@@ -1376,16 +1382,16 @@ jobs:
           name: wasm
           path: web/src/lib/wasm
       - name: Install dependencies
-        run: make web.deps
+        run: .github/scripts/retry-infra.sh make web.deps
       - name: E2E site (from the site-e2e job)
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: site-e2e
           path: web/dist
       - name: Install Chromium
-        run: make e2e.web.setup
+        run: .github/scripts/retry-infra.sh make e2e.web.setup
       - name: Install Chromium system dependencies
-        run: nix develop --command bash -c "cd web && npx playwright install-deps chromium"
+        run: .github/scripts/retry-infra.sh nix develop --command bash -c "cd web && npx playwright install-deps chromium"
       - name: Scale budgets
         run: make test.web.timing
       - name: E2E wall-clock budgets
