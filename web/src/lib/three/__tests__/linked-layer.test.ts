@@ -23,4 +23,15 @@ describe('the linked models layer', () => {
     expect([...sceneHost.toned.keys()].some((o) => o.name === 'linkedModels')).toBe(false);
     expect(redraws).toBeGreaterThan(before);
   });
+
+  it('redraws the scene it was shown on when cleared without a host, as on unmount', () => {
+    const scene = new THREE.Scene();
+    let redraws = 0;
+    const layer = createLinkedLayer();
+    layer.show({ scene, redraw: () => { redraws++; } }, [ref]);
+    const before = redraws;
+    layer.clear(null);
+    expect(scene.getObjectByName('linkedModels')).toBeUndefined();
+    expect(redraws).toBe(before + 1);
+  });
 });

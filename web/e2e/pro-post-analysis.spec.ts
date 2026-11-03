@@ -24,6 +24,8 @@ test('@smoke after a solve, the report lists the equilibrium check and exports',
 
   const part = (await post.getByTestId('post-part-analysis').textContent())!.trim();
   const rows = text.split('\n').slice(1).filter((l) => l.trim()).map((l) => l.replace(/^\uFEFF/, '').split(/[,;]/)[0]!.replace(/^"|"$/g, ''));
-  expect(rows.filter((p) => p.toLowerCase() === part.toLowerCase())).toHaveLength(await post.getByTestId('post-analysis').locator('li').count());
+  const shown = await post.getByTestId('post-analysis').locator('li').count();
+  expect(shown).toBeGreaterThan(0);
+  expect(rows.filter((p) => p.toLowerCase() === part.toLowerCase())).toHaveLength(shown);
   await expect(page.getByTestId('post-model-heading')).toBeVisible();
 });
