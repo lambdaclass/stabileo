@@ -56,6 +56,10 @@ fn ux(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
     r.node_histories.iter().find(|h| h.node_id == node).unwrap().ux.clone()
 }
 
+fn ax(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
+    r.node_histories.iter().find(|h| h.node_id == node).unwrap().ax.clone()
+}
+
 struct Regime {
     name: &'static str,
     steps_per_period: f64,
@@ -191,4 +195,17 @@ fn a_node_with_a_tiny_but_positive_mass_keeps_its_initial_displacement_beside_a_
         assert_eq!(ub[0] - ua[0], 0.0, "node 3, of {ratio:e} of node 2's mass, started displaced by {:.3e} of P/k2", (ub[0] - ua[0]) / (p / k2()));
         assert!(ub.iter().chain(&ua).all(|x| x.is_finite()), "{ratio:e}");
     }
+}
+
+#[test]
+fn an_undamped_massless_tip_accelerates_with_the_mass_it_hangs_from() {
+    let p = 10.0;
+    let dt = period() / 400.0;
+    let (r, _) = solve_time_history_2d_traced(&chain(dt, 800, 0.0, 3, p)).unwrap();
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    let worst = aa.iter().zip(&ab).map(|(a, b)| (a - b).abs()).fold(0.0f64, f64::max);
+    assert!(worst <= 1e-6 * p / MASS, "a_B − a_A reaches {:.3e} of P/m", worst / (p / MASS));
+    let exact: Vec<f64> = r.time_steps.iter().map(|&t| p / MASS * (k1() / MASS).sqrt().mul_add(t, 0.0).cos()).collect();
+    let off = aa.iter().zip(&exact).map(|(a, e)| (a - e).abs()).fold(0.0f64, f64::max);
+    assert!(off <= 2e-3 * p / MASS, "a_A off the undamped SDOF P/m·cos(ωt) by {:.3e} of P/m", off / (p / MASS));
 }

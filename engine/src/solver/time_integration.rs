@@ -463,7 +463,8 @@ fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec
 }
 
 /// Also moves u or v: a load at t = 0 on a massless direction is met by a jump in
-/// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds.
+/// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds;
+/// massless accelerations follow from differentiating those rows with the load held.
 #[allow(clippy::too_many_arguments)]
 fn compute_initial_state(
     m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64,
@@ -521,6 +522,14 @@ fn compute_initial_state(
     let mut at = vec![0.0; n];
     for (j, &i) in massive.iter().enumerate() {
         at[i] = x[j];
+    }
+    if !massless.is_empty() {
+        let mut g: Vec<f64> = kt.sym_mat_vec(&at).iter().map(|x| -x).collect();
+        if c.is_some() && a1 > 0.0 {
+            let kv = kt.sym_mat_vec(&rotate_vector(v, &basis));
+            g.iter_mut().zip(&kv).for_each(|(x, k)| *x -= k / a1);
+        }
+        at.iter_mut().zip(condense(&g)?).for_each(|(x, d)| *x += d);
     }
     a.copy_from_slice(&from_basis(&at, &basis));
     Ok(())
