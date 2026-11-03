@@ -156,6 +156,7 @@ test.describe('explained step by step', () => {
     await boot(page);
     await page.getByTestId('rb-cmd-advanced').click();
     const panel = page.locator('.advanced-grid');
+    await expect(panel).toBeVisible();
     const groups = await panel.locator('[data-testid^=adv-group-]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')));
     expect(groups).toEqual(['adv-group-structure', 'adv-group-buckling', 'adv-group-dynamics', 'adv-group-moving', 'adv-group-learn', 'adv-group-design']);
     // Every entry sits under a header: the first thing in the list is one.
