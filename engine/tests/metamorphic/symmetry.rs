@@ -179,7 +179,7 @@ pub fn check_2d(tally: &Tally, sym: &Sym2, anti: bool, anas: &[Ana2]) {
                         exp.0.iter_mut().filter(|i| !matches!(i.kind, crate::response::Kind::Stress)).for_each(|i| i.v.iter_mut().for_each(|x| *x = -*x));
                     }
                     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                    crate::checks2::judge_split(&r, &exp, rel, |g, x| compare_with_compliance(&g.flat(), &x.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("{} response not {}: {e}", if anti { "antisymmetric" } else { "symmetric" }, if anti { "antisymmetric" } else { "symmetric" })))
+                    crate::checks2::judge_split(&r, &exp, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond) * 2.0, |g, x, rel| compare_with_compliance(&g.flat(), &x.flat(), cond.lchar, rel, crate::checks2::load_floor_2d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("{} response not {}: {e}", if anti { "antisymmetric" } else { "symmetric" }, if anti { "antisymmetric" } else { "symmetric" })))
                 }
             },
         };
@@ -354,7 +354,7 @@ pub fn check_3d(tally: &Tally, sym: &Sym3, anti: bool, anas: &[Ana3]) {
                         exp.0.iter_mut().filter(|i| !matches!(i.kind, crate::response::Kind::Stress)).for_each(|i| i.v.iter_mut().for_each(|x| *x = -*x));
                     }
                     let rel = crate::checks2::rel_for(a.name, a.iter_tol, &cond) * 2.0;
-                    crate::checks2::judge_split(&r, &exp, rel, |g, x| compare_with_compliance(&g.flat(), &x.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("response not {}: {e}", if anti { "antisymmetric" } else { "C2-symmetric" })))
+                    crate::checks2::judge_split(&r, &exp, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond) * 2.0, |g, x, rel| compare_with_compliance(&g.flat(), &x.flat(), cond.lchar, rel, crate::checks3::load_floor_3d(&c.s, cond.lchar), crate::checks2::compliance(a.name, &cond)).map_err(|e| format!("response not {}: {e}", if anti { "antisymmetric" } else { "C2-symmetric" })))
                 }
             },
         };

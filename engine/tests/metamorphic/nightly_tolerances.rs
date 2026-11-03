@@ -259,21 +259,21 @@ fn a_widened_effective_mass_tolerance_past_the_limit_is_inconclusive_and_the_res
     r.set_floor("meff00", 10.0 * factor);
     assert!((crate::response::gap_amplification(&r, "meff00") - factor).abs() < 1e-9 * factor);
     let rel = 2e-6;
-    let cmp = |g: &Resp, e: &Resp| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
+    let cmp = |g: &Resp, e: &Resp, rel: f64| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
     let mut wrong_mass = r.clone();
     nudge(&mut wrong_mass, "meff00", None, 0, 0.01);
-    assert!(cmp(&wrong_mass, &r).is_ok(), "the widened tolerance alone passes a 0.1 %-of-mass error");
-    assert!(matches!(crate::checks2::judge_split(&wrong_mass, &r, rel, cmp), Verdict::Inconclusive(_)));
+    assert!(cmp(&wrong_mass, &r, rel).is_ok(), "the widened tolerance alone passes a 0.1 %-of-mass error");
+    assert!(matches!(crate::checks2::judge_split(&wrong_mass, &r, rel, rel, cmp), Verdict::Inconclusive(_)));
     let mut wrong_frequency = wrong_mass.clone();
     nudge(&mut wrong_frequency, "f00", None, 0, 3e-4);
-    assert!(matches!(crate::checks2::judge_split(&wrong_frequency, &r, rel, cmp), Verdict::Fail(_)));
+    assert!(matches!(crate::checks2::judge_split(&wrong_frequency, &r, rel, rel, cmp), Verdict::Fail(_)));
     let mut wrong_total = wrong_mass.clone();
     nudge(&mut wrong_total, "total_mass", None, 0, 1e-3);
-    assert!(matches!(crate::checks2::judge_split(&wrong_total, &r, rel, cmp), Verdict::Fail(_)));
-    assert!(matches!(crate::checks2::judge_split(&r.clone(), &r, rel, cmp), Verdict::Inconclusive(_)));
+    assert!(matches!(crate::checks2::judge_split(&wrong_total, &r, rel, rel, cmp), Verdict::Fail(_)));
+    assert!(matches!(crate::checks2::judge_split(&r.clone(), &r, rel, rel, cmp), Verdict::Inconclusive(_)));
     let mut tight = r.clone();
     tight.set_floor("meff00", 10.0);
-    assert!(matches!(crate::checks2::judge_split(&tight.clone(), &tight, rel, cmp), Verdict::Pass(_)));
+    assert!(matches!(crate::checks2::judge_split(&tight.clone(), &tight, rel, rel, cmp), Verdict::Pass(_)));
 }
 
 #[test]
@@ -283,4 +283,32 @@ fn only_an_incomplete_collapse_refusal_is_inconclusive_next_to_a_lower_bound() {
     for other in ["did not converge", "PANIC: index out of bounds", "Plastic (pushover) analysis needs a mechanical load to scale to collapse", "singular stiffness matrix"] {
         assert!(!crate::response::incomplete_collapse(other), "{other}");
     }
+}
+
+#[test]
+fn compliance_floors_follow_the_compared_units() {
+    let Model::D3(c) = model(1283) else { panic!("3D") };
+    let base = conditioning::of_3d(&c.s).unwrap();
+    for u in [Units::froude(10.0, 1.0), Units::froude(0.1, 1.0)] {
+        let other = conditioning::of_3d(&c.units(&u).s).unwrap();
+        let both = base.worst(&other).compliance();
+        assert!(other.compliance()[0] > 0.0 && (other.compliance()[0] - base.compliance()[0]).abs() > 1e-3 * other.compliance()[0]);
+        assert_eq!(both, other.compliance());
+    }
+}
+
+#[test]
+fn total_mass_keeps_its_tolerance_when_the_eigen_budget_is_inconclusive() {
+    let mut r = Resp::default();
+    r.scalar("total_mass", crate::response::Dim::MASS, 10.0);
+    r.scalar("f00", crate::response::Dim(0, 0, -1), 3.0);
+    let cmp = |g: &Resp, e: &Resp, rel: f64| dedaliano_engine::metamorphic::compare::compare(&g.flat(), &e.flat(), 1.0, rel);
+    let (wide, base) = (2e-3, 1e-12);
+    let mut wrong = r.clone();
+    nudge(&mut wrong, "total_mass", None, 0, 1e-6);
+    assert!(matches!(crate::checks2::judge_split(&wrong, &r, wide, base, cmp), Verdict::Fail(_)));
+    assert!(matches!(crate::checks2::judge_split(&r.clone(), &r, wide, base, cmp), Verdict::Inconclusive(_)));
+    let mut slightly = r.clone();
+    nudge(&mut slightly, "total_mass", None, 0, 1e-4);
+    assert!(matches!(crate::checks2::judge_split(&slightly, &r, 2e-4, base, cmp), Verdict::Fail(_)));
 }

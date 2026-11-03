@@ -35,6 +35,12 @@ pub fn rel_for(ana_name: &str, iter_tol: f64, c: &Conditioning) -> f64 {
     (c.rel() * steps + 20.0 * iter_tol + eig).max(64.0 * f64::EPSILON)
 }
 
+pub fn rel_without_eigen(ana_name: &str, iter_tol: f64, c: &Conditioning) -> f64 {
+    rel_for(ana_name, iter_tol, &Conditioning { eig: 0.0, ..*c })
+}
+
+const EIGEN_FREE: [&str; 1] = ["total_mass"];
+
 /// The compliance floors of `cond` for `ana_name`. The rotational one bounds a
 /// static rotation only: a time history ends long before a soft rotational
 /// DOF reaches it.
@@ -84,12 +90,19 @@ pub fn judge(res: Result<dedaliano_engine::metamorphic::compare::Report, String>
     }
 }
 
-pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, cmp: impl Fn(&Resp, &Resp) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
+pub fn judge_split(got: &Resp, expected: &Resp, rel: f64, base: f64, cmp: impl Fn(&Resp, &Resp, f64) -> Result<dedaliano_engine::metamorphic::compare::Report, String>) -> Verdict {
+    let free: std::collections::HashSet<String> = expected.0.iter().filter(|i| EIGEN_FREE.contains(&i.tag.as_str())).map(|i| i.tag.clone()).collect();
+    if !free.is_empty() && base <= INCONCLUSIVE {
+        let only = |r: &Resp| Resp(r.0.iter().filter(|i| free.contains(&i.tag)).cloned().collect());
+        if let Err(e) = cmp(&only(got), &only(expected), base) {
+            return Verdict::Fail(e);
+        }
+    }
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
     let widened = crate::response::widened_past(expected, rel, INCONCLUSIVE);
-    match cmp(&got.without_tags(&widened), &expected.without_tags(&widened)) {
+    match cmp(&got.without_tags(&widened), &expected.without_tags(&widened), rel) {
         Err(e) => Verdict::Fail(e),
         Ok(_) if !widened.is_empty() => Verdict::Inconclusive(rel),
         Ok(r) => Verdict::Pass(r.worst),
@@ -108,7 +121,7 @@ fn same(a: &Ana2, tc: &Case2, expected: Result<Resp, String>, cond: &Conditionin
     };
     let rel = rel_for(a.name, a.iter_tol, &c2);
     match run(a, tc) {
-        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, |g, e| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
+        Ok(got) => bounded(&got, &expected, rel).unwrap_or_else(|| crate::checks2::judge_split(&got, &expected, rel, crate::checks2::rel_without_eigen(a.name, a.iter_tol, &c2), |g, e, rel| compare_with_compliance(&g.flat(), &e.flat(), c2.lchar, rel, load_floor_2d(&tc.s, c2.lchar), crate::checks2::compliance(a.name, &c2)))),
         Err(e) if is_lower_bound(&expected) && crate::response::incomplete_collapse(&e) => Verdict::Inconclusive(rel),
         Err(e) => transformed_failure(e),
     }
