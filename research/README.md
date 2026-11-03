@@ -70,18 +70,20 @@ The checker verifies the allowed source label; it does not compare the prose to 
 
 ## Product route size baseline
 
-Research CI builds the event's base revision and the candidate in separate directories using the
+Research CI builds current `main` and the candidate in separate directories using the
 candidate's pinned Nix toolchain and the same measurement script. Each installs its own locked
-dependencies. The base build writes a temporary baseline; no candidate baseline is checked in.
+dependencies. The main build writes a temporary baseline; no candidate baseline is checked in.
+Measuring against `main` rather than the event's base keeps a merge-queue train from adding
+128 bytes per entry.
 
 Changes to shipped research JSON/CSV (outside `research/tools/`),
 `web/src/components/research/`, `web/public/research-*` or
 `web/vite.research-viewer.config.ts` retain the 128-byte per-route isolation tolerance.
-This includes mixed product/research changes and merge-queue candidates. Without a base revision,
-the comparison defaults to enforcing research isolation against main.
+This includes mixed product/research changes and merge-queue candidates. A push to main, which has
+no base revision, always enforces research isolation.
 
 Every measured candidate also uses `web/scripts/product-route-growth-budgets.json`, the
-per-route growth allowed for product changes relative to the base. It is 128 bytes for every
+per-route growth allowed for product changes relative to `main`. It is 128 bytes for every
 route, the same as the research tolerance: raising any of these numbers is a product decision
 made in its own reviewed change, never as a side effect of another PR.
 Static research imports fail for both product and research changes.

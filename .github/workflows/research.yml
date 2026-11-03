@@ -65,26 +65,37 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: main
+          path: route-main
+          persist-credentials: false
       - name: Select research isolation enforcement
         id: scope
         env:
-          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha || github.sha }}
           RESEARCH_PATHS: '^(research/.*\.(json|csv)$|web/src/components/research/|web/public/research-|web/vite\.research-viewer\.config\.ts$)'
           NOT_SHIPPED: '^research/tools/'
+        shell: bash
         run: |
-          if [ -n "$BASE" ]; then
-            git diff --no-renames --name-only "$BASE" HEAD > "$RUNNER_TEMP/route-changed-paths"
+          set -euo pipefail
+          if [ -z "$BASE" ]; then
+            echo research=true >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          if [ -z "$BASE" ] || grep -E "$RESEARCH_PATHS" "$RUNNER_TEMP/route-changed-paths" | grep -vE "$NOT_SHIPPED" > /dev/null; then
+          if ! git fetch --quiet --no-tags ./route-main HEAD \
+            || ! BASE=$(git rev-parse --verify 'FETCH_HEAD^{commit}') \
+            || ! CHANGED=$(git diff --name-only "$BASE...$CANDIDATE"); then
+            echo "::error::Cannot diff $CANDIDATE against the main checkout; the route-size gate cannot classify this change" >&2
+            exit 1
+          fi
+          if printf '%s\n' "$CHANGED" | grep -E "$RESEARCH_PATHS" | grep -vE "$NOT_SHIPPED"; then
             echo research=true >> "$GITHUB_OUTPUT"
           else
             echo research=false >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'main' }}
-          path: route-main
-          persist-credentials: false
       - if: runner.environment == 'github-hosted'
         uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a # v21
         continue-on-error: true
@@ -96,7 +107,7 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
-      - name: Build the base and the candidate with the same pinned toolchain and measurement script
+      - name: Build main and the candidate with the same pinned toolchain and measurement script
         env:
           RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}
         run: |

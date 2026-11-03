@@ -10,6 +10,32 @@ on other branches always use hosted runners and dry-run reporting. There is no
 pull-request trigger. The plan and findings jobs always run on GitHub-hosted
 runners. Only `findings` has `issues: write`; compute jobs have `contents: read`.
 
+**Alerting** (`.github/workflows/verification-alert.yml`, `.github/scripts/verification-alert.cjs`).
+A failed, timed-out or cancelled scheduled run of `nightly.yml`, `differential.yml`, `verify.yml`,
+`mutation-ts.yml`, `verification-dashboard.yml` or `supply-chain.yml` opens **one issue per
+workflow**, titled `CI failure: <workflow>` and labelled `ci-failure`, with the run link and the
+failing jobs, or comments on the one already open. Once it is triaged after its latest failure (a
+maintainer commented on it, linking the finding issues or writing "no finding" and why, or added the
+`triaged` label and left it on; any other comment does not count), the next green scheduled run closes it, provided that run is the workflow's
+latest scheduled run, so each new red spell opens a fresh issue (which is what notifies the repository's
+watchers; a comment on a months-old issue notifies nobody). An untriaged issue stays open through
+green runs, with one comment saying so: a rotated seed or shard going green does not mean the
+failure was not a finding. Once a day (13:00 UTC) a staleness check does
+the same for a workflow that has not completed a scheduled run in its window (32 h; 8 days for
+the weekly dashboard), or that is disabled or renamed.
+
+The `ci-failure` issue only says that the workflow is red. Each real finding behind it has its
+own issue: `nightly.yml`'s model findings open `nightly-finding` issues automatically (below);
+the rest (a differential mismatch in `differential.yml`, a missed mutant, a failing proof) are
+triaged by hand, labelled `bug` and also `safety` when a result could be wrong, with their
+reproduction, and linked from the `ci-failure` issue. Finding issues are never closed
+automatically: the random seeds and the mutants shards change every night, so a green run the
+next day does not mean the finding is fixed.
+
+Negative case: `gh workflow run nightly.yml -f force_failure=true` (or `differential.yml`) fails
+at once, without running anything, and must open `CI failure: <workflow> [forced failure]`, an
+issue of its own that the real alerts never touch; close it by hand.
+
 The six Arch runners need the existing Rust/nix/clang/mold environment, Python 3
 and GNU timeout. Their service-provided `CARGO_TARGET_DIR` is preserved; hosted
 fallback installs tools and uses the workspace target directory. Rust caches and
@@ -43,6 +69,13 @@ runs are serialized with `cancel-in-progress: false`. Counts are coverage target
 exhausting a budget before completing them fails visibly. All jobs have wall-clock
 limits; report reduction has its own 15-minute step cap. Artifacts upload with
 `always()`; abrupt runner loss or hard cancellation can still prevent an upload.
+
+The test files are modules of a few shared binaries (`engine/tests/<binary>/main.rs`), so
+`--test <binary>` alone would run every module in it for each mutant: from 2026-10-24 to -28
+that doubled the baseline (155 s to ~400 s, a missed mutant ~800 s) and no shard finished.
+`scripts/mutants.sh` passes nextest a filterset (`-E`) that keeps the run to the listed files.
+A shard fails whenever `mutants.out/missed.txt` is not empty, whatever cargo-mutants' exit code
+(it reports timeouts, 3, over missed mutants, 2).
 
 Mutation shards rotate by UTC day, 32 each night, on the nightly runner pool
 (`stabileo-nightly`, or the `stabileo` pool when it is off): a complete 512-shard
@@ -107,9 +140,10 @@ Non-JSON crashes use a JSON `raw_hex` envelope and a byte-exact replay command. 
 for 90 days. Property failures also produce per-test findings, retaining the last failing
 proptest shrink candidate (base model and all actual solver inputs) and a seeded
 exact-test command. A timeout during shrinking is explicitly not claimed to be
-a completed minimum. Infrastructure failures, timeouts and mutation survivors retain the existing `verification-alert.yml`
-job-level alerts and logs; they are not misrepresented as minimized model
-findings. The existing alert workflow has its own isolated issue permission.
+a completed minimum. Infrastructure failures, timeouts and mutation survivors are reported by
+`verification-alert.yml` (one `ci-failure` issue per workflow, above) and the logs;
+they are not misrepresented as minimized model findings. The alert workflow has
+its own isolated issue permission.
 
 ## Dispatch and reproduce
 
@@ -124,6 +158,12 @@ gh workflow run nightly.yml --ref main -f only=random-models -f random_count=5 -
 gh workflow run nightly.yml --ref main -f findings_dry_run=false
 # Focused mutation sample:
 gh workflow run nightly.yml --ref main -f only=mutants -f mutants_total=1024 -f mutants_shards='[0]'
+# Alerting: what it would report for a run (dry run), then for real; the staleness check now;
+# the negative case:
+gh workflow run verification-alert.yml -f run_id=<id>
+gh workflow run verification-alert.yml -f run_id=<id> -f dry_run=false
+gh workflow run verification-alert.yml -f dry_run=false
+gh workflow run nightly.yml -f force_failure=true
 ```
 
 Before merging, dispatch `--ref ci/nightly-bug-farm` to validate on the hosted

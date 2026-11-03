@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../../Hint.svelte';
   /**
    * Hanging steel at the points where another beam bears on this line: the end shear it brings,
    * the steel that hangs it (`beam-hangers.ts`) against what the stirrups place over the stretch,
@@ -26,7 +27,7 @@
         {/if}
       </div>
     {/each}
-    <p class="fh-hint">{t('frameEd.hangers.basis')}</p>
+    <Hint text={t('frameEd.hangers.basis')} />
   </section>
 {/if}
 
@@ -36,5 +37,4 @@
   .fh-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 3px; }
   .fh-row.bad { color: var(--st-danger); }
   .fh button { font-size: 0.68rem; padding: 1px 8px; border: 1px solid var(--st-hair-strong); background: var(--st-surface); color: var(--st-text); border-radius: 4px; cursor: pointer; }
-  .fh-hint { margin: 4px 0 0; color: var(--st-text-3); line-height: 1.35; }
 </style>

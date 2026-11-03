@@ -289,6 +289,45 @@ for (const width of [390, 810]) {
 }
 
 
+for (const viewport of [{ width: 390, height: 667 }, { width: 844, height: 390 }, { width: 568, height: 320 }]) {
+  for (const locale of OFFERED_LOCALES) {
+    test.describe(`@smoke re-check notice on a short screen ${viewport.width}x${viewport.height} ${locale}`, () => {
+      test.use({ viewport, appLocale: locale });
+
+      test('shows the change list and reaches the acknowledgement and actions inside the notice', async ({ pro: page }) => {
+        expect(await page.evaluate(f => window.__stabileoActions.loadProject(f), oldProject(1, 'frame'))).toBe(true);
+        await expect(page.getByTestId('recheck-ack')).toBeEnabled();
+        const notice = page.getByTestId('recheck-notice');
+        await expect(notice).toBeInViewport({ ratio: 1 });
+        expect(await notice.evaluate(el => getComputedStyle(el).overflowY)).toBe('auto');
+        expect(await page.getByTestId('recheck-changes').evaluate(el => el.clientHeight)).toBeGreaterThanOrEqual(64);
+        expect(await notice.evaluate(el => [el, el.querySelector('.rc-list')!].filter(s => s.scrollHeight > s.clientHeight && getComputedStyle(s).overflowY === 'auto').length)).toBeLessThanOrEqual(1);
+        for (const target of [page.getByTestId('recheck-ack'), page.getByTestId('recheck-later'), page.getByTestId('recheck-rerun')]) {
+          const placement = () => target.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            const container = el.closest<HTMLElement>('.rc')!;
+            const top = container.getBoundingClientRect().top + container.clientTop;
+            return { inside: r.top >= top && r.bottom <= top + container.clientHeight, delta: r.bottom - (top + container.clientHeight) };
+          });
+          if (!(await placement()).inside) {
+            await page.getByTestId('recheck-changes').hover();
+            await page.mouse.wheel(0, (await placement()).delta + 1);
+          }
+          await expect.poll(async () => (await placement()).inside).toBe(true);
+          await expect(target).toBeInViewport({ ratio: 1 });
+          expect(await target.evaluate(el => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+          })).toBe(true);
+        }
+        expect(await notice.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+        await page.getByTestId('recheck-ack').check();
+        await expect(page.getByTestId('recheck-later')).toBeEnabled();
+      });
+    });
+  }
+}
+
 for (const viewport of [{ width: 390, height: 667 }, { width: 810, height: 390 }]) {
   for (const locale of OFFERED_LOCALES) {
     test(`@smoke scrolls recovery after download and storage failure at ${viewport.width}x${viewport.height} ${locale}`, async ({ page }) => {

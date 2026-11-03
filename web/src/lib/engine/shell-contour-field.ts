@@ -11,7 +11,7 @@
  *
  * Pure.
  */
-import { shellComponentValue, type ShellContourComponent, type ShellStressLike } from './shell-stress';
+import { faceRead, shellComponentValue, type ShellContourComponent, type ShellFace, type ShellStressLike } from './shell-stress';
 import { nodalAverage, contourRange, type ContourAt } from './contour-scale';
 
 export interface ShellStressEntry extends ShellStressLike { elementId: number; nodalVonMises?: readonly number[] }
@@ -29,27 +29,38 @@ export function shellContourField(
   stresses: { plates: readonly ShellStressEntry[]; quads: readonly ShellStressEntry[] },
   nodesOf: (key: string) => readonly number[] | undefined,
   component: ShellContourComponent,
-  opts: { at: ContourAt; auto: boolean; min: number; max: number },
+  opts: { at: ContourAt; auto: boolean; min: number; max: number; face?: ShellFace; domainOf?: (key: string) => string },
 ): ContourField {
+  const face = opts.face ?? 'auto';
   const entries: Array<{ key: string; nodes: readonly number[]; s: ShellStressEntry }> = [];
   for (const [prefix, list] of [['p', stresses.plates], ['q', stresses.quads]] as const) {
     for (const s of list) {
       const key = `${prefix}${s.elementId}`;
       const nodes = nodesOf(key);
-      if (nodes) entries.push({ key, nodes, s });
+      // An element that does not give the component (a triangle's transverse shear) is left unpainted.
+      if (nodes && Number.isFinite(shellComponentValue(s, component, face))) entries.push({ key, nodes, s });
     }
   }
   const corners = new Map<string, number[]>();
   if (opts.at === 'centre') {
-    for (const e of entries) corners.set(e.key, e.nodes.map(() => shellComponentValue(e.s, component)));
-  } else if (component === 'vonMises') {
+    for (const e of entries) corners.set(e.key, e.nodes.map(() => shellComponentValue(e.s, component, face)));
+  } else if (component === 'vonMises' && faceRead(component, face) === 'worst' && !opts.domainOf) {
     for (const e of entries) {
       const nv = e.s.nodalVonMises;
       corners.set(e.key, nv && nv.length === e.nodes.length ? [...nv] : e.nodes.map(() => e.s.vonMises));
     }
   } else {
-    const avg = nodalAverage(entries.map((e) => ({ nodes: e.nodes, value: shellComponentValue(e.s, component) })));
-    for (const e of entries) corners.set(e.key, e.nodes.map((n) => avg.get(n) ?? 0));
+    // Averaged at a node only among the elements of one domain: a wall's corner and the slab's it
+    // meets are two values, not their mean.
+    const domains = new Map<string, typeof entries>();
+    for (const e of entries) {
+      const d = opts.domainOf?.(e.key) ?? '';
+      (domains.get(d) ?? domains.set(d, []).get(d)!).push(e);
+    }
+    for (const list of domains.values()) {
+      const avg = nodalAverage(list.map((e) => ({ nodes: e.nodes, value: shellComponentValue(e.s, component, face) })));
+      for (const e of list) corners.set(e.key, e.nodes.map((n) => avg.get(n) ?? 0));
+    }
   }
   let min = Infinity, max = -Infinity;
   for (const vs of corners.values()) for (const v of vs) { if (v < min) min = v; if (v > max) max = v; }

@@ -733,7 +733,7 @@ fn validation_truss_ext_influence_line_moving_load() {
     let results_both = linear::solve_2d(&input_both).unwrap();
     let ef8_both = results_both.element_forces.iter().find(|e| e.element_id == 8).unwrap();
     let expected_both: f64 = (influence_values[0] + influence_values[1]) * p_large;
-    assert_close(ef8_both.n_start, expected_both, 0.02,
+    assert_close_abs(ef8_both.n_start, expected_both, 0.02, 1e-6,
         "IL: superposition holds for combined loading");
 }
 

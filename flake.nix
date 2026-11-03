@@ -87,6 +87,17 @@
             export XDG_DATA_DIRS="''${XDG_DATA_DIRS:+$XDG_DATA_DIRS:}/usr/local/share:/usr/share"
             # Playwright checks browser libraries with the ldd on PATH, which here is the shell's and cannot see the system's.
             export PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=1
+          '' + ''
+            if [ -n "''${RUNNER_NAME:-}" ]; then
+              # CI runner users share localhost: on sccache's default TCP port a job compiles through another user's server, which cannot read its files.
+              export SCCACHE_DIR="''${SCCACHE_DIR:-$HOME/.cache/sccache-$RUNNER_NAME}"
+              mkdir -p -m 700 "$SCCACHE_DIR"
+              export SCCACHE_SERVER_UDS="''${SCCACHE_SERVER_UDS:-$SCCACHE_DIR/server.sock}"
+              if [ "''${RUSTC_WRAPPER:-}" = sccache ] && ! { sccache --zero-stats || { sccache --start-server && sccache --zero-stats; }; } >/dev/null 2>&1; then
+                echo "sccache did not answer at $SCCACHE_SERVER_UDS; building without it" >&2
+                unset RUSTC_WRAPPER
+              fi
+            fi
           '';
 
           RUSTC_WRAPPER = "sccache";

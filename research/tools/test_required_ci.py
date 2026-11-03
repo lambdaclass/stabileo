@@ -1,4 +1,5 @@
 import hashlib
+import os
 import pathlib
 import re
 import subprocess
@@ -62,6 +63,65 @@ for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/change
              '.github/workflows/research.yml']:
     assert not pattern.search(path), path
 assert '[ -z "$BASE" ]' in scope['run']
+main_checkout = next(step for step in route if step.get('with', {}).get('path') == 'route-main')
+assert route.index(main_checkout) < route.index(scope)
+assert main_checkout['with']['ref'] == 'main'
+assert main_checkout['with']['fetch-depth'] == 0
+assert 'if' not in main_checkout
+assert scope['env']['CANDIDATE'] == '${{ github.event.pull_request.head.sha || github.sha }}'
+
+assert scope['shell'] == 'bash'
+
+def git(cwd, *args):
+    return subprocess.run(['git', *args], cwd=cwd, check=True, capture_output=True, text=True,
+                          env={**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t', 'GIT_COMMITTER_NAME': 't',
+                               'GIT_COMMITTER_EMAIL': 't@t', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1'}).stdout.strip()
+
+def commit(repo, paths, message):
+    for path in paths:
+        file = repo / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(message)
+    git(repo, 'add', '-A')
+    git(repo, 'commit', '--quiet', '--allow-empty', '-m', message)
+    return git(repo, 'rev-parse', 'HEAD')
+
+def check_scope(paths, expected, base='stale-event-base', main_checkout=True):
+    with tempfile.TemporaryDirectory() as directory:
+        directory = pathlib.Path(directory)
+        origin = directory / 'origin'
+        origin.mkdir()
+        git(origin, 'init', '--quiet', '--initial-branch=main')
+        commit(origin, ['README.md'], 'base')
+        git(origin, 'checkout', '--quiet', '-b', 'pr')
+        candidate = commit(origin, paths, 'pr')
+        primary = directory / 'primary'
+        git(directory, 'clone', '--quiet', str(origin), str(primary))
+        git(origin, 'checkout', '--quiet', 'main')
+        commit(origin, ['engine/src/lib.rs'], 'main moved after the PR checkout')
+        if main_checkout:
+            git(directory, 'clone', '--quiet', '--branch', 'main', str(origin), str(primary / 'route-main'))
+        output = directory / 'output'
+        run = subprocess.run(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', scope['run']], cwd=primary,
+                             env={**os.environ, **scope['env'], 'BASE': base, 'CANDIDATE': candidate,
+                                  'GITHUB_OUTPUT': str(output)}, capture_output=True, text=True)
+        if expected is None:
+            assert run.returncode != 0, run
+            assert '::error::' in run.stderr, run
+            assert not output.exists(), run
+        else:
+            assert run.returncode == 0, (run.stdout, run.stderr)
+            assert output.read_text() == f'research={expected}\n', output.read_text()
+
+check_scope(['web/src/lib/provenance/result-changes.json'], 'false')
+check_scope(['web/src/components/research/ResearchPage.svelte'], 'true')
+check_scope(['research/papers.json'], 'true')
+check_scope(['research/tools/fixture.json'], 'false')
+check_scope([], 'false')
+check_scope([], 'true', base='')
+check_scope(['research/papers.json'], None, main_checkout=False)
+check_scope([f'web/src/components/research/page{i}.svelte' for i in range(2000)], 'true')
+
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
@@ -70,33 +130,6 @@ assert 'web/scripts/product-route-growth-budgets.json' in copy.split()
 assert copy.split()[-1] == 'route-main/web/scripts/'
 assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
-assert 'github.event.merge_group.base_sha' in scope['env']['BASE']
-assert 'github.event.before' in scope['env']['BASE']
-import tempfile
-for paths, expected in [
-    ('web/src/App.svelte', 'false'),
-    ('web/package-lock.json', 'false'),
-    ('web/src/components/research/ResearchPage.svelte', 'true'),
-    ('web/src/App.svelte\nresearch/papers.json', 'true'),
-    ('research/tools/catalog.py', 'false'),
-]:
-    with tempfile.NamedTemporaryFile() as out:
-        script = scope['run'].replace('git diff --no-renames --name-only "$BASE" HEAD', 'printf "%s\\n" "$TEST_PATHS"')
-        script = script.replace('"$RUNNER_TEMP/route-changed-paths"', out.name + '.paths')
-        try:
-            subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', script], check=True,
-                           env={**scope['env'], 'BASE': 'base', 'TEST_PATHS': paths, 'GITHUB_OUTPUT': out.name})
-            assert pathlib.Path(out.name).read_text().strip() == f'research={expected}'
-        finally:
-            pathlib.Path(out.name + '.paths').unlink(missing_ok=True)
-with tempfile.NamedTemporaryFile() as out:
-    subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', scope['run']], check=True,
-                   env={**scope['env'], 'BASE': '', 'GITHUB_OUTPUT': out.name})
-    assert pathlib.Path(out.name).read_text().strip() == 'research=true'
-    failed_diff = scope['run'].replace('git diff --no-renames --name-only "$BASE" HEAD', 'false')
-    result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', failed_diff.replace('"$RUNNER_TEMP/route-changed-paths"', out.name)],
-                            env={**scope['env'], 'BASE': 'missing', 'GITHUB_OUTPUT': out.name})
-    assert result.returncode != 0
 triggers = research.get('on', research.get(True))
 assert set(triggers['pull_request']['paths']) == {
     'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}

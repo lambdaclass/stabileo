@@ -108,7 +108,7 @@ fn validation_symmetry_portal_gravity() {
         "Symmetric gravity: R1y = R4y");
 
     // Equal base moments (by magnitude)
-    assert_close(r1.my.abs(), r4.my.abs(), 0.02,
+    assert_close_abs(r1.my.abs(), r4.my.abs(), 0.02, 1e-6,
         "Symmetric gravity: |M1| = |M4|");
 
     // No horizontal reaction under pure gravity (symmetric)

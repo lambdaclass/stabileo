@@ -20,23 +20,23 @@ and build dependencies. Licence and copyright texts come from each package.
 | Package | Version | Licence |
 |---|---|---|
 | `phasefield-jr-py` | 2025 (adapted research code) | MIT |
-| `commander` | 8.3.0 | MIT |
+| `commander` | 15.0.0 | MIT |
 | `dxf-parser` | 1.1.2 | MIT |
 | `fflate` | 0.8.3 | MIT |
-| `katex` | 0.16.47 | MIT |
+| `katex` | 0.19.1 | MIT |
 | `loglevel` | 1.9.2 | MIT |
 | `lz-string` | 1.5.0 | MIT |
 | `polygon-clipping` | 0.15.7 | MIT |
 | `robust-predicates` | 3.0.3 | Unlicense |
 | `splaytree` | 3.2.3 | MIT |
-| `three` | 0.182.0 | MIT |
-| `three-mesh-bvh` | 0.9.9 | MIT |
-| `web-ifc` | 0.0.75 | MPL-2.0 |
+| `three` | 0.186.1 | MIT |
+| `three-mesh-bvh` | 0.9.17 | MIT |
+| `web-ifc` | 0.0.78 | MPL-2.0 |
 | `xlsx` | 0.20.3 | Apache-2.0 |
 
 ---
 
-## commander 8.3.0
+## commander 15.0.0
 
 - **Licence:** MIT
 - **Source:** https://github.com/tj/commander.js
@@ -144,7 +144,7 @@ SOFTWARE.
 
 ---
 
-## katex 0.16.47
+## katex 0.19.1
 
 - **Licence:** MIT
 - **Homepage:** https://katex.org
@@ -350,7 +350,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ---
 
-## three 0.182.0
+## three 0.186.1
 
 - **Licence:** MIT
 - **Homepage:** https://threejs.org/
@@ -361,7 +361,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 The MIT License
 
-Copyright © 2010-2025 three.js authors
+Copyright © 2010-2026 three.js authors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -386,7 +386,7 @@ THE SOFTWARE.
 
 ---
 
-## three-mesh-bvh 0.9.9
+## three-mesh-bvh 0.9.17
 
 - **Licence:** MIT
 - **Homepage:** https://github.com/gkjohnson/three-mesh-bvh#readme
@@ -422,7 +422,7 @@ SOFTWARE.
 
 ---
 
-## web-ifc 0.0.75
+## web-ifc 0.0.78
 
 - **Licence:** MPL-2.0
 - **Source:** https://github.com/ThatOpen/engine_web-ifc

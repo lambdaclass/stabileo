@@ -44,7 +44,7 @@ class Selection(unittest.TestCase):
 
     def test_product_only_pr_and_merge_queue_do_not_select_research_isolation(self):
         workflow = (ROOT / '.github/workflows/research.yml').read_text()
-        scope = workflow.split('        id: scope\n', 1)[1].split('      - uses:', 1)[0]
+        scope = workflow.split('        id: scope\n', 1)[1].split('\n      - ', 1)[0]
         script = scope.split('        run: |\n', 1)[1]
         script = '\n'.join(line[10:] for line in script.splitlines())
         patterns = dict(re.findall(r"          (RESEARCH_PATHS|NOT_SHIPPED): '([^']+)'", scope))
@@ -61,9 +61,9 @@ class Selection(unittest.TestCase):
                     output = Path(tmp) / 'output'
                     # Execute the actual workflow selector, substituting only the read-only diff.
                     script_with_diff = 'git() { printf "%s\\n" "$CHANGED_PATH"; }\n' + script
-                    env = {**os.environ, **patterns, 'BASE': 'base', 'GITHUB_EVENT_NAME': event,
+                    env = {**os.environ, **patterns, 'BASE': 'base', 'CANDIDATE': 'head', 'GITHUB_EVENT_NAME': event,
                            'GITHUB_OUTPUT': str(output), 'CHANGED_PATH': path, 'RUNNER_TEMP': tmp}
-                    subprocess.run(['sh', '-eu', '-c', script_with_diff], env=env, check=True)
+                    subprocess.run(['bash', '-eu', '-c', script_with_diff], env=env, check=True, stdout=subprocess.DEVNULL)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
         self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
         self.assertIn('web/scripts/product-route-growth-budgets.json route-main/web/scripts/', workflow)

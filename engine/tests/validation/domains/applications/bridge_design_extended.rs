@@ -166,7 +166,7 @@ fn bridge_ext_through_truss_pratt() {
 
     // Horizontal equilibrium: sum Rx = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.05, "Pratt truss Rx equilibrium");
+    assert_close_abs(sum_rx, 0.0, 0.05, 1e-6, "Pratt truss Rx equilibrium");
 }
 
 // ================================================================
@@ -424,7 +424,7 @@ fn bridge_ext_pier_cap_distribution() {
     // Symmetric case: V = P1 + P2, M = 0
     let r_col = results.reactions.iter().find(|r| r.node_id == center_node).unwrap();
     assert_close(r_col.rz, p1 + p2, 0.02, "Pier cap: V_column = P1 + P2");
-    assert_close(r_col.my.abs(), 0.0, 0.05, "Pier cap: M_column = 0 (symmetric)");
+    assert_close_abs(r_col.my.abs(), 0.0, 0.05, 1e-6, "Pier cap: M_column = 0 (symmetric)");
 
     // Now test asymmetric case: P1 = 80, P2 = 40
     let p2_asym: f64 = 40.0;

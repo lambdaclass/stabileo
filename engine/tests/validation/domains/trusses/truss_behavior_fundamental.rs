@@ -75,7 +75,7 @@ fn validation_truss_3bar_triangle() {
     // Global equilibrium: ΣRx = 0, ΣRy = P
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_rx, 0.0, 0.02, "ΣRx");
+    assert_close_abs(sum_rx, 0.0, 0.02, 1e-6, "ΣRx");
     assert_close(sum_ry, p, 0.02, "ΣRy");
 
     // Joint equilibrium at node 3 (free node):
@@ -242,7 +242,7 @@ fn validation_truss_zero_force_members() {
     let ef5 = results.element_forces.iter().find(|e| e.element_id == 5).unwrap();
 
     assert_close(ef4.n_start, 0.0, 0.05, "zero-force member 4 (vertical)");
-    assert_close(ef5.n_start, 0.0, 0.05, "zero-force member 5 (top chord)");
+    assert_close_abs(ef5.n_start, 0.0, 0.05, 1e-6, "zero-force member 5 (top chord)");
 
     // Other members should carry force (non-zero)
     let ef1 = results.element_forces.iter().find(|e| e.element_id == 1).unwrap();

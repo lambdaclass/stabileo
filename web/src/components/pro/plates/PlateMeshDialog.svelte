@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Mesh one plate or many (`store/physical-plates.ts`): the settings they share, a plan of each
    * mesh before anything changes (count, quality, what kind of elements the mesher really gives,
@@ -121,12 +122,12 @@
           </label>
         {/if}
       </div>
-      {#if gridOn}<p class="pmd-hint">{t('plates.patternHint')}</p>{/if}
+      {#if gridOn}<Hint text={t('plates.patternHint')} />{/if}
     {/if}
     <label class="pmd-check" title={t('plates.followMembersHint')}>
       <input type="checkbox" bind:checked={followMembers} data-testid="plate-mesh-follow" /> {t('plates.followMembers')}
     </label>
-    <p class="pmd-hint">{t('plates.followMembersHint')}</p>
+    <Hint text={t('plates.followMembersHint')} />
 
     {#if progress}
       <div class="pmd-progress" data-testid="plate-mesh-progress">

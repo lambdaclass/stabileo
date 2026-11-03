@@ -1,11 +1,14 @@
 name: Nightly verification
+# The forced-failure test run is named so that verification-alert.yml files it
+# under its own issue.
+run-name: ${{ inputs.force_failure && '[forced failure] Nightly verification' || 'Nightly verification' }}
 
 # The verification that is too slow for a pull request: large certificates,
 # exhaustive metamorphic tests, differential tests against OpenSees and Code_Aster, fuzzing, mutation
 # testing of the safety-critical Rust and the criterion benchmarks. Nightly
 # on main and on demand (Actions tab, or `gh workflow run nightly.yml`, with
 # `only` to pick jobs). A failed scheduled run opens or updates a
-# `verification-failure` issue (verification-alert.yml).
+# `ci-failure` issue for this workflow (verification-alert.yml).
 #
 # Runner routing, capacity budgets and staged rollout: docs/verification/NIGHTLY.md.
 #
@@ -42,6 +45,10 @@ on:
         description: "Mutants: total number of shards (default 512)"
         required: false
         default: ""
+      force_failure:
+        description: "Fail at once without running anything: tests that a failure opens a ci-failure issue (verification-alert.yml)"
+        type: boolean
+        default: false
 
 concurrency:
   group: nightly-bug-farm
@@ -71,13 +78,19 @@ jobs:
       mutants_total: ${{ steps.plan.outputs.mutants_total }}
     steps:
       - id: plan
+        name: Plan
         env:
           ONLY: ${{ inputs.only }}
           SHARDS: ${{ inputs.mutants_shards }}
           TOTAL: ${{ inputs.mutants_total }}
           MUTANTS_TOTAL: 512
           MUTANTS_SLOTS: 32
+          FORCE_FAILURE: ${{ inputs.force_failure }}
         run: |
+          if [ "$FORCE_FAILURE" = true ]; then
+            echo "::error::forced failure (dispatch input force_failure): verification-alert.yml must open 'CI failure: Nightly verification [forced failure]'"
+            exit 1
+          fi
           all="certify-large metamorphic-nightly opensees-diff codeaster-diff fuzz random-models properties mutants bench"
           only="${ONLY:-$all}"
           for j in $only; do
@@ -135,6 +148,9 @@ jobs:
         run: |
           cargo test --release --test certificates -- --ignored --nocapture certify:: certify_plastic_3d::
           cargo test --release --test solver assembly_paths::assembly_paths_agree_large -- --ignored --nocapture
+      - name: Generated buckling certificate invariant (4096 pairs)
+        working-directory: engine
+        run: cargo test --locked --release --test robustness fuzz_regressions::generated_buckling_certificate_invariant_nightly -- --exact --ignored --nocapture
 
   # Metamorphic tests, exhaustive tier (docs/verification/METAMORPHIC.md):
   # the whole corpus and up to 2,000 random models through every analysis, checking
@@ -199,6 +215,13 @@ jobs:
           path: nightly-findings/
           retention-days: 90
           if-no-files-found: ignore
+      - name: Violations to the job summary
+        if: always()
+        run: |
+          shopt -s nullglob
+          for f in metamorphic-report/*-violations.txt; do
+            { echo "### $(basename "$f")"; echo '```'; head -c 60000 "$f"; echo; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -484,7 +507,10 @@ jobs:
           status=0
           timeout --signal=INT --kill-after=5m "${BUDGET_MIN}m" \
             ./scripts/mutants.sh --shard "$SHARD" --jobs 2 --test-tool nextest || status=$?
-          python3 scripts/mutants-summary.py mutants.out "$SHARD" || true
+          python3 scripts/mutants-summary.py mutants.out "$SHARD" | tee -a "$GITHUB_STEP_SUMMARY" || true
+          if [ -s mutants.out/missed.txt ]; then
+            { echo '### Missed mutants'; echo '```'; head -c 60000 mutants.out/missed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
           case "$status" in 0|2) echo "finished=true" >> "$GITHUB_OUTPUT" ;; esac
           if [ "$status" -eq 124 ]; then
             echo "::error::mutants shard $SHARD did not finish within ${BUDGET_MIN} min (see the summary above for how far it got); raise MUTANTS_TOTAL in nightly.yml"
