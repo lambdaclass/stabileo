@@ -155,9 +155,11 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 **Safety (wrong results first)**
 
 - **Static self-check floor** ([#865](https://github.com/lambdaclass/stabileo/pull/865), found on [#1285](https://github.com/lambdaclass/stabileo/pull/1285)): `engine/src/solver/self_checks.rs` floors the
-  balance force scale at 1 kN, so a load under 1 kN left fully unbalanced passes. Scale by
-  max(|F|, |M|/L) with reaction moments and model extent; keep the pure-moment model as a
-  regression and add the sub-kN unbalanced case as the one that must start failing.
+  balance force scale at 1 kN, so the imbalance is compared with 1e-3 × 1 kN: a load below
+  1e-3 kN left fully unbalanced passes (applied 1e-4 kN, reactions 0, imbalance 1e-4 < 1e-3).
+  Scale by max(|F|, |M|/L) with reaction moments and model extent; keep the pure-moment model
+  (`prop_maxwell_betti`) as a regression and add that 1e-4 kN case as the one that must start
+  failing.
 - **Wave B leftovers** ([#1285](https://github.com/lambdaclass/stabileo/pull/1285); visible refusals, not wrong results): `lanczos.rs` refuses a valid
   PSD pencil because `exactly_massless` tests a rounded vector exactly; `sturm_count_above` retries
   at only three fixed cutoffs, so clustered eigenvalues refuse; every-step finiteness of the
