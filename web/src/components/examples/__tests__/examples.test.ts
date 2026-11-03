@@ -11,7 +11,7 @@ import { TOOL_IDS } from '../../tools/calculators';
 import { BATCH_IDS } from '../../tools/batch';
 
 const BENCHMARK_ROUTES = [...EXPERIMENTS.map(x => x.path), ...[...TOOL_IDS, ...BATCH_IDS].map(id => `/tools/${id}`)];
-import { beamFrame, EI } from '../beam-frame';
+import { beamFrame, EI, build as buildBeam } from '../beam-frame';
 import { slab, navierCentre } from '../slab';
 import { earthquake, G, DT, DURATION, CYCLES, BEAM, COLUMN, baseShear, timeCertificate } from '../earthquake';
 
@@ -80,6 +80,11 @@ describe('beam and frame playground', () => {
     const point = run(beamFrame, { load: 0, point: 40, position: 0.25 });
     expect(readout(point, 'maxMoment').value).toBeCloseTo(40 * 1.5 * 4.5 / 6, 9);
     expect(readout(point, 'maxMoment').reference!.value).toBeCloseTo(45, 12);
+  });
+  it('a fixed and pinned beam has a pin, not a roller, and its fixed-end moment is wL²/8', () => {
+    const v = { ...defaults(beamFrame.params), supports: 1, span: 8 };
+    expect([...buildBeam(v).supports.values()].map(s => s.type)).toEqual(['fixed', 'pinned']);
+    expect(readout(run(beamFrame, { supports: 1, span: 8 }), 'maxMoment').value).toBeCloseTo(10 * 64 / 8, 8);
   });
   it('keeps a portal frame in equilibrium and reports its sway', () => {
     const v = { ...defaults(beamFrame.params), system: 1, supports: 2, point: 20 };
