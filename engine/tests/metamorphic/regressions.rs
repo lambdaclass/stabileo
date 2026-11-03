@@ -407,18 +407,6 @@ fn shell_rotary_inertia_follows_the_shell() {
     }
 }
 
-#[test]
-#[ignore]
-fn probe_plastic_file() {
-    // A debugging probe (PFILE=<model.json>); `--ignored` runs it too.
-    let Ok(f) = std::env::var("PFILE") else { return eprintln!("PFILE not set: probe skipped") };
-    let s: SolverInput = serde_json::from_str(&std::fs::read_to_string(&f).unwrap()).unwrap();
-    match plastic_2d(&s) {
-        Ok(r) => { println!("factor {} mech {} warn {:?}", r.collapse_factor, r.is_mechanism, r.warnings); for h in &r.hinges { println!("  {h:?}"); } }
-        Err(e) => println!("err {e}"),
-    }
-}
-
 /// The plastic-collapse input of a 3D case, as the "plastic collapse" analysis
 /// of the harness builds it (rectangles from A, I_y, I_z; f_y of the case).
 fn plastic_3d_input(c: &crate::case::Case3) -> PlasticInput3D {
