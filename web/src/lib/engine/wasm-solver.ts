@@ -674,7 +674,7 @@ export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string
   const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { omegaSq: number; nodeId: number; dof: string }) => ({ value: Math.sign(m.omegaSq) * Math.sqrt(Math.abs(m.omegaSq)) / (2 * Math.PI), nodeId: m.nodeId, dof: m.dof }));
   const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
-  if (!kept.length) mechanismOnly();
+  if (!kept.length && below.length) mechanismOnly();
   if (!below.length) return { ...result, discardedModes: discarded };
   const out: any = { ...result, modes: kept, discardedModes: discarded };
   for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);

@@ -1,4 +1,4 @@
-use dedaliano_engine::solver::time_integration::{solve_time_history_2d_traced, solve_time_history_3d};
+use dedaliano_engine::solver::time_integration::{solve_time_history_2d, solve_time_history_2d_traced, solve_time_history_3d};
 use dedaliano_engine::types::*;
 use serde_json::{json, Value};
 
@@ -168,4 +168,20 @@ fn a_moment_on_massless_rotations_is_reciprocal_with_a_force_in_3d() {
     for (n, (x, y)) in rot.iter().zip(disp).enumerate() {
         assert!((x - y).abs() <= 1e-9 * scale, "step {n}: θy2(Fx3) = {x:e} vs ux3(My2) = {y:e}");
     }
+}
+
+#[test]
+fn a_node_with_a_tiny_but_positive_mass_keeps_its_initial_displacement_beside_a_massless_one() {
+    let p = 10.0;
+    let dt = period() / 400.0;
+    let mut input = chain(dt, 4, 0.0, 3, p);
+    let mut solver = serde_json::to_value(&input.solver).unwrap();
+    solver["nodes"]["4"] = json!({"id": 4, "x": 2.0, "z": 0.0});
+    solver["elements"]["3"] = json!({"id": 3, "type": "truss", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false});
+    solver["supports"]["4"] = json!({"id": 4, "nodeId": 4, "type": "rollerX"});
+    solver["masses"]["nodal"] = json!([{"nodeId": 2, "mass": MASS}, {"nodeId": 3, "mass": MASS * 1e-13}]);
+    input.solver = serde_json::from_value(solver).unwrap();
+    let r = solve_time_history_2d(&input).unwrap();
+    let w0 = ux(&r, 3)[0] - ux(&r, 2)[0];
+    assert_eq!(w0, 0.0, "node 3, of mass {} t, started displaced by {:.3e} of P/k2", MASS * 1e-13, w0 / (p / k2()));
 }

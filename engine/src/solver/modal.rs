@@ -200,7 +200,12 @@ pub fn solve_modal_2d(
         };
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, &its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"], &k_abs)?
+        let eigen = |k: usize| match (&k_check_sparse, &m_csc_opt) {
+            (Some(kk), Some(mm)) => lanczos_generalized_eigen_sparse(kk, mm, k, 0.0),
+            _ => lanczos_generalized_eigen(&k_check_dense, &m_solve, ns, k, 0.0),
+        };
+        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"], &k_abs);
+        with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
 
     let mut modes = Vec::new();
@@ -393,6 +398,22 @@ fn null_modes_or_mechanism(
     Ok((EigenResult { values, vectors }, out))
 }
 
+#[allow(clippy::type_complexity)]
+fn with_replacements(
+    result: &EigenResult,
+    num_modes: usize,
+    ns: usize,
+    classify: &dyn Fn(&EigenResult) -> Result<(EigenResult, Vec<NullMode>), String>,
+    eigen: &dyn Fn(usize) -> Option<EigenResult>,
+) -> Result<(EigenResult, Vec<NullMode>), String> {
+    let (kept, nulls) = classify(result)?;
+    if nulls.is_empty() || kept.values.len() >= num_modes || result.values.len() >= ns {
+        return Ok((kept, nulls));
+    }
+    let more = eigen((num_modes + nulls.len()).min(ns)).ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+    classify(&more)
+}
+
 fn abs_mat_vec_sparse(a: &crate::linalg::CscMatrix, x: &[f64]) -> Vec<f64> {
     let mut y = vec![0.0; a.n];
     for j in 0..a.n {
@@ -535,7 +556,9 @@ pub fn solve_modal_3d(
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs)?
+        let eigen = |k: usize| lanczos_generalized_eigen_sparse(k_solve, m_solve, k, 0.0);
+        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs);
+        with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
 
     let mut modes = Vec::new();

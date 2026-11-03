@@ -141,6 +141,14 @@ fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
 }
 
 #[test]
+fn a_free_spin_does_not_take_the_place_of_a_requested_mode() {
+    let r = solve_modal_3d(&spinning_column(None), &densities(), 1).expect("one mode of a column free to spin");
+    assert!(!r.null_modes.is_empty(), "{:?}", r.null_modes);
+    assert_eq!(r.modes.len(), 1, "the free spin took the only requested mode");
+    assert!(r.modes[0].frequency > 0.1, "{}", r.modes[0].frequency);
+}
+
+#[test]
 fn a_twist_against_a_negative_spring_is_refused_though_it_moves_no_translational_mass() {
     let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", &[MECHANISM]);
     assert!(e.contains("(ω² = -9.9") && e.contains("moves node 2 along"), "{e}");

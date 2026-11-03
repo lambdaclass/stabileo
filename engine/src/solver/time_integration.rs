@@ -486,7 +486,7 @@ fn compute_initial_state(
     let mt = rotate_symmetric(m, &basis);
     let md = mt.diagonal();
     let max_m = md.iter().fold(0.0f64, |acc, v| acc.max(v.abs()));
-    let (massive, massless): (Vec<usize>, Vec<usize>) = (0..n).partition(|&i| md[i].abs() > max_m * 1e-12);
+    let (massive, massless): (Vec<usize>, Vec<usize>) = (0..n).partition(|&i| md[i].abs() > max_m * 64.0 * f64::EPSILON);
     let kt = rotate_symmetric(k, &basis);
     let k_zz = kt.extract_principal_submatrix(&massless);
     let condense = |r: &[f64]| -> Result<Vec<f64>, String> {
