@@ -50,7 +50,7 @@ import { analyzeKinematics } from './kinematic-2d';
 import { computeDiagramValueAt } from './diagrams';
 import { axialSpanToNodal2D, axialEquivalentLoads } from './axial-span-2d';
 import { memberEndRotations } from './plastic/rotations';
-import { buildKinematics } from './plastic/kinematics';
+import { buildKinematics, type KinModel } from './plastic/kinematics';
 import { nullspace } from './steps/sway-modes';
 import { solveLp } from './plastic/lp';
 
@@ -188,15 +188,16 @@ function axesOf(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number) {
   return { e, L, c, s };
 }
 
-/** A point load at `a` on member `id` (px along it, p across it), as nodal loads at its ends by the lever rule. */
-function pointToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number, a: number, px: number, p: number): SolverLoad[] {
+/** A point load at `a` on member `id` (px along it, p across it, a couple my), as nodal loads at its ends by the lever rule. */
+function pointToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, id: number, a: number, px: number, p: number, my = 0): SolverLoad[] {
   const { e, L, c, s } = axesOf(input, id);
   const fx = px * c - p * s, fz = px * s + p * c;
-  if (Math.abs(fx) < 1e-15 && Math.abs(fz) < 1e-15) return [];
+  const mx = (-s * my) / L, mz = (c * my) / L;
+  if (Math.abs(fx) < 1e-15 && Math.abs(fz) < 1e-15 && Math.abs(my) < 1e-15) return [];
   const t = Math.min(1, Math.max(0, a / L));
   return [
-    { type: 'nodal', data: { nodeId: e.nodeI, fx: fx * (1 - t), fz: fz * (1 - t), my: 0 } },
-    { type: 'nodal', data: { nodeId: e.nodeJ, fx: fx * t, fz: fz * t, my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeI, fx: fx * (1 - t) - mx, fz: fz * (1 - t) - mz, my: 0 } },
+    { type: 'nodal', data: { nodeId: e.nodeJ, fx: fx * t + mx, fz: fz * t + mz, my: 0 } },
   ];
 }
 
@@ -210,6 +211,18 @@ function transverseSpanToEnds2D(input: Pick<SolverInput, 'nodes' | 'elements'>, 
   ];
 }
 
+/** Elongation of `id` times its yield sign, over `km`'s unknowns; null when an end is not in `km`. */
+export function yieldFlowRow(input: Pick<SolverInput, 'nodes' | 'elements'>, km: Pick<KinModel, 'n' | 'nodePoint'>, id: number, sign: number): number[] | null {
+  const e = input.elements.get(id), a = e && input.nodes.get(e.nodeI), b = e && input.nodes.get(e.nodeJ);
+  const pI = e && km.nodePoint.get(e.nodeI), pJ = e && km.nodePoint.get(e.nodeJ);
+  if (!a || !b || pI === undefined || pJ === undefined || !sign) return null;
+  const L = Math.hypot(b.x - a.x, b.z - a.z), c = (b.x - a.x) / L, s = (b.z - a.z) / L;
+  const row = new Array(km.n).fill(0);
+  row[2 * pJ] += sign * c; row[2 * pJ + 1] += sign * s;
+  row[2 * pI] -= sign * c; row[2 * pI + 1] -= sign * s;
+  return row;
+}
+
 /** The loads, with those on the `removed` members moved to their end nodes by the lever rule. */
 export function loadsOffRemoved(input: SolverInput, removed: ReadonlySet<number>): SolverLoad[] {
   return input.loads.flatMap((l): SolverLoad[] => {
@@ -217,7 +230,7 @@ export function loadsOffRemoved(input: SolverInput, removed: ReadonlySet<number>
     if (id === undefined || !removed.has(id)) return [l];
     const { L } = axesOf(input, id);
     if (l.type === 'axialDistributed') return axialSpanToNodal2D(input, { ...l.data, a: l.data.a ?? 0, b: l.data.b ?? L });
-    if (l.type === 'pointOnElement') return pointToEnds2D(input, id, l.data.a, l.data.px ?? 0, l.data.p);
+    if (l.type === 'pointOnElement') return pointToEnds2D(input, id, l.data.a, l.data.px ?? 0, l.data.p, l.data.my ?? 0);
     if (l.type === 'distributed') return transverseSpanToEnds2D(input, id, l.data.qI, l.data.qJ, l.data.a ?? 0, l.data.b ?? L);
     return [];
   });
@@ -325,7 +338,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       return axialSpanToNodal2D(original, { ...l.data, elementId: mb.id, a: off + (l.data.a ?? 0), b: off + (l.data.b ?? len) });
     }
     if (l.type === 'pointOnElement') {
-      return pointToEnds2D(original, mb.id, off + l.data.a, l.data.px ?? 0, mb.truss ? l.data.p : 0);
+      return pointToEnds2D(original, mb.id, off + l.data.a, l.data.px ?? 0, mb.truss ? l.data.p : 0, mb.truss ? l.data.my ?? 0 : 0);
     }
     if (l.type === 'distributed' && mb.truss) {
       return transverseSpanToEnds2D(original, mb.id, l.data.qI, l.data.qJ, off + (l.data.a ?? 0), off + (l.data.b ?? len));
@@ -346,10 +359,11 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
    */
   let closings = 0;
   let unresolved = false;
+  const yieldSign = new Map<number, number>();
   const closeUnloading = (): boolean => {
     const open = hingeAt.map((ref, h) => ({ ref, h })).filter((x) => x.ref && hinges[x.h].unloadedAt === undefined && !x.ref.mb.yielded);
-    if (!open.length) return false;
     const yielded = new Map(members.filter((mb) => mb.yielded).map((mb) => [mb.id, mb]));
+    if (!open.length && !yielded.size) return false;
     const loads = original.loads.flatMap((l) => {
       const mb = 'elementId' in l.data ? yielded.get((l.data as { elementId: number }).elementId) : undefined;
       return mb ? endLoadsOfYielded(mb, l, 0, mb.L) : [l];
@@ -361,10 +375,15 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
     const th = space.map((d) => open.map((_, k) => dotRow(km.rotation[k], d)));
     const sag = open.map((x) => -Math.sign(hinges[x.h].moment));
     const loadWork = space.map((d) => dotRow(km.work, d));
+    const flows = [...yielded.keys()].flatMap((id) => {
+      const row = yieldFlowRow(original, km, id, yieldSign.get(id) ?? 0);
+      return row ? [{ a: space.map((d) => dotRow(row, d)), op: '>=' as const, b: 0 }] : [];
+    });
     const consistent = solveLp({
       c: space.map(() => 0),
       rows: [
         ...open.map((_, k) => ({ a: space.map((__, j) => sag[k] * th[j][k]), op: '>=' as const, b: 0 })),
+        ...flows,
         { a: loadWork, op: '=' as const, b: 1 },
       ],
       free: space.map(() => true),
@@ -527,6 +546,7 @@ export function plasticCollapse2D(original: SolverInput, opts: PlasticCollapseOp
       if (ev.axial) {
         if (ev.m.yielded) continue;
         ev.m.yielded = true;
+        yieldSign.set(ev.m.id, Math.sign(ev.m.accN[ev.k]));
         const pieceIds = new Set(ev.m.pieces.map((p) => p.id));
         const onIt = (l: SolverLoad) => 'elementId' in l.data && pieceIds.has((l.data as { elementId: number }).elementId);
         /*

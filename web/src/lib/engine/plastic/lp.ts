@@ -111,25 +111,26 @@ export function solveLp(p: LpProblem): LpResult {
   };
 
   const run = (cost: number[], allowed: (col: number) => boolean): 'optimal' | 'unbounded' | 'iterationLimit' => {
+    const costScale = Math.max(...cost.map(Math.abs), 1e-300);
     for (let iter = 0; iter < MAX_ITER; iter++) {
-      let enter = -1;
+      let enter = -1, leave = -1;
       for (let col = 0; col < width - 1; col++) {
         if (!allowed(col) || basis.includes(col)) continue;
         let rc = cost[col], size = Math.abs(cost[col]);
         for (let r = 0; r < T.length; r++) { const t = cost[basis[r]] * T[r][col]; rc -= t; size += Math.abs(t); }
-        if (rc < -EPS * Math.max(size, 1e-300)) { enter = col; break; }
+        if (!(rc < -EPS * Math.max(size, 1e-300))) continue;
+        let best = Infinity, colMax = 0, row = -1;
+        for (let r = 0; r < T.length; r++) colMax = Math.max(colMax, Math.abs(T[r][col]));
+        for (let r = 0; r < T.length; r++) {
+          if (T[r][col] <= Math.min(rowTol(T[r]), EPS * colMax)) continue;
+          const ratio = T[r][width - 1] / T[r][col];
+          const tie = EPS * Math.max(Math.abs(ratio), best === Infinity ? 0 : Math.abs(best));
+          if (ratio < best - tie || (Math.abs(ratio - best) <= tie && basis[r] < basis[row])) { best = ratio; row = r; }
+        }
+        if (row >= 0) { enter = col; leave = row; break; }
+        if (rc < -EPS * costScale) return 'unbounded';
       }
       if (enter < 0) return 'optimal';
-      let leave = -1, best = Infinity;
-      let colMax = 0;
-      for (let r = 0; r < T.length; r++) colMax = Math.max(colMax, Math.abs(T[r][enter]));
-      for (let r = 0; r < T.length; r++) {
-        if (T[r][enter] <= Math.min(rowTol(T[r]), EPS * colMax)) continue;
-        const ratio = T[r][width - 1] / T[r][enter];
-        const tie = EPS * Math.max(Math.abs(ratio), best === Infinity ? 0 : Math.abs(best));
-        if (ratio < best - tie || (Math.abs(ratio - best) <= tie && basis[r] < basis[leave])) { best = ratio; leave = r; }
-      }
-      if (leave < 0) return 'unbounded';
       pivot(leave, enter);
     }
     return 'iterationLimit';
@@ -138,7 +139,9 @@ export function solveLp(p: LpProblem): LpResult {
   if (nArt > 0) {
     const cost1 = new Array(width).fill(0);
     for (const a of artCols) cost1[a] = 1;
-    if (run(cost1, () => true) === 'iterationLimit') return { status: 'iterationLimit' };
+    const phase1 = run(cost1, () => true);
+    if (phase1 === 'iterationLimit') return { status: 'iterationLimit' };
+    if (phase1 === 'unbounded') return { status: 'inaccurate' };
     const z = basicValues();
     if (!z) return { status: 'inaccurate' };
     for (let r = 0; r < T.length; r++) {

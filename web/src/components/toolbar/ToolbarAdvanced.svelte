@@ -82,6 +82,7 @@
   import type { SectionMp } from '../../lib/engine/plastic-moments';
   import { runPlasticCollapse } from '../../lib/actions/plastic';
   import PlasticResultPanel from '../advanced/PlasticResultPanel.svelte';
+  import { collapseVerdict } from '../advanced/plastic/user-compare';
   import InfluencePanel from '../advanced/InfluencePanel.svelte';
   import LoadStatesPanel from '../advanced/LoadStatesPanel.svelte';
 
@@ -491,10 +492,11 @@
       plasticMps = run.mps;
       resultsStore.setPlasticResult(run.result);
       const r = run.result;
-      if (r.unresolved) uiStore.toast(t('course.plastic.unresolved'), 'error');
-      else uiStore.toast(r.isMechanism
+      const verdict = collapseVerdict(r);
+      if (verdict === 'unresolved') uiStore.toast(t('course.plastic.unresolved'), 'error');
+      else uiStore.toast(verdict === 'collapse'
         ? t('toast.plasticCollapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{hinges}', String(r.hinges.length)).replace('{ms}', dt.toFixed(0))
-        : t('plastic.noCollapse'), r.isMechanism ? 'info' : 'success');
+        : t('plastic.noCollapse'), verdict === 'collapse' ? 'info' : 'success');
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.plasticError'), 'error');
     }

@@ -14,6 +14,7 @@
   import PlasticCurve from './plastic/PlasticCurve.svelte';
   import PlasticMechanism from './plastic/PlasticMechanism.svelte';
   import PlasticUserMechanism from './plastic/PlasticUserMechanism.svelte';
+  import { collapseVerdict } from './plastic/user-compare';
   import { plasticCourse } from '../../lib/store/plastic-course.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
@@ -48,14 +49,14 @@
   </div>
   <div class="adv-result-info" data-testid="plastic-verdict">
     λ = {r.steps[step]?.loadFactor.toFixed(3) ?? '—'}
-    {#if step === r.steps.length - 1 && !r.unresolved}
-      · {r.isMechanism
+    {#if step === r.steps.length - 1 && collapseVerdict(r) !== 'unresolved'}
+      · {collapseVerdict(r) === 'collapse'
         ? t('plastic.collapse').replace('{lambda}', r.collapseFactor.toFixed(3)).replace('{n}', String(r.hinges.length))
         : t('plastic.noCollapse')}
     {/if}
     · GH = {Math.max(0, r.degree)}
   </div>
-  {#if r.unresolved}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
+  {#if collapseVerdict(r) === 'unresolved'}<p class="adv-result-info pl-unresolved" data-testid="plastic-unresolved">{t('course.plastic.unresolved')}</p>{/if}
   <PlasticCertificate result={r} />
   <table class="pl-table" data-testid="plastic-hinges">
     <thead>

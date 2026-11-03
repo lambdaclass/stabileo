@@ -34,6 +34,17 @@ describe('a small linear program', () => {
     expect(solveLp({ c: [1], rows: [{ a: [1], op: '<=', b: -1 }] }).status).toBe('infeasible');
     expect(solveLp({ c: [-1], rows: [{ a: [-1], op: '<=', b: 1 }] }).status).toBe('unbounded');
   });
+  it('an equality that is a combination of the other rows is feasible, not infeasible from round-off', () => {
+    const a = [-0.5812381937190965, -0.813733471206735, 1.7437145811572892, 4.359286452893223];
+    const b = [0.5812381937190965, -0.813733471206735, 0, 0];
+    const r = solveLp({ c: [0, 0, 0, 0], rows: [{ a, op: '>=', b: 0 }, { a: b, op: '>=', b: 0 }, { a: [0, -70, 75, 187.5], op: '=', b: 1 }], free: [true, true, true, true] });
+    expect(r.status).toBe('optimal');
+    if (r.status !== 'optimal') return;
+    const dot = (row: number[]) => row.reduce((s, v, j) => s + v * r.x[j], 0);
+    expect(dot(a)).toBeGreaterThanOrEqual(-1e-12);
+    expect(dot(b)).toBeGreaterThanOrEqual(-1e-12);
+    expect(dot([0, -70, 75, 187.5])).toBeCloseTo(1, 9);
+  });
   it('solves rows of very different scale exactly, and refuses a tiny infeasibility', () => {
     const r = solveLp({ c: [-1], rows: [{ a: [1e10], op: '<=', b: 1e10 }, { a: [1], op: '<=', b: 0.5 }] });
     expect(r.status).toBe('optimal');

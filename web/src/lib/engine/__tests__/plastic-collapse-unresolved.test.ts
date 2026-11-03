@@ -20,7 +20,7 @@ vi.mock('../plastic/lp', async (orig) => {
 });
 
 import { plasticCollapse2D } from '../plastic-collapse';
-import { verifiedCollapse } from '../../../components/advanced/plastic/user-compare';
+import { verifiedCollapse, collapseVerdict } from '../../../components/advanced/plastic/user-compare';
 import type { SolverInput } from '../types';
 
 const propped = () => ({
@@ -81,5 +81,15 @@ describe('a mechanism the rigid-plastic model finds no motion for', () => {
     expect(r.unresolved).toBe(true);
     expect(verifiedCollapse(r)).toBe(false);
     expect(r.isMechanism).toBe(false);
+  });
+});
+
+describe('the verdict the panel and the toast announce', () => {
+  it('a collapse only when verified: an infinite, zero or non-finite factor, or an unresolved run, is unresolved', () => {
+    expect(collapseVerdict({ isMechanism: true, collapseFactor: 1.5 })).toBe('collapse');
+    for (const collapseFactor of [Infinity, 0, NaN, -1]) expect(collapseVerdict({ isMechanism: true, collapseFactor })).toBe('unresolved');
+    expect(collapseVerdict({ isMechanism: true, unresolved: true, collapseFactor: 1.5 })).toBe('unresolved');
+    expect(collapseVerdict({ isMechanism: false, unresolved: true, collapseFactor: Infinity })).toBe('unresolved');
+    expect(collapseVerdict({ isMechanism: false, collapseFactor: Infinity })).toBe('none');
   });
 });

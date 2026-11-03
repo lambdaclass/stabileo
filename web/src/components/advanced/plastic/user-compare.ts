@@ -6,6 +6,10 @@ type Verdict = Pick<PlasticCollapseResult, 'isMechanism' | 'unresolved' | 'colla
 
 export const verifiedCollapse = (r: Verdict): boolean => r.isMechanism && !r.unresolved && Number.isFinite(r.collapseFactor) && r.collapseFactor > 0;
 
+/** The final verdict: a collapse only when verified; any other mechanism is unresolved, never a collapse. */
+export const collapseVerdict = (r: Verdict): 'collapse' | 'unresolved' | 'none' =>
+  verifiedCollapse(r) ? 'collapse' : r.unresolved || r.isMechanism ? 'unresolved' : 'none';
+
 export function userCompare(r: Verdict, lambda: number): { lambda: number; diff: number } | null {
   if (!verifiedCollapse(r)) return null;
   return { lambda: r.collapseFactor, diff: 100 * (lambda / r.collapseFactor - 1) };
