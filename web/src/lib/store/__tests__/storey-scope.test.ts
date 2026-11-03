@@ -102,6 +102,72 @@ describe('the storey scope', () => {
     expect([copy.nodeI, copy.nodeJ]).toContain(floor2);
   });
 
+  it('narrowing the scope goes back to what was selected on the storey', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    expect(uiStore.selectedElements.size).toBe(5);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(1)]);
+    storeyScope.scope = 'all';
+    expect(uiStore.selectedElements.size).toBe(13);
+    storeyScope.scope = 'similar';
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5']);
+  });
+
+  it('a selection changed after the expansion is the one the scope starts from', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([beamOn(10)]));
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements]).toEqual([beamOn(10)]);
+  });
+
+  it('a member copied to the similar storeys keeps every property but its place and its name', () => {
+    thirteen();
+    storeyScope.scope = 'similar';
+    const a = modelStore.addNode(0, 5, 3), b = modelStore.addNode(6, 5, 3);
+    const id = modelStore.addElement(a, b, 'truss');
+    const section = [...modelStore.sections.keys()].at(-1)!;
+    modelStore.updateElement(id, {
+      name: 'V101', sectionId: section,
+      releaseI: { my: true, mz: true, t: false }, releaseJ: { my: false, mz: true, t: true },
+      jointI: { dof: [false, false, false, false, true, true] }, rollAngle: 30, localYx: 0, localYy: 0, localYz: 1,
+      offset: { frame: 'global', i: { dx: 0, dy: 0.1, dz: -0.2 } } as never,
+      behaviour: { kind: 'tensionOnly' } as never, stiffness: { iy: 0.35, iz: 0.35 } as never,
+      semiRigid: { i: { ky: 1e4 } } as never, kStrong: 0.8, kWeak: 1.2, unbracedLength: 2,
+      steelLoadHeight: 'web', keptOver: [1],
+    });
+    const source = modelStore.elements.get(id)!;
+    const copies = storeyScope.replicateMember(id);
+    expect(copies).toHaveLength(4);
+    const { id: _id, nodeI: _i, nodeJ: _j, name: _n, keptOver: _k, ...kept } = source;
+    for (const c of copies) {
+      const { id: _cid, nodeI: _ci, nodeJ: _cj, ...copy } = modelStore.elements.get(c)!;
+      expect(copy).toEqual(kept);
+    }
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [] });
+  });
+
+  it('a storey a copy cannot reach is reported, and a copy of another length drops what is stated in metres along it', () => {
+    uiStore.analysisMode = 'pro';
+    modelStore.clear();
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3, similarTo: 'L0' }, { id: 'L2', name: 'N2', z: 7, similarTo: 'L0' }] });
+    storeyScope.scope = 'similar';
+    const col = modelStore.addElement(modelStore.addNode(0, 5, 0), modelStore.addNode(0, 5, 3));
+    modelStore.updateElement(col, { unbracedLength: 1.5, bracing: { top: [1] } as never, kStrong: 0.7 });
+    const copies = storeyScope.replicateMember(col);
+    expect(copies).toHaveLength(1);
+    const copy = modelStore.elements.get(copies[0]!)!;
+    expect(copy.kStrong).toBe(0.7);
+    expect(copy.unbracedLength).toBeUndefined();
+    expect(copy.bracing).toBeUndefined();
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: ['L0'], resized: ['L2'] });
+  });
+
   it('does nothing outside PRO, or with the scope on this storey', () => {
     const { beamOn } = thirteen();
     uiStore.setSelection(new Set(), new Set([beamOn(1)]));

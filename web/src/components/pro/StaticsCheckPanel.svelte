@@ -16,7 +16,7 @@
    */
   import { t, tp } from '../../lib/i18n';
     import { staticsRows, staticsCsv, BALANCED } from '../../lib/store/statics-rows';
-  import type { StaticsCheckRow } from '../../lib/engine/statics-check';
+  import { staticsVerdict, type StaticsCheckRow } from '../../lib/engine/statics-check';
 
   const all = $derived(staticsRows());
   const rows = $derived(all ? [...all.cases, ...all.combos] : null);
@@ -70,7 +70,8 @@
       </thead>
       <tbody>
         {#each rows as r, i (i)}
-          {@const ok = r.worstRelative < BALANCED}
+          {@const verdict = staticsVerdict(r, BALANCED)}
+          {@const ok = verdict === 'balances'}
           {@const k = dominant(r)}
           {@const key = 'comboId' in r ? `c${r.comboId}` : (r.caseId ?? 'single')}
           <tr data-testid="statics-row-{key}" class:sc-combo={'comboId' in r}>
@@ -78,7 +79,7 @@
             <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.applied[k])}</td>
             <td class="num"><span class="sc-ax">{AXIS[k]}</span> {fmt(r.reactions[k])}</td>
             <td class="num">{pct(r.worstRelative)}</td>
-            <td class="sc-state" class:bad={!ok}>{ok ? '✓ ' + t('pro.statics.balances') : '⚠ ' + t('pro.statics.doesNotBalance')}</td>
+            <td class="sc-state" class:bad={!ok} data-verdict={verdict}>{ok ? '✓ ' + t('pro.statics.balances') : '⚠ ' + t(verdict === 'partial' ? 'pro.statics.partial' : 'pro.statics.doesNotBalance')}</td>
           </tr>
           {#if full}
             <tr class="sc-detail sc-six">
@@ -87,7 +88,7 @@
               </div></td>
             </tr>
           {/if}
-          {#if !ok}
+          {#if verdict === 'unbalanced'}
             <tr class="sc-detail">
               <td colspan="5">
                 {tp('pro.statics.residualDetail', {

@@ -47,6 +47,21 @@ describe('master and similar storeys', () => {
     expect(x.unmatched).toEqual([]);
   });
 
+  it('a frame member and a truss at the same place are not each other\'s counterpart', () => {
+    const { m, levels } = building(3);
+    levels[2]!.similarTo = 'L1';
+    const elements = m.elements as Map<number, { nodeI: number; nodeJ: number; type?: 'frame' | 'truss' }>;
+    for (const e of elements.values()) e.type = 'frame';
+    const frameOn1 = 3, trussOn2 = 6;
+    elements.get(trussOn2)!.type = 'truss';
+    const fromFrame = expandToStoreys(m, levels, { elements: [frameOn1], nodes: [], shells: [] }, 'similar');
+    expect(fromFrame.elements).toEqual([frameOn1]);
+    expect(fromFrame.unmatched).toEqual([{ kind: 'element', id: frameOn1, level: 'L2' }]);
+    const fromTruss = expandToStoreys(m, levels, { elements: [trussOn2], nodes: [], shells: [] }, 'similar');
+    expect(fromTruss.elements).toEqual([trussOn2]);
+    expect(fromTruss.unmatched).toEqual([{ kind: 'element', id: trussOn2, level: 'L1' }]);
+  });
+
   it('a column of a taller similar storey is the same column; what has no counterpart is reported', () => {
     const { m, levels } = building(5);
     levels[3]!.similarTo = 'L1';

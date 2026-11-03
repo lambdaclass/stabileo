@@ -6,6 +6,7 @@
  */
 import { summaryRows, envelopeRows, columnsOf, whereOf, type Source, type TableKind } from '../result-tables';
 import type { StaticsRows } from '../../store/statics-rows';
+import { staticsVerdict } from '../statics-check';
 import type { ProjectInfo } from '../../model/project-info';
 import { currentRevision } from '../../model/project-info';
 
@@ -80,7 +81,10 @@ export function staticsSectionHtml(rows: StaticsRows | null, tr: Tr, heading: st
   out.push(`<table data-printed="statics"><thead><tr><th>${esc(tr('pro.statics.case'))}</th><th>ΣFx</th><th>ΣFy</th><th>ΣFz</th><th>ΣMx</th><th>ΣMy</th><th>ΣMz</th><th>${esc(tr('pro.statics.relative'))}</th></tr></thead><tbody>`);
   const K = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
   for (const r of [...rows.cases, ...rows.combos]) {
-    out.push(`<tr><td rowspan="2">${esc(r.caseName || tr('pro.statics.singleSolve'))}</td>${K.map((k) => `<td class="num">${num(r.applied[k], 2)}</td>`).join('')}<td rowspan="2" class="num">${r.worstRelative < 1e-6 ? '✓' : (r.worstRelative * 100).toFixed(2) + ' %'}</td></tr>`);
+    const verdict = staticsVerdict(r);
+    const state = verdict === 'balances' ? '✓' : verdict === 'partial' ? `⚠ ${esc(tr('pro.statics.partial'))}` : (r.worstRelative * 100).toFixed(2) + ' %';
+    const left = r.uncovered.length ? `<br><small>${esc(tr('pro.statics.uncovered').replace('{kinds}', r.uncovered.join(', ')))}</small>` : '';
+    out.push(`<tr><td rowspan="2">${esc(r.caseName || tr('pro.statics.singleSolve'))}${left}</td>${K.map((k) => `<td class="num">${num(r.applied[k], 2)}</td>`).join('')}<td rowspan="2" class="num">${state}</td></tr>`);
     out.push(`<tr>${K.map((k) => `<td class="num">${num(r.reactions[k], 2)}</td>`).join('')}</tr>`);
   }
   out.push(`</tbody></table><p class="note">${esc(tr('report.statics.note'))}</p>`);

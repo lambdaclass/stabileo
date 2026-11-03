@@ -53,6 +53,14 @@ export interface Resultant6 {
   mx: number; my: number; mz: number;
 }
 
+export type StaticsVerdict = 'balances' | 'partial' | 'unbalanced';
+
+/** A case balances only with every load in the sum: a small residual over part of them is "partial", never "balances". */
+export function staticsVerdict(r: { worstRelative: number; uncovered: readonly string[] }, balanced = 1e-6): StaticsVerdict {
+  if (r.worstRelative >= balanced) return 'unbalanced';
+  return r.uncovered.length ? 'partial' : 'balances';
+}
+
 export interface StaticsCheckRow {
   /** The load case, or null for a solve with no cases of its own. */
   caseId: number | null;

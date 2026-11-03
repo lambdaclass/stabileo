@@ -6,6 +6,7 @@
  */
 import type { SolverDiagnostic } from './types';
 import { selectionOf } from './model-findings';
+import { staticsVerdict } from './statics-check';
 
 export type PostAnalysisPart = 'model' | 'analysis' | 'design';
 export type PostAnalysisSeverity = 'error' | 'warning' | 'info' | 'ok';
@@ -50,18 +51,21 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
   }
 
   if (input.statics) {
-    const off = input.statics.filter((r) => r.worstRelative >= POST_ANALYSIS_BALANCED);
-    for (const r of off) {
-      out.push({
-        part: 'analysis', severity: r.worstRelative >= POST_ANALYSIS_UNBALANCED ? 'error' : 'warning',
-        text: tr('post.unbalanced', { name: r.caseName || tr('post.singleSolve'), residual: pct(r.worstRelative) }),
-        ...(r.uncovered.length ? { detail: tr('post.uncovered', { kinds: r.uncovered.join(', ') }) } : {}),
-      });
+    const name = (r: { caseName: string }) => r.caseName || tr('post.singleSolve');
+    const uncovered = (r: { uncovered: readonly string[] }) => (r.uncovered.length ? { detail: tr('post.uncovered', { kinds: r.uncovered.join(', ') }) } : {});
+    const balanced: number[] = [];
+    for (const r of input.statics) {
+      const verdict = staticsVerdict(r, POST_ANALYSIS_BALANCED);
+      if (verdict === 'unbalanced') {
+        out.push({
+          part: 'analysis', severity: r.worstRelative >= POST_ANALYSIS_UNBALANCED ? 'error' : 'warning',
+          text: tr('post.unbalanced', { name: name(r), residual: pct(r.worstRelative) }), ...uncovered(r),
+        });
+      } else if (verdict === 'partial') {
+        out.push({ part: 'analysis', severity: 'warning', text: tr('post.partial', { name: name(r) }), ...uncovered(r) });
+      } else balanced.push(r.worstRelative);
     }
-    if (input.statics.length && !off.length) {
-      const worst = Math.max(...input.statics.map((r) => r.worstRelative));
-      out.push({ part: 'analysis', severity: 'ok', text: tr('post.balanced', { n: input.statics.length, residual: worst.toExponential(1) }) });
-    }
+    if (balanced.length) out.push({ part: 'analysis', severity: 'ok', text: tr('post.balanced', { n: balanced.length, residual: Math.max(...balanced).toExponential(1) }) });
   }
 
   if (input.pdelta) {
