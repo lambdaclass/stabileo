@@ -10771,7 +10771,7 @@ const de: Translations = {
   'otherCodes.check.ec3ShearBuckling': 'Schubbeulen des Stegs (6.2.6(6))',
   'otherCodes.check.ec2Axial': 'Biegung mit Normalkraft (6.1)',
   'otherCodes.check.aciShearTension': 'Querkraft mit Zugnormalkraft (22.5)',
-  'otherCodes.check.torsion': 'Torsion über der Schwelle, unter der sie vernachlässigt werden darf: nicht nachgewiesen',
+  'otherCodes.check.torsion': 'Torsion: nicht nachgewiesen',
   'otherCodes.check.cfsDistortional': 'Formbeulen',
   'otherCodes.check.cfsFlexuralTorsional': 'Biegedrillknicken unter Druck (E2)',
   'otherCodes.check.cfsWeakAxis': 'Biegung um die schwache Achse',

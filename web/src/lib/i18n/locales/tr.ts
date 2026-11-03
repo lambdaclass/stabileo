@@ -10779,7 +10779,7 @@ const tr: Translations = {
   'otherCodes.check.ec3ShearBuckling': 'gövdenin kesme burkulması (6.2.6(6))',
   'otherCodes.check.ec2Axial': 'eksenel kuvvetle eğilme (6.1)',
   'otherCodes.check.aciShearTension': 'eksenel çekmeyle kesme (22.5)',
-  'otherCodes.check.torsion': 'ihmal edilebilirlik eşiğinin üzerinde burulma: kontrol edilmedi',
+  'otherCodes.check.torsion': 'burulma: kontrol edilmedi',
   'otherCodes.check.cfsDistortional': 'distorsiyonel burkulma',
   'otherCodes.check.cfsFlexuralTorsional': 'basınçta eğilmeli-burulmalı burkulma (E2)',
   'otherCodes.check.cfsWeakAxis': 'zayıf eksen eğilmesi',

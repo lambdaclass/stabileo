@@ -10296,7 +10296,7 @@ const pt: Translations = {
   'otherCodes.check.ec3ShearBuckling': 'flambagem da alma por cisalhamento (6.2.6(6))',
   'otherCodes.check.ec2Axial': 'flexão com esforço normal (6.1)',
   'otherCodes.check.aciShearTension': 'cisalhamento com tração (22.5)',
-  'otherCodes.check.torsion': 'torção acima do limite que permite desprezá-la: não verificada',
+  'otherCodes.check.torsion': 'torção: não verificada',
   'otherCodes.check.cfsDistortional': 'flambagem distorcional',
   'otherCodes.check.cfsFlexuralTorsional': 'flambagem por flexo-torção na compressão (E2)',
   'otherCodes.check.cfsWeakAxis': 'flexão em torno do eixo fraco',
