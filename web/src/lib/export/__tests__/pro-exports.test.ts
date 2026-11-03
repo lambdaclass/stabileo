@@ -197,6 +197,29 @@ describe('the figures of a model with shells', () => {
     }
   });
 
+  it('the scale of a banded shell result shows each band once, all of one height', () => {
+    slabFrame();
+    contourOptions.auto = false; contourOptions.min = -50; contourOptions.max = 50; contourOptions.bands = 16;
+    try {
+      const svg = toSvg(plan2D('shellMap', { ...opts, shellComponent: 'mx', view: 'top' })!);
+      const strips = [...svg.matchAll(/<path d="([^"]*)" fill="(rgb\([^)]+\))" stroke="none"\/>/g)].flatMap((m) => {
+        const n = (m[1]!.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+        if (n.length !== 10) return [];
+        const xs = [n[0]!, n[2]!, n[4]!, n[6]!], ys = [n[1]!, n[3]!, n[5]!, n[7]!];
+        const w = Math.max(...xs) - Math.min(...xs);
+        return Math.abs(w - 14) < 0.05 ? [{ fill: m[2]!, x: Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }] : [];
+      });
+      const x = Math.max(...strips.map((s) => s.x));
+      const byFill = new Map<string, number>();
+      for (const s of strips.filter((q) => q.x === x)) byFill.set(s.fill, (byFill.get(s.fill) ?? 0) + s.h);
+      expect(byFill.size).toBe(16);
+      const hs = [...byFill.values()];
+      expect(Math.max(...hs) - Math.min(...hs)).toBeLessThan(0.6);
+    } finally {
+      contourOptions.auto = true; contourOptions.min = 0; contourOptions.max = 0; contourOptions.bands = 0;
+    }
+  });
+
   it('a figure of another set is headed with its name', () => {
     const { c2 } = slabFrame();
     const set = resultSet(`combo:${c2}`);
