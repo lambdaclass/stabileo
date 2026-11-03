@@ -118,12 +118,19 @@ describe('the industrial hall and the stadium of the examples', () => {
     expect([...g.roofAreaOf.values()].reduce((s, a) => s + a, 0)).toBeGreaterThan(0);
   });
 
-  it('the hall by width: every member kept loads its whole strip, the ones within the roof as roof', async () => {
+  it('the hall by width: a chord within the roof keeps, as roof, the share of its strip nothing above carries', async () => {
     const g = gravityLayout(await fixture('3d-nave-industrial'), { mode: 'width', tributaryWidth: 3 });
     expect(g.notes.find((n) => n.key === 'loadPlan.gravity.roofFringe')?.params?.n).toBeGreaterThan(0);
-    for (const m of g.widthMembers) {
-      const area = (g.roofAreaOf.get(m.elementId) ?? 0) + (g.areaOf.get(m.elementId) ?? 0);
-      expect(area).toBeCloseTo(3 * m.horizontalLength, 9);
+    const fringe = g.widthMembers.filter((m) => m.width !== undefined);
+    expect(fringe.length).toBeGreaterThan(0);
+    for (const m of fringe) {
+      expect(m.width).toBeGreaterThan(0);
+      expect(m.width).toBeLessThanOrEqual(3);
+      expect(g.roofAreaOf.get(m.elementId)).toBeCloseTo(m.width! * m.horizontalLength, 9);
+      expect(g.areaOf.has(m.elementId)).toBe(false);
+    }
+    for (const m of g.widthMembers.filter((w) => w.width === undefined)) {
+      expect((g.roofAreaOf.get(m.elementId) ?? 0) + (g.areaOf.get(m.elementId) ?? 0)).toBeCloseTo(3 * m.horizontalLength, 9);
     }
   });
 

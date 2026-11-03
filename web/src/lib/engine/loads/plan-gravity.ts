@@ -80,9 +80,9 @@ export interface GravityLayout {
   roofAreaOf: Map<number, number>;
   /**
    * Members loaded with the tributary width, and whether each is sloped (its load is per
-   * projection).
+   * projection); `width`, m, when a member takes less than the tributary width (`roofFringe`).
    */
-  widthMembers: Array<{ elementId: number; length: number; horizontalLength: number }>;
+  widthMembers: Array<{ elementId: number; length: number; horizontalLength: number; width?: number }>;
   /**
    * Quads that take the area load themselves: their plan area, m², their mean height, and `cos`,
    * plan area over surface area (1 when horizontal), which turns a load per plan m² into one per
@@ -255,7 +255,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   if (opts.mode === 'width') levels.clear();
   const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
-  const fringeRoof = new Set<number>();
+  const fringeRoof = new Map<number, number>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
   const segment = (id: number): Segment => {
     const e = model.elements.get(id)!;
@@ -266,6 +266,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const heldMembers = out.widthMembers.filter(isSloped).map((m) => segment(m.elementId));
   const heldPanels: Array<{ poly: Array<[number, number]>; z: number }> = [];
   const dropped = new Set<object>();
+  const fringeShare = new Map<object, number>();
   const droppedMembers = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
@@ -287,7 +288,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (cover >= 0.98) continue;
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
-      if (why === 'lowHeadroom' && deck!.carried(panel.polygon, z, heldPanels, heldMembers)) { dropped.add(panel); continue; }
+      if (why === 'lowHeadroom') {
+        const rest = deck!.uncarried(panel.polygon, z, heldPanels, heldMembers);
+        if (rest <= 0) { dropped.add(panel); continue; }
+        fringeShare.set(panel, rest);
+      }
       heldPanels.push({ poly: panel.polygon, z });
     }
     const flat = (beamsAt.get(z) ?? []).filter((b) => opts.mode === 'width' || (!panelLoadedAt.get(z)?.has(b.id) && !inShell(midpoint(b))));
@@ -301,8 +306,9 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       }
       if (why === 'lowHeadroom' && !floorBeside) {
         const strip = tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth);
-        if (deck!.carried(strip, z, heldPanels, heldMembers)) { droppedMembers.add(e.id); continue; }
-        fringeRoof.add(e.id);
+        const rest = deck!.uncarried(strip, z, heldPanels, heldMembers);
+        if (rest <= 0) { droppedMembers.add(e.id); continue; }
+        fringeRoof.set(e.id, rest);
         fringes++;
       }
       heldMembers.push([a, b]);
@@ -341,8 +347,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
-      const share = cover > 0.02 ? 1 - cover : 1;
-      if (share < 1) partly++;
+      const share = fringeShare.get(panel) ?? (cover > 0.02 ? 1 - cover : 1);
+      if (!fringeShare.has(panel) && share < 1) partly++;
       // The panel's own part of the level's result. Loading its members again on their own found
       // an opening's ring as a panel too, and the ring, loaded on its own as well, counted twice.
       const one = panel.own;
@@ -373,6 +379,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   // A horizontal member within the roof's structure is a chord or an eave beam: no floor loads it.
   const beforeDepth = out.widthMembers.length;
   out.widthMembers = out.widthMembers.filter((m) => !droppedMembers.has(m.elementId));
+  for (const m of out.widthMembers) {
+    const rest = fringeRoof.get(m.elementId);
+    if (rest !== undefined) m.width = opts.tributaryWidth * rest;
+  }
   if (out.widthMembers.length < beforeDepth) {
     out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
   }
@@ -388,7 +398,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const roof = fringeRoof.has(m.elementId) || !covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0));
-    addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, opts.tributaryWidth * m.horizontalLength);
+    addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, (m.width ?? opts.tributaryWidth) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
   for (const q of model.quads?.values() ?? []) {
@@ -424,7 +434,7 @@ function notADeck(
   shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
-  carried: (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]) => boolean;
+  uncarried: (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]) => number;
 } {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
@@ -472,11 +482,12 @@ function notADeck(
     return h;
   };
   /**
-   * Whether loads already kept less than a storey above carry all of `area`: a loaded panel, the
-   * tributary strip of a member kept by width, or a shell loaded by panels. By a 20 × 20 grid over it, a cell is
-   * carried only when it lies wholly within one of them; anything else keeps its load.
+   * The share of `area` that no load already kept less than a storey above carries: a loaded
+   * panel, the tributary strip of a member kept by width, or a shell loaded by panels. By a
+   * 20 × 20 grid, each cell weighted by its part of `area`, a cell carried only when it lies wholly
+   * within one of them; cells along their edges count as not carried, so the share errs high.
    */
-  const carried = (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]): boolean => {
+  const uncarried = (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]): number => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
     const half = tributaryWidth / 2;
     const shells = shellsLoaded ? carriers.filter((c) => c.pts.some((p) => low(p[2] - z))) : [];
@@ -490,19 +501,20 @@ function notADeck(
     };
     const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
     const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
-    if (!(dx > 0 && dy > 0)) return false;
+    if (!(dx > 0 && dy > 0)) return 1;
+    let total = 0, open = 0;
     for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
       const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
+      const part = Math.abs(polygonArea(clipToBox(area, box)));
+      if (part <= 0) continue;
+      total += part;
       const cell: Array<[number, number]> = [[box.x0, box.y0], [box.x1, box.y0], [box.x1, box.y1], [box.x0, box.y1]];
-      const touches = inside([(box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2], area, 0)
-        || cell.some((q) => inside(q, area, 0)) || area.some((v, k) => crossesBox(v, area[(k + 1) % area.length]!, box));
-      if (!touches) continue;
       const held = members.some((m) => cell.every((q) => inStrip(m, q)))
         || over.some((p) => within(cell, box, p.poly))
         || shells.some((c) => within(cell, box, c.poly) && cell.every((q) => low(heightIn(c.pts, [q[0], q[1], z]) - z)));
-      if (!held) return false;
+      if (!held) open += part;
     }
-    return true;
+    return total > 0 ? open / total : 1;
   };
   const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
@@ -523,7 +535,7 @@ function notADeck(
     if (Math.min(hi[0] - lo[0], hi[1] - lo[1]) > MAX_DECK_SPAN) return 'wide';
     return low ? 'headroomUnclear' : null;
   };
-  return { why, carried };
+  return { why, uncarried };
 }
 
 /** A quad's surface area, m²: its two triangles, as `quadCornerShares` integrates a flat one. */
@@ -560,6 +572,32 @@ type Box = { x0: number; y0: number; x1: number; y1: number };
 /** The cell lies wholly in `poly`: its corners inside and no side of `poly` through its interior. */
 function within(cell: Array<[number, number]>, box: Box, poly: Array<[number, number]>): boolean {
   return cell.every((q) => inside(q, poly, 1e-6)) && !poly.some((v, k) => crossesBox(v, poly[(k + 1) % poly.length]!, box));
+}
+
+/** The part of `poly` inside the box (Sutherland–Hodgman). */
+function clipToBox(poly: Array<[number, number]>, box: Box): Array<[number, number]> {
+  const sides: Array<[(p: [number, number]) => number]> = [
+    [(p) => p[0] - box.x0], [(p) => box.x1 - p[0]], [(p) => p[1] - box.y0], [(p) => box.y1 - p[1]],
+  ];
+  let out = poly;
+  for (const [d] of sides) {
+    const next: Array<[number, number]> = [];
+    out.forEach((a, k) => {
+      const b = out[(k + 1) % out.length]!;
+      const da = d(a), db = d(b);
+      if (da >= 0) next.push(a);
+      if ((da >= 0) !== (db >= 0)) { const t = da / (da - db); next.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]); }
+    });
+    out = next;
+    if (out.length === 0) break;
+  }
+  return out;
+}
+
+function polygonArea(poly: Array<[number, number]>): number {
+  let s = 0;
+  poly.forEach((a, k) => { const b = poly[(k + 1) % poly.length]!; s += a[0] * b[1] - b[0] * a[1]; });
+  return s / 2;
 }
 
 /** Some part of the segment from `a` to `b` lies strictly inside the box. */

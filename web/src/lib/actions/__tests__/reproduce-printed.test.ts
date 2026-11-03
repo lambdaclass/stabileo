@@ -171,6 +171,11 @@ describe('the verdict of a check', () => {
     expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: null })).toEqual({ status: 'incomplete', reproduced: false });
   });
 
+  it('an HTML report whose printed tables compared nothing is incomplete, never reproduced', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, compared: 0 } })).toEqual({ status: 'incomplete', reproduced: false });
+    expect(reproduceStatus({ ok: true, verdict: verdict(false), fresh: {} as never, printed: { ...clean, compared: 0 } })).toEqual({ status: 'mismatch', reproduced: false });
+  });
+
   it('a fingerprint pasted on its own is judged by its hashes', () => {
     expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never })).toEqual({ status: 'reproduced', reproduced: true });
   });

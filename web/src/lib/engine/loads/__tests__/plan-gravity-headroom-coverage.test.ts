@@ -142,13 +142,14 @@ describe('a narrow gap between the strips of the beams above', () => {
     for (const y of [0, 3, 6.05]) b.bar(b.node(0, y, 4), b.node(6, y, 4));
     const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
-    expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 6);
+    expect(layout.areaByLevel.get(3)).toBeGreaterThanOrEqual(0.05 * 6 - 1e-9);
+    expect(layout.areaByLevel.get(3)).toBeLessThanOrEqual(0.05 * 6 + 0.3 * 6 + 1e-9);
     expect(sum(layout.areaOf)).toBe(0);
   });
 });
 
 describe('a narrow panel above a wider ring', () => {
-  it('carries only its own area: the ring keeps its whole roof load', () => {
+  it('carries only its own area: the ring keeps, as roof, what the panel and the strips above do not carry', () => {
     const b = builder();
     const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 4], [0, 4]];
     const ring = corners.map(([x, y]) => b.node(x, y, 3));
@@ -161,8 +162,10 @@ describe('a narrow panel above a wider ring', () => {
     const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 2 });
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
-    expect(layout.areaByLevel.get(3)).toBeCloseTo(24, 6);
-    expect([...lower].reduce((s, id) => s + (layout.roofAreaOf.get(id) ?? 0), 0)).toBeCloseTo(24, 6);
+    const kept = [...lower].reduce((s, id) => s + (layout.roofAreaOf.get(id) ?? 0), 0);
+    expect(kept).toBeGreaterThanOrEqual(2 * 0.5 * 6 - 1e-9);
+    expect(kept).toBeLessThanOrEqual(2 * 0.5 * 6 + 2 * 0.2 * 6 + 1e-9);
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(kept, 9);
     expect(sum(layout.areaOf)).toBe(0);
   });
 });
@@ -186,7 +189,8 @@ describe('trusses count as the roof\'s structure', () => {
   it('a short beam over the centre does not stand in for the roof the ring carries', () => {
     const layout = gravityLayout(trussedRing(1.5, false, true), { mode: 'panels', tributaryWidth: 3 });
     expect(sum(layout.areaOf)).toBe(0);
-    expect(layout.areaByLevel.get(4)).toBeCloseTo(60, 6);
+    expect(layout.areaByLevel.get(4)).toBeGreaterThanOrEqual(60 - 3 - 1e-9);
+    expect(layout.areaByLevel.get(4)).toBeLessThan(60);
     expect(sum(layout.roofAreaOf)).toBeGreaterThanOrEqual(60 - 1e-9);
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');

@@ -224,7 +224,8 @@ function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: nu
   for (const w of layout.widthMembers) {
     if ((only ? !only.has(w.elementId) : !layout.roof.has(w.elementId)) || !model.elements.has(w.elementId)) continue;
     const [pI, pJ] = ends(pOf(w.elementId, { member: w.elementId }));
-    if (pI > 0 || pJ > 0) out.push({ elementId: w.elementId, q: -pI * tributaryWidth, ...(Math.abs(pJ - pI) > 1e-9 ? { qJ: -pJ * tributaryWidth } : {}), frame: 'projected' });
+    const tw = w.width ?? tributaryWidth;
+    if (pI > 0 || pJ > 0) out.push({ elementId: w.elementId, q: -pI * tw, ...(Math.abs(pJ - pI) > 1e-9 ? { qJ: -pJ * tw } : {}), frame: 'projected' });
   }
   return out;
 }

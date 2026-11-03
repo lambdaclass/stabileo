@@ -83,10 +83,10 @@ function claimedScope(claimed: ResultProvenance): ScopeRef | null {
 
 export type CheckStatus = ReproduceVerdict['status'] | 'printed-differs';
 
-/** A report whose tables could not be printed again (`printed` null) is never reproduced: its numbers were not checked. */
+/** A report whose tables could not be printed again (`printed` null) or compared none is never reproduced: its numbers were not checked. */
 export function reproduceStatus(outcome: Extract<ReproduceOutcome, { ok: true }>): { status: CheckStatus; reproduced: boolean } {
   const v = outcome.verdict, p = outcome.printed;
-  if (p === null) return { status: v.status === 'reproduced' ? 'incomplete' : v.status, reproduced: false };
+  if (p === null || (p && p.compared === 0 && p.differences.length === 0 && p.structural.length === 0)) return { status: v.status === 'reproduced' ? 'incomplete' : v.status, reproduced: false };
   const printedOk = !p || (p.differences.length === 0 && p.structural.length === 0);
   const labelsOk = !p || p.labels;
   const status = !printedOk ? 'printed-differs' : !labelsOk && v.status === 'reproduced' ? 'incomplete' : v.status;
