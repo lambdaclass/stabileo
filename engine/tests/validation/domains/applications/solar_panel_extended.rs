@@ -278,7 +278,7 @@ fn solar_carport_canopy_portal() {
 
     // Horizontal equilibrium: sum(Rx) + F_wind = 0
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close((sum_rx + f_wind).abs(), 0.0, 0.05, "Carport horizontal equilibrium");
+    assert_close_abs((sum_rx + f_wind).abs(), 0.0, 0.05, 1e-6, "Carport horizontal equilibrium");
 
     // Vertical equilibrium: sum(Ry) = total gravity
     let total_gravity: f64 = 2.0 * p_gravity.abs();

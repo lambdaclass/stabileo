@@ -605,15 +605,14 @@ fn elevator_overhead_beam_deflection() {
     assert_close(r_left.my.abs(), m_left_exact, 0.10, "Overhead beam left fixed-end moment");
     assert_close(r_right.my.abs(), m_right_exact, 0.10, "Overhead beam right fixed-end moment");
 
-    // Deflection at load point: delta = Pa^2*b^2/(3EIL)
-    // Note: this is approximate for the exact load position
+    // Fixed-fixed: delta = Pa^3*b^3/(3EIL^3) (Pa^2*b^2/(3EIL) is the simply supported value)
     let e_eff: f64 = e_steel * 1000.0;
-    let delta_exact: f64 = p_sheave * a_pos.powi(2) * b_pos.powi(2) / (3.0 * e_eff * iz_beam * l_beam);
+    let delta_exact: f64 = p_sheave * a_pos.powi(3) * b_pos.powi(3) / (3.0 * e_eff * iz_beam * l3);
 
     let load_disp = results.displacements.iter()
         .find(|d| d.node_id == load_node).unwrap();
 
-    assert_close(load_disp.uz.abs(), delta_exact, 0.10, "Overhead beam deflection at sheave");
+    assert_close(load_disp.uz.abs(), delta_exact, 1e-6, "Overhead beam deflection at sheave");
 
     // Deflection serviceability check: L/500 for machine-supporting beams
     let deflection_limit: f64 = l_beam / 500.0;

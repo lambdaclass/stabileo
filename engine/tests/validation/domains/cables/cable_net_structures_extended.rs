@@ -153,7 +153,7 @@ fn cable_net_ext_hexagonal_symmetry() {
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, p, 0.01, "Hex net: vertical equilibrium");
-    assert_close(sum_rx, 0.0, 0.01, "Hex net: horizontal equilibrium");
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6, "Hex net: horizontal equilibrium");
 
     // All cables have the same length, so by axial stiffness symmetry,
     // forces in cables at symmetric y-positions should be equal in magnitude.
@@ -164,7 +164,7 @@ fn cable_net_ext_hexagonal_symmetry() {
     let f4 = results.element_forces.iter()
         .find(|e| e.element_id == 4).unwrap().n_start.abs();
     // Elements 1 and 4 connect nodes at 0 deg and 180 deg (symmetric about y-axis)
-    assert_close(f1, f4, 0.05, "Hex net: opposing cables equal force");
+    assert_close_abs(f1, f4, 0.05, 1e-6, "Hex net: opposing cables equal force");
 
     // Elements 2 and 6 connect nodes at 60 deg and 300 deg (symmetric about x-axis)
     let f2 = results.element_forces.iter()
@@ -230,7 +230,7 @@ fn cable_net_ext_parallel_cables_stiffness_sharing() {
 
     // Horizontal equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.10, "Cables stiffness: horizontal equilibrium");
+    assert_close_abs(sum_rx, 0.0, 0.10, 1e-6, "Cables stiffness: horizontal equilibrium");
 
     // All cables carry force
     for eid in 1..=3 {
@@ -431,7 +431,7 @@ fn cable_net_ext_radial_force_vs_angle() {
     assert_close(sum_ry, p, 0.01, "Radial cables: vertical equilibrium");
 
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.15, "Radial cables: horizontal equilibrium");
+    assert_close_abs(sum_rx, 0.0, 0.15, 1e-6, "Radial cables: horizontal equilibrium");
 
     // Cable forces: all should be non-zero and in tension (negative n_start means
     // compression in sign convention, but cable members transmit axial force)
@@ -582,7 +582,7 @@ fn cable_net_ext_asymmetric_moment_check() {
     // Global force equilibrium
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
-    assert_close(sum_rx, 0.0, 0.05, "Asymmetric net: horizontal equilibrium");
+    assert_close_abs(sum_rx, 0.0, 0.05, 1e-6, "Asymmetric net: horizontal equilibrium");
     assert_close(sum_ry, p, 0.01, "Asymmetric net: vertical equilibrium");
 
     // Moment equilibrium about origin: sum(Rx_i * y_i - Ry_i * x_i) + P * x_load = 0

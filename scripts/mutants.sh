@@ -61,6 +61,24 @@ binary_of() {
 # so only the listed targets are built per mutant (`-- …` reaches only the run).
 cargo_args=(-C --lib)
 for t in $(for t in "${tests[@]}"; do binary_of "$t"; done | sort -u); do cargo_args+=(-C --test -C "$t"); done
+# A shared binary runs every module in it, not just the listed files: since the test files became
+# modules of a few binaries (#611), each mutant also ran the shell convergence studies, the perf
+# gates and the rest (baseline 155 s -> 400 s, a survivor ~800 s), and no shard finished within
+# its budget. With nextest, a filterset keeps the run to the listed files (test names are
+# `<file>::<test>`), as before #611; the plain `cargo test` runner runs the whole binaries.
+filter=(kind\(lib\))
+for t in $(printf '%s\n' "${tests[@]}" | sort -u); do
+  b=$(binary_of "$t")
+  if [[ $b == "$t" ]]; then filter+=("binary(=$t)"); else filter+=("(binary(=$b) & test(/^$t::/))"); fi
+done
+test_args=()
+case " $* " in
+  *" --test-tool nextest "* | *" --test-tool=nextest "*)
+    expr=${filter[0]}
+    for f in "${filter[@]:1}"; do expr+=" | $f"; done
+    test_args=(-- -E "$expr")
+    ;;
+esac
 # Equivalent mutants in constant index arithmetic (k[0 * 6 + 0] -> k[0 * 6 - 0]):
 # found on the current source by scripts/mutants-equivalent.py, which keeps a
 # mutant out only when the mutated index has exactly the same value.
@@ -68,14 +86,20 @@ excl=()
 while IFS= read -r re; do excl+=(--exclude-re "$re"); done < <(
   cargo mutants --list --json --package dedaliano-engine "${files[@]}" | python3 scripts/mutants-equivalent.py --regex)
 echo "excluded $(( ${#excl[@]} / 2 )) equivalent index-arithmetic mutants (scripts/mutants-equivalent.py)"
-cargo mutants --package dedaliano-engine "${files[@]}" "${excl[@]}" --timeout-multiplier 3 "${cargo_args[@]}" "$@"
+cargo mutants --package dedaliano-engine "${files[@]}" "${excl[@]}" --timeout-multiplier 3 "${cargo_args[@]}" "$@" "${test_args[@]}"
 status=$?
 if [[ -s mutants.out/missed.txt ]]; then
   echo "Missed mutants (add a test, or exclude in .cargo/mutants.toml with a justification if equivalent):"
   cat mutants.out/missed.txt
 fi
-# cargo-mutants: 2 = missed mutants, 3 = timeouts only (a timeout is a caught mutant), 4 = baseline failed.
+# cargo-mutants: 2 = missed mutants, 3 = timeouts (a timeout is a caught mutant), 4 = baseline
+# failed. 3 wins over 2: a shard with a timeout and missed mutants exits 3, and mapping every 3 to
+# success hid its missed mutants (shards 91, 92, 100, 102, 107, 108, 110, 111, 116 and 8 passed
+# with 14 to 125 missed each). Whatever the code, missed.txt decides.
 if [[ $status -eq 3 ]]; then
   status=0
+fi
+if [[ $status -eq 0 && -s mutants.out/missed.txt ]]; then
+  status=2
 fi
 exit $status

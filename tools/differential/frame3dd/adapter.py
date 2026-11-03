@@ -14,7 +14,9 @@ phi = 12EI/(G As L^2), the same exact two-node element). Mapping:
   * shear areas: stabileo pairs asY with Iy (shear along local z) and asZ
     with Iz, Frame3DD pairs Asz with Iy and Asy with Iz: Asz = asY,
     Asy = asZ. A missing shear area (Euler-Bernoulli plane) is written as
-    1e6 * A (phi ~ 1e-7 * phi_typical, far below the tolerance).
+    1e10 * A. 1e6 * A was not enough: on the short sub-elements nodalize
+    makes at partial-load ends, phi = 12 E I / (G As L^2) reached ~2e-6, above
+    the 1e-6 tolerance (frame2d-746114: one rotation off by 1.4e-6).
   * end forces: Frame3DD's Q are the forces on the element in local axes
     (Q = k u - equivalent loads), the same vector as OpenSees localForce:
     nStart = -Q1, vyStart = Q2, ..., nEnd = Q7, vyEnd = -Q8, ...
@@ -40,11 +42,12 @@ generated with J = Iy + Iz so the polar masses agree.
 
 P-Delta: Frame3DD's geometric-stiffness iteration (geom flag) solves
 (K + K_G(N)) u = f with N from the end forces, to an equilibrium error of
-`tol`; stabileo's solve_pdelta iterates the same fixed point. K_G differs in
-two terms stabileo does not model: the torsional term N J/(A L) and the
-shear-deformation correction of K_G; P-Delta models therefore use
-Euler-Bernoulli sections and the norot build also zeroes the torsional K_G
-term (frame3dd-norot, see build.sh).
+`tol`; stabileo's solve_pdelta iterates the same fixed point. Frame3DD's
+torsional K_G term N J/(A L) is stabileo's Wagner term N (Iy+Iz)/(A L)
+(#404) when J = Iy + Iz, as pdelta3d generates; build.sh adds it to
+Frame3DD's end torque, which left it out. Frame3DD's K_G is also
+shear-corrected, which stabileo's is not: P-Delta models use
+Euler-Bernoulli sections.
 """
 
 import math
@@ -179,7 +182,7 @@ def write_3dd(model, analysis="static", densities=None, n_modes=6, tol=1e-12):
     for eid in eids:
         m = mem[eid]
         s = m["sec"]
-        big = 1e6 * s["a"]
+        big = 1e10 * s["a"]
         asz = s.get("asY") or big
         asy = s.get("asZ") or big
         p = roll_angle(m["ex"], m["ey"])
@@ -316,7 +319,9 @@ def run(model, analysis="static", densities=None, n_modes=6, tol=1e-12):
         raise Unsupported(", ".join(why))
     if not is_3d(model):
         return lower_static_3d(run(lift_2d(model), analysis, densities, n_modes, tol), model)
-    binary = BIN_NOROT if analysis in ("modal", "pdelta") else BIN
+    # P-Delta keeps Frame3DD's torsional K_G term N J/(A L): it is stabileo's
+    # Wagner term N (Iy+Iz)/(A L) for the J = Iy + Iz that pdelta3d generates.
+    binary = BIN_NOROT if analysis == "modal" else BIN
     text, maps = write_3dd(model, analysis, densities, n_modes, tol)
     out, err = run_frame3dd(text, binary)
     raw = parse_out(out, len(maps["nmap"]))

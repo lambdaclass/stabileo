@@ -402,7 +402,7 @@ fn validation_cross_section_ext_symmetric_frame_equal_iz_equal_moments() {
     // Symmetric loading + symmetric structure -> equal base moments (absolute value)
     let mz_left_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().my.abs();
     let mz_right_a = res_a.reactions.iter().find(|r| r.node_id == 4).unwrap().my.abs();
-    assert_close(mz_left_a, mz_right_a, 0.02, "symmetric frame equal base moments");
+    assert_close_abs(mz_left_a, mz_right_a, 0.02, 1e-6, "symmetric frame equal base moments");
 
     // Equal vertical reactions too
     let ry_left_a = res_a.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;

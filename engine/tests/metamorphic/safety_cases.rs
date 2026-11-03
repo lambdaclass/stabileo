@@ -5,7 +5,7 @@ use crate::{
 };
 
 #[test]
-#[ignore = "safety #758"]
+#[ignore = "known wrong result: #758"]
 fn plastic_rigid_link_invariance() {
     let names = [
         "feature_matrix/2d-constraint--rigid-link--offset-beam-with",
@@ -88,7 +88,7 @@ fn plastic_coverage_rejects_missing_or_unsuccessful_comparisons() {
 }
 
 #[test]
-#[ignore = "safety #759"]
+#[ignore = "known wrong result: #759"]
 fn modal_warping_orthogonality() {
     let c = corpus::cases_3d(Tier::Nightly, 20754)
         .into_iter()
@@ -117,7 +117,7 @@ fn modal_warping_orthogonality() {
 }
 
 #[test]
-#[ignore = "safety #760"]
+#[ignore = "known wrong result: #760"]
 fn time_history_reciprocity() {
     let c = corpus::cases_2d(Tier::Nightly, 20754)
         .into_iter()
@@ -146,7 +146,7 @@ fn time_history_reciprocity() {
 }
 
 #[test]
-#[ignore = "safety #762"]
+#[ignore = "known wrong result: #762"]
 fn near_mechanism_units_and_orientation() {
     let c = corpus::cases_2d(Tier::Nightly, 20754)
         .into_iter()

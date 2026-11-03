@@ -900,8 +900,8 @@ fn validation_przem3d_8_symmetric_loading() {
 
     // Z displacements: front nodes (5,6) should have equal and opposite uz to back nodes (8,7)
     // due to symmetry about z = d/2 plane
-    assert_close(d5.uz, -d8.uz, 0.05, "Symmetry: uz(5) = -uz(8)");
-    assert_close(d6.uz, -d7.uz, 0.05, "Symmetry: uz(6) = -uz(7)");
+    assert_close_abs(d5.uz, -d8.uz, 0.05, 1e-6, "Symmetry: uz(5) = -uz(8)");
+    assert_close_abs(d6.uz, -d7.uz, 0.05, 1e-6, "Symmetry: uz(6) = -uz(7)");
 
     // Global equilibrium
     let sum_fy: f64 = results.reactions.iter().map(|r| r.fy).sum();

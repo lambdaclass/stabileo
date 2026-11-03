@@ -320,7 +320,7 @@ fn validation_elastic_curve_ext_ss_off_center_point_load() {
 // load from q=0 at x=0 to q=q0 at x=L.
 // The intensity at any element is q(x) = q0 * x / L.
 // Analytical deflection:
-//   delta(x) = q0 / (120*L*EI) * (10*L^3*x^2 - 10*L^2*x^3 + 5*L*x^4 - x^5)
+//   delta(x) = q0 / (120*L*EI) * (20*L^3*x^2 - 10*L^2*x^3 + x^5)
 
 #[test]
 fn validation_elastic_curve_ext_cantilever_triangular_load() {
@@ -350,7 +350,7 @@ fn validation_elastic_curve_ext_cantilever_triangular_load() {
     let input = make_beam(n, l, E, A, IZ, "fixed", None, loads);
     let results = linear::solve_2d(&input).unwrap();
 
-    // Analytical: delta(x) = q0/(120*L*EI) * (10*L^3*x^2 - 10*L^2*x^3 + 5*L*x^4 - x^5)
+    // The load peaks at the free end; the 10-10-5-1 quintic is for a load peaking at the fixed end.
     let check_nodes = vec![
         (n / 4 + 1, l / 4.0, "quarter"),
         (n / 2 + 1, l / 2.0, "midspan"),
@@ -366,14 +366,13 @@ fn validation_elastic_curve_ext_cantilever_triangular_load() {
             .unwrap()
             .uz;
         let delta_exact: f64 = q0 / (120.0 * l * ei)
-            * (10.0 * l.powi(3) * x.powi(2)
+            * (20.0 * l.powi(3) * x.powi(2)
                 - 10.0 * l.powi(2) * x.powi(3)
-                + 5.0 * l * x.powi(4)
-                - x.powi(5));
+                + x.powi(5));
         assert_close(
             uy.abs(),
             delta_exact.abs(),
-            0.05,
+            1e-6,
             &format!("Cantilever triangular load shape at {}", label),
         );
     }
