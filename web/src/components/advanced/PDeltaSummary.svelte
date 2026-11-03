@@ -15,7 +15,7 @@
   const K = 'course.second-order.pd';
   const info = $derived(result.secondOrder as (PDeltaInfo | { lambda1: number | null; b2: number; bucklingError?: string } | undefined));
   const full = $derived(info && 'settings' in info ? info : null);
-  const shown = $derived(result.converged && result.isStable);
+  const shown = $derived(result.converged && result.isStable === true);
 
   let conv = $state<ConvergenceRow[] | null>(null);
   let convError = $state<string | null>(null);
@@ -44,7 +44,7 @@
 <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
   P-Δ: B₂ = {formatPDeltaFactor(result.b2Factor)} |
   {result.converged ? `${result.iterations} ${t('pro.iterationsAbbr')}` : t('advanced.notConvergedShort')} |
-  {result.isStable ? t('advanced.stable') : t('advanced.unstable')}
+  <span data-testid="pdelta-stability">{result.isStable === null ? t('advanced.stabilityUnknown') : result.isStable ? t('advanced.stable') : t('advanced.unstable')}</span>
 </div>
 {#if info && info.lambda1 !== null && Number.isFinite(info.lambda1)}
   <p class="pd-line" data-testid="pdelta-b2-line">

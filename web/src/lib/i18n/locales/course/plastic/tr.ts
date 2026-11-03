@@ -169,7 +169,7 @@ const words: Translations = {
   'course.plastic.user.combined': 'En küçük λ veren birleşim kullanıldı; dönmeyen mafsallar işaretlendi.',
   'course.plastic.user.noWork': 'Yükler bu mekanizmada iş yapmaz: onu oluşturamazlar.',
   'course.plastic.user.type.complete': 'Tam mekanizma: {n} mafsal = GH + 1 = {need}. Momentler yalnızca dengeden çıkar.',
-  'course.plastic.user.type.partial': 'Kısmi mekanizma: {n} mafsal, GH + 1 = {need} değerinden az. {free} bilinmeyen serbest kalır; en büyük |M|/Mp oranı mümkün olduğunca küçük olacak şekilde seçilir.',
+  'course.plastic.user.type.partial': 'Kısmi mekanizma: {n} mafsaldan dönenler GH + 1 = {need} değerinden az. {free} bilinmeyen serbest kalır; en büyük |M|/Mp oranı mümkün olduğunca küçük olacak şekilde seçilir.',
   'course.plastic.user.type.overcomplete': 'Fazla mafsallı mekanizma: {n} mafsal, GH + 1 = {need} değerinden fazla.',
   'course.plastic.user.admissible': 'Momentler hiçbir yerde Mp değerini aşmıyor: λ = {lambda} göçme yüküdür (teklik teoremi).',
   'course.plastic.user.exceeds': 'M, {member} çubuğunda x = {x} konumunda Mp değerini aşıyor: |M| = {M} > Mp = {mp}. λ = {lambda} bir üst sınır, λ / maks(|M|/Mp) = {lower} bir alt sınırdır.',

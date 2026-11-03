@@ -90,7 +90,7 @@ export interface PDeltaResult3D {
   results: AnalysisResults3D;
   iterations: number;
   converged: boolean;
-  isStable: boolean;
+  isStable: boolean | null;
   b2Factor: number;
   amplification: Array<{ nodeId: number; ratio: number }>;
   linearResults: AnalysisResults3D;

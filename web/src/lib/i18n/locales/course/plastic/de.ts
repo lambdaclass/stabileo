@@ -169,7 +169,7 @@ const words: Translations = {
   'course.plastic.user.combined': 'Verwendet wurde die Kombination mit dem kleinsten λ; die Gelenke, die sich nicht drehen, sind markiert.',
   'course.plastic.user.noWork': 'Die Lasten leisten in diesem Mechanismus keine Arbeit: Sie können ihn nicht hervorrufen.',
   'course.plastic.user.type.complete': 'Vollständiger Mechanismus: {n} Gelenke = GH + 1 = {need}. Die Momente folgen allein aus dem Gleichgewicht.',
-  'course.plastic.user.type.partial': 'Teilmechanismus: {n} Gelenke, weniger als GH + 1 = {need}. Es bleiben {free} Unbekannte frei; sie werden so gewählt, dass das größte |M|/Mp möglichst klein ist.',
+  'course.plastic.user.type.partial': 'Teilmechanismus: Von den {n} Gelenken drehen sich weniger als GH + 1 = {need}. Es bleiben {free} Unbekannte frei; sie werden so gewählt, dass das größte |M|/Mp möglichst klein ist.',
   'course.plastic.user.type.overcomplete': 'Überzähliger Mechanismus: {n} Gelenke, mehr als GH + 1 = {need}.',
   'course.plastic.user.admissible': 'Die Momente überschreiten nirgends Mp (|M| ≤ Mp): λ = {lambda} ist die Traglast (Eindeutigkeitssatz).',
   'course.plastic.user.exceeds': 'M überschreitet Mp im Stab {member}, x = {x}: |M| = {M} > Mp = {mp}. λ = {lambda} ist eine obere Schranke und λ / max(|M|/Mp) = {lower} eine untere.',

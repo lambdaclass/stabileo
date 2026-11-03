@@ -83,4 +83,55 @@ describe('the single degree of freedom from a model is judged by its own stiffne
     if (typeof r === 'string') throw new Error(r);
     expect(r.k / ref.k).toBeCloseTo(1, 9);
   });
+
+  it('a node whose two directions differ in stiffness by far more than 1e12 keeps both', () => {
+    tipCantilever(1e-9, 'fixed');
+    const ref = sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, 'uz');
+    if (typeof ref === 'string') throw new Error(ref);
+    const s = modelStore.addSupport(2, 'spring');
+    modelStore.updateSupport(s, { kx: 1e13, ky: 0, kz: 0 });
+    const z = sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, 'uz');
+    const x = sdofFromModel(modelStore.model, [{ nodeId: 2, m: 1 }], 2, 'ux');
+    if (typeof z === 'string') throw new Error(z);
+    if (typeof x === 'string') throw new Error(x);
+    expect(x.k / z.k).toBeGreaterThan(1e12);
+    expect(z.k / ref.k).toBeCloseTo(1, 9);
+    expect(x.k / 1e13).toBeCloseTo(1, 6);
+  });
 });
+
+describe('the single degree of freedom from a model holds only the mass at its node', () => {
+  function twoSpans() {
+    uiStore.analysisMode = '2d';
+    historyStore.clear();
+    modelStore.clear();
+    let ids: number[] = [];
+    modelStore.batch(() => {
+      ids = [0, 1.5, 3].map((x) => modelStore.addNode(x, 0));
+      modelStore.addElement(ids[0], ids[1]);
+      modelStore.addElement(ids[1], ids[2]);
+      modelStore.addSupport(ids[0], 'fixed');
+    });
+    return ids;
+  }
+
+  it('refuses a cantilever with masses at the middle node and at the tip', () => {
+    const [, mid, tip] = twoSpans();
+    expect(sdofFromModel(modelStore.model, [{ nodeId: mid, m: 2 }, { nodeId: tip, m: 1 }], tip, 'uz')).toBe('otherMasses');
+    expect(sdofFromModel(modelStore.model, [{ nodeId: mid, m: 2 }, { nodeId: tip, m: 1 }], mid, 'uz')).toBe('otherMasses');
+  });
+
+  it('refuses a rotational inertia that would turn with the node', () => {
+    const [, , tip] = twoSpans();
+    expect(sdofFromModel(modelStore.model, [{ nodeId: tip, m: 1, izz: 0.5 }], tip, 'uz')).toBe('otherMasses');
+  });
+
+  it('a mass on the fixed support does not move and is no reason to refuse', () => {
+    const [base, , tip] = twoSpans();
+    const alone = sdofFromModel(modelStore.model, [{ nodeId: tip, m: 1 }], tip, 'uz');
+    const withBase = sdofFromModel(modelStore.model, [{ nodeId: base, m: 7, izz: 3 }, { nodeId: tip, m: 1 }], tip, 'uz');
+    if (typeof alone === 'string') throw new Error(alone);
+    expect(withBase).toEqual(alone);
+  });
+});
+

@@ -2,7 +2,9 @@
  * A single degree of freedom system taken from the model: the stiffness the
  * structure offers at one node in one direction, k = 1/δ with δ the
  * displacement under a unit force there (the stiffness matrix condensed onto
- * that degree of freedom), and the point mass at the node.
+ * that degree of freedom), and the point mass at the node. A model whose other
+ * point masses (or a rotational inertia) would move with it is refused: that
+ * inertia is not in m, and the frequency would come out too high.
  */
 import type { ModelData } from '../../solver-service';
 import { buildSolverInput2D } from '../../solver-service';
@@ -13,7 +15,7 @@ import { zeros } from './dense';
 import { MAX_SYSTEM_DOFS } from './mdof-system';
 
 export interface SdofFromModel { nodeId: number; dir: 'ux' | 'uz'; k: number; delta: number; m: number; nFree: number }
-export type SdofModelRefusal = 'noNode' | 'restrained' | 'mechanism' | 'noMass' | 'tooBig';
+export type SdofModelRefusal = 'noNode' | 'restrained' | 'mechanism' | 'noMass' | 'tooBig' | 'otherMasses';
 
 export function sdofFromModel(model: ModelData, points: readonly PointMass[], nodeId: number | null, dir: 'ux' | 'uz'): SdofFromModel | SdofModelRefusal {
   if (nodeId === null || !model.nodes.has(nodeId)) return 'noNode';
@@ -31,6 +33,8 @@ export function sdofFromModel(model: ModelData, points: readonly PointMass[], no
   if (delta < 0 || !Number.isFinite(delta)) return 'mechanism';
   if (!(delta > 0) || free.length === 0) return 'restrained';
   const k = 1 / delta;
+  const moves = (id: number, dofs: number[]) => det.dofNumbering.dofs.some((d) => d.nodeId === id && d.isFree && dofs.includes(d.localDof));
+  if (points.some((q) => model.nodes.has(q.nodeId) && ((q.nodeId !== nodeId && q.m > 0 && moves(q.nodeId, [0, 1])) || ((q.izz ?? 0) > 0 && moves(q.nodeId, [2]))))) return 'otherMasses';
   const at = points.filter((q) => q.nodeId === nodeId && q.m > 0);
   const mx = at.reduce((sum, q) => sum + q.m, 0);
   const mz = at.reduce((sum, q) => sum + (q.horizontalOnly ? 0 : q.m), 0);
@@ -60,11 +64,13 @@ function nodeDeflection(Kff: number[][], nF: number, free: Array<{ localDof: num
   if (Kc.length === 1) {
     uLocal[free[0].localDof] = gLocal[free[0].localDof] / Kc[0][0];
   } else {
-    const det = Kc[0][0] * Kc[1][1] - Kc[0][1] * Kc[1][0];
-    if (!(Math.abs(det) > 1e-12 * Math.max(Math.abs(Kc[0][0]), Math.abs(Kc[1][1])) ** 2)) return 'mechanism';
+    const d0 = 1 / Math.sqrt(Kc[0][0]), d1 = 1 / Math.sqrt(Kc[1][1]);
+    const r01 = Kc[0][1] * d0 * d1, r10 = Kc[1][0] * d0 * d1;
+    const det = 1 - r01 * r10;
+    if (!(det > 1e-12)) return 'mechanism';
     const p = free.map((d) => gLocal[d.localDof]);
-    const u0 = (Kc[1][1] * p[0] - Kc[0][1] * p[1]) / det, u1 = (-Kc[1][0] * p[0] + Kc[0][0] * p[1]) / det;
-    uLocal[free[0].localDof] = u0; uLocal[free[1].localDof] = u1;
+    const q0 = p[0] * d0, q1 = p[1] * d1;
+    uLocal[free[0].localDof] = d0 * (q0 - r01 * q1) / det; uLocal[free[1].localDof] = d1 * (q1 - r10 * q0) / det;
   }
   return [c * uLocal[0] - s * uLocal[1], s * uLocal[0] + c * uLocal[1]];
 }

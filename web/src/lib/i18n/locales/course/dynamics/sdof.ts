@@ -91,6 +91,7 @@ export const es: Translations = {
   'course.dynamics.sdof.err.restrained': 'Ese nudo tiene un apoyo que impide el movimiento en la dirección elegida.',
   'course.dynamics.sdof.err.mechanism': 'La estructura no ofrece rigidez en ese nudo y esa dirección: es un mecanismo.',
   'course.dynamics.sdof.err.noMass': 'El nudo elegido no tiene masa puntual en esa dirección. Agregala en el panel Dinámico.',
+  'course.dynamics.sdof.err.otherMasses': 'Otras masas del modelo (en otros nudos, o una inercia de rotación) se moverían junto con este nudo y no entran en m: la frecuencia saldría más alta que la real. Usá el análisis de varios grados de libertad, o dejá una sola masa puntual.',
 };
 
 export const en: Translations = {
@@ -184,6 +185,7 @@ export const en: Translations = {
   'course.dynamics.sdof.err.restrained': 'That node has a support that prevents movement in the chosen direction.',
   'course.dynamics.sdof.err.mechanism': 'The structure offers no stiffness at that node in that direction: it is a mechanism.',
   'course.dynamics.sdof.err.noMass': 'The chosen node has no point mass in that direction. Add one in the Dynamic panel.',
+  'course.dynamics.sdof.err.otherMasses': 'Other masses in the model (at other nodes, or a rotational inertia) would move with this node and are not in m: the frequency would come out higher than the real one. Use the multi-degree-of-freedom analysis, or keep a single point mass.',
 };
 
 export const pt: Translations = {
@@ -277,4 +279,5 @@ export const pt: Translations = {
   'course.dynamics.sdof.err.restrained': 'Esse nó tem um apoio que impede o movimento na direção escolhida.',
   'course.dynamics.sdof.err.mechanism': 'A estrutura não oferece rigidez nesse nó e nessa direção: é um mecanismo.',
   'course.dynamics.sdof.err.noMass': 'O nó escolhido não tem massa pontual nessa direção. Adicione uma no painel Dinâmico.',
+  'course.dynamics.sdof.err.otherMasses': 'Outras massas do modelo (em outros nós, ou uma inércia de rotação) se moveriam junto com este nó e não entram em m: a frequência sairia mais alta que a real. Use a análise de vários graus de liberdade, ou deixe uma só massa pontual.',
 };

@@ -13,7 +13,7 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     buckling.impl = () => { throw new Error('eigen solver did not converge'); };
     const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
     expect(Number.isNaN(r.b2Factor)).toBe(true);
-    expect(r.isStable).toBe(true);
+    expect(r.isStable).toBeNull();
     expect(r.secondOrder).toEqual({ lambda1: null, b2: NaN, bucklingError: 'eigen solver did not converge' });
   });
 
@@ -21,6 +21,7 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     buckling.impl = () => ({ modes: [] });
     const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
     expect(Number.isNaN(r.b2Factor)).toBe(true);
+    expect(r.isStable).toBeNull();
     expect(r.secondOrder?.lambda1).toBeNull();
     expect(r.secondOrder?.bucklingError).toBeTruthy();
   });
@@ -29,6 +30,7 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     buckling.impl = () => { throw new Error('Buckling: no compressed elements'); };
     const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });
     expect(r.b2Factor).toBe(1);
+    expect(r.isStable).toBe(true);
     expect(r.secondOrder).toEqual({ lambda1: Infinity, b2: 1 });
   });
 });

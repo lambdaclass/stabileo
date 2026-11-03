@@ -22,7 +22,7 @@ test.describe('@slow structural dynamics in Basic', () => {
     const errors: string[] = [];
     page.on('pageerror', (e) => errors.push(String(e)));
     await boot(page);
-    await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-shear-building'));
+    await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-column-mass'));
     await runDynamic(page);
 
     await page.getByTestId('dyn-sdof-toggle').click();
@@ -39,6 +39,7 @@ test.describe('@slow structural dynamics in Basic', () => {
     await page.getByTestId('steps-back').click();
     await page.getByTestId('steps-catalog-back').click();
 
+    await page.evaluate(() => window.__stabileoActions.loadExample('dynamics-shear-building'));
     await runDynamicIfClosed(page);
     await page.getByTestId('dyn-mdof-toggle').click();
     await page.getByTestId('dyn-mdof-shear').click();

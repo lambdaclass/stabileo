@@ -26,15 +26,15 @@ export function bucklingBasic2D(input: SolverInput): SoBucklingResult | string {
   return got.ok ? got.result : tp(got.reason.key, got.reason.params);
 }
 
-/** The space P-Δ with B₂ = 1/(1 − 1/λ₁) from its first buckling factor, as the plane one reports it. When the buckling solve fails, B₂ and the stability are unknown and the reason travels in `bucklingError`. */
-export function withFirstModeB2(input: SolverInput3D, result: { b2Factor: number; isStable: boolean }): typeof result & { secondOrder?: { lambda1: number | null; b2: number; bucklingError?: string } } {
+/** The space P-Δ with B₂ = 1/(1 − 1/λ₁) from its first buckling factor, as the plane one reports it. When the buckling solve fails, B₂ is unknown, `isStable` is null (not checked) and the reason travels in `bucklingError`. */
+export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean }>(input: SolverInput3D, result: R): Omit<R, 'isStable'> & { isStable: boolean | null; secondOrder?: { lambda1: number | null; b2: number; bucklingError?: string } } {
   let lambda1: number;
   try {
     lambda1 = solveBuckling3D(input, 1).modes[0]?.loadFactor ?? NaN;
     if (!Number.isFinite(lambda1) && lambda1 !== Infinity) throw new Error('no buckling mode');
   } catch (e) {
     const msg = String((e as Error)?.message ?? e);
-    if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
+    if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
     lambda1 = Infinity;
   }
   const b2 = firstModeB2(lambda1);
