@@ -14289,6 +14289,8 @@ const tr: Translations = {
   'storeys.scope.all': "Tümü",
   'storeys.noSimilar': "Hiçbir kat diğerini tekrarlamıyor: Aks ızgarası ve katlar bölümünde belirtilir.",
   'storeys.took': "{levels} katta {n} nesne daha alındı",
+  'storeys.skipped': "{levels} üzerinde çizilmedi: altında kat yok.",
+  'storeys.resized': "{levels} üzerinde çubuğun boyu farklı: desteksiz boy ve yanal destekler kopyalanmadı.",
   'storeys.unmatched': "{n} karşılıksız",
   'storeys.similarTo': "Benzediği",
   'storeys.similarToOf': "{name} hangi katı tekrarlıyor",

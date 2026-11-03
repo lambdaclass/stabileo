@@ -14439,6 +14439,8 @@ const es: Record<string, string> = {
   'storeys.scope.all': "Todas",
   'storeys.noSimilar': "Ningún nivel es similar a otro: se indica en Grilla y niveles.",
   'storeys.took': "Tomó {n} objetos más en {levels} plantas",
+  'storeys.skipped': "No se dibujó en {levels}: no hay un nivel debajo.",
+  'storeys.resized': "En {levels} la barra tiene otro largo: no se copiaron la longitud no arriostrada ni los arriostramientos.",
   'storeys.unmatched': "{n} sin par",
   'storeys.similarTo': "Similar a",
   'storeys.similarToOf': "A qué planta repite {name}",

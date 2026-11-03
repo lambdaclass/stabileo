@@ -14090,6 +14090,8 @@ const pt: Translations = {
   'storeys.scope.all': "Todos",
   'storeys.noSimilar': "Nenhum nível repete outro: indica-se em Grade e níveis.",
   'storeys.took': "Tomou mais {n} objetos em {levels} pavimentos",
+  'storeys.skipped': "Não desenhada em {levels}: não há um nível abaixo.",
+  'storeys.resized': "Em {levels} a barra tem outro comprimento: o comprimento destravado e os travamentos não foram copiados.",
   'storeys.unmatched': "{n} sem par",
   'storeys.similarTo': "Semelhante a",
   'storeys.similarToOf': "Que pavimento {name} repete",

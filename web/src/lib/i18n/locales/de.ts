@@ -14289,6 +14289,8 @@ const de: Translations = {
   'storeys.scope.all': "Alle",
   'storeys.noSimilar': "Keine Ebene wiederholt eine andere: das wird unter Raster und Geschosse festgelegt.",
   'storeys.took': "{n} weitere Objekte auf {levels} Geschossen übernommen",
+  'storeys.skipped': "Nicht gezeichnet auf {levels}: darunter liegt keine Ebene.",
+  'storeys.resized': "Auf {levels} hat der Stab eine andere Länge: die ungestützte Länge und die Aussteifungen wurden nicht übernommen.",
   'storeys.unmatched': "{n} ohne Gegenstück",
   'storeys.similarTo': "Ähnlich wie",
   'storeys.similarToOf': "Welches Geschoss {name} wiederholt",

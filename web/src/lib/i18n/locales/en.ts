@@ -14450,6 +14450,8 @@ const en: Record<string, string> = {
   'storeys.scope.all': "All",
   'storeys.noSimilar': "No level repeats another: it is set in Grid and levels.",
   'storeys.took': "Took {n} more objects on {levels} stories",
+  'storeys.skipped': "Not drawn on {levels}: there is no level below.",
+  'storeys.resized': "On {levels} the member has another length: its unbraced length and bracing were not copied.",
   'storeys.unmatched': "{n} without a counterpart",
   'storeys.similarTo': "Similar to",
   'storeys.similarToOf': "Which story {name} repeats",
