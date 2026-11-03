@@ -10,11 +10,25 @@ import { modelStore } from './model.svelte';
 import { uiStore } from './ui.svelte';
 import type { StepDoc, Txt } from '../engine/steps/doc';
 import { tx } from '../engine/steps/doc';
-import { planeModel } from '../engine/steps/plane-model';
-import { solveReference } from '../engine/steps/reference';
-import type { MethodContext } from '../engine/steps/registry';
-import { methodById } from '../engine/steps/methods';
+import type { MethodContext, ExplainedMethod } from '../engine/steps/registry';
+import type { planeModel } from '../engine/steps/plane-model';
+import type { solveReference } from '../engine/steps/reference';
+import { loadCourse } from '../course/load-course';
 import { fmChoice } from './fm-choice.svelte';
+
+interface CourseMethods {
+  methodById: (id: string) => ExplainedMethod | undefined;
+  planeModel: typeof planeModel;
+  solveReference: typeof solveReference;
+}
+
+let course: CourseMethods | null = null;
+
+export function installCourse(c: CourseMethods): void {
+  course = c;
+}
+
+const methodById = (id: string) => course?.methodById(id);
 
 type View = 'catalog' | 'doc';
 
@@ -38,11 +52,11 @@ let params = $state<Record<string, Record<string, string>>>({});
 /** The model as the methods read it, or null when there is nothing to read. */
 export function methodContext(methodId?: string): MethodContext | null {
   const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
-  if (!input || input.elements.size === 0) return null;
+  if (!course || !input || input.elements.size === 0) return null;
   return {
     input,
-    pm: planeModel(input),
-    ref: solveReference(input),
+    pm: course.planeModel(input),
+    ref: course.solveReference(input),
     selection: { members: [...uiStore.selectedElements], nodes: [...uiStore.selectedNodes] },
     options: { ...(methodId ? optionsOf(methodId) : {}) },
     params: { ...(methodId ? paramsOf(methodId) : {}) },
@@ -101,7 +115,11 @@ export const explainedSteps = {
   get returnToCatalog() { return returnToCatalog; },
   /** A wizard is being opened from the catalog (the catalog itself closes). */
   leaveForWizard(): void { view = null; methodId = null; doc = null; error = null; returnToCatalog = true; },
-  openMethod(id: string, opener: 'catalog' | 'tool' = 'catalog'): void { fromTool = opener === 'tool'; methodId = id; view = 'doc'; build(id); },
+  openMethod(id: string, opener: 'catalog' | 'tool' = 'catalog'): void {
+    fromTool = opener === 'tool'; methodId = id; view = 'doc'; doc = null; error = null;
+    if (course) { build(id); return; }
+    loadCourse().then(() => { if (methodId === id && view === 'doc') build(id); }, () => { if (methodId === id) error = tx('steps.view.failed'); });
+  },
   refresh(): void { if (methodId) build(methodId); },
   /** The open method's assumptions, as shown over its document. */
   get options(): Record<string, boolean> { return methodId ? optionsOf(methodId) : {}; },
