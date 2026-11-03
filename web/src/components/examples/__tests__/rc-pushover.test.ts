@@ -44,7 +44,7 @@ describe('rc-pushover', () => {
   });
 
   it('past the capacity the run stops, carrying slightly more than the section peak and never less', () => {
-    for (const extra of [{}, { target: 1.6 }, { h: 0.7, perFace: 4, fc: 40, steel: 1, target: 1.5 }, { height: 5, barDia: 16 }, { fc: 20, perFace: 4, barDia: 28, target: 1.6 }] as Values[]) {
+    for (const extra of [{}, { target: 1.6 }, { h: 0.7, barDia: 25, fc: 40, steel: 1, target: 1.5 }, { height: 5, barDia: 16 }, { fc: 20, barDia: 32, target: 1.6 }] as Values[]) {
       const out = run(extra);
       expect(out.stopped).toBeDefined();
       expect(out.stopped!.reason).toMatch(/no convergence|singular/);

@@ -140,7 +140,7 @@ export const rcPushover = defineExample<Model>({
     { key: 'height', value: 3, min: 1.5, max: 6, step: 0.25, unit: 'm' },
     { key: 'b', value: 0.4, min: 0.25, max: 0.6, step: 0.05, unit: 'm' },
     { key: 'h', value: 0.5, min: 0.3, max: 0.8, step: 0.05, unit: 'm' },
-    { key: 'perFace', value: 3, min: 2, max: 6, step: 1, unit: '' },
+    { key: 'perFace', value: 3, min: 2, max: 3, step: 1, unit: '' },
     { key: 'barDia', value: 20, min: 12, max: 32, step: 2, unit: 'mm' },
     { key: 'fc', value: 30, min: 20, max: 50, step: 5, unit: 'MPa' },
     { key: 'steel', value: 0, min: 0, max: 1, step: 1, unit: '', options: ['adn420', 'adn500'] },
