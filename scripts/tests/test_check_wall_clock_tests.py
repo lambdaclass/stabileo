@@ -15,6 +15,7 @@ GATE_TIMED_IGNORED = test(=a::tests::listed_budget) + test(=scaling::listed_scal
 '''
 
 TIMED = '''
+mod tests {{
     #[test]
     fn {name}() {{
         let t0 = std::time::Instant::now();
@@ -22,6 +23,7 @@ TIMED = '''
         let dt = t0.elapsed();
         assert!(dt.as_secs_f64() < 1.0, "took {{dt:?}}");
     }}
+}}
 '''
 
 
@@ -42,7 +44,7 @@ class WallClockTests(unittest.TestCase):
     def test_a_timed_assertion_in_the_suite_fails(self):
         found = violations({'engine/src/a.rs': TIMED.format(name='budget')})
         self.assertEqual(len(found), 1)
-        self.assertTrue(found[0].startswith('engine/src/a.rs:3 budget: asserts on wall-clock time'), found)
+        self.assertTrue(found[0].startswith('engine/src/a.rs:4 a::tests::budget: asserts on wall-clock time'), found)
 
     def test_ignored_and_listed_passes_but_either_alone_fails(self):
         ignored = TIMED.format(name='listed_budget').replace('#[test]\n', '#[test]\n    #[ignore = "wall clock"]\n')
@@ -50,6 +52,23 @@ class WallClockTests(unittest.TestCase):
         self.assertEqual(len(violations({'engine/src/a.rs': TIMED.format(name='listed_budget')})), 1)
         unlisted = TIMED.format(name='other').replace('#[test]\n', '#[test]\n    #[ignore]\n')
         self.assertEqual(len(violations({'engine/src/a.rs': unlisted})), 1)
+
+    def test_a_listed_name_in_another_module_is_not_listed(self):
+        ignored = TIMED.format(name='listed_budget').replace('#[test]\n', '#[test]\n    #[ignore]\n')
+        found = violations({'engine/src/b.rs': ignored, 'engine/src/x/a.rs': ignored})
+        self.assertEqual([f.split(' ')[1] for f in found], ['b::tests::listed_budget:', 'x::a::tests::listed_budget:'])
+        scaling = TIMED.format(name='listed_scaling').replace('mod tests {', 'mod inner {').replace('#[test]\n', '#[test]\n    #[ignore]\n')
+        self.assertEqual(len(violations({'engine/tests/integration/scaling.rs': scaling})), 1)
+        top = TIMED.format(name='listed_scaling').replace('mod tests {\n', '').rsplit('}', 1)[0].replace('#[test]\n', '#[test]\n    #[ignore]\n')
+        self.assertEqual(violations({'engine/tests/integration/scaling.rs': top}), [])
+
+    def test_every_assert_macro_counts(self):
+        for macro in ['assert!(dt.as_secs() < 1)', 'assert_eq!(dt.as_secs(), 0)', 'assert_ne!(dt.as_secs(), 9)',
+                      'debug_assert!(dt.as_secs() < 1)', 'debug_assert_eq!(dt.as_secs(), 0)', 'debug_assert_ne!(dt.as_secs(), 9)']:
+            with self.subTest(macro=macro):
+                source = TIMED.format(name='m').replace('assert!(dt.as_secs_f64() < 1.0, "took {dt:?}")', macro)
+                self.assertIn(macro, source)
+                self.assertEqual(len(violations({'engine/src/a.rs': source})), 1)
 
     def test_modules_engine_gates_runs_are_exempt(self):
         self.assertEqual(violations({'engine/tests/perf_regression_gates.rs': TIMED.format(name='x'),

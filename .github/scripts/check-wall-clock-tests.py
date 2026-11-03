@@ -14,8 +14,34 @@ def makefile_var(text, name):
     return m[1] if m else ''
 
 
+def inline_mods(lines):
+    stack, depth, mods = [], 0, []
+    for line in lines:
+        code = re.sub(r'//.*', '', line)
+        m = re.match(r'\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*\{', code)
+        if m:
+            stack.append((m[1], depth))
+        depth += code.count('{') - code.count('}')
+        while stack and depth <= stack[-1][1]:
+            stack.pop()
+        mods.append([name for name, _ in stack])
+    return mods
+
+
+def module_of(relative):
+    parts = list(relative.parts)
+    if parts[:2] == ['engine', 'src']:
+        parts = parts[2:]
+    elif parts[:2] == ['engine', 'tests']:
+        parts = parts[-1:]
+    stem = parts[-1][:-3]
+    parts = parts[:-1] + ([] if stem in ('lib', 'main', 'mod') else [stem])
+    return parts
+
+
 def tests(source):
     lines = source.split('\n')
+    mods = inline_mods(lines)
     i = 0
     while i < len(lines):
         if re.match(r'\s*#\[test\]', lines[i]):
@@ -38,7 +64,7 @@ def tests(source):
                 if started and depth <= 0:
                     break
             if m:
-                yield m[1], any(a.startswith('#[ignore') for a in attrs), body, k + 1
+                yield '::'.join(mods[i] + [m[1]]), any(a.startswith('#[ignore') for a in attrs), body, k + 1
             i = k
         i += 1
 
@@ -80,21 +106,23 @@ def asserts_on_time(body):
                 tainted |= names
                 changed = True
     hits = []
-    for name in ('assert', 'assert_eq', 'assert_ne', 'debug_assert'):
+    for name in ('assert', 'assert_eq', 'assert_ne', 'debug_assert', 'debug_assert_eq', 'debug_assert_ne'):
         hits += [' '.join(call.split()) for call in macro_calls(text, name) if uses(call, tainted)]
     return hits
 
 
 def violations(root=ROOT):
     makefile = (root / 'Makefile').read_text()
-    listed = set(re.findall(r'test\(=(?:[\w:]+::)?(\w+)\)', makefile_var(makefile, 'GATE_TIMED_IGNORED')))
+    listed = set(re.findall(r'test\(=([\w:]+)\)', makefile_var(makefile, 'GATE_TIMED_IGNORED')))
     gate_files = {root / 'engine/tests' / f'{m}.rs'
                   for m in (makefile_var(makefile, 'GATE_MODULES') + ' ' + makefile_var(makefile, 'GATE_TIMED_MODULES')).split()}
     out = []
     for path in sorted((root / 'engine').rglob('*.rs')):
         if 'target' in path.relative_to(root).parts or path in gate_files:
             continue
-        for name, ignored, body, line in tests(path.read_text()):
+        module = module_of(path.relative_to(root))
+        for inner, ignored, body, line in tests(path.read_text()):
+            name = '::'.join(module + [inner])
             hits = asserts_on_time(body)
             if hits and not (ignored and name in listed):
                 out.append(f'{path.relative_to(root)}:{line} {name}: asserts on wall-clock time ({hits[0]}); '
