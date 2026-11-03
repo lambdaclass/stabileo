@@ -40,12 +40,52 @@ class CancelSuperseded(unittest.TestCase):
         self.assertEqual(cancel.superseded([run(1, 'old')], set(), 'own'), [])
         self.assertEqual(cancel.superseded([run(1, 'old')], {'live'}, 'own'), [])
 
+    def test_a_rebuilt_entry_cancels_its_own_old_run_and_never_another_prs(self):
+        refs = [{'ref': 'refs/heads/gh-readonly-queue/main/pr-7-newbase', 'object': {'sha': 'pr7-new'}},
+                {'ref': 'refs/heads/gh-readonly-queue/main/pr-8-newbase', 'object': {'sha': 'pr8-new'}}]
+        entries = [{'headCommit': {'oid': 'pr7-new'}}, {'headCommit': {'oid': 'pr8-new'}}]
+        heads = cancel.live_heads(entries, refs)
+        runs = [run(1, 'pr7-old', 'in_progress'), run(2, 'pr8-new', 'in_progress'), run(3, 'pr7-new')]
+        self.assertEqual(cancel.confirmed(runs, [heads, heads, heads], 'pr7-new'), [1])
+        self.assertEqual(cancel.confirmed(runs, [heads, heads, heads], 'pr8-new'), [1])
+
+    def test_every_page_of_every_status_and_workflow_is_read(self):
+        calls = []
+
+        def fake_gh(*args):
+            calls.append(args)
+            workflow = args[-1].split('/workflows/', 1)[1].split('/', 1)[0]
+            status = args[-1].split('status=', 1)[1].split('&', 1)[0]
+            if status != 'in_progress':
+                return ''
+            return '\n'.join(f'{{"id": {i}, "workflow": "{workflow}"}}' for i in range(150)) + '\n'
+        real, cancel.gh = cancel.gh, fake_gh
+        try:
+            runs = cancel.unfinished_runs('o/r', ['ci.yml', 'verify.yml'])
+        finally:
+            cancel.gh = real
+        self.assertEqual(len(runs), 300)
+        self.assertTrue(all(c[:3] == ('api', '--paginate', '--jq') for c in calls))
+        self.assertEqual(len(calls), 10)
+
+    def test_the_cancelling_script_comes_from_main_not_from_the_queued_prs(self):
+        workflow = (ROOT / '.github/workflows/merge-queue-supersede.yml').read_text()
+        self.assertIn('ref: ${{ github.event.merge_group.base_sha }}', workflow)
+
+    def test_every_workflow_on_merge_group_is_covered(self):
+        workflow = (ROOT / '.github/workflows/merge-queue-supersede.yml').read_text()
+        listed = set(workflow.split('cancel-superseded-merge-groups.py ', 1)[1].split('\n', 1)[0].split())
+        on_queue = {p.name for p in (ROOT / '.github/workflows').glob('*.yml')
+                    if p.name != 'merge-queue-supersede.yml'
+                    and '\n  merge_group:' in p.read_text().split('\njobs:\n', 1)[0]}
+        self.assertLessEqual(on_queue, listed)
+
     def test_workflow_cancels_ci_and_supply_chain_and_only_on_merge_group(self):
         workflow = (ROOT / '.github/workflows/merge-queue-supersede.yml').read_text()
         self.assertIn('merge_group:', workflow)
         self.assertNotIn('pull_request', workflow)
         self.assertNotIn('push:', workflow)
-        self.assertIn('cancel-superseded-merge-groups.py ci.yml supply-chain.yml', workflow)
+        self.assertIn('cancel-superseded-merge-groups.py ci.yml supply-chain.yml verify.yml', workflow)
         self.assertIn('actions: write', workflow)
         self.assertIn('timeout-minutes:', workflow)
 
