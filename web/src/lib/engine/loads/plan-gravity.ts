@@ -322,9 +322,12 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const { share, kept } = deck!.uncarried(tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth), z, held);
         const bins = share > 0 ? areaAlong(kept, axis, FRINGE_BINS) : [];
         const spans: WidthSpan[] = [];
-        bins.forEach((area, k) => {
+        bins.forEach(({ area, first }, k) => {
           if (!(area > 0)) return;
-          const t0 = k / bins.length, t1 = (k + 1) / bins.length, width = area / (L / bins.length);
+          const w = L / bins.length, c = first / area;
+          const half = Math.abs(c - (k + 0.5) * w) <= 1e-9 * w ? w / 2 : Math.min(w / 2, c - k * w, (k + 1) * w - c);
+          const [t0, t1] = half > 1e-9 ? [(c - half) / L, (c + half) / L] : [k / bins.length, (k + 1) / bins.length];
+          const width = area / (L * (t1 - t0));
           const last = spans[spans.length - 1];
           if (last && Math.abs(last.t1 - t0) < 1e-12 && Math.abs(last.width - width) <= 1e-9 * width) last.t1 = t1;
           else spans.push({ t0, t1, width });
@@ -672,9 +675,9 @@ function regionPieces(r: Region, cells: number): Array<{ area: number; c: [numbe
   return out;
 }
 
-/** A region's area in each of `n` equal stretches along `axis`, cut at the stretches' ends across it. */
-function areaAlong(r: Region, axis: Axis, n: number): number[] {
-  const bins = new Array(n).fill(0) as number[];
+/** A region's area, and its first moment about `axis.p` along the axis, in each of `n` equal stretches along `axis`. */
+function areaAlong(r: Region, axis: Axis, n: number): Array<{ area: number; first: number }> {
+  const bins = Array.from({ length: n }, () => ({ area: 0, first: 0 }));
   const w = axis.L / n;
   const local = (q: [number, number]): [number, number] => {
     const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
@@ -684,16 +687,21 @@ function areaAlong(r: Region, axis: Axis, n: number): number[] {
     const pts = openRing(ring).map(local);
     for (let b = 0; b < n; b++) {
       const part = clipToBox(pts, { x0: b * w, y0: -1e9, x1: (b + 1) * w, y1: 1e9 });
-      if (part.length >= 3) bins[b]! += (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+      if (part.length < 3) continue;
+      const a = (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+      bins[b]!.area += a;
+      bins[b]!.first += a * areaCentroid(part)[0];
     }
   });
-  return bins.map((a) => Math.max(0, a));
+  return bins;
 }
 
 /**
  * What a panel kept for itself, cut on a 20 × 20 grid, carried to its beams as a one-way slab: each cell from the
- * nearest beam across to the beam opposite, split by the lever rule, so the beams' loads keep the
- * cells' resultant and both its plan moments. On each beam a uniform piece per fortieth, centred
+ * nearest beam across to the beam opposite (or, where nothing lies opposite, as in a notch of a
+ * concave panel, between the beams first met either way along some line through the cell's
+ * centroid), split by the lever rule, so the beams' loads keep the cells' resultant and both its
+ * plan moments. On each beam a uniform piece per fortieth, centred
  * on the moment of what it took; one at an end goes to the end's node.
  */
 function regionToBeams(model: GravityModel, region: Region, beamIds: number[]): {
@@ -716,6 +724,22 @@ function regionToBeams(model: GravityModel, region: Region, beamIds: number[]): 
     const t = along(bm, c);
     return Math.hypot(c[0] - bm.p[0] - t * bm.u[0], c[1] - bm.p[1] - t * bm.u[1]);
   };
+  type Hit = { bm: B; s: number; t: number };
+  const across = (c: [number, number], v: [number, number]): [Hit, Hit] | null => {
+    let back: Hit | null = null, ahead: Hit | null = null;
+    for (const bm of beams) {
+      const den = v[0] * bm.u[1] - v[1] * bm.u[0];
+      if (Math.abs(den) < 1e-12) continue;
+      const wx = bm.p[0] - c[0], wy = bm.p[1] - c[1];
+      const t = (wx * bm.u[1] - wy * bm.u[0]) / den;
+      const s = (wx * v[1] - wy * v[0]) / den;
+      if (s < -1e-9 || s > bm.L + 1e-9) continue;
+      const hit = { bm, s: Math.max(0, Math.min(bm.L, s)), t };
+      if (t > 1e-9 && (!ahead || t < ahead.t)) ahead = hit;
+      if (t < -1e-9 && (!back || t > back.t)) back = hit;
+    }
+    return back && ahead ? [back, ahead] : null;
+  };
   const put = (bm: B, s: number, a: number) => {
     const k = Math.min(BINS - 1, Math.floor((s / bm.L) * BINS + 1e-9));
     bm.area[k]! += a;
@@ -726,22 +750,15 @@ function regionToBeams(model: GravityModel, region: Region, beamIds: number[]): 
     const s0 = along(near, c);
     const foot: [number, number] = [near.p[0] + s0 * near.u[0], near.p[1] + s0 * near.u[1]];
     const d = Math.hypot(c[0] - foot[0], c[1] - foot[1]);
-    let far: { bm: B; s: number; lambda: number } | null = null;
-    if (d > 1e-9) {
-      const n: [number, number] = [(c[0] - foot[0]) / d, (c[1] - foot[1]) / d];
-      for (const bm of beams) {
-        if (bm === near) continue;
-        const den = n[0] * bm.u[1] - n[1] * bm.u[0];
-        if (Math.abs(den) < 1e-12) continue;
-        const wx = bm.p[0] - foot[0], wy = bm.p[1] - foot[1];
-        const lambda = (wx * bm.u[1] - wy * bm.u[0]) / den;
-        const s = (wx * n[1] - wy * n[0]) / den;
-        if (lambda > d + 1e-9 && s >= -1e-9 && s <= bm.L + 1e-9 && (!far || lambda < far.lambda)) far = { bm, s: Math.max(0, Math.min(bm.L, s)), lambda };
-      }
-    }
-    if (!far) { put(near, s0, area); continue; }
-    put(near, s0, area * (1 - d / far.lambda));
-    put(far.bm, far.s, (area * d) / far.lambda);
+    if (d <= 1e-9) { put(near, s0, area); continue; }
+    const directions: Array<[number, number]> = [[(c[0] - foot[0]) / d, (c[1] - foot[1]) / d]];
+    for (let k = 0; k < 90; k++) directions.push([Math.cos((k * Math.PI) / 90), Math.sin((k * Math.PI) / 90)]);
+    let pair: [Hit, Hit] | null = null;
+    for (const v of directions) if ((pair = across(c, v))) break;
+    if (!pair) { put(near, s0, area); continue; }
+    const [back, ahead] = pair;
+    put(back.bm, back.s, (area * ahead.t) / (ahead.t - back.t));
+    put(ahead.bm, ahead.s, (area * -back.t) / (ahead.t - back.t));
   }
   for (const bm of beams) {
     const w = bm.L / BINS;

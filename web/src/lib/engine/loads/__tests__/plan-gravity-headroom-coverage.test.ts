@@ -342,19 +342,20 @@ describe('a member whose cover above ends inside one of its stretches, by width'
     return b.model();
   }
 
-  it('loads only the uncovered end, so the reactions match a hand calculation', () => {
-    const layout = gravityLayout(coveredTo(9.5), { mode: 'width', tributaryWidth: 3 });
+  it.each([9.5, 9.37, 9.99])('loads only the end past %s m, so the reactions match a hand calculation', (x) => {
+    const layout = gravityLayout(coveredTo(x), { mode: 'width', tributaryWidth: 3 });
     const area = planAreaLoads({
       layout, tributaryWidth: 3, floor: { dead: 0, lo: 0, liveOf: () => 0 },
       roof: { dead: 1, use: 'maintenance', weight: 'light' as never, slopePercent: 0 },
     });
     const dead = area.distributed.filter((d) => d.elementId === 3 && d.caseType === 'D');
-    for (const d of dead) expect(d.a).toBeGreaterThanOrEqual(9.5 - 1e-6);
+    for (const d of dead) expect(d.a).toBeGreaterThanOrEqual(x - 1e-6);
     const force = dead.reduce((s, d) => s + -d.q * (d.b! - d.a!), 0);
     const right = dead.reduce((s, d) => s + (-d.q * (d.b! - d.a!) * (d.a! + d.b!)) / 2, 0) / 10;
-    expect(force).toBeCloseTo(3 * 0.5, 6);
-    expect(right).toBeCloseTo(1.5 * 9.75 / 10, 6);
-    expect(force - right).toBeCloseTo(1.5 * 0.25 / 10, 6);
+    const f = 3 * (10 - x), c = (x + 10) / 2;
+    expect(force).toBeCloseTo(f, 6);
+    expect(right).toBeCloseTo((f * c) / 10, 6);
+    expect(force - right).toBeCloseTo((f * (10 - c)) / 10, 6);
   });
 });
 
@@ -375,10 +376,43 @@ describe('a member turned in plan whose cover above ends inside one of its stret
     const dead = area.distributed.filter((d) => d.elementId === 3 && d.caseType === 'D');
     const force = dead.reduce((s, d) => s + -d.q * (d.b! - d.a!), 0);
     const right = dead.reduce((s, d) => s + (-d.q * (d.b! - d.a!) * (d.a! + d.b!)) / 2, 0) / 10;
-    expect(force).toBeGreaterThanOrEqual(1.5 - 1e-6);
-    expect(force).toBeLessThanOrEqual(1.5 + 3 * 0.05 * 2 + 1e-6);
-    expect(right / force).toBeGreaterThanOrEqual(9.5 / 10 + 0.02);
-    expect(right / force).toBeLessThanOrEqual(1);
-    expect(right).toBeCloseTo((force * 9.75) / 10, 1);
+    expect(force).toBeCloseTo(1.5, 6);
+    expect(right).toBeCloseTo((1.5 * 9.75) / 10, 6);
+    expect(force - right).toBeCloseTo((1.5 * 0.25) / 10, 6);
+  });
+});
+
+describe('a concave roof-structure ring under trusses, one low beam and a small deck', () => {
+  it('carries what they do not to its beams with the resultant where the area lies, notch and all', () => {
+    const b = builder();
+    const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 3.0975], [3.03, 3.0975], [3.03, 6], [0, 6]];
+    const ring = corners.map(([x, y]) => b.node(x, y, 3));
+    corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+    const ringIds = new Set(ring.map((id, i) => { b.bar(id, ring[(i + 1) % ring.length]!); return b.elements.size; }));
+    const top = corners.map(([x, y]) => b.node(x, y, 4));
+    top.forEach((id, i) => b.bar(id, top[(i + 1) % top.length]!, i === 0 ? 'frame' : 'truss'));
+    for (let y = 0.5; y < 6; y += 0.5) b.bar(b.node(0, y, 4), b.node(y < 3.0975 ? 6 : 3.03, y, 4), 'truss');
+    const deck = ([[2.5, 2.5], [3.02, 2.5], [3.02, 3.05], [2.5, 3.05]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
+    deck.forEach((id, i) => b.bar(id, deck[(i + 1) % 4]!));
+    const model = b.model();
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    const a1 = 6 * 1.5975, a2 = 3.03 * 2.9025, a3 = 0.52 * 0.55, area = a1 + a2 - a3;
+    const cx = (a1 * 3 + a2 * 1.515 - a3 * 2.76) / area, cy = (a1 * 2.29875 + a2 * 4.54875 - a3 * 2.775) / area;
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(area, 6);
+    let force = 0, mx = 0, my = 0;
+    for (const p of layout.pieces.filter((q) => ringIds.has(q.elementId))) {
+      const e = model.elements.get(p.elementId)!;
+      const n0 = model.nodes.get(e.nodeI)!, n1 = model.nodes.get(e.nodeJ)!;
+      const L = Math.hypot(n1.x - n0.x, n1.y - n0.y), s = (p.a! + p.b!) / 2, f = p.wI * (p.b! - p.a!);
+      force += f; mx += f * (n0.x + ((n1.x - n0.x) * s) / L); my += f * (n0.y + ((n1.y - n0.y) * s) / L);
+    }
+    for (const p of layout.points.filter((q) => ringIds.has(q.elementId))) {
+      const n = model.nodes.get(p.nodeId)!;
+      force += p.w; mx += p.w * n.x; my += p.w * n.y;
+    }
+    expect(force).toBeCloseTo(area, 6);
+    expect(mx / force).toBeCloseTo(cx, 6);
+    expect(my / force).toBeCloseTo(cy, 6);
   });
 });
