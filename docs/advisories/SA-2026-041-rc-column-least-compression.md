@@ -5,7 +5,7 @@
 | Severity | High |
 | Status | Draft |
 | Issue | [#1316](https://github.com/lambdaclass/stabileo/issues/1316) |
-| Fix | #PR |
+| Fix | #1321 |
 | Affected versions | every release with the station-based CIRSOC 201 column check; not bisected |
 | Re-check registry | `rc-column-least-compression` |
 
