@@ -340,6 +340,7 @@ const en: Record<string, string> = {
   'blog.tag.concrete': 'Concrete',
   'blog.tag.ai': 'AI',
   'blog.tag.research': 'Research',
+  'blog.tag.events': 'Events',
   'blog.tag.solver': 'Solver',
   'blog.tag.safety': 'Safety',
   'blog.tag.verification': 'Verification',

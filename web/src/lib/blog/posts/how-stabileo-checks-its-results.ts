@@ -24,7 +24,7 @@ export const howStabileoChecksItsResults: Post = {
   slug: 'how-stabileo-checks-its-results',
   date: '2026-10-20',
   updated: '2026-10-22',
-  order: 7,
+  order: 8,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.verification', 'blog.tag.solver', 'blog.tag.ai'],
   i18n: {

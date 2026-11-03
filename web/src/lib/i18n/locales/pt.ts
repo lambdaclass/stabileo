@@ -841,6 +841,7 @@ const pt: Translations = {
   'blog.tag.concrete': 'Concreto',
   'blog.tag.ai': 'IA',
   'blog.tag.research': 'Pesquisa',
+  'blog.tag.events': 'Eventos',
   'blog.tag.sections': 'Seções',
   'blog.tag.solver': 'Solver',
   'blog.tag.safety': 'Segurança',

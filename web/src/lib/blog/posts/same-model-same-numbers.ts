@@ -16,7 +16,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main';
 export const sameModelSameNumbers: Post = {
   slug: 'same-model-same-numbers',
   date: '2026-10-22',
-  order: 10,
+  order: 12,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.verification', 'blog.tag.solver'],
   i18n: {

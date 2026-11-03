@@ -14,7 +14,7 @@ const REPO = 'https://github.com/lambdaclass/stabileo/blob/main';
 export const release030: Post = {
   slug: 'stabileo-0-3-0',
   date: '2026-10-21',
-  order: 8,
+  order: 10,
   authors: ['Federico Carrone'],
   tagKeys: ['blog.tag.safety', 'blog.tag.verification', 'blog.tag.solver'],
   i18n: {

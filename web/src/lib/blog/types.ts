@@ -27,6 +27,8 @@ export type Block =
   /** An aside: a caveat, a definition, something set apart from the argument. */
   | { k: 'note'; t: string }
   | { k: 'table'; caption: string; head: string[]; rows: string[][] }
+  /** `src` is the file stem under public/photos, committed at 800 and 1600 px in AVIF and WebP; `w`/`h` are the larger file's pixels. */
+  | { k: 'photo'; src: string; w: number; h: number; alt: string; caption: string }
   /**
    * The editor, running on the model the passage is about. `query` is the
    * argument list for /app/basic; `label` says what the reader is opening.
@@ -131,6 +133,7 @@ export function wordCount(body: PostBody, linkTitle?: (slug: string) => string |
     else if (b.k === 'p' || b.k === 'h' || b.k === 'quote' || b.k === 'note') parts.push(b.t);
     else if (b.k === 'ul' || b.k === 'ol') parts.push(...b.items);
     else if (b.k === 'embed') parts.push(b.label);
+    else if (b.k === 'photo') parts.push(b.caption);
     else parts.push(b.caption, ...b.head, ...b.rows.flat());
   }
   return parts.join(' ').split(/\s+/).filter(Boolean).length;

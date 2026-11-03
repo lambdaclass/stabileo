@@ -70,7 +70,7 @@ import type { Post } from '../types';
 export const barsOrFiniteElements: Post = {
   slug: 'bars-or-finite-elements',
   date: '2026-09-23',
-  order: 5,
+  order: 6,
   authors: ['Bautista Chesta'],
   tagKeys: ['blog.tag.theory', 'blog.tag.education'],
   i18n: {

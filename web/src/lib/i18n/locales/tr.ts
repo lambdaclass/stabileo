@@ -347,6 +347,7 @@ const tr: Translations = {
   'blog.tag.concrete': 'Beton',
   'blog.tag.ai': 'YZ',
   'blog.tag.research': 'Araştırma',
+  'blog.tag.events': 'Etkinlikler',
   'blog.tag.solver': 'Çözücü',
   'blog.tag.safety': 'Güvenlik',
   'blog.tag.verification': 'Doğrulama',
