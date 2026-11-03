@@ -83,13 +83,18 @@ describe('a panel only partly under low roof structure keeps its area load', () 
   it('by width, the beam under the low one keeps its load', () => {
     const layout = gravityLayout(floorUnderOneLowBeam(), { mode: 'width', tributaryWidth: 3 });
     const floorBeams = [5, 6, 7, 8];
-    for (const id of floorBeams) expect(layout.widthMembers.map((m) => m.elementId)).toContain(id);
+    for (const id of floorBeams) {
+      const m = layout.widthMembers.find((w) => w.elementId === id)!;
+      expect(m.spans).toBeUndefined();
+      expect((layout.areaOf.get(id) ?? 0) + (layout.roofAreaOf.get(id) ?? 0)).toBeCloseTo(3 * 6, 9);
+    }
     expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
   });
 
   it('by width, the beam under a canopy keeps its load, the floor beside it not being roof structure', () => {
     const layout = gravityLayout(floorUnderCanopy(), { mode: 'width', tributaryWidth: 3 });
-    expect(layout.widthMembers.map((m) => m.elementId)).toContain(5);
+    expect(layout.widthMembers.find((m) => m.elementId === 5)?.spans).toBeUndefined();
+    expect((layout.areaOf.get(5) ?? 0) + (layout.roofAreaOf.get(5) ?? 0)).toBeCloseTo(3 * 6, 9);
     expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
     const panels = gravityLayout(floorUnderCanopy(), { mode: 'panels', tributaryWidth: 3 });
     expect(panels.areaByLevel.get(3)).toBeCloseTo(36, 6);
