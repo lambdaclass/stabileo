@@ -11,7 +11,7 @@
   import LineChart from '../research/shauer2025/LineChart.svelte';
   import ExampleThumb from './ExampleThumb.svelte';
   import { publicI18n } from '../../lib/i18n/store.svelte';
-  import { applyPageMeta, restorePageMeta } from '../../lib/page-meta';
+  import { applyPageMeta, restorePageMeta, stabileoCalculator, stabileoSoftware, breadcrumbs, WEBSITE_ID } from '../../lib/page-meta';
   import { publicUrl } from '../../lib/i18n/public-routes';
   import { EXAMPLES, findExample } from './catalog';
   import { readValues, writeValues, mergeQuery, referenceGap, type Outcome, type Values } from './define';
@@ -34,9 +34,15 @@
   $effect(() => {
     const route = example ? `/examples/${example.id}` : '/examples';
     const title = example ? te(`${example.id}.title`) : te('index.title');
+    const locale = publicI18n.locale, url = publicUrl(route, locale);
+    const description = example ? te(`${example.id}.subtitle`) : te('index.meta');
+    const trail: [string, string][] = example ? [['Stabileo', '/'], [te('index.title'), '/examples'], [title, route]] : [['Stabileo', '/'], [title, '/examples']];
     applyPageMeta({
-      title: `${title} — Stabileo`, description: example ? te(`${example.id}.subtitle`) : te('index.meta'), locale: publicI18n.locale, path: route,
-      graph: [{ '@type': example ? 'WebApplication' : 'CollectionPage', name: title, url: publicUrl(route, publicI18n.locale), publisher: { '@type': 'Organization', name: 'Ergodic Group' }, ...(example ? { applicationCategory: 'EducationalApplication', operatingSystem: 'Any', isAccessibleForFree: true } : {}) }],
+      title: `${title} — Stabileo`, description, locale, path: route,
+      graph: [
+        ...(example ? [stabileoCalculator(locale, { '@id': `${url}#example`, name: title, description, url }), stabileoSoftware(locale)] : [{ '@type': 'CollectionPage', '@id': url, url, name: title, description, inLanguage: locale, isPartOf: { '@id': WEBSITE_ID } }]),
+        breadcrumbs(locale, trail),
+      ],
     });
     return () => restorePageMeta();
   });
