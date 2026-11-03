@@ -404,6 +404,7 @@ fn a_thousand_elements_per_member_still_return_the_lowest_modes() {
     for (name, path, iz, far) in [("cantilever", &cantilever[..], 1e-4, false), ("portal", &portal[..], 1e-4, true), ("slender portal", &portal[..], 1e-9, true)] {
         let coarse = freqs_2d(&meshed_frame(path, 100, iz, far), 2).unwrap_or_else(|e| panic!("{name}, 100 per member: {e}"));
         let fine = freqs_2d(&meshed_frame(path, 1000, iz, far), 2).unwrap_or_else(|e| panic!("{name}, 1000 per member: {e}"));
+        assert_eq!((coarse.len(), fine.len()), (2, 2), "{name}: {coarse:?} with 100 elements per member, {fine:?} with 1000");
         for (c, f) in coarse.iter().zip(&fine) {
             assert!((f / c - 1.0).abs() < 1e-4, "{name}: {f} Hz with 1000 elements per member, {c} Hz with 100");
         }
