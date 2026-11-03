@@ -199,3 +199,19 @@ describe('trusses count as the roof\'s structure', () => {
     expect(sum(layout.areaOf)).toBe(0);
   });
 });
+
+describe('a member under a low shell, by width', () => {
+  it('keeps its load: the width mode loads no shell', () => {
+    const b = builder();
+    const ends = [b.node(0, 0, 3), b.node(6, 0, 3)];
+    ends.forEach((id, i) => b.bar(b.node(i * 6, 0, 0), id));
+    b.bar(ends[0]!, ends[1]!);
+    const member = b.elements.size;
+    const shell = [b.node(0, -2, 4), b.node(6, -2, 4), b.node(6, 2, 4.4), b.node(0, 2, 4.4)];
+    const model: GravityModel = { ...b.model(), quads: new Map([[1, { id: 1, nodes: shell }]]) };
+    const layout = gravityLayout(model, { mode: 'width', tributaryWidth: 3 });
+    expect(layout.widthMembers.map((m) => m.elementId)).toContain(member);
+    expect((layout.roofAreaOf.get(member) ?? 0) + (layout.areaOf.get(member) ?? 0)).toBeCloseTo(18, 6);
+    expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
+  });
+});

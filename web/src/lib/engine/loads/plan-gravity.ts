@@ -253,7 +253,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const coverAbove = coverage(model, out.zOf, panelsAt);
   const covered = (pt: [number, number], zTop: number) => Number.isFinite(coverAbove(pt, zTop));
   if (opts.mode === 'width') levels.clear();
-  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth);
+  const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
   const fringeRoof = new Set<number>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
@@ -421,6 +421,7 @@ function notADeck(
   carriers: Array<{ z0: number; poly: Array<[number, number]>; pts: Array<[number, number, number]>; nodes?: number[] }>,
   coverAbove: (pt: [number, number], zTop: number) => number,
   tributaryWidth: number,
+  shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
   carried: (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]) => boolean;
@@ -472,13 +473,13 @@ function notADeck(
   };
   /**
    * Whether loads already kept less than a storey above carry all of `area`: a loaded panel, the
-   * tributary strip of a member kept by width, or a shell. By a 20 × 20 grid over it, a cell is
+   * tributary strip of a member kept by width, or a shell loaded by panels. By a 20 × 20 grid over it, a cell is
    * carried only when it lies wholly within one of them; anything else keeps its load.
    */
   const carried = (area: Array<[number, number]>, z: number, panels: Array<{ poly: Array<[number, number]>; z: number }>, members: Segment[]): boolean => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
     const half = tributaryWidth / 2;
-    const shells = carriers.filter((c) => c.pts.some((p) => low(p[2] - z)));
+    const shells = shellsLoaded ? carriers.filter((c) => c.pts.some((p) => low(p[2] - z))) : [];
     const over = panels.filter((p) => low(p.z - z));
     const inStrip = ([a, b]: Segment, q: [number, number]) => {
       const ux = b[0] - a[0], uy = b[1] - a[1], L2 = ux * ux + uy * uy;
