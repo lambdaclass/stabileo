@@ -1,6 +1,9 @@
 import type { Translations } from '../types';
 
 const tr: Translations = {
+  'steps.catalog.button': 'Açıklamalı adım adım',
+  'steps.catalog.title': 'Açıklamalı adım adım',
+  'steps.catalog.intro': 'Yapınızın adım adım çözümünü görmek için bir yöntem seçin. Her biri modelin neyi sağlaması gerektiğini listeler ve bunu sağlayan bir örnekle gelir.',
   "recheck.saveAndReload": "Açık projeleri kaydet ve sayfayı yeniden yükle",
   "recheck.recoveryFailed": "Projeler tarayıcıya kaydedilemedi. Sayfa yeniden yüklenmedi. Çalışmanızı korumak için oturum yedeğini indirin.",
   "recheck.downloadBackup": "Tüm açık projeleri indir",
