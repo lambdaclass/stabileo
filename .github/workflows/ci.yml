@@ -20,7 +20,9 @@
 # ONLY pull_request job selection is narrowed by path. The merge queue skips the heavy jobs that
 # combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
 # E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
-# everything, and post-merge.yml opens a revert PR when a main push fails.
+# everything, and post-merge.yml opens a revert PR when a main push fails. A push to main whose
+# tree a successful merge-queue CI run built (main-tested.py, checked through the API) runs only
+# what the queue skipped plus the WASM, site and E2E jobs those need.
 # CI OK accepts intentional skips but rejects failures/cancellations, including detection.
 name: CI
 
@@ -75,7 +77,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      actions: read
     outputs:
+      retest: ${{ steps.select.outputs.retest }}
       engine: ${{ steps.select.outputs.engine }}
       web: ${{ steps.select.outputs.web }}
       research: ${{ steps.select.outputs.research }}
@@ -177,9 +181,16 @@ jobs:
               - 'flake.nix'
               - 'flake.lock'
               - 'web/package-lock.json'
+      - name: Was this tree already tested in the merge queue
+        id: tested
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/main-tested.py
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
+          TESTED: ${{ steps.tested.outputs.tested }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
@@ -833,7 +844,7 @@ jobs:
     runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && vars.STABILEO_TIMING_POOL == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main')) && fromJSON('["self-hosted","stabileo-timing"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes, wasm]
-    if: needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.retest == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -1355,7 +1366,7 @@ jobs:
     name: Timing Budgets
     runs-on: ubuntu-24.04
     needs: [changes, wasm, site-e2e]
-    if: needs.changes.outputs.web == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')
+    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.retest == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')
     timeout-minutes: 60
     env:
       E2E_PREBUILT: '1'
