@@ -10,7 +10,7 @@ import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { compareRouteSizes } from './research-route-budget.mjs';
+import { compareRouteSizes, routeChunkFiles } from './research-route-budget.mjs';
 
 const baselinePath = process.argv[process.argv.indexOf('--baseline') + 1];
 if (!process.argv.includes('--baseline') || !baselinePath) throw new Error('--baseline <file> is required');
@@ -50,40 +50,20 @@ try {
   const appEntry = Object.keys(manifest).find((key) => manifest[key].name === 'App');
   if (!appEntry) throw new Error('missing App entry');
   function footprint(app, feature = null, detail = null) {
-    const files = new Set(['index.html']);
-    const seen = new Set();
-    function visit(key, lazy = false, inFeature = false) {
-      const visitKey = `${key}:${lazy}`;
-      if (seen.has(visitKey)) return;
-      seen.add(visitKey);
-      const chunk = manifest[key];
-      if (!chunk) throw new Error(`missing manifest entry ${key}`);
-      if (!inFeature && toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
-      if (!inFeature && researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
-      files.add(chunk.file);
-      for (const file of [...(chunk.css ?? []), ...(chunk.assets ?? [])]) files.add(file);
-      for (const dep of chunk.imports ?? []) visit(dep, lazy, inFeature);
-      if (lazy) for (const dep of chunk.dynamicImports ?? []) {
-        // Explicit lazy route boundaries are not product dependencies.
-        if (!/components\/research\//.test(dep) && !/components\/tools\//.test(dep)) visit(dep, true);
-      }
-    }
-    visit('index.html');
-    if (!feature && manifest['src/components/LandingPage.svelte']) visit('src/components/LandingPage.svelte');
+    const loader = Object.keys(manifest).find(key => manifest[key].name === 'load-app');
+    const roots = [['index.html', false]];
+    if (!feature && manifest['src/components/LandingPage.svelte']) roots.push(['src/components/LandingPage.svelte', false]);
+    if (app) roots.push([appEntry, true], ...(loader ? [[loader, true]] : []));
+    const files = routeChunkFiles(manifest, roots, (key, chunk) => {
+      if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
+      if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
+    });
     if (feature) {
-      const loader = `src/components/${feature}/load-page.ts`;
-      if (!manifest[loader]) throw new Error(`missing manifest entry ${loader}`);
-      visit(loader, false, true);
-      for (const dep of manifest[loader].dynamicImports ?? []) {
-        if (!/load-detail\.ts$/.test(dep)) visit(dep, false, true);
-      }
-      // A base where the page is not yet its own chunk already counted it in the loader's closure.
-      if (detail && manifest[`src/components/${feature}/${detail}`]) visit(`src/components/${feature}/${detail}`, false, true);
-    }
-    if (app) {
-      visit(appEntry, true);
-      const loader = Object.keys(manifest).find(key => manifest[key].name === 'load-app');
-      if (loader) visit(loader, true);
+      const pageLoader = `src/components/${feature}/load-page.ts`;
+      if (!manifest[pageLoader]) throw new Error(`missing manifest entry ${pageLoader}`);
+      const featureRoots = [pageLoader, ...(manifest[pageLoader].dynamicImports ?? []).filter((dep) => !/load-detail\.ts$/.test(dep))];
+      if (detail && manifest[`src/components/${feature}/${detail}`]) featureRoots.push(`src/components/${feature}/${detail}`);
+      for (const file of routeChunkFiles(manifest, featureRoots.map((key) => [key, false]))) files.add(file);
     }
     // Public fonts/images and emitted workers referenced by the selected bundles also count.
     // Iterating a Set visits newly added assets, so CSS reached through HTML is covered too.
