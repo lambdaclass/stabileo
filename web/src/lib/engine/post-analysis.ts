@@ -1,6 +1,7 @@
 /**
  * The report after an analysis: one list of what to look at, in three parts. The model (its
- * checks and the solver's findings about it), the analysis (equilibrium of each case, the P-Delta
+ * checks and every diagnostic, the solver's included, as the Diagnostics tab lists them under that
+ * heading), the analysis (equilibrium of each case, the P-Delta
  * iteration, a mechanism) and, with the design on, the members that do not verify. Each line can
  * name the objects it is about, so a click selects them. Pure: the caller gathers the inputs.
  */
@@ -42,7 +43,7 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
   const out: PostAnalysisLine[] = [];
   for (const d of input.diagnostics) {
     const sel = selectionOf(d);
-    out.push({ part: d.source === 'model' ? 'model' : 'analysis', severity: d.severity, text: tr(d.message), ...(sel ? { selection: sel } : {}) });
+    out.push({ part: 'model', severity: d.severity, text: tr(d.message), ...(d.source !== 'model' ? { detail: tr(`diag.source.${d.source}`) } : {}), ...(sel ? { selection: sel } : {}) });
   }
 
   if (input.mechanism && input.mechanism.mechanismModes > 0) {
