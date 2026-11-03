@@ -300,7 +300,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (why === 'lowHeadroom') {
         const within = (o: { polygon: Array<[number, number]>; area: number }, p: { polygon: Array<[number, number]>; area: number }) => o !== p && o.area < p.area && o.polygon.every((q) => inside(q, p.polygon));
         const all = levels.get(z)?.res.panels ?? [];
-        const nested = all.filter((o) => within(o, panel) && !all.some((m) => within(m, panel) && within(o, m)) && deckless(o.polygon, z) !== 'wide');
+        const loading = all.filter((o) => within(o, panel) && deckless(o.polygon, z) !== 'wide');
+        const nested = loading.filter((o) => !loading.some((m) => within(o, m)));
         const { share, kept } = deck!.uncarried(panel.polygon, z, held, nested.map((o) => o.polygon));
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
@@ -788,20 +789,24 @@ function regionToBeams(model: GravityModel, region: Region, beamIds: number[]): 
     bm.area[k]! += a;
     bm.first[k]! += a * s;
   };
-  for (const { area, c } of regionPieces(region, 20)) {
-    const near = beams.reduce((best, bm) => (distance(bm, c) < distance(best, c) - 1e-9 ? bm : best));
+  const transfer = (near: B, c: [number, number], area: number) => {
     const s0 = along(near, c);
     const foot: [number, number] = [near.p[0] + s0 * near.u[0], near.p[1] + s0 * near.u[1]];
     const d = Math.hypot(c[0] - foot[0], c[1] - foot[1]);
-    if (d <= 1e-9) { put(near, s0, area); continue; }
+    if (d <= 1e-9) { put(near, s0, area); return; }
     const directions: Array<[number, number]> = [[(c[0] - foot[0]) / d, (c[1] - foot[1]) / d]];
     for (let k = 0; k < 90; k++) directions.push([Math.cos((k * Math.PI) / 90), Math.sin((k * Math.PI) / 90)]);
     let pair: [Hit, Hit] | null = null;
     for (const v of directions) if ((pair = across(c, v))) break;
-    if (!pair) { put(near, s0, area); continue; }
+    if (!pair) { put(near, s0, area); return; }
     const [back, ahead] = pair;
     put(back.bm, back.s, (area * ahead.t) / (ahead.t - back.t));
     put(ahead.bm, ahead.s, (area * -back.t) / (ahead.t - back.t));
+  };
+  for (const { area, c } of regionPieces(region, 20)) {
+    const least = Math.min(...beams.map((bm) => distance(bm, c)));
+    const nearest = beams.filter((bm) => distance(bm, c) <= least + 1e-9);
+    for (const near of nearest) transfer(near, c, area / nearest.length);
   }
   for (const bm of beams) {
     const w = bm.L / BINS;

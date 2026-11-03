@@ -510,4 +510,38 @@ describe('a roof-structure ring around a ring too wide for a slab', () => {
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
     expect(layout.areaByLevel.get(3)).toBeCloseTo(900 - 0.9 * 0.9, 6);
   });
+
+  it('still leaves out a ring inside the wide one that loads its own area', () => {
+    const b = builder();
+    for (const [x0, x1] of [[0, 30], [15, 28], [20, 24]] as const) {
+      const corners: Array<[number, number]> = [[x0, x0], [x1, x0], [x1, x1], [x0, x1]];
+      const ring = corners.map(([x, y]) => b.node(x, y, 3));
+      ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+      b.bar(b.node(x0, x0, 0), ring[0]!);
+    }
+    for (let y = 0; y <= 30; y++) b.bar(b.node(0, y, 4), b.node(30, y, 4), 'truss');
+    const deck = ([[14.6, 14.6], [15.5, 14.6], [15.5, 15.5], [14.6, 15.5]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
+    deck.forEach((id, i) => b.bar(id, deck[(i + 1) % 4]!));
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
+    expect(keys(layout)).toContain('loadPlan.gravity.widePanels');
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(900 - 0.9 * 0.9, 6);
+  });
+});
+
+describe('a square roof-structure ring keeping four like corners', () => {
+  it('loads its four beams alike', () => {
+    const b = builder();
+    const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
+    const ring = corners.map(([x, y]) => b.node(x, y, 3));
+    corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+    const ids = ring.map((id, i) => { b.bar(id, ring[(i + 1) % 4]!); return b.elements.size; });
+    const top = corners.map(([x, y]) => b.node(x, y, 4));
+    top.forEach((id, i) => b.bar(id, top[(i + 1) % 4]!, 'truss'));
+    b.bar(b.node(3, 0, 4), b.node(3, 6, 4));
+    b.bar(b.node(0, 3, 4), b.node(6, 3, 4));
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 2 });
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(16, 6);
+    for (const id of ids) expect(layout.roofAreaOf.get(id)).toBeCloseTo(4, 6);
+  });
 });
