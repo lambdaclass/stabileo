@@ -151,12 +151,6 @@ function compareProblems(rows: CompareRow[], tol: number, floor?: Map<string, nu
 const differs = (mine: number, ref: number, tol: number) =>
   !(Number.isFinite(mine) && Number.isFinite(ref) && Number.isFinite(tol)) || Math.abs(mine - ref) > tol;
 
-/**
- * The chord (P/L) answer checked against the engine's elastic solve with the same approximation:
- * P-Δ's final D must be what the engine gives under the loads plus −K_G(N)·D as nodal forces, N the
- * forces it was solved with; λ₁ must be the first root of (F⁻¹ + λK_G(N₀))·x = 0, F the engine's
- * flexibility on the free DOFs and N₀ the engine's first-order forces. Both to 1e-8 / 1e-6.
- */
 /** A linear-matrix λ₁ refused as unrepresented: its document says so, and the exact φ λ₁ lies below it. */
 function unrepresentedProblems(input: SolverInput, method: 'string' | 'consistent', axialRigid: boolean, doc: StepDoc): string[] {
   const tag = `${axialRigid ? 'rigid ' : ''}${method} buckling refused as unrepresented`;
@@ -170,6 +164,12 @@ function unrepresentedProblems(input: SolverInput, method: 'string' | 'consisten
   return linear > exact.run.modes[0].lambda ? [] : [`${tag}: its λ₁ ${linear} is not above the exact ${exact.run.modes[0].lambda}`];
 }
 
+/**
+ * The chord (P/L) answer checked against the engine's elastic solve with the same approximation:
+ * P-Δ's final D must be what the engine gives under the loads plus −K_G(N)·D as nodal forces, N the
+ * forces it was solved with; λ₁ must be the first root of (F⁻¹ + λK_G(N₀))·x = 0, F the engine's
+ * flexibility on the free DOFs and N₀ the engine's first-order forces. Both to 1e-8 / 1e-6.
+ */
 function chordProblems(input: SolverInput, buckling: boolean, doc: StepDoc): string[] {
   if ([...input.supports.values()].some((s) => s.angle !== undefined && s.angle !== 0)) return [];
   const chordForces = (sysN: Map<number, number>, D: (node: number, k: number) => number, members: Array<{ id: number; i: number; j: number; c: number; s: number; L: number }>) => {
@@ -516,16 +516,21 @@ describe('every explained method, everywhere it applies', () => {
     for (const m of allMethods()) if (!m.wizard) expect(tally.get(m.id) ?? 0, m.id).toBeGreaterThan(0);
   }, 300_000);
 
-  it('on generated continuous beams, frames and trusses', () => {
-    const tally = new Map<string, number>();
-    const failures: string[] = [];
-    for (let seed = 1; seed <= 120; seed++) { continuousBeam(seed); runAll(`beam#${seed}`, tally, failures); }
-    for (let seed = 1; seed <= 80; seed++) { frame(seed); runAll(`frame#${seed}`, tally, failures); }
-    for (let seed = 1; seed <= 60; seed++) { truss(seed); runAll(`truss#${seed}`, tally, failures); }
-    expect(failures.slice(0, 40)).toEqual([]);
-    // Each family exercised the methods meant for it many times.
+  const generated = new Map<string, number>();
+  const families: Array<[string, number, number, (seed: number) => void]> = [
+    ['continuous beams', 1, 120, continuousBeam], ['frames', 1, 40, frame], ['frames', 41, 80, frame], ['trusses', 1, 60, truss],
+  ];
+  for (const [family, first, last, build] of families) {
+    it(`on generated ${family} ${first} to ${last}`, () => {
+      const failures: string[] = [];
+      for (let seed = first; seed <= last; seed++) { build(seed); runAll(`${family}#${seed}`, generated, failures); }
+      expect(failures.slice(0, 40)).toEqual([]);
+    }, 600_000);
+  }
+
+  it('each generated family exercised the methods meant for it many times', () => {
     for (const id of ['threeMoments', 'crossBeams', 'doubleIntegration', 'cuts', 'slopeDeflection', 'crossSway', 'compatibility', 'joints', 'sections', 'virtualWork', 'castigliano']) {
-      expect(tally.get(id) ?? 0, id).toBeGreaterThan(10);
+      expect(generated.get(id) ?? 0, id).toBeGreaterThan(10);
     }
-  }, 600_000);
+  });
 });
