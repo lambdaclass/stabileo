@@ -27,7 +27,8 @@
   const groups = $derived(gallery ? proExampleGroups(t) : []);
 
   type Mode = '3d' | 'plan' | 'split';
-  const shown = $derived<Mode>(viewState.split ? 'split' : uiStore.planView3D ? 'plan' : '3d');
+  const modes = $derived<Array<[Mode, string]>>([['3d', 'viewer.mode.3d'], ['plan', 'viewer.mode.plan'], ...(uiStore.isMobile ? [] : [['split', 'viewer.mode.split'] as [Mode, string]])]);
+  const shown = $derived<Mode>(viewState.split && !uiStore.isMobile ? 'split' : uiStore.planView3D ? 'plan' : '3d');
   function setMode(m: Mode) {
     viewState.split = m === 'split';
     uiStore.planView3D = m === 'plan';
@@ -52,8 +53,8 @@
     <span class="vw-meta">{#if author}{tp('viewer.by', { name: author })} · {/if}{#if info?.job}{info.job} · {/if}{counts}</span>
   </div>
   <div class="vw-seg" role="radiogroup" aria-label={t('viewer.view')}>
-    {#each [['3d', 'viewer.mode.3d'], ['plan', 'viewer.mode.plan'], ['split', 'viewer.mode.split']] as [m, k] (m)}
-      <button type="button" role="radio" aria-checked={shown === m} class:on={shown === m} onclick={() => setMode(m as Mode)} data-testid="viewer-mode-{m}">{t(k)}</button>
+    {#each modes as [m, k] (m)}
+      <button type="button" role="radio" aria-checked={shown === m} class:on={shown === m} onclick={() => setMode(m)} data-testid="viewer-mode-{m}">{t(k)}</button>
     {/each}
   </div>
   {#if levels.length > 1 && (shown === 'plan' || shown === 'split')}
