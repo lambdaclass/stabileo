@@ -9,7 +9,7 @@
 import { t } from '../i18n';
 import { uiStore, modelStore, dsmStepsStore, fmStepsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
-import { loadCourse } from '../course/load-course';
+import { loadCourse, type Course } from '../course/load-course';
 import { blocked, refused } from './wizard-guard';
 
 function inputFor(threeD: boolean) {
@@ -40,13 +40,20 @@ function showPanel() {
 
 /** Open the stiffness wizard on the current model; false (with a toast) when it cannot. */
 export async function openStiffnessWizard(): Promise<boolean> {
+  let course: Course;
+  try {
+    course = await loadCourse();
+  } catch (e: unknown) {
+    uiStore.toast(errText(e, 'toast.detailedSolverError'), 'error');
+    return false;
+  }
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
   try {
-    const { solveDetailed, solveDetailed3D } = await loadCourse();
+    const { solveDetailed, solveDetailed3D } = course;
     const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
     fmStepsStore.close();
     explainedSteps.leaveForWizard();
@@ -62,18 +69,18 @@ export async function openStiffnessWizard(): Promise<boolean> {
 
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
 export async function openFlexibilityWizard(): Promise<boolean> {
-  if (blocked()) return false;
-  const threeD = uiStore.is3DWorkspace;
-  const input = inputFor(threeD);
-  if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
-  if (refused(input, threeD)) return false;
-  let course: Awaited<ReturnType<typeof loadCourse>>;
+  let course: Course;
   try {
     course = await loadCourse();
   } catch (e: unknown) {
     uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
     return false;
   }
+  if (blocked()) return false;
+  const threeD = uiStore.is3DWorkspace;
+  const input = inputFor(threeD);
+  if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
+  if (refused(input, threeD)) return false;
   const { solveForceMethod, solveForceMethod3D, ForceMethodError, FM_MAX_GH } = course;
   try {
     const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
