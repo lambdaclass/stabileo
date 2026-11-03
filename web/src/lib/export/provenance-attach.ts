@@ -77,9 +77,8 @@ export function dxfWithProvenance(dxf: string, p: ResultProvenance, warnings = r
   const dxfText = (line: string) => [...line].map(ch => ch.codePointAt(0)! < 128 ? ch : `\\U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`).join('');
   const warningEntities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n${minX}\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${dxfText(line)}\n`).join('');
   if (warningEntities) {
-    const section = /0\r?\nSECTION\r?\n2\r?\nENTITIES\r?\n/.exec(dxf);
-    if (section) { const at = section.index + section[0].length; dxf = dxf.slice(0, at) + warningEntities + dxf.slice(at); }
-    else dxf = dxf.replace(/0\r?\nEOF/, `0\nSECTION\n2\nENTITIES\n${warningEntities}0\nENDSEC\n0\nEOF`);
+    if (entitiesAt) { const at = entitiesAt.index + entitiesAt[0].length; dxf = dxf.slice(0, at) + warningEntities + dxf.slice(at); }
+    else dxf = dxf.replace(/ *0\r?\n *EOF/, `0\nSECTION\n2\nENTITIES\n${warningEntities}0\nENDSEC\n0\nEOF`);
   }
   // Group code 999 is a comment: every reader skips it, and it survives a text round trip.
   const comments = provenanceLines(p).map(([k, v]) => `999\n${`stabileo provenance ${k}: ${v}`.replace(/[\r\n]+/g, ' ')}`).join('\n');

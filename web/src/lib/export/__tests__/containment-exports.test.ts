@@ -126,6 +126,15 @@ it('DXF warnings sit beside translated geometry and scale with its extent', asyn
   expect(y).toBeGreaterThan(990);
 });
 
+it('DXF warnings go into an ENTITIES section written with padded group codes', async () => {
+  const { dxfWithProvenance, prepareExportProvenance } = await import('../provenance-attach');
+  const record = (await prepareExportProvenance())!;
+  const dxf = '  0\nSECTION\n  2\nENTITIES\n  0\nLINE\n  8\n0\n 10\n0\n 20\n0\n 30\n0\n 11\n10\n 21\n0\n 31\n0\n  0\nENDSEC\n  0\nEOF\n';
+  const out = dxfWithProvenance(dxf, record, ['warning #741']);
+  expect(out.match(/ENTITIES/g)).toHaveLength(1);
+  expect(out).toMatch(/ENTITIES\n0\nTEXT\n8\nSTABILEO_WARNINGS\n[\s\S]*\n1\nwarning #741\n  0\nLINE/);
+});
+
 it.each(['html', 'pdf', 'docx', 'csv', 'xlsx'] as const)('shared %s report boundary refuses and preserves warning text', async format => {
   const { downloadReport } = await import('../report-download');
   const blobs: Blob[] = [], printed: string[] = [];
