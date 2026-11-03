@@ -10,7 +10,8 @@ shed now opens with the seven CIRSOC 101-2025 §2.3.2 combinations for its dead,
 cases, and the stadium canopy, which had Basic's "L" combinations applied to its roof live case,
 with the three for its dead and roof live loads. An example, workbook or generated model that brings
 its own load cases and no combinations keeps Basic's four only when each of their cases is there
-with the type it was written for; otherwise it gets the CIRSOC 101-2025 strength combinations of its
-own cases. One whose own combination names a missing case is refused, and a share link whose loads
-omit their case is read as case 1 and refused when there is no such case. Projects saved with the
-old combinations solve as before; open the example again for the new ones.
+with the type it was written for and every case it loads is in one of them; otherwise it gets the
+CIRSOC 101-2025 strength combinations of its own cases. One whose own combination names a missing
+case is refused, and a share link whose loads omit their case is read as case 1 and refused when
+there is no such case. Projects saved with the old combinations solve as before; open the example
+again for the new ones.
