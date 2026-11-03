@@ -58,6 +58,7 @@ const words: Translations = {
   'course.influence.load.min': 'Minimum',
   'course.influence.load.qOn': 'q auf: {list}',
   'course.influence.load.nowhere': 'keinem Stab',
+  'course.influence.load.nonNegative': 'q und P sind Verkehrslasten: als endliche, nicht negative Werte eingeben; die Einflusslinie setzt sie nach dem Vorzeichen.',
   'course.influence.load.pAt': 'P im Stab {e} bei {pct} %',
   'course.influence.load.direct': 'Direkte Berechnung mit diesen Lasten: {v}',
   'course.influence.load.drawEnvelope': 'Umhüllende auf den Stäben zeichnen',

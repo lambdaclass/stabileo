@@ -26,6 +26,15 @@ describe('the space P-Δ when its first-mode buckling check cannot run', () => {
     expect(r.secondOrder?.bucklingError).toBeTruthy();
   });
 
+  it('an unstable P-Δ stays unstable when the buckling check cannot run', () => {
+    buckling.impl = () => { throw new Error('eigen solver did not converge'); };
+    const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: false });
+    expect(r.isStable).toBe(false);
+    expect(Number.isNaN(r.b2Factor)).toBe(true);
+    buckling.impl = () => ({ modes: [] });
+    expect(withFirstModeB2(input, { b2Factor: 1.37, isStable: false }).isStable).toBe(false);
+  });
+
   it('"no compressed elements" is still λ₁ = ∞ with B₂ = 1', () => {
     buckling.impl = () => { throw new Error('Buckling: no compressed elements'); };
     const r = withFirstModeB2(input, { b2Factor: 1.37, isStable: true });

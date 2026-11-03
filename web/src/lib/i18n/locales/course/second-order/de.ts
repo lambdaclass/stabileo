@@ -16,7 +16,7 @@ const words: Translations = {
   'course.second-order.refuse.noCompression': 'Kein Stab ist gedrückt: Es gibt keine Knicklast. P-Δ lässt sich trotzdem rechnen: Zug versteift das Tragwerk und kann, wenn NL²/EI groß ist, die Ergebnisse deutlich ändern.',
   'course.second-order.refuse.noPositive': 'Es wurde kein positiver Verzweigungslastfaktor gefunden.',
   'course.second-order.refuse.idleLoad': 'Eine Last wirkt auf eine Verschiebung, die kein Stab aussteift (etwa ein Moment an einem Knoten, an dem alle Stäbe gelenkig angeschlossen sind): Das Tragwerk kann sie nicht aufnehmen.',
-  'course.second-order.bk.internalMode': 'Eigenform {k} (λ = {lambda}): ein Knicken innerhalb eines Stabs mit festgehaltenen Enden; die Knotenverschiebungen können es nicht darstellen, daher wird die Form nicht gezeigt.',
+  'course.second-order.doc.bk.internalMode': 'Eigenform {k} (λ = {lambda}): ein Knicken innerhalb eines Stabs mit festgehaltenen Enden; die Knotenverschiebungen können es nicht darstellen, daher wird die Form nicht gezeigt.',
   'course.second-order.bk.internalNote': '* Knicken innerhalb eines Stabs mit festgehaltenen Enden: Die Knotenverschiebungen können es nicht darstellen, daher wird die Form nicht gezeigt.',
 
   'course.second-order.opts.title': 'Wie gerechnet wird',

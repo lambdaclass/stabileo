@@ -58,6 +58,7 @@ const words: Translations = {
   'course.influence.load.min': 'Minimum',
   'course.influence.load.qOn': 'q sur : {list}',
   'course.influence.load.nowhere': 'aucune barre',
+  'course.influence.load.nonNegative': 'q et P sont des charges d’exploitation : saisissez des valeurs finies et non négatives ; la ligne d’influence les place selon le signe.',
   'course.influence.load.pAt': 'P sur la barre {e} à {pct} %',
   'course.influence.load.direct': 'Calcul direct avec ces charges : {v}',
   'course.influence.load.drawEnvelope': 'Tracer l’enveloppe sur les barres',

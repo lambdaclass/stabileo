@@ -109,11 +109,16 @@ export function ordinateExtremes(points: IlPoint[], loaded: (id: number) => bool
   return { max, min };
 }
 
-/** The largest and the smallest value of the quantity under g, q and P placed by the line. */
+export class IlLoadRefusal extends Error {}
+
+export const ilLoadsValid = (l: IlLoads): boolean => Number.isFinite(l.g) && Number.isFinite(l.q) && Number.isFinite(l.P) && l.q >= 0 && l.P >= 0;
+
+/** The largest and the smallest value of the quantity under g, q and P placed by the line. Throws IlLoadRefusal, whose message is an i18n key, unless g is finite and q, P are finite and not negative. */
 export function ilExtremes(
   points: IlPoint[], lengthOf: (id: number) => number, loaded: (id: number) => boolean, loads: IlLoads, placement: LivePlacement,
   zoneArea?: (z: Zone) => number,
 ): { max: IlExtreme; min: IlExtreme; areas: IlAreas } {
+  if (!ilLoadsValid(loads)) throw new IlLoadRefusal('course.influence.load.nonNegative');
   const areas = ilAreas(points, lengthOf, loaded, zoneArea);
   const eta = ordinateExtremes(points, loaded);
   const dead = loads.g * (areas.pos + areas.neg);

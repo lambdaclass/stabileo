@@ -16,7 +16,7 @@ const words: Translations = {
   'course.second-order.refuse.noCompression': 'Aucune barre n\'est comprimée : il n\'y a pas de charge critique de flambement. Le P-Δ reste calculable : la traction rigidifie la structure et, quand NL²/EI est grand, peut modifier nettement les résultats.',
   'course.second-order.refuse.noPositive': 'Aucun facteur de charge critique positif n\'a été trouvé.',
   'course.second-order.refuse.idleLoad': 'Une charge agit sur un déplacement qu\'aucune barre ne rigidifie (par exemple un couple sur un nœud où toutes les barres sont articulées) : la structure ne peut pas l\'équilibrer.',
-  'course.second-order.bk.internalMode': 'Mode {k} (λ = {lambda}) : un flambement à l\'intérieur d\'une barre aux extrémités bloquées ; les déplacements des nœuds ne peuvent pas le représenter, sa forme n\'est donc pas montrée.',
+  'course.second-order.doc.bk.internalMode': 'Mode {k} (λ = {lambda}) : un flambement à l\'intérieur d\'une barre aux extrémités bloquées ; les déplacements des nœuds ne peuvent pas le représenter, sa forme n\'est donc pas montrée.',
   'course.second-order.bk.internalNote': '* Flambement à l\'intérieur d\'une barre aux extrémités bloquées : les déplacements des nœuds ne peuvent pas le représenter, sa forme n\'est donc pas montrée.',
 
   'course.second-order.opts.title': 'Mode de calcul',
