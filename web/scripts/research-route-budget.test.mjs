@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { compareRouteSizes } from './research-route-budget.mjs';
 
 test('unchanged routes and small build noise pass', () => {
@@ -17,10 +18,11 @@ test('missing and non-finite measurements fail', () => {
   assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': NaN }), /grew/);
 });
 
-for (const [route, budget] of Object.entries({
-  '/en/': 128, '/es/': 128, '/pt/': 128,
-  '/app/basic': 128, '/app/education': 128, '/app/pro': 128,
-})) {
+const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
+test('every landing and app route has a budget', () => {
+  assert.deepEqual(Object.keys(shippedBudgets).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/es/', '/pt/']);
+});
+for (const [route, budget] of Object.entries(shippedBudgets)) {
   test(`${route} product growth passes at the budget and fails one byte over`, () => {
     compareRouteSizes({ [route]: 1000 }, { [route]: 1000 + budget }, false);
     assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false), /grew/);
