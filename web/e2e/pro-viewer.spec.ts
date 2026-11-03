@@ -72,7 +72,13 @@ for (const [label, width, height] of [['phone', 390, 844], ['tablet', 820, 1180]
       await page.waitForFunction(() => !!window.__stabileo, null, { timeout: 45_000 });
       const bar = page.getByTestId('pro-viewer');
       await expect(bar).toBeVisible();
-      await page.getByTestId('viewer-mode-split').click();
+      if (width < 768) {
+        await expect(page.getByTestId('viewer-mode-split')).toHaveCount(0);
+        await page.getByTestId('viewer-mode-plan').click();
+      } else {
+        await page.getByTestId('viewer-mode-split').click();
+        await expect(page.getByTestId('split-view')).toBeVisible();
+      }
       const barBox = (await bar.boundingBox())!;
       const body = (await page.locator('.viewer-mode .app-body').boundingBox())!;
       expect(body.y).toBeGreaterThanOrEqual(barBox.y + barBox.height - 0.5);

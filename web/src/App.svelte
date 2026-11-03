@@ -3499,8 +3499,9 @@
     height: 100vh;
   }
   .viewer-mode .app-body {
-    height: calc(100vh - 52px);
-    margin-top: 52px;
+    height: calc(100vh - var(--viewer-bar, 52px));
+    height: calc(100dvh - var(--viewer-bar, 52px));
+    margin-top: var(--viewer-bar, 52px);
   }
 
   :global(.edu-tooltip) {
