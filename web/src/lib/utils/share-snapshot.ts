@@ -96,8 +96,8 @@ function referencesResolve(value: RecordValue): boolean {
     && shell.nodes.every(n => nodes.has(n as number));
   const has = (n: unknown) => nodes.has(n as number);
   const cases = Array.isArray(value.loadCases)
-    ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : RESTORED_DEFAULT_CASES;
-  const inCase = (caseId: unknown) => caseId === undefined || cases.has(caseId);
+    ? new Set((value.loadCases as unknown[]).map(c => (record(c) ? c.id : undefined))) : RESTORED_DEFAULT_CASES;
+  const inCase = (caseId: unknown) => cases.has(caseId === undefined ? 1 : caseId);
   const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
   return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
     && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
@@ -112,17 +112,18 @@ function referencesResolve(value: RecordValue): boolean {
     && ((value.connectors ?? []) as Entry[]).every(([, c]) => nodes.has(c.nodeI as number)
       && nodes.has(c.nodeJ as number) && c.nodeI !== c.nodeJ && numbers(c, [], CONNECTOR_NUMBERS))
     && ((value.constraints ?? []) as RecordValue[]).every(c => constraintResolves(c, has))
-    && ((value.combinations ?? []) as RecordValue[]).every(c => (c.factors as RecordValue[]).every(f =>
-      typeof f.factor === 'number' && typeof f.caseId === 'number' && inCase(f.caseId)))
+    && ((value.combinations ?? []) as unknown[]).every(c => record(c) && Array.isArray(c.factors) && c.factors.every(f =>
+      record(f) && typeof f.factor === 'number' && typeof f.caseId === 'number' && inCase(f.caseId)))
     && (!Array.isArray(value.footings) || value.footings.every(f => {
       const footing = Array.isArray(f) ? f[1] : f;
-      return !record(footing) || footing.nodeId === undefined || has(footing.nodeId);
+      return record(footing) && (footing.nodeId === undefined || has(footing.nodeId));
     }))
     && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
     && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))
-    && (value.loads as RecordValue[]).every(({ type, data }) => {
-      const d = data as RecordValue;
-      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(type as Load['type'], d)
+    && (value.loads as unknown[]).every(load => {
+      if (!record(load) || !record(load.data)) return false;
+      const { type } = load, d = load.data;
+      if (typeof type !== 'string' || !Object.hasOwn(LOAD_TARGET, type) || !loadNumbersValid(type as Load['type'], d)
         || !inCase(d.caseId)) return false;
       const target = LOAD_TARGET[type as Load['type']];
       return target === 'node' ? nodes.has(d.nodeId as number)

@@ -128,18 +128,50 @@ describe('shared-link importer', () => {
       danglingFooting: p => { p.footings = [[1, { id: 1, nodeId: 9 }]]; },
       stringFootingNode: p => { p.footings = [[1, { id: 1, nodeId: '1' }]]; },
       nullFootingNode: p => { p.footings = [[1, { id: 1, nodeId: null }]]; },
+      nonRecordFooting: p => { p.footings = [[1, 'footing']]; },
       emptyDisplacement: p => { p.loads.push({ type: 'displacement3d', data: { id: 2, nodeId: 1 } }); },
       loadCaseBeyondDefaults: p => { p.loads[0].data.caseId = 99; },
       combinationBeyondDefaults: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 99, factor: 1.4 }] }]; },
       loadCaseWithNoCases: p => { p.loadCases = []; p.loads[0].data.caseId = 1; },
       combinationWithoutCase: p => { p.loadCases = [{ id: 1, name: 'Dead' }]; p.combinations = [{ id: 1, name: 'ULS', factors: [{ factor: 1.4 }] }]; },
       stringCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [{ caseId: 1, factor: '1.4' }] }]; },
+      implicitCaseWithNoCases: p => { p.loadCases = []; delete p.loads[0].data.caseId; },
+      implicitCaseNotListed: p => { p.loadCases = [{ id: 2, name: 'Live' }]; delete p.loads[0].data.caseId; },
+      combinationWithoutFactors: p => { p.combinations = [{ id: 1, name: 'ULS' }]; },
+      nullCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [null] }]; },
+      loadWithoutData: p => { delete p.loads[0].data; },
+      nullLoadData: p => { p.loads[0].data = null; },
+      arrayLoadType: p => { p.loads[0].type = ['distributed']; },
+      objectLoadType: p => { p.loads[0].type = { toString: () => 'distributed' }; },
     };
     for (const [name, fault] of Object.entries(faults)) {
       const payload = legacy();
       fault(payload);
       expect(prepareSharedSnapshot(payload), name).toBeNull();
     }
+  });
+
+  it('restores a link that lists its own cases and no combinations with no combination at all', () => {
+    const payload = legacy();
+    payload.loadCases = [{ id: 9, name: 'Live' }];
+    payload.loads[0].data.caseId = 9;
+    const snapshot = prepareSharedSnapshot(payload);
+    expect(snapshot).not.toBeNull();
+    modelStore.restore(snapshot!);
+    expect(modelStore.model.loadCases.map(c => c.id)).toEqual([9]);
+    expect(modelStore.model.combinations).toEqual([]);
+  });
+
+  it('reads a load without a case as case 1, with the restored cases or the listed ones', () => {
+    const restored = legacy();
+    delete restored.loads[0].data.caseId;
+    expect(prepareSharedSnapshot(restored)).not.toBeNull();
+    const listed = legacy();
+    listed.loadCases = [{ id: 1, name: 'Dead' }];
+    delete listed.loads[0].data.caseId;
+    expect(prepareSharedSnapshot(listed)?.loads).toHaveLength(1);
+    modelStore.restore(prepareSharedSnapshot(listed)!);
+    expect(modelStore.loads.map(l => l.data.caseId ?? 1)).toEqual([1]);
   });
 
   it('accepts connectors, constraints and combinations that resolve', () => {
