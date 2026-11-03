@@ -6,6 +6,7 @@ import { modelStore, uiStore, tabManager } from '.';
 import { serializeProject, loadProject } from './file';
 import { authStore } from './auth.svelte';
 import { cloudLink } from './cloud-link.svelte';
+import { milestone } from '../tracking/activity.svelte';
 
 let items = $state<CloudProject[]>([]);
 let total = $state(0);
@@ -74,6 +75,7 @@ export const cloudProjects = {
       const saved = id ? await projectsApi.update(id, body) : await projectsApi.create(body);
       cloudLink.set(at.tab, { id: saved.id, account: at.account }, at.generation);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: Boolean(id) });
+      milestone('first_save');
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       if (!id) total += 1;
       return saved;
@@ -91,6 +93,7 @@ export const cloudProjects = {
       const saved = await projectsApi.update(id, body);
       cloudLink.set(at.tab, { id: saved.id, account: at.account }, at.generation);
       trackUsage('project.cloud_save', { mode: body.app_mode, update: true, replace: true });
+      milestone('first_save');
       items = [saved, ...items.filter((p) => p.id !== saved.id)];
       return saved;
     } finally {

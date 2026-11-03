@@ -13,6 +13,7 @@ import Root from './Root.svelte';
 import { mount } from 'svelte';
 import { routeKind, restoreRedirectedRoute } from './lib/public-route';
 import { i18n, ensureLocale } from './lib/i18n/store.svelte';
+import { startTracking } from './lib/tracking/tracking';
 
 /*
  * The prerendered page steps aside as the application takes over.
@@ -58,6 +59,7 @@ function installTestHooks() {
 // this entry and make App import it; top-level await would then deadlock App.
 async function bootstrap() {
   restoreRedirectedRoute();
+  void startTracking();
   const target = document.getElementById('app')!;
   if (routeKind().kind === 'app') {
     await ensureLocale(i18n.locale);

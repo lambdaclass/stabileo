@@ -137,6 +137,7 @@ export const authStore = {
   get usageTelemetryEnabled() { return serverConfig?.usage_telemetry_enabled === true; },
   get termsVersion() { return serverConfig?.terms_version ?? null; },
   get googleLogin() { return serverConfig?.google_login === true; },
+  get configKnown() { return serverConfig !== null; },
   get passwordLogin() { return serverConfig?.password_login === true; },
   get needsTerms() { return account !== null && account.consents?.terms_current === false; },
 

@@ -61,11 +61,19 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "h",
+      "t": "Reklam ölçümü"
+    },
+    {
+      "k": "p",
+      "t": "Hangi reklamların hesap getirdiğini bilmek için her yeni hesapla birlikte ziyaretin nereden geldiğini (kanal, kampanya, reklam ve giriş sayfası) ve hesabı neyin istediğini saklarız; hesabın ilk hesabını, ilk kaydını, ilk dışa aktarımını ve uygulamayı kullandığı günleri kaydederiz. Bir hesap oluşturulduğunda veya ilk projesini kaydettiğinde bunu Meta’ya pikseli ve Dönüşüm API’si aracılığıyla, e-posta ve hesap kimliği SHA-256 ile şifrelenmiş olarak bildiririz; Meta bunu kendi politikası kapsamında kampanyaları ölçmek ve iyileştirmek için kullanır. Google Etiket Yöneticisi aynı etkinlikleri Google Analytics ve Google Ads’e gönderir. Hiçbiri modellerinizin içeriğini almaz."
+    },
+    {
+      "k": "h",
       "t": "Verileri kimlerle paylaşıyoruz"
     },
     {
       "k": "p",
-      "t": "Verileri satmıyoruz. Veriler Stabileo SAS'ın sözleşme yaptığı sunucularda barındırılır ve yalnızca hizmetin işletilmesi için gerekli sağlayıcılarla ya da yetkili bir makam talep ettiğinde paylaşılır. Giriş için Google ile girişi kullanırız; Google verilerinizi kendi gizlilik politikası kapsamında işler."
+      "t": "Verileri satmıyoruz. Veriler Stabileo SAS'ın sözleşme yaptığı sunucularda barındırılır ve yalnızca hizmetin işletilmesi için gerekli sağlayıcılarla ya da yetkili bir makam talep ettiğinde paylaşılır. Giriş için Google ile girişi kullanırız; Google verilerinizi kendi gizlilik politikası kapsamında işler. Reklamı ölçmek için Reklam ölçümü bölümünde açıklanan etkinlikleri Meta ve Google ile paylaşırız."
     },
     {
       "k": "h",
@@ -76,7 +84,8 @@ const body: StandingPage['i18n']['en'] = {
       "items": [
         "Hesabınız ve projeleriniz, siz silene veya hesabınızı kapatana kadar.",
         "Anonim kullanım verileri, en fazla on üç ay.",
-        "Onay kayıtları, kanıt olarak hesap var olduğu sürece."
+        "Onay kayıtları, kanıt olarak hesap var olduğu sürece.",
+        "Hesabın kaynağı ve etkinliği, hesap var olduğu sürece."
       ]
     },
     {
@@ -97,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Reklam veya izleme çerezleri kullanmıyoruz. Oturumunuz ve tercihleriniz için tarayıcının yerel depolama alanını kullanıyoruz."
+      "t": "Oturumunuz ve tercihleriniz için tarayıcının yerel depolama alanını ve her hesabı neyin getirdiğini bilmek için ziyaretinizin nereden geldiğini (bağlantının parametreleri ve yönlendiren site) 30 gün saklayan kendi çerezimiz stb_visit’i kullanıyoruz. Meta pikseli ve Google Etiket Yöneticisi, etkin olduklarında, reklamı ölçmek için kendi çerezlerini yerleştirir."
     }
   ],
   "faqTitle": "Sık sorulan sorular",

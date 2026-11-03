@@ -61,11 +61,19 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "h",
+      "t": "Mesure de la publicité"
+    },
+    {
+      "k": "p",
+      "t": "Pour savoir quelles annonces amènent des comptes, nous conservons avec chaque nouveau compte l’origine de la visite (le canal, la campagne, l’annonce et la page d’entrée) et ce qui a demandé le compte, et nous enregistrons son premier calcul, son premier enregistrement, son premier export et les jours où il utilise l’application. Lorsqu’un compte est créé ou enregistre son premier projet, nous l’indiquons à Meta via son pixel et son API Conversions, avec l’e-mail et l’identifiant du compte hachés en SHA-256 ; Meta l’utilise pour mesurer et améliorer les campagnes selon sa propre politique. Google Tag Manager envoie ces mêmes événements à Google Analytics et Google Ads. Aucun d’eux ne reçoit le contenu de vos modèles."
+    },
+    {
+      "k": "h",
       "t": "Avec qui nous les partageons"
     },
     {
       "k": "p",
-      "t": "Nous ne vendons pas de données. Elles sont hébergées sur des serveurs contractés par Stabileo SAS, et nous ne les partageons qu'avec les prestataires nécessaires au fonctionnement du service ou lorsqu'une autorité compétente l'exige. Pour la connexion, nous utilisons Google Sign-In, qui traite vos données conformément à sa propre politique de confidentialité."
+      "t": "Nous ne vendons pas de données. Elles sont hébergées sur des serveurs contractés par Stabileo SAS, et nous ne les partageons qu'avec les prestataires nécessaires au fonctionnement du service ou lorsqu'une autorité compétente l'exige. Pour la connexion, nous utilisons Google Sign-In, qui traite vos données conformément à sa propre politique de confidentialité. Pour mesurer la publicité, nous partageons avec Meta et Google les événements décrits dans Mesure de la publicité."
     },
     {
       "k": "h",
@@ -76,7 +84,8 @@ const body: StandingPage['i18n']['en'] = {
       "items": [
         "Votre compte et vos projets, jusqu'à ce que vous les supprimiez ou fermiez votre compte.",
         "Les données d'usage anonymes, jusqu'à treize mois.",
-        "Les justificatifs de consentement, tant que le compte existe, à titre de preuve."
+        "Les justificatifs de consentement, tant que le compte existe, à titre de preuve.",
+        "L’origine du compte et son activité, tant que le compte existe."
       ]
     },
     {
@@ -97,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Nous n'utilisons pas de cookies publicitaires ni de traçage. Nous utilisons le stockage local du navigateur pour votre session et vos préférences."
+      "t": "Nous utilisons le stockage local du navigateur pour votre session et vos préférences, ainsi qu’un cookie propre, stb_visit, qui conserve pendant 30 jours l’origine de votre visite (les paramètres du lien et le site référent) pour savoir ce qui a amené chaque compte. Le pixel Meta et Google Tag Manager, lorsqu’ils sont activés, déposent leurs propres cookies pour mesurer la publicité."
     }
   ],
   "faqTitle": "Questions fréquentes",

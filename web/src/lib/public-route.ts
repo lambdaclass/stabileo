@@ -12,7 +12,7 @@ import { findStandingPage } from './blog/pages';
  */
 const SHARED_MODEL = /^#(data=|embed=|code=)/;
 
-export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'landing';
+export type RouteKind = 'app' | 'blog' | 'research' | 'paper' | 'tools' | 'register' | 'landing';
 
 /** `/app` and everything under it: the application's own addresses. */
 export function isAppPath(pathname: string): boolean {
@@ -46,6 +46,7 @@ export function routeKind(loc: Pick<Location, 'pathname' | 'search' | 'hash'> = 
   if (path === '/tools' || path.startsWith('/tools/')) return { kind: 'tools', path };
   if (isResearchPath(path)) return { kind: 'research', path };
   if (isPaperPath(path)) return { kind: 'paper', path };
+  if (path === '/register' || path === '/register/') return { kind: 'register', path };
   return { kind: 'landing', path };
 }
 

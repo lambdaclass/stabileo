@@ -7,6 +7,9 @@
   import { usageConsent } from '../../lib/telemetry/consent.svelte';
   import { GoogleSignInError } from '../../lib/auth/google-popup';
   import { ApiError } from '../../lib/api/client';
+  import { tracking } from '../../lib/tracking/tracking';
+  import { signupSource } from '../../lib/tracking/visit';
+  import { pixelCookies } from '../../lib/tracking/attribution';
 
   type Mode = 'login' | 'register';
 
@@ -14,7 +17,8 @@
     open = $bindable(false),
     startIn = 'login',
     reason = null,
-  }: { open?: boolean; startIn?: Mode; reason?: { title: string; lede: string } | null } = $props();
+    placement = 'account_button',
+  }: { open?: boolean; startIn?: Mode; reason?: { title: string; lede: string } | null; placement?: string } = $props();
 
   let mode = $state<Mode>('login');
   let email = $state('');
@@ -63,12 +67,19 @@
   async function google() {
     if (busy) return;
     error = null;
+    tracking.signUpClick(placement);
     const attempt = authStore.signInWithGoogle();
+    tracking.registrationStart(placement);
     step = { kind: 'waiting', cancel: attempt.cancel };
     try {
       const outcome = await attempt.result;
-      if (outcome.kind === 'signedIn') close();
-      else step = { kind: 'terms', token: outcome.token, email: outcome.email };
+      if (outcome.kind === 'signedIn') {
+        tracking.login();
+        close();
+      } else {
+        step = { kind: 'terms', token: outcome.token, email: outcome.email };
+        tracking.registrationStep('terms');
+      }
     } catch (err) {
       step = { kind: 'start' };
       if (!(err instanceof GoogleSignInError && err.code === 'cancelled')) error = googleErrorText(err);
@@ -82,12 +93,15 @@
     error = null;
     fields = {};
     try {
-      await authStore.completeGoogleSignup({
+      const account = await authStore.completeGoogleSignup({
         signup_token: step.token,
         accept_terms: acceptTerms,
         usage_analytics: usageConsent.sharing,
         locale: isOfferedLocale(i18n.locale) ? i18n.locale : 'es',
+        source: signupSource(placement),
+        attribution: pixelCookies(),
       });
+      tracking.completeRegistration(account.id);
       if (usageConsent.sharing) usageConsent.set('granted');
       close();
     } catch (err) {

@@ -391,8 +391,10 @@
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
+  import RegisterPage from './components/register/RegisterPage.svelte';
   import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
+  import { skipNextAnalysis } from './lib/tracking/activity.svelte';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
   import { publicI18n } from './lib/i18n/store.svelte';
@@ -587,7 +589,7 @@
    * a shared model at the root (`/#data=…`) shows the landing while it is restored behind it.
    */
   function shouldShowLanding() {
-    return routeKind({ pathname: location.pathname, search: location.search, hash: '' }).kind === 'landing';
+    return ['landing', 'register'].includes(routeKind({ pathname: location.pathname, search: location.search, hash: '' }).kind);
   }
 
   let showLanding = $state(shouldShowLanding());
@@ -996,6 +998,7 @@
         modelStore.loadExample(exampleId).then(() => {
           resultsStore.clear();
           resultsStore.clear3D();
+          skipNextAnalysis();
           window.dispatchEvent(new Event('stabileo-solve'));
           // Fire zoom-to-fit repeatedly until the canvas has non-zero size:
           // inside an iframe the canvas is 0×0 during first paint, so a single
@@ -1439,7 +1442,7 @@
 {:else if showBlog}
   <BlogPage path={blogPath} />
 {:else if showLanding}
-  <LandingPage />
+  {#if routeKind().kind === 'register'}<RegisterPage />{:else}<LandingPage />{/if}
 {/if}
 
 {#snippet autosavePrompt()}

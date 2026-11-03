@@ -11,6 +11,7 @@
   import SettingsPage from './SettingsPage.svelte';
   import AllowlistPage from './AllowlistPage.svelte';
   import MetricsPage from './MetricsPage.svelte';
+  import AdsPage from './AdsPage.svelte';
   import ProjectsPage from './ProjectsPage.svelte';
   import FeedbackPage from './FeedbackPage.svelte';
   import AuditLogPage from './AuditLogPage.svelte';
@@ -48,6 +49,8 @@
         <SettingsPage />
       {:else if adminRoute.page === 'metrics'}
         <MetricsPage />
+      {:else if adminRoute.page === 'ads'}
+        <AdsPage />
       {:else if adminRoute.page === 'projects'}
         <ProjectsPage />
       {:else if adminRoute.page === 'feedback'}

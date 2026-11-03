@@ -180,7 +180,7 @@ test.describe('accounts, legal and anonymous usage', () => {
     await expect(page.getByTestId('auth-dialog')).toHaveCount(0);
     expect(backend.googleOpened).toBe(1);
     expect(backend.register).toEqual([
-      { signup_token: 'signup-1', accept_terms: true, usage_analytics: true, locale: 'es' },
+      { signup_token: 'signup-1', accept_terms: true, usage_analytics: true, locale: 'es', source: { trigger: 'account_button', page: '/app/basic' }, attribution: {} },
     ]);
     await expect(page.getByTestId('account-button')).toContainText('Ada Lovelace');
   });

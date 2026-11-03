@@ -61,11 +61,19 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "h",
+      "t": "Messung der Werbung"
+    },
+    {
+      "k": "p",
+      "t": "Um zu wissen, welche Anzeigen Konten bringen, speichern wir zu jedem neuen Konto, woher der Besuch kam (Kanal, Kampagne, Anzeige und Einstiegsseite) und was nach dem Konto fragte, und wir erfassen die erste Berechnung, die erste Speicherung, den ersten Export und die Tage, an denen das Konto die Anwendung nutzt. Wenn ein Konto erstellt wird oder sein erstes Projekt speichert, melden wir das Meta über das Pixel und die Conversions API, mit E-Mail-Adresse und Kontokennung als SHA-256-Hash; Meta verwendet dies nach seiner eigenen Richtlinie, um Kampagnen zu messen und zu verbessern. Google Tag Manager sendet dieselben Ereignisse an Google Analytics und Google Ads. Keiner von ihnen erhält den Inhalt Ihrer Modelle."
+    },
+    {
+      "k": "h",
       "t": "Mit wem wir Daten teilen"
     },
     {
       "k": "p",
-      "t": "Wir verkaufen keine Daten. Sie werden auf Servern gehostet, die Stabileo SAS beauftragt hat, und wir teilen sie nur mit Anbietern, die für den Betrieb des Dienstes erforderlich sind, oder wenn eine zuständige Behörde es verlangt. Für die Anmeldung nutzen wir die Google-Anmeldung, die Ihre Daten nach ihrer eigenen Datenschutzerklärung verarbeitet."
+      "t": "Wir verkaufen keine Daten. Sie werden auf Servern gehostet, die Stabileo SAS beauftragt hat, und wir teilen sie nur mit Anbietern, die für den Betrieb des Dienstes erforderlich sind, oder wenn eine zuständige Behörde es verlangt. Für die Anmeldung nutzen wir die Google-Anmeldung, die Ihre Daten nach ihrer eigenen Datenschutzerklärung verarbeitet. Zur Messung der Werbung teilen wir die unter Messung der Werbung beschriebenen Ereignisse mit Meta und Google."
     },
     {
       "k": "h",
@@ -76,7 +84,8 @@ const body: StandingPage['i18n']['en'] = {
       "items": [
         "Ihr Konto und Ihre Projekte, bis Sie sie löschen oder Ihr Konto schließen.",
         "Anonyme Nutzungsdaten, bis zu dreizehn Monate.",
-        "Einwilligungsnachweise, solange das Konto besteht, als Beleg."
+        "Einwilligungsnachweise, solange das Konto besteht, als Beleg.",
+        "Herkunft und Aktivität des Kontos, solange das Konto besteht."
       ]
     },
     {
@@ -97,7 +106,7 @@ const body: StandingPage['i18n']['en'] = {
     },
     {
       "k": "p",
-      "t": "Wir verwenden keine Werbe- oder Tracking-Cookies. Wir nutzen den lokalen Speicher des Browsers für Ihre Sitzung und Ihre Einstellungen."
+      "t": "Wir nutzen den lokalen Speicher des Browsers für Ihre Sitzung und Ihre Einstellungen sowie ein eigenes Cookie, stb_visit, das 30 Tage lang speichert, woher Ihr Besuch kam (die Parameter des Links und die verweisende Website), damit wir wissen, was jedes Konto gebracht hat. Das Meta-Pixel und Google Tag Manager setzen, wenn sie aktiviert sind, eigene Cookies zur Messung der Werbung."
     }
   ],
   "faqTitle": "Häufig gestellte Fragen",

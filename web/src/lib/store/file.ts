@@ -13,6 +13,7 @@ import { exportToExcel } from '../export/excel';
 import { tabManager } from './tabs.svelte';
 import { accountGate } from './account-gate.svelte';
 import { saveFile } from '../export/save-file';
+import { milestone } from '../tracking/activity.svelte';
 import type { TabState } from './tabs.svelte';
 import { resetSwitchBackup } from './switch-2d';
 import { t } from '../i18n';
@@ -601,6 +602,7 @@ export function saveProject(): void {
   accountGate.guard('save', () => {
     const { content, filename } = projectPayload();
     downloadText(content, filename, 'application/json');
+    milestone('first_save');
   });
 }
 
@@ -619,6 +621,7 @@ export function saveSession(): void {
   accountGate.guard('save', () => {
     const { content, filename } = sessionPayload();
     downloadText(content, filename, 'application/json');
+    milestone('first_save');
   });
 }
 

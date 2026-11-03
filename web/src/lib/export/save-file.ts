@@ -1,4 +1,5 @@
 import { accountGate } from '../store/account-gate.svelte';
+import { milestone } from '../tracking/activity.svelte';
 
 /**
  * Hands a file to the browser under a name, once an account allows it (`account-gate.svelte.ts`).
@@ -14,5 +15,6 @@ export function saveFile(name: string, data: Blob): void {
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    if (!/\.ded$/i.test(name)) milestone('first_export');
   });
 }
