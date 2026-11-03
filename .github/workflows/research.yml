@@ -38,7 +38,7 @@ permissions:
 jobs:
   isolation:
     name: Research isolation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,7 +54,7 @@ jobs:
 
   route-size:
     name: Landing and app route byte budgets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,7 +106,7 @@ jobs:
   # Offline: part of the required CI OK (ci.yml calls this workflow), so it never depends on the network.
   catalog:
     name: Research catalog
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -130,7 +130,7 @@ jobs:
   catalog-online:
     name: Research catalog (Crossref, licenses)
     if: github.workflow == 'Research'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -148,7 +148,7 @@ jobs:
 
   phasefield:
     name: Phase-field (Shauer 2025) validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -177,7 +177,7 @@ jobs:
 
   topopt:
     name: Topology optimization (Andreassen 2011)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -192,7 +192,7 @@ jobs:
       - run: nix develop -c sh -c 'cd web && npm ci && npx vitest run src/components/research/andreassen2011/model.test.ts'
   engine-benchmarks:
     name: Production engine benchmarks (native and WASM)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -229,7 +229,7 @@ jobs:
 
   springs:
     name: Spring networks (Grossman 2026) validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -276,7 +276,7 @@ jobs:
 
   koiter:
     name: Roorda frame (Ferrari and Sigmund 2025) groundwork
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -291,7 +291,7 @@ jobs:
         run: cargo test --release --locked -- --nocapture
   form-finding:
     name: Four-cable FDM (Pastrana 2026) validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -302,7 +302,7 @@ jobs:
       - run: cargo test --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
   arches:
     name: Curvature-patterned arches validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -313,7 +313,7 @@ jobs:
       - run: cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
   fairclough:
     name: Five-node gridshell (Fairclough 2026) validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -323,7 +323,7 @@ jobs:
       - run: nix develop -c cargo test --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
   riks-crisfield:
     name: Arc-length (Riks–Crisfield) native and WASM validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
