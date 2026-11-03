@@ -92,6 +92,9 @@ describe('a panel only partly under low roof structure keeps its area load', () 
     expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
     const panels = gravityLayout(floorUnderCanopy(), { mode: 'panels', tributaryWidth: 3 });
     expect(panels.areaByLevel.get(3)).toBeCloseTo(36, 6);
+    expect(panels.roofAreaOf.size).toBeGreaterThan(0);
+    expect(keys(panels)).toContain('loadPlan.gravity.headroomUnclearRoof');
+    expect(keys(panels)).not.toContain('loadPlan.gravity.headroomUnclear');
   });
 });
 
@@ -110,7 +113,7 @@ describe('roof structure that does not carry all of a panel', () => {
   it('beams clustered over part of a ring do not stand in for its whole area', () => {
     const layout = gravityLayout(clusteredBeams(), { mode: 'panels', tributaryWidth: 3 });
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
-    expect(keys(layout)).toContain('loadPlan.gravity.headroomUnclear');
+    expect(keys(layout)).toContain('loadPlan.gravity.headroomUnclearRoof');
     expect(layout.areaByLevel.get(3)).toBeCloseTo(36, 6);
   });
 
@@ -124,7 +127,23 @@ describe('roof structure that does not carry all of a panel', () => {
     expect(keys(layout)).toContain('loadPlan.gravity.lowHeadroom');
     expect(keys(layout)).not.toContain('loadPlan.gravity.roofFringe');
     expect(layout.areaByLevel.get(3)).toBeUndefined();
-    expect(sum(layout.roofAreaOf)).toBeGreaterThanOrEqual(36);
+    const carriers = [...m.elements.values()].filter((e) => m.nodes.get(e.nodeI)!.z === 4 && m.nodes.get(e.nodeJ)!.z === 4).map((e) => e.id);
+    expect(carriers.reduce((t, id) => t + (layout.roofAreaOf.get(id) ?? 0), 0)).toBeCloseTo(5 * 6 * 3, 6);
+  });
+});
+
+describe('a narrow gap between the strips of the beams above', () => {
+  it('stays on the ring as roof load', () => {
+    const b = builder();
+    const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
+    const ring = corners.map(([x, y]) => b.node(x, y, 3));
+    corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+    ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+    for (const y of [0, 3, 6.05]) b.bar(b.node(0, y, 4), b.node(6, y, 4));
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(layout.areaByLevel.get(3)).toBeGreaterThanOrEqual(0.05 * 6 - 1e-9);
+    expect(sum(layout.areaOf)).toBe(0);
   });
 });
 
@@ -147,10 +166,10 @@ describe('trusses count as the roof\'s structure', () => {
   it('a short beam over the centre does not stand in for the roof the ring carries', () => {
     const layout = gravityLayout(trussedRing(1.5, false, true), { mode: 'panels', tributaryWidth: 3 });
     expect(sum(layout.areaOf)).toBe(0);
+    expect(layout.areaByLevel.get(4)).toBeGreaterThanOrEqual(60 - 3 - 1e-9);
     expect(sum(layout.roofAreaOf)).toBeGreaterThanOrEqual(60 - 1e-9);
-    expect(sum(layout.roofAreaOf)).toBeLessThan(63);
-    expect(layout.areaByLevel.get(4)).toBeGreaterThan(50);
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
   });
 
   it('a ring under trusses that carry no area load takes the roof load itself', () => {

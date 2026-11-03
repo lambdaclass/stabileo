@@ -496,9 +496,9 @@ function selfWeightByLevel(
     // A member of variable section weighs its mean area along it (`section/variable.ts`).
     const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
     const ends = [el.nodeI, el.nodeJ].map((id) => levelOfNode.get(id));
-    if (ends.some((lv) => lv === undefined)) skipped++;
+    if (ends.some((lv) => lv === undefined)) { skipped++; continue; }
     const w = sectionWeight(sec, el.materialId) * L * meanRatio;
-    for (const lv of ends) if (lv !== undefined) weights[lv] += w / 2;
+    for (const lv of ends) weights[lv!] += w / 2;
   }
   let skippedShells = 0;
   for (const q of model.quads?.values() ?? []) {
@@ -507,9 +507,9 @@ function selfWeightByLevel(
     if (pts.some((p) => !p) || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { skippedShells++; continue; }
     const xyz = pts.map((p) => [p!.x, p!.y, elevationOf(p!)] as [number, number, number]);
     const corners = q.nodes.map((id) => levelOfNode.get(id));
-    if (corners.some((lv) => lv === undefined)) skippedShells++;
+    if (corners.some((lv) => lv === undefined)) { skippedShells++; continue; }
     const w = q.thickness! * rho * surfaceArea(xyz);
-    for (const lv of corners) if (lv !== undefined) weights[lv] += w / q.nodes.length;
+    for (const lv of corners) weights[lv!] += w / q.nodes.length;
   }
   return { weights, skipped, skippedShells };
 }
@@ -773,7 +773,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * area any member of the model could carry (`tributaryAreaM2` above): an edge beam 6 m long under
    * a 3 m width, KLL·AT = 36 m² < 37 m² and so not reducible by §4.7.2, came out 21 % lighter.
    */
-  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, input.tributaryWidth * m.horizontalLength]));
+  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, (m.width ?? input.tributaryWidth) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
     return codes.loads.reduce({

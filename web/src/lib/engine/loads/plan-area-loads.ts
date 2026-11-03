@@ -134,7 +134,7 @@ export function planAreaLoads(i: AreaLoadsInput): AreaLoadsResult {
     }
     for (const m of layout.widthMembers) {
       if (arrangement !== undefined && !arrangement.loads({ member: m.elementId })) continue;
-      const q = -qOf(m.elementId, isRoof(m.elementId)) * i.tributaryWidth;
+      const q = -qOf(m.elementId, isRoof(m.elementId)) * (m.width ?? i.tributaryWidth);
       if (Math.abs(q) <= 1e-3) continue;
       // Along global Z in both gravity modes. The width mode used to load along local z, per
       // metre of member: on a sloped member that is the load turned off the vertical, with a

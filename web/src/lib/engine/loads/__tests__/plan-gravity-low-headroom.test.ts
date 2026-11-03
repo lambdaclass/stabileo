@@ -118,6 +118,18 @@ describe('the industrial hall and the stadium of the examples', () => {
     expect([...g.roofAreaOf.values()].reduce((s, a) => s + a, 0)).toBeGreaterThan(0);
   });
 
+  it('the hall by width: a chord within the roof keeps, as roof, only the share of its strip nothing above carries', async () => {
+    const g = gravityLayout(await fixture('3d-nave-industrial'), { mode: 'width', tributaryWidth: 3 });
+    const fringe = g.widthMembers.filter((m) => m.width !== undefined);
+    expect(fringe.length).toBeGreaterThan(0);
+    for (const m of fringe) {
+      expect(m.width).toBeGreaterThan(0);
+      expect(m.width).toBeLessThan(3);
+      expect(g.roofAreaOf.get(m.elementId)).toBeCloseTo(m.width! * m.horizontalLength, 9);
+      expect(g.areaOf.has(m.elementId)).toBe(false);
+    }
+  });
+
   it('the stadium: no area load on rings of a hundred metres', async () => {
     const g = gravityLayout(await fixture('full-stadium'), { mode: 'panels', tributaryWidth: 3 });
     expect(g.panels.every((p) => {
