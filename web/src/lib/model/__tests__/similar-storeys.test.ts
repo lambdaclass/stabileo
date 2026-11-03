@@ -91,7 +91,7 @@ describe('master and similar storeys', () => {
 
   it('matches places closer than the tolerance across a cell boundary', () => {
     const levels: Level[] = [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3 }, { id: 'L2', name: 'N2', z: 6, similarTo: 'L1' }];
-    const nodes = new Map([[1, { x: 0.00495, y: 0, z: 3 }], [2, { x: 6, y: 0, z: 3 }], [3, { x: 0.00515, y: 0, z: 6 }], [4, { x: 6, y: 0, z: 6 }]]);
+    const nodes = new Map([[1, { x: 0.0099, y: 0, z: 3 }], [2, { x: 6, y: 0, z: 3 }], [3, { x: 0.0101, y: 0, z: 6 }], [4, { x: 6, y: 0, z: 6 }]]);
     const elements = new Map([[1, { nodeI: 1, nodeJ: 2 }], [2, { nodeI: 3, nodeJ: 4 }]]);
     const m = { nodes, elements } as StoreyModel;
     expect(expandToStoreys(m, levels, { elements: [1], nodes: [], shells: [] }, 'similar').elements.sort()).toEqual([1, 2]);
