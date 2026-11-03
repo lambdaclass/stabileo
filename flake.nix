@@ -61,8 +61,10 @@
             pkgs.curl
             pkgs.python3
             pkgs.git
+            pkgs.gh
             pkgs.gnumake
             pkgs.shellcheck
+            pkgs.actionlint
             pkgs.lsof
           ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
             pkgs.apple-sdk_15
