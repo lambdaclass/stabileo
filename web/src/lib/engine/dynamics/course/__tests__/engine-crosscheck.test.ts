@@ -311,6 +311,17 @@ describe('a floor beam holds a column top only when its far end is held up', () 
     });
     expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('floorHinge');
   });
+  it('two overhangs between the same nodes are not an anchor for the column they hang from: 3EI/h³', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(2, 3);
+      modelStore.addElement(a, b); modelStore.addElement(b, c); modelStore.addElement(c, b);
+      modelStore.addSupport(a, 'fixed');
+    });
+    expect(modelStore.elements.size).toBe(3);
+    const r = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false);
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.floors[0].columns.map((c) => c.factor)).toEqual([3]);
+  });
   it('a floor beam split at a free node between two fixed columns still holds both tops: 12EI/h³ each', () => {
     build(() => {
       const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), m = modelStore.addNode(2, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);

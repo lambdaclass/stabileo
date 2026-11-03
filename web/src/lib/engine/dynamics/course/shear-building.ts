@@ -86,7 +86,7 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
         if (e === via || (e.nodeI !== n && e.nodeJ !== n)) continue;
         if (!rigidAt(via, n) || !rigidAt(e, n)) { blocked = true; continue; }
         const m = e.nodeI === n ? e.nodeJ : e.nodeI;
-        if (heldUp.has(m)) return true;
+        if (m !== near && heldUp.has(m)) return true;
         if (!seen.has(m)) { seen.add(m); stack.push([e, m]); }
       }
     }
