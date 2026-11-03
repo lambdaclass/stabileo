@@ -389,7 +389,6 @@
   import { solveSharedView } from './lib/utils/solve-shared-view';
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
   import { modeToPath, pathToMode, slugifyTabName, type AppMode } from './lib/app-mode';
@@ -606,6 +605,12 @@
     }
   });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  let blogPage = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showBlog && !blogPage) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blogPage = m.default));
+    }
+  });
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
 
@@ -1435,7 +1440,10 @@
     <Paper />
   {/if}
 {:else if showBlog}
-  <BlogPage path={blogPath} />
+  {#if blogPage}
+    {@const Blog = blogPage}
+    <Blog path={blogPath} />
+  {/if}
 {:else if showLanding}
   <LandingPage />
 {/if}
