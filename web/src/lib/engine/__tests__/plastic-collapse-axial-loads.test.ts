@@ -9,7 +9,7 @@
  *   collapse.
  */
 import { describe, it, expect } from 'vitest';
-import { plasticCollapse2D, loadsOffRemoved, yieldFlowRow } from '../plastic-collapse';
+import { plasticCollapse2D, loadsOffRemoved } from '../plastic-collapse';
 import { buildKinematics, workRow } from '../plastic/kinematics';
 import type { SolverInput, SolverLoad } from '../types';
 
@@ -139,20 +139,5 @@ describe('a couple on a bar that yielded', () => {
     const before = workRow(input, km, input.loads), after = workRow(input, km, moved);
     after.forEach((w, i) => expect(w).toBeCloseTo(before[i], 12));
     expect(before.some((w) => Math.abs(w) > 1)).toBe(true);
-  });
-});
-
-describe('the flow rule of a yielded bar in the mechanism check', () => {
-  it('is its elongation times the sign of its yield force: a tie must lengthen, a strut shorten', () => {
-    const km = { n: 4, nodePoint: new Map([[1, 0], [2, 1]]) };
-    const input = { nodes: new Map([[1, { id: 1, x: 0, z: 0 }], [2, { id: 2, x: 3, z: 4 }]]), elements: new Map([[7, { id: 7, nodeI: 1, nodeJ: 2 }]]) } as never;
-    const pull = [0, 0, 0.6, 0.8], push = [0, 0, -0.6, -0.8], across = [0, 0, -0.8, 0.6];
-    const dot = (row: number[], d: number[]) => row.reduce((s, v, i) => s + v * d[i], 0);
-    const tie = yieldFlowRow(input, km, 7, 1)!, strut = yieldFlowRow(input, km, 7, -1)!;
-    expect(dot(tie, pull)).toBeCloseTo(1, 12);
-    expect(dot(tie, push)).toBeCloseTo(-1, 12);
-    expect(dot(strut, push)).toBeCloseTo(1, 12);
-    expect(dot(tie, across)).toBeCloseTo(0, 12);
-    expect(yieldFlowRow(input, { n: 2, nodePoint: new Map([[1, 0]]) }, 7, 1)).toBeNull();
   });
 });

@@ -11,14 +11,14 @@ import { tx } from './doc';
 import { num, numText } from './format';
 import {
   solveCase, introBlocks, sectionsStep, mechanismSketch, momentSketch, elementaryName, virtualWorkBlocks,
-  pairCombinations, secName, momentCheckBlocks, compareBlocks,
+  pairCombinations, secName, momentCheckBlocks, compareBlocks, noSolutionNote,
 } from './plastic-common';
 
 export function buildPlasticKinematic(ctx: MethodContext): StepDoc {
   const pc = solveCase(ctx);
   const doc: StepDoc = { method: 'plasticKinematic', title: tx('steps.m.plasticKinematic.title'), intro: introBlocks(ctx, 'steps.m.plasticKinematic.what', pc.mp), steps: [] };
   if (!pc.sol) {
-    doc.steps.push({ title: tx('course.plastic.kin.s1'), blocks: [{ kind: 'note', tone: 'warn', text: tx('course.plastic.doc.noCollapse') }] });
+    doc.steps.push({ title: tx('course.plastic.kin.s1'), blocks: [noSolutionNote(pc)] });
     return doc;
   }
   const { lm, elementary, best, moments, combination, history } = pc.sol;

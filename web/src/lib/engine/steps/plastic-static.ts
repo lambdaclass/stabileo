@@ -12,7 +12,7 @@ import { tx } from './doc';
 import { num, numText } from './format';
 import {
   solveCase, introBlocks, sectionsStep, momentSketch, elementaryName, pairCombinations, secName,
-  momentCheckBlocks, compareBlocks, equationTex,
+  momentCheckBlocks, compareBlocks, equationTex, noSolutionNote,
 } from './plastic-common';
 import { mechanismMoments, type Mechanism, type Distribution } from '../plastic/limit';
 import { computeDiagramValueAt } from '../diagrams';
@@ -24,7 +24,7 @@ export function buildPlasticStatic(ctx: MethodContext): StepDoc {
   const pc = solveCase(ctx);
   const doc: StepDoc = { method: 'plasticStatic', title: tx('steps.m.plasticStatic.title'), intro: introBlocks(ctx, 'steps.m.plasticStatic.what', pc.mp), steps: [] };
   if (!pc.sol) {
-    doc.steps.push({ title: tx('course.plastic.st.s1'), blocks: [{ kind: 'note', tone: 'warn', text: tx('course.plastic.doc.noCollapse') }] });
+    doc.steps.push({ title: tx('course.plastic.st.s1'), blocks: [noSolutionNote(pc)] });
     return doc;
   }
   const { lm, elementary, best } = pc.sol;
