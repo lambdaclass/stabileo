@@ -126,7 +126,7 @@ describe('checking a report value by value', () => {
     resultsStore.activeView = 'single';
     resultsStore.activeCaseId = null;
     const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
-    expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })!.structural).toContain('result-set');
+    expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })).toBeNull();
     expect(resultsStore.singleResults3D).not.toBe(resultsStore.results3D);
     expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
     const sum = currentScopeRef();
@@ -140,6 +140,27 @@ describe('checking a report value by value', () => {
     expect(forged).not.toBe(screen);
     expect(comparePrintedReport(forged, sum)!.differences.length).toBeGreaterThan(0);
     expect(comparePrintedReport(screen, { kind: 'other', label: 'another view' })).toBeNull();
+  });
+
+  it('a report printed from the screen while a combination, a case or the envelope is shown is compared against that scope', () => {
+    const combo = modelStore.combinations[1]!.id;
+    const views: Array<() => void> = [
+      () => { resultsStore.activeView = 'combo'; resultsStore.activeComboId = combo; },
+      () => { resultsStore.activeView = 'single'; resultsStore.activeComboId = null; resultsStore.activeCaseId = 1; },
+      () => { resultsStore.activeView = 'envelope'; resultsStore.activeCaseId = null; },
+    ];
+    for (const show of views) {
+      show();
+      const scope = currentScopeRef();
+      expect(scope.kind).not.toBe('other');
+      expect(scope.kind).not.toBe('single');
+      const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
+      const v = comparePrintedReport(screen, scope)!;
+      expect(v.structural).toEqual([]);
+      expect(v.differences).toEqual([]);
+      expect(v.compared).toBeGreaterThan(10);
+      expect(comparePrintedReport(screen, { kind: 'single' })).toBeNull();
+    }
   });
 
   it('a report of the single solve on screen is compared against the single scope', () => {

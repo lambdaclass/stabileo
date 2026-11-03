@@ -55,7 +55,7 @@ export function comparePrintedReport(report: string, scope: ScopeRef | undefined
   if (!config || !scope) return null;
   const key = config.resultSetKey;
   const screen = !key || key === 'screen';
-  const printedScope: ScopeRef | null = screen ? (scope.kind === 'other' ? scope : { kind: 'single' }) : scopeOfResultSet(key);
+  const printedScope: ScopeRef | null = screen ? scope : scopeOfResultSet(key);
   if (!printedScope || !sameScope(printedScope, scope)) return { compared: 0, differences: [], structural: [OTHER_RESULT_SET], labels: true };
   if (screen && !sameScope(currentScopeRef(), scope)) return null;
   const data = buildProReportData({ config, t });
