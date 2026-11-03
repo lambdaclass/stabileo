@@ -98,10 +98,10 @@ fn wood_armer(mx: f64, my: f64, mxy: f64) -> [f64; 4] {
             return (0., 0.);
         }
         if dx < 0. {
-            let dy = py + if a > 0. { mxy * mxy / px.abs().max(1e-9) } else { 0. };
+            let dy = py + if a > 0. { mxy * mxy / px.abs() } else { 0. };
             (0., dy.max(0.))
         } else {
-            let dx = px + if a > 0. { mxy * mxy / py.abs().max(1e-9) } else { 0. };
+            let dx = px + if a > 0. { mxy * mxy / py.abs() } else { 0. };
             (dx.max(0.), 0.)
         }
     };
@@ -806,6 +806,17 @@ mod tests {
         assert_eq!(wood_armer(10., 4., 2.), [12., 6., 0., 0.]);
         assert_eq!(wood_armer(-10., -4., 2.), [0., 0., 12., 6.]);
         assert_eq!(wood_armer(1., -4., 2.), [2., 0., 1., 6.]);
+    }
+
+    #[test]
+    fn wood_armer_design_moments_scale_with_the_moments() {
+        for scale in [1e-12, 1e-6, 1.0, 1e6] {
+            let [bx, by, tx, ty] = wood_armer(-4. * scale, scale, 2. * scale);
+            let [ex, ey, fx, fy] = wood_armer(-4., 1., 2.);
+            for (got, unit) in [(bx, ex), (by, ey), (tx, fx), (ty, fy)] {
+                assert!((got - unit * scale).abs() <= 1e-12 * unit.abs().max(1.) * scale, "scale {scale:e}: {got:e} vs {:e}", unit * scale);
+            }
+        }
     }
 
     fn row_strategy() -> impl Strategy<Value = [f64; 9]> {

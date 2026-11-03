@@ -52,12 +52,19 @@ fn damped_step(m: f64, c: f64, k: f64, p: f64, t: f64) -> f64 {
     p / k * (1.0 - (-zeta * omega * t).exp() * ((wd * t).cos() + zeta * omega / wd * (wd * t).sin()))
 }
 
+fn history(r: &TimeHistoryResult, node: usize, name: &str, pick: impl Fn(&NodeTimeHistory) -> &Vec<f64>) -> Vec<f64> {
+    let h = pick(r.node_histories.iter().find(|h| h.node_id == node).unwrap()).clone();
+    assert_eq!(h.len(), r.time_steps.len(), "{name} of node {node}: {} values for {} steps", h.len(), r.time_steps.len());
+    assert!(h.iter().all(|v| v.is_finite()), "{name} of node {node} is not finite");
+    h
+}
+
 fn ux(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
-    r.node_histories.iter().find(|h| h.node_id == node).unwrap().ux.clone()
+    history(r, node, "ux", |h| &h.ux)
 }
 
 fn ax(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
-    r.node_histories.iter().find(|h| h.node_id == node).unwrap().ax.clone()
+    history(r, node, "ax", |h| &h.ax)
 }
 
 struct Regime {
@@ -231,7 +238,7 @@ fn a_damped_massless_tip_under_a_ramp_accelerates_as_its_first_order_closed_form
 }
 
 fn vx(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
-    r.node_histories.iter().find(|h| h.node_id == node).unwrap().vx.clone()
+    history(r, node, "vx", |h| &h.vx)
 }
 
 #[test]
