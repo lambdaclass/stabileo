@@ -17,7 +17,7 @@ export const es: Translations = {
   'course.second-order.refuse.noCompression': 'Ninguna barra está comprimida: no hay carga crítica de pandeo. El P-Δ igual se puede calcular: la tracción rigidiza la estructura y, cuando NL²/EI es grande, puede cambiar mucho los resultados.',
   'course.second-order.refuse.noPositive': 'No se encontró ningún factor de carga crítica positivo.',
   'course.second-order.refuse.idleLoad': 'Hay una carga sobre un desplazamiento que ninguna barra rigidiza (por ejemplo, un momento en un nudo con todas las barras articuladas): la estructura no la puede equilibrar.',
-  'course.second-order.bk.internalMode': 'Modo {k} (λ = {lambda}): es un pandeo dentro de una barra con sus extremos fijos; los desplazamientos de los nudos no lo dibujan, así que no se muestra su forma.',
+  'course.second-order.doc.bk.internalMode': 'Modo {k} (λ = {lambda}): es un pandeo dentro de una barra con sus extremos fijos; los desplazamientos de los nudos no lo dibujan, así que no se muestra su forma.',
   'course.second-order.bk.internalNote': '* Pandeo dentro de una barra con sus extremos fijos: los desplazamientos de los nudos no lo dibujan, así que su forma no se muestra.',
 
   'course.second-order.opts.title': 'Cómo se calcula',
@@ -224,7 +224,7 @@ export const en: Translations = {
   'course.second-order.refuse.noCompression': 'No member is in compression: there is no buckling load. P-Δ can still be run: tension stiffens the structure and, when NL²/EI is large, can change the results significantly.',
   'course.second-order.refuse.noPositive': 'No positive critical load factor was found.',
   'course.second-order.refuse.idleLoad': 'A load acts on a displacement no member stiffens (for example a couple at a joint where every member is hinged): the structure cannot carry it.',
-  'course.second-order.bk.internalMode': 'Mode {k} (λ = {lambda}): a buckling inside one member with its ends held; the node displacements cannot draw it, so its shape is not shown.',
+  'course.second-order.doc.bk.internalMode': 'Mode {k} (λ = {lambda}): a buckling inside one member with its ends held; the node displacements cannot draw it, so its shape is not shown.',
   'course.second-order.bk.internalNote': '* A buckling inside one member with its ends held: the node displacements cannot draw it, so its shape is not shown.',
 
   'course.second-order.opts.title': 'How it is calculated',
@@ -431,7 +431,7 @@ export const pt: Translations = {
   'course.second-order.refuse.noCompression': 'Nenhuma barra está comprimida: não há carga crítica de flambagem. O P-Δ ainda pode ser calculado: a tração enrijece a estrutura e, quando NL²/EI é grande, pode mudar muito os resultados.',
   'course.second-order.refuse.noPositive': 'Não foi encontrado nenhum fator de carga crítica positivo.',
   'course.second-order.refuse.idleLoad': 'Há uma carga sobre um deslocamento que nenhuma barra enrijece (por exemplo, um momento num nó com todas as barras articuladas): a estrutura não pode equilibrá-la.',
-  'course.second-order.bk.internalMode': 'Modo {k} (λ = {lambda}): é uma flambagem dentro de uma barra com as extremidades fixas; os deslocamentos dos nós não a desenham, então a sua forma não é mostrada.',
+  'course.second-order.doc.bk.internalMode': 'Modo {k} (λ = {lambda}): é uma flambagem dentro de uma barra com as extremidades fixas; os deslocamentos dos nós não a desenham, então a sua forma não é mostrada.',
   'course.second-order.bk.internalNote': '* Flambagem dentro de uma barra com as extremidades fixas: os deslocamentos dos nós não a desenham, então a sua forma não é mostrada.',
 
   'course.second-order.opts.title': 'Como é calculado',

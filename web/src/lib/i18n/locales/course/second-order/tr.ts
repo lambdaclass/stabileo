@@ -16,7 +16,7 @@ const words: Translations = {
   'course.second-order.refuse.noCompression': 'Hiçbir çubuk basınç altında değil: burkulma yükü yok. P-Δ yine de hesaplanabilir: çekme yapıyı rijitleştirir ve NL²/EI büyük olduğunda sonuçları önemli ölçüde değiştirebilir.',
   'course.second-order.refuse.noPositive': 'Pozitif bir kritik yük katsayısı bulunamadı.',
   'course.second-order.refuse.idleLoad': 'Hiçbir çubuğun rijitlik vermediği bir yer değiştirmeye yük etkiyor (örneğin bütün çubukların mafsallı bağlandığı bir düğümde moment): yapı bu yükü dengeleyemez.',
-  'course.second-order.bk.internalMode': 'Mod {k} (λ = {lambda}): uçları tutulu bir çubuğun içinde bir burkulma; düğüm yer değiştirmeleri onu çizemez, bu yüzden biçimi gösterilmez.',
+  'course.second-order.doc.bk.internalMode': 'Mod {k} (λ = {lambda}): uçları tutulu bir çubuğun içinde bir burkulma; düğüm yer değiştirmeleri onu çizemez, bu yüzden biçimi gösterilmez.',
   'course.second-order.bk.internalNote': '* Uçları tutulu bir çubuğun içinde burkulma: düğüm yer değiştirmeleri onu çizemez, bu yüzden biçimi gösterilmez.',
 
   'course.second-order.opts.title': 'Nasıl hesaplanır',

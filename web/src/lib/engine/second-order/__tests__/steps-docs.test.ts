@@ -9,7 +9,11 @@ import type { Block, StepDoc } from '../../steps/doc';
 import type { SolverInput } from '../../types';
 import { teachingBuckling } from '../buckling';
 import { teachingPDelta } from '../pdelta';
-import { column, EI } from './fixtures';
+import { column, clampedColumn, EI } from './fixtures';
+import { es, en, pt } from '../../../i18n/locales/course/second-order';
+import de from '../../../i18n/locales/course/second-order/de';
+import fr from '../../../i18n/locales/course/second-order/fr';
+import tr from '../../../i18n/locales/course/second-order/tr';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
 beforeEach(() => { modelStore.clear(); });
@@ -25,6 +29,15 @@ async function example(): Promise<SolverInput> {
 const blocks = (doc: StepDoc): Block[] => doc.steps.flatMap((s) => s.blocks.flatMap((b) => (b.kind === 'sub' ? [b, ...b.blocks] : [b])));
 const compare = (doc: StepDoc) => blocks(doc).find((b) => b.kind === 'compare') as Extract<Block, { kind: 'compare' }> | undefined;
 const keys = (doc: StepDoc) => doc.steps.map((s) => s.title.key);
+
+describe('a mode inside one member', () => {
+  it('is told in words every locale has, under the key the document asks for', () => {
+    const doc = methodById('so-buckling-phi')!.build!(ctxOf(clampedColumn(5, 100)));
+    const internal = blocks(doc).filter((b) => b.kind === 'p' && b.text.key.endsWith('internalMode'));
+    expect(internal.length).toBeGreaterThan(0);
+    for (const b of internal) for (const dict of [es, en, pt, de, fr, tr]) expect(dict[(b as Extract<Block, { kind: 'p' }>).text.key]).toBeTruthy();
+  });
+});
 
 describe('second-order explained methods on the example portal', () => {
   it('apply to it, with 6 unknowns, or 3 with rigid members', async () => {

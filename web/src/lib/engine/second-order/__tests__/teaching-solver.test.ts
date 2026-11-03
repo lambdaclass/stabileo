@@ -62,6 +62,27 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
     expect(lambda1(column('fixed', 'guided', L, P), 'phi', 1)).toBeCloseTo((4 * Math.PI ** 2 * EI) / (L * L) / P, 3);
   });
 
+  it('past the teaching size the engine path still refuses a mode its cubic elements cannot represent', () => {
+    const withChain = (input: SolverInput): SolverInput => {
+      const nodes = new Map(input.nodes), elements = new Map(input.elements), supports = new Map(input.supports);
+      for (let k = 0; k < 110; k++) nodes.set(1000 + k, { id: 1000 + k, x: 20 + k * 0.5, z: -50 });
+      for (let k = 0; k < 109; k++) elements.set(1000 + k, { ...input.elements.get(1)!, id: 1000 + k, nodeI: 1000 + k, nodeJ: 1001 + k });
+      supports.set(1000, { id: 1000, nodeId: 1000, type: 'pinned' });
+      supports.set(1001, { id: 1001, nodeId: 1109, type: 'rollerX' });
+      return { ...input, nodes, elements, supports };
+    };
+    const big = withChain(column('fixed', 'guided', L, P));
+    const sys = buildSystem(big, { method: 'consistent', axialRigid: false }, true);
+    expect(sys.ok).toBe(false);
+    if (!sys.ok) expect(sys.reason.key).toBe('course.second-order.refuse.tooBig');
+    const one = runBuckling2D(big, { ...DEFAULT_SETTINGS, method: 'consistent', n: 1 });
+    expect(one.ok).toBe(false);
+    if (!one.ok) expect(one.reason.key).toBe('course.second-order.refuse.noModeRepresented');
+    const pinned = runBuckling2D(withChain(column('pinned', 'rollerZ', L, P)), { ...DEFAULT_SETTINGS, method: 'consistent', n: 1 });
+    if (!pinned.ok) throw new Error(pinned.reason.key);
+    expect(pinned.result.modes[0].loadFactor / ((Math.PI ** 2 * EI) / (L * L) / P)).toBeCloseTo(12 / Math.PI ** 2, 6);
+  });
+
   it('a fixed-fixed column of one element: φ gives its higher modes, each internal, with no nodal shape drawn', () => {
     const b = teachingBuckling(clampedColumn(L, P), { method: 'phi', axialRigid: false }, 3);
     if (!b.ok) throw new Error(b.reason.key);

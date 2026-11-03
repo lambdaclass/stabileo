@@ -34,7 +34,7 @@ export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean 
     if (!Number.isFinite(lambda1) && lambda1 !== Infinity) throw new Error('no buckling mode');
   } catch (e) {
     const msg = String((e as Error)?.message ?? e);
-    if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
+    if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: result.isStable === false ? false : null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
     lambda1 = Infinity;
   }
   const b2 = firstModeB2(lambda1);
