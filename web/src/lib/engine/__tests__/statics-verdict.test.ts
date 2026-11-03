@@ -17,6 +17,12 @@ describe('what the statics check can say about a case', () => {
     expect(staticsVerdict(row('W', 0.02, []))).toBe('unbalanced');
   });
 
+  it('a residual that is not a number never balances', () => {
+    for (const r of [NaN, Infinity, -Infinity]) expect(staticsVerdict(row('N', r, [])), String(r)).toBe('unbalanced');
+    const html = staticsSectionHtml({ cases: [row('N', NaN, [])] as never, combos: [] }, tr, 'Statics').join('');
+    expect(html).not.toContain('✓');
+  });
+
   it('the report ticks no case whose check left loads out, and names them', () => {
     const html = staticsSectionHtml({ cases: [row('D', 1e-9, []), row('S', 1e-9, ['surface3d'])] as never, combos: [] }, tr, 'Statics').join('');
     const cells = [...html.matchAll(/<td rowspan="2"[^>]*>(.*?)<\/td>/g)].map((m) => m[1]);
