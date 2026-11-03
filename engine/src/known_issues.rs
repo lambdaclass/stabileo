@@ -264,6 +264,13 @@ pub fn conditioning(report: &crate::solver::conditioning::ConditioningReport) ->
     (report.diagonal_ratio > 1e8 || !report.near_zero_dofs.is_empty()).then(|| diagnostic("NUM-INVARIANCE"))
 }
 
+pub fn refuse_distorted(known_model: &[StructuredDiagnostic]) -> Result<(), String> {
+    let Some(distorted) = known_model.iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) else { return Ok(()) };
+    let mut finding = diagnostic("SH-MITC4-DISTORTION").with_elements(distorted.element_ids.clone());
+    finding.element_kind = distorted.element_kind.clone();
+    refuse(&[finding])
+}
+
 pub struct RotationDemand2D {
     unrestrained: std::collections::HashSet<usize>,
     rigid_demand: bool,
@@ -295,10 +302,10 @@ impl RotationDemand2D {
                 if stiff.insert(*other) { pending.push(*other); }
             }
         }
+        unrestrained.extend(input.nodes.values().map(|n| n.id));
         unrestrained.retain(|id| !stiff.contains(id));
         let rigid_demand = input.constraints.iter().any(|c| matches!(c, Constraint::RigidLink(c)
             if unrestrained.contains(&c.master_node) || unrestrained.contains(&c.slave_node)));
-        unrestrained.extend(input.nodes.values().map(|n| n.id).filter(|id| !stiff.contains(id)));
         Self { unrestrained, rigid_demand }
     }
 

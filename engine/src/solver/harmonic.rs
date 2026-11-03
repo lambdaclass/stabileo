@@ -264,11 +264,7 @@ pub fn solve_harmonic_3d(input: &HarmonicInput3D) -> Result<HarmonicResult, Stri
 pub fn solve_harmonic_3d_with_damping(input: &HarmonicInput3D) -> Result<(HarmonicResult, (f64, f64)), String> {
     let known_model = crate::known_issues::for_3d(&input.solver, crate::known_issues::Analysis::Harmonic);
     crate::known_issues::refuse(&known_model)?;
-    if let Some(distorted) = known_model.iter().find(|d| d.phase.as_deref() == Some("SH-MITC4-DISTORTION")) {
-        let mut finding = crate::known_issues::diagnostic("SH-MITC4-DISTORTION").with_elements(distorted.element_ids.clone());
-        finding.element_kind = distorted.element_kind.clone();
-        crate::known_issues::refuse(&[finding])?;
-    }
+    crate::known_issues::refuse_distorted(&known_model)?;
     let (mut result, damping) = solve_harmonic_3d_contained(input)?;
     crate::known_issues::attach(&mut result.structured_diagnostics, known_model);
     if result.method.starts_with("modal") {

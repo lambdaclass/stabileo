@@ -111,6 +111,20 @@ it('every DXF archive member carries visible warning TEXT entities', async () =>
   for (const [, bytes] of members) { const dxf = strFromU8(bytes); expect(dxf).toContain('STABILEO_WARNINGS'); expect(dxf).toContain('#741'); }
 });
 
+it('DXF warnings sit beside translated geometry and scale with its extent', async () => {
+  const { dxfWithProvenance, prepareExportProvenance } = await import('../provenance-attach');
+  const record = (await prepareExportProvenance())!;
+  const dxf = '0\nSECTION\n2\nENTITIES\n0\nLINE\n8\n0\n10\n500000\n20\n1000\n30\n0\n11\n500040\n21\n1030\n31\n0\n0\nENDSEC\n0\nEOF\n';
+  const out = dxfWithProvenance(dxf, record, ['warning #741']);
+  const text = /0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n([^\n]+)\n20\n([^\n]+)\n30\n0\n40\n([^\n]+)\n1\nwarning #741/.exec(out)!;
+  expect(text).not.toBeNull();
+  const [x, y, height] = text.slice(1).map(Number);
+  expect(x).toBe(500000);
+  expect(height).toBe(0.5);
+  expect(y).toBeLessThan(1000);
+  expect(y).toBeGreaterThan(990);
+});
+
 it.each(['html', 'pdf', 'docx', 'csv', 'xlsx'] as const)('shared %s report boundary refuses and preserves warning text', async format => {
   const { downloadReport } = await import('../report-download');
   const blobs: Blob[] = [], printed: string[] = [];

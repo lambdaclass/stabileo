@@ -69,7 +69,7 @@ function createTimeHistoryView() {
 
   return {
     get result() { return refused ? null : result; },
-    get stored() { return result; },
+    get storedDiagnostics() { return result ? { structuredDiagnostics: result.structuredDiagnostics ?? [] } : null; },
     get source() { return source; },
     get modelVersion() { return modelVersion; },
     get step() { return step; },

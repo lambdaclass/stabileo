@@ -65,11 +65,14 @@ export function htmlWithProvenance(html: string, p: ResultProvenance, warnings =
 
 export function dxfWithProvenance(dxf: string, p: ResultProvenance, warnings = requiredExportMessages()): string {
   // TEXT entities are visible in CAD; comments alone are not a warning.
-  const ys = [...dxf.matchAll(/(?:^|\n)20\r?\n([^\r\n]+)/g)].map(m => Number(m[1])).filter(Number.isFinite);
-  const minY = ys.reduce((a, y) => Math.min(a, y), 0), span = ys.reduce((a, y) => Math.max(a, y), 0) - minY;
+  const coordinates = (code: string) => [...dxf.matchAll(new RegExp(`(?:^|\\n) *${code}\\r?\\n([^\\r\\n]+)`, 'g'))].map(m => Number(m[1])).filter(Number.isFinite);
+  const xs = coordinates('1[01]'), ys = coordinates('2[01]');
+  const bounds = (v: number[]) => v.length ? v.reduce(([lo, hi], x) => [Math.min(lo, x), Math.max(hi, x)], [Infinity, -Infinity]) : [0, 0];
+  const [minX, maxX] = bounds(xs), [minY, maxY] = bounds(ys);
+  const span = Math.max(maxX - minX, maxY - minY);
   const textHeight = span > 0 ? span / 80 : 3;
   const lines = warnings.flatMap(w => w.split(/[\r\n]+/).flatMap(line => line.match(/.{1,90}/gu) ?? []));
-  const entities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n0\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${line}\n`).join('');
+  const entities = lines.map((line, i) => `0\nTEXT\n8\nSTABILEO_WARNINGS\n10\n${minX}\n20\n${minY - (i + 2) * textHeight * 1.5}\n30\n0\n40\n${textHeight}\n1\n${line}\n`).join('');
   if (entities) {
     const section = /0\r?\nSECTION\r?\n2\r?\nENTITIES\r?\n/.exec(dxf);
     if (section) { const at = section.index + section[0].length; dxf = dxf.slice(0, at) + entities + dxf.slice(at); }

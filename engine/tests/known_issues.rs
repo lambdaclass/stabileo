@@ -930,6 +930,10 @@ fn a_moment_on_a_connector_only_node_without_moment_stiffness_warns() {
         })).unwrap());
         let moment = vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: 0.0, fz: 0.0, my: 1.0 })];
         assert_eq!(RotationDemand2D::new(&input).demanded(&moment), warns, "kMoment {k_moment}");
+        let mut arm = input.clone();
+        arm.nodes.insert("4".into(), SolverNode { id: 4, x: 5.0, z: 0.0 });
+        arm.constraints.push(Constraint::RigidLink(serde_json::from_value(serde_json::json!({ "masterNode": 3, "slaveNode": 4 })).unwrap()));
+        assert!(RotationDemand2D::new(&arm).demanded(&[]), "rigid arm to a node with no rotational stiffness of its own, kMoment {k_moment}");
         input.loads = moment;
         let found = match solve_2d(&input) {
             Ok(r) => ids(&r.structured_diagnostics),
@@ -1034,6 +1038,17 @@ fn nonlinear_and_dynamic_shell_paths_run_the_membrane_guard() {
                     common::assert_containment(outcome, "SH-MITC4-DISTORTION");
                 } else {
                     assert!(!ids(&outcome.unwrap()).contains(&"SH-MITC4-DISTORTION".into()));
+                }
+            }
+            let reductions = [
+                ("guyan", dedaliano_engine::solver::reduction::guyan_reduce_3d(&dedaliano_engine::solver::reduction::GuyanInput3D { solver: solver.clone(), boundary_nodes: vec![13] }).map(|r| r.structured_diagnostics)),
+                ("craig-bampton", dedaliano_engine::solver::reduction::craig_bampton_3d(&dedaliano_engine::solver::reduction::CraigBamptonInput3D { solver: solver.clone(), densities: densities.clone(), boundary_nodes: vec![13], n_modes: 2 }).map(|r| r.structured_diagnostics)),
+            ];
+            for (name, outcome) in reductions {
+                if distorted {
+                    common::assert_containment(outcome, "SH-MITC4-DISTORTION");
+                } else {
+                    assert!(!ids(&outcome.unwrap_or_else(|e| panic!("{name}: {e}"))).contains(&"SH-MITC4-DISTORTION".into()), "{name}");
                 }
             }
             for (name, outcome) in [("time history", solve_time_history_3d(&th).map(|r| r.structured_diagnostics))] {

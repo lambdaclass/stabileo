@@ -95,7 +95,8 @@ describe('production containment', () => {
     expect(timeHistoryView.frame()).toBeNull();
     expect(timeHistoryView.historyOf(1)).toBeUndefined();
     expect(timeHistoryView.peak).toBe(0);
-    expect(timeHistoryView.stored).not.toBeNull();
+    expect(timeHistoryView.storedDiagnostics).toEqual({ structuredDiagnostics: [expect.objectContaining({ phase: 'SH-MITC4-DISTORTION' })] });
+    expect(JSON.stringify(Object.getOwnPropertyNames(timeHistoryView).map(k => { try { return (timeHistoryView as never)[k]; } catch { return null; } }))).not.toContain('9.87');
     expect(resultsStore.knownIssues3D.refused).toBe(true);
     expect(resultsStore.knownIssues.refused).toBe(false);
     timeHistoryView.clear();
