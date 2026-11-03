@@ -55,6 +55,12 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-039",
+          "Import Excel et IFC : rectangles et tubes recevaient l’inertie de l’axe faible pour la flexion sur leur hauteur (une console de 20 × 40 quatre fois trop souple)",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-029",
           "3D : les poteaux CIRSOC 201 de l'application étaient dimensionnés avec Mz sur la hauteur de la section (36 % d'armatures en moins dans un exemple) ; les vérifications certifiées 3D du moteur lisaient l'effort tranchant latéral Vy comme celui de l'âme",
           "Critique",

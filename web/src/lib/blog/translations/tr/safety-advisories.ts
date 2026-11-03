@@ -55,6 +55,12 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-039",
+          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitler yükseklik doğrultusundaki eğilme için zayıf eksen ataletini alıyordu (20 × 40 bir konsol 4 kat fazla esnek)",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-029",
           "3B: uygulamadaki CIRSOC 201 kolonları Mz kesit yüksekliği üzerinden tasarlanıyordu (bir örnekte %36 eksik donatı); motorun sertifikalı 3B kontrolleri yanal kesme Vy'yi gövde kesmesi olarak okuyordu",
           "Kritik",

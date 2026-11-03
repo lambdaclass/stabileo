@@ -254,6 +254,22 @@ describe('mapIfcToModel — names as models write them', () => {
     expect(ipe30.warnings.some((w) => w.includes('IPE 30'))).toBe(true);
   });
 
+  it('puts the inertia of a deep section about the horizontal axis, as the app\'s own sections do (#532)', () => {
+    const rect = one('500x200').sections[0]!;
+    expect(rect.iy).toBeCloseTo(0.2 * 0.5 ** 3 / 12, 12);
+    expect(rect.iz).toBeCloseTo(0.5 * 0.2 ** 3 / 12, 12);
+    const box = one('200x100x5').sections[0]!;
+    expect(box.iy).toBeCloseTo((0.2 ** 3 * 0.1 - 0.19 ** 3 * 0.09) / 12, 12);
+    expect(box.iz).toBeCloseTo((0.1 ** 3 * 0.2 - 0.09 ** 3 * 0.19) / 12, 12);
+    const drawn = mapIfcToModel([
+      { id: 1, type: 'beam', name: 'B1', profileName: 'R', profileDims: { shape: 'rect', b: 0.2, h: 0.5 }, start: { x: 0, y: 0, z: 0 }, end: { x: 5, y: 0, z: 0 } },
+    ] as never).sections[0]!;
+    expect(drawn.iy).toBeCloseTo(0.2 * 0.5 ** 3 / 12, 12);
+    expect(drawn.iz).toBeCloseTo(0.5 * 0.2 ** 3 / 12, 12);
+    const fallback = mapIfcToModel([]).sections[0]!;
+    expect(fallback.iy).toBeGreaterThan(fallback.iz);
+  });
+
   it('reads "300x300" as a solid rectangle, not a hollow tube', () => {
     const s = one('300x300').sections[0]!;
     expect(s.shape).toBe('rect');

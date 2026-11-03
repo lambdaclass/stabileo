@@ -421,8 +421,8 @@ export function parseWorkbook(sheets: Record<string, unknown[][]>): ParseResult 
     }
 
     if (a === null && b !== null && h !== null) a = b * h;
-    if (iz === null && b !== null && h !== null) iz = (b * h ** 3) / 12;
-    if (iy === null && b !== null && h !== null) iy = (h * b ** 3) / 12;
+    if (iy === null && b !== null && h !== null) iy = (b * h ** 3) / 12;
+    if (iz === null && b !== null && h !== null) iz = (h * b ** 3) / 12;
 
     if (a === null || iz === null) {
       problems.push({ sheet: 'Sections', row: row.n, message: tp('xls.err.sectionUnknown', { name }) });
