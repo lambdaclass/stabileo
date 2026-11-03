@@ -11,7 +11,7 @@ import { buildInfluenceDoc } from '../influence-doc';
 import { advancedRefusal2D } from '../../solver-service';
 import { computePoints, UNIT_LOAD_DIR } from '../../influence-service';
 import { unitSolver } from '../../influence/unit-sweep';
-import { defaultLoadedMembers, type IlLoads, type LivePlacement } from '../../influence/areas';
+import { defaultLoadedMembers, ilLoadsValid, type IlLoads, type LivePlacement } from '../../influence/areas';
 import { supportReaction, type IlTarget } from '../../influence/quantities';
 import { countIndeterminacy } from '../../force-method/primary';
 import type { InfluenceDirection, InfluenceQuantity } from '../../../store/model.svelte';
@@ -70,7 +70,9 @@ export const methods: ExplainedMethod[] = [
       if (ctx.input.supports.size === 0) return { ok: false, reason: tx('influence.needSupport') };
       const refusal = advancedRefusal2D(unitSolver(ctx.input));
       if (refusal) return { ok: false, reason: tx('course.influence.doc.refused', { why: refusal }) };
-      return chosenInput(ctx) ? { ok: true } : { ok: false, reason: tx('influence.needNodesElems') };
+      const c = chosenInput(ctx);
+      if (c && !ilLoadsValid(c.input.loads)) return { ok: false, reason: tx('course.influence.load.nonNegative') };
+      return c ? { ok: true } : { ok: false, reason: tx('influence.needNodesElems') };
     },
     build: (ctx) => {
       const c = chosenInput(ctx)!;

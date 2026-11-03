@@ -151,17 +151,28 @@ function cubicStationary(fit: ReadonlyArray<readonly [number, number]>): number[
   return roots.filter(Number.isFinite).map((x) => t0 + x * h);
 }
 
+function reader(unit: SolverInput, il: InfluenceLineResult, dir: Dir) {
+  const target = targetOf(il);
+  const effectOf = (ls: SolverLoad[]): number => familyOf(il.quantity) === 'displacement'
+    ? targetDisplacement(unit, il.quantity, target, ls)
+    : readForce(il.quantity, solve({ ...unit, loads: ls }), unit, target);
+  const unitAt = (id: number, t: number) => effectOf(loadOnMember(unit, id, t * memberGeom(unit, id).L, 1, dir));
+  return { target, effectOf, unitAt };
+}
+
+/** The highest and lowest ordinates on every member, with the smooth interior peaks the samples miss. */
+export function linePeaks(unit: SolverInput, il: InfluenceLineResult, dir: Dir): { max: IlPoint | null; min: IlPoint | null } {
+  const { unitAt } = reader(unit, il, dir);
+  return ordinateExtremes(refinedPoints(il.points as IlPoint[], unitAt, (id) => unit.elements.get(id)?.type !== 'truss'), () => true);
+}
+
 export function readLine(
   unit: SolverInput, il: InfluenceLineResult, loads: IlLoads, placement: LivePlacement, loadedIds: number[], dir: Dir,
 ): LineReading {
   const loaded = new Set(loadedIds);
   const isLoaded = (id: number) => loaded.has(id);
   const lengthOf = (id: number) => memberGeom(unit, id).L;
-  const target = targetOf(il);
-  const effectOf = (ls: SolverLoad[]): number => familyOf(il.quantity) === 'displacement'
-    ? targetDisplacement(unit, il.quantity, target, ls)
-    : readForce(il.quantity, solve({ ...unit, loads: ls }), unit, target);
-  const unitAt = (id: number, t: number) => effectOf(loadOnMember(unit, id, t * lengthOf(id), 1, dir));
+  const { target, effectOf, unitAt } = reader(unit, il, dir);
   const points = refinedPoints(il.points as IlPoint[], unitAt, (id) => isLoaded(id) && unit.elements.get(id)?.type !== 'truss');
   const zoneArea = (z: Zone) => effectOf(uniformAlong(unit, z.elementId, z.t0 * lengthOf(z.elementId), z.t1 * lengthOf(z.elementId), 1, dir));
   const { max, min, areas } = ilExtremes(points, lengthOf, isLoaded, loads, placement, zoneArea);

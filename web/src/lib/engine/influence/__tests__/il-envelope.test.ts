@@ -9,7 +9,7 @@ import { computeInfluenceLine } from '../../influence-service';
 import { buildSolverInput2D } from '../../solver-service';
 import { loadOnMember } from '../../moving-loads';
 import { unitSolver, readForce, memberGeom } from '../unit-sweep';
-import { ilExtremes, ilAreas, extremeLoads, uniformAlong, defaultLoadedMembers } from '../areas';
+import { ilExtremes, IlLoadRefusal, ilAreas, extremeLoads, uniformAlong, defaultLoadedMembers } from '../areas';
 import { ilEnvelopeAlong } from '../envelope-along';
 import type { IlTarget } from '../quantities';
 import type { InfluenceQuantity } from '../../../store/model.svelte';
@@ -52,6 +52,19 @@ describe('areas of a simple beam line', () => {
     const pt = (id: number, a: number, w: number) => loadOnMember(V.unit, id, a, w, DOWN);
     expect(V.read(extremeLoads(V.unit, [1], loads, ex.max, DOWN, pt))).toBeCloseTo(ex.max.value, 4);
     expect(V.read(extremeLoads(V.unit, [1], loads, ex.min, DOWN, pt))).toBeCloseTo(ex.min.value, 4);
+  });
+});
+
+describe('loads the placement cannot take', () => {
+  it('refuses a negative or non-finite q or P instead of placing it on the wrong zones', () => {
+    const M = setup(simpleBeam(8), 'M', { kind: 'section', elementId: 1, t: 0.5 });
+    for (const loads of [{ g: 0, q: -10, P: 0 }, { g: 0, q: 0, P: -20 }, { g: 0, q: NaN, P: 0 }, { g: Infinity, q: 0, P: 0 }, { g: 0, q: 0, P: Infinity }]) {
+      expect(() => ilExtremes(M.il.points, M.lengthOf, () => true, loads, 'zones')).toThrow(IlLoadRefusal);
+      expect(() => ilExtremes(M.il.points, M.lengthOf, () => true, loads, 'zones')).toThrow('course.influence.load.nonNegative');
+    }
+    const ok = ilExtremes(M.il.points, M.lengthOf, () => true, { g: -2, q: 0, P: 0 }, 'zones');
+    expect(Math.abs(ok.areas.pos + ok.areas.neg)).toBeCloseTo(8, 6);
+    expect(ok.max.value).toBeCloseTo(-2 * (ok.areas.pos + ok.areas.neg), 9);
   });
 });
 

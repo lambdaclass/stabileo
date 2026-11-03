@@ -40,10 +40,15 @@ export function mohr(
     const ia = (x: number) => internalAt(endAt(fa), A, x);
     const ib = (x: number) => internalAt(endAt(fb), B, x);
     const axial = integrate(pts, (x) => ia(x).n * ib(x).n) / bar.EA;
+    const xs = [0, ...pts.slice(1).flatMap((x, i) => [(x + pts[i]) / 2, x])];
+    const constant = (f: (x: number) => { n: number }) => {
+      const ns = xs.map((x) => f(x).n), big = Math.max(1, ...ns.map(Math.abs));
+      return ns.every((n) => Math.abs(n - ns[0]) <= 1e-9 * big);
+    };
     if (bar.e.type === 'frame') rows.push({ elementId: bar.e.id, source: 'bending', value: integrate(pts, (x) => ia(x).m * ib(x).m) / bar.EI });
     rows.push({
       elementId: bar.e.id, source: 'axial', value: axial,
-      ...(bar.biela ? { detail: { biela: true, a: ia(bar.L / 2).n, b: ib(bar.L / 2).n, L: bar.L, EA: bar.EA } } : {}),
+      ...(bar.biela && constant(ia) && constant(ib) ? { detail: { biela: true, a: ia(bar.L / 2).n, b: ib(bar.L / 2).n, L: bar.L, EA: bar.EA } } : {}),
     });
   }
   for (const sup of primary.supports.values()) {
