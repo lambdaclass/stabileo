@@ -47,7 +47,8 @@ checked top-down. Otherwise the part of its area they do not carry stays on
 the panel as roof load: by a 20 × 20 grid, each cell weighted by its part of the panel, a cell
 counts as carried only when it lies wholly within one of them, so the share errs high and a band
 one cell wide along the edges of what is carried above is loaded twice. A member loaded by width
-is checked in ten stretches along its length, and each keeps its own share where it lies; a
+is checked in ten stretches along its length, and the load of each cell it keeps goes on the
+part of the member that cell lies beside; a
 panel gives each cell it keeps to the nearest of its beams, over the stretch the cell projects onto,
 so the load lands on the beams that bound what is not carried. That is not conservative
 for uplift, overturning or seismic weight, so the derivation counts those panels and members and

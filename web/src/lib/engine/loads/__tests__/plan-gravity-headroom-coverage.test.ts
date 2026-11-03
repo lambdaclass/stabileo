@@ -307,3 +307,30 @@ describe('a roof-structure ring carried above all but its back strip', () => {
     expect(sideLoad).toBeCloseTo(on(left), 6);
   });
 });
+
+describe('a member whose cover above ends inside one of its stretches, by width', () => {
+  function coveredTo(x: number): GravityModel {
+    const b = builder();
+    const ends = [b.node(0, 0, 3), b.node(10, 0, 3)];
+    ends.forEach((id, i) => b.bar(b.node(i * 10, 0, 0), id));
+    b.bar(ends[0]!, ends[1]!);
+    b.bar(b.node(0, 0, 4), b.node(x, 0, 4));
+    b.bar(b.node(x, 0, 4), b.node(10, 0, 4), 'truss');
+    return b.model();
+  }
+
+  it('loads only the uncovered end, so the reactions match a hand calculation', () => {
+    const layout = gravityLayout(coveredTo(9.5), { mode: 'width', tributaryWidth: 3 });
+    const area = planAreaLoads({
+      layout, tributaryWidth: 3, floor: { dead: 0, lo: 0, liveOf: () => 0 },
+      roof: { dead: 1, use: 'maintenance', weight: 'light' as never, slopePercent: 0 },
+    });
+    const dead = area.distributed.filter((d) => d.elementId === 3 && d.caseType === 'D');
+    for (const d of dead) expect(d.a).toBeGreaterThanOrEqual(9.5 - 1e-6);
+    const force = dead.reduce((s, d) => s + -d.q * (d.b! - d.a!), 0);
+    const right = dead.reduce((s, d) => s + (-d.q * (d.b! - d.a!) * (d.a! + d.b!)) / 2, 0) / 10;
+    expect(force).toBeCloseTo(3 * 0.5, 6);
+    expect(right).toBeCloseTo(1.5 * 9.75 / 10, 6);
+    expect(force - right).toBeCloseTo(1.5 * 0.25 / 10, 6);
+  });
+});

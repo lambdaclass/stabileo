@@ -316,14 +316,24 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         if (covered([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], z)) unclear++; else unclearRoof++;
       }
       if (why === 'lowHeadroom' && !floorBeside) {
-        const spans: WidthSpan[] = [];
         const masks: Mask[] = [];
+        const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        const axis = { p: [a[0], a[1]] as [number, number], u: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as [number, number], L };
+        const bins = new Array(FRINGE_SLICES * 20).fill(0) as number[];
         for (let k = 0; k < FRINGE_SLICES; k++) {
           const t0 = k / FRINGE_SLICES, t1 = (k + 1) / FRINGE_SLICES;
           const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
           const { share, mask } = deck!.uncarried(tributaryStrip(at(t0), at(t1), opts.tributaryWidth), z, held);
-          if (share > 0) { spans.push({ t0, t1, width: opts.tributaryWidth * share }); masks.push(mask); }
+          if (share > 0) { masks.push(mask); openCellsAlong(mask, axis, bins); }
         }
+        const spans: WidthSpan[] = [];
+        bins.forEach((area, k) => {
+          if (!(area > 0)) return;
+          const t0 = k / bins.length, t1 = (k + 1) / bins.length, width = area / (L / bins.length);
+          const last = spans[spans.length - 1];
+          if (last && Math.abs(last.t1 - t0) < 1e-12 && Math.abs(last.width - width) <= 1e-9 * width) last.t1 = t1;
+          else spans.push({ t0, t1, width });
+        });
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
         held.masks.push(...masks);
@@ -611,6 +621,26 @@ type Mask = { area: Array<[number, number]>; z: number; x0: number; y0: number; 
 /** What the loads already kept carry: whole panels, members' whole strips, and masks. */
 type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; masks: Mask[] };
 
+type Axis = { p: [number, number]; u: [number, number]; L: number };
+
+/** Adds the area of each cell the mask kept to `bins` along `axis`, spread over the stretch the cell's outline projects onto. */
+function openCellsAlong(m: Mask, axis: Axis, bins: number[], pick?: (c: [number, number]) => boolean): void {
+  const n = bins.length, w = axis.L / n;
+  for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
+    if (!m.open[i * 20 + j]) continue;
+    const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
+    const area = Math.abs(polygonArea(part));
+    if (!(area > 0) || (pick && !pick(centroid(part)))) continue;
+    const ss = part.map((v) => Math.max(0, Math.min(axis.L, (v[0] - axis.p[0]) * axis.u[0] + (v[1] - axis.p[1]) * axis.u[1])));
+    const s0 = Math.min(...ss), s1 = Math.max(...ss);
+    if (s1 - s0 <= 1e-12) { bins[Math.min(n - 1, Math.floor(s0 / w))]! += area; continue; }
+    for (let k = Math.min(n - 1, Math.floor(s0 / w)); k < n && k * w < s1; k++) {
+      const overlap = Math.min(s1, (k + 1) * w) - Math.max(s0, k * w);
+      if (overlap > 0) bins[k]! += (area * overlap) / (s1 - s0);
+    }
+  }
+}
+
 /**
  * The cells a panel kept for itself, each given to the nearest of its beams over the stretch its
  * outline projects onto, in twenty stretches per beam: a uniform piece per stretch, m² per m.
@@ -622,33 +652,19 @@ function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): Arra
     const p = e && model.nodes.get(e.nodeI), q = e && model.nodes.get(e.nodeJ);
     if (!p || !q) return [];
     const L = Math.hypot(q.x - p.x, q.y - p.y);
-    return L > 0 ? [{ id, p: [p.x, p.y] as [number, number], u: [(q.x - p.x) / L, (q.y - p.y) / L] as [number, number], L, bins: new Array(BINS).fill(0) as number[] }] : [];
+    return L > 0 ? [{ id, axis: { p: [p.x, p.y] as [number, number], u: [(q.x - p.x) / L, (q.y - p.y) / L] as [number, number], L }, bins: new Array(BINS).fill(0) as number[] }] : [];
   });
   if (beams.length === 0) return [];
-  for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
-    if (!m.open[i * 20 + j]) continue;
-    const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
-    const area = Math.abs(polygonArea(part));
-    if (!(area > 0)) continue;
-    const c = centroid(part);
-    let best = beams[0]!, bestD = Infinity;
-    for (const bm of beams) {
-      const t = Math.max(0, Math.min(bm.L, (c[0] - bm.p[0]) * bm.u[0] + (c[1] - bm.p[1]) * bm.u[1]));
-      const d = Math.hypot(c[0] - bm.p[0] - t * bm.u[0], c[1] - bm.p[1] - t * bm.u[1]);
-      if (d < bestD - 1e-9) { best = bm; bestD = d; }
-    }
-    const ss = part.map((v) => Math.max(0, Math.min(best.L, (v[0] - best.p[0]) * best.u[0] + (v[1] - best.p[1]) * best.u[1])));
-    const s0 = Math.min(...ss), s1 = Math.max(...ss);
-    const w = best.L / BINS;
-    if (s1 - s0 <= 1e-12) { best.bins[Math.min(BINS - 1, Math.floor(s0 / w))]! += area; continue; }
-    for (let k = Math.floor(s0 / w); k < BINS && k * w < s1; k++) {
-      const overlap = Math.min(s1, (k + 1) * w) - Math.max(s0, k * w);
-      if (overlap > 0) best.bins[k]! += (area * overlap) / (s1 - s0);
-    }
-  }
+  const distance = (bm: (typeof beams)[number], c: [number, number]) => {
+    const { p, u, L } = bm.axis;
+    const t = Math.max(0, Math.min(L, (c[0] - p[0]) * u[0] + (c[1] - p[1]) * u[1]));
+    return Math.hypot(c[0] - p[0] - t * u[0], c[1] - p[1] - t * u[1]);
+  };
+  const nearest = (c: [number, number]) => beams.reduce((best, bm) => (distance(bm, c) < distance(best, c) - 1e-9 ? bm : best));
+  for (const bm of beams) openCellsAlong(m, bm.axis, bm.bins, (c) => nearest(c) === bm);
   const out: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }> = [];
   for (const bm of beams) {
-    const w = bm.L / BINS;
+    const w = bm.axis.L / BINS;
     bm.bins.forEach((a, k) => { if (a > 0) out.push({ elementId: bm.id, a: k * w, b: (k + 1) * w, wI: a / w, wJ: a / w }); });
   }
   return out;
