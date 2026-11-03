@@ -73,7 +73,12 @@ massless accelerations follow from differentiating their rows (undamped, K_ZZ·a
 and K_ZZ·v_Z = ḟ_Z − K_Zm·v_m; damped, the load's slope ḟ over the first step enters a_Z),
 and every row of step 0 holds; a
 massless tip now accelerates with the mass it hangs from, and under a ramp load as its
-first-order closed form, where it used to start at zero and alternate about it. Reciprocity now holds to
+first-order closed form, where it used to start at zero and alternate about it. The
+velocity and acceleration reported for a massless direction are now taken from its rows at
+every step, not from the integrator's recurrences: after a kink in a piecewise-linear load,
+those recurrences left an undamped massless tip with a velocity alternating by ±26 % of its
+rate and an acceleration growing without bound, and a damped one with an acceleration
+alternating at 5 times that of its mass. Displacements were not affected. Reciprocity now holds to
 round-off on the fuzz models of #760 and on the chain and cantilever above. Two cases that used
 to give numbers now refuse, on any time history: a singular mass whose null direction mixes
 several DOFs (`TH-MASS-SINGULAR`; the solver divided by the diagonal of M instead), and a massless
