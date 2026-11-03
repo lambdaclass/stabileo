@@ -1,8 +1,6 @@
 import { test, expect, loadModel, solveModel } from './fixtures';
 
 test.describe('@smoke the report of a chosen result', () => {
-  test.describe.configure({ timeout: 180_000 });
-
   test('a combination chosen in the report dialog stays chosen when the model is solved again', async ({ pro: page }) => {
     await loadModel(page, 'rc-design-qa-8');
     await solveModel(page);
