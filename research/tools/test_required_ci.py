@@ -65,7 +65,7 @@ for path in ['web/src/components/blog/ChangelogView.svelte', 'web/src/lib/change
 assert '[ -z "$BASE" ]' in scope['run']
 main_checkout = next(step for step in route if step.get('with', {}).get('path') == 'route-main')
 assert route.index(main_checkout) < route.index(scope)
-assert main_checkout['with']['ref'] == 'main'
+assert main_checkout['with']['ref'] == "${{ github.event.merge_group.base_sha || 'main' }}"
 assert main_checkout['with']['fetch-depth'] == 0
 assert 'if' not in main_checkout
 assert scope['env']['CANDIDATE'] == '${{ github.event.pull_request.head.sha || github.sha }}'
@@ -121,6 +121,31 @@ check_scope([], 'false')
 check_scope([], 'true', base='')
 check_scope(['research/papers.json'], None, main_checkout=False)
 check_scope([f'web/src/components/research/page{i}.svelte' for i in range(2000)], 'true')
+
+def check_stacked_group(paths, expected):
+    with tempfile.TemporaryDirectory() as directory:
+        directory = pathlib.Path(directory)
+        origin = directory / 'origin'
+        origin.mkdir()
+        git(origin, 'init', '--quiet', '--initial-branch=main')
+        commit(origin, ['README.md'], 'main')
+        git(origin, 'checkout', '--quiet', '-b', 'group-ahead')
+        group_base = commit(origin, ['research/papers.json'], 'the group queued ahead touches research')
+        git(origin, 'checkout', '--quiet', '-b', 'group')
+        candidate = commit(origin, paths, 'this group')
+        primary = directory / 'primary'
+        git(directory, 'clone', '--quiet', str(origin), str(primary))
+        git(directory, 'clone', '--quiet', str(origin), str(primary / 'route-main'))
+        git(primary / 'route-main', 'checkout', '--quiet', group_base)
+        output = directory / 'output'
+        run = subprocess.run(['bash', '--noprofile', '--norc', '-eo', 'pipefail', '-c', scope['run']], cwd=primary,
+                             env={**os.environ, **scope['env'], 'BASE': group_base, 'CANDIDATE': candidate,
+                                  'GITHUB_OUTPUT': str(output)}, capture_output=True, text=True)
+        assert run.returncode == 0, (run.stdout, run.stderr)
+        assert output.read_text() == f'research={expected}\n', output.read_text()
+
+check_stacked_group(['web/src/lib/provenance/result-changes.json'], 'false')
+check_stacked_group(['research/papers.json'], 'true')
 
 measured = [step for step in route if 'check-research-route-size.mjs' in step.get('run', '')]
 assert measured and all('if' not in step for step in measured)
