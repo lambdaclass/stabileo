@@ -678,8 +678,8 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
-      # One cache per research bundle, keyed on what that bundle is built from: an engine change
-      # rebuilds only the bundles that link the engine. The viewer is rebuilt and republished below.
+      # One cache per research bundle, keyed on what that bundle is built from (every bundle links
+      # the engine). The viewer is rebuilt and republished below.
       - name: Research compiled assets (shauer-2025)
         id: research-shauer-2025
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -693,7 +693,7 @@ jobs:
         continue-on-error: true
         with:
           path: web/public/research-wasm/andreassen-2011
-          key: research-assets-v3-andreassen-2011-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'research/optimization/andreassen-2011/**') }}
+          key: research-assets-v3-andreassen-2011-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimization/andreassen-2011/**') }}
       - name: Research compiled assets (biggins-2026)
         id: research-biggins-2026
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -707,14 +707,14 @@ jobs:
         continue-on-error: true
         with:
           path: web/public/research-wasm/grossman-2026
-          key: research-assets-v3-grossman-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'research/metamaterials/grossman-2026/**') }}
+          key: research-assets-v3-grossman-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/metamaterials/grossman-2026/**') }}
       - name: Research compiled assets (pastrana-2026)
         id: research-pastrana-2026
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
           path: web/public/research-wasm/pastrana-2026
-          key: research-assets-v3-pastrana-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'research/form-finding/pastrana-2026/**') }}
+          key: research-assets-v3-pastrana-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/form-finding/pastrana-2026/**') }}
       - name: Research compiled assets (fairclough-2026)
         id: research-fairclough-2026
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

@@ -197,9 +197,12 @@ with tempfile.TemporaryDirectory() as directory:
         assert {name: cache_digest(patterns_of(cache)) for name, cache in caches.items()} == before, path
         return {name for name in caches if after[name] != before[name]}
 
-    engine = {'shauer-2025', 'biggins-2026', 'fairclough-2026'}
+    engine = set(caches)
     for relative in ['engine/src/lib.rs', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/config.toml']:
         assert invalidated(checkout / relative) == engine, relative
+    for crate in ['research/fracture/shauer-2025', 'research/optimization/andreassen-2011', 'research/mechanics/biggins-2026',
+                  'research/metamaterials/grossman-2026', 'research/form-finding/pastrana-2026', 'research/optimisation/fairclough-2026']:
+        assert 'dedaliano-engine' in pathlib.Path(crate, 'Cargo.toml').read_text(), crate
     for relative in ['flake.lock', 'Cargo.lock', 'rust-toolchain.toml', 'research/tools/asset_identity.py']:
         assert invalidated(checkout / relative) == set(caches), relative
     assert invalidated(checkout / 'research/fracture/shauer-2025/wasm/trim_exports.py') == {'shauer-2025', 'biggins-2026'}
@@ -208,4 +211,4 @@ with tempfile.TemporaryDirectory() as directory:
                         ('biggins-2026', 'research/mechanics/biggins-2026'), ('fairclough-2026', 'research/optimisation/fairclough-2026')]:
         for relative in ['build.rs', 'wasm/build.rs', 'build/linker.ld', 'wasm/build/memory-limits.json', '.cargo/config.toml', 'wasm/build.sh']:
             assert invalidated(checkout / crate / relative) == {name}, (crate, relative)
-print('ok research caches invalidate for their own inputs, and engine changes only for bundles that link it')
+print('ok research caches invalidate for their own inputs, and every engine change for all of them')
