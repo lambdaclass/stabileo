@@ -334,3 +334,36 @@ fn a_cantilever_soft_enough_for_omega_squared_below_1e_minus_10_keeps_its_modes(
     let exact = (4.694_091_f64 / 1.875_104).powi(2);
     assert!((ratio - exact).abs() < 1e-2 * exact, "second to first bending frequency {ratio}, Euler-Bernoulli {exact}");
 }
+
+fn stiff_column_with_soft_arm(stiffness_ratio: f64) -> SolverInput {
+    serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": 0.0, "z": 0.0},
+            "2": {"id": 2, "x": 0.0, "z": 3.0},
+            "3": {"id": 3, "x": 2.0, "z": 3.0},
+        },
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}, "2": {"id": 2, "e": 200_000.0 * stiffness_ratio, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 2, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+        },
+        "supports": {"1": {"id": 1, "nodeId": 1, "type": "fixed"}},
+        "loads": [],
+        "masses": {"nodal": [{"nodeId": 2, "mass": 1.0}, {"nodeId": 3, "mass": 0.5}]},
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_stable_frame_with_an_arm_up_to_1e12_times_softer_keeps_the_arm_modes() {
+    for ratio in [1e-8, 1e-10, 1e-12] {
+        let freqs = freqs_2d(&stiff_column_with_soft_arm(ratio), 3).unwrap_or_else(|e| panic!("stiffness ratio {ratio:e}: {e}"));
+        let ei = 200_000.0 * 1000.0 * ratio * 1e-4;
+        let exact = (3.0 * ei / (0.5 * 8.0)).sqrt() / (2.0 * std::f64::consts::PI);
+        assert_eq!(freqs.len(), 3, "stiffness ratio {ratio:e}: {freqs:?}");
+        assert!((freqs[0] / exact - 1.0).abs() <= 1e-3, "stiffness ratio {ratio:e}: arm mode {} Hz, cantilever 3EI/(mL³) gives {exact} Hz", freqs[0]);
+        let axial = (200_000.0 * 1000.0 * ratio * 0.01 / 2.0 / 0.5f64).sqrt() / (2.0 * std::f64::consts::PI);
+        assert!((freqs[1] / axial - 1.0).abs() <= 1e-3, "stiffness ratio {ratio:e}: arm axial mode {} Hz, EA/(mL) gives {axial} Hz", freqs[1]);
+    }
+}
