@@ -16,7 +16,8 @@
 # missing area tests conservatively select full CI.
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
-# Other/mixed/unknown paths and run-e2e label: full pipeline.
+# Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
+# adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
 # ONLY pull_request job selection is narrowed by path. The merge queue skips the heavy jobs that
 # combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
 # E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
@@ -29,7 +30,7 @@ on:
     branches: [main]
   # Every base branch: PRs stacked on another PR get CI too.
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
   # The merge queue: each PR is tested on top of the ones merging before it, so two PRs that
   # are green on their own cannot break main together.
   merge_group:
@@ -94,6 +95,7 @@ jobs:
       flaky: ${{ steps.select.outputs.flaky }}
       determinism: ${{ steps.select.outputs.determinism }}
       results: ${{ steps.select.outputs.results }}
+      run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -177,13 +179,23 @@ jobs:
               - 'flake.nix'
               - 'flake.lock'
               - 'web/package-lock.json'
+      - name: Labels as they are now (a re-run sees a label added after the push)
+        id: labels
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          names=$(.github/scripts/retry-infra.sh gh api "repos/$GH_REPO/pulls/$PR" --jq '.labels[].name')
+          if grep -qx run-e2e <<<"$names"; then echo "run_e2e=true"; else echo "run_e2e=false"; fi >> "$GITHUB_OUTPUT"
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
-          FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}
+          FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py
 
   docker-smoke:
@@ -1208,7 +1220,7 @@ jobs:
             make e2e.web.smoke SHARD=${{ matrix.shard }}/10
           fi
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
-        if: needs.changes.outputs.slow_e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'
         env:
           NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
@@ -1221,7 +1233,7 @@ jobs:
       # prove stable. Never pass --update-snapshots by default: it would overwrite
       # the baselines and leave the gate inert. UPDATE_SNAPSHOTS=1 refreshes them once.
       - name: E2E visual baselines (non-blocking comparison)
-        if: matrix.shard == 1 && (needs.changes.outputs.slow_e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
+        if: matrix.shard == 1 && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
         continue-on-error: true
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
