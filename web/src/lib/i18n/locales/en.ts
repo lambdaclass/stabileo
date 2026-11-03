@@ -13905,6 +13905,7 @@ const en: Record<string, string> = {
   'provenance.reproduce.printedDiffers': "{m} of the {n} printed values do not match the recalculation:",
   'provenance.reproduce.printedLine': "{table}, {row}, {column}: printed {printed}, recalculated {recomputed}",
   'provenance.reproduce.printedStructure': "These tables do not have the same rows as the recalculation: {tables}.",
+  'provenance.reproduce.printedLabelsOther': "The labels and headers are in {language}: open the check with the interface in that language to compare them too.",
   'provenance.reproduce.printedTampered': "The printed numbers do not match the recalculation",
   'provenance.reproduce.printedNone': "This file does not carry tables marked for a value-by-value comparison (it is from an earlier version, or not an HTML report): only the fingerprints are compared.",
   'provenance.reproduce.table.reactions': "Reactions",

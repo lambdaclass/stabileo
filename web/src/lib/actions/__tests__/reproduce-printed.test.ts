@@ -5,7 +5,7 @@ import { buildProReportData } from '../../engine/pro-report-inputs';
 import { generateReportHtml, type ReportConfig } from '../../engine/pro-report';
 import { comparePrintedReport } from '../reproduce';
 import { printedTables } from '../../engine/report/printed-values';
-import { t } from '../../i18n';
+import { i18n, setLocale, ensureLocale, t } from '../../i18n';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -86,6 +86,24 @@ describe('checking a report value by value', () => {
     const none = html.replace(/<table[^>]*data-printed="[^"]+"[\s\S]*?<\/table>/g, '');
     const v = comparePrintedReport(none)!;
     expect(v.structural).toEqual(expect.arrayContaining(['reactions', 'forces', 'displacements']));
+  });
+
+  it('in another language compares the numbers only, and says the labels were not compared', async () => {
+    const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
+    const was = i18n.locale;
+    const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
+    expect(comparePrintedReport(html)!.labels).toBe(true);
+    await ensureLocale(was === 'es' ? 'en' : 'es');
+    setLocale(was === 'es' ? 'en' : 'es');
+    try {
+      const v = comparePrintedReport(html)!;
+      expect(v.labels).toBe(false);
+      expect(v.compared).toBeGreaterThan(30);
+      expect(v.differences).toEqual([]);
+      expect(v.structural).toEqual([]);
+    } finally {
+      setLocale(was);
+    }
   });
 
   it('says nothing about a file without marked tables', () => {
