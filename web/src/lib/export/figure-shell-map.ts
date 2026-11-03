@@ -115,7 +115,7 @@ export function drawShellMap(
   const meta = shellComponentMeta(component);
   const fmt = (v: number) => (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : v.toFixed(Math.abs(v) >= 100 ? 0 : 2));
   const h = Math.max(120, Math.min(260, y1 - y0)), w = 14, x = x1 + 36, top = (y0 + y1) / 2 - h / 2;
-  const steps = SMOOTH_STEPS;
+  const steps = bands > 0 ? bands : SMOOTH_STEPS;
   ctx.save();
   for (let k = 0; k < steps; k++) {
     ctx.fillStyle = colour(max - ((max - min) * (k + 0.5)) / steps);
