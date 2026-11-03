@@ -9,6 +9,7 @@ import { runBuckling2D, type SoBucklingResult } from '../engine/second-order/run
 import { firstModeB2, type SoSettings } from '../engine/second-order/settings';
 import { solveBuckling3D } from '../engine/wasm-solver';
 import { secondOrderSettings } from '../store/second-order.svelte';
+import { resultsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
 import { openExplainedCatalog } from './step-wizards';
 import { tp } from '../i18n';
@@ -25,15 +26,17 @@ export function bucklingBasic2D(input: SolverInput): SoBucklingResult | string {
   return got.ok ? got.result : tp(got.reason.key, got.reason.params);
 }
 
-/** The space P-Δ with B₂ = 1/(1 − 1/λ₁) from its first buckling factor, as the plane one reports it. */
-export function withFirstModeB2(input: SolverInput3D, result: { b2Factor: number; isStable: boolean }): typeof result & { secondOrder?: { lambda1: number | null; b2: number } } {
-  let lambda1: number | null;
+/** The space P-Δ with B₂ = 1/(1 − 1/λ₁) from its first buckling factor, as the plane one reports it. When the buckling solve fails, B₂ is unknown, `isStable` is null (not checked) and the reason travels in `bucklingError`. */
+export function withFirstModeB2<R extends { b2Factor: number; isStable: boolean }>(input: SolverInput3D, result: R): Omit<R, 'isStable'> & { isStable: boolean | null; secondOrder?: { lambda1: number | null; b2: number; bucklingError?: string } } {
+  let lambda1: number;
   try {
-    lambda1 = solveBuckling3D(input, 1).modes[0]?.loadFactor ?? null;
+    lambda1 = solveBuckling3D(input, 1).modes[0]?.loadFactor ?? NaN;
+    if (!Number.isFinite(lambda1) && lambda1 !== Infinity) throw new Error('no buckling mode');
   } catch (e) {
-    lambda1 = /no compressed elements/i.test(String((e as Error)?.message ?? e)) ? Infinity : null;
+    const msg = String((e as Error)?.message ?? e);
+    if (!/no compressed elements/i.test(msg)) return { ...result, b2Factor: NaN, isStable: null, secondOrder: { lambda1: null, b2: NaN, bucklingError: msg } };
+    lambda1 = Infinity;
   }
-  if (lambda1 === null) return result;
   const b2 = firstModeB2(lambda1);
   return { ...result, b2Factor: b2, isStable: result.isStable && lambda1 > 1, secondOrder: { lambda1, b2 } };
 }
@@ -44,4 +47,12 @@ export function openSecondOrderSteps(methodId: string, s: Pick<SoSettings, 'meth
   explainedSteps.openMethod(methodId);
   explainedSteps.setOption('axialRigid', s.axialRigid);
   if (methodId.endsWith('-kg')) explainedSteps.setOption('chord', s.method === 'string');
+}
+
+export function rerunSecondOrder(runPDelta: () => void, runBuckling: () => void): void {
+  const pd = !!resultsStore.pdeltaResult, bk = !!resultsStore.bucklingResult;
+  if (!pd && !bk) return;
+  resultsStore.clearAdvanced();
+  if (pd) runPDelta();
+  if (bk) runBuckling();
 }

@@ -13,42 +13,51 @@
 
   let { result }: { result: any } = $props();
   const K = 'course.second-order.pd';
-  const info = $derived(result.secondOrder as (PDeltaInfo | { lambda1: number | null; b2: number } | undefined));
+  const info = $derived(result.secondOrder as (PDeltaInfo | { lambda1: number | null; b2: number; bucklingError?: string } | undefined));
   const full = $derived(info && 'settings' in info ? info : null);
-  const shown = $derived(result.converged && result.isStable);
+  const shown = $derived(result.converged && result.isStable === true);
 
   let conv = $state<ConvergenceRow[] | null>(null);
   let convError = $state<string | null>(null);
   let busy = $state(false);
+
+  let run = 0;
+  $effect(() => { void result; run++; conv = null; convError = null; busy = false; });
 
   function runConvergence() {
     if (!full) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) return;
     busy = true;
+    const mine = ++run;
     setTimeout(() => {
+      if (mine !== run) return;
       try { conv = pdeltaConvergence(input, full.settings); convError = null; } catch (e) { convError = String((e as Error)?.message ?? e); }
       busy = false;
     }, 0);
   }
   const num = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
   const disp = (v: number | null) => (v === null ? '—' : sigQ(v, 'displacement'));
+  const uAt = $derived(conv?.find((r) => r.uAt)?.uAt ?? null);
 </script>
 
 <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
   P-Δ: B₂ = {formatPDeltaFactor(result.b2Factor)} |
-  {result.converged ? `${result.iterations} iter` : t('advanced.notConvergedShort')} |
-  {result.isStable ? t('advanced.stable') : t('advanced.unstable')}
+  {result.converged ? `${result.iterations} ${t('pro.iterationsAbbr')}` : t('advanced.notConvergedShort')} |
+  <span data-testid="pdelta-stability">{result.isStable === null ? t('advanced.stabilityUnknown') : result.isStable ? t('advanced.stable') : t('advanced.unstable')}</span>
 </div>
 {#if info && info.lambda1 !== null && Number.isFinite(info.lambda1)}
   <p class="pd-line" data-testid="pdelta-b2-line">
     {tp(`${K}.b2Line`, { lambda: num(info.lambda1) })}
     {#if full?.amplification && shown}
       {tp(`${K}.ampLine`, { amp: num(full.amplification.ratio), node: full.amplification.nodeId })}
+      {#if full.amplification.reversed}<span data-testid="pdelta-amp-reversed">{t(`${K}.ampReversed`)}</span>{/if}
     {/if}
   </p>
 {:else if info && info.lambda1 === Infinity}
   <p class="pd-line">{t(`${K}.noCompression`)}</p>
+{:else if info && 'bucklingError' in info && info.bucklingError}
+  <p class="pd-line" data-testid="pdelta-first-mode-failed">{tp(`${K}.firstModeFailed`, { reason: info.bucklingError })}</p>
 {/if}
 {#if full}
   {#if full.history?.length}
@@ -93,6 +102,7 @@
           {/each}
         </tbody>
       </table>
+      {#if uAt}<p class="pd-note" data-testid="pdelta-convergence-u">{'node' in uAt ? tp(`${K}.convergenceUNode`, { id: uAt.node }) : tp(`${K}.convergenceUMember`, { id: uAt.member })}</p>{/if}
     {:else}
       <button class="small-btn" disabled={busy} onclick={runConvergence} data-testid="pdelta-convergence-run">{busy ? t(`${K}.running`) : t(`${K}.runConvergence`)}</button>
     {/if}

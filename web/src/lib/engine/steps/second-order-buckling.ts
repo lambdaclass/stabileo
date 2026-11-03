@@ -9,7 +9,7 @@ import type { Block, Cell, CompareRow, Step, StepDoc } from './doc';
 import { tx } from './doc';
 import { num } from './format';
 import type { SoSystem } from '../second-order/system';
-import { linearBuckling, phiBuckling, determinantCurve, firstOrderAxial, type TeachingMode } from '../second-order/buckling';
+import { linearBuckling, phiBuckling, representsFirstMode, determinantCurve, firstOrderAxial, type TeachingMode } from '../second-order/buckling';
 import { memberStiffness } from '../second-order/member-matrices';
 import { refineInput } from '../second-order/refine';
 import { solveBuckling } from '../wasm-solver';
@@ -55,9 +55,10 @@ function eulerK(sys: SoSystem): number | null {
   if (across < 0) return null;
   const held = (node: number) => {
     const s = sys.pm.supports.get(node);
-    const spring = (k?: number) => (k ?? 0) > 1e9;
+    const rigid = (k: number | undefined, member: number) => (k ?? 0) > 1e6 * member;
     if (!s) return { t: false, r: false };
-    return { t: across === 0 ? s.ux || spring(s.kx) : s.uz || spring(s.kz), r: s.ry || spring(s.kr) };
+    const kt = (12 * m.EI) / m.L ** 3, kr = (4 * m.EI) / m.L;
+    return { t: across === 0 ? s.ux || rigid(s.kx, kt) : s.uz || rigid(s.kz, kt), r: s.ry || rigid(s.kr, kr) };
   };
   const a = held(m.i), b = held(m.j);
   const key = [a, b].map((e) => (e.t && e.r ? 'F' : e.t ? 'P' : e.r ? 'G' : '0')).sort().join('');
@@ -75,6 +76,10 @@ export function buildBucklingDoc(ctx: MethodContext, sys: SoSystem, id: string, 
 
   const compressed = sys.members.filter((m) => (N0.get(m.id) ?? 0) < 0);
   const l1 = modes[0]?.lambda ?? NaN;
+  if (!(Number.isFinite(l1) && l1 > 0) || (method !== 'phi' && !representsFirstMode(sys, N0, l1))) {
+    const note = { kind: 'note' as const, tone: 'warn' as const, text: tx('course.second-order.refuse.noModeRepresented') };
+    return { method: id, title: tx(`steps.m.${id}.title`), intro: [note], steps: [...steps, { title: tx(`${P}.cannot`), blocks: [note] }] };
+  }
   if (method === 'phi') {
     const matBlocks: Block[] = [{ kind: 'p', text: tx(`${P}.bk.phi.what`) }, ...symbolicMatrix('phi'), { kind: 'eq', tex: '\\det \\mathbf{K}(\\lambda) = 0,\\qquad N_e = \\lambda\\,N_e^{(0)}' }];
     for (const m of compressed.slice(0, 4)) matBlocks.push({ kind: 'sub', title: tx(`${P}.bk.memberAt`, { name: m.name, lambda: num(l1) }), blocks: memberMatrixBlocks(sys, m, l1 * (N0.get(m.id) ?? 0), 'phi') });
@@ -115,7 +120,9 @@ export function buildBucklingDoc(ctx: MethodContext, sys: SoSystem, id: string, 
   }
 
   const modeBlocks: Block[] = [];
-  modes.slice(0, 2).forEach((m, k) => modeBlocks.push({ kind: 'fig', sketch: shapeSketch(sys, m.D, k === 0 ? 'deformed' : 'accent'), caption: tx(`${P}.bk.modeCaption`, { k: k + 1, lambda: num(m.lambda) }) }));
+  modes.slice(0, 2).forEach((m, k) => modeBlocks.push(m.internal
+    ? { kind: 'p', text: tx(`${P}.bk.internalMode`, { k: k + 1, lambda: num(m.lambda) }) }
+    : { kind: 'fig', sketch: shapeSketch(sys, m.D, k === 0 ? 'deformed' : 'accent'), caption: tx(`${P}.bk.modeCaption`, { k: k + 1, lambda: num(m.lambda) }) }));
   modeBlocks.push({ kind: 'table', head: [tx(`${P}.bk.mode`), { tex: '\\lambda_i' }], rows: modes.map((m, k) => [{ tex: String(k + 1) }, { tex: num(m.lambda, 6) }]) });
   steps.push({ title: tx(`${P}.bk.modes.title`), blocks: [{ kind: 'p', text: tx(`${P}.bk.modes.what`) }, ...modeBlocks] });
 

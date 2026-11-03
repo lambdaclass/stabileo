@@ -17,14 +17,22 @@
 
   let conv = $state<BucklingConvergenceRow[] | null>(null);
   let busy = $state(false);
+  let convError = $state<string | null>(null);
   const phiValue = $derived(conv?.find((r) => r.label === 'phi')?.lambda1 ?? null);
+
+  let run = 0;
+  $effect(() => { void result; run++; conv = null; convError = null; busy = false; });
 
   function runConvergence() {
     if (!info) return;
     const input = modelStore.buildSolverInput(uiStore.includeSelfWeight);
     if (!input) return;
     busy = true;
-    setTimeout(() => { try { conv = bucklingConvergence(input, info.settings); } finally { busy = false; } }, 0);
+    const mine = ++run;
+    setTimeout(() => {
+      if (mine !== run) return;
+      try { conv = bucklingConvergence(input, info.settings); convError = null; } catch (e) { convError = String((e as Error)?.message ?? e); } finally { busy = false; }
+    }, 0);
   }
   const num = (v: number | null | undefined, d = 3) => (v === null || v === undefined || !Number.isFinite(v) ? '—' : v.toFixed(d));
   const err = (v: number | null) => (v === null || phiValue === null ? '—' : `${(100 * (v / phiValue - 1)).toFixed(2)} %`);
@@ -44,12 +52,13 @@
       <tbody>
         {#each result.modes as m, i (i)}
           <tr class:now={resultsStore.activeBucklingMode === i}>
-            <td><button class="bk-pick" onclick={() => { resultsStore.activeBucklingMode = i; resultsStore.diagramType = 'bucklingMode'; }} aria-pressed={resultsStore.activeBucklingMode === i}>{i + 1}</button></td><td>{num(m.loadFactor)}</td>{#if info.engineFactors}<td>{num(info.engineFactors[i])}</td>{/if}
+            <td><button class="bk-pick" onclick={() => { resultsStore.activeBucklingMode = i; resultsStore.diagramType = 'bucklingMode'; }} aria-pressed={resultsStore.activeBucklingMode === i}>{i + 1}</button></td><td>{num(m.loadFactor)}{#if (m as { internal?: true }).internal} *{/if}</td>{#if info.engineFactors}<td>{num(info.engineFactors[i])}</td>{/if}
           </tr>
         {/each}
       </tbody>
     </table>
     {#if info.engineFactors}<p class="bk-note">{tp(`${K}.engineNote`, { n: info.settings.n })}</p>{/if}
+    {#if result.modes.some((m) => (m as { internal?: true }).internal)}<p class="bk-note" data-testid="bk-internal">{t('course.second-order.bk.internalNote')}</p>{/if}
   </details>
 {/if}
 {#if data.length}
@@ -81,6 +90,7 @@
       </table>
     {:else}
       <button class="small-btn" disabled={busy} onclick={runConvergence} data-testid="buckling-convergence-run">{busy ? t('course.second-order.pd.running') : t('course.second-order.pd.runConvergence')}</button>
+      {#if convError}<p class="bk-note" data-testid="buckling-convergence-error">{convError}</p>{/if}
     {/if}
   </details>
   <button class="small-btn bk-steps" onclick={() => openSecondOrderSteps(info.settings.method === 'phi' ? 'so-buckling-phi' : 'so-buckling-kg', info.settings)} data-testid="buckling-open-steps">{t('course.second-order.pd.openSteps')}</button>

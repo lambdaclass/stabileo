@@ -6,9 +6,10 @@
  */
 import type { SolverInput } from '../types';
 import type { BucklingResult, ElementBucklingData } from '../result-types';
-import type { Txt } from '../steps/doc';
+import { tx, type Txt } from '../steps/doc';
 import { solveBuckling } from '../wasm-solver';
-import { teachingBuckling } from './buckling';
+import { teachingBuckling, firstOrderAxial, representsFirstMode } from './buckling';
+import { buildSystem } from './system';
 import { refineInput, refinedGeometry, type Refined } from './refine';
 import { teachingOptions, usesEngine, type SoSettings } from './settings';
 
@@ -23,21 +24,34 @@ export interface BucklingInfo {
 export type SoBucklingResult = BucklingResult & { secondOrder: BucklingInfo; discardedModes?: unknown[] };
 
 /** Effective length factors per member of the model, from the factor and each piece's N. */
-export function memberBucklingData(original: SolverInput, r: Refined, pieceN: Map<number, number>, lambda1: number): ElementBucklingData[] {
+export function memberBucklingData(original: SolverInput, r: Refined, pieceN: Map<number, number>, lambda1: number, noise?: Map<number, number>): ElementBucklingData[] {
   const out: ElementBucklingData[] = [];
+  if (!(lambda1 > 0 && Number.isFinite(lambda1))) return out;
+  const scale = Math.max(0, ...[...pieceN.values()].map(Math.abs));
+  const floor = (piece: number) => noise?.get(piece) ?? 1e-9 * scale;
   for (const [id, list] of r.pieces) {
     const e = original.elements.get(id)!;
-    const n = Math.min(...list.map((p) => pieceN.get(p.id) ?? 0));
-    if (!(n < -1e-6)) continue;
+    if (e.type === 'truss') continue;
+    const most = list.reduce((a, p) => ((pieceN.get(p.id) ?? 0) < (pieceN.get(a.id) ?? 0) ? p : a), list[0]);
+    const n = pieceN.get(most.id) ?? 0;
+    if (!(n < -floor(most.id))) continue;
     const mat = original.materials.get(e.materialId), sec = original.sections.get(e.sectionId);
     const EI = (mat?.e ?? 0) * 1000 * (sec?.iz ?? 0);
     const L = list[list.length - 1].x1;
     const pcr = lambda1 * Math.abs(n);
-    const k = pcr > 1e-9 && EI > 0 ? (Math.PI * Math.sqrt(EI / pcr)) / L : 1;
+    const k = (Math.PI * Math.sqrt(EI / pcr)) / L;
+    if (!(EI > 0 && pcr > 0 && Number.isFinite(k) && k > 0)) continue;
     const r2 = sec && sec.a > 0 ? Math.sqrt(sec.iz / sec.a) : 0;
     out.push({ elementId: id, axialForce: n, criticalForce: pcr, kEffective: k, effectiveLength: k * L, length: L, slenderness: r2 > 0 ? (k * L) / r2 : 0 });
   }
   return out.sort((a, b) => a.elementId - b.elementId);
+}
+
+function firstOrder(input: SolverInput) {
+  const b = buildSystem(input, { method: 'consistent', axialRigid: false }, true);
+  if (!b.ok) return undefined;
+  const first = firstOrderAxial(b.sys);
+  return first.ok ? { sys: b.sys, N0: first.N0, noise: first.noise } : undefined;
 }
 
 export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; result: SoBucklingResult } | { ok: false; reason: Txt } {
@@ -46,13 +60,16 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
   if (usesEngine(s)) {
     const raw = solveBuckling(r.input, s.modes) as SoBucklingResult;
     const pieceN = new Map(raw.elementData.map((d) => [d.elementId, d.axialForce]));
-    const lambda1 = raw.modes[0]?.loadFactor ?? 0;
-    return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1), secondOrder: { settings: s, geometry, engineFactors: null } } };
+    const lambda1 = raw.modes[0]?.loadFactor ?? NaN;
+    const first = firstOrder(r.input);
+    if (first && !representsFirstMode(first.sys, first.N0, lambda1)) return { ok: false, reason: tx('course.second-order.refuse.noModeRepresented') };
+    return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1, first?.noise), secondOrder: { settings: s, geometry, engineFactors: null } } };
   }
   const got = teachingBuckling(r.input, teachingOptions(s), s.modes);
   if (!got.ok) return got;
   const { run } = got;
-  const modes = run.modes.map((m) => ({
+  const modes: BucklingResult['modes'] = run.modes.map((m) => ({
+    ...(m.internal ? { internal: true as const } : {}),
     loadFactor: m.lambda,
     displacements: run.sys.pm.nodeOrder.map((id) => ({ nodeId: id, ux: m.D[run.sys.dof(id, 0)], uz: m.D[run.sys.dof(id, 1)], ry: m.D[run.sys.dof(id, 2)] })),
   }));
@@ -63,9 +80,9 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
   return {
     ok: true,
     result: {
-      modes: modes as unknown as BucklingResult['modes'],
+      modes,
       nDof: run.sys.free.length,
-      elementData: memberBucklingData(input, r, run.N0, modes[0].loadFactor),
+      elementData: memberBucklingData(input, r, run.N0, modes[0]?.loadFactor ?? NaN, run.N0Noise),
       secondOrder: { settings: s, geometry, engineFactors },
     },
   };

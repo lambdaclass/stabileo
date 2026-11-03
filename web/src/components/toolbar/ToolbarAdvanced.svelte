@@ -71,7 +71,11 @@
   import BucklingCertificate from '../advanced/BucklingCertificate.svelte';
   import PDeltaCertificate from '../advanced/PDeltaCertificate.svelte';
   import ModalCertificate from '../advanced/ModalCertificate.svelte';
-  import { solvePDelta, solveBuckling, solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
+  import SecondOrderOptions from '../advanced/SecondOrderOptions.svelte';
+  import PDeltaSummary from '../advanced/PDeltaSummary.svelte';
+  import BucklingDetails from '../advanced/BucklingDetails.svelte';
+  import { pdeltaBasic2D, bucklingBasic2D, withFirstModeB2, rerunSecondOrder } from '../../lib/actions/second-order';
+  import { solveModal, solveModal3D as wasmModal3D, solveBuckling3D as wasmBuckling3D, initSolver, isWasmReady } from '../../lib/engine/wasm-solver';
   import { solvePDelta3D as wasmPDelta3D } from '../../lib/engine/wasm-solver';
   import { amplification } from '../../lib/engine/pdelta-amplification';
   import { getPredefinedTrains, solveMovingLoadsAsync } from '../../lib/engine/moving-loads';
@@ -351,10 +355,12 @@
       uiStore.toast(t(result.notice === 'noLoads' ? 'toast.pdeltaLinearNoLoads' : 'toast.pdeltaLinearNoFreeDofs'), 'info');
       return;
     }
-    const msg = !result.isStable ? t('toast.pdeltaUnstable') : result.converged
+    const unknown = result.isStable === null;
+    const base = result.isStable === false ? t('toast.pdeltaUnstable') : result.converged
       ? t('toast.pdeltaConverged').replace('{iterations}', String(result.iterations)).replace('{b2}', formatPDeltaFactor(result.b2Factor, 2)).replace('{ms}', dt.toFixed(0))
       : t('toast.pdeltaNotConverged').replace('{iterations}', String(result.iterations));
-    uiStore.toast(notDrawn ? `${msg}. ${t('toast.pdeltaNotDrawn')}` : msg, result.converged && result.isStable ? 'success' : 'error');
+    const msg = unknown && result.converged ? `${base}. ${t('toast.pdeltaStabilityUnknown')}` : base;
+    uiStore.toast(notDrawn ? `${msg}. ${t('toast.pdeltaNotDrawn')}` : msg, result.converged && result.isStable === true ? 'success' : unknown && result.converged ? 'info' : 'error');
   }
 
   /* The plane engine names its vertical `uy` and its rotation `rz`; the app says Z and Y. */
@@ -421,7 +427,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const result = solvePDelta(input);
+      const result = pdeltaBasic2D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       publishPDelta(result, false, dt);
@@ -458,7 +464,7 @@
     if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return; }
     try {
       const t0 = performance.now();
-      const result = solveBuckling(input);
+      const result = bucklingBasic2D(input);
       const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
       resultsStore.setBucklingResult(result);
@@ -546,8 +552,9 @@
       const t0 = performance.now();
       let result: any;
       result = wasmPDelta3D(input);
-      const dt = performance.now() - t0;
       if (typeof result === 'string') { uiStore.toast(result, 'error'); return; }
+      result = withFirstModeB2(input, result);
+      const dt = performance.now() - t0;
       publishPDelta(result, true, dt);
     } catch (e: any) {
       uiStore.toast(errText(e, 'toast.pdeltaError'), 'error');
@@ -752,6 +759,9 @@
       {/if}
     {@render helpPanel('pdelta')}
     {@render helpPanel('buckling')}
+    {/if}
+    {#if !is3D && (shown('pdelta') || shown('buckling'))}
+      <SecondOrderOptions onchange={() => rerunSecondOrder(handlePDelta, handleBuckling)} />
     {/if}
     {#if !(flat && active) && (shown('modal') || shown('plastic'))}
     <!-- Beyond the static elastic answer: vibration modes and the plastic collapse. -->
@@ -976,11 +986,7 @@
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
   {#if pdR}
-    <div class="adv-result-info" style="font-size:10px" data-testid="pdelta-result">
-      P-Δ: B₂ = {formatPDeltaFactor(pdR.b2Factor)} |
-      {pdR.converged ? `${pdR.iterations} iter` : t('advanced.notConvergedShort')} |
-      {pdR.isStable ? t('advanced.stable') : t('advanced.unstable')}
-    </div>
+    <PDeltaSummary result={pdR} />
     <PDeltaCertificate result={pdR} />
   {/if}
   {#if moR}
@@ -1022,11 +1028,7 @@
       &lambda;_cr = {buR.modes[resultsStore.activeBucklingMode]?.loadFactor.toFixed(3) ?? '—'}
     </div>
     <BucklingCertificate certificate={buR.certificate} />
-    {#if buR.elementData.length > 0}
-      <div class="adv-result-info" style="font-size:10px; opacity:0.8">
-        Keff: {buR.elementData.slice(0, 3).map((ed: any) => `E${ed.elementId}=${ed.kEffective.toFixed(2)}`).join(', ')}{buR.elementData.length > 3 ? '...' : ''}
-      </div>
-    {/if}
+    <BucklingDetails result={buR} />
   {/if}
   <PlasticResultPanel mps={plasticMps} />
   {#if resultsStore.movingLoadEnvelope}

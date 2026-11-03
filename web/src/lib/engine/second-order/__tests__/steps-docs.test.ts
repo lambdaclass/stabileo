@@ -91,3 +91,38 @@ describe('the Euler check of a textbook column', () => {
     expect(euler.result).toContain(pcr.toPrecision(4));
   });
 });
+
+describe('P-Δ without compression, and past buckling', () => {
+  it('a tensioned cantilever with a tip load is a second-order problem: P-Δ applies, buckling does not, and tension stiffens it', () => {
+    const input = column('fixed', null, 5, -200, 10);
+    for (const id of ['so-pdelta-phi', 'so-pdelta-kg']) expect(methodById(id)!.applies(ctxOf(input)).ok).toBe(true);
+    for (const id of ['so-buckling-phi', 'so-buckling-kg']) expect(methodById(id)!.applies(ctxOf(input)).ok).toBe(false);
+    const doc = methodById('so-pdelta-kg')!.build!(ctxOf(input));
+    expect(keys(doc)).toContain('course.second-order.doc.results.title');
+    const lin = teachingPDelta(input, { method: 'none', axialRigid: false });
+    const pd = teachingPDelta(input, { method: 'consistent', axialRigid: false });
+    if (!lin.ok || !pd.ok) throw new Error('refused');
+    const tip = pd.run.sys.dof(2, 0);
+    expect(Math.abs(pd.run.final.D[tip])).toBeLessThan(Math.abs(lin.run.linear.D[tip]));
+  });
+
+  it('past the critical load the document stops at the iterations, with no second-order results', () => {
+    const Pcr = (Math.PI ** 2 * EI) / (4 * 25);
+    const doc = methodById('so-pdelta-phi')!.build!(ctxOf(column('fixed', null, 5, 1.5 * Pcr, 1)));
+    expect(keys(doc).at(-1)).toBe('course.second-order.doc.iter.title');
+  });
+});
+
+
+describe('a geometric matrix that cannot represent the buckling mode', () => {
+  it('one pin-ended column with the chord matrix has no finite positive λ: the document stops with the reason, and no critical load, K or Euler check is computed from it', () => {
+    const input = column('pinned', 'rollerZ', 5, 200);
+    const doc = methodById('so-buckling-kg')!.build!(ctxOf(input, { chord: true }));
+    const text = JSON.stringify(doc);
+    expect(text).toContain('course.second-order.refuse.noModeRepresented');
+    expect(text).not.toMatch(/NaN|Infinity/);
+    expect(keys(doc)).not.toContain('course.second-order.doc.bk.modes.title');
+    const ok = methodById('so-buckling-kg')!.build!(ctxOf(input));
+    expect(JSON.stringify(ok)).not.toContain('course.second-order.refuse.noModeRepresented');
+  });
+});

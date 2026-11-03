@@ -90,21 +90,21 @@ export function memberStability(N: number, EI: number, L: number): StabilityFunc
   return stabilityFunctions(PE > 0 ? -N / PE : 0);
 }
 
-/** Roots of tan z = z, z > 0, below `limit`. */
+/** Roots of tan z = z, z > 0, below `limit`: the k-th lies in (kπ, (k + ½)π). */
 function tanRootsBelow(limit: number): number {
-  let count = 0;
-  for (let k = 1; ; k++) {
-    let z = (k + 0.5) * Math.PI - 0.1;
-    for (let it = 0; it < 50; it++) {
-      const f = Math.tan(z) - z;
-      const df = 1 / Math.cos(z) ** 2 - 1;
-      const step = f / df;
-      z -= step;
-      if (Math.abs(step) < 1e-14 * z) break;
-    }
-    if (z >= limit) return count;
-    count++;
+  if (!(limit > 0)) return 0;
+  if (!Number.isFinite(limit)) return Infinity;
+  const k = Math.floor(limit / Math.PI);
+  if (k < 1) return 0;
+  const q = (k + 0.5) * Math.PI;
+  let z = k > 1000 ? q - 1 / q - 2 / (3 * q ** 3) : q - 0.1 / k;
+  for (let it = 0; k <= 1000 && it < 100; it++) {
+    const step = (Math.tan(z) - z) / (Math.tan(z) ** 2);
+    z -= step;
+    if (Math.abs(step) < 1e-15 * z) break;
   }
+  if (!(z > k * Math.PI && z <= q)) throw new Error('tan z = z root out of its bracket');
+  return k - 1 + (z < limit ? 1 : 0);
 }
 
 /**
@@ -114,7 +114,7 @@ function tanRootsBelow(limit: number): number {
  */
 export function clampedModesBelow(u: number, hingeI: boolean, hingeJ: boolean): number {
   if (!(u > 0)) return 0;
-  if (hingeI && hingeJ) return Math.floor(u / Math.PI - 1e-12);
+  if (hingeI && hingeJ) return Math.max(0, Math.floor(u / Math.PI - 1e-12));
   if (hingeI || hingeJ) return tanRootsBelow(u);
-  return Math.floor(u / (2 * Math.PI) - 1e-12) + tanRootsBelow(u / 2);
+  return Math.max(0, Math.floor(u / (2 * Math.PI) - 1e-12)) + tanRootsBelow(u / 2);
 }

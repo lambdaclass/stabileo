@@ -65,24 +65,67 @@ function triSolve(L: Mat, b: number[], upper: boolean): number[] {
 }
 
 /**
- * Number of negative eigenvalues of a symmetric matrix (Sylvester's law of inertia), from the
- * signs of the pivots of symmetric elimination. A pivot that is exactly zero is nudged.
+ * Number of negative eigenvalues of a symmetric matrix: the larger of two counts, the negative pivots of a
+ * Bunch–Kaufman LDLᵀ (Sylvester, exact up to the rounding of each pivot) and the negative eigenvalues of D·A·D
+ * with D = |diag A|^(−1/2) beyond round-off.
  */
 export function negativeEigenvalues(A: Mat): number {
-  const n = A.length;
-  const M = A.map((r) => r.slice());
-  let scale = 0;
-  for (let i = 0; i < n; i++) scale = Math.max(scale, Math.abs(M[i][i]));
+  if (!A.length) return 0;
+  const d = A.map((r, i) => (Math.abs(r[i]) > 0 && Number.isFinite(r[i]) ? 1 / Math.sqrt(Math.abs(r[i])) : 1));
+  const { values } = symmetricEigen(A.map((r, i) => r.map((v, j) => d[i] * v * d[j])));
+  const tol = 1e-14 * Math.max(0, ...values.map(Math.abs));
+  return Math.max(values.filter((v) => v < -tol).length, ldltNegatives(A));
+}
+
+/** Negative eigenvalues counted on the block-diagonal factor of a Bunch–Kaufman symmetric LDLᵀ. */
+export function ldltNegatives(S: Mat): number {
+  const n = S.length;
+  const A = S.map((r) => r.slice());
+  const alpha = (1 + Math.sqrt(17)) / 8;
+  const swap = (i: number, j: number) => {
+    if (i === j) return;
+    [A[i], A[j]] = [A[j], A[i]];
+    for (const r of A) [r[i], r[j]] = [r[j], r[i]];
+  };
   let neg = 0;
-  for (let c = 0; c < n; c++) {
-    let p = M[c][c];
-    if (p === 0 || !Number.isFinite(p)) p = 1e-300 + 1e-14 * scale;
-    if (p < 0) neg++;
-    for (let r = c + 1; r < n; r++) {
-      const f = M[r][c] / p;
-      if (f === 0) continue;
-      const Mr = M[r], Mc = M[c];
-      for (let k = c + 1; k < n; k++) Mr[k] -= f * Mc[k];
+  let k = 0;
+  while (k < n) {
+    let lambda = 0, r = k;
+    for (let i = k + 1; i < n; i++) if (Math.abs(A[i][k]) > lambda) { lambda = Math.abs(A[i][k]); r = i; }
+    const akk = Math.abs(A[k][k]);
+    let size = 1;
+    if (lambda === 0) {
+      if (A[k][k] < 0) neg++;
+      k++;
+      continue;
+    }
+    if (akk < alpha * lambda) {
+      let sigma = 0;
+      for (let i = k; i < n; i++) if (i !== r) sigma = Math.max(sigma, Math.abs(A[i][r]));
+      if (akk * sigma >= alpha * lambda * lambda) size = 1;
+      else if (Math.abs(A[r][r]) >= alpha * sigma) { swap(k, r); size = 1; }
+      else { swap(k + 1, r); size = 2; }
+    }
+    if (size === 1) {
+      const p = A[k][k];
+      if (p < 0) neg++;
+      for (let i = k + 1; i < n; i++) {
+        const f = A[i][k] / p;
+        if (f === 0) continue;
+        for (let j = k + 1; j < n; j++) A[i][j] -= f * A[k][j];
+      }
+      k++;
+    } else {
+      const a = A[k][k], b = A[k + 1][k], c = A[k + 1][k + 1];
+      const det = a * c - b * b;
+      if (det < 0) neg++;
+      else if (a + c < 0) neg += 2;
+      for (let i = k + 2; i < n; i++) {
+        const u = A[i][k], v = A[i][k + 1];
+        const x = (c * u - b * v) / det, y = (a * v - b * u) / det;
+        for (let j = k + 2; j < n; j++) A[i][j] -= x * A[k][j] + y * A[k + 1][j];
+      }
+      k += 2;
     }
   }
   return neg;
@@ -117,13 +160,14 @@ export function symmetricEigen(S: Mat): { values: number[]; vectors: Mat } {
   const V = zeros(n, n);
   for (let i = 0; i < n; i++) V[i][i] = 1;
   for (let sweep = 0; sweep < 100; sweep++) {
-    let off = 0, diag = 0;
-    for (let i = 0; i < n; i++) { diag += A[i][i] * A[i][i]; for (let j = i + 1; j < n; j++) off += A[i][j] * A[i][j]; }
-    if (off <= 1e-30 * Math.max(diag, 1e-300)) break;
+    const small = (p: number, q: number) => Math.abs(A[p][q]) <= 1e-15 * Math.sqrt(Math.abs(A[p][p] * A[q][q])) + 1e-300;
+    let done = true;
+    for (let p = 0; p < n - 1 && done; p++) for (let q = p + 1; q < n; q++) if (!small(p, q)) { done = false; break; }
+    if (done) break;
     for (let p = 0; p < n - 1; p++) {
       for (let q = p + 1; q < n; q++) {
         const apq = A[p][q];
-        if (Math.abs(apq) < 1e-300) continue;
+        if (small(p, q)) continue;
         const theta = (A[q][q] - A[p][p]) / (2 * apq);
         const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
         const c = 1 / Math.sqrt(t * t + 1), s = t * c;
@@ -152,6 +196,23 @@ export function symmetricEigen(S: Mat): { values: number[]; vectors: Mat } {
  * The positive λ of K·x = λ·G·x with K symmetric positive definite and G symmetric (any sign),
  * ascending, each with its vector. Null when K is not positive definite.
  */
+/**
+ * How far μ can be from an eigenvalue of the symmetric C, for its computed vector v: the residual
+ * ‖Cv − μv‖/‖v‖ plus the rounding of that product, 2(n + 1)·ε·‖|C||v| + |μv|‖/‖v‖.
+ */
+export function eigenErrorBound(C: Mat, mu: number, v: number[]): number {
+  const n = v.length;
+  const nv = norm2(v);
+  if (!(nv > 0)) return Infinity;
+  let r2 = 0, a2 = 0;
+  for (let i = 0; i < n; i++) {
+    let r = -mu * v[i], a = Math.abs(mu * v[i]);
+    for (let j = 0; j < n; j++) { r += C[i][j] * v[j]; a += Math.abs(C[i][j] * v[j]); }
+    r2 += r * r; a2 += a * a;
+  }
+  return (Math.sqrt(r2) + 2 * (n + 1) * Number.EPSILON * Math.sqrt(a2)) / nv;
+}
+
 export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector: number[] }> | null {
   const L = cholesky(K);
   if (!L) return null;
@@ -168,10 +229,9 @@ export function generalizedEigen(K: Mat, G: Mat): Array<{ lambda: number; vector
   }
   for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) { const m = (C[i][j] + C[j][i]) / 2; C[i][j] = m; C[j][i] = m; }
   const { values, vectors } = symmetricEigen(C);
-  const maxMu = Math.max(0, ...values.map(Math.abs));
   const out: Array<{ lambda: number; vector: number[] }> = [];
   values.forEach((mu, k) => {
-    if (!(mu > 1e-6 * maxMu)) return;
+    if (!(mu > eigenErrorBound(C, mu, vectors.map((r) => r[k])))) return;
     out.push({ lambda: 1 / mu, vector: triSolve(L, vectors.map((r) => r[k]), true) });
   });
   return out.sort((a, b) => a.lambda - b.lambda);

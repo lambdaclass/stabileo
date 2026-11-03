@@ -41,3 +41,11 @@ export function portal(h: number, b: number, P: number, H: number, opts: { hinge
 /** Same model, every section's area times k. */
 export const scaleArea = (input: SolverInput, k: number): SolverInput =>
   ({ ...input, sections: new Map([...input.sections].map(([id, s]) => [id, { ...s, a: s.a * k }])) });
+
+/** A column of height L fixed at both ends, compressed by P through a settlement of its top support. */
+export function clampedColumn(L: number, P: number, A = 0.01): SolverInput {
+  const c = column('fixed', 'fixed', L, 0, 0, A);
+  c.supports.set(2, { id: 2, nodeId: 2, type: 'fixed', dz: -(P * L) / (E * 1000 * A) } as SolverSupport);
+  c.loads = [];
+  return c;
+}

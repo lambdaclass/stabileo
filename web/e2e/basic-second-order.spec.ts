@@ -1,5 +1,7 @@
 import { test, expect } from './fixtures';
 
+const SHOTS = process.env.SO_SHOTS;
+
 test.describe('@slow second order and buckling in Basic', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('liveCalc', 'false'));
@@ -23,12 +25,12 @@ test.describe('@slow second order and buckling in Basic', () => {
     await expect(page.getByTestId('pdelta-iterations').locator('tbody tr').first()).toBeVisible();
     await page.getByTestId('pdelta-compare').locator('summary').click();
     await expect(page.getByTestId('pdelta-compare').locator('tbody tr')).toHaveCount(4);
-    await page.screenshot({ path: '/private/tmp/claude-501/-Users-bautistachesta-Claude/a16c81ba-8308-49a3-8025-59a14cabb9a4/scratchpad/second-order/pdelta-panel.png' });
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/pdelta-panel.png` });
 
     await page.getByTestId('pdelta-open-steps').click();
     await expect(page.getByTestId('steps-doc')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByTestId('steps-error')).toHaveCount(0);
-    await page.screenshot({ path: '/private/tmp/claude-501/-Users-bautistachesta-Claude/a16c81ba-8308-49a3-8025-59a14cabb9a4/scratchpad/second-order/steps-doc.png' });
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/steps-doc.png` });
     await page.getByTestId('steps-back').click();
     await page.getByTestId('steps-catalog-back').click();
 
@@ -42,7 +44,7 @@ test.describe('@slow second order and buckling in Basic', () => {
     await expect(page.getByTestId('buckling-n1-warning')).toHaveCount(0);
     await page.getByTestId('buckling-keff').locator('summary').click();
     await expect(page.getByTestId('buckling-keff').locator('tbody tr')).toHaveCount(3);
-    await page.screenshot({ path: '/private/tmp/claude-501/-Users-bautistachesta-Claude/a16c81ba-8308-49a3-8025-59a14cabb9a4/scratchpad/second-order/buckling-panel.png' });
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/buckling-panel.png` });
     expect(errors).toEqual([]);
   });
 });

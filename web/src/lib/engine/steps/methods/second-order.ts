@@ -23,10 +23,10 @@ function ready(m: ExplainedMethod, ctx: MethodContext) {
   return readSecondOrder(ctx, methodOf(m, ctx), optionOn(ctx, m, 'axialRigid'));
 }
 
-function verdict(m: ExplainedMethod, ctx: MethodContext): Applicability {
+function verdict(m: ExplainedMethod, ctx: MethodContext, needsCompression: boolean): Applicability {
   const r = ready(m, ctx);
   if (!r.ok) return r;
-  if (!hasCompression(r.sys)) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
+  if (needsCompression && !hasCompression(r.sys)) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
   return { ok: true };
 }
 
@@ -39,7 +39,7 @@ function refused(id: string, reason: Txt): StepDoc {
 const pdelta = (id: string, options: ExplainedMethod['options']): ExplainedMethod => {
   const m: ExplainedMethod = {
     id, group: 'secondOrder', example: 'portal-second-order', options,
-    applies: (ctx) => verdict(m, ctx),
+    applies: (ctx) => verdict(m, ctx, false),
     build: (ctx) => {
       const r = ready(m, ctx);
       if (!r.ok) return refused(id, r.reason);
@@ -52,7 +52,7 @@ const pdelta = (id: string, options: ExplainedMethod['options']): ExplainedMetho
 const buckling = (id: string, options: ExplainedMethod['options']): ExplainedMethod => {
   const m: ExplainedMethod = {
     id, group: 'secondOrder', example: 'portal-second-order', options,
-    applies: (ctx) => verdict(m, ctx),
+    applies: (ctx) => verdict(m, ctx, true),
     build: (ctx) => {
       const r = ready(m, ctx);
       if (!r.ok) return refused(id, r.reason);

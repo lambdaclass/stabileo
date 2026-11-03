@@ -15,6 +15,7 @@ import { nullspace, rref, solveDense } from '../steps/sway-modes';
 import type { Txt } from '../steps/doc';
 import { tx } from '../steps/doc';
 import { memberStiffness, rotation, type GeomMethod, type MemberStiffness } from './member-matrices';
+import { beamColumnEndLoads } from './beam-column-loads';
 import { matMul, transpose, zeros, type Mat } from './dense';
 
 export interface SecondOrderOptions {
@@ -47,7 +48,7 @@ export interface SoSystem {
    * With rigid members: free displacements = Tq, and the members' elongations Cf·D (rows by
    * member). q are the free displacements at positions `indep` of `free`; the rest follow.
    */
-  rigid?: { T: Mat; C: Mat; Cfull: Mat; indep: number[] };
+  rigid?: { T: Mat; C: Mat; indep: number[] };
 }
 
 export type Built = { ok: true; sys: SoSystem } | { ok: false; reason: Txt };
@@ -59,13 +60,14 @@ export function unsupported(input: SolverInput): Txt | null {
   if (input.constraints?.length) return tx('course.second-order.refuse.constraints');
   if (input.connectors?.size) return tx('course.second-order.refuse.constraints');
   if (input.loads.some((l) => l.type === 'thermal')) return tx('course.second-order.refuse.thermal');
+  if (input.loads.some((l) => l.type === 'pointOnElement' && (l.data.my ?? 0) !== 0 && input.elements.get(l.data.elementId)?.type === 'truss')) return tx('course.second-order.refuse.trussCouple');
   for (const s of input.supports.values()) {
     if (s.type === 'inclinedRoller' || (s.type === 'spring' && s.angle)) return tx('course.second-order.refuse.inclined');
   }
   return null;
 }
 
-export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built {
+export function buildSystem(input: SolverInput, opts: SecondOrderOptions, allowNoFree = false): Built {
   const refusal = unsupported(input);
   if (refusal) return { ok: false, reason: refusal };
   const pm = planeModel(input);
@@ -87,8 +89,9 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built
   if (opts.axialRigid && [...prescribed.values()].some((v) => v !== 0)) return { ok: false, reason: tx('course.second-order.refuse.rigidSettlement') };
 
   const F = new Array(nTotal).fill(0);
-  for (const l of pm.nodalLoads) {
-    F[dof(l.node, 0)] += l.fx; F[dof(l.node, 1)] += l.fz; F[dof(l.node, 2)] += l.my;
+  for (const l of input.loads) {
+    if (l.type !== 'nodal') continue;
+    F[dof(l.data.nodeId, 0)] += l.data.fx; F[dof(l.data.nodeId, 1)] += l.data.fz; F[dof(l.data.nodeId, 2)] += l.data.my;
   }
   const memberLoads = new Map<number, number[]>();
   for (const m of members) {
@@ -111,29 +114,44 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built
     }
     memberLoads.set(m.id, p);
   }
+  for (const l of input.loads) {
+    if (l.type !== 'axialDistributed') continue;
+    const m = members.find((x) => x.id === l.data.elementId);
+    if (!m) continue;
+    const [fI, fJ] = axialEquivalentLoads(l.data.qI, l.data.qJ, l.data.a ?? 0, l.data.b ?? m.L, m.L);
+    const p = memberLoads.get(m.id) ?? new Array(6).fill(0);
+    p[0] += fI; p[3] += fJ;
+    memberLoads.set(m.id, p);
+  }
 
   const sys: SoSystem = { pm, members, dof, nTotal, free: [], prescribed, springs, F, Fnodal: F.slice(), memberLoads, idle: [], axialRigid: opts.axialRigid };
   addEquivalentLoads(sys);
 
-  const K0 = assemble(sys, new Map(), 'none', true);
+  const stiff = stiffenedDofs(sys);
   const free: number[] = [];
   const idle: number[] = [];
   for (let d = 0; d < nTotal; d++) {
     if (prescribed.has(d)) continue;
-    if (K0.K[d].every((v) => v === 0)) idle.push(d); else free.push(d);
+    if (stiff.has(d)) free.push(d); else idle.push(d);
   }
   sys.free = free;
   sys.idle = idle;
-  if (free.length === 0) return { ok: false, reason: tx('course.second-order.refuse.noFree') };
+  const joined = new Set(members.flatMap((m) => [dof(m.i, 0), dof(m.i, 1), dof(m.j, 0), dof(m.j, 1)]));
+  if (idle.some((d) => joined.has(d))) return { ok: false, reason: tx('course.second-order.refuse.singular') };
+  const memberScale = memberLoadScales(sys);
+  if (idle.some((d) => sys.Fnodal[d] !== 0 || Math.abs(sys.F[d] - sys.Fnodal[d]) > 1e-9 * (memberScale[d] ?? 0))) return { ok: false, reason: tx('course.second-order.refuse.idleLoad') };
+  if (free.length === 0 && !allowNoFree) return { ok: false, reason: tx('course.second-order.refuse.noFree') };
   if (free.length > TEACHING_MAX_DOFS) return { ok: false, reason: tx('course.second-order.refuse.tooBig', { n: free.length, max: TEACHING_MAX_DOFS }) };
 
   if (opts.axialRigid) {
-    const Cfull = members.map((m) => {
-      const row = new Array(nTotal).fill(0);
-      row[dof(m.i, 0)] -= m.c; row[dof(m.i, 1)] -= m.s; row[dof(m.j, 0)] += m.c; row[dof(m.j, 1)] += m.s;
+    if (members.length > free.length) return { ok: false, reason: tx('course.second-order.refuse.rigidIndeterminate') };
+    const col = new Map(free.map((d, k) => [d, k]));
+    const C = members.map((m) => {
+      const row = new Array(free.length).fill(0);
+      const put = (d: number, v: number) => { const k = col.get(d); if (k !== undefined) row[k] += v; };
+      put(dof(m.i, 0), -m.c); put(dof(m.i, 1), -m.s); put(dof(m.j, 0), m.c); put(dof(m.j, 1), m.s);
       return row;
     });
-    const C = Cfull.map((row) => free.map((d) => row[d]));
     const CCt = matMul(C, transpose(C));
     const probe = solveDense(CCt, new Array(C.length).fill(1));
     if (!probe) return { ok: false, reason: tx('course.second-order.refuse.rigidIndeterminate') };
@@ -143,22 +161,82 @@ export function buildSystem(input: SolverInput, opts: SecondOrderOptions): Built
     basis.forEach((v, j) => v.forEach((x, i) => { T[i][j] = x; }));
     const { pivots } = rref(C, free.length);
     const indep = free.map((_, k) => k).filter((k) => !pivots.includes(k));
-    sys.rigid = { T, C, Cfull, indep };
+    sys.rigid = { T, C, indep };
   }
   return { ok: true, sys };
 }
 
-/** Each member's equivalent end loads, condensed with its elastic release relation and turned global. */
-function addEquivalentLoads(sys: SoSystem): void {
+function memberLoadScales(sys: SoSystem): number[] {
+  const out = new Array(sys.nTotal).fill(0);
   for (const m of sys.members) {
     const p = sys.memberLoads.get(m.id);
     if (!p) continue;
-    const { T } = memberStiffness(m, 0, 'none');
-    const pc = transpose(T).map((r) => r.reduce((s, v, j) => s + v * p[j], 0));
+    const f = Math.max(...[0, 1, 3, 4].map((k) => Math.abs(p[k]))), mo = Math.max(Math.abs(p[2]), Math.abs(p[5]));
+    const force = Math.max(f, mo / m.L), moment = Math.max(mo, f * m.L);
+    memberDofs(sys, m).forEach((d, k) => { out[d] += k % 3 === 2 ? moment : force; });
+  }
+  return out;
+}
+
+function addEquivalentLoads(sys: SoSystem): void {
+  for (const m of sys.members) {
+    const pc = condensedLoads(sys, m, 0, 'none');
+    if (!pc) continue;
     const g = transpose(rotation(m.c, m.s)).map((r) => r.reduce((s, v, j) => s + v * pc[j], 0));
     const ids = memberDofs(sys, m);
     ids.forEach((d, k) => { sys.F[d] += g[k]; });
   }
+}
+
+/**
+ * A member's equivalent end loads in its own axes, condensed at its releases. With φ the transverse
+ * ones are the beam-column's under N, condensed by the exact relation; NaN at a pole of the member.
+ */
+export function condensedLoads(sys: Pick<SoSystem, 'memberLoads' | 'pm' | 'axialRigid'>, m: PMember, N: number, method: GeomMethod): number[] | null {
+  const p0 = sys.memberLoads.get(m.id);
+  if (!p0) return null;
+  const p = p0.slice();
+  let T = memberStiffness(m, 0, 'none').T;
+  if (method === 'phi' && !m.truss) {
+    const t = beamColumnEndLoads(m, N, sys.pm.memberLoads.filter((l) => l.member === m.id));
+    if (!t) return p.map(() => NaN);
+    [p[1], p[2], p[4], p[5]] = t;
+    T = memberStiffness(m, N, 'phi', !sys.axialRigid).T;
+  }
+  return transpose(T).map((r) => r.reduce((s, v, j) => s + v * p[j], 0));
+}
+
+/** F of K(N)·D = F: the nodal loads plus every member's equivalent loads under N. Only φ makes them depend on N. */
+export function loadVector(sys: SoSystem, N: Map<number, number>, method: GeomMethod): number[] {
+  if (method !== 'phi') return sys.F;
+  const F = sys.Fnodal.slice();
+  for (const m of sys.members) {
+    const pc = condensedLoads(sys, m, N.get(m.id) ?? 0, method);
+    if (!pc) continue;
+    const g = transpose(rotation(m.c, m.s)).map((r) => r.reduce((s, v, j) => s + v * pc[j], 0));
+    memberDofs(sys, m).forEach((d, k) => { F[d] += g[k]; });
+  }
+  return F;
+}
+
+function stiffenedDofs(sys: SoSystem): Set<number> {
+  const rows = new Map<number, Map<number, number>>();
+  const add = (a: number, b: number, v: number) => {
+    let r = rows.get(a);
+    if (!r) rows.set(a, (r = new Map()));
+    r.set(b, (r.get(b) ?? 0) + v);
+  };
+  for (const m of sys.members) {
+    const ms = memberStiffness(m, 0, 'none', true);
+    const R = rotation(m.c, m.s);
+    const kg = matMul(transpose(R), matMul(ms.k, R));
+    const ids = memberDofs(sys, m);
+    for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) if (kg[a][b] !== 0) add(ids[a], ids[b], kg[a][b]);
+  }
+  for (const s of sys.springs) add(s.dof, s.dof, s.k);
+  const out = new Set<number>();
+  for (const [d, r] of rows) if ([...r.values()].some((v) => v !== 0)) out.add(d);
+  return out;
 }
 
 export const memberDofs = (sys: Pick<SoSystem, 'dof'>, m: PMember): number[] =>
@@ -169,19 +247,33 @@ export interface Assembled {
   local: Map<number, MemberStiffness>;
 }
 
-/** K(N) over every DOF of the model, with the members' axial forces `N` (tension positive, 0 when absent). */
-export function assemble(sys: Pick<SoSystem, 'members' | 'nTotal' | 'dof' | 'springs' | 'axialRigid'>, N: Map<number, number>, method: GeomMethod, withAxial = !sys.axialRigid): Assembled {
-  const K = zeros(sys.nTotal, sys.nTotal);
-  const local = new Map<number, MemberStiffness>();
+export function memberLocals(sys: Pick<SoSystem, 'members' | 'axialRigid'>, N: Map<number, number>, method: GeomMethod, withAxial = !sys.axialRigid): Map<number, MemberStiffness> {
+  return new Map(sys.members.map((m) => [m.id, memberStiffness(m, N.get(m.id) ?? 0, method, withAxial)]));
+}
+
+export function assemble(sys: Pick<SoSystem, 'members' | 'dof' | 'springs' | 'axialRigid'>, N: Map<number, number>, method: GeomMethod, rows: readonly number[], cols: readonly number[] = rows, withAxial = !sys.axialRigid): Assembled {
+  const ri = new Map(rows.map((d, k) => [d, k]));
+  const ci = new Map(cols.map((d, k) => [d, k]));
+  const K = zeros(rows.length, cols.length);
+  const local = memberLocals(sys, N, method, withAxial);
   for (const m of sys.members) {
-    const ms = memberStiffness(m, N.get(m.id) ?? 0, method, withAxial);
-    local.set(m.id, ms);
+    const ms = local.get(m.id)!;
     const R = rotation(m.c, m.s);
     const kg = matMul(transpose(R), matMul(ms.k, R));
     const ids = memberDofs(sys, m);
-    for (let a = 0; a < 6; a++) for (let b = 0; b < 6; b++) K[ids[a]][ids[b]] += kg[a][b];
+    for (let a = 0; a < 6; a++) {
+      const r = ri.get(ids[a]);
+      if (r === undefined) continue;
+      for (let b = 0; b < 6; b++) {
+        const c = ci.get(ids[b]);
+        if (c !== undefined) K[r][c] += kg[a][b];
+      }
+    }
   }
-  for (const s of sys.springs) K[s.dof][s.dof] += s.k;
+  for (const s of sys.springs) {
+    const r = ri.get(s.dof), c = ci.get(s.dof);
+    if (r !== undefined && c !== undefined) K[r][c] += s.k;
+  }
   return { K, local };
 }
 

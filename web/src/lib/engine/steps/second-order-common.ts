@@ -116,8 +116,9 @@ export function symbolicMatrix(method: GeomMethod): Block[] {
   if (method === 'phi') {
     return [
       { kind: 'eq', tex: '\\mathbf{k}(N) = \\frac{EI}{L^3}\\begin{bmatrix} 12\\varphi_1 & 6L\\varphi_2 & -12\\varphi_1 & 6L\\varphi_2 \\\\ 6L\\varphi_2 & 4L^2\\varphi_3 & -6L\\varphi_2 & 2L^2\\varphi_4 \\\\ -12\\varphi_1 & -6L\\varphi_2 & 12\\varphi_1 & -6L\\varphi_2 \\\\ 6L\\varphi_2 & 2L^2\\varphi_4 & -6L\\varphi_2 & 4L^2\\varphi_3 \\end{bmatrix}', note: tx(`${P}.phi.matrixNote`) },
-      { kind: 'eq', tex: '\\varphi_3 = \\frac{s}{4},\\quad \\varphi_4 = \\frac{s\\,c}{2},\\quad \\varphi_2 = \\frac{s(1+c)}{6},\\quad \\varphi_1 = \\frac{2s(1+c) - (kL)^2}{12}' },
-      { kind: 'eq', tex: 's = \\frac{kL\\,(\\sin kL - kL\\cos kL)}{2 - 2\\cos kL - kL\\sin kL},\\qquad c = \\frac{kL - \\sin kL}{\\sin kL - kL\\cos kL},\\qquad kL = L\\sqrt{\\frac{|N|}{EI}}', note: tx(`${P}.phi.scNote`) },
+      { kind: 'eq', tex: '\\varphi_3 = \\frac{s}{4},\\quad \\varphi_4 = \\frac{s\\,c}{2},\\quad \\varphi_2 = \\frac{s(1+c)}{6},\\quad \\varphi_1 = \\frac{2s(1+c) \\mp (kL)^2}{12}\\qquad \\left(N < 0:\\ -;\\quad N > 0:\\ +\\right)' },
+      { kind: 'eq', tex: 'N < 0:\\quad s = \\frac{kL\\,(\\sin kL - kL\\cos kL)}{2 - 2\\cos kL - kL\\sin kL},\\qquad c = \\frac{kL - \\sin kL}{\\sin kL - kL\\cos kL},\\qquad kL = L\\sqrt{\\frac{|N|}{EI}}', note: tx(`${P}.phi.scNote`) },
+      { kind: 'eq', tex: 'N > 0:\\quad s = \\frac{kL\\,(kL\\cosh kL - \\sinh kL)}{kL\\sinh kL - 2\\cosh kL + 2},\\qquad c = \\frac{\\sinh kL - kL}{kL\\cosh kL - \\sinh kL};\\qquad N = 0:\\quad s = 4,\\ c = \\tfrac{1}{2},\\ \\varphi_1 = \\varphi_2 = \\varphi_3 = \\varphi_4 = 1' },
     ];
   }
   if (method === 'string') {
@@ -163,7 +164,9 @@ export function shapeSketch(sys: SoSystem, D: number[], color: 'deformed' | 'acc
   sk.members = sk.members.map((m) => ({ ...m, style: 'faint' as const }));
   const xs = [...sys.pm.nodes.values()].map((n) => n.x), zs = [...sys.pm.nodes.values()].map((n) => n.z);
   const ext = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 1);
-  const big = Math.max(1e-12, ...sys.pm.nodeOrder.flatMap((id) => [Math.abs(D[sys.dof(id, 0)]), Math.abs(D[sys.dof(id, 1)])]));
+  const big = Math.max(1e-12,
+    ...sys.pm.nodeOrder.flatMap((id) => [Math.abs(D[sys.dof(id, 0)]), Math.abs(D[sys.dof(id, 1)])]),
+    ...sys.members.filter((m) => !m.truss).flatMap((m) => [Math.abs(D[sys.dof(m.i, 2)]) * m.L / 4, Math.abs(D[sys.dof(m.j, 2)]) * m.L / 4]));
   const scale = (0.12 * ext) / big;
   sk.deformed = sys.members.map((m) => {
     const a = sys.pm.nodes.get(m.i)!, b = sys.pm.nodes.get(m.j)!;

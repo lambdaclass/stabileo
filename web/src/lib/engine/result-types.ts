@@ -90,7 +90,7 @@ export interface PDeltaResult3D {
   results: AnalysisResults3D;
   iterations: number;
   converged: boolean;
-  isStable: boolean;
+  isStable: boolean | null;
   b2Factor: number;
   amplification: Array<{ nodeId: number; ratio: number }>;
   linearResults: AnalysisResults3D;
@@ -168,7 +168,9 @@ export interface ModalResult3D {
 
 export interface BucklingMode {
   loadFactor: number;
-  displacements: Array<{ nodeId: number; ux: number; uy: number; rz: number }>;
+  displacements: Array<{ nodeId: number; ux: number; uz: number; ry: number }>;
+  /** A buckling inside a member with its ends held: the nodal displacements are zero and do not draw it. */
+  internal?: true;
 }
 
 export interface ElementBucklingData {

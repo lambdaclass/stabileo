@@ -2,11 +2,11 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import * as wasm from '../../wasm-solver';
 import { modelStore, historyStore } from '../../../store';
 import { runPDelta2D, pdeltaConvergence, displacementAmplification } from '../run-pdelta';
-import { runBuckling2D, bucklingConvergence } from '../run-buckling';
+import { runBuckling2D, bucklingConvergence, memberBucklingData } from '../run-buckling';
 import { refineInput } from '../refine';
 import { DEFAULT_SETTINGS, firstModeB2, type SoSettings } from '../settings';
 import { generate } from '../../__tests__/helpers/random-models-2d';
-import { column, portal, EI } from './fixtures';
+import { column, clampedColumn, portal, EI } from './fixtures';
 
 beforeAll(async () => { await new Promise((r) => setTimeout(r, 0)); expect(wasm.isSolverReady()).toBe(true); });
 
@@ -86,6 +86,25 @@ describe('Basic P-Δ', () => {
     expect(err[3]).toBeLessThan(1e-4);
   });
 
+  it('a member whose ends do not move: u is its midspan deflection at every n, the exact one with no axial force', () => {
+    const L = 5, w = 4;
+    const input = column('pinned', 'pinned', L, 0);
+    input.loads = [{ type: 'distributed', data: { elementId: 1, qI: w, qJ: w } }];
+    const rows = pdeltaConvergence(input, S());
+    const exact = (5 * w * L ** 4) / (384 * EI);
+    expect(rows).toHaveLength(5);
+    for (const r of rows) {
+      expect(r.uAt).toEqual({ member: 1 });
+      expect(r.u! / exact).toBeCloseTo(1, 6);
+    }
+  });
+
+  it('a column whose top node moves: u stays that node\'s translation', () => {
+    const rows = pdeltaConvergence(column('fixed', null, 4, 100, 5), S());
+    for (const r of rows) expect(r.uAt).toEqual({ node: 2 });
+    expect(rows[0].u).toBeGreaterThan(0);
+  });
+
   it('takes the axial force where it acts: a column loaded at mid-height is compressed below the load only', () => {
     const input = column('fixed', 'rollerZ', 6, 0);
     input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: 3, p: 0, px: -200 } }, { type: 'nodal', data: { nodeId: 2, fx: 0, fz: 0, my: 1 } }];
@@ -96,6 +115,19 @@ describe('Basic P-Δ', () => {
 });
 
 describe('Basic buckling', () => {
+  it('modes carry ux, uz, ry from the engine and from the teaching solver alike, the fields the mode drawing reads', () => {
+    const input = column('fixed', null, 5, 100, 1);
+    for (const method of ['consistent', 'phi'] as const) {
+      const got = runBuckling2D(input, S({ method, n: 2 }));
+      if (!got.ok) throw new Error('refused');
+      for (const d of got.result.modes[0].displacements) {
+        expect(Object.keys(d).sort()).toEqual(['nodeId', 'ry', 'ux', 'uz']);
+        expect(Number.isFinite(d.ux) && Number.isFinite(d.uz) && Number.isFinite(d.ry)).toBe(true);
+      }
+      expect(Math.max(...got.result.modes[0].displacements.map((d) => Math.abs(d.ux)))).toBeGreaterThan(0);
+    }
+  });
+
   it('finds a member compressed over part of its length (the engine alone reads its mean N)', () => {
     const input = column('pinned', 'pinned', 6, 0);
     input.loads = [{ type: 'pointOnElement', data: { elementId: 1, a: 4, p: 0, px: -100 } }];
@@ -132,11 +164,84 @@ describe('Basic buckling', () => {
 });
 
 describe('the largest displacement amplification', () => {
-  it('is read at the node that moves most in first order, and is ∞ when the second-order one reverses', () => {
+  it('is read at the node that moves most in first order, and keeps its size with the reversal flagged when the second-order one points the other way', () => {
     const lin = { displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 1, uz: 0, ry: 0 }], reactions: [], elementForces: [] };
     const two = { ...lin, displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: 1.5, uz: 0, ry: 0 }] };
     const rev = { ...lin, displacements: [{ nodeId: 1, ux: 0, uz: 0, ry: 0 }, { nodeId: 2, ux: -1.5, uz: 0, ry: 0 }] };
-    expect(displacementAmplification(lin, two)).toEqual({ nodeId: 2, ratio: 1.5 });
-    expect(displacementAmplification(lin, rev)!.ratio).toBe(Infinity);
+    expect(displacementAmplification(lin, two)).toEqual({ nodeId: 2, ratio: 1.5, reversed: false });
+    expect(displacementAmplification(lin, rev)).toEqual({ nodeId: 2, ratio: 1.5, reversed: true });
   });
+});
+
+describe('internal buckling modes through the wrapper', () => {
+  it('a fixed-fixed column of one element with φ: the modes keep their internal flag and draw nothing', () => {
+    const got = runBuckling2D(clampedColumn(5, 100), { ...DEFAULT_SETTINGS, method: 'phi', n: 1, modes: 2 });
+    if (!got.ok) throw new Error(got.reason.key);
+    expect(got.result.modes).toHaveLength(2);
+    for (const m of got.result.modes) {
+      expect(m.internal).toBe(true);
+      expect(m.displacements.every((d) => Object.entries(d).every(([k, v]) => k === 'nodeId' || v === 0))).toBe(true);
+    }
+    expect(got.result.modes[0].loadFactor).toBeCloseTo((4 * Math.PI ** 2 * EI) / 25 / 100, 4);
+  });
+});
+
+describe('effective length factors are never made up', () => {
+  const pieces = (input: Parameters<typeof refineInput>[0]) => refineInput(input, 1);
+  it('no first mode, or a non-positive one: no member gets a k', () => {
+    const c = column('pinned', 'rollerZ', 5, 100);
+    const r = pieces(c);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
+    for (const l of [NaN, 0, -2, Infinity]) expect(memberBucklingData(c, r, N, l)).toEqual([]);
+    const ok = memberBucklingData(c, r, N, Math.PI ** 2 * EI / 25 / 100);
+    expect(ok).toHaveLength(1);
+    expect(ok[0].kEffective).toBeCloseTo(1, 9);
+  });
+  it('a compressed member with EI = 0 is left out, not given k = 1', () => {
+    const c = column('pinned', 'rollerZ', 5, 100);
+    const flat = { ...c, sections: new Map([...c.sections].map(([id, s]) => [id, { ...s, iz: 0 }])) };
+    const r = pieces(flat);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
+    expect(memberBucklingData(flat, r, N, 3)).toEqual([]);
+  });
+  it('a compressed truss bar gets no effective length: its bending was never in the eigenproblem', () => {
+    const c = column('pinned', 'rollerZ', 5, 100);
+    const bar = { ...c, elements: new Map([...c.elements].map(([id, e]) => [id, { ...e, type: 'truss' as const }])) };
+    const r = pieces(bar);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -100]));
+    expect(memberBucklingData(bar, r, N, 1e6)).toEqual([]);
+  });
+  it('a tiny compression keeps its k: the floor is relative to the largest force', () => {
+    const c = column('pinned', 'rollerZ', 5, 1e-10);
+    const r = pieces(c);
+    const N = new Map([...r.pieces.values()].flat().map((p) => [p.id, -1e-10]));
+    const d = memberBucklingData(c, r, N, Math.PI ** 2 * EI / 25 / 1e-10);
+    expect(d).toHaveLength(1);
+    expect(d[0].kEffective).toBeCloseTo(1, 9);
+  });
+});
+
+describe('effective lengths beside a far larger force elsewhere', () => {
+  const L = 3;
+  const twoColumns = () => {
+    const input = column('fixed', null, L, 100);
+    input.nodes.set(3, { id: 3, x: 5, z: 0 });
+    input.nodes.set(4, { id: 4, x: 5, z: L });
+    input.elements.set(2, { ...input.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4 });
+    input.elements.set(3, { ...input.elements.get(1)!, id: 3, nodeI: 1, nodeJ: 3 });
+    input.supports.set(3, { id: 3, nodeId: 3, type: 'fixed' });
+    input.loads.push({ type: 'nodal', data: { nodeId: 4, fx: 0, fz: 1e12, my: 0 } });
+    return input;
+  };
+  for (const method of ['phi', 'consistent'] as const) {
+    it(`${method}: a −100 kN cantilever beside a column pulled at 1e12 kN gets its K = 2`, () => {
+      const got = runBuckling2D(twoColumns(), S({ method, n: method === 'phi' ? 1 : 4 }));
+      if (!got.ok) throw new Error(got.reason.key);
+      const d = got.result.elementData.find((e) => e.elementId === 1);
+      expect(d).toBeDefined();
+      expect(d!.axialForce).toBeCloseTo(-100, 6);
+      expect(d!.kEffective).toBeCloseTo(2, method === 'phi' ? 3 : 2);
+      expect(got.result.elementData.some((e) => e.elementId === 2 || e.elementId === 3)).toBe(false);
+    });
+  }
 });
