@@ -60,7 +60,8 @@ export function postAnalysisLines(input: PostAnalysisInput, tr: Tr): PostAnalysi
       if (verdict === 'unbalanced') {
         out.push({
           part: 'analysis', severity: !Number.isFinite(r.worstRelative) || r.worstRelative >= POST_ANALYSIS_UNBALANCED ? 'error' : 'warning',
-          text: tr('post.unbalanced', { name: name(r), residual: pct(r.worstRelative) }), ...uncovered(r),
+          text: Number.isFinite(r.worstRelative) ? tr('post.unbalanced', { name: name(r), residual: pct(r.worstRelative) }) : tr('post.unbalancedNotComputable', { name: name(r) }),
+          ...uncovered(r),
         });
       } else if (verdict === 'partial') {
         out.push({ part: 'analysis', severity: 'warning', text: tr('post.partial', { name: name(r) }), ...uncovered(r) });

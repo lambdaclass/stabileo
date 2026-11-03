@@ -82,7 +82,7 @@ export function staticsSectionHtml(rows: StaticsRows | null, tr: Tr, heading: st
   const K = ['fx', 'fy', 'fz', 'mx', 'my', 'mz'] as const;
   for (const r of [...rows.cases, ...rows.combos]) {
     const verdict = staticsVerdict(r);
-    const state = verdict === 'balances' ? '✓' : verdict === 'partial' ? `⚠ ${esc(tr('pro.statics.partial'))}` : (r.worstRelative * 100).toFixed(2) + ' %';
+    const state = verdict === 'balances' ? '✓' : verdict === 'partial' ? `⚠ ${esc(tr('pro.statics.partial'))}` : Number.isFinite(r.worstRelative) ? (r.worstRelative * 100).toFixed(2) + ' %' : esc(tr('pro.statics.notComputable'));
     const left = r.uncovered.length ? `<br><small>${esc(tr('pro.statics.uncovered').replace('{kinds}', r.uncovered.join(', ')))}</small>` : '';
     out.push(`<tr><td rowspan="2">${esc(r.caseName || tr('pro.statics.singleSolve'))}${left}</td>${K.map((k) => `<td class="num">${num(r.applied[k], 2)}</td>`).join('')}<td rowspan="2" class="num">${state}</td></tr>`);
     out.push(`<tr>${K.map((k) => `<td class="num">${num(r.reactions[k], 2)}</td>`).join('')}</tr>`);

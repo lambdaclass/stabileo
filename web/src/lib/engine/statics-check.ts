@@ -53,6 +53,11 @@ export interface Resultant6 {
   mx: number; my: number; mz: number;
 }
 
+export function residualLabel(r: number, notComputable: string): string {
+  if (!Number.isFinite(r)) return notComputable;
+  return r < 1e-9 ? '0' : r < 1e-4 ? r.toExponential(1) : (r * 100).toFixed(2) + ' %';
+}
+
 export type StaticsVerdict = 'balances' | 'partial' | 'unbalanced';
 
 /** A case balances only with every load in the sum and a finite residual: a small residual over part of them is "partial", never "balances". */
