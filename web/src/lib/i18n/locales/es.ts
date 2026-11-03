@@ -1,4 +1,7 @@
 const es: Record<string, string> = {
+  'steps.catalog.button': 'Paso a paso explicado',
+  'steps.catalog.title': 'Paso a paso explicado',
+  'steps.catalog.intro': 'Elegí un método para ver la resolución de tu estructura paso a paso. Cada uno dice qué tiene que cumplir el modelo y trae un ejemplo que lo cumple.',
   "landing.navTools": "Herramientas",
 
   // Shared scalar-field viewer
