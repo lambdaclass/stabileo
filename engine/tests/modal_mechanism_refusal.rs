@@ -170,6 +170,41 @@ fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
     assert!(!r.modes.is_empty() && r.modes.iter().all(|m| m.frequency > 0.1), "{:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
 }
 
+fn spinning_column_numbered_around_its_support(spin_spring: Option<f64>) -> SolverInput3D {
+    let mut input = serde_json::to_value(spinning_column(spin_spring)).unwrap();
+    let swap = |v: &mut serde_json::Value| if let Some(id) = v.as_u64() { *v = json!(match id { 1 => 2, 2 => 1, x => x }) };
+    let nodes = input["nodes"].as_object().unwrap().clone();
+    input["nodes"] = json!({});
+    for (_, mut node) in nodes {
+        swap(&mut node["id"]);
+        let id = node["id"].to_string();
+        input["nodes"][id] = node;
+    }
+    for group in ["supports", "connectors"] {
+        for (_, item) in input[group].as_object_mut().unwrap() {
+            for key in ["nodeId", "nodeI", "nodeJ"] {
+                if item.get(key).is_some() { swap(&mut item[key]); }
+            }
+        }
+    }
+    for key in ["nodeI", "nodeJ"] { swap(&mut input["elements"]["1"][key]); }
+    swap(&mut input["masses"]["nodal"][0]["nodeId"]);
+    input["nodes"]["4"] = json!({"id": 4, "x": 2.0, "y": 0.0, "z": 0.0});
+    input["nodes"]["5"] = json!({"id": 5, "x": 2.0, "y": 0.0, "z": 2.5});
+    input["supports"]["9"] = json!({"nodeId": 4, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+    input["elements"]["2"] = json!({"id": 2, "type": "frame", "nodeI": 4, "nodeJ": 5, "materialId": 1, "sectionId": 1});
+    input["masses"]["nodal"].as_array_mut().unwrap().push(json!({"nodeId": 5, "mass": 2.0}));
+    serde_json::from_value(input).unwrap()
+}
+
+#[test]
+fn a_free_spin_is_located_on_its_own_node_when_supports_sit_between_free_node_ids() {
+    let r = solve_modal_3d(&spinning_column_numbered_around_its_support(None), &densities(), 4).expect("a twist with no translational mass");
+    assert!(!r.null_modes.is_empty() && r.null_modes.iter().all(|m| m.node_id == 1 && m.dof.starts_with('r')), "{:?}", r.null_modes);
+    let e = refusal(freqs_3d(&spinning_column_numbered_around_its_support(Some(-10.0)), 4), "negative twist, renumbered", &[MECHANISM]);
+    assert!(e.contains("(ω² = -") && e.contains("moves node 1 along"), "{e}");
+}
+
 #[test]
 fn a_free_spin_does_not_take_the_place_of_a_requested_mode() {
     let r = solve_modal_3d(&spinning_column(None), &densities(), 1).expect("one mode of a column free to spin");

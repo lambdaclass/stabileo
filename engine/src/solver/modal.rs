@@ -327,6 +327,7 @@ const ZERO_CANCELLATION: f64 = 1e-12;
 const TRANSLATION_ROUND_OFF: f64 = 1e-8;
 const MASSLESS: f64 = 1e-12;
 
+/// `uf`, `rigid` and `shape(phi)` are all indexed by `DofNumbering` numbers, which put the free DOFs first.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn null_modes_or_mechanism(
     result: &EigenResult,
