@@ -77,8 +77,8 @@ pub fn engine_reproduce_hashes(json: &str, is_3d: bool) -> Result<String, JsValu
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput = from_js_value(input)?;
-    let results = solver::linear::solve_2d(&input)
+    let input: types::units::ElasticInput2D = from_js_value(input)?;
+    let results = solver::linear::solve_2d_typed(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results)
 }
