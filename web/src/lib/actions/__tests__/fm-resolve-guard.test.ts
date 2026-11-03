@@ -87,20 +87,20 @@ describe('why a chosen primary structure was not solved', () => {
 });
 
 describe('opening the flexibility wizard with a chosen primary structure', () => {
-  it('an internal solver failure is reported, not replaced by the automatic primary structure', () => {
+  it('an internal solver failure is reported, not replaced by the automatic primary structure', async () => {
     portal();
     fmChoice.solvedWith(['M:1:i'], modelStore.modelVersion);
     const run = vi.spyOn(solve, 'solveForceMethod').mockImplementation(() => { throw new Error('index out of range'); });
     const toast = vi.spyOn(uiStore, 'toast');
     const before = fmStepsStore.result;
-    expect(openFlexibilityWizard()).toBe(false);
+    expect(await openFlexibilityWizard()).toBe(false);
     expect(run).toHaveBeenCalledTimes(1);
     expect(fmStepsStore.result).toBe(before);
     expect(fmChoice.applied).toEqual(['M:1:i']);
     expect(toast).toHaveBeenCalledWith(expect.any(String), 'error');
   });
 
-  it('a refusal of the chosen releases falls back to the automatic one, with the reason', () => {
+  it('a refusal of the chosen releases falls back to the automatic one, with the reason', async () => {
     portal();
     fmChoice.solvedWith(['M:1:i'], modelStore.modelVersion);
     const real = solve.solveForceMethod;
@@ -108,7 +108,7 @@ describe('opening the flexibility wizard with a chosen primary structure', () =>
       if (opts?.releases) throw new solve.ForceMethodError('noRedundants');
       return real(input, opts);
     });
-    expect(openFlexibilityWizard()).toBe(true);
+    expect(await openFlexibilityWizard()).toBe(true);
     expect(run).toHaveBeenCalledTimes(2);
     expect(fmChoice.applied).toBeNull();
   });
