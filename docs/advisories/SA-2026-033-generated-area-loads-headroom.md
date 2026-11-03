@@ -17,7 +17,7 @@ dead, live and roof live area loads it puts on beams, and the seismic weight bui
 ## What was wrong
 
 #1076 taught the generator not to load the panel closed by a trussed shed's bottom chords and eave
-beams as a floor. It probed the panel at its centre and along its sides, kept only the probes
+beams as a floor. It probed the panel at its center and along its sides, kept only the probes
 with a roof member straight over them, and left the whole panel out when those were all less than
 2.2 m above it. Probes with nothing over them were dropped, not counted against the verdict.
 
@@ -40,10 +40,11 @@ Generate the loads again and compare.
 
 PR #1253. A panel is left out as roof structure only when roof structure lies over every probe
 (straight over it, or between roof members on both sides within the panel), all of it less than
-2.2 m above, and a deck or beam less than 2.2 m above its centre. The part of its area that no
-loaded member less than 2.2 m above it carries (within half the tributary width, counted on a grid
-that errs toward keeping) or no shell covers stays on the panel as roof load, so no roof area is
-lost; the derivation counts those panels. Truss members count as roof structure. A panel or member only partly under low
+2.2 m above, a deck or beam less than 2.2 m above its center, and the loads already kept less than
+2.2 m above carry all of it: loaded panels, the tributary strips of members loaded by width, and
+shells, checked top-down on a grid whose every cell must lie wholly within one of them. Otherwise
+the panel keeps its whole area load as roof load, and what both carry is counted twice, on the
+safe side; the derivation counts those panels and members. Truss members count as roof structure. A panel or member only partly under low
 structure keeps its load, and the derivation names how many under a floor or roof ("loaded as
 floors"). A member loaded by width beside a floor panel keeps its load. The cases above are
 regression tests in `web/src/lib/engine/loads/__tests__/plan-gravity-headroom-coverage.test.ts`

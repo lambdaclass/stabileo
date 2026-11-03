@@ -313,8 +313,7 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
     const m = at(w.elementId);
     for (let k = 0; k < 4; k++) {
       const xa = (m.L * k) / 4, xb = (m.L * (k + 1)) / 4;
-      const tw = w.width ?? i.tributaryWidth;
-      const qa = surcharge(bands, m.pt(xa), m.z) * tw, qb = surcharge(bands, m.pt(xb), m.z) * tw;
+      const qa = surcharge(bands, m.pt(xa), m.z) * i.tributaryWidth, qb = surcharge(bands, m.pt(xb), m.z) * i.tributaryWidth;
       if (qa < 1e-6 && qb < 1e-6) continue;
       out.push({ elementId: w.elementId, q: -qa, qJ: -qb, a: xa, b: xb, frame: 'projected' });
     }
