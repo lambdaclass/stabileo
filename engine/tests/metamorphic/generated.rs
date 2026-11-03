@@ -1026,7 +1026,7 @@ pub(crate) fn validate_response(
                 for &n in shape
                     .supports
                     .iter()
-                    .filter(|_| !["SSI (no soil springs)", "fiber nonlinear"].contains(&name))
+                    .filter(|_| name != "SSI (no soil springs)")
                 {
                     add(Some(n), None, "R".into(), w);
                     add(Some(n), None, "RM".into(), rw);
