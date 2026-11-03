@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { defaults, type Outcome, type Values } from '../define';
-import { rcColumn, build as buildColumn, squashLoad, balancedPoint, beta1, tieSpacing } from '../rc-column';
+import { rcColumn, build as buildColumn, squashLoad, balancedPoint, beta1, tieSpacing, barsFit, clearSpacing } from '../rc-column';
 import { outrigger, build as buildOutrigger, closedForm as outriggerClosedForm, coreInertia, CONCRETE_E } from '../outrigger';
 import { tower, cantileverRoots, closedForm as towerClosedForm, tube, STEEL } from '../tower';
 
@@ -26,13 +26,13 @@ const gap = (out: Ok, key: string) => {
 
 describe('rc-column', () => {
   it('squash load equals 0.85 f′c (Ag − Ast) + fy Ast', () => {
-    for (const extra of [{}, { b: 0.3, h: 0.6, perFace: 4, barDia: 25, fc: 40, steel: 1 }, { b: 0.25, h: 0.25, perFace: 2, barDia: 12, fc: 20 }] as Values[]) {
+    for (const extra of [{}, { b: 0.3, h: 0.6, perFace: 3, barDia: 25, fc: 40, steel: 1 }, { b: 0.25, h: 0.25, perFace: 2, barDia: 12, fc: 20 }] as Values[]) {
       const out = run(rcColumn, extra);
       expect(gap(out, 'squashLoad')).toBeLessThan(1e-9);
     }
   });
   it('the balanced point matches the hand calculation', () => {
-    for (const extra of [{}, { b: 0.3, h: 0.8, perFace: 5, barDia: 25, fc: 35, steel: 1 }, { fc: 50 }] as Values[]) {
+    for (const extra of [{}, { b: 0.3, h: 0.8, perFace: 3, barDia: 25, fc: 35, steel: 1 }, { fc: 50 }] as Values[]) {
       const out = run(rcColumn, extra);
       expect(gap(out, 'balancedP')).toBeLessThan(1e-6);
       expect(gap(out, 'balancedM')).toBeLessThan(1e-6);
@@ -58,6 +58,24 @@ describe('rc-column', () => {
     const chart = out.charts[0];
     expect(Math.max(...chart.points.map(p => p[1]))).toBeCloseTo(readout(out, 'axialCap').value, 6);
     expect(chart.overlays![0].points).toEqual([[200, 1500]]);
+  });
+});
+
+describe('rc-column bar layout', () => {
+  it('refuses bars that do not fit instead of counting them', () => {
+    for (const extra of [{ b: 0.25, h: 0.25, cover: 0.06, barDia: 32, perFace: 6 }, { b: 0.25, perFace: 5, barDia: 25 }, { b: 0.25, h: 0.25, cover: 0.06, barDia: 32, perFace: 2 }] as Values[]) {
+      const v = { ...defaults(rcColumn.params), ...extra };
+      expect(barsFit(v)).toBe(false);
+      const out = rcColumn.analyses(buildColumn(v), v, engine);
+      expect(out.status).toBe('refused');
+      if (out.status === 'refused') expect(out.code).toBe('barsDoNotFit');
+    }
+  });
+  it('accepts the defaults and measures the clear spacing between bar faces', () => {
+    const v = defaults(rcColumn.params);
+    expect(barsFit(v)).toBe(true);
+    const xEdge = v.b / 2 - v.cover - 0.01 - v.barDia / 2000;
+    expect(clearSpacing(v)).toBeCloseTo(Math.min(2 * xEdge / (v.perFace - 1), v.h - 2 * (v.cover + 0.01 + v.barDia / 2000)) - v.barDia / 1000, 12);
   });
 });
 

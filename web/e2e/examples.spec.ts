@@ -89,7 +89,7 @@ test('@smoke the pushover past its capacity is shown as stopped, below the targe
   near(await value(page, 'readout-peakShear'), 0.6 * await value(page, 'readout-nominalShear'), 1e-9);
 });
 
-test('@smoke the outrigger slider moves the result and the sweep marker', async ({ page }) => {
+test('@smoke the outrigger slider moves the result and the share link', async ({ page }) => {
   await page.goto('/en/examples/outrigger/?e2e=1');
   await expect(page.getByTestId('readout-topDrift')).toBeVisible({ timeout: 30000 });
   const before = await value(page, 'readout-topDrift');

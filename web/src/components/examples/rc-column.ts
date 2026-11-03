@@ -27,6 +27,17 @@ export function build(v: Values): Model {
   };
 }
 
+export function clearSpacing(v: Values): number {
+  const db = v.barDia / 1000;
+  const xEdge = v.b / 2 - v.cover - TIE_MM / 1000 - db / 2;
+  const along = v.perFace > 1 ? 2 * xEdge / (v.perFace - 1) - db : Infinity;
+  return Math.min(along, 2 * barLayer(v) - db, xEdge < 0 ? -Infinity : Infinity);
+}
+
+export function barsFit(v: Values): boolean {
+  return clearSpacing(v) >= Math.max(1.5 * v.barDia / 1000, 0.04);
+}
+
 export function beta1(fc: number): number {
   return Math.min(0.85, Math.max(0.65, 0.85 - 0.05 * (fc - 28) / 7));
 }
@@ -106,7 +117,8 @@ export const rcColumn = defineExample<Model>({
     { key: 'mu', value: 200, min: 0, max: 1500, step: 10, unit: 'kN·m' },
   ],
   build,
-  analyses(m) {
+  analyses(m, v) {
+    if (!barsFit(v)) return { status: 'refused', code: 'barsDoNotFit' };
     return withSection(m.outline, m.bars, m.mat, (section) => {
       const info = section.info();
       const curve = section.curve(THETA, 60);

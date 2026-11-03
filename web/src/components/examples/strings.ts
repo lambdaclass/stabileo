@@ -2,7 +2,7 @@ import { publicI18n } from '../../lib/i18n/store.svelte';
 
 const en = {
   'index.title': 'Live structural examples',
-  'index.lead': 'Move a slider and the Stabileo engine solves the model again in your browser. Each example names the check that verifies it, opens in the editor, and keeps its settings in a link you can share.',
+  'index.lead': 'Move a slider and the Stabileo engine solves the model again in your browser. Each example names the check that verifies it and keeps its settings in a link you can share; the frame models also open in the editor.',
   'index.meta': 'Parametric structural models solved live in the browser by the Stabileo engine: beams and frames, a slab on columns, an earthquake time history, a reinforced concrete column, an outrigger sweep and a steel tower’s modes and buckling.',
   publisher: 'Published by Ergodic Group.',
   open: 'Open example',
@@ -34,6 +34,7 @@ const en = {
   'cert.code.noResidual': 'the residuals of the discrete equations are not certified',
   'refuse.engine': 'the solver stopped with an error.',
   'note.editorFrameOnly': 'The editor opens the frame, its sections and supports. The floor masses and the ground motion are not carried over.',
+  'refuse.barsDoNotFit': 'the bars do not fit: the clear spacing is below 1.5 bar diameters or 40 mm. Use fewer or thinner bars, or a larger section.',
   'refuse.noLoad': 'there is no load. Set a load above zero.',
   'refuse.nonFinite': 'the solution is not finite.',
   'pane.moment': 'Bending moment',
@@ -198,7 +199,7 @@ type Key = keyof typeof en;
 
 const es: Record<Key, string> = {
   'index.title': 'Ejemplos estructurales en vivo',
-  'index.lead': 'Mueve un control y el motor de Stabileo vuelve a resolver el modelo en tu navegador. Cada ejemplo indica la verificación que lo respalda, se abre en el editor y guarda sus valores en un enlace para compartir.',
+  'index.lead': 'Mueve un control y el motor de Stabileo vuelve a resolver el modelo en tu navegador. Cada ejemplo indica la verificación que lo respalda y guarda sus valores en un enlace para compartir; los modelos de pórticos también se abren en el editor.',
   'index.meta': 'Modelos estructurales paramétricos resueltos en vivo en el navegador por el motor de Stabileo: vigas y pórticos, una losa sobre columnas, un análisis sísmico en el tiempo, una columna de hormigón armado, un barrido de outrigger y los modos y el pandeo de una torre de acero.',
   publisher: 'Publicado por Ergodic Group.',
   open: 'Abrir ejemplo',
@@ -230,6 +231,7 @@ const es: Record<Key, string> = {
   'cert.code.noResidual': 'los residuos de las ecuaciones discretas no están certificados',
   'refuse.engine': 'el solver se detuvo con un error.',
   'note.editorFrameOnly': 'El editor abre el pórtico, sus secciones y apoyos. Las masas de piso y el movimiento del suelo no se trasladan.',
+  'refuse.barsDoNotFit': 'las barras no entran: la separación libre es menor que 1,5 diámetros o 40 mm. Usa menos barras o más finas, o una sección mayor.',
   'refuse.noLoad': 'no hay carga. Pon una carga mayor que cero.',
   'refuse.nonFinite': 'la solución no es finita.',
   'pane.moment': 'Momento flector',
@@ -392,7 +394,7 @@ const es: Record<Key, string> = {
 
 const pt: Record<Key, string> = {
   'index.title': 'Exemplos estruturais ao vivo',
-  'index.lead': 'Mova um controle e o motor do Stabileo resolve o modelo de novo no seu navegador. Cada exemplo indica a verificação que o sustenta, abre no editor e guarda seus valores em um link para compartilhar.',
+  'index.lead': 'Mova um controle e o motor do Stabileo resolve o modelo de novo no seu navegador. Cada exemplo indica a verificação que o sustenta e guarda seus valores em um link para compartilhar; os modelos de pórticos também abrem no editor.',
   'index.meta': 'Modelos estruturais paramétricos resolvidos ao vivo no navegador pelo motor do Stabileo: vigas e pórticos, uma laje sobre pilares, uma análise sísmica no tempo, um pilar de concreto armado, uma varredura de outrigger e os modos e a flambagem de uma torre de aço.',
   publisher: 'Publicado por Ergodic Group.',
   open: 'Abrir exemplo',
@@ -424,6 +426,7 @@ const pt: Record<Key, string> = {
   'cert.code.noResidual': 'os resíduos das equações discretas não estão certificados',
   'refuse.engine': 'o solver parou com um erro.',
   'note.editorFrameOnly': 'O editor abre o pórtico, suas seções e apoios. As massas dos pavimentos e o movimento do solo não são levados.',
+  'refuse.barsDoNotFit': 'as barras não cabem: o espaçamento livre é menor que 1,5 diâmetro ou 40 mm. Use menos barras ou mais finas, ou uma seção maior.',
   'refuse.noLoad': 'não há carga. Defina uma carga maior que zero.',
   'refuse.nonFinite': 'a solução não é finita.',
   'pane.moment': 'Momento fletor',
@@ -586,7 +589,7 @@ const pt: Record<Key, string> = {
 
 const de: Record<Key, string> = {
   'index.title': 'Live-Beispiele aus der Tragwerksanalyse',
-  'index.lead': 'Verschieben Sie einen Regler, und die Stabileo-Engine rechnet das Modell in Ihrem Browser neu. Jedes Beispiel nennt die Prüfung, die es verifiziert, öffnet sich im Editor und speichert seine Werte in einem teilbaren Link.',
+  'index.lead': 'Verschieben Sie einen Regler, und die Stabileo-Engine rechnet das Modell in Ihrem Browser neu. Jedes Beispiel nennt die Prüfung, die es verifiziert, und speichert seine Werte in einem teilbaren Link; die Rahmenmodelle öffnen sich auch im Editor.',
   'index.meta': 'Parametrische Tragwerksmodelle, live im Browser von der Stabileo-Engine gerechnet: Träger und Rahmen, eine Platte auf Stützen, eine Erdbeben-Zeitverlaufsberechnung, eine Stahlbetonstütze, eine Outrigger-Variation sowie Eigenformen und Knicken eines Stahlturms.',
   publisher: 'Herausgegeben von Ergodic Group.',
   open: 'Beispiel öffnen',
@@ -618,6 +621,7 @@ const de: Record<Key, string> = {
   'cert.code.noResidual': 'die Residuen der diskreten Gleichungen sind nicht zertifiziert',
   'refuse.engine': 'der Solver hat mit einem Fehler abgebrochen.',
   'note.editorFrameOnly': 'Der Editor öffnet den Rahmen mit Querschnitten und Lagern. Geschossmassen und Bodenbewegung werden nicht übernommen.',
+  'refuse.barsDoNotFit': 'die Stäbe passen nicht: der lichte Abstand ist kleiner als 1,5 Stabdurchmesser oder 40 mm. Weniger oder dünnere Stäbe oder einen größeren Querschnitt wählen.',
   'refuse.noLoad': 'es gibt keine Last. Setzen Sie eine Last größer als null.',
   'refuse.nonFinite': 'die Lösung ist nicht endlich.',
   'pane.moment': 'Biegemoment',
@@ -780,7 +784,7 @@ const de: Record<Key, string> = {
 
 const fr: Record<Key, string> = {
   'index.title': 'Exemples de structures en direct',
-  'index.lead': 'Déplacez un curseur et le moteur Stabileo résout à nouveau le modèle dans votre navigateur. Chaque exemple indique la vérification qui le valide, s’ouvre dans l’éditeur et garde ses valeurs dans un lien à partager.',
+  'index.lead': 'Déplacez un curseur et le moteur Stabileo résout à nouveau le modèle dans votre navigateur. Chaque exemple indique la vérification qui le valide et garde ses valeurs dans un lien à partager ; les modèles de portiques s’ouvrent aussi dans l’éditeur.',
   'index.meta': 'Modèles de structures paramétriques résolus en direct dans le navigateur par le moteur Stabileo : poutres et portiques, une dalle sur poteaux, une analyse sismique temporelle, un poteau en béton armé, un balayage d’outrigger, et les modes et le flambement d’une tour en acier.',
   publisher: 'Publié par Ergodic Group.',
   open: 'Ouvrir l’exemple',
@@ -812,6 +816,7 @@ const fr: Record<Key, string> = {
   'cert.code.noResidual': 'les résidus des équations discrètes ne sont pas certifiés',
   'refuse.engine': 'le solveur s’est arrêté sur une erreur.',
   'note.editorFrameOnly': 'L’éditeur ouvre le portique, ses sections et ses appuis. Les masses d’étage et le mouvement du sol ne sont pas repris.',
+  'refuse.barsDoNotFit': 'les barres ne rentrent pas : l’espacement libre est inférieur à 1,5 diamètre ou 40 mm. Utilisez moins de barres, des barres plus fines ou une section plus grande.',
   'refuse.noLoad': 'il n’y a pas de charge. Choisissez une charge supérieure à zéro.',
   'refuse.nonFinite': 'la solution n’est pas finie.',
   'pane.moment': 'Moment fléchissant',
@@ -974,7 +979,7 @@ const fr: Record<Key, string> = {
 
 const tr: Record<Key, string> = {
   'index.title': 'Canlı yapı örnekleri',
-  'index.lead': 'Bir kaydırıcıyı hareket ettirin, Stabileo motoru modeli tarayıcınızda yeniden çözsün. Her örnek onu doğrulayan kontrolü belirtir, editörde açılır ve değerlerini paylaşılabilir bir bağlantıda saklar.',
+  'index.lead': 'Bir kaydırıcıyı hareket ettirin, Stabileo motoru modeli tarayıcınızda yeniden çözsün. Her örnek onu doğrulayan kontrolü belirtir ve değerlerini paylaşılabilir bir bağlantıda saklar; çerçeve modelleri editörde de açılır.',
   'index.meta': 'Stabileo motorunun tarayıcıda canlı çözdüğü parametrik yapı modelleri: kirişler ve çerçeveler, kolonlar üzerinde bir döşeme, bir deprem zaman tanım alanı analizi, bir betonarme kolon, bir outrigger taraması ve çelik bir kulenin modları ile burkulması.',
   publisher: 'Ergodic Group tarafından yayımlanmıştır.',
   open: 'Örneği aç',
@@ -1006,6 +1011,7 @@ const tr: Record<Key, string> = {
   'cert.code.noResidual': 'ayrık denklemlerin artıkları sertifikalanmadı',
   'refuse.engine': 'çözücü bir hatayla durdu.',
   'note.editorFrameOnly': 'Editör çerçeveyi, kesitlerini ve mesnetlerini açar. Kat kütleleri ve zemin hareketi aktarılmaz.',
+  'refuse.barsDoNotFit': 'donatılar sığmıyor: net aralık 1,5 donatı çapından veya 40 mm’den küçük. Daha az veya daha ince donatı ya da daha büyük bir kesit kullanın.',
   'refuse.noLoad': 'yük yok. Sıfırdan büyük bir yük girin.',
   'refuse.nonFinite': 'çözüm sonlu değil.',
   'pane.moment': 'Eğilme momenti',
