@@ -344,8 +344,9 @@ export function fixtureLoadCases<C extends FixtureCombination>(
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
   const loaded = new Set(json.loads.map((l) => (l.data?.caseId as number | undefined) ?? 1));
   const unlisted = [...loaded].filter((id) => !now.has(id));
-  if (unlisted.length > 0) throw new Error(tp('fixture.err.loadCaseMissing', { model: json.name, ids: unlisted.join(', ') }));
+  if (unlisted.length > 0 && loadCases.length > 0) throw new Error(tp('fixture.err.loadCaseMissing', { model: json.name, ids: unlisted.join(', ') }));
   const factorsOf = (c: { factors?: unknown }) => (Array.isArray(c.factors) ? c.factors as Array<{ caseId: number; factor?: number } | null | undefined> : null);
+  if (json.combinations.length === 0 && json.loadCases.length === 0) return { loadCases, combinations: current.combinations, rebuilt: false };
   if (json.combinations.length === 0) {
     const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
     const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
