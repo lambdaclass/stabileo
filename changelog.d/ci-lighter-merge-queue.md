@@ -12,5 +12,6 @@ Browser jobs (E2E, E2E Site and the quarantined E2E) can be limited to a smaller
 labelled `stabileo-e2e` once the repository variable `STABILEO_E2E_POOL` is `true`, so a host no
 longer runs a dozen headless Chromes at once; without it they stay on the `stabileo` pool.
 
-The self-hosted runners take only the merge queue and runs on `main` (pushes, the nightly run
-and manual runs of `main`); a manual run of any other branch goes to GitHub-hosted runners.
+Outside the PR pool (same-repository pull requests, when `STABILEO_PR_POOL` is on), the
+self-hosted runners take only the merge queue and runs on `main` (pushes, the nightly run and
+manual runs of `main`); a manual run of any other branch goes to GitHub-hosted runners.
