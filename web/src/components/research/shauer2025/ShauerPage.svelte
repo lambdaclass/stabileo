@@ -20,7 +20,8 @@
   import ExperimentShell from '../shell/ExperimentShell.svelte';
   import ExperimentLink from '../shell/ExperimentLink.svelte';
   import { Playback, type Source } from '../shell/playback.svelte';
-  import { shauerReplay, loadedShauerReplay } from './replay-data';
+  import { SHAUER_REPLAY_URL, loadedShauerReplay } from './replay-data';
+  import { fetchReplay } from '../shell/replay';
   import { num, qty } from '../shell/format';
   import Sci from '../shell/Sci.svelte';
   import StabileoViewer from '../shell/StabileoViewer.svelte';
@@ -105,7 +106,7 @@
 
   onMount(() => {
     const abort = new AbortController();
-    shauerReplay()
+    (arrived ? Promise.resolve(arrived) : fetchReplay<Step>(SHAUER_REPLAY_URL, abort.signal))
       .then((d) => {
         if (abort.signal.aborted) return;
         if (d !== arrived) {
