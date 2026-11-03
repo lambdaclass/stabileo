@@ -72,6 +72,7 @@ const words: Translations = {
   'course.statics.fm.s9.axialOff': 'Eksenel şekil değiştirme olmadan yapı, bunu hesaba katan rijitlik yöntemindekinden daha rijittir. En büyük fark {d}, en büyük kuvvete oranı {pct}: dışarıda bıraktığınız eksenel terimin katkısı budur.',
   'course.statics.fm.s9.axialUnverified': 'Rijitlik yöntemiyle en büyük fark {d}, en büyük kuvvetin {pct}\'i. Dışarıda bıraktığınız eksenel terimden gelebilir, ancak aynı varsayımla bir referans çözüm bunu doğrulayamadığından sonuç doğrulanmamıştır.',
   'course.statics.fm.s9.rigidOk': 'Eksenel olarak rijit çubuklarla çözülen rijitlik yöntemiyle, yani seçtiğiniz aynı varsayımla uyuşuyor.',
+  'course.statics.fm.s9.rigidBad': 'Eksenel olarak rijit çubuklarla çözülen rijitlik yöntemiyle, yani seçtiğiniz aynı varsayımla uyuşmuyor: çözüm doğrulanmadı.',
 
   // Virtüel iş
   'course.statics.vw.choose': 'Belgenin üstünde, Ne hesaplanacak bölümünde büyüklüğü (yer değiştirme, dönme, göreli yer değiştirme veya göreli dönme), düğümü veya düğümleri ve doğrultuyu seçersiniz. Adım adım çözümü açmadan önce modelde bir düğüm de seçebilirsiniz.',

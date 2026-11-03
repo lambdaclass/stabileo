@@ -176,14 +176,14 @@
   </table>
 {:else if step === 9}
   <p class="fm-exp">{t('fm.s9.explanation')}</p>
-  {#if r.verification.axialOff && !r.verification.ok}
+  {#if r.verification.axialOff && r.verification.rigidOk === false}
+    <p class="fm-verdict bad" data-testid="fm-verdict">{t('course.statics.fm.s9.rigidBad')}</p>
+  {:else if r.verification.axialOff && !r.verification.ok}
     {#if r.verification.rigidOk === true}
       <p class="fm-verdict" data-testid="fm-verdict-rigid">{t('course.statics.fm.s9.rigidOk')}</p>
       <p class="fm-verdict fm-axial-off" data-testid="fm-verdict">
         {t('course.statics.fm.s9.axialOff').replace('{d}', num(worst, 3)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)}
       </p>
-    {:else if r.verification.rigidOk === false}
-      <p class="fm-verdict bad" data-testid="fm-verdict">{t('fm.s9.bad').replace('{d}', num(worst, 3))}</p>
     {:else}
       <p class="fm-verdict bad" data-testid="fm-verdict">
         {t('course.statics.fm.s9.axialUnverified').replace('{d}', num(worst, 3)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)}

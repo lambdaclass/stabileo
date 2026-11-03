@@ -70,6 +70,7 @@ const words: Translations = {
   'course.statics.fm.s9.axialOff': 'Ohne Normalkraftverformung ist das Tragwerk steifer als beim Weggrößenverfahren, das sie berücksichtigt. Der größte Unterschied beträgt {d}, {pct} der größten Kraft: So viel trägt der weggelassene Normalkraftanteil bei.',
   'course.statics.fm.s9.axialUnverified': 'Die größte Abweichung vom Weggrößenverfahren beträgt {d}, {pct} der größten Kraft. Sie kann vom weggelassenen Normalkraftterm stammen, aber keine Vergleichslösung mit derselben Annahme kann das prüfen, daher ist das Ergebnis nicht verifiziert.',
   'course.statics.fm.s9.rigidOk': 'Es stimmt mit dem Weggrößenverfahren überein, gelöst mit dehnstarren Stäben, derselben Annahme, die Sie gewählt haben.',
+  'course.statics.fm.s9.rigidBad': 'Es stimmt nicht mit dem Weggrößenverfahren überein, gelöst mit dehnstarren Stäben, derselben Annahme, die Sie gewählt haben: die Lösung ist nicht verifiziert.',
   'course.statics.vw.choose': 'Über dem Dokument wählen Sie unter Berechnungsziel die Größe (Verschiebung, Verdrehung, Relativverschiebung oder Relativverdrehung), den Knoten oder die Knoten und die Richtung. Sie können auch vor dem Öffnen des Schritt für Schritt einen Knoten im Modell auswählen.',
   'course.statics.vw.targetParams': 'Berechnet wird, was Sie über dem Dokument unter Berechnungsziel gewählt haben.',
   'course.statics.vw.target.dispAngle': 'Verschiebung des Knotens {n} in der Richtung unter {a}° zur Horizontalen, gemessen im Sinn der Einheitslast.',
