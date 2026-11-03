@@ -18,7 +18,7 @@ env:
 
 jobs:
   stryker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The first full run reached 3300 of 3322 mutants at 300 min (concurrency 3).
     timeout-minutes: 345
     steps:

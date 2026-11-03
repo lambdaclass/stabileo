@@ -2,7 +2,7 @@
 
 `nightly.yml` starts at 05:00 UTC and accepts `workflow_dispatch`. Set the
 repository Actions variable `STABILEO_SELF_HOSTED=true` to route compute jobs on
-`main` to `[self-hosted, stabileo]`. Otherwise they use `ubuntu-latest`. Dispatches
+`main` to `[self-hosted, stabileo]`. Otherwise they use `ubuntu-24.04`. Dispatches
 on other branches always use hosted runners and dry-run reporting. There is no
 pull-request trigger. The plan and findings jobs always run on GitHub-hosted
 runners. Only `findings` has `issues: write`; compute jobs have `contents: read`.
