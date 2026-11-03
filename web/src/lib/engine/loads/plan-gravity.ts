@@ -297,7 +297,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       if (cover >= 0.98) continue;
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
-      if (why === 'lowHeadroom') {
+      if (why === 'lowHeadroom' || (why === 'headroomUnclear' && !covered(centroid(panel.polygon), z))) {
         const { share, kept } = deck!.uncarried(panel.polygon, z, held);
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
@@ -313,10 +313,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const why = deckless([[a[0], a[1]], [b[0], b[1]]], z);
       const beside = (panelsAt.get(z) ?? []).filter((poly) => onBoundary(model, e, poly)).map((poly) => deckless(poly, z));
       const floorBeside = beside.some((w) => w === null || w === 'headroomUnclear');
+      const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
       if (why === 'headroomUnclear' || (why === 'lowHeadroom' && floorBeside)) {
-        if (covered([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], z)) unclear++; else unclearRoof++;
+        if (covered(mid, z)) unclear++; else unclearRoof++;
       }
-      if (why === 'lowHeadroom' && !floorBeside) {
+      if (!floorBeside && (why === 'lowHeadroom' || (why === 'headroomUnclear' && !covered(mid, z)))) {
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const axis = { p: [a[0], a[1]] as [number, number], u: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as [number, number], L };
         const { share, kept } = deck!.uncarried(tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth), z, held);
@@ -335,7 +336,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
         held.kept.push({ region: kept, z });
-        fringes++;
+        if (why === 'lowHeadroom') fringes++;
         continue;
       }
       held.members.push([a, b]);

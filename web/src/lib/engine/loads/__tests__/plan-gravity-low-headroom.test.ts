@@ -161,7 +161,7 @@ describe('the industrial hall and the stadium of the examples', () => {
       expect(m.spans!.length).toBeGreaterThan(0);
       for (const s of m.spans!) {
         expect(s.width).toBeGreaterThan(0);
-        expect(s.width).toBeLessThanOrEqual(3);
+        expect(s.width).toBeLessThanOrEqual(3 + 1e-9);
       }
       const area = m.spans!.reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength;
       expect(g.roofAreaOf.get(m.elementId)).toBeCloseTo(area, 9);
