@@ -682,7 +682,7 @@ mod tests {
     fn known_issues_registry_and_ledger_agree() {
         let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
-        for line in ledger.lines().filter(|l| l.starts_with("| #") && l.split('|').nth(2).is_some_and(|ids| ids.contains('`'))) {
+        for line in ledger.lines().filter(|l| l.starts_with("| #") && l.split('|').nth(3).is_some_and(|modes| modes.contains("WARN") || modes.contains("REFUSE"))) {
             for number in line.split('|').nth(1).unwrap().split(',') {
                 contained.insert(number.trim().trim_start_matches('#').parse::<u32>().unwrap());
             }
