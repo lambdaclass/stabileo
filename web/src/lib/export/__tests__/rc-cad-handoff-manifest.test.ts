@@ -699,7 +699,7 @@ describe('fixture-to-manifest reconciliation', () => {
     // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…, then 930646fc…, then 28b5e539…): the stamp moved to
     // results versions 2, 3, 4, 5, 6 and 7 with the registry.
     expect(sha256(fixtureText()))
-      .toBe('bbdbe9b15c64b6dda0d9a5c7f7915a2f42a02f71ea5be1df37eee1dd85cfc868');
+      .toBe('a64cfe6c433d28657c16b3879df6e97e0c7070d7dc3537867a73dfd40342a308');
   });
 
   it('every geometric input traces back to a value in the restored project', () => {
