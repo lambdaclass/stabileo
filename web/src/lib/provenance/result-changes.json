@@ -1,8 +1,61 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 8,
+  "currentResultsVersion": 10,
   "changes": [
+    {
+      "id": "static-modal-runtime-self-checks",
+      "resultsVersion": 10,
+      "date": "2026-10-29",
+      "prs": [865],
+      "area": "analysis",
+      "when": { "allOf": [["members", "shells", "connectors"], ["analysis:linear", "analysis:modal"]] },
+      "title": {
+        "en": "Static and modal results check themselves before publication",
+        "es": "Los resultados estáticos y modales se verifican antes de mostrarse",
+        "pt": "Os resultados estáticos e modais são verificados antes da apresentação"
+      },
+      "explanation": {
+        "en": "Static residual and reaction balance, and modal residual and mass orthogonality, now produce structured diagnostics. Failed checks show a warning; severe or non-finite failures refuse the result. Passing checks leave all numerical results unchanged.",
+        "es": "El residuo y el equilibrio de reacciones estáticos, y el residuo y la ortogonalidad de masa modales, ahora generan diagnósticos. Las fallas muestran una advertencia; las fallas graves o no finitas rechazan el resultado. Las verificaciones aprobadas no cambian los valores numéricos.",
+        "pt": "O resíduo e o equilíbrio de reações estáticos, e o resíduo e a ortogonalidade de massa modais, agora geram diagnósticos. Falhas mostram um aviso; falhas graves ou não finitas recusam o resultado. Verificações aprovadas não alteram valores numéricos."
+      },
+      "changelog": {
+        "file": "docs/safety/self-checks.md",
+        "heading": "First-slice contract and thresholds"
+      }
+    },
+    {
+      "id": "modal-repeated-eigenspace-completeness",
+      "resultsVersion": 9,
+      "date": "2026-10-29",
+      "prs": [827],
+      "area": "analysis",
+      "when": {
+        "allOf": [["members", "shells", "curvedShells", "connectors", "springs"]],
+        "any": [
+          "analysis:modal",
+          "analysis:spectral",
+          "analysis:timeHistory",
+          "analysis:harmonic",
+          "analysis:buckling"
+        ]
+      },
+      "title": {
+        "en": "Repeated eigenvalues retain their multiplicity",
+        "es": "Los autovalores repetidos conservan su multiplicidad",
+        "pt": "Autovalores repetidos preservam sua multiplicidade"
+      },
+      "explanation": {
+        "en": "Repeated modes could be missing. Re-run modal, dependent dynamic and buckling analyses; frequencies, masses and responses may change.",
+        "es": "Podían faltar modos repetidos. Recalcule los análisis modal, dinámicos dependientes y de pandeo; pueden cambiar frecuencias, masas y respuestas.",
+        "pt": "Podiam faltar modos repetidos. Recalcule as análises modal, dinâmicas dependentes e de flambagem; frequências, massas e respostas podem mudar."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-10-modal-completeness.md",
+        "heading": "Preserve repeated modes and certify finite-spectrum exhaustion"
+      }
+    },
     {
       "id": "ec2-flexure-strain-compatibility",
       "resultsVersion": 8,
@@ -72,6 +125,7 @@
           "shells"
         ]
       },
+      "quantities": ["quadStresses.sigmaXx", "quadStresses.sigmaYy", "quadStresses.tauXy", "quadStresses.vonMises"],
       "title": {
         "en": "Solid-shell stresses use local shell axes",
         "es": "Las tensiones del sólido-lámina usan ejes locales",
@@ -512,6 +566,7 @@
       "prs": [401],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Solid shell (SHB8) no longer too stiff in thin plates",
         "es": "El sólido-lámina (SHB8) ya no es demasiado rígido en placas delgadas",
@@ -973,6 +1028,7 @@
       "prs": [289, 307],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Shells: warped MITC4 corrected, solid shells frame-invariant",
         "es": "Cáscaras: MITC4 alabeado corregido, cáscaras sólidas invariantes",
@@ -992,6 +1048,7 @@
       "prs": [],
       "area": "analysis",
       "when": { "any": ["shells"] },
+      "quantities": ["*"],
       "title": {
         "en": "Shell elements: rigid motions, the DKT triangle and three sign conventions",
         "es": "Elementos de cáscara: movimientos rígidos, el triángulo DKT y tres convenciones de signo",

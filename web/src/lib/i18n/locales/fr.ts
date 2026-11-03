@@ -1,6 +1,10 @@
 import type { Translations } from '../types';
 
 const fr: Translations = {
+  "advanced.finiteSpectrum": "Il existe seulement {n} modes finis. Les directions sans masse n’ont pas de fréquence finie.",
+  "advanced.finiteSpectrumOne": "Il n’existe qu’un seul mode fini. Les directions sans masse n’ont pas de fréquence finie.",
+  "advanced.modalIncomplete": "Analyse modale refusée : seuls {n} des {m} modes calculés ont une fréquence positive (ω² > 1e-10). Aucun ensemble incomplet de modes n’a été renvoyé. Vérifiez le conditionnement de la rigidité et de la masse ainsi que les appuis.",
+  "advanced.eigenFailure": "Analyse aux valeurs propres refusée : la convergence et la complétude de Sturm n’ont pas pu être établies pour {n} degrés de liberté libres. Aucun ensemble incomplet de résultats n’a été renvoyé. Vérifiez les appuis et les relâchements (mécanismes), le conditionnement de la rigidité et de la masse, ou demandez moins de modes.",
   "landing.navTools": "Outils",
 
   // ─── Shared scalar-field viewer ───
@@ -3411,6 +3415,7 @@ const fr: Translations = {
   'file.workspaceBackupKept': 'Une copie complète de l\'espace de travail précédent a été conservée dans ce navigateur (clé stabileo-workspace-backup).',
   'file.workspaceBackupFailed': 'La place manquait pour conserver une copie : l\'espace de travail stocké ne sera donc pas écrasé tant que cette page est ouverte. Utilisez Enregistrer la session pour conserver ce que vous ouvrez.',
   'file.invalidFormat': 'Format de fichier invalide. Assurez-vous qu\'il s\'agit d\'un fichier .ded de Stabileo.',
+  'file.newerVersion': 'Ce fichier a été enregistré par une version plus récente de Stabileo (format de fichier {version} ; cette version lit jusqu\'à {supported}). Il n\'a pas été ouvert et rien n\'a été modifié : ouvrez-le avec une version plus récente.',
   'file.loadedNoAxisConvention': 'Chargé sans métadonnées de convention d\'axes locaux : le modèle est maintenant évalué avec la convention d\'axes locaux corrigée, Z vers le haut. Relancez le calcul et revoyez les diagrammes et vérifications des barres.',
   'file.supportFixed': 'Encastré',
   'file.supportPinned': 'Articulé',
@@ -14121,6 +14126,16 @@ const fr: Translations = {
   'sel.copyTitle': 'Copier la sélection (Ctrl+C)',
   'sel.pasteTitle': 'Coller la copie et choisir l\'emplacement (Ctrl+V)',
   'results.showDisplacements': 'Afficher les déplacements',
+  'selfCheck.check.static_residual': 'résidu d’équilibre',
+  'selfCheck.check.static_balance': 'bilan des réactions',
+  'selfCheck.check.modal_residual': 'résidu de l’équation du mode {mode}',
+  'selfCheck.check.modal_orthogonality': 'orthogonalité en masse du mode {mode}',
+  'selfCheck.check.modal_mass': 'masse modale',
+  'selfCheck.warning': 'Autocontrôle {check} : {value} (avertissement à partir de {threshold}). Vérifiez le modèle avant d’utiliser ces résultats.',
+  'selfCheck.refused': 'Résultats refusés : l’autocontrôle {check} vaut {value}, au-delà de la limite {threshold}.',
+  'selfCheck.refusedInvalid': 'Résultats refusés : l’autocontrôle {check} a échoué ({reason}).',
+  'selfCheck.reason.nonFinite': 'une valeur n’est pas finie',
+  'selfCheck.reason.nonPositiveMass': 'la masse modale n’est pas positive',
   'resultChecks.title': 'Contrôle des résultats',
   'resultChecks.certified': 'certifié',
   'resultChecks.notCertified': 'non certifié',
