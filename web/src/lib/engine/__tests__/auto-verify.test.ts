@@ -95,7 +95,9 @@ describe('autoVerifyFromResults', () => {
     expect(verification.Vu).toBe(30);
     expect([verification.b, verification.h]).toEqual([0.30, 0.50]);
     expect(verification.biaxial?.Muz).toBe(12);
-    expect(verification.biaxial?.Muy).toBe(4);
+    expect(verification.slenderSecondary?.k).toBe(1);
+    expect(verification.biaxial?.Muy).toBe(verification.slenderSecondary?.isSlender ? verification.slenderSecondary.Mc : 4);
+    expect(verification.biaxial!.Muy).toBeGreaterThanOrEqual(4);
     expect(verification.shearSecondary?.Vu).toBe(7);
   });
 
@@ -237,6 +239,16 @@ describe('autoVerifyFromResults: column design axes (#532)', () => {
       b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8, Muy: 110,
     });
     expect(v!.biaxial!.ratio).toBeGreaterThan(unmagnified.biaxial!.ratio);
+  });
+
+  it('the secondary axis takes k = 1 whatever the joint restraint of the primary plane', () => {
+    const v = verifyElement({
+      elementId: 1, elementType: 'column', Mu: 120, Vu: 0, Nu: 800, axialLoads: [800], NuShear: 800,
+      b: 0.2, h: 0.6, fc: 25, fy: 420, cover: 0.025, stirrupDia: 8, Muy: 110, Lu: 4, psiA: 0.2, psiB: 0.2,
+    });
+    expect(v.slender!.k).toBeLessThan(1);
+    expect(v.slenderSecondary!.k).toBe(1);
+    expect(v.slenderSecondary!.klu_r).toBeCloseTo(4 / (0.3 * 0.2), 9);
   });
 
   it('a face that needs more legs gives them to the other axis too', () => {
