@@ -1,8 +1,49 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 13,
+  "currentResultsVersion": 15,
   "changes": [
+    {
+      "id": "modal-inclined-mechanism-refused",
+      "resultsVersion": 15,
+      "date": "2026-11-03",
+      "prs": [
+        1325
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "analysis:modal",
+            "analysis:spectral",
+            "seismic"
+          ],
+          [
+            "inclinedSupports"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Modal analysis refuses a mechanism that slides along inclined supports",
+        "es": "El análisis modal rechaza un mecanismo que se desliza sobre apoyos inclinados",
+        "pt": "A análise modal recusa um mecanismo que desliza sobre apoios inclinados",
+        "de": "Die Modalanalyse weist einen Mechanismus zurück, der auf geneigten Auflagern gleitet",
+        "fr": "L'analyse modale refuse un mécanisme qui glisse sur des appuis inclinés",
+        "tr": "Modal analiz eğik mesnetler üzerinde kayan bir mekanizmayı reddediyor"
+      },
+      "explanation": {
+        "en": "The check that refuses a mechanism read the mass its zero mode moves in global axes, but at an inclined support the solver works in the support's own axes, so a mechanism that slides only along inclined rollers or inclined 3D supports was taken as moving no mass: its zero mode was dropped and the other modes came back as complete, and a spectral analysis combined that incomplete set (#1315). Modal analysis now reads that mass in the support's axes and refuses such a model, naming the mechanism. Models without a mechanism return the same modes.",
+        "es": "La verificación que rechaza un mecanismo leía la masa que mueve su modo de frecuencia cero en ejes globales, pero en un apoyo inclinado el solver trabaja en los ejes del propio apoyo, así que un mecanismo que solo se desliza sobre rodillos inclinados o apoyos 3D inclinados se tomaba como si no moviera masa: su modo cero se descartaba y los demás modos se devolvían como completos, y un análisis espectral combinaba ese conjunto incompleto (#1315). Ahora el análisis modal lee esa masa en los ejes del apoyo y rechaza el modelo, nombrando el mecanismo. Los modelos sin mecanismo devuelven los mismos modos.",
+        "pt": "A verificação que recusa um mecanismo lia a massa que o seu modo de frequência zero move em eixos globais, mas num apoio inclinado o solver trabalha nos eixos do próprio apoio, então um mecanismo que só desliza sobre roletes inclinados ou apoios 3D inclinados era tomado como se não movesse massa: seu modo zero era descartado e os demais modos voltavam como completos, e uma análise espectral combinava esse conjunto incompleto (#1315). Agora a análise modal lê essa massa nos eixos do apoio e recusa o modelo, nomeando o mecanismo. Modelos sem mecanismo devolvem os mesmos modos.",
+        "de": "Die Prüfung, die einen Mechanismus zurückweist, las die von seiner Eigenform mit Frequenz null bewegte Masse in globalen Achsen, an einem geneigten Auflager rechnet der Löser aber in den Achsen des Auflagers; ein Mechanismus, der nur entlang geneigter Rollenlager oder geneigter 3D-Auflager gleitet, galt daher als masselos: seine Nullform wurde verworfen, die übrigen Eigenformen kamen als vollständig zurück, und eine Antwortspektrenanalyse kombinierte diesen unvollständigen Satz (#1315). Die Modalanalyse liest diese Masse jetzt in den Achsen des Auflagers und weist ein solches Modell unter Nennung des Mechanismus zurück. Modelle ohne Mechanismus liefern dieselben Eigenformen.",
+        "fr": "La vérification qui refuse un mécanisme lisait la masse déplacée par son mode à fréquence nulle dans les axes globaux, mais sur un appui incliné le solveur travaille dans les axes propres de l'appui ; un mécanisme qui ne glisse que le long de rouleaux inclinés ou d'appuis 3D inclinés était donc considéré comme sans masse : son mode nul était écarté, les autres modes étaient rendus comme complets, et une analyse spectrale combinait cet ensemble incomplet (#1315). L'analyse modale lit désormais cette masse dans les axes de l'appui et refuse un tel modèle en nommant le mécanisme. Les modèles sans mécanisme rendent les mêmes modes.",
+        "tr": "Bir mekanizmayı reddeden kontrol, sıfır frekanslı modunun hareket ettirdiği kütleyi global eksenlerde okuyordu; oysa eğik bir mesnette çözücü mesnedin kendi eksenlerinde çalışır. Bu yüzden yalnızca eğik kayıcı mesnetler ya da eğik 3B mesnetler boyunca kayan bir mekanizma kütle hareket ettirmiyor sayılıyordu: sıfır modu atılıyor, diğer modlar eksiksizmiş gibi dönüyor ve spektral analiz bu eksik kümeyi birleştiriyordu (#1315). Modal analiz artık bu kütleyi mesnedin eksenlerinde okuyor ve böyle bir modeli mekanizmayı adlandırarak reddediyor. Mekanizması olmayan modeller aynı modları döndürür."
+      },
+      "changelog": {
+        "file": "changelog.d/1315-inclined-modal-mechanism.md",
+        "heading": "Modal analysis refuses a mechanism that slides along inclined supports (2026-11-03)"
+      }
+    },
     {
       "id": "time-history-massless-start",
       "resultsVersion": 13,
