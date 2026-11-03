@@ -181,7 +181,7 @@ fn solve_time_history_2d_inner(
     let f_1_nf = compute_force_at_step(input, &dof_num, its, m_ground_r.as_deref(), &f_static, 1, dt);
     let f_1 = if let Some(ref cs) = cs { cs.reduce_vector(&f_1_nf) } else { f_1_nf };
     let f_dot: Vec<f64> = f_1.iter().zip(&f_0).map(|(b, a)| (b - a) / dt).collect();
-    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &[], &mut a_vec)?;
+    let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &[], &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -262,6 +262,16 @@ fn solve_time_history_2d_inner(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        let settled = match &massless_rows {
+            Some(rows) => {
+                let slope: Vec<f64> = f_next.iter().zip(&f_prev).map(|(b, a)| (b - a) / dt).collect();
+                let (mut v_out, mut a_out) = (v.clone(), a_vec.clone());
+                rows.settle(&mut v_out, &mut a_out, &slope)?;
+                Some((v_out, a_out))
+            }
+            None => None,
+        };
+        let (v_out, a_out) = settled.as_ref().map_or((&v, &a_vec), |(v, a)| (v, a));
         if let Some(Some(t)) = trace.as_deref_mut() {
             t.push(&f_next, &u, &v, &a_vec);
         }
@@ -270,8 +280,8 @@ fn solve_time_history_2d_inner(
         // Record history — expand to nf for recording
         time_steps.push(t_next);
         let u_nf = expand(&u);
-        let v_nf = expand(&v);
-        let a_nf = expand(&a_vec);
+        let v_nf = expand(v_out);
+        let a_nf = expand(a_out);
         record_state(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), &mut histories);
 
         // Track peak displacement (nf space; the norm is frame-independent)
@@ -466,15 +476,14 @@ fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec
 }
 
 /// Also moves u or v: a load at t = 0 on a massless direction is met by a jump in
-/// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds;
-/// massless velocities (undamped) and accelerations follow from differentiating those rows,
-/// with `f_dot` the load's slope over the first step.
+/// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds.
+/// Returns the massless rows when M is singular, so that their rates can be settled at every step.
 #[allow(clippy::too_many_arguments)]
 fn compute_initial_state(
     m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64,
     u: &mut [f64], v: &mut [f64], f: &[f64], f_dot: &[f64],
     n: usize, triads: &[[usize; 3]], a: &mut [f64],
-) -> Result<(), String> {
+) -> Result<Option<MasslessRows>, String> {
     let residual = |u: &[f64], v: &[f64]| -> Vec<f64> {
         let ku = k.sym_mat_vec(u);
         let cv = c.map_or_else(|| vec![0.0; n], |c| c.sym_mat_vec(v));
@@ -484,7 +493,7 @@ fn compute_initial_state(
 
     if let Ok(x) = solve_spd_sparse_or_dense(m, &rhs, "initial acceleration") {
         a.copy_from_slice(&x);
-        return Ok(());
+        return Ok(None);
     }
 
     let basis = mass_triad_basis(m, n, triads);
@@ -498,31 +507,23 @@ fn compute_initial_state(
     let (massive, massless): (Vec<usize>, Vec<usize>) = (0..n).partition(|&i| md[i].abs() > scale[i] * 64.0 * f64::EPSILON);
     let kt = rotate_symmetric(k, &basis);
     let k_zz = kt.extract_principal_submatrix(&massless);
-    let condense = |r: &[f64]| -> Result<Vec<f64>, String> {
-        let r_z: Vec<f64> = massless.iter().map(|&i| r[i]).collect();
-        let y_z = solve_spd_sparse_or_dense(&k_zz, &r_z, "massless part at t = 0").map_err(|_| {
-            format!("{MASSLESS_MECHANISM}: Time history: part of the model has neither mass nor stiffness in some direction (a massless mechanism), so its motion is undetermined; no result is returned")
-        })?;
-        let mut y = vec![0.0; n];
-        for (j, &i) in massless.iter().enumerate() {
-            y[i] = y_z[j];
-        }
-        Ok(y)
+    let damping = (c.is_some() && a1 > 0.0).then_some(a1);
+    let factor = if massless.is_empty() {
+        None
+    } else {
+        numeric_cholesky(&std::rc::Rc::new(symbolic_cholesky(&k_zz)), &k_zz).map(FactoredMatrix::Sparse)
     };
+    let rows = MasslessRows { basis, massless, kt, k_zz, factor, damping };
+    let has_massless = !rows.massless.is_empty();
 
-    if !massless.is_empty() {
-        let y = from_basis(&condense(&rotate_vector(&rhs, &basis))?, &basis);
-        match c {
-            Some(_) if a1 > 0.0 => v.iter_mut().zip(&y).for_each(|(x, d)| *x += d / a1),
-            _ => {
-                u.iter_mut().zip(&y).for_each(|(x, d)| *x += d);
-                let kv = kt.sym_mat_vec(&rotate_vector(v, &basis));
-                let r: Vec<f64> = rotate_vector(f_dot, &basis).iter().zip(&kv).map(|(d, k)| d - k).collect();
-                v.iter_mut().zip(from_basis(&condense(&r)?, &basis)).for_each(|(x, d)| *x += d);
-            }
+    if has_massless {
+        let y = from_basis(&rows.condense(&rotate_vector(&rhs, &rows.basis))?, &rows.basis);
+        match damping {
+            Some(a1) => v.iter_mut().zip(&y).for_each(|(x, d)| *x += d / a1),
+            None => u.iter_mut().zip(&y).for_each(|(x, d)| *x += d),
         }
     }
-    let rt = rotate_vector(&residual(u, v), &basis);
+    let rt = rotate_vector(&residual(u, v), &rows.basis);
     let rhs_m: Vec<f64> = massive.iter().map(|&i| rt[i]).collect();
     let m_mm = mt.extract_principal_submatrix(&massive);
     let x = solve_spd_sparse_or_dense(&m_mm, &rhs_m, "initial acceleration").map_err(|_| {
@@ -532,17 +533,62 @@ fn compute_initial_state(
     for (j, &i) in massive.iter().enumerate() {
         at[i] = x[j];
     }
-    if !massless.is_empty() {
-        let mut g: Vec<f64> = kt.sym_mat_vec(&at).iter().map(|x| -x).collect();
-        if c.is_some() && a1 > 0.0 {
-            let kv = kt.sym_mat_vec(&rotate_vector(v, &basis));
-            let fd = rotate_vector(f_dot, &basis);
+    a.copy_from_slice(&from_basis(&at, &rows.basis));
+    if !has_massless {
+        return Ok(None);
+    }
+    rows.settle(v, a, f_dot)?;
+    Ok(Some(rows))
+}
+
+/// The massless directions of a singular M, in the basis that diagonalises M's rotation
+/// triads. Their rows carry no inertia, so their velocity (undamped) and acceleration
+/// follow from differentiating those rows, not from the integrator's recurrences.
+struct MasslessRows {
+    basis: Vec<Vec<(usize, f64)>>,
+    massless: Vec<usize>,
+    kt: CscMatrix,
+    k_zz: CscMatrix,
+    factor: Option<FactoredMatrix>,
+    damping: Option<f64>,
+}
+
+impl MasslessRows {
+    fn condense(&self, r: &[f64]) -> Result<Vec<f64>, String> {
+        let r_z: Vec<f64> = self.massless.iter().map(|&i| r[i]).collect();
+        let y_z = match &self.factor {
+            Some(factor) => solve_with_factored(factor, &r_z, r_z.len()),
+            None => solve_spd_sparse_or_dense(&self.k_zz, &r_z, "massless part").map_err(|_| {
+                format!("{MASSLESS_MECHANISM}: Time history: part of the model has neither mass nor stiffness in some direction (a massless mechanism), so its motion is undetermined; no result is returned")
+            })?,
+        };
+        let mut y = vec![0.0; r.len()];
+        for (j, &i) in self.massless.iter().enumerate() {
+            y[i] = y_z[j];
+        }
+        Ok(y)
+    }
+
+    /// Damped: `K_ZZ·a_Z = −(K·a_M)_Z + (ḟ − K·v)_Z / a1`; undamped: `K_ZZ·v_Z = (ḟ − K·v_M)_Z`
+    /// and `K_ZZ·a_Z = −(K·a_M)_Z`, with `f_dot` the load's slope over the step.
+    fn settle(&self, v: &mut [f64], a: &mut [f64], f_dot: &[f64]) -> Result<(), String> {
+        let fd = rotate_vector(f_dot, &self.basis);
+        let mut vt = rotate_vector(v, &self.basis);
+        if self.damping.is_none() {
+            let r: Vec<f64> = fd.iter().zip(self.kt.sym_mat_vec(&vt)).map(|(d, k)| d - k).collect();
+            vt.iter_mut().zip(self.condense(&r)?).for_each(|(x, d)| *x += d);
+            v.copy_from_slice(&from_basis(&vt, &self.basis));
+        }
+        let mut at = rotate_vector(a, &self.basis);
+        let mut g: Vec<f64> = self.kt.sym_mat_vec(&at).iter().map(|x| -x).collect();
+        if let Some(a1) = self.damping {
+            let kv = self.kt.sym_mat_vec(&vt);
             g.iter_mut().zip(kv.iter().zip(&fd)).for_each(|(x, (k, d))| *x += (d - k) / a1);
         }
-        at.iter_mut().zip(condense(&g)?).for_each(|(x, d)| *x += d);
+        at.iter_mut().zip(self.condense(&g)?).for_each(|(x, d)| *x += d);
+        a.copy_from_slice(&from_basis(&at, &self.basis));
+        Ok(())
     }
-    a.copy_from_slice(&from_basis(&at, &basis));
-    Ok(())
 }
 
 /// The free (reduced) indices of each node's three rotations (θx, θy, θz), for
@@ -1258,7 +1304,7 @@ fn solve_time_history_3d_inner(
     let f_1 = if let Some(ref cs) = cs3 { cs.reduce_vector(&f_1_nf) } else { f_1_nf };
     let f_dot: Vec<f64> = f_1.iter().zip(&f_0).map(|(b, a)| (b - a) / dt).collect();
     let triads = rotation_triads(&dof_num, cs3.as_ref());
-    compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &triads, &mut a_vec)?;
+    let massless_rows = compute_initial_state(&m_s, c_s, &k_s, a1, &mut u, &mut v, &f_0, &f_dot, ns, &triads, &mut a_vec)?;
     if let Some(t) = trace.as_deref_mut() {
         let mut tr = DynamicTrace::start(&k_s, &m_s, a0, a1, beta, gamma, alpha, dt);
         tr.push(&f_0, &u, &v, &a_vec);
@@ -1337,6 +1383,16 @@ fn solve_time_history_3d_inner(
         u = u_new;
         v = v_new;
         a_vec = a_new;
+        let settled = match &massless_rows {
+            Some(rows) => {
+                let slope: Vec<f64> = f_next.iter().zip(&f_prev).map(|(b, a)| (b - a) / dt).collect();
+                let (mut v_out, mut a_out) = (v.clone(), a_vec.clone());
+                rows.settle(&mut v_out, &mut a_out, &slope)?;
+                Some((v_out, a_out))
+            }
+            None => None,
+        };
+        let (v_out, a_out) = settled.as_ref().map_or((&v, &a_vec), |(v, a)| (v, a));
         if let Some(Some(t)) = trace.as_deref_mut() {
             t.push(&f_next, &u, &v, &a_vec);
         }
@@ -1345,8 +1401,8 @@ fn solve_time_history_3d_inner(
         // Expand and record
         time_steps.push(t_next);
         let u_nf = expand3(&u);
-        let v_nf = expand3(&v);
-        let a_nf = expand3(&a_vec);
+        let v_nf = expand3(v_out);
+        let a_nf = expand3(a_out);
         record_state_3d(&dof_num, &tracked_nodes, &assembly::to_global(&u_nf, n, its), &assembly::to_global(&v_nf, n, its), &assembly::to_global(&a_nf, n, its), dpn, &mut histories);
 
         let disp_norm: f64 = u_nf.iter().map(|x| x * x).sum::<f64>().sqrt();

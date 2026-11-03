@@ -252,3 +252,50 @@ fn an_undamped_massless_tip_under_a_ramp_stretches_at_the_load_rate() {
     let off_a = aa.iter().zip(&ab).map(|(a, b)| (b - a).abs()).fold(0.0f64, f64::max);
     assert!(peak > 0.0 && off_a <= 1e-6 * peak, "a_B − a_A reaches {:.3e} of the peak a_A", off_a / peak);
 }
+
+fn ramp_then_hold(xi: f64, slope: f64, kink: f64, dt: f64, n_steps: usize) -> TimeHistoryResult {
+    let mut input = serde_json::to_value(chain(dt, n_steps, xi, 3, 0.0)).unwrap();
+    let record = |t: f64, f: f64| json!({"time": t, "loads": [{"nodeId": 3, "fx": f, "fz": 0.0, "my": 0.0}]});
+    input["forceHistory"] = json!([record(0.0, 0.0), record(kink, slope * kink), record(1e3, slope * kink)]);
+    solve_time_history_2d(&serde_json::from_value(input).unwrap()).unwrap()
+}
+
+#[test]
+fn an_undamped_massless_tip_holds_its_rates_after_a_kink_in_the_load() {
+    let (slope, dt) = (10.0, period() / 400.0);
+    let kink = 100.37 * dt;
+    let r = ramp_then_hold(0.0, slope, kink, dt, 400);
+    let rate = slope / k2();
+    let (va, vb, aa, ab) = (vx(&r, 2), vx(&r, 3), ax(&r, 2), ax(&r, 3));
+    let peak = aa.iter().fold(0.0f64, |m, a| m.max(a.abs()));
+    for (n, &t) in r.time_steps.iter().enumerate() {
+        if t > kink && t - dt < kink {
+            continue;
+        }
+        let exact = if t < kink { rate } else { 0.0 };
+        assert!((vb[n] - va[n] - exact).abs() <= 1e-9 * rate, "t = {t}: v_B − v_A = {:.4e}, the load gives {exact:.4e}", vb[n] - va[n]);
+        assert!((ab[n] - aa[n]).abs() <= 1e-6 * peak, "t = {t}: a_B − a_A = {:.4e} against a peak a_A of {peak:.4e}", ab[n] - aa[n]);
+    }
+}
+
+#[test]
+fn a_damped_massless_tip_relaxes_after_a_kink_in_the_load() {
+    let (slope, dt) = (10.0, period() / 400.0);
+    let kink = 100.37 * dt;
+    let mut input = serde_json::to_value(chain(dt, 400, 0.05, 3, 0.0)).unwrap();
+    let record = |t: f64, f: f64| json!({"time": t, "loads": [{"nodeId": 3, "fx": f, "fz": 0.0, "my": 0.0}]});
+    input["forceHistory"] = json!([record(0.0, 0.0), record(kink, slope * kink), record(1e3, slope * kink)]);
+    let (r, trace) = solve_time_history_2d_traced(&serde_json::from_value(input).unwrap()).unwrap();
+    let a1 = trace.a1;
+    let w = |t: f64| slope / k2() * (t - a1 + a1 * (-t / a1).exp());
+    let held = slope * kink / k2();
+    let w_dd = |t: f64| if t < kink { slope / (k2() * a1) * (-t / a1).exp() } else { (w(kink) - held) / (a1 * a1) * (-(t - kink) / a1).exp() };
+    let scale = slope / (k2() * a1);
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    for (n, &t) in r.time_steps.iter().enumerate() {
+        if t > kink && t - 2.0 * dt < kink {
+            continue;
+        }
+        assert!((ab[n] - aa[n] - w_dd(t)).abs() <= 3e-2 * scale, "t = {t}: a_B − a_A = {:.4e}, the first-order closed form gives {:.4e}", ab[n] - aa[n], w_dd(t));
+    }
+}
