@@ -17,7 +17,8 @@
 
   const on = $derived(uiStore.loadCasesEnabled);
   const solved = $derived(resultsStore.perCombo.size > 0);
-  const governing = $derived(solved ? governingByMember() : new Map());
+  const current = $derived(solved && !resultsStore.combinationsDirty);
+  const governing = $derived(current ? governingByMember() : new Map());
   const rows = $derived([...governing.entries()].sort((a, b) => a[0] - b[0]));
 
   type Ref = { comboName: string; value: number } | undefined;
@@ -63,7 +64,7 @@
       <button class="lsp-primary" onclick={runSolve} disabled={modelStore.combinations.length === 0} data-testid="load-states-solve">{t('course.influence.states.solve')}</button>
       {#if modelStore.combinations.length === 0}<p class="lsp-note">{t('course.influence.states.needCombos')}</p>{/if}
     {/if}
-    {#if solved}
+    {#if current}
       <div class="lsp-row">
         <button class="lsp-primary" class:on={resultsStore.isEnvelopeActive} onclick={showEnvelope} data-testid="load-states-envelope">{t('course.influence.states.showEnvelope')}</button>
       </div>

@@ -49,6 +49,29 @@ describe('reading a line', () => {
     }
   });
 
+  it('a smooth peak between samples is found by solves: R_A of two spans, min −ξ(1−ξ)(2−ξ)/4 at ξ = 1 − 1/√3 of the far span', () => {
+    const L = 5;
+    const r = reading(twoSpan(L) as never, 'Rz', 1, undefined, 0.5, { g: 0, q: 0, P: 1 });
+    const xi = 1 - 1 / Math.sqrt(3);
+    const exact = -(xi * (1 - xi) * (2 - xi)) / 4;
+    expect(r.etaMin!.elementId).toBe(2);
+    expect(r.etaMin!.t).toBeCloseTo(xi, 4);
+    expect(r.etaMin!.value).toBeCloseTo(exact, 9);
+    expect(r.min.value).toBeCloseTo(exact, 9);
+    expect(r.direct.min).toBeCloseTo(exact, 9);
+  });
+
+  it('a curved line crossing zero between samples: the zones end where it does', () => {
+    const L = 5;
+    const r = reading(twoSpan(L) as never, 'M', undefined, 1, 0.3, { g: 0, q: 1, P: 0 });
+    const neg = r.min.zones.find((z) => z.elementId === 1);
+    const pos = r.max.zones.filter((z) => z.elementId === 1);
+    expect(neg).toBeUndefined();
+    expect(pos.length).toBe(1);
+    expect(r.max.value).toBeCloseTo(r.direct.max, 9);
+    expect(r.min.zones.map((z) => z.elementId)).toEqual([2]);
+  });
+
   it('a displacement line too: max and min of uz at midspan against the direct solve', () => {
     const r = reading(twoSpan(6) as never, 'uz', undefined, 1, 0.5, { g: 10, q: 15, P: 20 });
     expect(r.min.value).toBeLessThan(0);
@@ -64,6 +87,7 @@ describe('picking the section', () => {
     expect(sectionAt({ x: 9.85, y: -0.2 }, a, b, 0.3)).toBe(1);
     expect(sectionAt({ x: 5.1, y: 0 }, a, b, 0.3)).toBe(0.5);
     expect(sectionAt({ x: 2.5432, y: 0.4 }, a, b, 0.3)).toBeCloseTo(0.254, 12);
+    expect(sectionAt({ x: 1.0058, y: 0 }, { x: 0, y: 0 }, { x: 1.006, y: 0 }, 0)).toBe(1);
     expect(sectionAt({ x: -3, y: 0 }, a, b, 0.3)).toBe(0);
   });
   it('a typed x outside [0, L] is refused', () => {

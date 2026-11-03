@@ -5,13 +5,14 @@
  * member's midspan.
  */
 import type { ExplainedMethod, MethodContext } from '../registry';
+import type { SolverInput } from '../../types';
 import { tx } from '../doc';
 import { buildInfluenceDoc } from '../influence-doc';
 import { advancedRefusal2D } from '../../solver-service';
 import { computePoints, UNIT_LOAD_DIR } from '../../influence-service';
 import { unitSolver } from '../../influence/unit-sweep';
 import { defaultLoadedMembers, type IlLoads, type LivePlacement } from '../../influence/areas';
-import type { IlTarget } from '../../influence/quantities';
+import { supportReaction, type IlTarget } from '../../influence/quantities';
 import { countIndeterminacy } from '../../force-method/primary';
 import type { InfluenceDirection, InfluenceQuantity } from '../../../store/model.svelte';
 
@@ -24,26 +25,40 @@ export interface InfluenceDocInput {
   loadedIds?: number[];
 }
 
-let pending: InfluenceDocInput | null = null;
+let pending: { doc: InfluenceDocInput; on: string } | null = null;
 
-/** What the next document explains; null goes back to choosing from the selection. */
-export function setInfluenceDocInput(v: InfluenceDocInput | null): void { pending = v; }
+export function structureKey(input: SolverInput): string {
+  const byId = <T extends { id: number }>(m: Map<number, T>) => [...m.values()].sort((a, b) => a.id - b.id);
+  return JSON.stringify([
+    byId(input.nodes).map((n) => [n.id, n.x, n.z]),
+    byId(input.elements).map((e) => [e.id, e.type, e.nodeI, e.nodeJ, e.hingeStart, e.hingeEnd, e.sectionId, e.materialId]),
+    byId(input.supports).map((s) => [s.nodeId, s.type, s.angle ?? 0, s.kx ?? 0, s.ky ?? 0, s.kz ?? 0]),
+  ]);
+}
+
+/** What the next document explains, on the structure it was chosen on; null goes back to choosing from the selection. */
+export function setInfluenceDocInput(v: InfluenceDocInput | null, on: SolverInput | null = null): void { pending = v && on ? { doc: v, on: structureKey(on) } : null; }
 
 const DEFAULT_LOADS: IlLoads = { g: 10, q: 5, P: 0 };
 
-function fromSelection(ctx: MethodContext): { input: InfluenceDocInput; defaulted: boolean } | null {
+export function fromSelection(ctx: MethodContext): { input: InfluenceDocInput; defaulted: boolean } | null {
   const base = { direction: 'vertical' as const, loads: DEFAULT_LOADS, placement: 'zones' as const };
   const member = ctx.selection.members.find((id) => ctx.input.elements.get(id)?.type === 'frame');
   if (member !== undefined) return { input: { ...base, quantity: 'M', target: { kind: 'section', elementId: member, t: 0.5 } }, defaulted: false };
-  const node = ctx.selection.nodes.find((id) => [...ctx.input.supports.values()].some((s) => s.nodeId === id));
-  if (node !== undefined) return { input: { ...base, quantity: 'Rz', target: { kind: 'node', nodeId: node } }, defaulted: false };
+  for (const id of ctx.selection.nodes) {
+    for (const s of ctx.input.supports.values()) {
+      if (s.nodeId !== id) continue;
+      const quantity = supportReaction(s, Math.cos(s.angle ?? 0));
+      if (quantity) return { input: { ...base, quantity, target: { kind: 'node', nodeId: id } }, defaulted: false };
+    }
+  }
   const first = [...ctx.input.elements.values()].find((e) => e.type === 'frame') ?? [...ctx.input.elements.values()][0];
   if (!first) return null;
   return { input: { ...base, quantity: first.type === 'truss' ? 'N' : 'M', target: { kind: 'section', elementId: first.id, t: 0.5 } }, defaulted: true };
 }
 
-function chosen(ctx: MethodContext) {
-  const p = pending;
+export function chosenInput(ctx: MethodContext) {
+  const p = pending && pending.on === structureKey(ctx.input) ? pending.doc : null;
   const valid = p && (p.target.kind === 'node' ? ctx.input.nodes.has(p.target.nodeId) : ctx.input.elements.has(p.target.elementId));
   return valid ? { input: p!, defaulted: false } : fromSelection(ctx);
 }
@@ -55,10 +70,10 @@ export const methods: ExplainedMethod[] = [
       if (ctx.input.supports.size === 0) return { ok: false, reason: tx('influence.needSupport') };
       const refusal = advancedRefusal2D(unitSolver(ctx.input));
       if (refusal) return { ok: false, reason: tx('course.influence.doc.refused', { why: refusal }) };
-      return chosen(ctx) ? { ok: true } : { ok: false, reason: tx('influence.needNodesElems') };
+      return chosenInput(ctx) ? { ok: true } : { ok: false, reason: tx('influence.needNodesElems') };
     },
     build: (ctx) => {
-      const c = chosen(ctx)!;
+      const c = chosenInput(ctx)!;
       const unit = unitSolver(ctx.input);
       const dir = UNIT_LOAD_DIR[c.input.direction];
       const points = computePoints(unit, c.input.quantity, c.input.target, 20, dir, c.input.direction);

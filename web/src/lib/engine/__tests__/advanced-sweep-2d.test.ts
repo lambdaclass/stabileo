@@ -579,7 +579,8 @@ function ilValueFromStatic(q: Q, res: AnalysisResults, node?: number, elem?: num
   }
   const drawn = resultsToDrawnAxes(res, signOf);
   const ef = drawn.elementForces.find((f) => f.elementId === elem)!;
-  return computeDiagramValueAt(q === 'M' ? 'moment' : 'shear', 0.5, ef);
+  // The line reads M positive when it tensions the bottom fibre: the drawn diagram's value turned over.
+  return q === 'M' ? -computeDiagramValueAt('moment', 0.5, ef) : computeDiagramValueAt('shear', 0.5, ef);
 }
 
 const rigidVertical = (s: { type: string; angle?: number }) => (s.type === 'fixed' || s.type === 'pinned' || s.type === 'rollerX') && !s.angle;
@@ -1264,14 +1265,14 @@ describe('hand-built: textbook values', () => {
     expect(cf.frequency / ((1.875104 ** 2 / (2 * Math.PI * 16)) * Math.sqrt(EI / m))).toBeCloseTo(1, 2);
   });
 
-  it('influence line: simply supported beam, M at midspan peaks at L/4 with the sign of the static diagram; Rz is 1 − x/L', () => {
+  it('influence line: simply supported beam, M at midspan peaks at L/4, positive where the static diagram sags; Rz is 1 − x/L', () => {
     build(() => { const n = [0, 2, 4, 6, 8, 10].map((x) => N(x, 0)); for (let i = 0; i < 5; i++) E(n[i], n[i + 1]); modelStore.addSupport(n[0], 'pinned'); modelStore.addSupport(n[5], 'rollerX'); });
     const il = computeInfluenceLine(modelStore.model as never, 'M' as never, undefined, 3, 0.5) as { points: Array<{ x: number; value: number }> };
     const at = (x: number) => il.points.find((p) => Math.abs(p.x - x) < 1e-9)!.value;
     expect(Math.abs(at(5))).toBeCloseTo(2.5, 6);
     expect(Math.abs(at(2))).toBeCloseTo(1, 6);
     const st = staticWith([unitDownAt(3, 1)]) as AnalysisResults;
-    expect(Math.sign(at(5))).toBe(Math.sign(computeDiagramValueAt('moment', 0.5, st.elementForces.find((f) => f.elementId === 3)!)));
+    expect(Math.sign(at(5))).toBe(-Math.sign(computeDiagramValueAt('moment', 0.5, st.elementForces.find((f) => f.elementId === 3)!)));
     const rz = computeInfluenceLine(modelStore.model as never, 'Rz' as never, 1) as { points: Array<{ x: number; value: number }> };
     for (const p of rz.points) expect(p.value).toBeCloseTo(1 - p.x / 10, 6);
   });

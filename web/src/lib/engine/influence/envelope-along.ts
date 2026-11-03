@@ -4,14 +4,17 @@
  * envelope there.
  *
  * Every section's line comes from the same solves: one per position of the unit load, each read
- * at every section. A section shares its position with a load sample, so the solve with the load
+ * at every section. Each zone's area is the effect of a unit uniform load on it, one solve per
+ * distinct zone, so a curved line is integrated exactly; its peaks and zero crossings between
+ * samples are found by solves with the unit load there (`refinedPoints`). A section shares its position with a load sample, so the solve with the load
  * on it gives both ordinates of the jump there.
  */
 import { solve } from '../wasm-solver';
 import { loadOnMember } from '../moving-loads';
 import type { AnalysisResults, SolverInput } from '../types';
-import { ilExtremes, type IlLoads, type LivePlacement } from './areas';
+import { ilExtremes, uniformAlong, type IlLoads, type LivePlacement, type Zone } from './areas';
 import { memberGeom, readForce, type Dir, type IlPoint } from './unit-sweep';
+import { refinedPoints } from './analysis';
 import type { IlTarget } from './quantities';
 
 export type EnvelopeQuantity = 'M' | 'V' | 'N';
@@ -65,6 +68,17 @@ export function ilEnvelopeAlong(
     }
     return pts;
   };
+  const zoneRes = new Map<string, AnalysisResults>();
+  const zoneArea = (target: IlTarget & { kind: 'section' }) => (z: Zone) => {
+    const key = `${z.elementId}:${z.t0}:${z.t1}`;
+    let r = zoneRes.get(key);
+    if (!r) {
+      const L = lengthOf(z.elementId);
+      r = solve({ ...unit, loads: uniformAlong(unit, z.elementId, z.t0 * L, z.t1 * L, 1, dir) });
+      zoneRes.set(key, r);
+    }
+    return readForce(quantity, r, unit, target);
+  };
   const members: AlongEnvelope['members'] = [];
   let globalMax = 0;
   for (const e of unit.elements.values()) {
@@ -72,7 +86,10 @@ export function ilEnvelopeAlong(
     const ts = Array.from({ length: sectionsPerMember + 1 }, (_, j) => j / sectionsPerMember);
     const max: number[] = [], min: number[] = [];
     for (const t of ts) {
-      const ex = ilExtremes(lineAt({ kind: 'section', elementId: e.id, t }), lengthOf, (id) => loaded.has(id), loads, placement);
+      const target = { kind: 'section' as const, elementId: e.id, t };
+      const ordinateAt = (id: number, tt: number) => readForce(quantity, solve({ ...unit, loads: loadOnMember(unit, id, tt * lengthOf(id), 1, dir) }), unit, target);
+      const line = refinedPoints(lineAt(target), ordinateAt, (id) => loaded.has(id) && unit.elements.get(id)?.type !== 'truss');
+      const ex = ilExtremes(line, lengthOf, (id) => loaded.has(id), loads, placement, zoneArea(target));
       max.push(ex.max.value);
       min.push(ex.min.value);
       globalMax = Math.max(globalMax, Math.abs(ex.max.value), Math.abs(ex.min.value));

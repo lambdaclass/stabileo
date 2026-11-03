@@ -94,6 +94,8 @@ export interface StabileoTestHooks {
   baselineRevision(): number;
   isBaselineStale(): boolean;
   solveCount(): number;
+  /** The influence line on screen: what it is of and where it is read; null when none. */
+  influenceLine(): { quantity: string; targetPosition?: number; targetElementId?: number; targetNodeId?: number } | null;
   /** The discretization store (`store/discretization.svelte.ts`): estimate status, whether it applies to what is on screen, study status. */
   discretizationState(): { estimate: string; reason: string | null; idle: string | null; applies: boolean; study: string };
   modelVersion(): number;
@@ -590,6 +592,10 @@ export function installE2EHooks(): void {
     baselineRevision: () => verificationStore.baselineRevision,
     isBaselineStale: () => verificationStore.isBaselineStale,
     solveCount: () => getStructuralSolveCount(),
+    influenceLine: () => {
+      const il = resultsStore.influenceLine;
+      return il ? { quantity: il.quantity, targetPosition: il.targetPosition, targetElementId: il.targetElementId, targetNodeId: il.targetNodeId } : null;
+    },
     discretizationState: () => {
       const e = discretizationStore.estimate, st = discretizationStore.study;
       return {

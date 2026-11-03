@@ -73,6 +73,7 @@ export const SAME_AS_ENGLISH: readonly string[] = [
   'config.unitSI',
   'config.unitSImm',
   'contour.min',
+  'course.influence.panel.minSub',
   'defl.limits.dirShort.localY',
   'defl.limits.dirShort.localZ',
   'design.batch.diameter',

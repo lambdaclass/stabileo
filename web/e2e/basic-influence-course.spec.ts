@@ -41,8 +41,8 @@ test.describe('@slow influence lines and envelopes in Basic', () => {
     await page.getByTestId('il-q-ry').click();
     await expect(page.getByTestId('il-what')).toContainText('Rotation θ');
     await expect(page.getByTestId('il-peaks')).toContainText('rad/kN');
-    const ordinates = await page.evaluate(() => (window.__stabileo as unknown as { influenceLine?(): { quantity: string; targetPosition?: number } | null }).influenceLine?.() ?? null);
-    if (ordinates) expect(ordinates).toMatchObject({ quantity: 'ry', targetPosition: 0 });
+    const ordinates = await page.evaluate(() => window.__stabileo.influenceLine());
+    expect(ordinates).toMatchObject({ quantity: 'ry', targetPosition: 0 });
 
     await page.getByTestId('il-x').fill('20');
     await page.getByTestId('il-x').press('Enter');

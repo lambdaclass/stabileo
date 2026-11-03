@@ -13,4 +13,13 @@ describe('the influence-line tool inputs', () => {
     expect(influenceTool.placement).toBe('spans');
     expect(influenceTool.envelope).toBeNull();
   });
+
+  it('a change of the loaded members drops the envelope drawn on the old ones', () => {
+    const env = { quantity: 'M' as const, members: [], globalMax: 1 };
+    influenceTool.setEnvelopeFor(env, [1, 2]);
+    influenceTool.keepEnvelopeFor([1, 2]);
+    expect(influenceTool.envelope).toBe(env);
+    influenceTool.keepEnvelopeFor([1]);
+    expect(influenceTool.envelope).toBeNull();
+  });
 });
