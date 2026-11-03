@@ -55,6 +55,18 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-031",
+          "Zeitverlaufsberechnung: eine bei t = 0 auf einen masselosen Freiheitsgrad aufgebrachte Last ging im ersten Schritt verloren (Reziprozität bis zum 33-Fachen verletzt, eine Kette mit zwei Freiheitsgraden 24 % neben ihrer geschlossenen Lösung)",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
+          "SA-2026-032",
+          "Modalanalyse: die Eigenform mit Frequenz null eines Mechanismus wurde verworfen und die übrigen Eigenformen als vollständig ausgegeben",
+          "Mittel",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

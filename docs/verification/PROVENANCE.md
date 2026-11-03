@@ -49,6 +49,15 @@ version 4, the design chain (`docs/results-changes/2026-10-design-chain.md`): #4
 reached main without entries and their builds stamped 3, so their changes are told at 4 with
 those of #462–#475, which entered with the design switch (#624) in one merge.
 
+## Dynamics: time history from a consistent start, modal refuses mechanisms (PR #1247, issues #760, #338)
+
+Results version 13 (provisional: the merge captain renumbers it to main's next free version at
+landing) registers `time-history-massless-start`: a time-history force already on at t = 0 on a
+massless direction now enters the initial state, so the response near such a node changes
+(SA-2026-031); and `modal-mechanism-refused`: a modal analysis with a zero or negative ω² refuses
+instead of dropping that mode (SA-2026-032). Models without massless loaded DOFs or mechanisms
+give the same numbers.
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,

@@ -55,6 +55,18 @@ const body: PostBody = {
           "0.4.0'da düzeltildi"
         ],
         [
+          "SA-2026-031",
+          "Zaman tanım alanında analiz: kütlesiz bir serbestlik derecesine t = 0'da uygulanan yük ilk adımda kayboluyordu (karşıtlık 33 katına kadar bozuk, iki serbestlik dereceli bir zincir kapalı çözümünden %24 sapık)",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
+          "SA-2026-032",
+          "Modal analiz: bir mekanizmanın sıfır frekanslı modu atılıyor ve diğer modlar eksiksizmiş gibi döndürülüyordu",
+          "Orta",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",

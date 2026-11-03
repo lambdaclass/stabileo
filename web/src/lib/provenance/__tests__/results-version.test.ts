@@ -48,6 +48,7 @@ const RELEASED: Record<number, string[]> = {
     'strip-footings-under-walls-whole-strip',
   ],
   5: ['solid-shell-local-stress-axes'],
+  13: ['time-history-massless-start', 'modal-mechanism-refused'],
 };
 
 describe('results versions', () => {
