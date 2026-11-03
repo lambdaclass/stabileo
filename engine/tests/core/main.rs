@@ -13,6 +13,7 @@ mod plastic;
 mod postprocess;
 mod beam_stations;
 mod beam_stations_3d;
+mod design_axes_3d;
 mod sparse;
 mod sparse_mass;
 mod diagnostics;

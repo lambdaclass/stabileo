@@ -3613,6 +3613,8 @@ const ja: Translations = {
 
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
+  'design.memo.shearSecondary': 'せん断（副軸）',
+  'design.memo.slenderSecondary': '細長比（副軸）',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

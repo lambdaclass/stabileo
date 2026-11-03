@@ -49,6 +49,8 @@ const RELEASED: Record<number, string[]> = {
   ],
   5: ['solid-shell-local-stress-axes'],
   6: ['buckling-certificate-rejects-outside-factor'],
+  7: ['cirsoc201-column-design-axes'],
+  8: ['ec2-flexure-strain-compatibility'],
 };
 
 describe('results versions', () => {

@@ -3620,6 +3620,8 @@ const ko: Translations = {
 
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
+  'design.memo.shearSecondary': '전단, 보조 축',
+  'design.memo.slenderSecondary': '세장비, 보조 축',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

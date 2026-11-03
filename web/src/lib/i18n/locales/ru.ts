@@ -3625,6 +3625,8 @@ const ru: Translations = {
 
   'design.memo.flexure': 'Flexure',
   'design.memo.shear': 'Shear',
+  'design.memo.shearSecondary': 'Поперечная сила, второстепенная ось',
+  'design.memo.slenderSecondary': 'Гибкость, второстепенная ось',
   'design.memo.column': 'Flexo-compression',
   'design.memo.torsion': 'Torsion',
   'design.memo.torsionNegligible': 'Torsion (negligible)',

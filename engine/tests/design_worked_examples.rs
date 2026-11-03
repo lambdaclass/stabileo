@@ -88,6 +88,7 @@ fn aisc_blank(fy: f64) -> SteelMemberData {
         u_factor: None,
         aw: None,
         cv1: None,
+        aw_weak: None,
         lby: 0.0,
         lbz: 0.0,
         ky: None,
@@ -117,7 +118,7 @@ fn aisc_blank(fy: f64) -> SteelMemberData {
 fn aisc_run(m: SteelMemberData, n: f64, my: f64, mz: f64, vy: f64) -> SteelCheckResult {
     check_steel_members(&SteelCheckInput {
         members: vec![m],
-        forces: vec![ElementDesignForces { element_id: 1, n, my, mz: Some(mz), vy: Some(vy) }],
+        forces: vec![ElementDesignForces { element_id: 1, n, my, mz: Some(mz), v_weak: None, v_strong: Some(vy) }],
     })
     .remove(0)
 }
