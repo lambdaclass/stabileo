@@ -44,7 +44,7 @@ describe('rc-pushover', () => {
   });
 
   it('past the capacity the run stops, carrying slightly more than the section peak and never less', () => {
-    for (const extra of [{}, { target: 1.6 }, { h: 0.7, perFace: 4, fc: 40, steel: 1, target: 1.5 }, { height: 5, barDia: 16 }, { fc: 20, perFace: 6, barDia: 32, target: 1.6 }] as Values[]) {
+    for (const extra of [{}, { target: 1.6 }, { h: 0.7, perFace: 4, fc: 40, steel: 1, target: 1.5 }, { height: 5, barDia: 16 }, { fc: 20, perFace: 4, barDia: 28, target: 1.6 }] as Values[]) {
       const out = run(extra);
       expect(out.stopped).toBeDefined();
       expect(out.stopped!.reason).toMatch(/no convergence|singular/);
@@ -80,6 +80,11 @@ describe('rc-pushover', () => {
 });
 
 describe('rc-pushover section peak', () => {
+  it('refuses bars that do not fit, before running the solver', () => {
+    const v = { ...defaults(rcPushover.params), b: 0.25, perFace: 6, barDia: 32 };
+    const out = rcPushover.analyses(build(v), v, engine);
+    expect(out.status === 'refused' && out.code).toBe('barsDoNotFit');
+  });
   it('converges with the strip count', () => {
     const v = defaults(rcPushover.params);
     expect(sectionPeak(v) / sectionPeak(v, 4000, 800, 200)).toBeCloseTo(1, 4);

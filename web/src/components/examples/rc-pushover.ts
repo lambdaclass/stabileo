@@ -2,6 +2,7 @@ import type { SolverInput } from '../../lib/engine/types';
 import { withSection, type Bar } from '../../lib/engine/codes/argentina/cirsoc201-section';
 import { ES_MPA } from '../../lib/engine/codes/argentina/cirsoc201-basis';
 import { defineExample, type Readout, type Values } from './define';
+import { barsFit } from './rc-column';
 import { Sketch, boundsOf } from './draw';
 
 export const SEGMENTS = 20;
@@ -149,6 +150,7 @@ export const rcPushover = defineExample<Model>({
   benchmark: { path: '/research/benchmarks/plastic-collapse', title: 'plastic' },
   editor: (model) => ({ app: 'basic', model: model.solver }),
   analyses(model, v, engine) {
+    if (!barsFit({ ...v, cover: COVER })) return { status: 'refused', code: 'barsDoNotFit' };
     const run = engine.solveFiberNonlinear2D({
       solver: model.solver, fiberSections: { 1: fiberSection(v) },
       nIntegrationPoints: 5, maxIter: 40, tolerance: 1e-8, nIncrements: INCREMENTS, modifiedNr: false,
