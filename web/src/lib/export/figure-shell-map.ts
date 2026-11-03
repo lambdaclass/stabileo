@@ -1,11 +1,12 @@
 /**
  * The shells of a figure painted by one result: the field the screen paints them with
  * (`currentShellContourField`: nodal or centre values, its averaging domain, face, range and bands),
- * each face subdivided so its corner values blend across it, with the scale beside the structure.
+ * each face cut along the steps of its scale where the screen's blended field crosses them, with the
+ * scale beside the structure.
  */
 import type { AnalysisResults3D } from '../engine/types-3d';
 import { shellComponentMeta, type ShellContourComponent } from '../engine/shell-stress';
-import { bandValue } from '../engine/contour-scale';
+import { bandEdges, bandValue } from '../engine/contour-scale';
 import { shellContourColor } from '../three/stress-heatmap';
 import { faceVertexWeights } from '../three/create-shell-mesh';
 import { currentShellContourField } from '../store/shell-contour';
@@ -15,6 +16,7 @@ import type { P3 } from '../canvas/free-body';
 import { RAW_INK } from './paper-ink';
 
 type XY = { x: number; y: number };
+const SMOOTH_STEPS = 24;
 
 /** A value's colour on the figure: the screen's contour ramp, or a grey ramp in black and white. */
 export function bandColour(v: number, min: number, max: number, style: string): string {
@@ -26,22 +28,45 @@ export function bandColour(v: number, min: number, max: number, style: string): 
   return `${RAW_INK}#${shellContourColor(v, min, max).toString(16).padStart(6, '0')}`;
 }
 
+type Vertex = XY & { value: number };
+
+function keepSide(poly: readonly Vertex[], level: number, sign: 1 | -1): Vertex[] {
+  const out: Vertex[] = [];
+  poly.forEach((p, i) => {
+    const q = poly[(i + 1) % poly.length]!;
+    const fp = sign * (p.value - level), fq = sign * (q.value - level);
+    if (fp >= 0) out.push(p);
+    if ((fp > 0 && fq < 0) || (fp < 0 && fq > 0)) {
+      const t = fp / (fp - fq);
+      out.push({ x: p.x + t * (q.x - p.x), y: p.y + t * (q.y - p.y), value: level });
+    }
+  });
+  return out;
+}
+
 /**
- * A face cut into the triangles the screen draws it with (`faceVertexWeights`), each with the mean of
- * its vertices' values: the value a linear blend takes at the triangle's centre.
+ * A face cut into the triangles the screen blends its values across (`faceVertexWeights`), and each
+ * of those along the `levels` its linear field crosses: every piece lies between two neighbouring
+ * levels and carries the middle of the values it spans.
  */
-export function shellPatches(pts: readonly XY[], values: readonly number[]): Array<{ pts: XY[]; value: number }> {
+export function shellPatches(pts: readonly XY[], values: readonly number[], levels: readonly number[]): Array<{ pts: XY[]; value: number }> {
   const n = pts.length;
   if (values.length !== n || n < 3) return [];
   const ws = faceVertexWeights(n);
-  const at = (w: readonly number[]) => ({
+  const at = (w: readonly number[]): Vertex => ({
     x: w.reduce((a, k, i) => a + k * pts[i]!.x, 0), y: w.reduce((a, k, i) => a + k * pts[i]!.y, 0),
     value: w.reduce((a, k, i) => a + k * values[i]!, 0),
   });
   const out: Array<{ pts: XY[]; value: number }> = [];
   for (let t = 0; t + 2 < ws.length; t += 3) {
-    const v = [at(ws[t]!), at(ws[t + 1]!), at(ws[t + 2]!)];
-    out.push({ pts: v.map(({ x, y }) => ({ x, y })), value: (v[0]!.value + v[1]!.value + v[2]!.value) / 3 });
+    const tri = [at(ws[t]!), at(ws[t + 1]!), at(ws[t + 2]!)];
+    const lo = Math.min(...tri.map((v) => v.value)), hi = Math.max(...tri.map((v) => v.value));
+    const bounds = [lo, ...levels.filter((l) => l > lo && l < hi).sort((a, b) => a - b), hi];
+    if (hi === lo) { out.push({ pts: tri.map(({ x, y }) => ({ x, y })), value: lo }); continue; }
+    for (let k = 0; k + 1 < bounds.length; k++) {
+      const piece = keepSide(keepSide(tri, bounds[k]!, 1), bounds[k + 1]!, -1);
+      if (piece.length >= 3) out.push({ pts: piece.map(({ x, y }) => ({ x, y })), value: (bounds[k]! + bounds[k + 1]!) / 2 });
+    }
   }
   return out;
 }
@@ -65,10 +90,11 @@ export function drawShellMap(
   const { min, max } = field.range;
   const bands = contourOptions.bands;
   const colour = (v: number) => bandColour(bandValue(v, min, max, bands), min, max, style);
+  const levels = bandEdges(min, max, bands > 0 ? bands : SMOOTH_STEPS);
   drawShells(undefined, undefined, (key, pts) => {
     const vs = field.corners.get(key);
     if (!vs || vs.length !== pts.length) return false;
-    for (const p of shellPatches(pts, vs)) {
+    for (const p of shellPatches(pts, vs, levels)) {
       ctx.beginPath();
       p.pts.forEach((q, k) => (k ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
       ctx.closePath();
@@ -89,7 +115,7 @@ export function drawShellMap(
   const meta = shellComponentMeta(component);
   const fmt = (v: number) => (Math.abs(v) >= 1000 || (Math.abs(v) < 0.01 && v !== 0) ? v.toExponential(2) : v.toFixed(Math.abs(v) >= 100 ? 0 : 2));
   const h = Math.max(120, Math.min(260, y1 - y0)), w = 14, x = x1 + 36, top = (y0 + y1) / 2 - h / 2;
-  const steps = 24;
+  const steps = SMOOTH_STEPS;
   ctx.save();
   for (let k = 0; k < steps; k++) {
     ctx.fillStyle = colour(max - ((max - min) * (k + 0.5)) / steps);
