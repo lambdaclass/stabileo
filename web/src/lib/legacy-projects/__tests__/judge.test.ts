@@ -305,6 +305,22 @@ describe('against real corpus files', () => {
       expect(failure).toContain('loads[1].distributed3d.qZI');
     }, 120_000);
 
+    describe('an example whose combinations were since rebuilt for its cases (3d-nave-industrial)', () => {
+      const shed = readManifest('v0.4.0').examples.find((e) => e.example === '3d-nave-industrial')!;
+
+      it('is compared with its combinations as v0.4.0 loaded them, and is the same model and results', async () => {
+        expect(savedFixture('3d-nave-industrial', shed.fixtureBlob).edited).toBe(true);
+        const opened = await openAndSolve(readCorpusText(`v0.4.0/${shed.file}`));
+        expect(await againstExample('shed', 'v0.4.0', shed, opened, true)).toMatchObject({ failure: null, verdict: { kind: 'same' } });
+      }, 120_000);
+
+      it('NEGATIVE: loaded by today\'s loader, its rebuilt combinations differ from the file\'s', async () => {
+        const opened = await openAndSolve(readCorpusText(`v0.4.0/${shed.file}`));
+        const { failure } = await againstExample('shed', 'v9.9.9', shed, opened, false);
+        expect(failure).toContain('combination[1].factors: "1:1.4" → "1:1.2 2:1.6"');
+      }, 120_000);
+    });
+
     it('NEGATIVE: a fixture edit with no recorded fixture fails', () => {
       expect(() => savedFixture('hinged-arch-3d', '0'.repeat(40))).toThrow(/does not record it/);
     });

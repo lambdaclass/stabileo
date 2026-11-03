@@ -72,6 +72,8 @@ export const CORPUS_DIR = new URL('../../../legacy-projects/', import.meta.url);
 const SNAPSHOT_DIR = new URL('../../../results-snapshots/', import.meta.url);
 const FIXTURE_DIR = new URL('../templates/fixtures/', import.meta.url);
 const EDITED_FIXTURE_DIR = new URL('fixtures/', CORPUS_DIR);
+/** Releases whose loader kept the combinations in place for a fixture that listed none (before CIRSOC 101-2025's were rebuilt for its cases). */
+const KEPT_COMBINATIONS = new Set(['v0.2.0', 'v0.3.0', 'v0.4.0']);
 
 /** The released versions in the corpus, oldest first. */
 export function corpusVersions(): string[] {
@@ -233,10 +235,10 @@ export async function captureExample(
 }
 
 export async function openExample(
-  id: string, workspace: Workspace, opts: { solve?: boolean; fixture?: () => Promise<unknown> } = {},
+  id: string, workspace: Workspace, opts: { solve?: boolean; fixture?: () => Promise<unknown>; keepCombinations?: boolean } = {},
 ): Promise<{ values: Values; fingerprint: Values }> {
   reset(workspace);
-  await modelStore.loadExample(id, opts.fixture);
+  await modelStore.loadExample(id, opts.fixture, { keepCombinations: opts.keepCombinations });
   const values = modelCounts();
   const fingerprint = modelFingerprint();
   if (opts.solve !== false) await solveAndRecord(values);
@@ -322,7 +324,8 @@ export function modelFingerprint(): Values {
 
 /**
  * A legacy file as the current code opened it (and solved it, when `solved`), against the example
- * it was saved from opened by the current code: the same model (`modelFingerprint`) and, when
+ * it was saved from opened by the current code (an edited example's combinations loaded as its
+ * release did, `KEPT_COMBINATIONS`): the same model (`modelFingerprint`) and, when
  * solved, the same results under the snapshot gate's tolerance. Both sides ran the current code,
  * so no registered result change can excuse a difference. The solved reference is the results
  * snapshot gate's committed snapshot (#716) when there is one for today's fixture, else solved here.
@@ -333,7 +336,8 @@ export async function againstExample(
 ): Promise<{ failure: string | null; verdict: Verdict | null; reference: string }> {
   const { fixture, edited } = savedFixture(entry.example, entry.fixtureBlob);
   const snap = solved && !edited ? committedSnapshot(entry.example, entry.workspace) : null;
-  const ref = await openExample(entry.example, entry.workspace, { solve: solved && !snap, fixture });
+  const keepCombinations = edited && KEPT_COMBINATIONS.has(version);
+  const ref = await openExample(entry.example, entry.workspace, { solve: solved && !snap, fixture, keepCombinations });
   const reference = snap ? snap.name : edited ? `${entry.example} as ${version} saved it (${entry.fixtureBlob.slice(0, 9)})` : `today's ${entry.example}`;
   const model = fingerprintDifference(`${name} against ${reference}: the model`, ref.fingerprint, opened.fingerprint);
   if (model) return { failure: model, verdict: null, reference };
