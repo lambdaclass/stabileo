@@ -95,6 +95,36 @@ fn a_hinged_arm_with_a_free_tip_is_refused_as_a_mechanism_in_2d() {
 }
 
 #[test]
+fn a_hinged_arm_numbered_around_its_support_is_refused_naming_its_tip() {
+    let input: SolverInput = serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": 1.7, "z": 3.6},
+            "2": {"id": 2, "x": 0.0, "z": 0.0},
+            "3": {"id": 3, "x": 0.0, "z": 3.0},
+            "4": {"id": 4, "x": 4.0, "z": 0.0},
+            "5": {"id": 5, "x": 4.0, "z": 3.0},
+        },
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+            "2": {"id": 2, "type": "frame", "nodeI": 3, "nodeJ": 1, "materialId": 1, "sectionId": 1, "hingeStart": true, "hingeEnd": false},
+            "3": {"id": 3, "type": "frame", "nodeI": 3, "nodeJ": 5, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+            "4": {"id": 4, "type": "frame", "nodeI": 4, "nodeJ": 5, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+        },
+        "supports": {
+            "1": {"id": 1, "nodeId": 2, "type": "fixed"},
+            "2": {"id": 2, "nodeId": 4, "type": "pinned"},
+        },
+        "loads": [],
+        "masses": {"nodal": [{"nodeId": 1, "mass": 5.0}]},
+    }))
+    .unwrap();
+    let e = refusal(freqs_2d(&input, 4), "2D, support between free node ids", &[MECHANISM]);
+    assert!(e.contains("moves node 1 along u"), "{e}");
+}
+
+#[test]
 fn the_same_frames_without_the_hinge_return_every_requested_mode() {
     for segments in [1, 20] {
         let f = freqs_3d(&column_with_hinged_arm_3d(segments, false), 6).unwrap();

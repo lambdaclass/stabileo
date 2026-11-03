@@ -341,7 +341,7 @@ fn null_modes_or_mechanism(
     k_abs: &dyn Fn(&[f64]) -> Vec<f64>,
 ) -> Result<(EigenResult, Vec<NullMode>), String> {
     let nk = result.values.len();
-    let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().map(|(&(node, local), &g)| (node, local, g)).collect();
+    let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().filter(|(_, &g)| g < dof_num.n_free).map(|(&(node, local), &g)| (node, local, g)).collect();
     dofs.sort_unstable();
     let mut out = Vec::new();
     let mut moving = None;

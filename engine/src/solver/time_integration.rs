@@ -467,8 +467,8 @@ fn solve_spd_sparse_or_dense(a: &CscMatrix, b: &[f64], what: &str) -> Result<Vec
 
 /// Also moves u or v: a load at t = 0 on a massless direction is met by a jump in
 /// v (damped, `C_ZZ = a1·K_ZZ`) or, undamped, in u, so that every row of step 0 holds;
-/// massless accelerations follow from differentiating those rows, with `f_dot` the load's
-/// slope over the first step.
+/// massless velocities (undamped) and accelerations follow from differentiating those rows,
+/// with `f_dot` the load's slope over the first step.
 #[allow(clippy::too_many_arguments)]
 fn compute_initial_state(
     m: &CscMatrix, c: Option<&CscMatrix>, k: &CscMatrix, a1: f64,
@@ -514,7 +514,12 @@ fn compute_initial_state(
         let y = from_basis(&condense(&rotate_vector(&rhs, &basis))?, &basis);
         match c {
             Some(_) if a1 > 0.0 => v.iter_mut().zip(&y).for_each(|(x, d)| *x += d / a1),
-            _ => u.iter_mut().zip(&y).for_each(|(x, d)| *x += d),
+            _ => {
+                u.iter_mut().zip(&y).for_each(|(x, d)| *x += d);
+                let kv = kt.sym_mat_vec(&rotate_vector(v, &basis));
+                let r: Vec<f64> = rotate_vector(f_dot, &basis).iter().zip(&kv).map(|(d, k)| d - k).collect();
+                v.iter_mut().zip(from_basis(&condense(&r)?, &basis)).for_each(|(x, d)| *x += d);
+            }
         }
     }
     let rt = rotate_vector(&residual(u, v), &basis);

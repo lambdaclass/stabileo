@@ -229,3 +229,26 @@ fn a_damped_massless_tip_under_a_ramp_accelerates_as_its_first_order_closed_form
     }).fold(0.0f64, f64::max);
     assert!(worst <= 3e-2 * scale, "a_B − a_A off (s/(k2·a1))·e^(−t/a1) by {:.3e} of s/(k2·a1)", worst / scale);
 }
+
+fn vx(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
+    r.node_histories.iter().find(|h| h.node_id == node).unwrap().vx.clone()
+}
+
+#[test]
+fn an_undamped_massless_tip_under_a_ramp_stretches_at_the_load_rate() {
+    let slope = 10.0;
+    let dt = period() / 400.0;
+    let mut input = serde_json::to_value(chain(dt, 800, 0.0, 3, 0.0)).unwrap();
+    let record = |t: f64| json!({"time": t, "loads": [{"nodeId": 3, "fx": slope * t, "fz": 0.0, "my": 0.0}]});
+    input["forceHistory"] = json!([record(0.0), record(1e3)]);
+    let input: TimeHistoryInput = serde_json::from_value(input).unwrap();
+    let r = solve_time_history_2d(&input).unwrap();
+    let rate = slope / k2();
+    let (va, vb) = (vx(&r, 2), vx(&r, 3));
+    let off_v = va.iter().zip(&vb).map(|(a, b)| (b - a - rate).abs()).fold(0.0f64, f64::max);
+    assert!(off_v <= 1e-6 * rate, "v_B − v_A off s/k2 by {:.3e} of it", off_v / rate);
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    let peak = aa.iter().fold(0.0f64, |m, a| m.max(a.abs()));
+    let off_a = aa.iter().zip(&ab).map(|(a, b)| (b - a).abs()).fold(0.0f64, f64::max);
+    assert!(peak > 0.0 && off_a <= 1e-6 * peak, "a_B − a_A reaches {:.3e} of the peak a_A", off_a / peak);
+}
