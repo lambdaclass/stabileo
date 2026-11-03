@@ -14,6 +14,9 @@
   import { canonicalQuantity, familyOf, ordinateUnit } from '../../lib/engine/influence/quantities';
   import { numText } from '../../lib/engine/steps/format';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
+  import { linePeaks } from '../../lib/engine/influence/analysis';
+  import { UNIT_LOAD_DIR } from '../../lib/engine/influence-service';
+  import type { IlPoint } from '../../lib/engine/influence/unit-sweep';
 
   const il = $derived(resultsStore.influenceLine);
   const q = $derived(il ? canonicalQuantity(il.quantity) : canonicalQuantity(uiStore.ilQuantity));
@@ -40,20 +43,21 @@
     moveInfluenceSection(elem.id, tt);
   }
 
+  const unit = $derived(il ? currentUnitInput() : null);
   const peaks = $derived.by(() => {
-    if (!il || il.points.length === 0) return null;
-    let max = il.points[0], min = il.points[0];
-    for (const p of il.points) { if (p.value > max.value) max = p; if (p.value < min.value) min = p; }
-    const where = (p: typeof max) => {
+    if (!il || !unit || il.points.length === 0) return null;
+    let ex: ReturnType<typeof linePeaks>;
+    try { ex = linePeaks(unit, il, UNIT_LOAD_DIR[il.direction ?? 'vertical']); } catch { return null; }
+    if (!ex.max || !ex.min) return null;
+    const where = (p: IlPoint) => {
       const e = modelStore.elements.get(p.elementId);
       const a = e && modelStore.nodes.get(e.nodeI), b = e && modelStore.nodes.get(e.nodeJ);
       const len = a && b ? Math.hypot(b.x - a.x, b.y - a.y) : 0;
       return tp('course.influence.panel.atLoad', { e: p.elementId, x: `${fmtQ(p.t * len, 'length')} ${unitQ('length')}` });
     };
-    return { max: { v: max.value, where: where(max) }, min: { v: min.value, where: where(min) } };
+    return { max: { v: ex.max.value, where: where(ex.max) }, min: { v: ex.min.value, where: where(ex.min) } };
   });
 
-  const unit = $derived(il ? currentUnitInput() : null);
   const loaded = $derived(unit && il ? loadedMembers(unit, il.direction ?? 'vertical') : []);
 </script>
 

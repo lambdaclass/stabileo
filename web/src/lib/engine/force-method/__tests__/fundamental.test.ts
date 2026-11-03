@@ -118,6 +118,23 @@ describe('a fundamental of the reader\'s choosing', () => {
     }
   });
 
+  it('a biela loaded along its axis is shown by its integral: N changes along it, so N·n·L/EA would not be its term', () => {
+    const tied = (px: number) => model({
+      nodes: [[1, 0, 0], [2, 4, 0], [3, 4, -3]], elements: [[1, 1, 2, 'frame', true, true], [2, 2, 3, 'frame']],
+      supports: [[1, 'pinned'], [3, 'fixed']],
+      loads: [nodal(2, 0, -10), { type: 'pointOnElement', data: { elementId: 1, a: 1.5, p: 0, px } }],
+    });
+    const r = solveForceMethod(tied(8));
+    const rows = [...r.deltaTerms.flat(2), ...r.delta0Terms.flat()].filter((t) => t.source === 'axial' && t.elementId === 1);
+    expect(rows.length).toBeGreaterThan(0);
+    for (const t of rows) {
+      if (t.detail?.biela) expect(t.value).toBeCloseTo((t.detail.a! * t.detail.b! * t.detail.L!) / t.detail.EA!, 15);
+    }
+    expect(r.delta0Terms.flat().find((t) => t.source === 'axial' && t.elementId === 1)?.detail).toBeUndefined();
+    const plain = solveForceMethod(tied(0)).delta0Terms.flat().find((t) => t.source === 'axial' && t.elementId === 1);
+    expect(plain?.detail?.biela).toBe(true);
+  });
+
   it('beam on a spring: releasing the spring adds 1/k to δ₁₁; keeping it adds R̄·R̄/k', () => {
     const EI = 200e6 * 1e-4, L = 6, k = 3000;
     const R = (3 * 10 * L / 8) / (1 + (3 * EI) / (k * L ** 3));

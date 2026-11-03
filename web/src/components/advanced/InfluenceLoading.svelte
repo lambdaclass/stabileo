@@ -11,7 +11,7 @@
   import { ilEnvelopeAlong, type EnvelopeQuantity } from '../../lib/engine/influence/envelope-along';
   import { canonicalQuantity } from '../../lib/engine/influence/quantities';
   import { UNIT_LOAD_DIR } from '../../lib/engine/influence-service';
-  import type { Zone } from '../../lib/engine/influence/areas';
+  import { IlLoadRefusal, type Zone } from '../../lib/engine/influence/areas';
   import type { InfluenceLineResult } from '../../lib/store/model.svelte';
   import type { SolverInput } from '../../lib/engine/types';
   import { fmtQ, unitQ } from '../../lib/store/display-units.svelte';
@@ -24,8 +24,9 @@
   const kind = $derived<Quantity>(q === 'M' || q === 'My' ? 'moment' : q === 'uz' || q === 'ux' ? 'displacement' : q === 'ry' ? 'rotation' : 'force');
   const dir = $derived(UNIT_LOAD_DIR[il.direction ?? 'vertical']);
   const loads = $derived(influenceTool.loads);
+  const message = (e: unknown) => e instanceof IlLoadRefusal ? t(e.message) : String((e as Error)?.message ?? e);
   const attempt = $derived.by(() => {
-    try { return { reading: readLine(unit, il, loads, influenceTool.placement, loadedIds, dir), error: null }; } catch (e) { return { reading: null, error: String((e as Error)?.message ?? e) }; }
+    try { return { reading: readLine(unit, il, loads, influenceTool.placement, loadedIds, dir), error: null }; } catch (e) { return { reading: null, error: message(e) }; }
   });
   const reading = $derived(attempt.reading);
   const extremes = $derived(reading ? ([['max', reading.max, reading.direct.max], ['min', reading.min, reading.direct.min]] as const) : []);
@@ -48,7 +49,7 @@
       try {
         influenceTool.setEnvelopeFor(ilEnvelopeAlong(unit, q as EnvelopeQuantity, loads, influenceTool.placement, dir, loadedIds), loadedIds);
       } catch (e) {
-        uiStore.toast(String((e as Error)?.message ?? e), 'error');
+        uiStore.toast(message(e), 'error');
       } finally { busy = false; }
     });
   }

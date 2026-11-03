@@ -54,6 +54,22 @@ function firstOrder(input: SolverInput) {
   return first.ok ? { sys: b.sys, N0: first.N0, noise: first.noise } : undefined;
 }
 
+function engineClampedBound(input: SolverInput, pieceN: Map<number, number>): number {
+  let best = Infinity;
+  for (const e of input.elements.values()) {
+    const n = pieceN.get(e.id) ?? 0;
+    if (e.type === 'truss' || !(n < 0)) continue;
+    const mat = input.materials.get(e.materialId), sec = input.sections.get(e.sectionId);
+    const a = input.nodes.get(e.nodeI), b = input.nodes.get(e.nodeJ);
+    const EI = (mat?.e ?? 0) * 1000 * (sec?.iz ?? 0);
+    const L = a && b ? Math.hypot(b.x - a.x, b.z - a.z) : 0;
+    if (!(EI > 0 && L > 0)) continue;
+    const u = e.hingeStart && e.hingeEnd ? Math.PI : e.hingeStart || e.hingeEnd ? 4.493409457909064 : 2 * Math.PI;
+    best = Math.min(best, (u * u * EI) / (L * L * -n));
+  }
+  return best;
+}
+
 export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; result: SoBucklingResult } | { ok: false; reason: Txt } {
   const r = refineInput(input, s.n);
   const geometry = r.identity ? null : refinedGeometry(r);
@@ -62,7 +78,8 @@ export function runBuckling2D(input: SolverInput, s: SoSettings): { ok: true; re
     const pieceN = new Map(raw.elementData.map((d) => [d.elementId, d.axialForce]));
     const lambda1 = raw.modes[0]?.loadFactor ?? NaN;
     const first = firstOrder(r.input);
-    if (first && !representsFirstMode(first.sys, first.N0, lambda1)) return { ok: false, reason: tx('course.second-order.refuse.noModeRepresented') };
+    const represented = first ? representsFirstMode(first.sys, first.N0, lambda1) : !(lambda1 > engineClampedBound(r.input, pieceN) * (1 + 1e-9));
+    if (!represented) return { ok: false, reason: tx('course.second-order.refuse.noModeRepresented') };
     return { ok: true, result: { ...raw, elementData: memberBucklingData(input, r, pieceN, lambda1, first?.noise), secondOrder: { settings: s, geometry, engineFactors: null } } };
   }
   const got = teachingBuckling(r.input, teachingOptions(s), s.modes);
