@@ -239,3 +239,19 @@ fn a_constrained_model_is_refused_since_its_global_balance_cannot_be_checked() {
     let err = solve_fiber_nonlinear_2d(&input).err().expect("a constrained fiber model must be refused");
     assert!(err.contains("constraints are not supported"), "{err}");
 }
+
+#[test]
+fn a_settled_support_with_a_spring_is_refused_before_the_reactions_are_built() {
+    let mut input = cantilever_2d(FiberMaterial::Elastic { e: E }, tip_load(20.0), 1);
+    for s in input.solver.supports.values_mut() {
+        s.kz = Some(5_000.0);
+        s.dz = Some(-0.01);
+    }
+    assert!(solve_fiber_nonlinear_2d(&input).err().is_some_and(|e| e.contains("prescribed support displacements")));
+    let mut input = cantilever_3d(FiberMaterial::Elastic { e: E }, 0.0, -20.0, 1);
+    for s in input.solver.supports.values_mut() {
+        s.kz = Some(5_000.0);
+        s.dz = Some(-0.01);
+    }
+    assert!(solve_fiber_nonlinear_3d(&input).err().is_some_and(|e| e.contains("would not be applied")));
+}
