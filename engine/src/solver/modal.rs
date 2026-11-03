@@ -323,7 +323,7 @@ pub fn solve_modal_2d(
 
 pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
 const NULL_MODE_MASS_RATIO: f64 = 1e-6;
-const ZERO_CANCELLATION: f64 = 1e-12;
+const ZERO_CANCELLATION: f64 = 1e-14;
 const TRANSLATION_ROUND_OFF: f64 = 1e-8;
 const MASSLESS: f64 = 1e-12;
 
