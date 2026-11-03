@@ -55,6 +55,12 @@ const body: PostBody = {
           "Behoben in 0.4.0"
         ],
         [
+          "SA-2026-027",
+          "Schalen-Umhüllende: übernahm die Kombination mit der größten Von-Mises-Spannung statt des Extremwerts jeder Komponente (mx in einem Beispiel 14 % zu niedrig)",
+          "Hoch",
+          "Korrektur in Prüfung"
+        ],
+        [
           "SA-2026-028",
           "Biegung nach EN 1992-1-1 (andere Normen in PRO, zertifiziert): nahm an, dass der Zugstahl fließt, und iterierte die obere Bewehrung nicht; MRd bis zu 22 % zu hoch",
           "Hoch",

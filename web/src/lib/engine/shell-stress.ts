@@ -7,6 +7,7 @@
 // UI keeps shell results consistent without any solver change.
 
 import { woodArmer } from './wood-armer';
+import type { ShellEnvelope } from './types-3d';
 
 /** The membrane/bending fields shared by PlateStress and QuadStress. */
 export interface ShellStressLike {
@@ -19,6 +20,7 @@ export interface ShellStressLike {
   vonMises: number;
   /** For the required-steel components: the effective depth, m, and the bars' fy, MPa. */
   steelBasis?: { d: number; fy: number };
+  envelope?: ShellEnvelope;
 }
 
 export interface PrincipalStress {
@@ -139,9 +141,22 @@ export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> =
  */
 export function requiredSteel(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
   if (!s.steelBasis || !(s.steelBasis.d > 0) || !(s.steelBasis.fy > 0)) return 0;
-  const w = woodArmer(s.mx, s.my, s.mxy);
-  const m = key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+  const m = designMoment(s, key);
   return (m * 1000) / (0.9 * 0.9 * s.steelBasis.d * s.steelBasis.fy * 1e6) * 1e4;
+}
+
+const ENVELOPE_DESIGN_MOMENT = { asBotX: 'woodArmerBottomX', asBotY: 'woodArmerBottomY', asTopX: 'woodArmerTopX', asTopY: 'woodArmerTopY' } as const;
+
+function designMoment(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
+  if (s.envelope) return s.envelope[ENVELOPE_DESIGN_MOMENT[key]]?.max ?? NaN;
+  const w = woodArmer(s.mx, s.my, s.mxy);
+  return key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+}
+
+/** The membrane principals of a shell: of an envelope, the largest σ1 and the smallest σ2 of its sets. */
+export function membranePrincipals(s: ShellStressLike): { sigma1: number; sigma2: number } {
+  if (s.envelope) return { sigma1: s.envelope.sigma1?.max ?? NaN, sigma2: s.envelope.sigma2?.min ?? NaN };
+  return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
 }
 
 /** i18n keys for a component's and a group's name; `label` above stays as the symbol fallback. */
@@ -162,8 +177,8 @@ export function shellComponentValue(s: ShellStressLike, key: ShellContourCompone
     case 'mx': return s.mx;
     case 'my': return s.my;
     case 'mxy': return s.mxy;
-    case 'sigma1': return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy).sigma1;
-    case 'sigma2': return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy).sigma2;
+    case 'sigma1': return membranePrincipals(s).sigma1;
+    case 'sigma2': return membranePrincipals(s).sigma2;
     case 'asBotX': case 'asBotY': case 'asTopX': case 'asTopY': return requiredSteel(s, key);
     default: return 0;
   }

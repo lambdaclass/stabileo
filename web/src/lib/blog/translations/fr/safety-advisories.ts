@@ -55,6 +55,12 @@ const body: PostBody = {
           "Corrigé dans la 0.4.0"
         ],
         [
+          "SA-2026-027",
+          "Enveloppe des coques : retenait la combinaison de plus grande contrainte de Von Mises, et non l'extrême de chaque composante (mx inférieur de 14 % dans un exemple)",
+          "Élevée",
+          "Correction en cours de revue"
+        ],
+        [
           "SA-2026-028",
           "Flexion EN 1992-1-1 (autres normes en PRO, certifiée) : supposait que l’acier tendu plastifie et n’itérait pas les armatures supérieures ; MRd jusqu’à 22 % trop élevé",
           "Élevée",

@@ -53,6 +53,7 @@ const RELEASED: Record<number, string[]> = {
   8: ['ec2-flexure-strain-compatibility'],
   9: ['modal-repeated-eigenspace-completeness'],
   10: ['static-modal-runtime-self-checks'],
+  11: ['shell-envelope-per-component'],
 };
 
 describe('results versions', () => {
