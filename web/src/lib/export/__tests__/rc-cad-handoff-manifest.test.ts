@@ -697,7 +697,7 @@ describe('fixture-to-manifest reconciliation', () => {
     // re-check notice. The model is unchanged.
     //
     // And again (was 884c9941…, then 04cf5998…, then 94fa28fe…): the stamp moved to results
-    // versions 2, 3, 4 and 5 with the registry.
+    // versions 2, 3, 4, 5 and 14 with the registry.
     expect(sha256(fixtureText()))
       .toBe('7ff1ebd35cbd70154f519981575ef1488162be43be9acb6fa2e0acaf99d266b9');
   });

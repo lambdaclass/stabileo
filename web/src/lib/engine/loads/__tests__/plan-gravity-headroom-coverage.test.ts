@@ -180,7 +180,7 @@ describe('trusses count as the roof\'s structure', () => {
     expect(layout.areaByLevel.get(4)).toBeUndefined();
     expect(sum(layout.areaOf)).toBe(0);
     expect(keys(layout)).toContain('loadPlan.gravity.lowHeadroom');
-    expect(sum(layout.roofAreaOf)).toBeGreaterThan(0);
+    expect(sum(layout.roofAreaOf)).toBeGreaterThanOrEqual(60 - 1e-9);
   });
 
   it('a short beam over the centre does not stand in for the roof the ring carries', () => {
