@@ -55,6 +55,7 @@ describe('an Excel import in PRO', () => {
 
 describe('an Excel import whose load cases the combinations cannot all take', () => {
   beforeAll(async () => { await initSolver(); });
+  afterEach(() => { modelStore.clear(); });
 
   it('loads nothing, keeps the open model and says why on the LoadCases sheet', () => {
     uiStore.analysisMode = 'pro';

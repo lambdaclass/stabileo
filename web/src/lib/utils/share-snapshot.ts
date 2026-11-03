@@ -123,7 +123,7 @@ function referencesResolve(value: RecordValue): boolean {
     && (value.loads as unknown[]).every(load => {
       if (!record(load) || !record(load.data)) return false;
       const { type } = load, d = load.data;
-      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(type as Load['type'], d)
+      if (typeof type !== 'string' || !Object.hasOwn(LOAD_TARGET, type) || !loadNumbersValid(type as Load['type'], d)
         || !inCase(d.caseId)) return false;
       const target = LOAD_TARGET[type as Load['type']];
       return target === 'node' ? nodes.has(d.nodeId as number)

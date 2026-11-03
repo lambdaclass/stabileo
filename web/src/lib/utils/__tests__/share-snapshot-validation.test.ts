@@ -141,6 +141,8 @@ describe('shared-link importer', () => {
       nullCombinationFactor: p => { p.combinations = [{ id: 1, name: 'ULS', factors: [null] }]; },
       loadWithoutData: p => { delete p.loads[0].data; },
       nullLoadData: p => { p.loads[0].data = null; },
+      arrayLoadType: p => { p.loads[0].type = ['distributed']; },
+      objectLoadType: p => { p.loads[0].type = { toString: () => 'distributed' }; },
     };
     for (const [name, fault] of Object.entries(faults)) {
       const payload = legacy();
@@ -157,6 +159,8 @@ describe('shared-link importer', () => {
     listed.loadCases = [{ id: 1, name: 'Dead' }];
     delete listed.loads[0].data.caseId;
     expect(prepareSharedSnapshot(listed)?.loads).toHaveLength(1);
+    modelStore.restore(prepareSharedSnapshot(listed)!);
+    expect(modelStore.loads.map(l => l.data.caseId ?? 1)).toEqual([1]);
   });
 
   it('accepts connectors, constraints and combinations that resolve', () => {
