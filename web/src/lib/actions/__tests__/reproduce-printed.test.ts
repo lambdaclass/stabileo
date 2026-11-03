@@ -39,7 +39,7 @@ describe('checking a report value by value', () => {
     const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
     const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
     expect(printedTables(html).map((p) => p.key)).toEqual(expect.arrayContaining(['reactions', 'forces', 'displacements', 'statics']));
-    const v = comparePrintedReport(html)!;
+    const v = comparePrintedReport(html, { kind: 'combo', id: combo.id })!;
     expect(v.compared).toBeGreaterThan(30);
     expect(v.differences).toEqual([]);
     expect(v.structural).toEqual([]);
@@ -53,7 +53,7 @@ describe('checking a report value by value', () => {
     const original = first.cells[2]!;
     const forged = html.replace(`<td class="num">${original}</td>`, '<td class="num">10.10</td>');
     expect(forged).not.toBe(html);
-    const v = comparePrintedReport(forged)!;
+    const v = comparePrintedReport(forged, { kind: 'combo', id: combo.id })!;
     expect(v.differences).toHaveLength(1);
     expect(v.differences[0]).toMatchObject({ table: 'reactions', row: first.label, printed: '10.10', recomputed: original });
   });
@@ -70,21 +70,21 @@ describe('checking a report value by value', () => {
     const label = reactions.rows[0]!.label.split(' · ')[0]!;
     const relabelled = editAfter(`>${label}</td>`, '>N99</td>');
     expect(relabelled).not.toBe(html);
-    const v = comparePrintedReport(relabelled)!;
+    const v = comparePrintedReport(relabelled, { kind: 'combo', id: combo.id })!;
     expect(v.differences.some((d) => d.table === 'reactions' && d.printed.startsWith('N99'))).toBe(true);
     const header = reactions.headers.at(-1)!;
     const reheaded = editAfter(`>${header}</th>`, '>Other</th>');
     expect(reheaded).not.toBe(html);
-    expect(comparePrintedReport(reheaded)!.structural).toContain('reactions');
+    expect(comparePrintedReport(reheaded, { kind: 'combo', id: combo.id })!.structural).toContain('reactions');
   });
 
   it('finds a printed table removed from the document, and every table removed', () => {
     const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
     const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
     const without = html.replace(/<table[^>]*data-printed="reactions"[\s\S]*?<\/table>/, '');
-    expect(comparePrintedReport(without)!.structural).toContain('reactions');
+    expect(comparePrintedReport(without, { kind: 'combo', id: combo.id })!.structural).toContain('reactions');
     const none = html.replace(/<table[^>]*data-printed="[^"]+"[\s\S]*?<\/table>/g, '');
-    const v = comparePrintedReport(none)!;
+    const v = comparePrintedReport(none, { kind: 'combo', id: combo.id })!;
     expect(v.structural).toEqual(expect.arrayContaining(['reactions', 'forces', 'displacements']));
   });
 
@@ -92,11 +92,11 @@ describe('checking a report value by value', () => {
     const combo = modelStore.combinations.find((c) => c.name === '1.2 D + 1.6 W')!;
     const was = i18n.locale;
     const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
-    expect(comparePrintedReport(html)!.labels).toBe(true);
+    expect(comparePrintedReport(html, { kind: 'combo', id: combo.id })!.labels).toBe(true);
     await ensureLocale(was === 'es' ? 'en' : 'es');
     setLocale(was === 'es' ? 'en' : 'es');
     try {
-      const v = comparePrintedReport(html)!;
+      const v = comparePrintedReport(html, { kind: 'combo', id: combo.id })!;
       expect(v.labels).toBe(false);
       expect(v.compared).toBeGreaterThan(30);
       expect(v.differences).toEqual([]);
@@ -107,7 +107,7 @@ describe('checking a report value by value', () => {
   });
 
   it('says nothing about a file without marked tables', () => {
-    expect(comparePrintedReport('<html><body><table><tr><td class="num">1.00</td></tr></table></body></html>')).toBeNull();
+    expect(comparePrintedReport('<html><body><table><tr><td class="num">1.00</td></tr></table></body></html>', { kind: 'single' })).toBeNull();
   });
 
   it('binds the reprint to the scope the fingerprint records, not to the key in the editable script', () => {

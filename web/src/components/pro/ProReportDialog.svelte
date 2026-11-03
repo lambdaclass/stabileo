@@ -8,6 +8,7 @@
    * table, its figures or both; the figures are drawn from the model (`pro/report-export.ts`),
    * and figures added from the view still go at the end.
    */
+  import { untrack } from 'svelte';
   import { proNav } from '../../lib/store/pro-nav.svelte';
   import { modelStore, resultsStore } from '../../lib/store';
   import { t, tp } from '../../lib/i18n';
@@ -73,7 +74,11 @@
   let figs = $state<ReportFigureChoices>({ style: 'color', values: true, view: 'screen', shellComponent: 'vonMises', ...(saved.figures ?? {}) });
   const setChoices = $derived(open && hasResults ? resultSetChoices() : []);
   let resultSetKey = $state('screen');
-  $effect(() => { if (open) resultSetKey = defaultReportSetKey(); });
+  let wasOpen = false;
+  $effect(() => {
+    if (open && !wasOpen) resultSetKey = untrack(defaultReportSetKey);
+    wasOpen = open;
+  });
   const sumChosen = $derived(resultSetKey === 'screen' && resultsStore.activeView === 'single' && resultsStore.activeCaseId === null && resultsStore.perCase3D.size > 1);
   /** Which advanced analyses to print, of the ones that ran. */
   let advancedPicked = $state<Record<string, boolean>>({});
