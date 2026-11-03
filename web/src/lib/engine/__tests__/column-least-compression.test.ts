@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { autoVerifyFromResults } from '../auto-verify';
 import { extractGoverningDemands, type ElementStationResult } from '../station-design-forces';
+import { maskDemands } from '../design/behaviour-demands';
 
 const stations = (n: number, mz: number) => [0, 0.5, 1].map((t) => ({ t, x: 3 * t, n, vy: 10, vz: 0, my: 0, mz, torsion: 0 }));
 
@@ -58,5 +59,18 @@ describe('an RC column is checked under its least compression as well as its lar
     expect(checked.phiMn).toBeLessThan(squeezedOnly.phiMn);
     expect(checked.AsProv).toBeGreaterThan(squeezedOnly.AsProv);
     expect(checked.phiMn).toBeGreaterThanOrEqual(150);
+  });
+
+  it('a compression-only column pulled slack by one combination is checked in pure bending', () => {
+    const slackened = { ...esr, comboResults: [esr.comboResults[0]!, { comboId: 2, comboName: '0.9D+1.6W', stations: stations(20, 150) }] };
+    const masked = maskDemands(extractGoverningDemands(slackened), 'compressionOnly');
+    expect(masked.leastCompression).toBe(0);
+    expect(masked.demands.some((x) => x.category === 'N_tension')).toBe(false);
+    expect(maskDemands(extractGoverningDemands(esr), 'compressionOnly').leastCompression).toBe(80);
+    expect(maskDemands(extractGoverningDemands(slackened), 'tensionOnly').leastCompression).toBeUndefined();
+    const { leastCompression: _, ...withoutLeast } = masked;
+    const column = (d: typeof masked) => autoVerifyFromResults(results, model, null, undefined, new Map([[1, d]])).concrete[0]!.column!;
+    expect(column(masked).phiMn).toBeLessThan(column(withoutLeast).phiMn);
+    expect(column(masked).phiMn).toBeGreaterThanOrEqual(150);
   });
 });
