@@ -89,7 +89,7 @@ export interface FixtureLoader {
   // Constraints
   addConstraint?(c: Record<string, unknown>): void;
   // Model metadata
-  model: { name: string; loadCases: Array<{ id: number; type: string; name: string }>; combinations: Array<Record<string, unknown>> };
+  model: { name: string; loadCases: Array<{ id: number; type: string; name: string }>; combinations: Array<{ factors?: ReadonlyArray<{ caseId: number }>; [k: string]: unknown }> };
   nextId: { loadCase: number; combination: number };
 }
 
@@ -99,6 +99,7 @@ export interface FixtureLoader {
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
 export function loadFixture(json: JSONModel, api: FixtureLoader): void {
+  const { loadCases, combinations } = fixtureLoadCases(json, api.model);
   api.model.name = json.name;
 
   // ID remapping: fixture IDs may not match the auto-increment IDs from the API
@@ -290,15 +291,10 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
     api.addConstraint?.(mapped);
   }
 
-  // Load cases & combinations
-  if (json.loadCases.length > 0) {
-    api.model.loadCases = json.loadCases as any;
-    api.nextId.loadCase = Math.max(...json.loadCases.map(lc => lc.id)) + 1;
-  }
-  if (json.combinations.length > 0) {
-    api.model.combinations = json.combinations as any;
-    api.nextId.combination = Math.max(...json.combinations.map(c => c.id)) + 1;
-  }
+  api.model.loadCases = loadCases as any;
+  api.model.combinations = combinations as any;
+  if (json.loadCases.length > 0) api.nextId.loadCase = Math.max(...json.loadCases.map(lc => lc.id)) + 1;
+  if (json.combinations.length > 0) api.nextId.combination = Math.max(...json.combinations.map(c => c.id)) + 1;
 
   // Analysis rules, with any member list re-pointed at the ids this load gave the members.
   if (json.analysis) {
@@ -313,6 +309,27 @@ export function loadFixture(json: JSONModel, api: FixtureLoader): void {
   if (json.provenance) {
     (api.model as { provenance?: unknown }).provenance = JSON.parse(JSON.stringify(json.provenance));
   }
+}
+
+type FixtureCombination = { factors?: ReadonlyArray<{ caseId: number }> };
+
+/**
+ * The cases and combinations a fixture leaves the model with. A fixture without combinations
+ * keeps only the current ones whose every case it has; one naming a case it lacks is refused.
+ */
+export function fixtureLoadCases<C extends FixtureCombination>(
+  json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations'>,
+  current: { loadCases: ReadonlyArray<{ id: number }>; combinations: readonly C[] },
+): { loadCases: ReadonlyArray<{ id: number }>; combinations: ReadonlyArray<C | JSONModel['combinations'][number]> } {
+  const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
+  const ids = new Set(loadCases.map((c) => c.id));
+  const resolves = (c: FixtureCombination) => (c.factors ?? []).every((f) => ids.has(f.caseId));
+  if (json.combinations.length === 0) return { loadCases, combinations: current.combinations.filter(resolves) };
+  const dangling = json.combinations.filter((c) => !resolves(c));
+  if (dangling.length > 0) {
+    throw new Error(`${json.name}: combination ${dangling.map((c) => `"${c.name}"`).join(', ')} names a load case the model does not have`);
+  }
+  return { loadCases, combinations: json.combinations };
 }
 
 function withoutId(obj: Record<string, unknown>): Record<string, unknown> {
