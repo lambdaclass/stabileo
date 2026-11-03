@@ -10,6 +10,7 @@ import { generateCombinations } from '../codes/cirsoc101/combinations';
 import { withOrigin } from '../codes/families';
 import { CIRSOC101_BASIS } from '../codes/families/cirsoc';
 import { expandCombinations, presentSymbols } from '../engine/loads/combination-cases';
+import { tp } from '../i18n';
 
 export interface JSONModel {
   name: string;
@@ -330,8 +331,9 @@ function codeCombinations(cases: ReadonlyArray<FixtureCase>): CodeCombination[] 
  * The cases and combinations a fixture leaves the model with. A fixture with cases of its own and
  * no combinations keeps the current ones when each of their cases is there with the type it was
  * written for and every case it loads is in one of them; otherwise it
- * gets CIRSOC 101-2025's for its cases (`rebuilt`). One with a load in a case it lacks, or whose
- * own combination names such a case or a factor that is not a number, is refused.
+ * gets CIRSOC 101-2025's for its cases (`rebuilt`), and is refused if those leave a loaded case
+ * out. One with a load in a case it lacks, or whose own combination names such a case or a factor
+ * that is not a number, is refused.
  */
 export function fixtureLoadCases<C extends FixtureCombination>(
   json: Pick<JSONModel, 'name' | 'loadCases' | 'combinations' | 'loads'>,
@@ -342,19 +344,22 @@ export function fixtureLoadCases<C extends FixtureCombination>(
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
   const loaded = new Set(json.loads.map((l) => (l.data?.caseId as number | undefined) ?? 1));
   const unlisted = [...loaded].filter((id) => !now.has(id));
-  if (unlisted.length > 0) throw new Error(`${json.name}: loads in case ${unlisted.join(', ')}, which the model does not have`);
-  const factorsOf = (c: { factors?: unknown }) => (Array.isArray(c.factors) ? c.factors as Array<{ caseId: number; factor?: number } | null> : null);
+  if (unlisted.length > 0) throw new Error(tp('fixture.err.loadCaseMissing', { model: json.name, ids: unlisted.join(', ') }));
+  const factorsOf = (c: { factors?: unknown }) => (Array.isArray(c.factors) ? c.factors as Array<{ caseId: number; factor?: number } | null | undefined> : null);
   if (json.combinations.length === 0) {
     const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
     const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
     const everyLoadedCombined = [...loaded].every((id) => combined.has(id));
     if (current.combinations.every(fits) && everyLoadedCombined) return { loadCases, combinations: current.combinations, rebuilt: false };
-    return { loadCases, combinations: codeCombinations(loadCases), rebuilt: true };
+    const rebuilt = codeCombinations(loadCases);
+    const taken = new Set(rebuilt.flatMap((c) => c.factors.filter((f) => f.factor !== 0).map((f) => f.caseId)));
+    const left = [...loaded].filter((id) => !taken.has(id));
+    if (left.length > 0) throw new Error(tp('fixture.err.caseUncombined', { model: json.name, ids: left.join(', ') }));
+    return { loadCases, combinations: rebuilt, rebuilt: true };
   }
-  const dangling = json.combinations.filter((c) => !factorsOf(c)?.every((f) => f !== null && now.has(f.caseId) && Number.isFinite(f.factor)));
+  const dangling = json.combinations.filter((c) => !factorsOf(c)?.every((f) => f != null && now.has(f.caseId) && Number.isFinite(f.factor)));
   if (dangling.length > 0) {
-    const names = dangling.map((c) => `"${c.name}"`).join(', ');
-    throw new Error(`${json.name}: ${dangling.length === 1 ? `combination ${names} is` : `combinations ${names} are`} not a list of numeric factors on the model's load cases`);
+    throw new Error(tp('fixture.err.combinationMalformed', { model: json.name, names: dangling.map((c) => `"${c.name}"`).join(', ') }));
   }
   return { loadCases, combinations: json.combinations, rebuilt: false };
 }

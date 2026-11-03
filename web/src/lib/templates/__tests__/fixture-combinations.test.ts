@@ -37,7 +37,8 @@ afterEach(() => {
 
 describe('an example leaves no combination naming a case it does not have', () => {
   it.each(fixtures)('$name', ({ json }) => {
-    const { loadCases, combinations } = fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+    const { loadCases, combinations, rebuilt } = fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() });
+    expect(rebuilt, 'a shipped example states its combinations or fits the defaults: it opens before the engine').toBe(false);
     expect(missingCases(loadCases, combinations)).toEqual([]);
     expect(combinations.length, 'an example with cases keeps combinations to solve').toBeGreaterThan(0);
     const loaded = new Set(json.loads.map((l) => (l.data.caseId as number | undefined) ?? 1));
@@ -100,7 +101,7 @@ describe('a fixture that brings its own cases', () => {
       loadCases: [{ id: 1, type: 'D', name: 'D' }],
       combinations: [{ id: 1, name: '1.2 D + 1.0 E', factors: [{ caseId: 1, factor: 1.2 }, { caseId: 4, factor: 1 }] }],
     });
-    expect(() => loadFixture(json, modelStore.fixtureApi() as never)).toThrow(/"1\.2 D \+ 1\.0 E" is not a list of numeric factors on the model's load cases/);
+    expect(() => loadFixture(json, modelStore.fixtureApi() as never)).toThrow(/combination "1\.2 D \+ 1\.0 E" is not a list of numeric factors on the model's load cases/);
     expect(modelStore.nodes.size).toBe(0);
     expect(modelStore.model.combinations).toEqual(defaultCombinations());
   });
@@ -124,7 +125,7 @@ describe('a fixture that brings its own cases', () => {
 
   it('is refused when its own combination has no factor list, a null factor or a factor that is not a number', () => {
     const cases = [{ id: 1, type: 'D', name: 'D' }];
-    for (const combination of [{ id: 1, name: 'none' }, { id: 1, name: 'null', factors: [null] }, { id: 1, name: 'text', factors: [{ caseId: 1, factor: '1.4' }] }, { id: 1, name: 'missing', factors: [{ caseId: 1 }] }]) {
+    for (const combination of [{ id: 1, name: 'none' }, { id: 1, name: 'null', factors: [null] }, { id: 1, name: 'hole', factors: [undefined] }, { id: 1, name: 'text', factors: [{ caseId: 1, factor: '1.4' }] }, { id: 1, name: 'missing', factors: [{ caseId: 1 }] }]) {
       const json = emptyFixture({ loadCases: cases, combinations: [combination as never] });
       expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() }), combination.name).toThrow(/is not a list of numeric factors/);
     }
@@ -138,6 +139,13 @@ describe('a fixture that brings its own cases', () => {
       const json = emptyFixture({ loadCases: cases, loads, combinations });
       expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() })).toThrow(/loads in case 1, which the model does not have/);
     }
+  });
+
+  it('is refused when it loads a case no combination the app writes can take', () => {
+    const cases = [...defaultLoadCases(), { id: 5, type: '', name: 'Tip load' }];
+    const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId: 5 } }];
+    expect(() => fixtureLoadCases(emptyFixture({ loadCases: cases, loads }), { loadCases: defaultLoadCases(), combinations: defaultCombinations() }))
+      .toThrow(/no combination the app can write takes case 5/);
   });
 
   it('without cases of its own keeps the four defaults', () => {

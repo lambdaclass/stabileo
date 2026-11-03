@@ -13,8 +13,9 @@ own "Tip load" case, had every combination at zero; it now has one combination o
 example, workbook or generated model that brings its own load cases and no combinations keeps
 Basic's four only when each of their cases is there with the type it was written for and every case
 it loads is in one of them; otherwise it gets the CIRSOC 101-2025 strength combinations of its own
-cases. One with a load in a case it does not have, or whose own combination names such a case or a
-factor that is not a number, is refused (a workbook without a LoadCases sheet reports a load beyond
-Basic's four cases as a problem), and a share link whose loads omit their case is read as case 1 and
-refused when there is no such case. Projects saved with the old combinations solve as before; open
-the example again for the new ones.
+cases, and is refused if a case it loads is in none of them (a workbook says so on its LoadCases
+sheet and leaves the open model as it was). One with a load in a case it does not have, or whose own
+combination names such a case or a factor that is not a number, is refused (a workbook without a
+LoadCases sheet reports a load beyond Basic's four cases as a problem), and a share link whose loads
+omit their case is read as case 1 and refused when there is no such case. Projects saved with the
+old combinations solve as before; open the example again for the new ones.
