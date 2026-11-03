@@ -56,7 +56,7 @@ const RELEASED: Record<number, string[]> = {
   11: ['shell-envelope-per-component'],
   12: ['cirsoc301-q-nonpositive-refused'],
   13: ['time-history-massless-start', 'modal-mechanism-refused'],
-  15: ['modal-inclined-mechanism-refused'],
+  14: ['modal-inclined-mechanism-refused'],
 };
 
 describe('results versions', () => {
@@ -83,17 +83,17 @@ describe('results versions', () => {
     expect(ids(13)).toEqual([]);
   });
 
-  it('tells a modal frame on an inclined roller about the inclined mechanism refusal up to version 14', () => {
+  it('tells a modal frame on an inclined roller about the inclined mechanism refusal up to version 13', () => {
     const frame: FeatureSnapshot = {
       analysisMode: 'pro',
       elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
       supports: [[1, { nodeId: 1, type: 'rollerX', isInclined: true, angle: 0.5 }]] as never,
     };
     const ids = (resultsVersion: number) => assessProject(frame, { resultsVersion, analyses: ['modal'] } as unknown as SolveStamp, 'pro').changes.map((c) => c.id);
-    expect(ids(14)).toEqual(['modal-inclined-mechanism-refused']);
-    expect(ids(15)).toEqual([]);
+    expect(ids(13)).toEqual(['modal-inclined-mechanism-refused']);
+    expect(ids(14)).toEqual([]);
     const level = { ...frame, supports: [[1, { nodeId: 1, type: 'rollerX' }]] } as FeatureSnapshot;
-    expect(assessProject(level, { resultsVersion: 14, analyses: ['modal'] } as unknown as SolveStamp, 'pro').changes).toEqual([]);
+    expect(assessProject(level, { resultsVersion: 13, analyses: ['modal'] } as unknown as SolveStamp, 'pro').changes).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {
