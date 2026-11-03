@@ -27,6 +27,8 @@ import { reportResultFigures } from '../../pro/report-export';
 import { generateReportHtml, type ReportConfig, type ReportData } from '../../engine/pro-report';
 import { resultSet, resultSetChoices } from '../../pro/export-results';
 import { t } from '../../i18n';
+import { contourOptions } from '../../store/contour-options.svelte';
+import { currentShellContourField } from '../../store/shell-contour';
 
 beforeAll(async () => { await initSolver(); });
 beforeEach(() => { uiStore.analysisMode = 'pro'; modelStore.clear(); resultsStore.clear3D(); });
@@ -176,6 +178,23 @@ describe('the figures of a model with shells', () => {
     const bw = toSvg(plan2D('shellMap', { ...opts, style: 'bw', shellComponent: 'mx', view: 'top' })!);
     for (const m of bw.matchAll(/fill="rgb\((\d+),(\d+),(\d+)\)"/g)) expect(m[1] === m[2] && m[2] === m[3]).toBe(true);
     expect(svg).toContain('kN·m/m');
+  });
+
+  it('the shell result is painted from the field and over the range the screen shows', () => {
+    slabFrame();
+    contourOptions.auto = false; contourOptions.min = -50; contourOptions.max = 50; contourOptions.bands = 4;
+    try {
+      const svg = toSvg(plan2D('shellMap', { ...opts, shellComponent: 'mx', view: 'top' })!);
+      const texts = [...svg.matchAll(/<text[^>]*>(.*?)<\/text>/g)].map((m) => m[1]);
+      expect(texts).toEqual(expect.arrayContaining(['50.00', '0.00', '-50.00']));
+      const field = currentShellContourField(resultsStore.results3D, 'mx')!;
+      expect(field.range).toEqual({ min: -50, max: 50 });
+      const shellFills = new Set([...svg.matchAll(/<path[^>]*>/g)].map((m) => /fill="(rgb\([^)]+\))"/.exec(m[0])?.[1]).filter(Boolean));
+      expect(shellFills.size).toBeGreaterThan(1);
+      expect(shellFills.size).toBeLessThanOrEqual(4);
+    } finally {
+      contourOptions.auto = true; contourOptions.bands = 0;
+    }
   });
 
   it('a figure of another set is headed with its name', () => {
