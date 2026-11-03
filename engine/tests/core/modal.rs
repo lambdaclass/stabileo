@@ -274,9 +274,9 @@ fn modal_near_zero_modes_refuse_partial_results() {
     let mut input = make_ss_beam_udl(8, L, E * 1e-16, A, IZ, 0.0);
     input.loads.clear();
     let error = modal::solve_modal_2d(&input, &make_densities(), 6).unwrap_err();
-    assert!(error.starts_with("Eigenvalue decomposition failed:"), "{error}");
-    assert!(error.contains("completeness"), "{error}");
-    assert!(error.contains("no incomplete modes"), "{error}");
+    assert!(error.starts_with(modal::MODAL_MECHANISM), "{error}");
+    assert!(error.contains("zero or negative ω²"), "{error}");
+    assert!(error.contains("No modes are returned"), "{error}");
 }
 
 #[test]
