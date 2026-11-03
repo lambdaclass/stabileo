@@ -4,6 +4,8 @@ import { compile } from 'svelte/compiler';
 import { describe, it, expect, vi } from 'vitest';
 import { knownIssueResultDisposition } from '../known-issues';
 import { errorText } from '../../utils/error-text';
+import { eigenRefusalText } from '../finite-spectrum-warning';
+import { timeHistoryRefusal } from '../dynamics/time-history-refusal';
 
 const source = readFileSync(new URL('../../../components/pro/ProAdvancedTab.svelte', import.meta.url), 'utf8');
 // Execute the actual component handlers with their reactive bindings represented by this scope.
@@ -22,7 +24,7 @@ function setup() {
     modalElapsed: null, bucklingElapsed: null, pdeltaElapsed: null, pdeltaRefused: null,
     numModes: 2, numBucklingModes: 2, solveError: null, solving: false,
     buildInput: () => ({}), buildDynamicInput: () => ({ input: {}, densities: new Map() }),
-    modelStore: { modelVersion: 1 }, knownIssueResultDisposition, errorText,
+    modelStore: { modelVersion: 1 }, knownIssueResultDisposition, errorText, eigenRefusalText,
     amplification: () => ({ b2: 1.2, stable: true }),
     t: (s: string) => s, tp: (_s: string, p: any) => p.error,
   };
@@ -185,7 +187,7 @@ it('time-history success then refusal clears chart, peaks and selected node', ()
     timeHistoryView: { result: null as any, set(r: any) { this.result = r; }, clear() { this.result = null; } },
     nodeId: null, running: false, onError: vi.fn(), save: vi.fn(), spec: { ground: { x: {}, y: {}, z: {} } },
     buildDynamicInput: () => ({}), timeHistoryInput: () => ({}), spectrumSa: null, component: 'ux',
-    modelStore: { modelVersion: 1 }, peakNode: () => 12345, errorText, t: (s: string) => s,
+    modelStore: { modelVersion: 1 }, peakNode: () => 12345, errorText, timeHistoryRefusal, te: (m: unknown) => String(m), t: (s: string) => s,
     solveTimeHistory3D: vi.fn().mockReturnValueOnce({ peakDisplacements: [12345] }).mockImplementationOnce(() => { throw refusal; }),
   };
   const run = new Function('scope', `with(scope) { ${ts.transpile(th.slice(start, end))}; return run; }`)(scope);

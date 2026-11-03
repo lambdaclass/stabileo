@@ -61,5 +61,5 @@ it('translates engine refusals through the production error formatter', () => {
 it('the Basic advanced handler uses the localized production formatter', () => {
   const source = readFileSync(new URL('../../../components/toolbar/ToolbarAdvanced.svelte', import.meta.url), 'utf8');
   expect(source).toContain("import { errorText } from '../../lib/utils/error-text'");
-  expect(source).toContain('return errorText(e, t(fallbackKey));');
+  expect(source).toContain('return localizeEngineText(errorText(e, t(fallbackKey)));');
 });

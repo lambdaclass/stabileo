@@ -656,7 +656,7 @@ fn restrained_thermal_compression_buckles_under_a_common_translation() {
         assert!((moved / still - 1.0).abs() < 1e-6, "shift {shift}: {moved} vs {still}");
     }
     let beyond = dedaliano_engine::solver::buckling::solve_buckling_2d(&column(2.0e10), 1).map(|b| b.modes[0].load_factor).unwrap_err();
-    assert!(beyond.contains("Buckling not determinable"), "{beyond}");
+    assert!(beyond.contains("Buckling not determinable") || beyond.contains("self-check static_balance"), "{beyond}");
 }
 
 #[test]

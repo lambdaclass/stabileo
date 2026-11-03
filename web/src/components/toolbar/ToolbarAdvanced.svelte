@@ -65,7 +65,6 @@
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
-  import { errorText } from '../../lib/utils/error-text';
   import { localizeEngineText } from '../../lib/i18n/engine-text';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
   import { withSectionMass } from '../../lib/engine/dynamics/section-mass';
