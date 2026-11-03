@@ -262,6 +262,8 @@ jobs:
       # Pull requests never run on the self-hosted runners, so the merge queue's browser shell
       # (.#e2e: Playwright browsers from nix, version-locked to package-lock) is checked here on
       # a GitHub-hosted runner whenever the tooling it depends on changes.
+      - name: Prepare the browser shell (infrastructure retries)
+        run: .github/scripts/retry-infra.sh nix develop .#e2e --command true
       - name: Browser shell (.#e2e) launches Chromium and Firefox
         run: nix develop .#e2e -c ./scripts/ci/check-playwright-nix.sh
 
