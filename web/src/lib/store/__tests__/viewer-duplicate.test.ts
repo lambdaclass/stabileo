@@ -45,7 +45,7 @@ describe('duplicating the model in the viewer', () => {
 
   it('writes the autosave slot the viewer kept free, once out of the viewer', async () => {
     let seen: boolean | null = null;
-    await duplicateViewed({ autosave: async () => { seen = uiStore.viewerMode; return null; }, workspace: () => true });
+    await duplicateViewed({ autosave: async () => { seen = uiStore.viewerMode; return { ok: true, backend: 'indexeddb', revision: 1 }; }, workspace: () => true });
     expect(seen).toBe(false);
   });
 
@@ -54,6 +54,11 @@ describe('duplicating the model in the viewer', () => {
     expect(await duplicateViewed({ autosave: async () => { throw new Error('boom'); }, workspace })).toBe(false);
     expect(workspace).toHaveBeenCalledTimes(1);
     expect(uiStore.toasts.map((x) => [x.message, x.type])).toEqual([[t('viewer.duplicateNotSaved'), 'error']]);
+  });
+
+  it('does not call a copy saved when the autosave wrote nothing', async () => {
+    expect(await duplicateViewed({ autosave: async () => null, workspace: () => true })).toBe(false);
+    expect(uiStore.toasts.map((x) => x.type)).toEqual(['error']);
   });
 
   it('reports a workspace that could not be written', async () => {

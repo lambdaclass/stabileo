@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shellPatches } from '../figure-shell-map';
+import { shellPatches, drawnPeak } from '../figure-shell-map';
 import { faceVertexWeights } from '../../three/create-shell-mesh';
 import { bandEdges, bandValue } from '../../engine/contour-scale';
 
@@ -55,5 +55,14 @@ describe('a shell face cut into pieces for the figure', () => {
     const low = p.filter((q) => q.value < 3);
     expect(low.reduce((a, q) => a + area(q.pts), 0)).toBeCloseTo(9 / 4, 9);
     for (const q of low) for (const c of q.pts) expect(c.x + 2 * c.y).toBeLessThanOrEqual(3 + 1e-9);
+  });
+
+  it('labels the largest value among the shells the figure draws, not one it leaves out', () => {
+    const corners = new Map([['q:1', [1, -2, 3, 0]], ['q:9', [50, 0, 0, 0]], ['q:2', [0, 0, -4, 0]]]);
+    const faces = [{ key: 'q:1', id: 1, nodes: [1, 2, 3, 4] }, { key: 'q:2', id: 2, nodes: [5, 6, 7, 8] }];
+    const at = (id: number) => (id === 7 ? undefined : { x: id, y: 0, z: 0 });
+    expect(drawnPeak(corners, faces, at)).toEqual({ v: 3, at: { x: 3, y: 0, z: 0 } });
+    expect(drawnPeak(corners, faces, (id) => ({ x: id, y: 0, z: 0 }))).toEqual({ v: -4, at: { x: 7, y: 0, z: 0 } });
+    expect(drawnPeak(corners, [], at)).toBeNull();
   });
 });
