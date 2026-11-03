@@ -33,6 +33,8 @@ export interface TeachingBuckling {
   method: GeomMethod;
   /** First-order axial forces, tension positive. */
   N0: Map<number, number>;
+  /** Below this |N| a member's first-order axial force is round-off of its own terms. */
+  N0Noise: Map<number, number>;
   modes: TeachingMode[];
 }
 
@@ -53,14 +55,14 @@ function expand(sys: SoSystem, x: number[]): number[] {
 }
 
 /** First-order axial forces of the system, or why there is nothing to buckle. */
-export function firstOrderAxial(sys: SoSystem): { ok: true; N0: Map<number, number> } | { ok: false; reason: Txt } {
+export function firstOrderAxial(sys: SoSystem): { ok: true; N0: Map<number, number>; noise: Map<number, number> } | { ok: false; reason: Txt } {
   const lin = solveState(sys, new Map(), 'none');
   if (!lin) return { ok: false, reason: tx('course.second-order.refuse.singular') };
   const rigidScale = rigidAxialScale(sys, lin, 'none');
   if (sys.rigid && !rigidScale) return { ok: false, reason: tx('course.second-order.refuse.singular') };
-  const uncertainty = (m: SoSystem['members'][number]) => rigidScale ? rigidScale.get(m.id) ?? 0 : elasticUncertainty(sys, m, lin);
-  if (!sys.members.some((m) => (lin.N.get(m.id) ?? 0) < -1e-9 * uncertainty(m))) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
-  return { ok: true, N0: lin.N };
+  const noise = new Map(sys.members.map((m) => [m.id, 1e-9 * (rigidScale ? rigidScale.get(m.id) ?? 0 : elasticUncertainty(sys, m, lin))]));
+  if (!sys.members.some((m) => (lin.N.get(m.id) ?? 0) < -(noise.get(m.id) ?? 0))) return { ok: false, reason: tx('course.second-order.refuse.noCompression') };
+  return { ok: true, N0: lin.N, noise };
 }
 
 function elasticUncertainty(sys: SoSystem, m: SoSystem['members'][number], lin: { D: number[] }): number {
@@ -238,5 +240,5 @@ export function teachingBuckling(input: SolverInput, opts: SecondOrderOptions, n
     modes = linearBuckling(b.sys, opts.method === 'string' ? 'string' : 'consistent', count, first.N0);
   }
   if (!modes.length) return { ok: false, reason: tx('course.second-order.refuse.noPositive') };
-  return { ok: true, run: { sys: b.sys, method: opts.method, N0: first.N0, modes } };
+  return { ok: true, run: { sys: b.sys, method: opts.method, N0: first.N0, N0Noise: first.noise, modes } };
 }

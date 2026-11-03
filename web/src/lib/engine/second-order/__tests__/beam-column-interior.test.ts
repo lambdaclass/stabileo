@@ -108,3 +108,26 @@ describe('φ draws a sway column through its own end moments', () => {
     });
   }
 });
+
+describe('the shear φ draws inside a compressed member is the section shear, normal to the deformed axis', () => {
+  const L = 4, H = 10;
+  for (const kL of [0.8, 1.2]) {
+    it(`cantilever under P and H, kL = ${kL}: V = dM/dx = H·cos k(L−x)/cos kL, and at the free end H + P·θ balances it`, () => {
+      const k = kL / L, P = EI * k * k;
+      const got = runPDelta2D(column('fixed', null, L, P, H), S({ method: 'phi', n: 1 }));
+      if (!got.ok) throw new Error('refused');
+      const ef = got.result.results.elementForces[0];
+      const q = (x: number) => (H * Math.cos(k * (L - x))) / Math.cos(k * L);
+      for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+        const v = computeDiagramValueAt('shear', t, ef);
+        expect(Math.abs(Math.abs(v) - q(t * L)) / q(L)).toBeLessThan(2e-3);
+        const h = 1e-4;
+        const dm = (computeDiagramValueAt('moment', t + h, ef) - computeDiagramValueAt('moment', t - h, ef)) / (2 * h * L);
+        expect(Math.abs(Math.abs(dm) - Math.abs(v)) / q(L)).toBeLessThan(2e-3);
+      }
+      const top = got.result.results.displacements.find((d) => d.nodeId === 2)!;
+      expect(Math.abs(H + P * Math.abs(top.ry) - q(L)) / q(L)).toBeLessThan(1e-6);
+      expect(Math.abs(Math.abs(computeDiagramValueAt('shear', 0.995, ef)) - q(L)) / q(L)).toBeLessThan(2e-3);
+    });
+  }
+});

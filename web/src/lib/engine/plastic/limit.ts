@@ -100,8 +100,7 @@ export function asMechanism(lm: LimitModel, d0: number[]): Mechanism {
   theta = lm.km.rotation.map((r) => dot(r, d)).map((v) => (Math.abs(v) < TOL * Math.max(big / unit, 1) ? 0 : v));
   const Wi = theta.reduce((s, v, k) => s + lm.sm.sections[k].mp * Math.abs(v), 0);
   const terms = lm.km.work.reduce((s, v, i) => s + Math.abs(v * d[i]), 0);
-  const scale = Math.max(terms, Math.max(0, ...lm.km.work.map(Math.abs)) * Math.max(0, ...d.map(Math.abs)));
-  return { d, theta, W, Wi, lambda: W > 1e-9 * scale ? Wi / W : Infinity };
+  return { d, theta, W, Wi, lambda: W > 1e-9 * terms ? Wi / W : Infinity };
 }
 
 /** The mechanism of least λ among the combinations of `space` (null when the loads do no work on any). */
@@ -249,7 +248,14 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
     freeIdx.forEach((i, k) => { M[i] = part[k] + Z.reduce((s, z, j) => s + z[k] * y[j], 0); });
     return M;
   };
+  const unbalanced = (M: number[]) => lm.basis.some((d, k) => {
+    const w = lambda * dot(lm.km.work, d);
+    let sum = 0, size = Math.abs(w);
+    for (let i = 0; i < N; i++) { const t = E[k][i] * M[i]; sum += t; size += Math.abs(t); }
+    return Math.abs(sum - w) > 1e-6 * size;
+  });
   let M = compose([]);
+  if (unbalanced(M)) return null;
   if (Z.length) {
     const nz = Z.length;
     const formAt = (member: number, t: number) => {
@@ -267,13 +273,17 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
     for (const [member] of lm.sm.members) for (const t of checkPoints(lm.sm, member)) forms.push(formAt(member, t));
     let done = false;
     for (let round = 0; round < MAX_CUTS && !done; round++) {
-      const rows = forms.flatMap((f) => [
-        { a: [...f.cy, -f.mp], op: '<=' as const, b: -f.c0 },
-        { a: [...f.cy.map((v) => -v), -f.mp], op: '<=' as const, b: f.c0 },
-      ]);
+      const ys = Array.from({ length: nz }, (_, j) => Math.max(0, ...forms.map((f) => (f.cy[j] !== 0 ? f.mp : 0))) || 1);
+      const rows = forms.flatMap((f) => {
+        const a = f.cy.map((v, j) => (v * ys[j]) / f.mp);
+        return [
+          { a: [...a, -1], op: '<=' as const, b: -f.c0 / f.mp },
+          { a: [...a.map((v) => -v), -1], op: '<=' as const, b: f.c0 / f.mp },
+        ];
+      });
       const res = solveLp({ c: [...new Array(nz).fill(0), 1], rows, free: [...new Array(nz).fill(true), false] });
       if (res.status !== 'optimal') return null;
-      M = compose(res.x.slice(0, nz));
+      M = compose(res.x.slice(0, nz).map((u, j) => u * ys[j]));
       if (!M.every(Number.isFinite)) return null;
       const peak = peakRatio(lm.sm, M, lambda);
       const bound = res.x[nz];
@@ -282,7 +292,7 @@ export function distribution(lm: LimitModel, fixed: Map<number, number>, lambda:
     }
     if (!done) return null;
   }
-  if (!M.every(Number.isFinite)) return null;
+  if (!M.every(Number.isFinite) || unbalanced(M)) return null;
   const peak = peakRatio(lm.sm, M, lambda);
   if (!Number.isFinite(peak.ratio)) return null;
   return { M, lambda, ratio: peak.ratio, worst: peak.worst, free: Z.length };

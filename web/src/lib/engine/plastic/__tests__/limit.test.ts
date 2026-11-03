@@ -346,3 +346,33 @@ describe('a feasibility program (zero cost) has exactly zero multipliers', () =>
     expect(r.status).toBe('optimal');
   });
 });
+
+describe('equilibrium is judged equation by equation, not at the scale of the largest load', () => {
+  const twoBeams = (big: number) => model([[1, 0, 0], [2, 6, 0], [3, 0, 10], [4, 6, 10]], [[1, 1, 2], [2, 3, 4]],
+    [[1, 'fixed'], [2, 'fixed'], [3, 'fixed'], [4, 'fixed']], [pOn(1, 3, -10), pOn(2, 3, -big)]);
+  for (const big of [10, 1e10, 1e14]) {
+    it(`zero moments in a point-loaded beam are refused beside a separate beam under ${big} kN`, () => {
+      const lm = limitModel(twoBeams(big), (m) => (m === 1 ? MP : MP * big));
+      const zeroA = new Map(lm.sm.sections.flatMap((s, i) => (s.member === 1 ? [[i, 0] as [number, number]] : [])));
+      expect(zeroA.size).toBeGreaterThan(0);
+      expect(distribution(lm, zeroA, 1)).toBeNull();
+      expect(distribution(lm, new Map(), 1)).not.toBeNull();
+    });
+  }
+});
+
+describe('a load on a restrained direction does no work and changes nothing', () => {
+  for (const big of [1e6, 1e12]) {
+    it(`a fixed beam with ${big} kN on its fixed end keeps λc = 8Mp/(PL), from the limit analysis and a drawn mechanism`, () => {
+      const base = fixedBeam(6, 10);
+      const m = { ...base, loads: [...base.loads, P(1, big, -big)] };
+      const s = solveLimit(m, uniformMp)!;
+      expect(s).not.toBeNull();
+      expect(s.best.lambda).toBeCloseTo(8 * MP / 60, 9);
+      const lm = limitModel(m, uniformMp);
+      const mech = minimumOver(lm, lm.basis)!;
+      expect(mech).not.toBeNull();
+      expect(mech.lambda).toBeCloseTo(8 * MP / 60, 9);
+    });
+  }
+});

@@ -220,3 +220,28 @@ describe('effective length factors are never made up', () => {
     expect(d[0].kEffective).toBeCloseTo(1, 9);
   });
 });
+
+describe('effective lengths beside a far larger force elsewhere', () => {
+  const L = 3;
+  const twoColumns = () => {
+    const input = column('fixed', null, L, 100);
+    input.nodes.set(3, { id: 3, x: 5, z: 0 });
+    input.nodes.set(4, { id: 4, x: 5, z: L });
+    input.elements.set(2, { ...input.elements.get(1)!, id: 2, nodeI: 3, nodeJ: 4 });
+    input.elements.set(3, { ...input.elements.get(1)!, id: 3, nodeI: 1, nodeJ: 3 });
+    input.supports.set(3, { id: 3, nodeId: 3, type: 'fixed' });
+    input.loads.push({ type: 'nodal', data: { nodeId: 4, fx: 0, fz: 1e12, my: 0 } });
+    return input;
+  };
+  for (const method of ['phi', 'consistent'] as const) {
+    it(`${method}: a −100 kN cantilever beside a column pulled at 1e12 kN gets its K = 2`, () => {
+      const got = runBuckling2D(twoColumns(), S({ method, n: method === 'phi' ? 1 : 4 }));
+      if (!got.ok) throw new Error(got.reason.key);
+      const d = got.result.elementData.find((e) => e.elementId === 1);
+      expect(d).toBeDefined();
+      expect(d!.axialForce).toBeCloseTo(-100, 6);
+      expect(d!.kEffective).toBeCloseTo(2, method === 'phi' ? 3 : 2);
+      expect(got.result.elementData.some((e) => e.elementId === 2 || e.elementId === 3)).toBe(false);
+    });
+  }
+});
