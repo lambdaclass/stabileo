@@ -495,11 +495,10 @@ function selfWeightByLevel(
     const L = Math.hypot(nJ.x - nI.x, nJ.y - nI.y, elevationOf(nJ) - elevationOf(nI));
     // A member of variable section weighs its mean area along it (`section/variable.ts`).
     const meanRatio = (el as { variableSection?: unknown }).variableSection ? (memberMeanArea(model.sections as never, el as never) ?? sec.a) / sec.a : 1;
+    const ends = [el.nodeI, el.nodeJ].map((id) => levelOfNode.get(id));
+    if (ends.some((lv) => lv === undefined)) { skipped++; continue; }
     const w = sectionWeight(sec, el.materialId) * L * meanRatio;
-    for (const id of [el.nodeI, el.nodeJ]) {
-      const lv = levelOfNode.get(id);
-      if (lv !== undefined) weights[lv] += w / 2;
-    }
+    for (const lv of ends) weights[lv!] += w / 2;
   }
   let skippedShells = 0;
   for (const q of model.quads?.values() ?? []) {
@@ -507,11 +506,10 @@ function selfWeightByLevel(
     const rho = q.materialId !== undefined ? model.materials.get(q.materialId)?.rho : undefined;
     if (pts.some((p) => !p) || !(q.thickness! > 0) || rho === undefined || !(rho >= 0)) { skippedShells++; continue; }
     const xyz = pts.map((p) => [p!.x, p!.y, elevationOf(p!)] as [number, number, number]);
+    const corners = q.nodes.map((id) => levelOfNode.get(id));
+    if (corners.some((lv) => lv === undefined)) { skippedShells++; continue; }
     const w = q.thickness! * rho * surfaceArea(xyz);
-    for (const id of q.nodes) {
-      const lv = levelOfNode.get(id);
-      if (lv !== undefined) weights[lv] += w / q.nodes.length;
-    }
+    for (const lv of corners) weights[lv!] += w / q.nodes.length;
   }
   return { weights, skipped, skippedShells };
 }
