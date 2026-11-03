@@ -106,25 +106,44 @@ fn the_same_frames_without_the_hinge_return_every_requested_mode() {
 }
 
 
-#[test]
-fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
-    let input: SolverInput3D = serde_json::from_value(json!({
-        "nodes": {
-            "1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
-            "2": {"id": 2, "x": 0.13, "y": 0.07, "z": 3.0},
-        },
+fn spinning_column(spin_spring: Option<f64>) -> SolverInput3D {
+    let mut supports = json!({"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}});
+    let mut nodes = json!({
+        "1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0},
+        "2": {"id": 2, "x": 0.13, "y": 0.07, "z": 3.0},
+    });
+    let mut connectors = json!({});
+    if let Some(k) = spin_spring {
+        nodes["3"] = json!({"id": 3, "x": 0.13, "y": 0.07, "z": 4.0});
+        supports["2"] = json!({"nodeId": 3, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true});
+        connectors["1"] = json!({"id": 1, "nodeI": 2, "nodeJ": 3, "kMoment": k});
+    }
+    serde_json::from_value(json!({
+        "nodes": nodes,
+        "connectors": connectors,
         "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
         "sections": {"1": {"id": 1, "a": 0.01, "iy": 2e-4, "iz": 1e-4, "j": 5e-5}},
         "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "releaseTStart": true}},
-        "supports": {"1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": true}},
+        "supports": supports,
         "loads": [],
         "masses": {"nodal": [{"nodeId": 2, "mass": 0.0, "ixx": 0.1, "iyy": 0.1, "izz": 0.1}]},
     }))
-    .unwrap();
+    .unwrap()
+}
+
+#[test]
+fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
+    let input = spinning_column(None);
     let r = solve_modal_3d(&input, &densities(), 4).expect("a twist with no translational mass is not a mechanism of the mass");
     assert!(!r.null_modes.is_empty(), "the free twist is neither returned nor reported: {:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
     assert!(r.null_modes.iter().all(|m| m.node_id == 2 && m.dof.starts_with('r')), "{:?}", r.null_modes);
     assert!(!r.modes.is_empty() && r.modes.iter().all(|m| m.frequency > 0.1), "{:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+}
+
+#[test]
+fn a_twist_against_a_negative_spring_is_refused_though_it_moves_no_translational_mass() {
+    let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", MECHANISM);
+    assert!(e.contains("moves node 2 along r"), "{e}");
 }
 
 fn seesaw(arm: f64, far: f64) -> SolverInput {

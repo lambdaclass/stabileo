@@ -56,7 +56,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-031",
-          "Zeitverlaufsberechnung: eine bei t = 0 auf einen masselosen Freiheitsgrad aufgebrachte Last ging im ersten Schritt verloren (Reziprozität bis zum 33-Fachen verletzt, eine Kette mit zwei Freiheitsgraden 24 % neben ihrer geschlossenen Lösung)",
+          "Zeitverlaufsberechnung: eine bei t = 0 auf einen masselosen Freiheitsgrad aufgebrachte Last ging im ersten Schritt verloren (Reziprozität bis zum 33-Fachen verletzt, eine Kette mit zwei Freiheitsgraden um 24 % von ihrer geschlossenen Lösung abweichend)",
           "Mittel",
           "Behoben in der nächsten Version"
         ],

@@ -310,6 +310,7 @@ pub fn solve_modal_2d(
 pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
 const NULL_EIGENVALUE: f64 = 1e-10;
 const NULL_MODE_MASS_RATIO: f64 = 1e-6;
+const NEGATIVE_ROUND_OFF: f64 = 1e-9;
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn null_modes_or_mechanism(
@@ -328,6 +329,8 @@ fn null_modes_or_mechanism(
     dofs.sort_unstable();
     let mut out = Vec::new();
     let mut moving = None;
+    let scale = result.values.iter().filter(|v| v.is_finite()).fold(0.0f64, |m, v| m.max(v.abs()));
+    let unstable = -(NULL_EIGENVALUE.max(NEGATIVE_ROUND_OFF * scale));
     for (idx, &lambda) in result.values.iter().enumerate() {
         if !(lambda.is_finite() && lambda <= NULL_EIGENVALUE) {
             continue;
@@ -347,8 +350,12 @@ fn null_modes_or_mechanism(
         let u = shape(&phi);
         let (node_id, dof) = dofs.iter().filter(|d| d.2 < u.len()).max_by(|a, b| u[a.2].abs().total_cmp(&u[b.2].abs()))
             .map_or((0, String::new()), |&(node, local, _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
-        if moving.is_none() && (share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs()) {
-            let (node, dof) = heaviest.map_or((node_id, dof.clone()), |&(n, l, _)| (n, dof_names.get(l).copied().unwrap_or("").to_string()));
+        let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs();
+        if moving.is_none() && (lambda < unstable || translates) {
+            let (node, dof) = match heaviest {
+                Some(&(n, l, _)) if translates => (n, dof_names.get(l).copied().unwrap_or("").to_string()),
+                _ => (node_id, dof.clone()),
+            };
             moving = Some((node, dof, lambda));
         }
         out.push(NullMode { omega_sq: lambda, node_id, dof });

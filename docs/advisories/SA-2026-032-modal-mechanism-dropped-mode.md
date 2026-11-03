@@ -39,7 +39,9 @@ PR #1247. Modal analysis refuses when one of its zero-frequency modes (ω² ≤ 
 has more than 1e-6 of its kinetic energy in translations (row-sum lumped mass) or carries more
 than 1e-6 of the mass in a direction, naming the node and direction and returning no modes
 (`MODAL-MECHANISM`, shown in the user's language). A seesaw, whose ends move opposite ways so that
-no rigid translation excites it, is refused too, however far the rest of the model reaches. A zero mode
+no rigid translation excites it, is refused too, however far the rest of the model reaches; so is
+any ω² more negative than round-off (10⁻⁹ of the largest eigenvalue found), which is an instability
+whatever it moves. A zero mode
 that moves no translational mass (a column free to spin about its own axis, which the static
 solve accepts and no ground motion excites) is reported in the result's `nullModes`, with its
 node and DOF, and the app lists it with the discarded modes instead of dropping it unnoticed
