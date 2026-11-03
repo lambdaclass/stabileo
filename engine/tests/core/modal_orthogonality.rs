@@ -297,31 +297,17 @@ fn near_zero_modes_must_not_silently_truncate_the_requested_spectrum() {
     let reference: Vec<f64> = solve_modal_3d(&symmetric_cantilevers(1, 0.5, true), &densities, 7).unwrap()
         .modes.iter().map(|m| m.omega.powi(2)).collect();
     assert_eq!(reference.len(), 7);
-    let (mut solved, mut refused) = (0, 0);
     for scale in [1e-12, 1e-14, 1e-16, 1e-18, 1e-20] {
         let mut input = symmetric_cantilevers(1, 0.5, true);
         for material in input.materials.values_mut() { material.e *= scale; }
         let expected: Vec<f64> = reference.iter().map(|w2| w2 * scale).collect();
-        let near_threshold = expected.iter().any(|w2| (w2 / 1e-10 - 1.0).abs() < 1e-6);
-        let below = expected.iter().filter(|&&w2| w2 <= 1e-10).count();
-        match solve_modal_3d(&input, &densities, 7) {
-            Ok(result) => {
-                assert!(below == 0 || near_threshold, "E scale {scale:e}: {below} modes are below the threshold but the solve returned modes");
-                assert_eq!(result.modes.len(), 7, "E scale {scale:e}: silently returned only {} modes", result.modes.len());
-                for (mode, w2) in result.modes.iter().zip(&expected) {
-                    let relative = (mode.omega.powi(2) / w2 - 1.0).abs();
-                    assert!(relative < 1e-6, "E scale {scale:e}: omega² {} against E-scaled {w2}", mode.omega.powi(2));
-                }
-                solved += 1;
-            }
-            Err(message) => {
-                assert!(below > 0 || near_threshold, "E scale {scale:e}: refused although every E-scaled omega² {expected:?} is above the threshold: {message}");
-                assert!(message.starts_with(dedaliano_engine::solver::modal::MODAL_MECHANISM), "E scale {scale:e}: {message}");
-                assert!(message.contains(&format!("{below} mode(s) with zero or negative ω²")), "E scale {scale:e}: {message}");
-                assert!(message.contains("No modes are returned"), "{message}");
-                refused += 1;
-            }
+        let result = solve_modal_3d(&input, &densities, 7)
+            .unwrap_or_else(|e| panic!("E scale {scale:e}: a stable structure scaled softer is not a mechanism: {e}"));
+        assert!(result.null_modes.is_empty(), "E scale {scale:e}: {:?}", result.null_modes);
+        assert_eq!(result.modes.len(), 7, "E scale {scale:e}: silently returned only {} modes", result.modes.len());
+        for (mode, w2) in result.modes.iter().zip(&expected) {
+            let relative = (mode.omega.powi(2) / w2 - 1.0).abs();
+            assert!(relative < 1e-6, "E scale {scale:e}: omega² {} against E-scaled {w2}", mode.omega.powi(2));
         }
     }
-    assert!(solved > 0 && refused > 0, "the scales must cover both sides of the threshold: {solved} solved, {refused} refused");
 }

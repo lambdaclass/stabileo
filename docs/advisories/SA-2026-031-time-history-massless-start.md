@@ -15,9 +15,11 @@ Linear time history (Newmark and HHT-α), 2D and 3D, in the PRO dynamics panel a
 points, when the mass matrix is singular (a node or a rotation with no mass: members of a
 material without density, nodes carrying only nodal masses, lumped-mass rotations) **and** a
 force history is nonzero at t = 0 on such a DOF. In the app that is a step force with its start
-at 0 s on a node with no translational mass in its direction. The numbers of ground motion and
-sine forces do not change (M·r never acts on a massless DOF; a sine starts at zero), but any time
-history, ground motion included, can now refuse with `TH-MASS-SINGULAR` or
+at 0 s on a node with no translational mass in its direction. Ground motion and sine forces put
+no load on a massless DOF at t = 0 (M·r is zero there; a sine starts at zero), but the massless
+directions now start with the acceleration their equations require instead of zero, which changes
+reported accelerations near such nodes in any history and, with damping, the response that
+follows. Any time history, ground motion included, can also now refuse with `TH-MASS-SINGULAR` or
 `TH-MASSLESS-MECHANISM` where it used to give numbers (see "Fixed in"), and a damped history whose
 Rayleigh fit met an infinite eigenvalue, which used to come back not finite, now returns numbers
 (the damping fix of PR #1239, under this PR). The re-check registry flags every saved model with a
@@ -67,7 +69,11 @@ response near that node changes, most in the first steps.
 PR #1247. At t = 0 the massless rows Z are met by K_ZZ·(u_Z + a1·v_Z) = r_Z: with damping
 (C_ZZ = a1·K_ZZ on those rows) the load at t = 0 makes their velocity jump and u_Z(0) stays as
 given; undamped, the massless part starts settled (a jump in u). The massive rows take the rest,
-massless accelerations stay zero, and every row of step 0 holds. Reciprocity now holds to
+massless accelerations follow from differentiating their rows (undamped, K_ZZ·a_Z = −K_Zm·a_m
+and K_ZZ·v_Z = ḟ_Z − K_Zm·v_m; damped, the load's slope ḟ over the first step enters a_Z),
+and every row of step 0 holds; a
+massless tip now accelerates with the mass it hangs from, and under a ramp load as its
+first-order closed form, where it used to start at zero and alternate about it. Reciprocity now holds to
 round-off on the fuzz models of #760 and on the chain and cantilever above. Two cases that used
 to give numbers now refuse, on any time history: a singular mass whose null direction mixes
 several DOFs (`TH-MASS-SINGULAR`; the solver divided by the diagonal of M instead), and a massless

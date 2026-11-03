@@ -1,4 +1,4 @@
-use dedaliano_engine::solver::time_integration::{solve_time_history_2d_traced, solve_time_history_3d};
+use dedaliano_engine::solver::time_integration::{solve_time_history_2d, solve_time_history_2d_traced, solve_time_history_3d};
 use dedaliano_engine::types::*;
 use serde_json::{json, Value};
 
@@ -54,6 +54,10 @@ fn damped_step(m: f64, c: f64, k: f64, p: f64, t: f64) -> f64 {
 
 fn ux(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
     r.node_histories.iter().find(|h| h.node_id == node).unwrap().ux.clone()
+}
+
+fn ax(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
+    r.node_histories.iter().find(|h| h.node_id == node).unwrap().ax.clone()
 }
 
 struct Regime {
@@ -168,4 +172,83 @@ fn a_moment_on_massless_rotations_is_reciprocal_with_a_force_in_3d() {
     for (n, (x, y)) in rot.iter().zip(disp).enumerate() {
         assert!((x - y).abs() <= 1e-9 * scale, "step {n}: θy2(Fx3) = {x:e} vs ux3(My2) = {y:e}");
     }
+}
+
+#[test]
+fn a_node_with_a_tiny_but_positive_mass_keeps_its_initial_displacement_beside_a_massless_one() {
+    let p = 10.0;
+    let dt = period() / 400.0;
+    for ratio in [1e-13, 1e-15, 1e-20] {
+        let mut input = chain(dt, 4, 0.0, 3, p);
+        let mut solver = serde_json::to_value(&input.solver).unwrap();
+        solver["nodes"]["4"] = json!({"id": 4, "x": 2.0, "z": 0.0});
+        solver["elements"]["3"] = json!({"id": 3, "type": "truss", "nodeI": 3, "nodeJ": 4, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false});
+        solver["supports"]["4"] = json!({"id": 4, "nodeId": 4, "type": "rollerX"});
+        solver["masses"]["nodal"] = json!([{"nodeId": 2, "mass": MASS}, {"nodeId": 3, "mass": MASS * ratio}]);
+        input.solver = serde_json::from_value(solver).unwrap();
+        let r = match solve_time_history_2d(&input) {
+            Ok(r) => r,
+            Err(e) if ratio < 1e-18 && e.starts_with("TH-MASS-SINGULAR: ") => continue,
+            Err(e) => panic!("{ratio:e}: {e}"),
+        };
+        let (ua, ub) = (ux(&r, 2), ux(&r, 3));
+        assert_eq!(ub[0] - ua[0], 0.0, "node 3, of {ratio:e} of node 2's mass, started displaced by {:.3e} of P/k2", (ub[0] - ua[0]) / (p / k2()));
+        assert!(ub.iter().chain(&ua).all(|x| x.is_finite()), "{ratio:e}");
+    }
+}
+
+#[test]
+fn an_undamped_massless_tip_accelerates_with_the_mass_it_hangs_from() {
+    let p = 10.0;
+    let dt = period() / 400.0;
+    let (r, _) = solve_time_history_2d_traced(&chain(dt, 800, 0.0, 3, p)).unwrap();
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    let worst = aa.iter().zip(&ab).map(|(a, b)| (a - b).abs()).fold(0.0f64, f64::max);
+    assert!(worst <= 1e-6 * p / MASS, "a_B − a_A reaches {:.3e} of P/m", worst / (p / MASS));
+    let exact: Vec<f64> = r.time_steps.iter().map(|&t| p / MASS * (k1() / MASS).sqrt().mul_add(t, 0.0).cos()).collect();
+    let off = aa.iter().zip(&exact).map(|(a, e)| (a - e).abs()).fold(0.0f64, f64::max);
+    assert!(off <= 2e-3 * p / MASS, "a_A off the undamped SDOF P/m·cos(ωt) by {:.3e} of P/m", off / (p / MASS));
+}
+
+#[test]
+fn a_damped_massless_tip_under_a_ramp_accelerates_as_its_first_order_closed_form() {
+    let slope = 10.0;
+    let dt = period() / 400.0;
+    let mut input = serde_json::to_value(chain(dt, 800, 0.05, 3, 0.0)).unwrap();
+    let record = |t: f64| json!({"time": t, "loads": [{"nodeId": 3, "fx": slope * t, "fz": 0.0, "my": 0.0}]});
+    input["forceHistory"] = json!([record(0.0), record(1e3)]);
+    let input: TimeHistoryInput = serde_json::from_value(input).unwrap();
+    let (r, trace) = solve_time_history_2d_traced(&input).unwrap();
+    let a1 = trace.a1;
+    assert!(dt < 2.0 * a1, "dt {dt} a1 {a1}");
+    let scale = slope / (k2() * a1);
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    let worst = r.time_steps.iter().enumerate().map(|(n, &t)| {
+        let exact = scale * (-t / a1).exp();
+        ((ab[n] - aa[n]) - exact).abs()
+    }).fold(0.0f64, f64::max);
+    assert!(worst <= 3e-2 * scale, "a_B − a_A off (s/(k2·a1))·e^(−t/a1) by {:.3e} of s/(k2·a1)", worst / scale);
+}
+
+fn vx(r: &TimeHistoryResult, node: usize) -> Vec<f64> {
+    r.node_histories.iter().find(|h| h.node_id == node).unwrap().vx.clone()
+}
+
+#[test]
+fn an_undamped_massless_tip_under_a_ramp_stretches_at_the_load_rate() {
+    let slope = 10.0;
+    let dt = period() / 400.0;
+    let mut input = serde_json::to_value(chain(dt, 800, 0.0, 3, 0.0)).unwrap();
+    let record = |t: f64| json!({"time": t, "loads": [{"nodeId": 3, "fx": slope * t, "fz": 0.0, "my": 0.0}]});
+    input["forceHistory"] = json!([record(0.0), record(1e3)]);
+    let input: TimeHistoryInput = serde_json::from_value(input).unwrap();
+    let r = solve_time_history_2d(&input).unwrap();
+    let rate = slope / k2();
+    let (va, vb) = (vx(&r, 2), vx(&r, 3));
+    let off_v = va.iter().zip(&vb).map(|(a, b)| (b - a - rate).abs()).fold(0.0f64, f64::max);
+    assert!(off_v <= 1e-6 * rate, "v_B − v_A off s/k2 by {:.3e} of it", off_v / rate);
+    let (aa, ab) = (ax(&r, 2), ax(&r, 3));
+    let peak = aa.iter().fold(0.0f64, |m, a| m.max(a.abs()));
+    let off_a = aa.iter().zip(&ab).map(|(a, b)| (b - a).abs()).fold(0.0f64, f64::max);
+    assert!(peak > 0.0 && off_a <= 1e-6 * peak, "a_B − a_A reaches {:.3e} of the peak a_A", off_a / peak);
 }

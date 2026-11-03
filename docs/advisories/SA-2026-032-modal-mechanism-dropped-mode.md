@@ -35,15 +35,18 @@ singular or indefinite stiffness. Re-run it: it now refuses and names the mechan
 
 ## Fixed in
 
-PR #1247. Modal analysis refuses when one of its zero-frequency modes (ω² ≤ 1e-10 rad²/s²)
-moves a translational DOF that carries mass by more than round-off (10⁻⁸ of its largest
-component), has more than 1e-6 of its kinetic energy in translations, or carries more than 1e-6 of
-the mass in a direction, naming the node and direction and returning no modes
-(`MODAL-MECHANISM`, shown in the user's language). A seesaw, whose ends move opposite ways so that
-no rigid translation excites it, is refused too, however far the rest of the model reaches and however much rotary inertia sits at its pivot; so is
-any ω² more negative than round-off (10⁻⁹ of the largest eigenvalue found), which is an instability
-whatever it moves. A zero mode
+PR #1247. A mode is zero when its ω² is round-off: |ω²|·φᵀMφ at most 10⁻¹² of |φ|ᵀ|K||φ|, the
+size of the stiffness terms that cancel in it (mechanisms measure 10⁻¹⁹ to 10⁻¹⁶, the lowest real
+modes of the test models 10⁻⁷ and above). That cut is relative, so it holds whichever eigensolver
+shift puts a mechanism's zero at 10⁻⁸ instead of 10⁻¹¹, and a stable cantilever soft enough for
+ω² = 2·10⁻¹¹ rad²/s² keeps its modes. Modal analysis refuses when a zero mode moves a
+translational DOF that carries mass by more than round-off (10⁻⁸ of its largest component), has
+more than 1e-6 of its kinetic energy in translations, or carries more than 1e-6 of the mass in a
+direction, naming the node and direction and returning no modes (`MODAL-MECHANISM`, shown in the
+user's language). A seesaw, whose ends move opposite ways so that no rigid translation excites it,
+is refused too, however far the rest of the model reaches and however much rotary inertia sits at
+its pivot; so is any negative ω² that is not round-off, an instability whatever it moves. A zero mode
 that moves no translational mass (a column free to spin about its own axis, which the static
 solve accepts and no ground motion excites) is reported in the result's `nullModes`, with its
 node and DOF, and the app lists it with the discarded modes instead of dropping it unnoticed
-(`engine/tests/modal_mechanism_refusal.rs`). Models without a mechanism return the same modes.
+(`engine/tests/modal_mechanism_refusal.rs`). Models without a mechanism return the same modes, except a stable structure soft enough for a mode with 0 < ω² ≤ 1e-10 rad²/s², or a mode under 1e-3 Hz that the app dropped, which used to lose that mode silently and now keeps it; a free spin no longer takes the place of a requested mode.

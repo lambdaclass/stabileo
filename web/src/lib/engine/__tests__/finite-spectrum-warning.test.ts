@@ -66,7 +66,7 @@ describe('finite spectrum result warnings', () => {
 
 describe('modal refusals in the user language', () => {
   const engine = (path: string) => readFileSync(fileURLToPath(new URL(`../../../../../engine/src/${path}`, import.meta.url)), 'utf8');
-  const belowThreshold = 'Eigenvalue decomposition failed: Modal completeness could not be established: only 5 of 7 computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.';
+  const belowThreshold = 'Eigenvalue decomposition failed: Modal completeness could not be established: only 5 of 7 computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.';
   const notCertified = 'Eigenvalue decomposition failed: could not establish convergence and Sturm completeness for 42 free DOFs (factorization failure or iteration limit). Check supports and releases for mechanisms, stiffness/mass conditioning, or request fewer modes; no incomplete modes were returned.';
 
   it('matches the sentences the engine emits', () => {

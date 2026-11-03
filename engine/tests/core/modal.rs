@@ -270,13 +270,19 @@ fn rayleigh_delivers_the_requested_ratio_at_the_real_fundamental() {
 }
 
 #[test]
-fn modal_near_zero_modes_refuse_partial_results() {
-    let mut input = make_ss_beam_udl(8, L, E * 1e-16, A, IZ, 0.0);
-    input.loads.clear();
-    let error = modal::solve_modal_2d(&input, &make_densities(), 6).unwrap_err();
-    assert!(error.starts_with(modal::MODAL_MECHANISM), "{error}");
-    assert!(error.contains("zero or negative ω²"), "{error}");
-    assert!(error.contains("No modes are returned"), "{error}");
+fn modal_near_zero_modes_of_a_soft_stable_beam_are_returned_complete() {
+    let mut soft = make_ss_beam_udl(8, L, E * 1e-16, A, IZ, 0.0);
+    soft.loads.clear();
+    let mut stiff = make_ss_beam_udl(8, L, E, A, IZ, 0.0);
+    stiff.loads.clear();
+    let soft = modal::solve_modal_2d(&soft, &make_densities(), 6).unwrap();
+    let stiff = modal::solve_modal_2d(&stiff, &make_densities(), 6).unwrap();
+    assert!(soft.null_modes.is_empty());
+    assert_eq!(soft.modes.len(), 6);
+    assert!(soft.modes[0].omega.powi(2) < 1e-10, "{}", soft.modes[0].omega);
+    for (s, k) in soft.modes.iter().zip(&stiff.modes) {
+        assert!((s.omega / k.omega - 1e-8).abs() < 1e-8 * 1e-6, "{} vs {}", s.omega, k.omega);
+    }
 }
 
 #[test]

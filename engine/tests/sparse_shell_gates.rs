@@ -918,6 +918,14 @@ fn fill_ratio_regression() {
     }
 }
 
+#[test]
+fn modal_refuses_the_plate_whose_in_plane_rotation_only_drilling_stiffness_holds() {
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let e = modal::solve_modal_3d(&make_ss_plate(8, 8), &densities, 5).unwrap_err();
+    assert!(e.starts_with("MODAL-MECHANISM: "), "{e}");
+}
+
 /// Gate 5d: Sparse modal eigenvalues match dense Lanczos eigenvalues.
 #[test]
 fn sparse_modal_parity() {
@@ -1014,9 +1022,8 @@ fn near_mechanism_plate_modal_is_complete() {
     let n = k.n;
     let (k_norm, m_norm) = (infinity_norm(k), infinity_norm(m));
     for requested in [10, 50] {
-        let modal = modal::solve_modal_3d(&input, &densities, requested)
-            .unwrap_or_else(|e| panic!("{requested} modes refused: {e}"));
-        assert_eq!(modal.modes.len(), requested);
+        let refusal = modal::solve_modal_3d(&input, &densities, requested).unwrap_err();
+        assert!(refusal.starts_with("MODAL-MECHANISM: "), "{requested} modes: {refusal}");
 
         let r = dedaliano_engine::linalg::lanczos_generalized_eigen_sparse(k, m, requested, 0.0)
             .expect("eigensolve refused");
@@ -2489,7 +2496,7 @@ fn sparse_modal_on_a_mechanism_is_refused_or_verified() {
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
     match modal::solve_modal_3d(&input, &densities, 5) {
-        Err(e) => assert!(e.starts_with("REFUSE: self-check modal_residual:"), "{e}"),
+        Err(e) => assert!(e.starts_with("REFUSE: self-check modal_residual:") || e.starts_with("MODAL-MECHANISM: "), "{e}"),
         Ok(r) => {
             let residuals: Vec<_> = r.structured_diagnostics.iter()
                 .filter(|d| d.phase.as_deref().unwrap_or("").starts_with("self_check:modal_residual")).collect();

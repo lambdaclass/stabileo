@@ -2,7 +2,7 @@ import type { Translations } from '../types';
 const pt: Translations = {
   "advanced.finiteSpectrum": "Existem apenas {n} modos finitos. As direções sem massa não têm frequência finita.",
   "advanced.finiteSpectrumOne": "Existe apenas 1 modo finito. As direções sem massa não têm frequência finita.",
-  "advanced.modalIncomplete": "Análise modal recusada: apenas {n} de {m} modos calculados têm frequência positiva (ω² > 1e-10). Nenhum conjunto incompleto de modos foi retornado. Verifique o condicionamento de rigidez e massa e os apoios.",
+  "advanced.modalIncomplete": "Análise modal recusada: apenas {n} de {m} modos calculados têm frequência positiva (ω² > 0). Nenhum conjunto incompleto de modos foi retornado. Verifique o condicionamento de rigidez e massa e os apoios.",
   "advanced.eigenFailure": "Análise de autovalores recusada: não foi possível estabelecer a convergência e a completude de Sturm para {n} graus de liberdade livres. Nenhum conjunto incompleto de resultados foi retornado. Verifique apoios e liberações em busca de mecanismos, o condicionamento de rigidez e massa, ou peça menos modos.",
   "landing.navTools": "Ferramentas",
 

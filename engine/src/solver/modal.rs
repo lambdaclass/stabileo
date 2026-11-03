@@ -193,14 +193,23 @@ pub fn solve_modal_2d(
         None => (m_r_x.clone(), m_r_y.clone()),
     };
 
-    let null_modes = {
+    let (result, null_modes) = {
+        let k_abs = |x: &[f64]| match &k_check_sparse {
+            Some(k) => abs_mat_vec_sparse(k, x),
+            None => abs_mat_vec_dense(&k_check_dense, x, ns),
+        };
         let m_mul = |x: &[f64]| match &m_csc_opt {
             Some(m_csc) => m_csc.sym_mat_vec(x),
             None => mat_vec_sub(&m_solve, x, ns),
         };
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, &its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"])?
+        let eigen = |k: usize| match (&k_check_sparse, &m_csc_opt) {
+            (Some(kk), Some(mm)) => lanczos_generalized_eigen_sparse(kk, mm, k, 0.0),
+            _ => lanczos_generalized_eigen(&k_check_dense, &m_solve, ns, k, 0.0),
+        };
+        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"], &k_abs);
+        with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
 
     let mut checks = super::self_checks::ModalChecks::default();
@@ -224,7 +233,7 @@ pub fn solve_modal_2d(
     for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
         // ∞: a massless direction (lumped-mass rotations), not a mode.
-        if eigenvalue <= 1e-10 || !eigenvalue.is_finite() || modes.len() >= num_modes {
+        if eigenvalue <= 0.0 || !eigenvalue.is_finite() || modes.len() >= num_modes {
             continue;
         }
 
@@ -311,7 +320,7 @@ pub fn solve_modal_2d(
     // The eigensolver excludes certified massless directions from this count;
     // dropping a finite low-frequency mode must still refuse a partial result.
     if modes.len() < num_modes.min(n_converged) {
-        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
     }
 
     // Rayleigh damping (5% critical from modes 1 and last)
@@ -343,12 +352,12 @@ pub fn solve_modal_2d(
 }
 
 pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
-const NULL_EIGENVALUE: f64 = 1e-10;
 const NULL_MODE_MASS_RATIO: f64 = 1e-6;
-const NEGATIVE_ROUND_OFF: f64 = 1e-9;
+const ZERO_CANCELLATION: f64 = 1e-12;
 const TRANSLATION_ROUND_OFF: f64 = 1e-8;
 const MASSLESS: f64 = 1e-12;
 
+/// `uf`, `rigid` and `shape(phi)` are all indexed by `DofNumbering` numbers, which put the free DOFs first.
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn null_modes_or_mechanism(
     result: &EigenResult,
@@ -360,21 +369,28 @@ fn null_modes_or_mechanism(
     shape: &dyn Fn(&[f64]) -> Vec<f64>,
     dof_num: &DofNumbering,
     dof_names: &[&str],
-) -> Result<Vec<NullMode>, String> {
+    k_abs: &dyn Fn(&[f64]) -> Vec<f64>,
+) -> Result<(EigenResult, Vec<NullMode>), String> {
     let nk = result.values.len();
-    let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().map(|(&(node, local), &g)| (node, local, g)).collect();
+    let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().filter(|(_, &g)| g < dof_num.n_free).map(|(&(node, local), &g)| (node, local, g)).collect();
     dofs.sort_unstable();
     let mut out = Vec::new();
     let mut moving = None;
     let heaviest_mass = rigid.iter().flat_map(|m| m.iter()).fold(0.0f64, |w, m| w.max(m.abs()));
-    let scale = result.values.iter().filter(|v| v.is_finite()).fold(0.0f64, |m, v| m.max(v.abs()));
-    let unstable = -(NULL_EIGENVALUE.max(NEGATIVE_ROUND_OFF * scale));
+    let mut zero = vec![false; nk];
     for (idx, &lambda) in result.values.iter().enumerate() {
-        if !(lambda.is_finite() && lambda <= NULL_EIGENVALUE) {
+        if !lambda.is_finite() {
             continue;
         }
         let phi: Vec<f64> = (0..ns).map(|i| result.vectors[i * nk + idx]).collect();
         let pmp: f64 = phi.iter().zip(m_mul(&phi)).map(|(a, b)| a * b).sum();
+        let magnitude: Vec<f64> = phi.iter().map(|x| x.abs()).collect();
+        let bound: f64 = magnitude.iter().zip(k_abs(&magnitude)).map(|(a, b)| a * b).sum();
+        let round_off = lambda.abs() * pmp.abs() <= ZERO_CANCELLATION * bound;
+        if !(round_off || lambda < 0.0) {
+            continue;
+        }
+        zero[idx] = true;
         let share = loads.iter().fold(0.0f64, |w, (l, mass)| {
             let pl: f64 = phi.iter().zip(l.iter()).map(|(a, b)| a * b).sum();
             if pmp.abs() > 1e-30 && *mass > 1e-20 { w.max(pl * pl / pmp / mass) } else { w }
@@ -392,7 +408,7 @@ fn null_modes_or_mechanism(
         let carries = |&&(_, local, g): &&(usize, usize, usize)| rigid.get(local).and_then(|m| m.get(g)).is_some_and(|m| m.abs() > MASSLESS * heaviest_mass);
         let swings = dofs.iter().filter(carries).any(|&(_, _, g)| uf.get(g).is_some_and(|u| u.abs() > TRANSLATION_ROUND_OFF * reach));
         let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs() || swings;
-        if moving.is_none() && (lambda < unstable || translates) {
+        if moving.is_none() && (!round_off || translates) {
             let (node, dof) = match heaviest {
                 Some(&(n, l, _)) if translates => (n, dof_names.get(l).copied().unwrap_or("").to_string()),
                 _ => (node_id, dof.clone()),
@@ -403,11 +419,50 @@ fn null_modes_or_mechanism(
     }
     if let Some((node, dof, lambda)) = moving {
         return Err(format!(
-            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative ω² (≤ {NULL_EIGENVALUE:e} rad²/s²); one (ω² = {lambda:.3e}) moves node {node} along {dof} with no positive stiffness against it, so a release, hinge, missing support or negative stiffness lets part of the mass move freely. No modes are returned.",
+            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with ω² zero to round-off or negative; one (ω² = {lambda:.3e}) moves node {node} along {dof} with no positive stiffness against it, so a release, hinge, missing support or negative stiffness lets part of the mass move freely. No modes are returned.",
             out.len()
         ));
     }
-    Ok(out)
+    let kept: Vec<usize> = (0..nk).filter(|&i| !zero[i]).collect();
+    let values = kept.iter().map(|&i| result.values[i]).collect();
+    let vectors = (0..ns).flat_map(|r| kept.iter().map(move |&i| result.vectors[r * nk + i])).collect();
+    Ok((EigenResult { values, vectors }, out))
+}
+
+#[allow(clippy::type_complexity)]
+fn with_replacements(
+    result: &EigenResult,
+    num_modes: usize,
+    ns: usize,
+    classify: &dyn Fn(&EigenResult) -> Result<(EigenResult, Vec<NullMode>), String>,
+    eigen: &dyn Fn(usize) -> Option<EigenResult>,
+) -> Result<(EigenResult, Vec<NullMode>), String> {
+    let mut found = classify(result)?;
+    let mut asked = result.values.len();
+    while !found.1.is_empty() && found.0.values.len() < num_modes && asked < ns {
+        asked = (num_modes + found.1.len()).max(2 * asked).min(ns);
+        let more = eigen(asked).ok_or_else(|| "Eigenvalue decomposition failed".to_string())?;
+        found = classify(&more)?;
+    }
+    Ok(found)
+}
+
+fn abs_mat_vec_sparse(a: &crate::linalg::CscMatrix, x: &[f64]) -> Vec<f64> {
+    let mut y = vec![0.0; a.n];
+    for j in 0..a.n {
+        for p in a.col_ptr[j]..a.col_ptr[j + 1] {
+            let (i, v) = (a.row_idx[p], a.values[p].abs());
+            y[i] += v * x[j];
+            if i != j {
+                y[j] += v * x[i];
+            }
+        }
+    }
+    y
+}
+
+fn abs_mat_vec_dense(a: &[f64], x: &[f64], n: usize) -> Vec<f64> {
+    (0..n).map(|i| a[i * n..(i + 1) * n].iter().zip(x).map(|(v, x)| v.abs() * x).sum()).collect()
 }
 
 /// M*v product for a submatrix (nf×nf flat array)
@@ -533,11 +588,14 @@ pub fn solve_modal_3d(
     let reduce = |mr: &Vec<f64>| match &cs { Some(cs) => cs.reduce_vector(mr), None => mr.clone() };
     let (l_x, l_y, l_z) = (reduce(&rigid[0]), reduce(&rigid[1]), reduce(&rigid[2]));
 
-    let null_modes = {
+    let (result, null_modes) = {
+        let k_abs = |x: &[f64]| abs_mat_vec_sparse(k_solve, x);
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
         let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
         let shape = |phi: &[f64]| to_global(&free(phi), n, its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"])?
+        let eigen = |k: usize| lanczos_generalized_eigen_sparse(k_solve, m_solve, k, 0.0);
+        let classify = |r: &EigenResult| null_modes_or_mechanism(r, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], &k_abs);
+        with_replacements(&result, num_modes, ns, &classify, &eigen)?
     };
 
     let mut checks = super::self_checks::ModalChecks::default();
@@ -553,7 +611,7 @@ pub fn solve_modal_3d(
     for idx in 0..n_converged {
         let eigenvalue = result.values[idx];
         // ∞: a massless direction (lumped-mass rotations), not a mode.
-        if eigenvalue <= 1e-10 || !eigenvalue.is_finite() || modes.len() >= num_modes { continue; }
+        if eigenvalue <= 0.0 || !eigenvalue.is_finite() || modes.len() >= num_modes { continue; }
 
         let omega = eigenvalue.sqrt();
         let freq = omega / (2.0 * std::f64::consts::PI);
@@ -616,7 +674,7 @@ pub fn solve_modal_3d(
     // The eigensolver excludes certified massless directions from this count;
     // dropping a finite low-frequency mode must still refuse a partial result.
     if modes.len() < num_modes.min(n_converged) {
-        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (omega² > 1e-10); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
+        return Err(format!("Eigenvalue decomposition failed: Modal completeness could not be established: only {} of {} computed modes passed the positive-frequency threshold (finite omega² > 0); no incomplete modes were returned. Check stiffness/mass conditioning and supports.", modes.len(), num_modes.min(n_converged)));
     }
 
 
