@@ -342,25 +342,25 @@ export function fixtureLoadCases<C extends FixtureCombination>(
   const loadCases = json.loadCases.length > 0 ? json.loadCases : current.loadCases;
   const typeOf = (cases: ReadonlyArray<FixtureCase>) => new Map(cases.map((c) => [c.id, c.type ?? '']));
   const now = typeOf(loadCases), before = typeOf(current.loadCases);
-  const loaded = new Set(json.loads.map((l) => (l.data?.caseId as number | undefined) ?? 1));
-  const unlisted = [...loaded].filter((id) => !now.has(id));
+  const loaded = new Set<unknown>(json.loads.map((l) => (l.data?.caseId === undefined ? 1 : l.data.caseId)));
+  const unlisted = [...loaded].filter((id) => typeof id !== 'number' || !now.has(id));
   if (unlisted.length > 0 && loadCases.length > 0) throw new Error(tp('fixture.err.loadCaseMissing', { model: json.name, ids: unlisted.join(', ') }));
   const factorsOf = (c: { factors?: unknown }) => (Array.isArray(c.factors) ? c.factors as Array<{ caseId: number; factor?: number } | null | undefined> : null);
   if (json.combinations.length === 0 && json.loadCases.length === 0) return { loadCases, combinations: current.combinations, rebuilt: false };
   if (json.combinations.length === 0) {
     const fits = (c: FixtureCombination) => (c.factors ?? []).every((f) => now.has(f.caseId) && now.get(f.caseId) === before.get(f.caseId));
     const combined = new Set(current.combinations.flatMap((c) => (c.factors ?? []).filter((f) => (f as { factor?: number }).factor !== 0).map((f) => f.caseId)));
-    const everyLoadedCombined = [...loaded].every((id) => combined.has(id));
+    const everyLoadedCombined = [...loaded].every((id) => combined.has(id as number));
     if (current.combinations.every(fits) && everyLoadedCombined) return { loadCases, combinations: current.combinations, rebuilt: false };
     const rebuilt = codeCombinations(loadCases);
     const taken = new Set(rebuilt.flatMap((c) => c.factors.filter((f) => f.factor !== 0).map((f) => f.caseId)));
-    const left = [...loaded].filter((id) => !taken.has(id));
+    const left = [...loaded].filter((id) => !taken.has(id as number));
     if (left.length > 0) throw new Error(tp('fixture.err.caseUncombined', { model: json.name, ids: left.join(', ') }));
     return { loadCases, combinations: rebuilt, rebuilt: true };
   }
-  const dangling = json.combinations.filter((c) => !factorsOf(c)?.every((f) => f != null && now.has(f.caseId) && Number.isFinite(f.factor)));
+  const dangling = json.combinations.filter((c) => c == null || !factorsOf(c)?.every((f) => f != null && now.has(f.caseId) && Number.isFinite(f.factor)));
   if (dangling.length > 0) {
-    throw new Error(tp('fixture.err.combinationMalformed', { model: json.name, names: dangling.map((c) => `"${c.name}"`).join(', ') }));
+    throw new Error(tp('fixture.err.combinationMalformed', { model: json.name, names: dangling.map((c) => `"${c?.name}"`).join(', ') }));
   }
   return { loadCases, combinations: json.combinations, rebuilt: false };
 }

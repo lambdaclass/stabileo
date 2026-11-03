@@ -151,6 +151,17 @@ describe('shared-link importer', () => {
     }
   });
 
+  it('restores a link that lists its own cases and no combinations with no combination at all', () => {
+    const payload = legacy();
+    payload.loadCases = [{ id: 9, name: 'Live' }];
+    payload.loads[0].data.caseId = 9;
+    const snapshot = prepareSharedSnapshot(payload);
+    expect(snapshot).not.toBeNull();
+    modelStore.restore(snapshot!);
+    expect(modelStore.model.loadCases.map(c => c.id)).toEqual([9]);
+    expect(modelStore.model.combinations).toEqual([]);
+  });
+
   it('reads a load without a case as case 1, with the restored cases or the listed ones', () => {
     const restored = legacy();
     delete restored.loads[0].data.caseId;

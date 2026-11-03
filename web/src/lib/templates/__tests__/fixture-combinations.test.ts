@@ -141,6 +141,19 @@ describe('a fixture that brings its own cases', () => {
     }
   });
 
+  it('is refused when a load names its case as null or as text, rather than reading it as case 1', () => {
+    for (const caseId of [null, '1']) {
+      const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId } }];
+      const json = emptyFixture({ loadCases: defaultLoadCases(), loads: loads as never });
+      expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() }), String(caseId)).toThrow(/loads in case/);
+    }
+  });
+
+  it('is refused, not thrown at, when one of its own combinations is null', () => {
+    const json = emptyFixture({ loadCases: [{ id: 1, type: 'D', name: 'D' }], combinations: [null as never] });
+    expect(() => fixtureLoadCases(json, { loadCases: defaultLoadCases(), combinations: defaultCombinations() })).toThrow(/is not a list of numeric factors/);
+  });
+
   it('is refused when it loads a case no combination the app writes can take', () => {
     const cases = [...defaultLoadCases(), { id: 5, type: '', name: 'Tip load' }];
     const loads = [{ type: 'nodal3d', data: { nodeId: 1, fx: 0, fy: 0, fz: -1, mx: 0, my: 0, mz: 0, caseId: 5 } }];
