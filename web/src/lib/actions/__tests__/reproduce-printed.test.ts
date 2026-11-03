@@ -3,7 +3,7 @@ import { modelStore, resultsStore, uiStore } from '../../store';
 import { initSolver } from '../../engine/wasm-solver';
 import { buildProReportData } from '../../engine/pro-report-inputs';
 import { generateReportHtml, type ReportConfig } from '../../engine/pro-report';
-import { comparePrintedReport } from '../reproduce';
+import { comparePrintedReport, reproduceStatus } from '../reproduce';
 import { printedTables } from '../../engine/report/printed-values';
 import { i18n, setLocale, ensureLocale, t } from '../../i18n';
 
@@ -109,4 +109,48 @@ describe('checking a report value by value', () => {
   it('says nothing about a file without marked tables', () => {
     expect(comparePrintedReport('<html><body><table><tr><td class="num">1.00</td></tr></table></body></html>')).toBeNull();
   });
+
+  it('binds the reprint to the scope the fingerprint records, not to the key in the editable script', () => {
+    const [a, b] = modelStore.combinations.map((c) => c.id);
+    const otherSet = generateReportHtml(buildProReportData({ config: config(`combo:${b}`), t })!);
+    const v = comparePrintedReport(otherSet, { kind: 'combo', id: a! });
+    expect(v).not.toBeNull();
+    expect(v!.structural).toContain('result-set');
+    const own = comparePrintedReport(otherSet, { kind: 'combo', id: b! })!;
+    expect(own.structural).toEqual([]);
+    expect(own.differences).toEqual([]);
+  });
+
+  it('a report printed from the screen sum is bound to the single scope', () => {
+    resultsStore.activeView = 'single';
+    resultsStore.activeCaseId = null;
+    const screen = generateReportHtml(buildProReportData({ config: config('screen'), t })!);
+    expect(comparePrintedReport(screen, { kind: 'combo', id: modelStore.combinations[0]!.id })!.structural).toContain('result-set');
+  });
+
+  it('refuses to compare tables against a fingerprint with no recorded scope', () => {
+    const combo = modelStore.combinations[0]!;
+    const html = generateReportHtml(buildProReportData({ config: config(`combo:${combo.id}`), t })!);
+    expect(comparePrintedReport(html, undefined)).toBeNull();
+  });
 });
+
+describe('the verdict of a check', () => {
+  const verdict = (reproduced: boolean) => ({ status: reproduced ? 'reproduced' : 'mismatch', reproduced, hashes: [], model: 'same', sameBuild: true, buildDifferences: [] }) as never;
+  const clean = { compared: 10, differences: [], structural: [], labels: true };
+
+  it('an HTML report whose embedded choices were removed is incomplete, never reproduced', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: null })).toEqual({ status: 'incomplete', reproduced: false });
+  });
+
+  it('a fingerprint pasted on its own is judged by its hashes', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never })).toEqual({ status: 'reproduced', reproduced: true });
+  });
+
+  it('printed tables that match keep the hash verdict; any difference fails it', () => {
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: clean })).toEqual({ status: 'reproduced', reproduced: true });
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, structural: ['result-set'] } })).toEqual({ status: 'printed-differs', reproduced: false });
+    expect(reproduceStatus({ ok: true, verdict: verdict(true), fresh: {} as never, printed: { ...clean, labels: false } })).toEqual({ status: 'incomplete', reproduced: false });
+  });
+});
+
