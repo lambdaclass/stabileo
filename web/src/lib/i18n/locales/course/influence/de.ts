@@ -119,6 +119,7 @@ const words: Translations = {
   'course.influence.doc.sign.ux': 'Vorzeichen: ux ist in Richtung +X positiv.',
   'course.influence.doc.sign.ry': 'Vorzeichen: θ ist gegen den Uhrzeigersinn positiv.',
   'course.influence.doc.defaulted': 'Es war keine Linie auf dem Bildschirm und kein Stab ausgewählt, daher wurde das Moment in der Mitte des ersten Stabes genommen. Für einen anderen Schnitt verwenden Sie das Werkzeug Einflusslinie und dessen Schaltfläche Schritt-für-Schritt-Erklärung.',
+  'course.influence.doc.defaultedN': 'Es war keine Linie auf dem Bildschirm und kein Stab ausgewählt, daher wurde die Normalkraft in der Mitte des ersten Stabes genommen. Für einen anderen Schnitt verwenden Sie das Werkzeug Einflusslinie und dessen Schaltfläche Schritt-für-Schritt-Erklärung.',
   'course.influence.doc.mb.title': 'Satz von Müller-Breslau',
   'course.influence.doc.mb.principle': 'Um die Linie zu zeichnen, wird die Bindung entfernt, die die Wirkung überträgt, und an ihrer Stelle eine Einheitsverschiebung im positiven Sinn der Wirkung aufgebracht. Die entstehende Biegelinie, gegen die Einheitslast gemessen, ist die Einflusslinie.',
   'course.influence.doc.mb.eqNote': 'Prinzip der virtuellen Arbeit am gelösten System: Die Wirkung leistet Arbeit an der Einheitsverschiebung, die Last P = 1 an der Verschiebung δ(s) ihres Angriffspunkts.',

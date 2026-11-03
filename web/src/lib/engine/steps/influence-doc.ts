@@ -89,7 +89,7 @@ function introBlocks(d: InfluenceDocData): Block[] {
     { kind: 'p', text: tx(`${K}sign.${c}`) },
     { kind: 'fig', sketch: targetSketch(d.pm, d.target, proseSymbol(c)), caption: subtitleOf(d) },
   ];
-  if (d.defaulted) blocks.push({ kind: 'note', tone: 'info', text: tx(`${K}defaulted`) });
+  if (d.defaulted) blocks.push({ kind: 'note', tone: 'info', text: tx(c === 'N' ? `${K}defaultedN` : `${K}defaulted`) });
   return blocks;
 }
 

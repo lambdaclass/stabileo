@@ -72,6 +72,7 @@ const words: Translations = {
   'course.statics.fm.s9.axialOff': 'Sans déformation axiale, la structure est plus rigide que celle de la méthode des rigidités, qui l\'inclut. L\'écart maximal est de {d}, soit {pct} de l\'effort le plus grand : c\'est l\'apport du terme axial que vous avez laissé de côté.',
   'course.statics.fm.s9.axialUnverified': 'Le plus grand écart avec la méthode des rigidités est {d}, soit {pct} de la plus grande force. Il peut venir du terme axial que vous avez omis, mais aucune solution de référence avec la même hypothèse ne permet de le vérifier ; le résultat n\'est donc pas vérifié.',
   'course.statics.fm.s9.rigidOk': 'Cela concorde avec la méthode des rigidités résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie.',
+  'course.statics.fm.s9.rigidBad': 'Cela ne concorde pas avec la méthode des rigidités résolue avec des barres axialement rigides, la même hypothèse que celle que vous avez choisie : la solution n’est pas vérifiée.',
 
   // Travaux virtuels
   'course.statics.vw.choose': 'Au-dessus du document, dans Objet du calcul, vous choisissez la grandeur (déplacement, rotation, déplacement relatif ou rotation relative), le ou les nœuds et la direction. Vous pouvez aussi sélectionner un nœud dans le modèle avant d\'ouvrir le pas à pas.',

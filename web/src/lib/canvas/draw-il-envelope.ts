@@ -5,7 +5,7 @@
  * positive values toward the member's drawn local z, like the line itself.
  */
 import type { AlongEnvelope } from '../engine/influence/envelope-along';
-import { numText } from '../engine/steps/format';
+import { fmtQ, unitQ } from '../store/display-units.svelte';
 import { transverseSign } from '../engine/transverse-sign-2d';
 
 interface Ctx {
@@ -25,6 +25,7 @@ export function drawIlEnvelope(env: AlongEnvelope, dc: Ctx): void {
   const { ctx } = dc;
   const scale = PX / env.globalMax;
   const side = env.quantity === 'M' ? -1 : 1;
+  const kind = env.quantity === 'M' ? 'moment' : 'force';
   for (const m of env.members) {
     const e = dc.getElement(m.elementId);
     const ni = e && dc.getNode(e.nodeI), nj = e && dc.getNode(e.nodeJ);
@@ -63,7 +64,7 @@ export function drawIlEnvelope(env: AlongEnvelope, dc: Ctx): void {
       if (Math.abs(vals[k]) < env.globalMax * 0.05) continue;
       ctx.fillStyle = color;
       const dir = Math.sign(side * vals[k]) || 1;
-      ctx.fillText(numText(vals[k], 3), pts[k].x - nx * 10 * dir, pts[k].y - ny * 10 * dir + 3);
+      ctx.fillText(`${fmtQ(vals[k], kind)} ${unitQ(kind)}`, pts[k].x - nx * 10 * dir, pts[k].y - ny * 10 * dir + 3);
     }
   }
 }
