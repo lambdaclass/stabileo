@@ -4,7 +4,8 @@
  * axially rigid, the mass concentrated at the floors. Each storey is a spring
  * of stiffness Σ 12EI/h³ over its columns (3EI/h³ for a column with one end
  * free to rotate: its own hinge, a pinned support, or a joint where every other
- * member end is released; none for a column free at both ends), and the floors
+ * member end is released or every floor beam reaches no other column or support;
+ * none for a column free at both ends), and the floors
  * are masses joined by those springs in series. A column held at a joint only by
  * another column, with no rigid floor beam there, couples storeys and is refused.
  */
@@ -70,14 +71,32 @@ export function shearBuilding(model: ModelData, points: readonly PointMass[], ba
   const parent = new Map<number, number>();
   const root = (id: number): number => { let r = id; while (parent.has(r)) r = parent.get(r)!; return r; };
   const join = (i: number, j: number) => { const a = root(i), b = root(j); if (a !== b) parent.set(a, b); };
+  const isBeam = (e: (typeof els)[number]) => Math.abs(model.nodes.get(e.nodeI)!.y - model.nodes.get(e.nodeJ)!.y) <= TOL;
+  const beams = els.filter(isBeam);
+  const heldUp = new Set(supported);
+  for (const e of els) if (!isBeam(e)) { heldUp.add(e.nodeI); heldUp.add(e.nodeJ); }
+  const anchored = (beam: (typeof els)[number], near: number, from: number): boolean => {
+    const seen = new Set([near, from]), stack = [from];
+    while (stack.length) {
+      const n = stack.pop()!;
+      if (heldUp.has(n)) return true;
+      for (const e of beams) {
+        if (e === beam || (e.nodeI !== n && e.nodeJ !== n)) continue;
+        const m = e.nodeI === n ? e.nodeJ : e.nodeI;
+        if (!seen.has(m)) { seen.add(m); stack.push(m); }
+      }
+    }
+    return false;
+  };
   const beamHolds = new Set<number>();
   const rigidEnds = new Map<number, number>();
   for (const e of els) {
+    if (isBeam(e)) {
+      if (e.releaseI?.mz !== true && anchored(e, e.nodeI, e.nodeJ)) beamHolds.add(e.nodeI);
+      if (e.releaseJ?.mz !== true && anchored(e, e.nodeJ, e.nodeI)) beamHolds.add(e.nodeJ);
+      continue;
+    }
     for (const [node, rel] of [[e.nodeI, e.releaseI?.mz], [e.nodeJ, e.releaseJ?.mz]] as const) if (rel !== true) rigidEnds.set(node, (rigidEnds.get(node) ?? 0) + 1);
-    const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
-    if (Math.abs(a.y - b.y) > TOL) continue;
-    if (e.releaseI?.mz !== true) beamHolds.add(e.nodeI);
-    if (e.releaseJ?.mz !== true) beamHolds.add(e.nodeJ);
   }
   const jointFree = (node: number, released: boolean): boolean | 'coupled' => {
     if (released) return true;

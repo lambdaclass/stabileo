@@ -288,6 +288,31 @@ describe('a column end turns freely where every floor beam end is released', () 
   });
 });
 
+describe('a floor beam holds a column top only when its far end is held up', () => {
+  const EI = 200e6 * RECT.iz;
+  it('a fixed column with an overhang to a free node: 3EI/h³, the overhang turning with the top', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(2, 3);
+      modelStore.addElement(a, b); modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed');
+    });
+    const r = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false);
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.floors[0].columns.map((c) => c.factor)).toEqual([3]);
+    expect(r.floors[0].k).toBeCloseTo((3 * EI) / 27, 3);
+  });
+  it('a floor beam split at a free node between two fixed columns still holds both tops: 12EI/h³ each', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), m = modelStore.addNode(2, 3), c = modelStore.addNode(4, 3), d = modelStore.addNode(4, 0);
+      modelStore.addElement(a, b); modelStore.addElement(d, c); modelStore.addElement(b, m); modelStore.addElement(m, c);
+      modelStore.addSupport(a, 'fixed'); modelStore.addSupport(d, 'fixed');
+    });
+    const r = shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false);
+    if (typeof r === 'string') throw new Error(r);
+    expect(r.floors[0].columns.map((c) => c.factor)).toEqual([12, 12]);
+  });
+});
+
 describe('a pin-ended column adds mass but no storey stiffness', () => {
   const rel = { my: false, mz: true, t: false };
   const portal = (base: 'fixed' | 'pinned', pinEnded: boolean) => {
