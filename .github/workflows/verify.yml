@@ -70,6 +70,9 @@ jobs:
             .tools/elan
             verify/.lake
           key: lean-${{ runner.os }}-${{ hashFiles('verify/lean-toolchain', 'verify/lake-manifest.json') }}
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Fetch Mathlib build cache
         working-directory: verify
         run: nix develop ..#verify -c lake exe cache get
@@ -122,6 +125,9 @@ jobs:
         with:
           path: .tools
           key: kani-${{ runner.os }}-${{ hashFiles('flake.lock', 'scripts/kani-setup.sh') }}
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop .#verify --command true
       - name: Install Kani
         run: nix develop .#verify -c ./scripts/kani-setup.sh
       # One harness at a time under a memory/time watchdog: CBMC can need tens of GB
