@@ -12,8 +12,8 @@ A failed, timed-out or cancelled scheduled run of `nightly.yml`, `differential.y
 `mutation-ts.yml`, `verification-dashboard.yml` or `supply-chain.yml` opens **one issue per
 workflow**, titled `CI failure: <workflow>` and labelled `ci-failure`, with the run link and the
 failing jobs, or comments on the one already open. Once it is triaged after its latest failure (a
-maintainer commented on it, linking the finding issues or saying why there are none, or added the
-`triaged` label), the next green scheduled run closes it, provided that run is the workflow's
+maintainer commented on it, linking the finding issues or writing "no finding" and why, or added the
+`triaged` label and left it on; any other comment does not count), the next green scheduled run closes it, provided that run is the workflow's
 latest scheduled run, so each new red spell opens a fresh issue (which is what notifies the repository's
 watchers; a comment on a months-old issue notifies nobody). An untriaged issue stays open through
 green runs, with one comment saying so: a rotated seed or shard going green does not mean the

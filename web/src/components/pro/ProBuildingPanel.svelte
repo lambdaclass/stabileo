@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The building, modelled as an engineer thinks of it: first its general data (the concrete, the
    * steel, the codes), then one tool per kind of element, each with its drawn typologies and both
@@ -58,7 +59,7 @@
 <div class="pk bd" data-testid="building-panel">
   <section class="pk-card">
     <h4 class="pk-heading">{t('building.title')}</h4>
-    <p class="pk-hint">{t('building.explain')}</p>
+    <Hint text={t('building.explain')} />
   </section>
 
   <BuildingGeneral />

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { enrichComboShellStresses, envelopeShellStresses } from '../shell-combos';
-import { principalStresses, requiredSteel, shellComponentValue } from '../shell-stress';
+import { principalStresses, requiredSteel, shellComponentAngle, shellComponentValue } from '../shell-stress';
 import { shellCentreRows } from '../shell-results';
 import type { AnalysisResults3D, QuadStress } from '../types-3d';
 
@@ -77,6 +77,21 @@ describe('what the envelope view reads from an envelope record', () => {
     expect(row.membrane).toBeUndefined();
     expect(row.top).toBeUndefined();
     expect(row.global).toBeUndefined();
+  });
+
+  it('reads no face, principal moment, resultant shear or direction from the mixed components', () => {
+    const thick = { ...e, t: 0.2 };
+    for (const face of ['top', 'bottom'] as const) {
+      for (const key of ['vonMises', 'sigmaXx', 'sigmaYy', 'tauXy', 'sigma1', 'sigma2'] as const) {
+        expect(shellComponentValue(thick, key, face), `${key} ${face}`).toBeNaN();
+      }
+    }
+    expect(shellComponentValue(thick, 'vonMises', 'mid')).toBeNaN();
+    for (const key of ['mmax', 'mmin', 'vmax'] as const) expect(shellComponentValue(thick, key), key).toBeNaN();
+    for (const key of ['sigma1', 'sigma2', 'mmax', 'mmin'] as const) expect(shellComponentAngle(thick, key), key).toBeNull();
+    expect(shellComponentValue(thick, 'mx')).toBe(20);
+    expect(shellComponentValue(thick, 'nx')).toBeCloseTo(-110 * 0.2, 12);
+    expect(shellComponentValue(thick, 'vonMises')).toBeCloseTo(Math.sqrt(30000), 9);
   });
 
   it('names the combination each extreme comes from', () => {

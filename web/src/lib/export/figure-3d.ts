@@ -33,6 +33,9 @@ import { takesNoBending } from '../engine/member-loads';
 import { displayedLoads3D, despieceNote3D, despieceDrawsActions, despieceNoteText } from '../store/displayed-loads-3d';
 import { drawFreeBody, type P3 } from '../canvas/free-body';
 import { createLabelCollector } from '../canvas/label-layout';
+import { drawHiddenLabelsNote } from './hidden-labels-note';
+import { shellStressInputs } from '../store/shell-contour';
+import { contourOptions } from '../store/contour-options.svelte';
 import { addMemberTags } from '../canvas/member-tags';
 import { freeBodyActions3D } from '../viewport3d/free-body-3d';
 import { fixedQuantity, displacementText } from '../utils/unit-format';
@@ -72,6 +75,14 @@ function project2D(): boolean {
 }
 
 const fmtF = (v: number, q: 'force' | 'moment' | 'distributedLoad') => fixedQuantity(v, q, 1, uiStore.unitSystem);
+
+/** The loads of the cases asked for, or of the cases shown on screen: every case at once is no picture of anything. */
+function modelFigureLoads(cases: readonly number[] | undefined): typeof modelStore.loads {
+  const want = cases ?? uiStore.visibleLoadCases3D;
+  if (!want) return modelStore.loads;
+  const set = new Set(want);
+  return modelStore.loads.filter((l) => set.has(l.data.caseId ?? 1));
+}
 
 const COLORS: Record<string, { fill: string; stroke: string }> = {
   momentZ: { fill: 'rgba(229, 72, 42, 0.22)', stroke: '#e5482a' },
@@ -164,7 +175,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       return out;
     },
 
-    render(ctx: CanvasRenderingContext2D, _w: number, _h: number, frame: ExportFrame, view: FrameView) {
+    render(ctx: CanvasRenderingContext2D, _w: number, h: number, frame: ExportFrame, view: FrameView) {
       const { right, up, dir } = viewBasis(frame.options.view);
       const toScreen = (p: P3) => {
         const v: V = [p.x, p.y, p.z ?? 0];
@@ -179,13 +190,14 @@ export function createFigure3DRenderer(): Figure2DRenderer {
       const leftHand = uiStore.axisConvention3D === 'leftHand';
       const labels = createLabelCollector();
       const memberSegs: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+      const flushLabels = () => drawHiddenLabelsNote(ctx, h, labels.flush(ctx, memberSegs, { drop: true }));
 
       const fbData = freeBodyActions3D({
         elements: modelStore.elements, nodes: modelStore.nodes, forces: r3d?.elementForces ?? [], reactions: r3d?.reactions ?? [],
         sections: modelStore.sections, project2D: flat(), leftHand, basis: uiStore.despieceBasis,
         resultant: uiStore.despieceCombineVectors, showReactions: content === 'reactions' || content === 'despiece',
         // The loads of the result drawn, which the figure may have chosen, not of the one on screen.
-        loads: content === 'model' ? modelStore.loads : displayedLoads3D(r3d), loadText: (v, q) => fmtF(v, q), negligible: 0.02,
+        loads: content === 'model' ? modelFigureLoads(opts.loadCases) : displayedLoads3D(r3d), loadText: (v, q) => fmtF(v, q), negligible: 0.02,
       });
       // An envelope's or a magnitude's free body is no state of equilibrium: pieces and a note.
       const fbNote = content === 'despiece' ? despieceNote3D(r3d) : null;
@@ -213,9 +225,10 @@ export function createFigure3DRenderer(): Figure2DRenderer {
        */
       const drawMemberTags = () => {
         if (opts.numbering) {
-          ctx.font = '10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-          ctx.fillStyle = '#8fa3b3';
-          for (const n of modelStore.nodes.values()) { const c = toScreen(projectNodeToScene(n, flat())); ctx.fillText(String(n.id), c.x + 5, c.y - 5); }
+          for (const n of modelStore.nodes.values()) {
+            const c = toScreen(projectNodeToScene(n, flat()));
+            labels.add({ text: String(n.id), colour: '#8fa3b3', font: '10px sans-serif', box: { x: c.x + 5, y: c.y - 5, width: 0, height: 0, dirX: 0.7, dirY: -0.7, priority: 1, anchorX: 'left', sweep: 'any' } });
+          }
         }
         if (!opts.numbering && !opts.lengths) return;
         for (const m of fbData.members) {
@@ -262,7 +275,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
         drawShellMap(ctx, frame.options.shellComponent ?? 'vonMises', frame.options.style, r3d, shellFaces, drawShells, toScreen, scenePos, opts.values, labels);
         drawMembers('#8fa3b3', 1.4);
         drawSupports();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -284,7 +297,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           labels,
         });
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -353,7 +366,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           }
         }
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
         return;
       }
 
@@ -405,7 +418,7 @@ export function createFigure3DRenderer(): Figure2DRenderer {
           }
         }
         drawMemberTags();
-        labels.flush(ctx, memberSegs);
+        flushLabels();
       }
     },
   };
@@ -439,8 +452,9 @@ function drawShellMap(
   labels: ReturnType<typeof createLabelCollector>,
 ): void {
   const value = new Map<string, number>();
-  for (const s of r3d?.plateStresses ?? []) value.set(`p${s.elementId}`, shellComponentValue(s, component));
-  for (const s of r3d?.quadStresses ?? []) value.set(`q${s.elementId}`, shellComponentValue(s, component));
+  const inputs = r3d ? shellStressInputs(r3d, component) : { plates: [], quads: [] };
+  for (const s of inputs.plates) { const v = shellComponentValue(s, component, contourOptions.face); if (Number.isFinite(v)) value.set(`p${s.elementId}`, v); }
+  for (const s of inputs.quads) { const v = shellComponentValue(s, component, contourOptions.face); if (Number.isFinite(v)) value.set(`q${s.elementId}`, v); }
   let min = Infinity, max = -Infinity;
   for (const v of value.values()) { if (v < min) min = v; if (v > max) max = v; }
   if (!Number.isFinite(min)) { drawShells(); return; }

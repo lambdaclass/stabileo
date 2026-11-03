@@ -23,6 +23,8 @@ import { insertFragment } from '../model/edit/transformed-copy';
 import { IDENTITY } from '../model/edit/affine';
 import type { IfcMember, IfcSurface } from '../ifc/ifc-mapper';
 import type { Underlay } from '../model/underlay';
+import type { LinkedReference } from '../engine/federation/linked';
+import { fileHash, keepLinkedGeometry, linkedGeometry } from './linked-geometry';
 
 export type { LinkedModel, Discipline, UpdateRules, PublishedVersion, LinkedDiff };
 
@@ -31,9 +33,11 @@ export const federation = (): Data => designData().federation ?? { links: [], ve
 const patch = (p: Partial<Data>) => patchOwnDesignData({ federation: { ...federation(), ...p } });
 
 interface Parsed { members: IfcMember[]; surfaces: IfcSurface[]; storeys: Array<{ name: string; elevation: number }> }
-async function parse(buffer: ArrayBuffer): Promise<Parsed> {
+/** Where web-ifc's WASM is served from; tests point at the package. */
+type Wasm = { wasmPath?: string };
+async function parse(buffer: ArrayBuffer, w: Wasm = {}): Promise<Parsed> {
   const { parseIfc } = await import('../ifc/ifc-parser');
-  return parseIfc(buffer);
+  return parseIfc(buffer, w);
 }
 
 /** The links' drawings in the model, after the person's own drawings. */
@@ -44,25 +48,59 @@ export function syncUnderlays(): void {
 }
 
 /** Link a file of another discipline from what was parsed. */
-export function linkParsed(p: Parsed, o: { name: string; discipline: Discipline; fileName: string; version: string }): LinkedModel {
+export function linkParsed(p: Parsed, o: { name: string; discipline: Discipline; fileName: string; version: string; reference?: LinkedReference }): LinkedModel {
   const link: LinkedModel = {
     id: `lk-${Date.now().toString(36)}`, name: o.name, discipline: o.discipline, fileName: o.fileName, version: o.version, date: new Date().toISOString(),
     entities: entitiesFromParse(p.members, p.surfaces), visible: true, storeys: Object.fromEntries(p.storeys.map((s) => [s.name, s.elevation])),
+    ...(o.reference ? { reference: o.reference } : {}),
   };
   patch({ links: [...federation().links, link] });
   syncUnderlays();
   return link;
 }
-export async function linkIfc(buffer: ArrayBuffer, o: { name: string; discipline: Discipline; fileName: string; version: string }): Promise<LinkedModel> {
-  return linkParsed(await parse(buffer), o);
+
+/** A file's 3D shape read and kept in this browser; what the link records of it. */
+async function readReference(buffer: ArrayBuffer, w: Wasm = {}): Promise<LinkedReference> {
+  const { readIfcReference } = await import('../ifc/ifc-reference');
+  const hash = await fileHash(buffer);
+  const ref = await readIfcReference(buffer, w);
+  await keepLinkedGeometry(hash, ref);
+  return { hash, bytes: buffer.byteLength, triangles: ref.triangles, counts: ref.counts };
 }
 
-export function removeLink(id: string): void { patch({ links: federation().links.filter((l) => l.id !== id) }); syncUnderlays(); }
+export async function linkIfc(buffer: ArrayBuffer, o: { name: string; discipline: Discipline; fileName: string; version: string }, w: Wasm = {}): Promise<LinkedModel> {
+  const parsed = await parse(buffer, w);
+  return linkParsed(parsed, { ...o, reference: await readReference(buffer, w) });
+}
+
+/** Whether this browser holds the link's 3D shape. */
+export async function referenceAvailable(link: LinkedModel): Promise<boolean> {
+  return !!link.reference && !!(await linkedGeometry(link.reference.hash));
+}
+
+/**
+ * Give the file of a link whose shape this browser does not hold (a project opened on another
+ * computer). Refused when it is another file: a new version goes through the update.
+ */
+export async function relinkReference(id: string, buffer: ArrayBuffer, w: Wasm = {}): Promise<'ok' | 'otherFile'> {
+  const link = federation().links.find((l) => l.id === id);
+  if (!link) return 'otherFile';
+  const hash = await fileHash(buffer);
+  if (link.reference && link.reference.hash !== hash) return 'otherFile';
+  const reference = await readReference(buffer, w);
+  patch({ links: federation().links.map((l) => (l.id === id ? { ...l, reference } : l)) });
+  return 'ok';
+}
+
+export function removeLink(id: string): void {
+  patch({ links: federation().links.filter((l) => l.id !== id) });
+  syncUnderlays();
+}
 export function setLinkVisible(id: string, visible: boolean): void { patch({ links: federation().links.map((l) => (l.id === id ? { ...l, visible } : l)) }); syncUnderlays(); }
 
 // ─── Updates ───
 
-interface Pending { linkId: string; diff: LinkedDiff; parsed: Parsed; fileName: string; version: string }
+interface Pending { linkId: string; diff: LinkedDiff; parsed: Parsed; fileName: string; version: string; reference?: LinkedReference }
 let pending = $state<Pending | null>(null);
 export const federationState = { get pending() { return pending; } };
 
@@ -75,7 +113,9 @@ export function prepareUpdateParsed(linkId: string, p: Parsed, fileName: string,
   return diff;
 }
 export async function prepareUpdate(linkId: string, buffer: ArrayBuffer, fileName: string, version: string): Promise<LinkedDiff | null> {
-  return prepareUpdateParsed(linkId, await parse(buffer), fileName, version);
+  const diff = prepareUpdateParsed(linkId, await parse(buffer), fileName, version);
+  if (diff && pending) pending = { ...pending, reference: await readReference(buffer) };
+  return diff;
 }
 
 /** Apply the pending update under the rules. */
@@ -85,6 +125,7 @@ export function applyPendingUpdate(rules: UpdateRules): void {
   patch({ links: federation().links.map((l) => (l.id === p.linkId ? {
     ...l, entities: applyUpdate(l.entities, p.diff, rules), fileName: p.fileName, version: p.version, date: new Date().toISOString(),
     storeys: { ...l.storeys, ...Object.fromEntries(p.parsed.storeys.map((s) => [s.name, s.elevation])) },
+    ...(p.reference ? { reference: p.reference } : {}),
   } : l)) });
   syncUnderlays();
 }

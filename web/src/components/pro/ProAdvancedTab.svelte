@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { centerlineInput, dynamicInput } from '../../lib/store/dynamic-input';
   import { previewCodeSpectrum } from '../../lib/store/spectrum-preview';
   import { userSpectrumPointsInG } from '../../lib/engine/spectral-case';
@@ -1057,6 +1058,7 @@
         </label>
         <label class="adv-check"><input type="checkbox" bind:checked={modalAuto} data-testid="modal-auto" /> {t('pro.modalAuto')}</label>
       </div>
+      <Hint text={t('adv.help.modal')} />
       {#if modalResult}
         <ModalCertificate result={resultsStore.modalResult3D ?? modalResult} mode={resultsStore.diagramType === 'modeShape' ? resultsStore.activeModeIndex : null} />
         <FiniteSpectrumWarning result={modalResult} />
@@ -1140,6 +1142,7 @@
           <input type="number" class="adv-num" min="0" max="0.3" step="0.01" bind:value={spectralXi} data-testid="spectral-xi" />
         </label>
       </div>
+      <Hint text={t('adv.help.spectral')} />
       <div class="adv-hint" data-testid="spectral-basis">
         {#if isBlocked(codeSpectrum)}
           {te(codeSpectrum.blocked)}
@@ -1185,6 +1188,7 @@
           <input type="number" class="adv-num" bind:value={numBucklingModes} min={1} max={20} />
         </label>
       </div>
+      <Hint text={t('adv.help.buckling')} />
       {#if bucklingResult}
         {#if bucklingElapsed != null}
           <div class="adv-inline">{bucklingElapsed >= 1000 ? (bucklingElapsed / 1000).toFixed(2) + ' s' : bucklingElapsed.toFixed(0) + ' ms'}{#if wasmAvailable} (WASM){/if}</div>
@@ -1264,6 +1268,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleHarmonic} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runHarmonic')}</button>
       </div>
+      <Hint text={t('adv.help.harmonic')} />
       {#if harmResult}
         <div class="adv-inline">
           {#if harmResult.peakAmplitude != null}{t('pro.peakAmplitude')}: {fmtNum(harmResult.peakAmplitude)} m{/if}
@@ -1318,7 +1323,7 @@
               </select>
             </label>
             {#if pushTargetKind !== 'none'}<QuantityInput cls="adv-num adv-num-wide" bind:value={pushTarget} quantity={pushTargetKind === 'shear' ? 'force' : 'displacement'} testid="push-target" />{/if}
-            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<p class="adv-hint">{t('pushover.patternHint')}</p>{/if}
+            {#if pushPattern !== 'loads' && pushPattern !== 'case'}<Hint text={t('pushover.patternHint')} />{/if}
           {:else}
             <label class="adv-label">{t('adv.maxIter')}: <input type="number" class="adv-num" bind:value={nlMaxIter} min={1} max={500} /></label>
             <label class="adv-label">Tol: <input type="number" class="adv-num adv-num-wide" bind:value={nlTol} min={1e-12} max={1} step={1e-6} /></label>
@@ -1327,6 +1332,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleNonlinear} disabled={!hasModel || solving || !wasmAvailable}>{t('pro.run')}</button>
       </div>
+      <Hint text={t('adv.help.nonlinear')} />
       {#if nlResult}
         <!--
           Each of the three runs returns a different result type, and the panel
@@ -1366,6 +1372,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleImperfections} disabled={!hasModel || solving || !wasmAvailable}>{solving ? t('pro.solving') : t('pro.runImperfections')}</button>
       </div>
+      <Hint text={t('adv.help.imperfections')} />
       {#if imperfResult}
         <div class="adv-inline">
           <!-- The engine returns the solved model, not a summary of the
@@ -1414,6 +1421,7 @@
         {/if}
         <button class="adv-run-btn" onclick={handleWinkler} disabled={!hasModel || solving || !wasmAvailable || winklerSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveWinkler')}</button>
       </div>
+      <Hint text={t('adv.help.winkler')} />
       {#if winklerResult}
         <div class="adv-result-title">{t('pro.resultWinkler')}</div>
         <!-- Winkler is a linear solve on a modified stiffness: it returns the
@@ -1499,6 +1507,7 @@
         </div>
         <button class="adv-run-btn" onclick={handleSSI} disabled={!hasModel || solving || !wasmAvailable || ssiSprings.length === 0}>{solving ? t('pro.solving') : t('pro.solveSsi')}</button>
       </div>
+      <Hint text={t('adv.help.ssi')} />
       {#if ssiResult}
         <div class="adv-result-title">{t('pro.resultSsi')}</div>
         <div class="adv-inline">
@@ -1566,6 +1575,7 @@
         {/each}
         <button class="adv-run-btn" onclick={handleStaged} disabled={!hasModel || solving || !wasmAvailable || stages.length === 0}>{solving ? t('pro.solving') : t('pro.solveStaged')}</button>
       </div>
+      <Hint text={t('adv.help.staged')} />
       {#if stagedResult}
         <div class="adv-result-title">{t('pro.resultStaged')}</div>
         <div class="adv-inline">
@@ -1605,6 +1615,7 @@
         <button class="adv-btn-sm" onclick={addCreepStep}>{t('pro.addStep')}</button>
         <button class="adv-run-btn" onclick={handleCreep} disabled={!hasModel || solving || !wasmAvailable || creepTimeSteps.length === 0}>{solving ? t('pro.calculating') : t('pro.calcCreep')}</button>
       </div>
+      <Hint text={t('adv.help.creep')} />
       {#if creepResult}
         <div class="adv-result-title">{t('pro.resultCreep')}</div>
         <!-- Creep is reported PER STEP; there is no single φ on the result. -->
@@ -1661,6 +1672,7 @@
           disabled={!hasModel || solving || !wasmAvailable || (ilResponse === 'reaction' ? ilNodeId == null : ilElementId == null)}
         >{solving ? t('pro.solving') : t('pro.computeIL')}</button>
       </div>
+      <Hint text={t('adv.help.influence')} />
       {#if ilResult?.points?.length}
         <div class="adv-inline">
           {t('pro.maxPos')}: {fmtNum(Math.max(...ilResult.points.map((p: any) => p.value)))}
@@ -1729,6 +1741,7 @@
         {/if}
         <button class="adv-run-btn" onclick={handleSectionAnalysis} disabled={!wasmAvailable}>{t('pro.analyzeSection')}</button>
       </div>
+      <Hint text={t('adv.help.section')} />
       {#if secResult}
         <!-- The engine names these a / yc / zc / syTop / szRight, not
              area / centroidY / wy — so area and the centroid never printed. -->

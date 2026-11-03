@@ -104,12 +104,14 @@ test('a later failure comments on the open issue instead of opening another', as
 const at = (h) => `2026-11-01T${String(h).padStart(2, '0')}:00:00Z`;
 const issue14 = {number: 14, title: 'CI failure: Nightly verification', created_at: at(5)};
 const bot = {user: {login: 'github-actions[bot]', type: 'Bot'}, body: 'Run 54 of Nightly verification ...', created_at: at(6)};
-const human = (h, author_association = 'MEMBER') => ({user: {login: 'someone', type: 'User'}, author_association, body: 'Triaged: #757, #758.', created_at: at(h)});
+const human = (h, author_association = 'MEMBER', body = 'Triaged: #757, #758.') => ({user: {login: 'someone', type: 'User'}, author_association, body, created_at: at(h)});
 
 test('a green scheduled run closes an issue triaged after its latest failure', async () => {
   for (const triaged of [
     {comments: [bot, human(7)]},
     {comments: [bot, human(7, 'COLLABORATOR')]},
+    {comments: [bot, human(7, 'OWNER', 'See https://github.com/lambdaclass/stabileo/issues/760')]},
+    {comments: [bot, human(7, 'MEMBER', 'No finding: the runner ran out of disk.')]},
     {comments: [bot], timeline: [{event: 'labeled', label: {name: 'triaged'}, created_at: at(7)}]},
   ]) {
     const h = harness({run: {conclusion: 'success'}, open: [issue14], runsByWorkflow: {7: [{id: 55, conclusion: 'success'}]}, ...triaged});
@@ -127,6 +129,7 @@ test('triage before the latest failure, by an outsider or by a mere reference do
     {comments: [bot], timeline: [{event: 'cross-referenced', created_at: at(5)}, {event: 'labeled', label: {name: 'triaged'}, created_at: at(5)}]},
     {comments: [bot], timeline: [{event: 'labeled', label: {name: 'bug'}, created_at: at(7)}]},
     {comments: [bot, human(7, 'NONE'), human(7, 'CONTRIBUTOR')]},
+    {comments: [bot, human(7, 'MEMBER', 'looking'), human(7, 'OWNER', 'Probably a flaky seed, will check issue 12 later')]},
     {comments: [bot], timeline: [{event: 'cross-referenced', created_at: at(7)}]},
   ]) {
     const h = harness({run: {conclusion: 'success'}, open: [issue14], ...stale});
@@ -164,6 +167,27 @@ test('two alerts that both opened an issue keep the oldest and close the other',
   const w = h.writes().map((c) => [c.name, c.args.issue_number, c.args.state]);
   assert.deepEqual(w, [['create', undefined, undefined], ['createComment', 900, undefined], ['createComment', 901, undefined], ['update', 901, 'closed']]);
   assert.match(h.writes()[2].args.body, /Duplicate of #900/);
+});
+
+test('a raced duplicate hands its own report to the issue that stays open', async () => {
+  const other = 'Run 54 of Nightly verification concluded **failure**: - [e2e](https://x/jobs/2)';
+  let listed = 0;
+  const open = () => (listed++ === 0 ? [] : [{number: 899, title: 'CI failure: Nightly verification', body: 'first report'}, {number: 902, title: 'CI failure: Nightly verification', body: other}]);
+  const h = harness({jobs: [failedJob], label: true, open});
+  await h.run();
+  const toKeep = h.writes().filter((c) => c.name === 'createComment' && c.args.issue_number === 899);
+  assert.deepEqual(toKeep.map((c) => c.args.body), [other]);
+});
+
+test('a triaged label removed again does not let a green run close the issue', async () => {
+  const label = (event, h) => ({event, label: {name: 'triaged'}, created_at: at(h)});
+  const removed = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot], timeline: [label('labeled', 7), label('unlabeled', 8)]});
+  await removed.run();
+  assert.deepEqual(removed.writes().map((c) => c.name), ['createComment']);
+  assert.match(removed.writes()[0].args.body, /^Green again, but this issue is not triaged yet/);
+  const again = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot], runsByWorkflow: {7: [{id: 55, conclusion: 'success'}]}, timeline: [label('labeled', 7), label('unlabeled', 8), label('labeled', 9)]});
+  await again.run();
+  assert.deepEqual(again.writes().map((c) => c.name), ['createComment', 'update']);
 });
 
 test('an older green run replayed after a newer failure does not close the issue', async () => {
@@ -285,4 +309,13 @@ test('every watched workflow exists and triggers the alert', () => {
   const triggers = yml.split('    workflows:\n')[1].split('    types:')[0].match(/(?<=- ).+/g);
   assert.deepEqual([...triggers].sort(), Object.keys(alert.WATCHED).sort());
   for (const name of triggers) assert.ok(names.includes(name), name);
+});
+
+test('alert runs for one workflow are serialized and never cancelled', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const yml = fs.readFileSync(path.join(__dirname, '../../.github/workflows/verification-alert.yml'), 'utf8');
+  const block = yml.split('\nconcurrency:\n')[1]?.split('\n\n')[0] || '';
+  assert.match(block, /^  group: verification-alert-\$\{\{ github\.event\.workflow_run\.name \|\| github\.event_name \}\}$/m);
+  assert.match(block, /^  cancel-in-progress: false$/m);
 });

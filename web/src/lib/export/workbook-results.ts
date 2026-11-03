@@ -17,7 +17,7 @@ import type { AnalysisResults3D, Displacement3D, ElementForces3D } from '../engi
 import type { StaticsRows } from '../store/statics-rows';
 import type { StationDeflection } from '../store/service-deflection';
 import { shellCentreRows, shellCornerRows, shellNodeRows, type ShellCentreRow, type ShellModel, type FaceResult } from '../engine/shell-results';
-import { safeText, type WorkbookSheet } from './workbook-cells';
+import { materialize, safeText, type StreamedSheet, type WorkbookPart, type WorkbookSheet } from './workbook-cells';
 import { getShellEnvelopeKernel, SHELL_ENVELOPE_KEYS } from '../engine/shell-combination-kernel';
 import { EngineUnavailableError } from '../engine/engine-unavailable';
 import type { ShellEnvelopeKey, ShellEnvelopeSource } from '../engine/types-3d';
@@ -58,56 +58,84 @@ const head = (kind: TableKind) => COLUMNS[kind].map((c, i) => `${c.key === 'mx' 
 const SOURCE = ['source', 'sourceId', 'sourceName'];
 const src = (s: WorkbookSource) => [s.kind, s.id, safeText(s.name)];
 
-function nodeSheet(name: string, kind: 'displacements' | 'reactions', sources: readonly WorkbookSource[]): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'node', ...head(kind)]];
-  for (const s of sources) for (const r of rowsOf(kind, s.results)) rows.push([...src(s), r.entity, ...r.values]);
-  return { name, rows };
+function nodeSheet(name: string, kind: 'displacements' | 'reactions', sources: readonly WorkbookSource[]): StreamedSheet {
+  return {
+    name, header: [...SOURCE, 'node', ...head(kind)],
+    count: () => sources.reduce((n, s) => n + s.results[kind].length, 0),
+    *body() { for (const s of sources) for (const r of rowsOf(kind, s.results)) yield [...src(s), r.entity, ...r.values]; },
+  };
 }
 
-function endForcesSheet(sources: readonly WorkbookSource[]): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'member', 'end', 'x [m]', ...head('forces')]];
-  for (const s of sources) for (const r of rowsOf('forces', s.results)) rows.push([...src(s), r.entity, r.end ?? '', r.x ?? 0, ...r.values]);
-  return { name: 'EndForces', rows };
+function endForcesSheet(sources: readonly WorkbookSource[]): StreamedSheet {
+  return {
+    name: 'EndForces', header: [...SOURCE, 'member', 'end', 'x [m]', ...head('forces')],
+    count: () => sources.reduce((n, s) => n + 2 * s.results.elementForces.length, 0),
+    *body() { for (const s of sources) for (const r of rowsOf('forces', s.results)) yield [...src(s), r.entity, r.end ?? '', r.x ?? 0, ...r.values]; },
+  };
 }
 
-function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'member', 'station', 'x [m]', ...head('forces')]];
-  for (const s of sources) {
-    let last = -1, k = 0;
-    for (const r of rowsOf('forces', s.results, { stations })) {
-      k = r.entity === last ? k + 1 : 1;
-      last = r.entity;
-      rows.push([...src(s), r.entity, k, r.x ?? 0, ...r.values]);
-    }
-  }
-  return { name: 'Stations', rows };
+/** Rows a sheet read at stations has per source: every member's stations, the same in every source. */
+const stationRows = (sources: readonly WorkbookSource[], stations: StationSpec, only?: (id: number) => boolean) => {
+  const first = sources[0];
+  if (!first) return 0;
+  const per = first.results.elementForces.reduce((n, ef) => n + (only && !only(ef.elementId) ? 0 : stationTs(ef, stations).length), 0);
+  return per * sources.length;
+};
+
+function stationsSheet(sources: readonly WorkbookSource[], stations: StationSpec): StreamedSheet {
+  return {
+    name: 'Stations', header: [...SOURCE, 'member', 'station', 'x [m]', ...head('forces')],
+    count: () => stationRows(sources, stations),
+    *body() {
+      for (const s of sources) {
+        let last = -1, k = 0;
+        for (const r of rowsOf('forces', s.results, { stations })) {
+          k = r.entity === last ? k + 1 : 1;
+          last = r.entity;
+          yield [...src(s), r.entity, k, r.x ?? 0, ...r.values];
+        }
+      }
+    },
+  };
 }
 
-function deflectionsSheet(input: ResultSheetsInput): WorkbookSheet | null {
-  if (!input.deflections) return null;
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'member', 'station', 'x [m]', 'v [m]', 'w [m]', 'total [m]']];
-  for (const s of input.sources) {
-    const disp = new Map(s.results.displacements.map((d) => [d.nodeId, d]));
-    for (const ef of s.results.elementForces) {
-      input.deflections(ef.elementId, disp, ef, stationTs(ef, input.stations)).forEach((d, k) => rows.push([...src(s), ef.elementId, k + 1, d.x, d.v, d.w, d.total]));
-    }
-  }
-  return { name: 'Deflections', rows };
+function deflectionsSheet(input: ResultSheetsInput): StreamedSheet | null {
+  const deflections = input.deflections;
+  if (!deflections) return null;
+  return {
+    name: 'Deflections', header: [...SOURCE, 'member', 'station', 'x [m]', 'v [m]', 'w [m]', 'total [m]'],
+    count: () => stationRows(input.sources, input.stations),
+    *body() {
+      for (const s of input.sources) {
+        const disp = new Map(s.results.displacements.map((d) => [d.nodeId, d]));
+        for (const ef of s.results.elementForces) {
+          let k = 0;
+          for (const d of deflections(ef.elementId, disp, ef, stationTs(ef, input.stations))) yield [...src(s), ef.elementId, ++k, d.x, d.v, d.w, d.total];
+        }
+      }
+    },
+  };
 }
 
-function stressesSheet(input: ResultSheetsInput): WorkbookSheet | null {
-  if (!input.stressModel) return null;
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'member', 'station', 'x [m]', 'sigmaMax [MPa]', 'sigmaMin [MPa]', 'basis']];
+function stressesSheet(input: ResultSheetsInput): StreamedSheet | null {
+  const stressModel = input.stressModel;
+  if (!stressModel) return null;
   const models = new Map<number, SectionStressModel | null>();
-  for (const s of input.sources) {
-    for (const ef of s.results.elementForces) {
-      if (!models.has(ef.elementId)) models.set(ef.elementId, input.stressModel(ef.elementId));
-      const model = models.get(ef.elementId);
-      if (!model) continue;
-      memberStationStresses(ef, model, input.stations).forEach((st, k) => rows.push([...src(s), ef.elementId, k + 1, st.x, st.sigmaMax, st.sigmaMin, st.basis]));
-    }
-  }
-  return { name: 'Stresses', rows };
+  const modelOf = (id: number) => { if (!models.has(id)) models.set(id, stressModel(id)); return models.get(id)!; };
+  return {
+    name: 'Stresses', header: [...SOURCE, 'member', 'station', 'x [m]', 'sigmaMax [MPa]', 'sigmaMin [MPa]', 'basis'],
+    count: () => stationRows(input.sources, input.stations, (id) => !!modelOf(id)),
+    *body() {
+      for (const s of input.sources) {
+        for (const ef of s.results.elementForces) {
+          const model = modelOf(ef.elementId);
+          if (!model) continue;
+          let k = 0;
+          for (const st of memberStationStresses(ef, model, input.stations)) yield [...src(s), ef.elementId, ++k, st.x, st.sigmaMax, st.sigmaMin, st.basis];
+        }
+      }
+    },
+  };
 }
 
 
@@ -120,46 +148,70 @@ const hasShells = (input: ResultSheetsInput) => input.sources.some((s) => (s.res
 
 /** The shell centres of some results, as the workbook writes them; the results panel exports the same table. */
 export function shellCentreTable(sources: readonly WorkbookSource[], shells: ShellModel): WorkbookSheet {
-  return shellCentresSheet({ sources, shells, stations: 2, statics: null });
+  return materialize(shellCentresSheet({ sources, shells, stations: 2, statics: null }));
 }
 
-function shellCentresSheet(input: ResultSheetsInput): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [[
-    ...SOURCE, 'element', 'id', 't [m]',
-    'sigmaXx [kN/m²]', 'sigmaYy [kN/m²]', 'tauXy [kN/m²]', 'mx [kN·m/m]', 'my [kN·m/m]', 'mxy [kN·m/m]', 'qx [kN/m]', 'qy [kN/m]',
-    ...FACE_COLS('membrane'), ...FACE_COLS('top'), ...FACE_COLS('bottom'),
-    ...T6.map((k) => `S${k.toUpperCase()} [kN/m²]`), ...T6.map((k) => `M${k.toUpperCase()} [kN·m/m]`), 'QX [kN/m]', 'QY [kN/m]', 'QZ [kN/m]',
-  ]];
+const shellCount = (s: WorkbookSource) => (s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0);
+
+function shellCentresSheet(input: ResultSheetsInput): StreamedSheet {
   const opt = (v: number | undefined) => (v === undefined ? '' : v);
-  for (const s of input.sources) {
-    for (const r of shellCentreRows(s.results, input.shells!)) {
-      const g = r.global;
-      rows.push([
-        ...src(s), r.kind, r.id, r.thickness,
-        r.sigmaXx, r.sigmaYy, r.tauXy, opt(r.mx), opt(r.my), opt(r.mxy), opt(r.qx), opt(r.qy),
-        ...faceCells(r.membrane), ...faceCells(r.top), ...faceCells(r.bottom),
-        ...T6.map((k) => (g ? g.stress[k] : '')), ...T6.map((k) => (g ? g.moment[k] : '')),
-        ...(g?.shear ? g.shear : ['', '', '']),
-      ]);
-    }
-  }
-  return { name: 'ShellCentres', rows };
+  return {
+    name: 'ShellCentres',
+    header: [
+      ...SOURCE, 'element', 'id', 't [m]',
+      'sigmaXx [kN/m²]', 'sigmaYy [kN/m²]', 'tauXy [kN/m²]', 'mx [kN·m/m]', 'my [kN·m/m]', 'mxy [kN·m/m]', 'qx [kN/m]', 'qy [kN/m]',
+      ...FACE_COLS('membrane'), ...FACE_COLS('top'), ...FACE_COLS('bottom'),
+      ...T6.map((k) => `S${k.toUpperCase()} [kN/m²]`), ...T6.map((k) => `M${k.toUpperCase()} [kN·m/m]`), 'QX [kN/m]', 'QY [kN/m]', 'QZ [kN/m]',
+    ],
+    count: () => input.sources.reduce((n, s) => n + shellCount(s), 0),
+    *body() {
+      for (const s of input.sources) {
+        for (const r of shellCentreRows(s.results, input.shells!)) {
+          const g = r.global;
+          yield [
+            ...src(s), r.kind, r.id, r.thickness,
+            r.sigmaXx, r.sigmaYy, r.tauXy, opt(r.mx), opt(r.my), opt(r.mxy), opt(r.qx), opt(r.qy),
+            ...faceCells(r.membrane), ...faceCells(r.top), ...faceCells(r.bottom),
+            ...T6.map((k) => (g ? g.stress[k] : '')), ...T6.map((k) => (g ? g.moment[k] : '')),
+            ...(g?.shear ? g.shear : ['', '', '']),
+          ];
+        }
+      }
+    },
+  };
 }
 
-function shellNodesSheet(input: ResultSheetsInput): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'node', 'elements', ...T6.map((k) => `S${k.toUpperCase()} [kN/m²]`), ...T6.map((k) => `M${k.toUpperCase()} [kN·m/m]`)]];
-  for (const s of input.sources) {
-    for (const n of shellNodeRows(shellCentreRows(s.results, input.shells!), input.shells!)) {
-      rows.push([...src(s), n.node, n.elements, ...T6.map((k) => n.stress[k]), ...T6.map((k) => n.moment[k])]);
-    }
-  }
-  return { name: 'ShellNodes', rows };
+function shellNodesSheet(input: ResultSheetsInput): StreamedSheet {
+  let perSource: number | null = null;
+  return {
+    name: 'ShellNodes', header: [...SOURCE, 'node', 'elements', ...T6.map((k) => `S${k.toUpperCase()} [kN/m²]`), ...T6.map((k) => `M${k.toUpperCase()} [kN·m/m]`)],
+    count: () => {
+      const first = input.sources[0];
+      if (!first) return 0;
+      perSource ??= shellNodeRows(shellCentreRows(first.results, input.shells!), input.shells!).length;
+      return perSource * input.sources.length;
+    },
+    *body() {
+      for (const s of input.sources) {
+        for (const n of shellNodeRows(shellCentreRows(s.results, input.shells!), input.shells!)) {
+          yield [...src(s), n.node, n.elements, ...T6.map((k) => n.stress[k]), ...T6.map((k) => n.moment[k])];
+        }
+      }
+    },
+  };
 }
 
-function shellCornersSheet(input: ResultSheetsInput): WorkbookSheet {
-  const rows: WorkbookSheet['rows'] = [[...SOURCE, 'element', 'id', 'corner', 'node', 'vonMises [kN/m²]']];
-  for (const s of input.sources) for (const c of shellCornerRows(s.results, input.shells!)) rows.push([...src(s), c.kind, c.id, c.corner, c.node, c.vonMises]);
-  return { name: 'ShellCorners', rows };
+function shellCornersSheet(input: ResultSheetsInput): StreamedSheet {
+  return {
+    name: 'ShellCorners', header: [...SOURCE, 'element', 'id', 'corner', 'node', 'vonMises [kN/m²]'],
+    count: () => {
+      const corners = (list: AnalysisResults3D['quadStresses'], el: ShellModel['quads']) =>
+        (list ?? []).reduce((n, st) => n + Math.min(st.nodalVonMises?.length ?? 0, el?.get(st.elementId)?.nodes.length ?? 0), 0);
+      return input.sources.reduce((n, s) => n + corners(s.results.plateStresses as AnalysisResults3D['quadStresses'], input.shells!.plates as ShellModel['quads'])
+        + corners(s.results.quadStresses, input.shells!.quads), 0);
+    },
+    *body() { for (const s of input.sources) for (const c of shellCornerRows(s.results, input.shells!)) yield [...src(s), c.kind, c.id, c.corner, c.node, c.vonMises]; },
+  };
 }
 
 /** The shell components the maxima sheet reads, with their units. */
@@ -342,21 +394,35 @@ export const RESULT_SHEET_NAMES = [
   'ShellCentres', 'ShellNodes', 'ShellCorners', 'Statics', 'SecondOrder', 'OneWay', 'Cables',
 ] as const;
 
+/** A small sheet computed from every source at once, only when it is written; `count` is an upper bound. */
+function deferred(name: string, columns: number, build: () => WorkbookSheet, count: () => number): StreamedSheet {
+  let built: WorkbookSheet | null = null;
+  const sheet = () => (built ??= build());
+  return { name, columns, get header() { return sheet().rows[0]!; }, count, *body() { yield* sheet().rows.slice(1); } };
+}
+
 /**
  * The result sheets, in the order the Conventions sheet lists them. `want` leaves sheets out by
- * name before they are built: the stations of a large model are the expensive part of the file.
+ * name before they are built. The sheets that grow with the members, shells and sources are
+ * streamed (`StreamedSheet`): a writer produces their rows as it writes them.
  */
-export function resultSheets(input: ResultSheetsInput, want: (name: string) => boolean = () => true): WorkbookSheet[] {
+export function resultSheetParts(input: ResultSheetsInput, want: (name: string) => boolean = () => true): WorkbookPart[] {
   const shells = !!input.shells && hasShells(input);
-  const all: Array<[string, () => WorkbookSheet | null]> = [
+  const all: Array<[string, () => WorkbookPart | null]> = [
     ['Reactions', () => nodeSheet('Reactions', 'reactions', input.sources)],
     ['Displacements', () => nodeSheet('Displacements', 'displacements', input.sources)],
     ['EndForces', () => endForcesSheet(input.sources)],
     ['Stations', () => stationsSheet(input.sources, input.stations)],
     ['Deflections', () => deflectionsSheet(input)],
     ['Stresses', () => stressesSheet(input)],
-    ['Maxima', () => maximaSheet(input)],
-    ['Envelope', () => envelopeSheet(input)],
+    ['Maxima', () => deferred('Maxima', 11, () => maximaSheet(input), () => 3 * 6 * 2 + (shells ? SHELL_MAXIMA.length * 2 : 0))],
+    ['Envelope', () => deferred('Envelope', 12, () => envelopeSheet(input), () => {
+      const sources = governing(input.sources);
+      const g = sources[0];
+      if (!g) return 0;
+      const shellRows = shells ? sources.reduce((n, s) => n + ((s.results.plateStresses?.length ?? 0) + (s.results.quadStresses?.length ?? 0)) * SHELL_ENVELOPE_KEYS.length, 0) : 0;
+      return 6 * (g.results.reactions.length + g.results.displacements.length + stationRows([g], input.stations)) + shellRows;
+    })],
     ['ShellCentres', () => (shells ? shellCentresSheet(input) : null)],
     ['ShellNodes', () => (shells ? shellNodesSheet(input) : null)],
     ['ShellCorners', () => (shells ? shellCornersSheet(input) : null)],
@@ -365,5 +431,9 @@ export function resultSheets(input: ResultSheetsInput, want: (name: string) => b
     ['OneWay', () => oneWaySheet(input.sources)],
     ['Cables', () => cablesSheet(input.sources)],
   ];
-  return all.filter(([name]) => want(name)).map(([, build]) => build()).filter((s): s is WorkbookSheet => !!s);
+  return all.filter(([name]) => want(name)).map(([, build]) => build()).filter((s): s is WorkbookPart => !!s);
+}
+
+export function resultSheets(input: ResultSheetsInput, want: (name: string) => boolean = () => true): WorkbookSheet[] {
+  return resultSheetParts(input, want).map(materialize);
 }

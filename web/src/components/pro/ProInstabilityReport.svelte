@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The mechanism a failed solve found: which nodes are free to move, and how.
    * `store/instability.svelte.ts` asks the engine; this shows it, and selects the nodes.
@@ -34,7 +35,7 @@
       </table>
       {#if r.unconstrainedDofs.length > CAP}<p class="pk-hint">{tp('instab.more', { n: r.unconstrainedDofs.length - CAP })}</p>{/if}
     {/if}
-    <p class="pk-hint">{t('instab.hint')}</p>
+    <Hint text={t('instab.hint')} />
     <div class="pk-row">
       <button class="pk-btn pk-btn-primary" onclick={selectNodes} data-testid="instability-select">{t('instab.select')}</button>
       <button class="pk-btn" onclick={() => instability.clear()}>{t('instab.dismiss')}</button>

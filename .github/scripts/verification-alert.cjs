@@ -4,6 +4,7 @@ const FORCED = '[forced failure]';
 const TRIAGED = 'triaged';
 const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
 const HELD = 'Green again, but this issue is not triaged yet';
+const TRIAGE_NOTE = /(^|[\s(])#\d+\b|\/(issues|pull)\/\d+|\bno findings?\b/i;
 
 // Hours since the last completed scheduled run: cron interval plus the longest run plus slack.
 const WATCHED = {
@@ -49,7 +50,7 @@ async function closeDuplicates({ github, core, owner, repo }, issueTitle, body, 
   const [keep, ...dups] = await listOpen(github, owner, repo, issueTitle);
   if (!keep) return created;
   for (const d of dups) {
-    await github.rest.issues.createComment({ owner, repo, issue_number: keep.number, body });
+    await github.rest.issues.createComment({ owner, repo, issue_number: keep.number, body: d.body || body });
     await github.rest.issues.createComment({ owner, repo, issue_number: d.number, body: `Duplicate of #${keep.number} (two alerts raced).` });
     await github.rest.issues.update({ owner, repo, issue_number: d.number, state: 'closed', state_reason: 'not_planned' });
     core.warning(`${issueTitle}: closed duplicate #${d.number} in favour of #${keep.number}`);
@@ -74,7 +75,7 @@ async function raise(ctx, issueTitle, body) {
     owner, repo, title: issueTitle, labels: [LABEL],
     body: `${body}\n\n---\nOpened by \`.github/workflows/verification-alert.yml\`. Later failures ` +
       'are added as comments. Triage each real finding (mismatch, crash, missed mutant, failing ' +
-      'proof) into its own issue and link it in a comment here (or say why there is none), or add the ' +
+      'proof) into its own issue and link it in a comment here (or comment "no finding" and why), or add the ' +
       `\`${TRIAGED}\` label; after that the next green scheduled run closes this issue.`,
   });
   core.warning(`${issueTitle}: opened #${created.data.number}`);
@@ -90,11 +91,12 @@ async function triage(github, owner, repo, issue) {
   const since = [issue.created_at, ...reports].filter(Boolean).sort().at(-1) || '';
   const after = (x) => (x.created_at || '') > since;
   const held = comments.some((c) => (c.body || '').startsWith(HELD) && after(c));
-  if (comments.some((c) => !isBot(c) && TRUSTED.has(c.author_association) && after(c))) return { triaged: true, held };
+  if (comments.some((c) => !isBot(c) && TRUSTED.has(c.author_association) && after(c) && TRIAGE_NOTE.test(c.body || ''))) return { triaged: true, held };
   const events = await github.paginate(github.rest.issues.listEventsForTimeline, {
     owner, repo, issue_number: issue.number, per_page: 100,
   });
-  const triaged = events.some((e) => after(e) && e.event === 'labeled' && e.label && e.label.name === TRIAGED);
+  const last = events.filter((e) => (e.event === 'labeled' || e.event === 'unlabeled') && e.label && e.label.name === TRIAGED).at(-1);
+  const triaged = !!last && last.event === 'labeled' && after(last);
   return { triaged, held };
 }
 

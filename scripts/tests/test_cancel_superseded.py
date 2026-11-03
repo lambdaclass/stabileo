@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import pathlib
 import unittest
 
@@ -67,6 +68,43 @@ class CancelSuperseded(unittest.TestCase):
         self.assertEqual(len(runs), 300)
         self.assertTrue(all(c[:3] == ('api', '--paginate', '--jq') for c in calls))
         self.assertEqual(len(calls), 10)
+
+    def test_every_queue_entry_page_and_every_merge_group_ref_page_is_read(self):
+        calls = []
+
+        def fake_gh(*args):
+            calls.append(args)
+            if args[1] == 'graphql':
+                after = next((a.split('=', 1)[1] for a in args if a.startswith('after=')), None)
+                page = {None: (['e1', 'e2'], True, 'c1'), 'c1': (['e3'], True, 'c2'), 'c2': (['e4'], False, None)}[after]
+                nodes = [{'headCommit': {'oid': oid}} for oid in page[0]]
+                info = {'hasNextPage': page[1], 'endCursor': page[2]}
+                return json.dumps({'data': {'repository': {'mergeQueue': {'entries': {'nodes': nodes, 'pageInfo': info}}}}})
+            return '\n'.join(json.dumps({'object': {'sha': f'ref{i}'}}) for i in range(150)) + '\n'
+        real, cancel.gh = cancel.gh, fake_gh
+        try:
+            heads = cancel.queue_heads('o/r', 'o', 'r')
+        finally:
+            cancel.gh = real
+        self.assertEqual(heads, {'e1', 'e2', 'e3', 'e4'} | {f'ref{i}' for i in range(150)})
+        self.assertEqual(sum(1 for c in calls if c[1] == 'graphql'), 3)
+        ref_calls = [c for c in calls if c[1] != 'graphql']
+        self.assertEqual(len(ref_calls), 1)
+        self.assertEqual(ref_calls[0][:3], ('api', '--paginate', '--jq'))
+        self.assertIn('per_page=100', ref_calls[0][-1])
+
+    def test_a_failing_queue_page_raises_instead_of_returning_a_partial_queue(self):
+        def fake_gh(*args):
+            if args[1] == 'graphql' and any(a.startswith('after=') for a in args):
+                raise cancel.subprocess.CalledProcessError(1, 'gh')
+            info = {'hasNextPage': True, 'endCursor': 'c1'}
+            return json.dumps({'data': {'repository': {'mergeQueue': {'entries': {'nodes': [], 'pageInfo': info}}}}})
+        real, cancel.gh = cancel.gh, fake_gh
+        try:
+            with self.assertRaises(cancel.subprocess.CalledProcessError):
+                cancel.queue_heads('o/r', 'o', 'r')
+        finally:
+            cancel.gh = real
 
     def test_the_cancelling_script_comes_from_main_not_from_the_queued_prs(self):
         workflow = (ROOT / '.github/workflows/merge-queue-supersede.yml').read_text()

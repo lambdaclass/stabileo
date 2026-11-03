@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shellStressInputs } from '../../lib/store/shell-contour';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { resultCaseName } from '../../lib/engine/settlement-case';
   import { untrack } from 'svelte';
@@ -70,7 +71,9 @@
   // and the governing/near-zero markers in the result tables.
   const shellStats = $derived.by(() => {
     const r = resultsStore.results3D;
-    const all = [...(r?.plateStresses ?? []), ...(r?.quadStresses ?? [])];
+    if (!r) return null;
+    const inputs = shellStressInputs(r, resultsStore.shellContourComponent);
+    const all = [...inputs.plates, ...inputs.quads];
     return all.length ? shellComponentStats(all) : null;
   });
   /*
@@ -107,7 +110,10 @@
   // Components grouped by family for the selector optgroups.
   const shellGroups = $derived.by(() => {
     const groups = new Map<ShellComponentGroup, typeof SHELL_CONTOUR_COMPONENTS>();
+    const r = resultsStore.results3D;
+    const hasShear = (r?.quadStresses ?? []).some((q) => q.qx !== undefined);
     for (const c of SHELL_CONTOUR_COMPONENTS) {
+      if (c.group === 'shear' && !hasShear) continue;
       const arr = groups.get(c.group) ?? [];
       arr.push(c);
       groups.set(c.group, arr);
@@ -505,7 +511,7 @@
         {#if resultsStore.colorMapKind === 'shellVonMises' || resultsStore.colorMapKind === 'shellBending' || (resultsStore.colorMapKind === 'stress' && resultsStore.stressShowShells)}
           <div class="pro-viz-row">
             <label class="pro-viz-label">{t('pro.shellComponent')}</label>
-            <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent}>
+            <select class="pro-viz-sel" bind:value={resultsStore.shellContourComponent} data-testid="shell-component">
               {#each shellGroups as [group, comps]}
                 <optgroup label={t(shellGroupLabelKey(group))}>
                   {#each comps as c}
