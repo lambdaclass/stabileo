@@ -50,18 +50,16 @@ PR #1253. A panel is left out as roof structure only when roof structure lies ov
 (straight over it, or between roof members on both sides within the panel), all of it less than
 2.2 m above, a deck or beam less than 2.2 m above its center, and the loads already kept less than
 2.2 m above carry all of it: loaded panels, the tributary strips of members loaded by width, and
-(by panels) shells, and the cells a panel or member within the roof's structure kept for itself,
-checked top-down. Otherwise the part of its area they do not carry stays on
-the panel as roof load: by a 20 × 20 grid, each cell weighted by its part of the panel, a cell
-counts as carried only when it lies wholly within one of them, so the share errs high and a band
-one cell wide along the edges of what is carried above is loaded twice. A member loaded by width
-is checked in ten stretches along its length, and the load of each cell it keeps goes on the
-part of the member that cell lies beside; a
-panel carries each cell it keeps as a one-way slab, from the nearest of its beams across to the
-beam opposite, split by the lever rule, so its beams' loads keep the cells' resultant and both its
-moments in plan. The band loaded twice is not conservative
-for uplift, overturning or seismic weight, so the derivation counts those panels and members and
-asks the engineer to check them. A panel is too wide for a slab only when its narrowest width, across any direction (its convex
+(by panels) shells, and the parts a panel or member within the roof's structure kept for itself,
+checked top-down. Otherwise the part of its area they do not carry stays on the panel as roof
+load, found exactly as the panel's plan less theirs (polygon difference; geometry that cannot be
+resolved keeps the whole panel), so a 0.05 m gap between two strips keeps 0.05 m of width and no
+more. A member loaded by width keeps the part of its tributary strip they do not carry, each of
+200 stretches of the member taking the part of it that lies beside that stretch; a panel carries
+what it keeps, cut on a 20 × 20 grid, as a one-way slab, from the nearest of its beams across to
+the beam opposite, split by the lever rule, so its beams' loads keep the resultant and both its
+moments in plan. The derivation counts those panels and members and asks the engineer to check
+them. A panel is too wide for a slab only when its narrowest width, across any direction (its convex
 hull's, by the normals of its sides), passes 12 m, so a deck takes the same load at any angle in
 plan. Truss members count as roof structure. A panel or member only partly under low
 structure keeps its load, as floor load when a floor or roof stands over its center and as roof

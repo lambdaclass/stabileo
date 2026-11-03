@@ -139,18 +139,32 @@ describe('roof structure that does not carry all of a panel', () => {
 });
 
 describe('a narrow gap between the strips of the beams above', () => {
-  it('stays on the ring as roof load', () => {
+  it('stays on the ring as roof load: the 0.05 × 6 m gap alone, where it lies', () => {
     const b = builder();
     const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
     const ring = corners.map(([x, y]) => b.node(x, y, 3));
     corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
-    ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+    const ringIds = new Set(ring.map((id, i) => { b.bar(id, ring[(i + 1) % 4]!); return b.elements.size; }));
     for (const y of [0, 3, 6.05]) b.bar(b.node(0, y, 4), b.node(6, y, 4));
-    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
+    const model = b.model();
+    const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
-    expect(layout.areaByLevel.get(3)).toBeGreaterThanOrEqual(0.05 * 6 - 1e-9);
-    expect(layout.areaByLevel.get(3)).toBeLessThanOrEqual(0.05 * 6 + 0.3 * 6 + 1e-9);
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(0.05 * 6, 9);
     expect(sum(layout.areaOf)).toBe(0);
+    let force = 0, mx = 0, my = 0;
+    for (const p of layout.pieces.filter((q) => ringIds.has(q.elementId))) {
+      const e = model.elements.get(p.elementId)!;
+      const n0 = model.nodes.get(e.nodeI)!, n1 = model.nodes.get(e.nodeJ)!;
+      const L = Math.hypot(n1.x - n0.x, n1.y - n0.y), s = (p.a! + p.b!) / 2, f = p.wI * (p.b! - p.a!);
+      force += f; mx += f * (n0.x + ((n1.x - n0.x) * s) / L); my += f * (n0.y + ((n1.y - n0.y) * s) / L);
+    }
+    for (const p of layout.points.filter((q) => ringIds.has(q.elementId))) {
+      const n = model.nodes.get(p.nodeId)!;
+      force += p.w; mx += p.w * n.x; my += p.w * n.y;
+    }
+    expect(force).toBeCloseTo(0.3, 9);
+    expect(mx / force).toBeCloseTo(3, 6);
+    expect(my / force).toBeCloseTo(4.525, 6);
   });
 });
 
@@ -169,8 +183,7 @@ describe('a narrow panel above a wider ring', () => {
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
     expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
     const kept = [...lower].reduce((s, id) => s + (layout.roofAreaOf.get(id) ?? 0), 0);
-    expect(kept).toBeGreaterThanOrEqual(2 * 0.5 * 6 - 1e-9);
-    expect(kept).toBeLessThanOrEqual(2 * 0.5 * 6 + 2 * 0.2 * 6 + 1e-9);
+    expect(kept).toBeCloseTo(2 * 0.5 * 6, 9);
     expect(layout.areaByLevel.get(3)).toBeCloseTo(kept, 9);
     expect(sum(layout.areaOf)).toBe(0);
   });

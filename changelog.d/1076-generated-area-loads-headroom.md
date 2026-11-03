@@ -15,3 +15,6 @@
   3 × 20 m deck turned 45° lost all 60 m² of its floor load as "too wide for a slab". A panel is
   now too wide only when its narrowest width across any direction passes 12 m.
 - SA-2026-033 (#1312): by width, the floor beams under low eaves keep their floor load.
+- SA-2026-033: the part of a panel or member strip that the low structure above does not carry is
+  now found exactly, not by a grid that counted any partly carried cell as uncarried (a 0.05 m gap
+  between two beam strips kept 1.8 m² instead of 0.3 m²).

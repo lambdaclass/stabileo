@@ -42,6 +42,7 @@
  *
  * Pure: no store.
  */
+import polygonClipping from 'polygon-clipping';
 import { floorLoad, type FloorBeam } from './floor-loads';
 import { msg, round, type EngineMessage } from '../../codes/message';
 
@@ -271,10 +272,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     return [[a.x, a.y, a.z ?? 0], [b.x, b.y, b.z ?? 0]];
   };
   const isSloped = (m: { length: number; horizontalLength: number }) => Math.abs(m.length - m.horizontalLength) > TOL;
-  const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), masks: [] };
+  const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), kept: [] };
   const dropped = new Set<object>();
   const fringeShare = new Map<object, number>();
-  const fringeMask = new Map<object, Mask>();
+  const fringeKept = new Map<object, Region>();
   const droppedMembers = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
@@ -297,11 +298,11 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
       if (why === 'wide') continue;
       if (why === 'lowHeadroom') {
-        const { share, mask } = deck!.uncarried(panel.polygon, z, held);
+        const { share, kept } = deck!.uncarried(panel.polygon, z, held);
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
-        fringeMask.set(panel, mask);
-        held.masks.push(mask);
+        fringeKept.set(panel, kept);
+        held.kept.push({ region: kept, z });
         continue;
       }
       held.panels.push({ poly: panel.polygon, z });
@@ -316,16 +317,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         if (covered([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], z)) unclear++; else unclearRoof++;
       }
       if (why === 'lowHeadroom' && !floorBeside) {
-        const masks: Mask[] = [];
         const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
         const axis = { p: [a[0], a[1]] as [number, number], u: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] as [number, number], L };
-        const bins = new Array(FRINGE_SLICES * 20).fill(0) as number[];
-        for (let k = 0; k < FRINGE_SLICES; k++) {
-          const t0 = k / FRINGE_SLICES, t1 = (k + 1) / FRINGE_SLICES;
-          const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
-          const { share, mask } = deck!.uncarried(tributaryStrip(at(t0), at(t1), opts.tributaryWidth), z, held);
-          if (share > 0) { masks.push(mask); openCellsAlong(mask, axis, bins); }
-        }
+        const { share, kept } = deck!.uncarried(tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth), z, held);
+        const bins = share > 0 ? areaAlong(kept, axis, FRINGE_BINS) : [];
         const spans: WidthSpan[] = [];
         bins.forEach((area, k) => {
           if (!(area > 0)) return;
@@ -336,7 +331,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         });
         if (spans.length === 0) { droppedMembers.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
-        held.masks.push(...masks);
+        held.kept.push({ region: kept, z });
         fringes++;
         continue;
       }
@@ -387,10 +382,10 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
       out.panels.push({ polygon: panel.polygon, z, roof });
-      const mask = fringeMask.get(panel);
-      if (mask) {
+      const region = fringeKept.get(panel);
+      if (region) {
         let kept = 0;
-        const moved = openCellsToBeams(model, mask, [...one.perBeam.keys()]);
+        const moved = regionToBeams(model, region, [...one.perBeam.keys()]);
         for (const pc of moved.pieces) {
           out.pieces.push({ ...pc, roof, panel: index });
           const a = pc.wI * (pc.b - pc.a);
@@ -471,8 +466,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
 /** Less clear height than this under the roof's own members is the depth of the roof's structure, not a storey. */
 export const MIN_STOREY_HEADROOM = 2.2;
-/** A member within the roof's structure is checked in this many stretches along its length. */
-const FRINGE_SLICES = 10;
+/** A member within the roof's structure keeps its roof load in this many stretches along its length. */
+const FRINGE_BINS = 200;
 /** A ring of beams wider than this both ways, with no beam or slab inside, is no deck: no slab spans it. */
 export const MAX_DECK_SPAN = 12;
 
@@ -485,7 +480,7 @@ function notADeck(
   shellsLoaded: boolean,
 ): {
   why: (poly: Array<[number, number]>, z: number) => 'lowHeadroom' | 'wide' | 'headroomUnclear' | null;
-  uncarried: (area: Array<[number, number]>, z: number, held: Held) => { share: number; mask: Mask };
+  uncarried: (area: Array<[number, number]>, z: number, held: Held) => { share: number; kept: Region };
 } {
   const roofMembers: Array<[[number, number, number], [number, number, number]]> = [];
   for (const e of model.elements.values()) {
@@ -533,45 +528,33 @@ function notADeck(
     return h;
   };
   /**
-   * The share of `area` that no load already kept less than a storey above carries: a loaded
-   * panel, the tributary strip of a member kept by width, a shell loaded by panels, or the cells
-   * a panel or member within the roof's structure kept for itself (its `mask`). By a 20 × 20 grid,
-   * each cell weighted by its part of `area`, that part carried only when it lies wholly within
-   * one of them; parts across their edges count as not carried, so the share errs high.
+   * The part of `area` that no load already kept less than a storey above carries, and its share
+   * of `area`: what is left once the loaded panels, the tributary strips of members kept by width
+   * (over the stretch of each that is low), the shells loaded by panels (all of whose corners are
+   * low) and what panels and members within the roof's structure kept for themselves are taken
+   * away. Geometry that cannot be resolved keeps all of `area`.
    */
-  const uncarried = (area: Array<[number, number]>, z: number, held: Held): { share: number; mask: Mask } => {
+  const uncarried = (area: Array<[number, number]>, z: number, held: Held): { share: number; kept: Region } => {
     const low = (dz: number) => dz > TOL && dz < MIN_STOREY_HEADROOM;
-    const half = tributaryWidth / 2;
-    const shells = shellsLoaded ? carriers.filter((c) => c.pts.some((p) => low(p[2] - z))) : [];
-    const over = held.panels.filter((p) => low(p.z - z));
-    const masks = held.masks.filter((m) => low(m.z - z));
-    const inStrip = ([a, b]: Segment, q: [number, number]) => {
-      const ux = b[0] - a[0], uy = b[1] - a[1], L2 = ux * ux + uy * uy;
-      if (L2 === 0) return false;
-      const t = ((q[0] - a[0]) * ux + (q[1] - a[1]) * uy) / L2;
-      return t >= -1e-9 && t <= 1 + 1e-9 && low(a[2] + t * (b[2] - a[2]) - z)
-        && Math.abs((q[0] - a[0]) * uy - (q[1] - a[1]) * ux) / Math.sqrt(L2) <= half + 1e-9;
-    };
-    const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
-    const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
-    const mask: Mask = { area, z, x0, y0, dx, dy, open: new Array(400).fill(false) };
-    if (!(dx > 0 && dy > 0)) return { share: 1, mask };
-    let total = 0, open = 0;
-    for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
-      const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
-      const piece = clipToBox(area, box);
-      const part = Math.abs(polygonArea(piece));
-      if (part <= 0) continue;
-      total += part;
-      const px = piece.map((q) => q[0]), py = piece.map((q) => q[1]);
-      const pbox = { x0: Math.min(...px), y0: Math.min(...py), x1: Math.max(...px), y1: Math.max(...py) };
-      const carried = held.members.some((m) => piece.every((q) => inStrip(m, q)))
-        || over.some((p) => within(piece, pbox, p.poly))
-        || masks.some((m) => maskHolds(m, piece, pbox))
-        || shells.some((c) => within(piece, pbox, c.poly) && piece.every((q) => low(heightIn(c.pts, [q[0], q[1], z]) - z)));
-      if (!carried) { open += part; mask.open[i * 20 + j] = true; }
+    const whole: Region = [[closeRing(area)]];
+    const total = regionArea(whole);
+    if (!(total > 1e-12)) return { share: 1, kept: whole };
+    const cover: Region[] = [];
+    for (const p of held.panels) if (low(p.z - z)) cover.push([[closeRing(p.poly)]]);
+    for (const k of held.kept) if (low(k.z - z)) cover.push(k.region);
+    if (shellsLoaded) for (const c of carriers) if (c.pts.every((p) => low(p[2] - z))) cover.push([[closeRing(c.poly)]]);
+    for (const [a, b] of held.members) {
+      const range = lowRange(a[2] - z, b[2] - z, TOL, MIN_STOREY_HEADROOM);
+      if (!range || Math.hypot(b[0] - a[0], b[1] - a[1]) * (range[1] - range[0]) <= 1e-9) continue;
+      const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+      cover.push([[closeRing(tributaryStrip(at(range[0]), at(range[1]), tributaryWidth))]]);
     }
-    return { share: total > 0 ? open / total : 1, mask };
+    try {
+      const kept = cover.length > 0 ? (polygonClipping.difference(whole as never, ...(cover as never[])) as unknown as Region) : whole;
+      return { share: Math.min(1, Math.max(0, regionArea(kept) / total)), kept };
+    } catch {
+      return { share: 1, kept: whole };
+    }
   };
   const why = (poly: Array<[number, number]>, z: number): 'lowHeadroom' | 'wide' | 'headroomUnclear' | null => {
     const probes: Array<[number, number]> = [centroid(poly)];
@@ -624,41 +607,96 @@ function heightIn(p: Array<[number, number, number]>, pt: [number, number, numbe
 
 type Segment = [[number, number, number], [number, number, number]];
 
-/** The cells of a 20 × 20 grid over `area` that a panel or member kept for itself (`open`). */
-type Mask = { area: Array<[number, number]>; z: number; x0: number; y0: number; dx: number; dy: number; open: boolean[] };
+type Region = Array<Array<Array<[number, number]>>>;
 
-/** What the loads already kept carry: whole panels, members' whole strips, and masks. */
-type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; masks: Mask[] };
+/** What the loads already kept carry: whole panels, members' strips, and what fringe panels and members kept. */
+type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; kept: Array<{ region: Region; z: number }> };
 
 type Axis = { p: [number, number]; u: [number, number]; L: number };
 
-/** Adds the area of each cell the mask kept to `bins` along `axis`, spread evenly about where its centroid projects, as wide as its outline's projection allows. */
-function openCellsAlong(m: Mask, axis: Axis, bins: number[], pick?: (c: [number, number]) => boolean): void {
-  const n = bins.length, w = axis.L / n;
-  for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
-    if (!m.open[i * 20 + j]) continue;
-    const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
-    const area = Math.abs(polygonArea(part));
-    if (!(area > 0) || (pick && !pick(centroid(part)))) continue;
-    const at = (v: [number, number]) => Math.max(0, Math.min(axis.L, (v[0] - axis.p[0]) * axis.u[0] + (v[1] - axis.p[1]) * axis.u[1]));
-    const ss = part.map(at), mid = at(areaCentroid(part));
-    const half = Math.min((Math.max(...ss) - Math.min(...ss)) / 2, mid, axis.L - mid);
-    const s0 = mid - half, s1 = mid + half;
-    if (s1 - s0 <= 1e-12) { bins[Math.min(n - 1, Math.floor(s0 / w + 1e-9))]! += area; continue; }
-    for (let k = Math.min(n - 1, Math.floor(s0 / w + 1e-9)); k < n && k * w < s1 - 1e-9; k++) {
-      const overlap = Math.min(s1, (k + 1) * w) - Math.max(s0, k * w);
-      if (overlap > 0) bins[k]! += (area * overlap) / (s1 - s0);
-    }
+function signedArea(ring: Array<[number, number]>): number {
+  let s = 0;
+  ring.forEach((a, k) => { const b = ring[(k + 1) % ring.length]!; s += a[0] * b[1] - b[0] * a[1]; });
+  return s / 2;
+}
+
+function closeRing(poly: Array<[number, number]>): Array<[number, number]> {
+  const a = signedArea(poly) < 0 ? [...poly].reverse() : poly;
+  return [...a, a[0]!];
+}
+
+function openRing(ring: Array<[number, number]>): Array<[number, number]> {
+  const n = ring.length;
+  return n > 1 && ring[0]![0] === ring[n - 1]![0] && ring[0]![1] === ring[n - 1]![1] ? ring.slice(0, -1) : ring;
+}
+
+/** Area of a region: outer rings less their holes. */
+function regionArea(r: Region): number {
+  let s = 0;
+  for (const poly of r) poly.forEach((ring, k) => { s += (k === 0 ? 1 : -1) * Math.abs(signedArea(openRing(ring))); });
+  return s;
+}
+
+/** Where along [0, 1] a height above the level, linear from `d0` to `d1`, lies strictly between `lo` and `hi`. */
+function lowRange(d0: number, d1: number, lo: number, hi: number): [number, number] | null {
+  let t0 = 0, t1 = 1;
+  for (const [f0, f1] of [[d0 - lo, d1 - lo], [hi - d0, hi - d1]] as const) {
+    if (f0 <= 0 && f1 <= 0) return null;
+    if (f0 > 0 && f1 > 0) continue;
+    const t = f0 / (f0 - f1);
+    if (f0 > 0) t1 = Math.min(t1, t); else t0 = Math.max(t0, t);
   }
+  return t1 > t0 ? [t0, t1] : null;
+}
+
+/** A region cut on a grid of `cells` × `cells` over its bounding box: each piece's area (holes taken away) and centroid. */
+function regionPieces(r: Region, cells: number): Array<{ area: number; c: [number, number] }> {
+  const pts = r.flat(2);
+  if (pts.length === 0) return [];
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const dx = (Math.max(...xs) - x0) / cells || 1, dy = (Math.max(...ys) - y0) / cells || 1;
+  const out: Array<{ area: number; c: [number, number] }> = [];
+  for (let i = 0; i < cells; i++) for (let j = 0; j < cells; j++) {
+    const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
+    let area = 0, mx = 0, my = 0;
+    for (const poly of r) poly.forEach((ring, k) => {
+      const part = clipToBox(openRing(ring), box);
+      if (part.length < 3) return;
+      const a = (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+      const c = areaCentroid(part);
+      area += a; mx += a * c[0]; my += a * c[1];
+    });
+    if (area > 1e-12) out.push({ area, c: [mx / area, my / area] });
+  }
+  return out;
+}
+
+/** A region's area in each of `n` equal stretches along `axis`, cut at the stretches' ends across it. */
+function areaAlong(r: Region, axis: Axis, n: number): number[] {
+  const bins = new Array(n).fill(0) as number[];
+  const w = axis.L / n;
+  const local = (q: [number, number]): [number, number] => {
+    const dx = q[0] - axis.p[0], dy = q[1] - axis.p[1];
+    return [dx * axis.u[0] + dy * axis.u[1], dy * axis.u[0] - dx * axis.u[1]];
+  };
+  for (const poly of r) poly.forEach((ring, k) => {
+    const pts = openRing(ring).map(local);
+    for (let b = 0; b < n; b++) {
+      const part = clipToBox(pts, { x0: b * w, y0: -1e9, x1: (b + 1) * w, y1: 1e9 });
+      if (part.length >= 3) bins[b]! += (k === 0 ? 1 : -1) * Math.abs(signedArea(part));
+    }
+  });
+  return bins.map((a) => Math.max(0, a));
 }
 
 /**
- * The cells a panel kept for itself, carried to its beams as a one-way slab: each cell from the
+ * What a panel kept for itself, cut on a 20 × 20 grid, carried to its beams as a one-way slab: each cell from the
  * nearest beam across to the beam opposite, split by the lever rule, so the beams' loads keep the
  * cells' resultant and both its plan moments. On each beam a uniform piece per fortieth, centred
  * on the moment of what it took; one at an end goes to the end's node.
  */
-function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): {
+function regionToBeams(model: GravityModel, region: Region, beamIds: number[]): {
   pieces: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }>;
   points: Array<{ nodeId: number; w: number; elementId: number }>;
 } {
@@ -683,12 +721,7 @@ function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): {
     bm.area[k]! += a;
     bm.first[k]! += a * s;
   };
-  for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
-    if (!m.open[i * 20 + j]) continue;
-    const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
-    const area = Math.abs(polygonArea(part));
-    if (!(area > 0)) continue;
-    const c = areaCentroid(part);
+  for (const { area, c } of regionPieces(region, 20)) {
     const near = beams.reduce((best, bm) => (distance(bm, c) < distance(best, c) - 1e-9 ? bm : best));
     const s0 = along(near, c);
     const foot: [number, number] = [near.p[0] + s0 * near.u[0], near.p[1] + s0 * near.u[1]];
@@ -757,23 +790,7 @@ function areaCentroid(poly: Array<[number, number]>): [number, number] {
   return Math.abs(a) > 1e-15 ? [x / (3 * a), y / (3 * a)] : centroid(poly);
 }
 
-/** The cell lies within the mask's area and every mask cell it overlaps is one the mask kept. */
-function maskHolds(m: Mask, cell: Array<[number, number]>, box: Box): boolean {
-  if (!within(cell, box, m.area)) return false;
-  const e = 1e-9;
-  const i0 = Math.floor((box.x0 - m.x0) / m.dx + e), i1 = Math.ceil((box.x1 - m.x0) / m.dx - e);
-  const j0 = Math.floor((box.y0 - m.y0) / m.dy + e), j1 = Math.ceil((box.y1 - m.y0) / m.dy - e);
-  if (i0 < 0 || j0 < 0 || i1 > 20 || j1 > 20 || i1 <= i0 || j1 <= j0) return false;
-  for (let i = i0; i < i1; i++) for (let j = j0; j < j1; j++) if (!m.open[i * 20 + j]) return false;
-  return true;
-}
-
 type Box = { x0: number; y0: number; x1: number; y1: number };
-
-/** The cell lies wholly in `poly`: its corners inside and no side of `poly` through its interior. */
-function within(cell: Array<[number, number]>, box: Box, poly: Array<[number, number]>): boolean {
-  return cell.every((q) => inside(q, poly, 1e-6)) && !poly.some((v, k) => crossesBox(v, poly[(k + 1) % poly.length]!, box));
-}
 
 /** The part of `poly` inside the box (Sutherland–Hodgman). */
 function clipToBox(poly: Array<[number, number]>, box: Box): Array<[number, number]> {
@@ -793,28 +810,6 @@ function clipToBox(poly: Array<[number, number]>, box: Box): Array<[number, numb
     if (out.length === 0) break;
   }
   return out;
-}
-
-function polygonArea(poly: Array<[number, number]>): number {
-  let s = 0;
-  poly.forEach((a, k) => { const b = poly[(k + 1) % poly.length]!; s += a[0] * b[1] - b[0] * a[1]; });
-  return s / 2;
-}
-
-/** Some part of the segment from `a` to `b` lies strictly inside the box. */
-function crossesBox(a: [number, number], b: [number, number], box: Box): boolean {
-  const e = 1e-6;
-  let t0 = 0, t1 = 1;
-  const d = [b[0] - a[0], b[1] - a[1]];
-  const edges: Array<[number, number]> = [
-    [-d[0]!, a[0] - (box.x0 + e)], [d[0]!, box.x1 - e - a[0]], [-d[1]!, a[1] - (box.y0 + e)], [d[1]!, box.y1 - e - a[1]],
-  ];
-  for (const [p, q] of edges) {
-    if (p === 0) { if (q <= 0) return false; continue; }
-    const r = q / p;
-    if (p < 0) { if (r > t1) return false; if (r > t0) t0 = r; } else { if (r < t0) return false; if (r < t1) t1 = r; }
-  }
-  return t1 - t0 > 1e-9;
 }
 
 function tributaryStrip(a: [number, number], b: [number, number], width: number): Array<[number, number]> {
