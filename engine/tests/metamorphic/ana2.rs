@@ -103,11 +103,9 @@ pub fn modal_resp(r: &modal::ModalResult) -> Resp {
         cum[0] += g[0] * g[0];
         cum[1] += g[0] * g[1];
         cum[2] += g[1] * g[1];
-        // Modes inside a cluster can mix; compare cumulative sums only at
-        // well-separated boundaries.
         // The last computed mode may be one of a repeated pair whose partner
         // was not computed: only boundaries with a known gap above.
-        let sep = r.modes.get(k + 1).is_some_and(|n| n.frequency > m.frequency * (1.0 + 1e-3));
+        let sep = r.modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(m.frequency, n.frequency));
         if sep {
             o.push(None, None, &format!("meff{k:02}"), Kind::T2(Dim::MASS), cum.to_vec());
             o.set_floor(&format!("meff{k:02}"), r.total_mass);

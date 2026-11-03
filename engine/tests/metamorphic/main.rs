@@ -13,6 +13,7 @@
 //!   models; `METAMORPHIC_SEED` moves the random part (printed on failure).
 
 mod active;
+mod stiffness;
 mod generated;
 mod safety_cases;
 mod ana2;
