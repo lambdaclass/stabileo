@@ -56,7 +56,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-031",
-          "Zaman tanım alanında analiz: kütlesiz bir serbestlik derecesine t = 0'da uygulanan yük ilk adımda kayboluyordu (karşıtlık 33 katına kadar bozuk, iki serbestlik dereceli bir zincir kapalı çözümünden %24 sapık)",
+          "Zaman tanım alanında analiz: kütlesiz bir serbestlik derecesine t = 0'da uygulanan yük ilk adımda kayboluyordu (karşıtlık 33 katına kadar bozuk, iki serbestlik dereceli bir zincir kapalı çözümünden %24 farklı)",
           "Orta",
           "Bir sonraki sürümde düzeltildi"
         ],

@@ -56,7 +56,7 @@ const body: PostBody = {
         ],
         [
           "SA-2026-031",
-          "Analyse temporelle : une charge appliquée à t = 0 sur un degré de liberté sans masse était perdue au premier pas (réciprocité fausse jusqu'à 33 fois, une chaîne à deux degrés de liberté à 24 % de sa solution exacte)",
+          "Analyse temporelle : une charge appliquée à t = 0 sur un degré de liberté sans masse était perdue au premier pas (réciprocité fausse jusqu'à 33 fois, une chaîne à deux degrés de liberté écartée de 24 % de sa solution exacte)",
           "Moyenne",
           "Corrigé dans la prochaine version"
         ],

@@ -28,14 +28,25 @@ for many steps. The discrete operator was no longer symmetric: Maxwell–Betti r
 by up to 33× on fuzz models (#760).
 
 Two-DOF chain, ground —k1— A (mass m) —k2— B (massless), step load P on B, Rayleigh damping
-C = a0·M + a1·K. Closed form: u_B − u_A = P/k2·(1 − e^(−t/a1)), and A is the damped SDOF
-m·ü + (a0·m + a1·k1)·u̇ + k1·u = P (`engine/tests/time_history_massless_dofs.rs`):
+C = a0·M + a1·K. With damping, B's relative displacement starts at zero and relaxes,
+u_B − u_A = P/k2·(1 − e^(−t/a1)); the trapezoidal rule of Newmark gives P/k2·(1 − ρⁿ) with
+ρ = (1 − r/2)/(1 + r/2), r = Δt/a1, after n steps. Undamped, it is P/k2 from t = 0. A is the
+damped SDOF m·ü + (a0·m + a1·k1)·u̇ + k1·u = P (`engine/tests/time_history_massless_dofs.rs`):
 
 | Largest error over two periods | Before the fix | After the fix |
 |---|---|---|
-| u_B − u_A, Δt above 2·a1 (Δt = T/40) | 24 % of P/k2 | 0.19 % |
-| u_B − u_A, Δt below 2·a1 (Δt = T/400) | 23 % of P/k2 | 1.2 % (the trapezoidal rule on e^(−t/a1)) |
-| u_A, undamped, Δt = T/400 | 0.81 % of P/k1 | 0.023 % |
+| u_B − u_A against P/k2·(1 − ρⁿ), Δt = T/400 (below 2·a1) | 24 % of P/k2 | 3·10⁻¹⁵ |
+| u_B − u_A against P/k2·(1 − ρⁿ), Δt = T/40 (above 2·a1) | 76 % of P/k2 | 2·10⁻¹⁵ |
+| u_B − u_A at t = 0, undamped | 0 (should be P/k2) | P/k2 |
+| u_A against the damped SDOF, Δt = T/400, undamped | 0.81 % of P/k1 | 0.023 % |
+| u_A against the damped SDOF, Δt = T/400, damped | 0.73 % of P/k1 | 0.013 % |
+| u_A against the damped SDOF, Δt = T/40, damped | 7.6 % of P/k1 | 1.3 % |
+
+Against the exact e^(−t/a1), the error at Δt = T/400 falls from 23 % to 1.2 % (the trapezoidal
+rule on that decay). At Δt ≥ 2·a1 the trapezoidal rule cannot follow the decay at all: ρ ≤ 0, so
+u_B − u_A alternates about P/k2 and, at Δt = T/40 in this chain, overshoots it by 52 % at the
+first step. That is the integrator, before and after the fix; HHT-α with α < 0, or a step below
+2·a1, damps it.
 
 A 3D cantilever with massless rotations gave a tip rotation under a tip force twice the tip
 displacement under the reciprocal moment at the first step.
@@ -48,10 +59,12 @@ response near that node changes, most in the first steps.
 
 ## Fixed in
 
-PR #1247. At t = 0 the massless rows are met by K_ZZ·(u_Z + a1·v_Z) = r_Z: the massless part
-starts settled (a jump in u) when undamped or when Δt ≥ 2·a1, otherwise its velocity jumps; the
-massive rows take the condensed load, and every row of step 0 holds. Reciprocity now holds to
+PR #1247. At t = 0 the massless rows Z are met by K_ZZ·(u_Z + a1·v_Z) = r_Z: with damping
+(C_ZZ = a1·K_ZZ on those rows) the load at t = 0 makes their velocity jump and u_Z(0) stays as
+given; undamped, the massless part starts settled (a jump in u). The massive rows take the rest,
+massless accelerations stay zero, and every row of step 0 holds. Reciprocity now holds to
 round-off on the fuzz models of #760 and on the chain and cantilever above. Two cases that used
-to give numbers now refuse: a singular mass whose null direction mixes several DOFs (the solver
-divided by the diagonal of M instead), and a massless direction with no stiffness (a mechanism
-integrated on a round-off pivot).
+to give numbers now refuse, on any time history: a singular mass whose null direction mixes
+several DOFs (`TH-MASS-SINGULAR`; the solver divided by the diagonal of M instead), and a massless
+direction with no stiffness (`TH-MASSLESS-MECHANISM`; a mechanism integrated on a round-off
+pivot). The app shows both in the user's language.
