@@ -62,6 +62,7 @@
   import { whatIf } from '../../lib/store/whatif.svelte';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
   import { openExplainedCatalog } from '../../lib/actions/step-wizards';
+  import { loadCourse } from '../../lib/course/load-course';
   import CirsocFlexPanel from '../CirsocFlexPanel.svelte';
   import { t } from '../../lib/i18n';
   import { DOF_LABEL_KEY } from '../../lib/engine/kinematic-2d';
@@ -598,6 +599,10 @@
    * what they explicitly asked to see.
    */
   let { flat = false }: { flat?: boolean } = $props();
+  let courseReady = $state(false);
+  $effect(() => {
+    if ((flat || showAdvanced) && !courseReady) loadCourse().then(() => { courseReady = true; }, () => { courseReady = true; });
+  });
 </script>
 
 <div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
@@ -605,7 +610,7 @@
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
   {/if}
-  {#if flat || showAdvanced}
+  {#if (flat || showAdvanced) && courseReady}
   {#snippet helpPanel(key: string)}
     {#if advHelpKey === key && ADV_HELP[key]}
       <div class="adv-help-panel" style="grid-column: span 2">
