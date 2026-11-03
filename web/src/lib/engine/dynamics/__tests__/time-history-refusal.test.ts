@@ -45,10 +45,10 @@ describe('the refusals of a singular mass', () => {
 });
 
 describe('modalMechanismRefusal', () => {
-  const engineText = 'MODAL-MECHANISM: Modal analysis: the structure is a mechanism: 2 mode(s) with zero or negative frequency (ω² ≤ 1e-10 rad²/s², first at node 7 ux) carry 24.5 % of the mass in a direction, so a release, hinge or missing support lets part of it move without deforming. No modes are returned.';
+  const engineText = 'MODAL-MECHANISM: Modal analysis: the structure is a mechanism: 2 mode(s) with zero or negative frequency (ω² ≤ 1e-10 rad²/s²); one (ω² = -3.100e-12) moves node 7 along ux without deforming, so a release, hinge or missing support lets part of the mass move freely. No modes are returned.';
 
-  it('reads the count, node, direction and share of the mass', () => {
-    expect(modalMechanismRefusal(engineText)).toEqual({ key: 'advanced.modalMechanism', params: { count: 2, node: 7, dof: 'ux', share: 24.5 } });
+  it('reads the count, the node and the direction', () => {
+    expect(modalMechanismRefusal(engineText)).toEqual({ key: 'advanced.modalMechanism', params: { count: 2, node: 7, dof: 'ux' } });
   });
 
   it('is translated in every offered language, with the node in it', () => {

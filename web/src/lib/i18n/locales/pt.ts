@@ -379,7 +379,7 @@ const pt: Translations = {
   'advanced.noFreeDofsBuckling': 'Todos os graus de liberdade estão restringidos: não há nada livre para flambar. Divida a barra em trechos para calcular sua carga crítica.',
   'advanced.noFreeDofsModal': 'Todos os graus de liberdade estão restringidos: não há nada livre para vibrar. Divida a barra em trechos para obter seus modos próprios.',
   'advanced.mechanismOnlyModes': 'Todos os modos encontrados têm autovalor nulo: a estrutura é um mecanismo. Revise os apoios e as articulações.',
-  'advanced.modalMechanism': 'A estrutura é um mecanismo: {count} modo(s) de frequência nula, o primeiro no nó {node} {dof}, movem {share} % da massa em uma direção, então uma articulação ou um apoio ausente deixa uma parte se mover sem se deformar. Nenhum modo é mostrado. Revise os apoios e as articulações.',
+  'advanced.modalMechanism': 'A estrutura é um mecanismo: {count} modo(s) de frequência nula, um dos quais move o nó {node} segundo {dof} sem se deformar, então uma articulação ou um apoio ausente deixa parte da massa se mover livremente. Nenhum modo é mostrado. Revise os apoios e as articulações.',
   'advanced.nullModesDiscarded': '{n} modo(s) de autovalor nulo descartado(s): a estrutura é um mecanismo nessa direção ({where}). Revise os apoios e as articulações.',
   'advanced.plasticNoLoads': 'Nenhuma carga solicita a estrutura (o modelo não tem cargas, ou todas atuam sobre os apoios): não há nada sob o qual colapsar.',
   'advanced.envelope': 'Envoltória',

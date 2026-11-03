@@ -676,7 +676,7 @@ function mechanismOnly(): never {
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
 export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
   const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
-  const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { nodeId: number; dof: string }) => ({ value: 0, nodeId: m.nodeId, dof: m.dof }));
+  const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { omegaSq: number; nodeId: number; dof: string }) => ({ value: Math.sign(m.omegaSq) * Math.sqrt(Math.abs(m.omegaSq)) / (2 * Math.PI), nodeId: m.nodeId, dof: m.dof }));
   const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
   if (!kept.length) mechanismOnly();

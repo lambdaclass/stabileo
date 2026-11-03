@@ -190,7 +190,7 @@ pub fn solve_modal_2d(
             None => mat_vec_sub(&m_solve, x, ns),
         };
         let shape = |phi: &[f64]| to_global(&cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf], n, &its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &shape, &dof_num, &["ux", "uz", "ry"])?
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &shape, &dof_num, &["ux", "uz", "ry"], extent(input.nodes.values(), |n| vec![n.x, n.z]))?
     };
 
     let mut modes = Vec::new();
@@ -310,7 +310,7 @@ pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
 const NULL_EIGENVALUE: f64 = 1e-10;
 const NULL_MODE_MASS_RATIO: f64 = 1e-6;
 
-#[allow(clippy::type_complexity)]
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn null_modes_or_mechanism(
     result: &EigenResult,
     ns: usize,
@@ -319,36 +319,55 @@ fn null_modes_or_mechanism(
     shape: &dyn Fn(&[f64]) -> Vec<f64>,
     dof_num: &DofNumbering,
     dof_names: &[&str],
+    extent: f64,
 ) -> Result<Vec<NullMode>, String> {
     let nk = result.values.len();
-    let mut ratio = vec![0.0f64; loads.len()];
+    let translational = loads.len();
     let mut out = Vec::new();
+    let mut moving = None;
     for (idx, &lambda) in result.values.iter().enumerate() {
         if !(lambda.is_finite() && lambda <= NULL_EIGENVALUE) {
             continue;
         }
         let phi: Vec<f64> = (0..ns).map(|i| result.vectors[i * nk + idx]).collect();
         let pmp: f64 = phi.iter().zip(m_mul(&phi)).map(|(a, b)| a * b).sum();
-        for (k, (l, mass)) in loads.iter().enumerate() {
+        let share = loads.iter().fold(0.0f64, |w, (l, mass)| {
             let pl: f64 = phi.iter().zip(l.iter()).map(|(a, b)| a * b).sum();
-            if pmp.abs() > 1e-30 && *mass > 1e-20 {
-                ratio[k] += pl * pl / pmp / mass;
-            }
-        }
+            if pmp.abs() > 1e-30 && *mass > 1e-20 { w.max(pl * pl / pmp / mass) } else { w }
+        });
         let u = shape(&phi);
-        let at = (0..u.len()).max_by(|&a, &b| u[a].abs().total_cmp(&u[b].abs())).unwrap_or(0);
-        let (node_id, dof) = dof_num.map.iter().find(|(_, &g)| g == at)
-            .map_or((0, String::new()), |(&(node, local), _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
+        let named = |want: &dyn Fn(usize) -> bool| {
+            dof_num.map.iter().filter(|(&(_, local), &g)| want(local) && g < u.len())
+                .max_by(|a, b| u[*a.1].abs().total_cmp(&u[*b.1].abs()))
+                .map(|(&(node, local), &g)| (node, dof_names.get(local).copied().unwrap_or("").to_string(), u[g].abs()))
+        };
+        let (node_id, dof, peak) = named(&|_| true).unwrap_or((0, String::new(), 0.0));
+        let rotation = named(&|l| l >= translational).map_or(0.0, |t| t.2);
+        let moved = named(&|l| l < translational);
+        let translates = moved.as_ref().is_some_and(|t| t.2 > NULL_MODE_MASS_RATIO * peak.max(rotation * extent));
+        if moving.is_none() && (share > NULL_MODE_MASS_RATIO || translates) {
+            let (n, d, _) = moved.unwrap_or((node_id, dof.clone(), 0.0));
+            moving = Some((n, d, lambda));
+        }
         out.push(NullMode { omega_sq: lambda, node_id, dof });
     }
-    let worst = ratio.iter().fold(0.0f64, |m, r| m.max(*r));
-    if worst > NULL_MODE_MASS_RATIO {
+    if let Some((node, dof, lambda)) = moving {
         return Err(format!(
-            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative frequency (ω² ≤ {NULL_EIGENVALUE:e} rad²/s², first at node {} {}) carry {:.1} % of the mass in a direction, so a release, hinge or missing support lets part of it move without deforming. No modes are returned.",
-            out.len(), out[0].node_id, out[0].dof, 100.0 * worst
+            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative frequency (ω² ≤ {NULL_EIGENVALUE:e} rad²/s²); one (ω² = {lambda:.3e}) moves node {node} along {dof} without deforming, so a release, hinge or missing support lets part of the mass move freely. No modes are returned.",
+            out.len()
         ));
     }
     Ok(out)
+}
+
+fn extent<P>(nodes: impl Iterator<Item = P>, coords: impl Fn(&P) -> Vec<f64>) -> f64 {
+    let pts: Vec<Vec<f64>> = nodes.map(|n| coords(&n)).collect();
+    let span = |k: usize| {
+        let (lo, hi) = pts.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| (lo.min(p[k]), hi.max(p[k])));
+        if hi > lo { hi - lo } else { 0.0 }
+    };
+    let dims = pts.first().map_or(0, |p| p.len());
+    (0..dims).map(span).fold(0.0f64, f64::max).max(1.0)
 }
 
 /// M*v product for a submatrix (nf×nf flat array)
@@ -472,7 +491,7 @@ pub fn solve_modal_3d(
     let null_modes = {
         let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
         let shape = |phi: &[f64]| to_global(&cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf], n, its);
-        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"])?
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"], extent(input.nodes.values(), |n| vec![n.x, n.y, n.z]))?
     };
 
     let mut modes = Vec::new();

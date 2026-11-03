@@ -651,7 +651,7 @@ const tr: Translations = {
   'advanced.noFreeDofsBuckling': 'Tüm serbestlik dereceleri tutulmuş: burkulabilecek serbest bir şey yok. Kritik yükünü hesaplamak için çubuğu parçalara bölün.',
   'advanced.noFreeDofsModal': 'Tüm serbestlik dereceleri tutulmuş: titreşebilecek serbest bir şey yok. Doğal modlarını elde etmek için çubuğu parçalara bölün.',
   'advanced.mechanismOnlyModes': 'Bulunan tüm modların özdeğeri sıfır: yapı bir mekanizma. Mesnetleri ve serbestlikleri kontrol edin.',
-  'advanced.modalMechanism': 'Yapı bir mekanizma: frekansı sıfır olan {count} mod, ilki {node} düğümünde {dof}, bir doğrultudaki kütlenin % {share} kadarını hareket ettiriyor; bir serbestlik, mafsal veya eksik mesnet bir bölümün şekil değiştirmeden hareket etmesine izin veriyor. Mod gösterilmiyor. Mesnetleri ve serbestlikleri kontrol edin.',
+  'advanced.modalMechanism': 'Yapı bir mekanizma: frekansı sıfır olan {count} mod var ve bunlardan biri {node} düğümünü {dof} doğrultusunda şekil değiştirmeden hareket ettiriyor; bir serbestlik, mafsal veya eksik mesnet kütlenin bir kısmının serbestçe hareket etmesine izin veriyor. Mod gösterilmiyor. Mesnetleri ve serbestlikleri kontrol edin.',
   'advanced.nullModesDiscarded': 'Sıfır özdeğerli {n} mod atıldı: yapı bu doğrultuda bir mekanizma ({where}). Mesnetleri ve serbestlikleri kontrol edin.',
   'advanced.plasticNoLoads': 'Yapıyı zorlayan bir yük yok (modelde yük yok veya hepsi mesnetlere etkiyor): göçmeye yol açacak bir şey yok.',
   'advanced.runDynamicFirst': 'Önce dinamik analizi (modal) çalıştırın',

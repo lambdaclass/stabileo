@@ -38,7 +38,7 @@ damped SDOF m·ü + (a0·m + a1·k1)·u̇ + k1·u = P (`engine/tests/time_histor
 | u_B − u_A against P/k2·(1 − ρⁿ), Δt = T/400 (below 2·a1) | 24 % of P/k2 | 3·10⁻¹⁵ |
 | u_B − u_A against P/k2·(1 − ρⁿ), Δt = T/40 (above 2·a1) | 76 % of P/k2 | 2·10⁻¹⁵ |
 | u_B − u_A at t = 0, undamped | 0 (should be P/k2) | P/k2 |
-| u_A against the damped SDOF, Δt = T/400, undamped | 0.81 % of P/k1 | 0.023 % |
+| u_A against the undamped SDOF, Δt = T/400 | 0.81 % of P/k1 | 0.023 % |
 | u_A against the damped SDOF, Δt = T/400, damped | 0.73 % of P/k1 | 0.013 % |
 | u_A against the damped SDOF, Δt = T/40, damped | 7.6 % of P/k1 | 1.3 % |
 

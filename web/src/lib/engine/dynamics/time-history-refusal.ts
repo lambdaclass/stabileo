@@ -12,10 +12,10 @@ export function timeHistoryRefusal(text: string): EngineMessage | null {
   return text.startsWith('TH-MASS-SINGULAR: ') ? { key: 'pro.th.refusal.massSingular' } : null;
 }
 
-const MODAL_MECHANISM = /^MODAL-MECHANISM: .*?(\d+) mode\(s\) .*first at node (\d+) (\w+)\) carry (\S+) %/;
+const MODAL_MECHANISM = /^MODAL-MECHANISM: .*?(\d+) mode\(s\) .* moves node (\d+) along (\w+) /;
 
 /** The engine's refusal of a modal analysis whose zero modes move mass, as a message; null for any other error. */
 export function modalMechanismRefusal(text: string): EngineMessage | null {
   const m = MODAL_MECHANISM.exec(text);
-  return m ? { key: 'advanced.modalMechanism', params: { count: Number(m[1]), node: Number(m[2]), dof: m[3], share: Number(m[4]) } } : null;
+  return m ? { key: 'advanced.modalMechanism', params: { count: Number(m[1]), node: Number(m[2]), dof: m[3] } } : null;
 }

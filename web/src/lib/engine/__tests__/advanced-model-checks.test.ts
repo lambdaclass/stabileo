@@ -407,7 +407,7 @@ describe('3D — a mechanism the static solve accepts: its zero modes are discar
     const modal = solveModal3D(input, densities());
     expect(modal.modes.every((q: { frequency: number }) => q.frequency > 1e-3)).toBe(true);
     const column = new Set([...input.elements.values()].filter((e) => e.nodeI === 11 || e.nodeJ === 11).flatMap((e) => [e.nodeI, e.nodeJ]));
-    const spin = modal.discardedModes.filter((d: { value: number; dof: string }) => d.value === 0 && d.dof === 'rz');
+    const spin = modal.discardedModes.filter((d: { value: number; dof: string }) => Math.abs(d.value) < 1e-3 && d.dof === 'rz');
     expect(spin).toHaveLength(1);
     expect(column.has(spin[0].nodeId)).toBe(true);
     // Buckling: the spin is held for the analysis and named, instead of a failed decomposition.

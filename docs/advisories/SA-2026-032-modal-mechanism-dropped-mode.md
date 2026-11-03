@@ -35,8 +35,11 @@ singular or indefinite stiffness. Re-run it: it now refuses and names the mechan
 
 ## Fixed in
 
-PR #1247. Modal analysis refuses when its zero-frequency modes (ω² ≤ 1e-10 rad²/s²) carry more
-than 1e-6 of the mass in any direction, naming the mechanism and returning no modes. A zero mode
+PR #1247. Modal analysis refuses when one of its zero-frequency modes (ω² ≤ 1e-10 rad²/s²)
+translates a node (beyond round-off against its rotations times the model's size) or carries more
+than 1e-6 of the mass in a direction, naming the node and direction and returning no modes
+(`MODAL-MECHANISM`, shown in the user's language). A seesaw, whose ends move opposite ways so that
+no rigid translation excites it, is refused too. A zero mode
 that moves no translational mass (a column free to spin about its own axis, which the static
 solve accepts and no ground motion excites) is reported in the result's `nullModes`, with its
 node and DOF, and the app lists it with the discarded modes instead of dropping it unnoticed

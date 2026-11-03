@@ -40,6 +40,6 @@ section and re-check registry entry in the same way.
 | [SA-2026-031](SA-2026-031-time-history-massless-start.md) | Time history dropped a load at t = 0 on a massless DOF: reciprocity off by up to 33×, a two-DOF chain 24 % off its closed form | Medium | [#760](https://github.com/lambdaclass/stabileo/issues/760) | #1247 | — | Draft |
 | [SA-2026-032](SA-2026-032-modal-mechanism-dropped-mode.md) | Modal analysis dropped the zero mode of a mechanism and returned the other modes as complete (3 of 12 in #338) | Medium | [#338](https://github.com/lambdaclass/stabileo/issues/338) | #1247 | — | Draft |
 
-Other open `safety` issues (the derivation-review findings #406–#433, #338, #439) get an advisory
+Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
 [verification dashboard](../verification/DASHBOARD.md).

@@ -52,10 +52,13 @@ fn column_with_hinged_arm_2d(hinged: bool) -> SolverInput {
     .unwrap()
 }
 
-fn refusal(result: Result<Vec<f64>, String>, what: &str) -> String {
+const MECHANISM: &str = "MODAL-MECHANISM: ";
+const SINGULAR: &str = "Eigenvalue decomposition failed";
+
+fn refusal(result: Result<Vec<f64>, String>, what: &str, expected: &str) -> String {
     match result {
         Err(e) => {
-            assert!(e.starts_with("MODAL-MECHANISM: ") || e.starts_with("Eigenvalue decomposition failed"), "{what}: refused for another reason: {e}");
+            assert!(e.starts_with(expected), "{what}: refused for another reason: {e}");
             e
         }
         Ok(freqs) => panic!("{what}: a mechanism returned {} modes with no refusal: {freqs:?}", freqs.len()),
@@ -76,19 +79,19 @@ fn the_mystran_differential_mechanism_is_refused_instead_of_dropping_its_zero_mo
     let densities: HashMap<String, f64> = serde_json::from_value(model.as_object_mut().unwrap().remove("_densities").unwrap()).unwrap();
     let input: SolverInput3D = serde_json::from_value(model).unwrap();
     let result = solve_modal_3d(&input, &densities, 12).map(|r| r.modes.iter().map(|m| m.frequency).collect());
-    let e = refusal(result, "modal3d_lumped-744196");
-    assert!(e.starts_with("MODAL-MECHANISM: ") && e.contains("No modes are returned"), "{e}");
+    let e = refusal(result, "modal3d_lumped-744196", MECHANISM);
+    assert!(e.contains("No modes are returned"), "{e}");
 }
 
 #[test]
 fn a_hinged_arm_with_a_free_tip_is_refused_as_a_mechanism_in_3d() {
-    refusal(freqs_3d(&column_with_hinged_arm_3d(1, true), 12), "3D, dense eigensolver");
-    refusal(freqs_3d(&column_with_hinged_arm_3d(20, true), 12), "3D, sparse eigensolver");
+    refusal(freqs_3d(&column_with_hinged_arm_3d(1, true), 12), "3D, dense eigensolver", MECHANISM);
+    refusal(freqs_3d(&column_with_hinged_arm_3d(20, true), 12), "3D, sparse eigensolver", SINGULAR);
 }
 
 #[test]
 fn a_hinged_arm_with_a_free_tip_is_refused_as_a_mechanism_in_2d() {
-    refusal(freqs_2d(&column_with_hinged_arm_2d(true), 4), "2D");
+    refusal(freqs_2d(&column_with_hinged_arm_2d(true), 4), "2D", SINGULAR);
 }
 
 #[test]
@@ -118,12 +121,33 @@ fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
         "masses": {"nodal": [{"nodeId": 2, "mass": 0.0, "ixx": 0.1, "iyy": 0.1, "izz": 0.1}]},
     }))
     .unwrap();
-    match solve_modal_3d(&input, &densities(), 4) {
-        Ok(r) => {
-            assert!(!r.null_modes.is_empty(), "the free twist is neither returned nor reported: {:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
-            assert!(r.null_modes.iter().all(|m| m.node_id == 2 && m.dof.starts_with('r')), "{:?}", r.null_modes);
-            assert!(r.modes.iter().all(|m| m.frequency > 0.1));
-        }
-        Err(e) => assert!(!e.starts_with("MODAL-MECHANISM"), "a twist with no translational mass refused as a mechanism: {e}"),
-    }
+    let r = solve_modal_3d(&input, &densities(), 4).expect("a twist with no translational mass is not a mechanism of the mass");
+    assert!(!r.null_modes.is_empty(), "the free twist is neither returned nor reported: {:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+    assert!(r.null_modes.iter().all(|m| m.node_id == 2 && m.dof.starts_with('r')), "{:?}", r.null_modes);
+    assert!(!r.modes.is_empty() && r.modes.iter().all(|m| m.frequency > 0.1), "{:?}", r.modes.iter().map(|m| m.frequency).collect::<Vec<_>>());
+}
+
+fn seesaw(arm: f64) -> SolverInput {
+    serde_json::from_value(json!({
+        "nodes": {
+            "1": {"id": 1, "x": -arm, "z": 0.0},
+            "2": {"id": 2, "x": 0.0, "z": 0.0},
+            "3": {"id": 3, "x": arm, "z": 0.0},
+        },
+        "materials": {"1": {"id": 1, "e": 200_000.0, "nu": 0.3}},
+        "sections": {"1": {"id": 1, "a": 0.01, "iz": 1e-4}},
+        "elements": {
+            "1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+            "2": {"id": 2, "type": "frame", "nodeI": 2, "nodeJ": 3, "materialId": 1, "sectionId": 1, "hingeStart": false, "hingeEnd": false},
+        },
+        "supports": {"1": {"id": 1, "nodeId": 2, "type": "pinned"}},
+        "loads": [],
+    }))
+    .unwrap()
+}
+
+#[test]
+fn a_seesaw_whose_ends_move_opposite_ways_is_refused_though_no_rigid_translation_excites_it() {
+    let e = refusal(freqs_2d(&seesaw(2.0), 4), "seesaw", MECHANISM);
+    assert!(e.contains("moves node 1 along uz") || e.contains("moves node 3 along uz"), "{e}");
 }
