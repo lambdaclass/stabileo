@@ -1353,7 +1353,7 @@ jobs:
     name: Timing Budgets
     runs-on: ubuntu-24.04
     needs: [changes, wasm, site-e2e]
-    if: github.event_name == 'merge_group' && needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')
     timeout-minutes: 60
     env:
       E2E_PREBUILT: '1'
