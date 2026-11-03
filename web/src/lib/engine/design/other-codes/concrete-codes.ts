@@ -40,8 +40,11 @@ const EC2_AXIAL_SHARE = 0.1;
 function torsionUnchecked(ctx: MemberContext, d: StationTuple, code: 'aci318' | 'ec2'): string[] {
   const b = ctx.section.b! * 1e3, h = ctx.section.h! * 1e3;
   const fc = concreteFc(ctx.material as never)!;
-  const neglectable = code === 'aci318' ? 0.75 * 0.083 * Math.min(Math.sqrt(fc), 8.3) * (b * h) ** 2 / (2 * (b + h)) * 1e-6 : MOMENT_NOISE_FLOOR;
-  return Math.abs(d.forces.torsion ?? 0) > neglectable ? ['otherCodes.check.torsion'] : [];
+  const torque = Math.abs(d.forces.torsion ?? 0);
+  const unchecked = code === 'aci318'
+    ? torque >= 0.75 * 0.083 * Math.min(Math.sqrt(fc), 8.3) * (b * h) ** 2 / (2 * (b + h)) * 1e-6
+    : torque > MOMENT_NOISE_FLOOR;
+  return unchecked ? ['otherCodes.check.torsion'] : [];
 }
 
 /** The member's standing: concrete, rectangular, with bars, on one axis. Else why not. */
