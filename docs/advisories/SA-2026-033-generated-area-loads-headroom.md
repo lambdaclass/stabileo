@@ -48,7 +48,8 @@ the panel as roof load: by a 20 × 20 grid, each cell weighted by its part of th
 counts as carried only when it lies wholly within one of them, so the share errs high and a band
 one cell wide along the edges of what is carried above is loaded twice. A member loaded by width
 is checked in ten stretches along its length, and each keeps its own share where it lies; a
-panel's share scales its whole distribution, as a panel partly under shells already does. That is not conservative
+panel gives each cell it keeps to the nearest of its beams, over the stretch the cell projects onto,
+so the load lands on the beams that bound what is not carried. That is not conservative
 for uplift, overturning or seismic weight, so the derivation counts those panels and members and
 asks the engineer to check them. Truss members count as roof structure. A panel or member only partly under low
 structure keeps its load, as floor load when a floor or roof stands over its center and as roof

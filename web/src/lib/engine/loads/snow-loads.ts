@@ -228,7 +228,7 @@ function panelLoads(model: WindModel, layout: GravityLayout, pOf: (elementId: nu
     if (!w.spans) { out.push({ elementId: w.elementId, q: -pI * tributaryWidth, ...(Math.abs(pJ - pI) > 1e-9 ? { qJ: -pJ * tributaryWidth } : {}), frame: 'projected' }); continue; }
     for (const s of w.spans) {
       const pa = pI + (pJ - pI) * s.t0, pb = pI + (pJ - pI) * s.t1;
-      out.push({ elementId: w.elementId, q: -pa * s.width, qJ: -pb * s.width, a: s.t0 * w.length, b: s.t1 * w.length, frame: 'projected' });
+      out.push({ elementId: w.elementId, q: -pa * s.width, ...(Math.abs(pb - pa) > 1e-9 ? { qJ: -pb * s.width } : {}), a: s.t0 * w.length, b: s.t1 * w.length, frame: 'projected' });
     }
   }
   return out;

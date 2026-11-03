@@ -275,3 +275,30 @@ describe('three tiers of roof structure, by width', () => {
     expect(sum(layout.areaOf)).toBe(0);
   });
 });
+
+describe('a roof-structure ring carried above all but its back strip', () => {
+  it('puts the strip\'s roof load on the beams that bound the strip, not spread over the ring', () => {
+    const b = builder();
+    const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 4], [0, 4]];
+    const ring = corners.map(([x, y]) => b.node(x, y, 3));
+    corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+    const ids = ring.map((id, i) => { b.bar(id, ring[(i + 1) % 4]!); return b.elements.size; });
+    const [front, right, back, left] = ids as [number, number, number, number];
+    const upper = ([[0, 0], [6, 0], [6, 3], [0, 3]] as Array<[number, number]>).map(([x, y]) => b.node(x, y, 4));
+    upper.forEach((id, i) => b.bar(id, upper[(i + 1) % 4]!));
+    b.bar(b.node(0, 4, 4), b.node(6, 4, 4), 'truss');
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 3 });
+    expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(6, 6);
+    const on = (id: number) => layout.roofAreaOf.get(id) ?? 0;
+    expect(on(front)).toBe(0);
+    expect(on(back)).toBeGreaterThan(4.6);
+    expect(on(back)).toBeLessThan(5.4);
+    expect(on(left)).toBeCloseTo(on(right), 6);
+    expect(on(left) + on(right) + on(back)).toBeCloseTo(6, 6);
+    const backPieces = layout.pieces.filter((p) => p.elementId === back);
+    expect(backPieces.every((p) => p.roof)).toBe(true);
+    const sideLoad = layout.pieces.filter((p) => p.elementId === left).reduce((s, p) => s + p.wI * ((p.b ?? 4) - (p.a ?? 0)), 0);
+    expect(sideLoad).toBeCloseTo(on(left), 6);
+  });
+});

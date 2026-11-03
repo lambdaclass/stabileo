@@ -274,6 +274,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const held: Held = { panels: [], members: out.widthMembers.filter(isSloped).map((m) => segment(m.elementId)), masks: [] };
   const dropped = new Set<object>();
   const fringeShare = new Map<object, number>();
+  const fringeMask = new Map<object, Mask>();
   const droppedMembers = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
@@ -299,6 +300,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         const { share, mask } = deck!.uncarried(panel.polygon, z, held);
         if (share <= 0) { dropped.add(panel); continue; }
         fringeShare.set(panel, share);
+        fringeMask.set(panel, mask);
         held.masks.push(mask);
         continue;
       }
@@ -375,6 +377,19 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       panelBeams.push(new Set(one.perBeam.keys()));
       panelLevel.push(levelOrder.indexOf(z));
       out.panels.push({ polygon: panel.polygon, z, roof });
+      const mask = fringeMask.get(panel);
+      if (mask) {
+        let kept = 0;
+        for (const pc of openCellsToBeams(model, mask, [...one.perBeam.keys()])) {
+          out.pieces.push({ ...pc, roof, panel: index });
+          const a = pc.wI * (pc.b - pc.a);
+          addArea(out.roofAreaOf, pc.elementId, a);
+          out.roof.add(pc.elementId);
+          kept += a;
+        }
+        out.areaByLevel.set(z, (out.areaByLevel.get(z) ?? 0) + kept);
+        continue;
+      }
       for (const l of one.loads) {
         out.pieces.push({ elementId: l.elementId, ...(l.a !== undefined ? { a: l.a, b: l.b } : {}), wI: l.qI * share, wJ: l.qJ * share, roof, panel: index });
       }
@@ -595,6 +610,49 @@ type Mask = { area: Array<[number, number]>; z: number; x0: number; y0: number; 
 
 /** What the loads already kept carry: whole panels, members' whole strips, and masks. */
 type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; members: Segment[]; masks: Mask[] };
+
+/**
+ * The cells a panel kept for itself, each given to the nearest of its beams over the stretch its
+ * outline projects onto, in twenty stretches per beam: a uniform piece per stretch, m² per m.
+ */
+function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }> {
+  const BINS = 20;
+  const beams = beamIds.flatMap((id) => {
+    const e = model.elements.get(id);
+    const p = e && model.nodes.get(e.nodeI), q = e && model.nodes.get(e.nodeJ);
+    if (!p || !q) return [];
+    const L = Math.hypot(q.x - p.x, q.y - p.y);
+    return L > 0 ? [{ id, p: [p.x, p.y] as [number, number], u: [(q.x - p.x) / L, (q.y - p.y) / L] as [number, number], L, bins: new Array(BINS).fill(0) as number[] }] : [];
+  });
+  if (beams.length === 0) return [];
+  for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
+    if (!m.open[i * 20 + j]) continue;
+    const part = clipToBox(m.area, { x0: m.x0 + i * m.dx, y0: m.y0 + j * m.dy, x1: m.x0 + (i + 1) * m.dx, y1: m.y0 + (j + 1) * m.dy });
+    const area = Math.abs(polygonArea(part));
+    if (!(area > 0)) continue;
+    const c = centroid(part);
+    let best = beams[0]!, bestD = Infinity;
+    for (const bm of beams) {
+      const t = Math.max(0, Math.min(bm.L, (c[0] - bm.p[0]) * bm.u[0] + (c[1] - bm.p[1]) * bm.u[1]));
+      const d = Math.hypot(c[0] - bm.p[0] - t * bm.u[0], c[1] - bm.p[1] - t * bm.u[1]);
+      if (d < bestD - 1e-9) { best = bm; bestD = d; }
+    }
+    const ss = part.map((v) => Math.max(0, Math.min(best.L, (v[0] - best.p[0]) * best.u[0] + (v[1] - best.p[1]) * best.u[1])));
+    const s0 = Math.min(...ss), s1 = Math.max(...ss);
+    const w = best.L / BINS;
+    if (s1 - s0 <= 1e-12) { best.bins[Math.min(BINS - 1, Math.floor(s0 / w))]! += area; continue; }
+    for (let k = Math.floor(s0 / w); k < BINS && k * w < s1; k++) {
+      const overlap = Math.min(s1, (k + 1) * w) - Math.max(s0, k * w);
+      if (overlap > 0) best.bins[k]! += (area * overlap) / (s1 - s0);
+    }
+  }
+  const out: Array<{ elementId: number; a: number; b: number; wI: number; wJ: number }> = [];
+  for (const bm of beams) {
+    const w = bm.L / BINS;
+    bm.bins.forEach((a, k) => { if (a > 0) out.push({ elementId: bm.id, a: k * w, b: (k + 1) * w, wI: a / w, wJ: a / w }); });
+  }
+  return out;
+}
 
 /** The cell lies within the mask's area and every mask cell it overlaps is one the mask kept. */
 function maskHolds(m: Mask, cell: Array<[number, number]>, box: Box): boolean {
