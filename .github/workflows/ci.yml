@@ -115,7 +115,7 @@ jobs:
               - 'scripts/wasm-cached.sh'
               - 'scripts/ci/check-playwright-nix.sh'
               - 'Makefile'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/*.yml'
               - '.github/actions/**'
             engine:
               - *tooling
@@ -173,7 +173,7 @@ jobs:
               - 'Makefile'
               - 'Dockerfile'
               - '.github/scripts/**'
-              - '.github/workflows/ci.yml'
+              - '.github/workflows/*.yml'
               - 'flake.nix'
               - 'flake.lock'
               - 'web/package-lock.json'

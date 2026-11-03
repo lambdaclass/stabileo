@@ -364,6 +364,7 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py
 	python3 -B -I scripts/tests/test_post_merge_revert.py
+	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_wall_clock.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml
