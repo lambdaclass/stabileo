@@ -1,4 +1,5 @@
 import type { ModelSnapshot } from '../store/history.svelte';
+import type { Load } from '../store/model.svelte';
 import { migrateFootings } from '../model/footing';
 import { migrateGeotechnical } from '../model/geotechnical';
 import { DEFAULT_COVER } from '../engine/design/member-context';
@@ -16,6 +17,119 @@ function id(value: unknown): value is number {
 
 function records(value: unknown): value is RecordValue[] {
   return Array.isArray(value) && value.every(record);
+}
+
+function finiteThroughout(value: unknown): boolean {
+  return typeof value === 'number' ? Number.isFinite(value)
+    : value === null || typeof value !== 'object' || Object.values(value).every(finiteThroughout);
+}
+
+const LOAD_TARGET = {
+  nodal: 'node', nodal3d: 'node', displacement3d: 'node',
+  distributed: 'member', pointOnElement: 'member', thermal: 'member',
+  distributed3d: 'member', pointOnElement3d: 'member', prestress3d: 'member',
+  surface3d: 'shell', thermalQuad3d: 'shell',
+} as const satisfies Record<Load['type'], 'node' | 'member' | 'shell'>;
+
+const LOAD_NUMBERS = ['a', 'angle', 'b', 'carrier', 'caseId', 'drx', 'dry', 'drz', 'dtGradient', 'dtGradientY',
+  'dtUniform', 'dx', 'dy', 'dz', 'eI', 'eJ', 'eM', 'force', 'fromDef', 'fx', 'fy', 'fz', 'mx', 'my', 'mz',
+  'p', 'px', 'py', 'pz', 'q', 'qI', 'qJ', 'qXI', 'qXJ', 'qYI', 'qYJ', 'qZI', 'qZJ', 'strain'];
+
+const LOAD_REQUIRED: Record<Load['type'], (string | string[])[]> = {
+  nodal: ['fx', ['fz', 'fy'], ['my', 'mz']],
+  distributed: ['qI', 'qJ'],
+  pointOnElement: ['a', 'p'],
+  thermal: ['dtUniform', 'dtGradient'],
+  nodal3d: ['fx', 'fy', 'fz', 'mx', 'my', 'mz'],
+  distributed3d: ['qYI', 'qYJ', 'qZI', 'qZJ'],
+  pointOnElement3d: ['a', 'py', 'pz'],
+  prestress3d: ['force', 'eI', 'eM', 'eJ'],
+  displacement3d: [['dx', 'dy', 'dz', 'drx', 'dry', 'drz']],
+  surface3d: [['q', 'qNodes']],
+  thermalQuad3d: ['dtUniform', 'dtGradient'],
+};
+
+const CONNECTOR_NUMBERS = ['kAxial', 'kShear', 'kMoment', 'kShearZ', 'kBendY', 'kBendZ'];
+
+function loadNumbersValid(type: Load['type'], d: RecordValue): boolean {
+  return LOAD_REQUIRED[type].every(f => (Array.isArray(f) ? f : [f]).some(g => d[g] !== undefined))
+    && LOAD_NUMBERS.every(f => d[f] === undefined || typeof d[f] === 'number')
+    && (d.qNodes === undefined || (Array.isArray(d.qNodes) && d.qNodes.every(q => typeof q === 'number')));
+}
+
+const MATERIAL_NUMBERS = ['e', 'nu', 'rho', 'fy', 'fu', 'fc', 'alpha'];
+const SECTION_NUMBERS = ['a', 'iz', 'iy', 'j', 'b', 'h', 't', 'tf', 'tw', 'tl', 'rotation'];
+
+function numbers(entry: RecordValue, required: string[], optional: string[]): boolean {
+  return required.every(f => typeof entry[f] === 'number')
+    && optional.every(f => entry[f] === undefined || typeof entry[f] === 'number');
+}
+
+const dof = (d: unknown) => typeof d === 'number' && Number.isInteger(d) && d >= 0 && d <= 5;
+
+function constraintResolves(c: RecordValue, has: (n: unknown) => boolean): boolean {
+  const pair = has(c.masterNode) && has(c.slaveNode) && c.masterNode !== c.slaveNode;
+  const dofs = (required: boolean) => c.dofs === undefined ? !required : Array.isArray(c.dofs) && c.dofs.every(dof);
+  switch (c.type) {
+    case 'rigidLink': return pair && dofs(false);
+    case 'equalDOF': return pair && dofs(true);
+    case 'eccentricConnection': return pair;
+    case 'diaphragm': return has(c.masterNode) && Array.isArray(c.slaveNodes) && c.slaveNodes.length > 0
+      && c.slaveNodes.every(n => has(n) && n !== c.masterNode);
+    case 'linearMPC': case 'linearMpc': return records(c.terms) && c.terms.length > 0
+      && c.terms.every(t => has(t.nodeId ?? t.node) && dof(t.dof) && typeof t.coefficient === 'number');
+    default: return false;
+  }
+}
+
+const RESTORED_DEFAULT_CASES = new Set<unknown>([1, 2, 3, 4]);
+
+function referencesResolve(value: RecordValue): boolean {
+  const keys = (family: unknown) => new Set((family as Entry[]).map(([key]) => key));
+  const nodes = keys(value.nodes), elements = keys(value.elements);
+  const materials = keys(value.materials), sections = keys(value.sections);
+  const plates = keys(value.plates ?? []), quads = keys(value.quads ?? []);
+  const position = new Map((value.nodes as Entry[]).map(([key, n]) => [key, `${n.x},${n.y},${n.z ?? 0}`]));
+  const corners = (d: RecordValue, count: number) => d.qNodes === undefined || (d.qNodes as unknown[]).length === count;
+  const shellNodes = (shell: RecordValue, count: number) => Array.isArray(shell.nodes)
+    && shell.nodes.length === count && new Set(shell.nodes).size === count
+    && shell.nodes.every(n => nodes.has(n as number));
+  const has = (n: unknown) => nodes.has(n as number);
+  const cases = Array.isArray(value.loadCases)
+    ? new Set((value.loadCases as RecordValue[]).map(c => c.id)) : RESTORED_DEFAULT_CASES;
+  const inCase = (caseId: unknown) => caseId === undefined || cases.has(caseId);
+  const shells = [...(value.plates ?? []) as Entry[], ...(value.quads ?? []) as Entry[]];
+  return (value.nodes as Entry[]).every(([, n]) => [n.x, n.y, n.z === undefined ? 0 : n.z].every(c => typeof c === 'number'))
+    && (value.elements as Entry[]).every(([, e]) => nodes.has(e.nodeI as number) && nodes.has(e.nodeJ as number)
+      && position.get(e.nodeI as number) !== position.get(e.nodeJ as number)
+      && materials.has(e.materialId as number) && sections.has(e.sectionId as number)
+      && (e.variableSection === undefined
+        || (record(e.variableSection) && sections.has(e.variableSection.sectionJ as number))))
+    && (value.plates as Entry[] ?? []).every(([, s]) => shellNodes(s, 3))
+    && (value.quads as Entry[] ?? []).every(([, s]) => shellNodes(s, 4))
+    && shells.every(([, s]) => materials.has(s.materialId as number) && typeof s.thickness === 'number')
+    && (value.supports as Entry[]).every(([, s]) => nodes.has(s.nodeId as number))
+    && ((value.connectors ?? []) as Entry[]).every(([, c]) => nodes.has(c.nodeI as number)
+      && nodes.has(c.nodeJ as number) && c.nodeI !== c.nodeJ && numbers(c, [], CONNECTOR_NUMBERS))
+    && ((value.constraints ?? []) as RecordValue[]).every(c => constraintResolves(c, has))
+    && ((value.combinations ?? []) as RecordValue[]).every(c => (c.factors as RecordValue[]).every(f =>
+      typeof f.factor === 'number' && typeof f.caseId === 'number' && inCase(f.caseId)))
+    && (!Array.isArray(value.footings) || value.footings.every(f => {
+      const footing = Array.isArray(f) ? f[1] : f;
+      return !record(footing) || footing.nodeId === undefined || has(footing.nodeId);
+    }))
+    && (value.materials as Entry[]).every(([, m]) => numbers(m, ['e', 'nu'], MATERIAL_NUMBERS))
+    && (value.sections as Entry[]).every(([, sec]) => numbers(sec, ['a'], SECTION_NUMBERS))
+    && (value.loads as RecordValue[]).every(({ type, data }) => {
+      const d = data as RecordValue;
+      if (!Object.hasOwn(LOAD_TARGET, type as string) || !loadNumbersValid(type as Load['type'], d)
+        || !inCase(d.caseId)) return false;
+      const target = LOAD_TARGET[type as Load['type']];
+      return target === 'node' ? nodes.has(d.nodeId as number)
+        : target === 'member' ? elements.has(d.elementId as number)
+          : d.on === 'plate' ? plates.has(d.quadId as number) && corners(d, 3)
+            : d.on === undefined && quads.has(d.quadId as number) && corners(d, 4);
+    });
 }
 
 function entries(value: unknown): value is Entry[] {
@@ -64,6 +178,8 @@ export function prepareSharedSnapshot(value: unknown): ModelSnapshot | null {
       || !assumptions.every(a => typeof a === 'string'))) return null;
     if (layerMappings !== undefined && !records(layerMappings)) return null;
   }
+
+  if (!finiteThroughout(value) || !referencesResolve(value)) return null;
 
   // Counters are bookkeeping, not model properties. Recover missing, malformed
   // or stale counters without changing any existing entity's ID. Keep larger
