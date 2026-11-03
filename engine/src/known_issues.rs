@@ -682,8 +682,10 @@ mod tests {
     fn known_issues_registry_and_ledger_agree() {
         let ledger = include_str!("../../docs/verification/CONTAINMENT.md");
         let mut contained = std::collections::BTreeSet::new();
-        for line in ledger.lines().filter(|l| l.starts_with("| #") && l.contains('`')) {
-            contained.insert(line.split('|').nth(1).unwrap().trim().trim_start_matches('#').parse::<u32>().unwrap());
+        for line in ledger.lines().filter(|l| l.starts_with("| #") && l.split('|').nth(2).is_some_and(|ids| ids.contains('`'))) {
+            for number in line.split('|').nth(1).unwrap().split(',') {
+                contained.insert(number.trim().trim_start_matches('#').parse::<u32>().unwrap());
+            }
         }
         let registered: std::collections::BTreeSet<_> = ENTRIES.iter().map(|e| e.issue).collect();
         assert_eq!(registered, contained);
