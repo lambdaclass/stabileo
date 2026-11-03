@@ -33,7 +33,8 @@ defmodule StabileoRepo.MixProject do
       {:ecto_sql, "~> 3.12"},
       {:postgrex, "~> 0.19"},
       {:argon2_elixir, "~> 4.0"},
-      {:plug, "~> 1.15"}
+      {:plug, "~> 1.15"},
+      {:cloak_ecto, "~> 1.3"}
     ]
   end
 

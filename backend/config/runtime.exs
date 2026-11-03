@@ -37,6 +37,14 @@ if config_env() == :prod do
         raise "environment variable BIND_ADDRESS must be an IP address, got #{inspect(bind_address)}"
     end
 
+  vault_key =
+    case StabileoUtils.fetch_env("CLOAK_KEY") do
+      nil -> :crypto.mac(:hmac, :sha256, secret_key_base, "stabileo-repo-vault")
+      key -> Base.decode64!(key)
+    end
+
+  config :stabileo_repo, vault_key: vault_key
+
   config :stabileo_web, StabileoWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: bind_ip, port: port],

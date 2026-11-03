@@ -12,6 +12,8 @@ web_port = 4000 + instance * 10
 admin_port = 4001 + instance * 10
 app_url = System.get_env("APP_URL", "http://localhost:#{web_port}")
 
+config :stabileo_repo, vault_key: :crypto.hash(:sha256, "stabileo-dev-vault-key")
+
 config :stabileo_repo, StabileoRepo.Repo,
   username: System.get_env("PGUSER", "postgres"),
   password: System.get_env("PGPASSWORD", "postgres"),

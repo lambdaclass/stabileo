@@ -22,6 +22,16 @@ config :stabileo_web, StabileoWeb.Endpoint,
 
 config :phoenix, :json_library, Jason
 
+config :stabileo_auth, :after_sign_up, StabileoMarketing.SignUps
+
+config :stabileo_marketing, Oban,
+  repo: StabileoRepo.Repo,
+  queues: [ad_conversions: 1, ads: 1],
+  plugins: [
+    {Oban.Plugins.Pruner, max_age: 7 * 24 * 3600},
+    {Oban.Plugins.Cron, crontab: [{"*/5 * * * *", StabileoMarketing.Workers.AdsSyncDispatcher}]}
+  ]
+
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
   metadata: [:request_id, :account_id]

@@ -41,6 +41,7 @@ defmodule Stabileo.MixProject do
           stabileo_auth: :permanent,
           stabileo_projects: :permanent,
           stabileo_insights: :permanent,
+          stabileo_marketing: :permanent,
           stabileo_web: :permanent
         ],
         include_executables_for: [:unix],

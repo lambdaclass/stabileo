@@ -5,7 +5,7 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
 
   import Ecto.Query
 
-  @keys ~w(active_sessions company consents country email email_verified_at id inserted_at is_active is_admin job_title last_active_at last_sign_in_at locale name project_count sign_in_method)
+  @keys ~w(active_sessions company consents country email email_verified_at id inserted_at is_active is_admin job_title last_active_at last_sign_in_at locale milestones name project_count sign_in_method signup_source)
 
   setup do
     admin = Factory.insert(:admin)
@@ -32,6 +32,52 @@ defmodule StabileoAuth.Controllers.Admin.UserControllerTest do
       assert row["project_count"] == 0
       assert row["consents"]["terms"] == nil
       assert row["consents"]["terms_current"] == false
+    end
+
+    test "carries where each account came from and its milestones, and filters by channel", %{
+      token: token
+    } do
+      from_ad = Factory.insert(:account, email: "src-ad@example.com")
+      Factory.insert(:account, email: "src-none@example.com")
+
+      Repo.insert!(%StabileoRepo.Schemas.SignupSource{
+        account_id: from_ad.id,
+        channel: "meta",
+        paid: true,
+        utm_campaign: "c1",
+        utm_content: "a1",
+        trigger: "gate.save"
+      })
+
+      Repo.insert!(%StabileoRepo.Schemas.AccountMilestone{
+        account_id: from_ad.id,
+        kind: "first_save",
+        occurred_at: ~U[2026-11-02 12:00:00Z]
+      })
+
+      body =
+        admin_request(:get, "/users", %{"search" => "src-", "channel" => "meta"}, token)
+        |> json_body(200)
+
+      assert [row] = body["data"]
+      assert row["id"] == from_ad.id
+
+      assert %{
+               "channel" => "meta",
+               "paid" => true,
+               "utm_campaign" => "c1",
+               "utm_content" => "a1",
+               "trigger" => "gate.save"
+             } = row["signup_source"]
+
+      assert row["milestones"] == %{"first_save" => "2026-11-02T12:00:00Z"}
+
+      body =
+        admin_request(:get, "/users", %{"search" => "src-", "channel" => "unknown"}, token)
+        |> json_body(200)
+
+      assert [%{"email" => "src-none@example.com", "signup_source" => nil, "milestones" => %{}}] =
+               body["data"]
     end
 
     test "filters, sorts and pages", %{token: token} do

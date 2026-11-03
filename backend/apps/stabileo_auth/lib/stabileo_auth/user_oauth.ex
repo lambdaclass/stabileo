@@ -94,7 +94,10 @@ defmodule StabileoAuth.UserOAuth do
 
   @doc """
   Opens the account a sign-up token stands for. Needs `"accept_terms" => true`,
-  with the optional `"usage_analytics"` and `"model_research"` choices.
+  with the optional `"usage_analytics"` and `"model_research"` choices. The
+  `:after_sign_up` module (config) runs in the same transaction with `attrs`,
+  which may carry where the visit came from (`"source"`) and the pixel's
+  cookies (`"attribution"`).
   """
   def register(token, attrs, metadata \\ %{}) do
     with :ok <- login_open(),
@@ -206,12 +209,20 @@ defmodule StabileoAuth.UserOAuth do
 
     Repo.transaction(fn ->
       with {:ok, account} <- Repo.insert(changeset),
-           {:ok, :ok} <- Consents.record_sign_up(account, attrs, metadata) do
+           {:ok, :ok} <- Consents.record_sign_up(account, attrs, metadata),
+           :ok <- after_sign_up(account, attrs, metadata) do
         account
       else
         {:error, reason} -> Repo.rollback(reason)
       end
     end)
+  end
+
+  defp after_sign_up(account, attrs, metadata) do
+    case Application.get_env(:stabileo_auth, :after_sign_up) do
+      nil -> :ok
+      module -> module.after_sign_up(account, attrs, metadata)
+    end
   end
 
   defp require_terms(%{"accept_terms" => true}), do: :ok

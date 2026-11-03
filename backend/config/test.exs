@@ -12,6 +12,12 @@ config :stabileo_repo, StabileoRepo.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
+config :stabileo_repo, vault_key: :crypto.hash(:sha256, "stabileo-test-vault-key")
+
+config :stabileo_marketing, Oban, testing: :manual
+
+config :stabileo_marketing, StabileoMarketing.HttpClient, StabileoMarketing.HttpStub
+
 config :stabileo_web, StabileoWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4102 + instance * 10],
   secret_key_base:
