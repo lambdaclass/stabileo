@@ -152,7 +152,7 @@ describe('the storey scope', () => {
     const ends = (e: number) => { const m = modelStore.elements.get(e)!; return [m.nodeI, m.nodeJ].map((n) => modelStore.nodes.get(n)!).map((p) => [p.x, p.y, p.z]); };
     expect(copies.map(levelOf).sort()).toEqual(['N2', 'N3', 'N4', 'N5']);
     for (const c of copies) { const [i, j] = ends(c); expect([i![0], i![1], j![0], j![1]]).toEqual([0, 5, 6, 5]); expect(i![2]).toBe(j![2]); }
-    expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [] });
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [], existing: [] });
   });
 
   it('a storey a copy cannot reach is reported, and a copy of another length drops what is stated in metres along it', () => {
@@ -168,7 +168,23 @@ describe('the storey scope', () => {
     expect(copy.kStrong).toBe(0.7);
     expect(copy.unbracedLength).toBeUndefined();
     expect(copy.bracing).toBeUndefined();
-    expect(storeyScope.lastReplication).toEqual({ copies, skipped: ['L0'], resized: ['L2'] });
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: ['L0'], resized: ['L2'], existing: [] });
+  });
+
+  it('a storey that already has the member keeps its own, and is reported', () => {
+    uiStore.analysisMode = 'pro';
+    modelStore.clear();
+    modelStore.setGrid({ axes: [], levels: [{ id: 'L0', name: 'N0', z: 0 }, { id: 'L1', name: 'N1', z: 3, similarTo: 'L0' }, { id: 'L2', name: 'N2', z: 6, similarTo: 'L0' }] });
+    storeyScope.scope = 'similar';
+    const there = modelStore.addElement(modelStore.addNode(0, 0, 6), modelStore.addNode(5, 0, 6));
+    modelStore.updateElement(there, { kStrong: 0.5 });
+    const beam = modelStore.addElement(modelStore.addNode(0, 0, 3), modelStore.addNode(5, 0, 3));
+    modelStore.updateElement(beam, { kStrong: 0.9 });
+    const copies = storeyScope.replicateMember(beam);
+    expect(copies).toHaveLength(1);
+    expect(modelStore.nodes.get(modelStore.elements.get(copies[0]!)!.nodeI)!.z ?? 0).toBe(0);
+    expect(modelStore.elements.get(there)!.kStrong).toBe(0.5);
+    expect(storeyScope.lastReplication).toEqual({ copies, skipped: [], resized: [], existing: ['L2'] });
   });
 
   it('does nothing outside PRO, or with the scope on this storey', () => {
