@@ -130,14 +130,14 @@ function componentsOf(s: Shell, plate: boolean): Partial<Record<ShellEnvelopeKey
 
 function envelopeList(lists: Array<{ source: ShellEnvelopeSource; rows: Shell[] }>, plate: boolean): Shell[] {
   const order: number[] = [];
-  const byId = new Map<number, { envelope: ShellEnvelope; missing: Set<ShellEnvelopeKey>; sets: number }>();
+  const byId = new Map<number, { envelope: ShellEnvelope; missing: Set<ShellEnvelopeKey>; sets: Set<ShellEnvelopeSource> }>();
   const all: ShellEnvelopeKey[] = ['sigmaXx', 'sigmaYy', 'tauXy', 'mx', 'my', 'mxy', 'qx', 'qy', 'vonMises', 'sigma1', 'sigma2',
     'woodArmerBottomX', 'woodArmerBottomY', 'woodArmerTopX', 'woodArmerTopY', 'faceSigma1', 'faceSigma2'];
   for (const { source, rows } of lists) {
     for (const s of rows) {
       let e = byId.get(s.elementId);
-      if (!e) { e = { envelope: {}, missing: new Set(), sets: 0 }; byId.set(s.elementId, e); order.push(s.elementId); }
-      e.sets += 1;
+      if (!e) { e = { envelope: {}, missing: new Set(), sets: new Set() }; byId.set(s.elementId, e); order.push(s.elementId); }
+      e.sets.add(source);
       const c = componentsOf(s, plate);
       for (const k of all) {
         const v = c[k];
@@ -152,7 +152,7 @@ function envelopeList(lists: Array<{ source: ShellEnvelopeSource; rows: Shell[] 
   const peak = (x: { max: number; min: number } | undefined) => (!x ? 0 : Math.abs(x.max) >= Math.abs(x.min) ? x.max : x.min);
   return order.map((id) => {
     const { envelope, missing, sets } = byId.get(id)!;
-    for (const k of sets < lists.length ? all : missing) delete envelope[k];
+    for (const k of sets.size < lists.length ? all : missing) delete envelope[k];
     const base = {
       elementId: id, sigmaXx: peak(envelope.sigmaXx), sigmaYy: peak(envelope.sigmaYy), tauXy: peak(envelope.tauXy),
       mx: peak(envelope.mx), my: peak(envelope.my), mxy: peak(envelope.mxy), vonMises: envelope.vonMises?.max ?? 0,

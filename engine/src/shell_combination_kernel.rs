@@ -156,7 +156,7 @@ fn quad_row(q: &QuadStress) -> Row {
 fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<EnvelopeRow> {
     let mut out: Vec<EnvelopeRow> = Vec::new();
     let mut absent: Vec<[bool; KEYS]> = Vec::new();
-    let mut seen_in: Vec<usize> = Vec::new();
+    let mut seen_in: Vec<(usize, Option<usize>)> = Vec::new();
     let mut slot = HashMap::new();
     let mut source_count = 0;
     for (source, rows) in sources {
@@ -168,10 +168,12 @@ fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<Env
                     extremes: [None; KEYS],
                 });
                 absent.push([false; KEYS]);
-                seen_in.push(0);
+                seen_in.push((0, None));
                 out.len() - 1
             });
-            seen_in[i] += 1;
+            if seen_in[i].1 != Some(source) {
+                seen_in[i] = (seen_in[i].0 + 1, Some(source));
+            }
             for (k, v) in envelope_keys(&row.values).into_iter().enumerate() {
                 if v.is_nan() {
                     absent[i][k] = true;
@@ -194,7 +196,7 @@ fn envelope_of<'a>(sources: impl Iterator<Item = (usize, &'a [Row])>) -> Vec<Env
             }
         }
     }
-    for ((row, gaps), seen) in out.iter_mut().zip(absent).zip(seen_in) {
+    for ((row, gaps), (seen, _)) in out.iter_mut().zip(absent).zip(seen_in) {
         for (k, gap) in gaps.into_iter().enumerate() {
             if gap || seen < source_count {
                 row.extremes[k] = None;
@@ -814,6 +816,13 @@ mod tests {
         let row = |id: usize| env.quads.iter().find(|r| r.element_id == id).unwrap();
         assert!(row(1).extremes[3].is_some() && row(1).extremes[0].is_some());
         assert!(row(2).extremes.iter().all(Option::is_none));
+    }
+
+    #[test]
+    fn an_element_twice_in_one_set_and_missing_from_another_has_no_envelope() {
+        let row = quad(1, [10., 0., 0., 4., 0., 0., 1., 1., 10.]);
+        let env = envelope(&[source(vec![row, row]), source(vec![])]);
+        assert!(env.quads[0].extremes.iter().all(Option::is_none));
     }
 
     #[test]

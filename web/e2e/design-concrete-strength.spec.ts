@@ -4,11 +4,15 @@ import { test, expect, loadModel, designAll, solveModel, sizeAll } from './fixtu
 const BUILDING = JSON.parse(readFileSync('src/lib/templates/fixtures/3d-building.json', 'utf8'));
 
 test.describe('@smoke the 3d-building example in PRO design (#766)', () => {
-  test('CIRSOC 201 takes all 105 members into the design as shipped', async ({ pro: page }) => {
+  test('CIRSOC 201 reaches an outcome for each of the 105 members as shipped, with no concrete refused', async ({ pro: page }) => {
     await loadModel(page, '3d-building');
     const counts = await designAll(page);
     expect(counts.total).toBe(105);
-    expect(counts.verified + counts.sectionInadequate + counts.searchExhausted).toBeGreaterThan(0);
+    expect({ aborted: counts.aborted, notReached: counts.notReached, demandUnavailable: counts.demandUnavailable })
+      .toEqual({ aborted: 0, notReached: 0, demandUnavailable: 0 });
+    expect(counts.verified + counts.provisionalBiaxial + counts.sectionInadequate + counts.searchExhausted + counts.unsupported).toBe(105);
+    expect(counts.verified).toBeGreaterThan(0);
+    await expect(page.getByTestId('desk-error')).toBeHidden();
   });
 
   test('a concrete with no f′c is named in the design run, not called steel', async ({ pro: page }) => {
