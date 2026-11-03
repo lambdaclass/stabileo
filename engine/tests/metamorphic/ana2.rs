@@ -619,7 +619,7 @@ pub(crate) fn finite_2d(r: &AnalysisResults) -> bool {
 }
 
 pub(crate) fn finite_3d(r: &AnalysisResults3D) -> bool {
-    r.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().all(|v| v.is_finite()))
+    r.displacements.iter().all(|d| [d.ux, d.uy, d.uz, d.rx, d.ry, d.rz].iter().all(|v| v.is_finite()) && d.warping.is_none_or(f64::is_finite))
         && r.reactions.iter().all(|x| [x.fx, x.fy, x.fz, x.mx, x.my, x.mz].iter().all(|v| v.is_finite()))
         && r.element_forces.iter().all(|f| {
             [f.n_start, f.n_end, f.vy_start, f.vy_end, f.vz_start, f.vz_end, f.mx_start, f.mx_end, f.my_start, f.my_end, f.mz_start, f.mz_end]
@@ -648,4 +648,7 @@ fn a_non_finite_member_force_is_not_finite() {
     assert!(finite_3d(&r3));
     r3.element_forces[0].mz_end = f64::INFINITY;
     assert!(!finite_3d(&r3));
+    let mut warped = dedaliano_engine::solver::linear::solve_3d(&s3).unwrap();
+    warped.displacements[0].warping = Some(f64::NAN);
+    assert!(!finite_3d(&warped));
 }

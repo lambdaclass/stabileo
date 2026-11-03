@@ -1569,6 +1569,7 @@ fn warped_mitc_bands_bound_the_measured_twisted_beam_error() {
                 let (twisted, ds) = ratio(90.0);
                 let (flat, _) = ratio(0.0);
                 assert!((flat - 1.0).abs() < 0.01, "{quad9} load {load_a}: the untwisted mesh is {flat} of beam theory");
+                assert!(twisted.is_finite() && flat.is_finite(), "{quad9} load {load_a}: {twisted} / {flat}");
                 worst = worst.max((twisted / flat - 1.0).abs());
                 diagnostics = ds;
             }
