@@ -2141,6 +2141,7 @@
     openContextMenu3D(e);
   }
   function openContextMenu3D(e: MouseEvent) {
+    if (uiStore.viewerMode) return;
     updateMouseNDC(e);
     if (!camera) return;
     raycaster.setFromCamera(mouse, camera);
@@ -2188,14 +2189,14 @@
          * handler); a release before that is a plain click.
          */
         // A handle of the selected load's stretch takes the press first.
-        const stretch = tool === 'select' ? activeStretchHandles() : null;
+        const stretch = tool === 'select' && !uiStore.viewerMode ? activeStretchHandles() : null;
         const end = stretch && camera ? handleUnder(stretch, camera, container.getBoundingClientRect(), e.clientX, e.clientY) : null;
         if (stretch && end) {
           stretchDrag = { h: stretch, end, moved: false };
           controls.enabled = false;
           return;
         }
-        const nodeId = tool === 'select' && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
+        const nodeId = tool === 'select' && !uiStore.viewerMode && uiStore.selectsKind('nodes') ? findNodeHit(e) : null;
 
         if (nodeId !== null) {
           controls.enabled = false;
@@ -3273,7 +3274,7 @@
    * (`ProQuickEdit.svelte`). The two clicks before it have already selected it.
    */
   function handleDoubleClick3D(e: MouseEvent) {
-    if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera) return;
+    if (uiStore.analysisMode !== 'pro' || uiStore.currentTool !== 'select' || !camera || uiStore.viewerMode) return;
     if (uiStore.shellNodePick.active || drawState.active) return;
     // A node or member the clicks on this spot stepped to (see pick-cycle) is what is lit, and what opens.
     const rect = container.getBoundingClientRect();

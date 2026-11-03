@@ -21,6 +21,16 @@ test('@smoke an example in the viewer, seen in plan and split, then duplicated t
   expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(before);
   await expect(page.getByTestId('storey-scope')).toHaveCount(0);
 
+  // Nor does the mouse: no menu on a member, no quick edit.
+  const ends = await page.evaluate(() => window.__stabileo.elementEnds(1));
+  const [p, q] = await page.evaluate(([i, j]) => [window.__stabileo.nodeScreenPos(i), window.__stabileo.nodeScreenPos(j)], [ends!.i, ends!.j]);
+  const mid = { x: (p!.x + q!.x) / 2, y: (p!.y + q!.y) / 2 };
+  await page.mouse.click(mid.x, mid.y, { button: 'right' });
+  await expect(page.locator('.ctx-menu')).toHaveCount(0);
+  await page.mouse.dblclick(mid.x, mid.y);
+  await expect(page.getByTestId('quick-edit')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__stabileo.elementIds().length)).toBe(before);
+
   await page.getByTestId('viewer-mode-split').click();
   await expect(page.getByTestId('split-view')).toBeVisible();
   await page.getByTestId('viewer-mode-3d').click();
