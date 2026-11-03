@@ -27,8 +27,19 @@ export interface Plot {
   height?: number;
 }
 
-const clean = (pts: Array<[number, number]>) => pts.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
+function pieces(s: PlotSeries): PlotSeries[] {
+  const runs: Array<Array<[number, number]>> = [[]];
+  for (const p of s.points) {
+    if (Number.isFinite(p[0]) && Number.isFinite(p[1])) runs[runs.length - 1].push(p);
+    else if (runs[runs.length - 1].length > 0) runs.push([]);
+  }
+  const kept = runs.filter((r) => r.length > 0);
+  if (kept.length === 0) return [{ ...s, points: [] }];
+  const { label, ...rest } = s;
+  return kept.map((points, i) => (i === 0 && label !== undefined ? { ...rest, label, points } : { ...rest, points }));
+}
 
+/** A non-finite point breaks its series into separate pieces; the label stays on the first. */
 export function plotOf(xLabel: string, yLabel: string, series: PlotSeries[], extra: Partial<Omit<Plot, 'xLabel' | 'yLabel' | 'series'>> = {}): Plot {
-  return { xLabel, yLabel, series: series.map((s) => ({ ...s, points: clean(s.points) })), ...extra };
+  return { xLabel, yLabel, series: series.flatMap(pieces), ...extra };
 }
