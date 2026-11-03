@@ -266,4 +266,5 @@
     .ex-viewer { grid-column: 2; grid-row: 1 / 4; position: sticky; top: calc(var(--lp-nav-h, 3.6rem) + .75rem); }
   }
   @media (min-width: 70rem) { .ex-layout { grid-template-columns: minmax(25rem, 36rem) minmax(0, 1fr); column-gap: 3rem; } }
+  @media (max-height: 450px) { .ex-viewer { position: static; } }
 </style>

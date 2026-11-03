@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as engine from '../../../lib/engine/wasm-solver';
 import { defaults, type Outcome, type Values } from '../define';
-import { rcColumn, build as buildColumn, squashLoad, balancedPoint, beta1, tieSpacing, barsFit, clearSpacing } from '../rc-column';
+import { rcColumn, build as buildColumn, squashLoad, balancedPoint, beta1, tieSpacing, barsFit, barsTied, clearSpacing } from '../rc-column';
 import { outrigger, build as buildOutrigger, closedForm as outriggerClosedForm, coreInertia, CONCRETE_E } from '../outrigger';
 import { tower, cantileverRoots, closedForm as towerClosedForm, tube, STEEL } from '../tower';
 
@@ -71,6 +71,14 @@ describe('rc-column bar layout', () => {
       if (out.status === 'refused') expect(out.code).toBe('barsDoNotFit');
     }
   });
+  it('refuses a middle bar more than 150 mm clear from a corner bar, since no crosstie is drawn', () => {
+    const wide = { ...defaults(rcColumn.params), b: 0.8 };
+    expect(barsTied(wide)).toBe(false);
+    const out = rcColumn.analyses(buildColumn(wide), wide, engine);
+    expect(out.status === 'refused' && out.code).toBe('needsCrossties');
+    expect(barsTied(defaults(rcColumn.params))).toBe(true);
+    expect(barsTied({ ...wide, perFace: 2 })).toBe(true);
+  });
   it('accepts the defaults and measures the clear spacing between bar faces', () => {
     const v = defaults(rcColumn.params);
     expect(barsFit(v)).toBe(true);
@@ -99,6 +107,11 @@ describe('outrigger', () => {
     for (const [z, drift] of sweep) expect(drift / (outriggerClosedForm(v, Math.round(z / v.storeyHeight)).drift * 1000)).toBeCloseTo(1, 6);
     const exact = Array.from({ length: v.storeys }, (_, k) => [k + 1, outriggerClosedForm(v, k + 1).drift] as const).reduce((a, b) => b[1] < a[1] ? b : a);
     expect(readout(out, 'bestLevel').value).toBeCloseTo(exact[0] / v.storeys, 12);
+  });
+  it('shows the storey the outrigger snaps to', () => {
+    const out = run(outrigger, { storeys: 15, position: 0.1 });
+    expect(readout(out, 'outriggerLevel').value).toBeCloseTo(2 / 15, 12);
+    expect(readout(out, 'outriggerLevel').unit).toContain('2/15');
   });
   it('a rigid, inextensible outrigger system tends to the classical optimum near 0.455 H from the top', () => {
     const v = { ...defaults(outrigger.params), storeys: 200, columnArea: 1e6 };

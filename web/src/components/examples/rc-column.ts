@@ -38,6 +38,17 @@ export function barsFit(v: Values): boolean {
   return clearSpacing(v) >= Math.max(1.5 * v.barDia / 1000, 0.04);
 }
 
+export const MAX_UNSUPPORTED_CLEAR = 0.15;
+
+export function barsTied(v: Values): boolean {
+  if (v.perFace <= 2) return true;
+  const db = v.barDia / 1000;
+  const xEdge = v.b / 2 - v.cover - TIE_MM / 1000 - db / 2;
+  const s = 2 * xEdge / (v.perFace - 1);
+  const farthest = Math.floor((v.perFace - 1) / 2);
+  return farthest * s - db <= MAX_UNSUPPORTED_CLEAR;
+}
+
 export function beta1(fc: number): number {
   return Math.min(0.85, Math.max(0.65, 0.85 - 0.05 * (fc - 28) / 7));
 }
@@ -119,6 +130,7 @@ export const rcColumn = defineExample<Model>({
   build,
   analyses(m, v) {
     if (!barsFit(v)) return { status: 'refused', code: 'barsDoNotFit' };
+    if (!barsTied(v)) return { status: 'refused', code: 'needsCrossties' };
     return withSection(m.outline, m.bars, m.mat, (section) => {
       const info = section.info();
       const curve = section.curve(THETA, 60);
