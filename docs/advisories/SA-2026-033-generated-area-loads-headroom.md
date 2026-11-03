@@ -45,7 +45,9 @@ PR #1253. A panel is left out as roof structure only when roof structure lies ov
 (by panels) shells, checked top-down. Otherwise the part of its area they do not carry stays on
 the panel as roof load: by a 20 × 20 grid, each cell weighted by its part of the panel, a cell
 counts as carried only when it lies wholly within one of them, so the share errs high and a band
-one cell wide along the edges of what is carried above is loaded twice. That is not conservative
+one cell wide along the edges of what is carried above is loaded twice. A member loaded by width
+is checked in ten stretches along its length, and each keeps its own share where it lies; a
+panel's share scales its whole distribution, as a panel partly under shells already does. That is not conservative
 for uplift, overturning or seismic weight, so the derivation counts those panels and members and
 asks the engineer to check them. Truss members count as roof structure. A panel or member only partly under low
 structure keeps its load, as floor load when a floor or roof stands over its center and as roof

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { gravityLayout, type GravityModel } from '../plan-gravity';
+import { planAreaLoads } from '../plan-area-loads';
 
 type Node = { id: number; x: number; y: number; z: number };
 type Element = { id: number; nodeI: number; nodeJ: number; type?: 'frame' | 'truss' };
@@ -217,5 +218,37 @@ describe('a member under a low shell, by width', () => {
     expect(layout.widthMembers.map((m) => m.elementId)).toContain(member);
     expect((layout.roofAreaOf.get(member) ?? 0) + (layout.areaOf.get(member) ?? 0)).toBeCloseTo(18, 6);
     expect(keys(layout)).not.toContain('loadPlan.gravity.membersLowHeadroom');
+  });
+});
+
+describe('a member carried above over half its length, by width', () => {
+  function halfCovered(): GravityModel {
+    const b = builder();
+    const ends = [b.node(0, 0, 3), b.node(10, 0, 3)];
+    ends.forEach((id, i) => b.bar(b.node(i * 10, 0, 0), id));
+    b.bar(ends[0]!, ends[1]!);
+    b.bar(b.node(0, 0, 4), b.node(5, 0, 4));
+    b.bar(b.node(5, 0, 4), b.node(10, 0, 4), 'truss');
+    return b.model();
+  }
+
+  it('keeps its roof load on the uncarried half only, where it lies', () => {
+    const layout = gravityLayout(halfCovered(), { mode: 'width', tributaryWidth: 3 });
+    const m = layout.widthMembers.find((w) => w.elementId === 3)!;
+    expect(m.spans).toBeDefined();
+    expect(Math.min(...m.spans!.map((s) => s.t0))).toBeCloseTo(0.5, 9);
+    for (const s of m.spans!) expect(s.width).toBeCloseTo(3, 9);
+    expect(layout.roofAreaOf.get(3)).toBeCloseTo(15, 9);
+    const area = planAreaLoads({
+      layout, tributaryWidth: 3, floor: { dead: 0, lo: 0, liveOf: () => 0 },
+      roof: { dead: 1, use: 'maintenance', weight: 'light' as never, slopePercent: 0 },
+    });
+    const dead = area.distributed.filter((d) => d.elementId === 3 && d.caseType === 'D');
+    expect(dead.length).toBeGreaterThan(0);
+    for (const d of dead) {
+      expect(d.a).toBeGreaterThanOrEqual(5 - 1e-9);
+      expect(d.b).toBeLessThanOrEqual(10 + 1e-9);
+    }
+    expect(dead.reduce((s, d) => s + -d.q * (d.b! - d.a!), 0)).toBeCloseTo(15, 9);
   });
 });

@@ -36,7 +36,7 @@
  *
  * Pure: no store.
  */
-import type { GravityLayout, GravityModel } from './plan-gravity';
+import { widthSpans, type GravityLayout, type GravityModel } from './plan-gravity';
 import { stepDrift, parapetDrift, slidingSnow, REF_DRIFT, REF_DRIFT_ADJACENT, REF_FIG9, REF_PARAPET, REF_SLIDING, type StepDrift } from '../../codes/cirsoc104/drift';
 import { msg, round, type EngineMessage } from '../../codes/message';
 import type { ClauseRef } from '../../codes/regulation';
@@ -311,12 +311,14 @@ export function driftAndSlidingLoads(model: GravityModel, layout: GravityLayout,
   for (const w of layout.widthMembers) {
     if (!layout.roof.has(w.elementId)) continue;
     const m = at(w.elementId);
-    for (let k = 0; k < 4; k++) {
-      const xa = (m.L * k) / 4, xb = (m.L * (k + 1)) / 4;
-      const tw = w.width ?? i.tributaryWidth;
-      const qa = surcharge(bands, m.pt(xa), m.z) * tw, qb = surcharge(bands, m.pt(xb), m.z) * tw;
-      if (qa < 1e-6 && qb < 1e-6) continue;
-      out.push({ elementId: w.elementId, q: -qa, qJ: -qb, a: xa, b: xb, frame: 'projected' });
+    for (const s of widthSpans(w, i.tributaryWidth)) {
+      const n = w.spans ? 1 : 4;
+      for (let k = 0; k < n; k++) {
+        const xa = m.L * (s.t0 + ((s.t1 - s.t0) * k) / n), xb = m.L * (s.t0 + ((s.t1 - s.t0) * (k + 1)) / n);
+        const qa = surcharge(bands, m.pt(xa), m.z) * s.width, qb = surcharge(bands, m.pt(xb), m.z) * s.width;
+        if (qa < 1e-6 && qb < 1e-6) continue;
+        out.push({ elementId: w.elementId, q: -qa, qJ: -qb, a: xa, b: xb, frame: 'projected' });
+      }
     }
   }
   return { distributed: out, derivation, refs };

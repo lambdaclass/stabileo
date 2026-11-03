@@ -37,7 +37,7 @@ import type { CombinationInputs, LoadCombinationSpec, LoadSymbol } from '../../c
 import { partitionLiveAllowance, type ElementKind, type OccupancyEntry } from '../../codes/cirsoc101/live-loads';
 import type { Enclosure, Exposure, ServiceRecurrence } from '../../codes/cirsoc102/wind';
 import type { WindCaseSet, WindDirection } from './wind-cases';
-import { gravityLayout, type GravityLayout } from './plan-gravity';
+import { gravityLayout, widthSpans, type GravityLayout } from './plan-gravity';
 import { specialLoads, type ThermalInput, type SoilInput, type FluidInput } from './special-loads';
 import type { OtherStructure } from './wind-other';
 import type { ModeShape } from './seismic-modal';
@@ -773,7 +773,7 @@ function buildLoadPlanWithEngine(input: LoadPlanInput): LoadPlan {
    * area any member of the model could carry (`tributaryAreaM2` above): an edge beam 6 m long under
    * a 3 m width, KLL·AT = 36 m² < 37 m² and so not reducible by §4.7.2, came out 21 % lighter.
    */
-  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, (m.width ?? input.tributaryWidth) * m.horizontalLength]));
+  const widthArea = new Map(layout.widthMembers.map((m) => [m.elementId, widthSpans(m, input.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength]));
   const reducedFor = (entry: OccupancyEntry, loKNm2: number, _uniform: number, areas: Map<number, number>) => (elementId: number): number => {
     if (!input.applyLiveReduction) return loKNm2;
     return codes.loads.reduce({

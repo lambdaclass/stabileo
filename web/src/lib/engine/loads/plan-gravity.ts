@@ -71,6 +71,12 @@ export interface GravityPiece { elementId: number; a?: number; b?: number; wI: n
 /** Area a panel brings to a node past the end of one of its sides (a re-entrant corner), m². */
 export interface GravityPoint { nodeId: number; w: number; elementId: number; roof: boolean; panel: number }
 
+export interface WidthSpan { t0: number; t1: number; width: number }
+
+export function widthSpans(m: { spans?: WidthSpan[] }, tributaryWidth: number): WidthSpan[] {
+  return m.spans ?? [{ t0: 0, t1: 1, width: tributaryWidth }];
+}
+
 export interface GravityLayout {
   pieces: GravityPiece[];
   points: GravityPoint[];
@@ -80,9 +86,11 @@ export interface GravityLayout {
   roofAreaOf: Map<number, number>;
   /**
    * Members loaded with the tributary width, and whether each is sloped (its load is per
-   * projection); `width`, m, when a member takes less than the tributary width (`roofFringe`).
+   * projection); `spans` when a member within the roof's structure takes only the part of its
+   * strip nothing above carries (`roofFringe`): the width, m, over stretches of it, as fractions
+   * of its length, nothing elsewhere. `widthSpans` reads both.
    */
-  widthMembers: Array<{ elementId: number; length: number; horizontalLength: number; width?: number }>;
+  widthMembers: Array<{ elementId: number; length: number; horizontalLength: number; spans?: WidthSpan[] }>;
   /**
    * Quads that take the area load themselves: their plan area, m², their mean height, and `cos`,
    * plan area over surface area (1 when horizontal), which turns a load per plan m² into one per
@@ -255,7 +263,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   if (opts.mode === 'width') levels.clear();
   const deck = opts.loadEveryPanel ? null : notADeck(model, carriers, coverAbove, opts.tributaryWidth, opts.mode === 'panels');
   const deckless = (poly: Array<[number, number]>, z: number) => (deck ? deck.why(poly, z) : null);
-  const fringeRoof = new Map<number, number>();
+  const fringeRoof = new Map<number, WidthSpan[]>();
   let byWidth = 0, unresolved = 0, partly = 0, lowPanels = 0, widePanels = 0, unclear = 0, unclearRoof = 0, fringes = 0;
   const segment = (id: number): Segment => {
     const e = model.elements.get(id)!;
@@ -305,10 +313,15 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
         if (covered([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], z)) unclear++; else unclearRoof++;
       }
       if (why === 'lowHeadroom' && !floorBeside) {
-        const strip = tributaryStrip([a[0], a[1]], [b[0], b[1]], opts.tributaryWidth);
-        const rest = deck!.uncarried(strip, z, heldPanels, heldMembers);
-        if (rest <= 0) { droppedMembers.add(e.id); continue; }
-        fringeRoof.set(e.id, rest);
+        const spans: WidthSpan[] = [];
+        for (let k = 0; k < FRINGE_SLICES; k++) {
+          const t0 = k / FRINGE_SLICES, t1 = (k + 1) / FRINGE_SLICES;
+          const at = (t: number): [number, number] => [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+          const rest = deck!.uncarried(tributaryStrip(at(t0), at(t1), opts.tributaryWidth), z, heldPanels, heldMembers);
+          if (rest > 0) spans.push({ t0, t1, width: opts.tributaryWidth * rest });
+        }
+        if (spans.length === 0) { droppedMembers.add(e.id); continue; }
+        fringeRoof.set(e.id, spans);
         fringes++;
       }
       heldMembers.push([a, b]);
@@ -380,8 +393,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const beforeDepth = out.widthMembers.length;
   out.widthMembers = out.widthMembers.filter((m) => !droppedMembers.has(m.elementId));
   for (const m of out.widthMembers) {
-    const rest = fringeRoof.get(m.elementId);
-    if (rest !== undefined) m.width = opts.tributaryWidth * rest;
+    const spans = fringeRoof.get(m.elementId);
+    if (spans) m.spans = spans;
   }
   if (out.widthMembers.length < beforeDepth) {
     out.notes.push(msg('loadPlan.gravity.membersLowHeadroom', { n: beforeDepth - out.widthMembers.length, h: MIN_STOREY_HEADROOM }));
@@ -398,7 +411,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
     const e = model.elements.get(m.elementId)!;
     const a = model.nodes.get(e.nodeI)!, b = model.nodes.get(e.nodeJ)!;
     const roof = fringeRoof.has(m.elementId) || !covered([(a.x + b.x) / 2, (a.y + b.y) / 2], Math.max(a.z ?? 0, b.z ?? 0));
-    addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, (m.width ?? opts.tributaryWidth) * m.horizontalLength);
+    addArea(roof ? out.roofAreaOf : out.areaOf, m.elementId, widthSpans(m, opts.tributaryWidth).reduce((s, w) => s + w.width * (w.t1 - w.t0), 0) * m.horizontalLength);
     if (roof) out.roof.add(m.elementId);
   }
   for (const q of model.quads?.values() ?? []) {
@@ -422,6 +435,8 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
 
 /** Less clear height than this under the roof's own members is the depth of the roof's structure, not a storey. */
 export const MIN_STOREY_HEADROOM = 2.2;
+/** A member within the roof's structure is checked in this many stretches along its length. */
+const FRINGE_SLICES = 10;
 /** A ring of beams wider than this both ways, with no beam or slab inside, is no deck: no slab spans it. */
 export const MAX_DECK_SPAN = 12;
 
