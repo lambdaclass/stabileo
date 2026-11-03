@@ -12969,6 +12969,7 @@ const pt: Translations = {
   'joint.typ.unresolved.noMembers': 'Não há barras no nó.',
   'joint.typ.unresolved.noSection': 'A barra principal não tem seção com mesas e alma (d, bf, tf, tw).',
   'joint.typ.unresolved.limits': 'Não se resolve dentro dos limites (Ø27, 8 linhas, chapa de 50 mm, filete de 16 mm, placa de base de 1,20 m). Revise as barras ou o arranjo do nó.',
+  'joint.typ.unresolved.weakAxisMoment': 'Uma barra leva momento em torno do seu eixo fraco neste nó, e nenhuma tipologia daqui o dimensiona. Libere-o se o nó for articulado nesse eixo, ou dimensione o nó à mão.',
   'joint.typ.check.boltShear': 'Parafusos ao cisalhamento',
   'joint.typ.check.bearing': 'Pressão de contato no furo',
   'joint.typ.check.plateShear': 'Chapa ao cisalhamento',

@@ -102,3 +102,25 @@ describe('the proposal', () => {
     expect(apex.parts.filter((p) => p.kind === 'plate')).toHaveLength(2);
   });
 });
+
+describe('weak-axis moment (#532)', () => {
+  const col = M({ id: 2, kind: 'column', section: HEB240, dir: { x: 0, y: 0, z: -1 }, inclination: -90, Mw: 40, M: 10 });
+  it('a beam end with a weak-axis moment leaves the joint unresolved instead of designing it without', () => {
+    const d = designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50, Mw: 5 }), col]), { ...P, plateT: 20, rows: 1, weldLeg: 8 }, 1);
+    expect(d.state).toBe('unresolved');
+    expect(d.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+    const tab = designTypology('shearTab', ctx([M({ id: 1, kind: 'beam', V: 100, released: true, Mw: 0.5 }), col]), P, 1);
+    expect(tab.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+  });
+  it('a fixed base with a weak-axis column moment is unresolved', () => {
+    const d = designTypology('baseFixed', ctx([M({ id: 1, kind: 'column', section: HEB240, dir: { x: 0, y: 0, z: 1 }, inclination: 90, N: -800, V: 30, M: 50, Mw: 20 })], 'fixed'), { ...P, plateT: 20 }, 1);
+    expect(d.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
+  });
+  it('a column running past the joint, and weak moments within 1 % of the strong one, leave it designed', () => {
+    const tab = designTypology('shearTab', ctx([M({ id: 1, kind: 'beam', V: 100, released: true }), col]), P, 1);
+    expect(tab.state).toBe('designed');
+    const plate = designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50, Mw: 0.9 }), col]), { ...P, plateT: 20, rows: 1, weldLeg: 8 }, 1);
+    expect(plate.unresolvedKey).not.toBe('joint.typ.unresolved.weakAxisMoment');
+    expect(plate.state).toBe('exceeded');
+  });
+});

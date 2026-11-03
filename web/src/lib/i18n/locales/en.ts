@@ -13329,6 +13329,7 @@ const en: Record<string, string> = {
   'joint.typ.unresolved.noMembers': 'No members at the joint.',
   'joint.typ.unresolved.noSection': 'The main member has no section with flanges and a web (d, bf, tf, tw).',
   'joint.typ.unresolved.limits': 'Not resolved within the limits (Ø27, 8 rows, 50 mm plate, 16 mm fillet, 1.20 m base plate). Review the members or the joint layout.',
+  'joint.typ.unresolved.weakAxisMoment': 'A member carries a moment about its weak axis at this joint, which no typology here designs. Release it if the joint is pinned about that axis, or design the joint by hand.',
   'joint.typ.check.boltShear': 'Bolts in shear',
   'joint.typ.check.bearing': 'Bearing at the hole',
   'joint.typ.check.plateShear': 'Plate in shear',

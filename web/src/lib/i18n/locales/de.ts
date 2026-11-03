@@ -13167,6 +13167,7 @@ const de: Translations = {
   'joint.typ.unresolved.noMembers': 'Keine Stäbe am Knoten.',
   'joint.typ.unresolved.noSection': 'Der Hauptstab hat keinen Querschnitt mit Flanschen und Steg (d, bf, tf, tw).',
   'joint.typ.unresolved.limits': 'Innerhalb der Grenzen nicht lösbar (Ø27, 8 Reihen, 50-mm-Blech, 16-mm-Kehlnaht, 1,20-m-Fußplatte). Überprüfen Sie die Stäbe oder die Anordnung des Knotens.',
+  'joint.typ.unresolved.weakAxisMoment': 'Ein Stab trägt an diesem Knoten ein Moment um seine schwache Achse, das keine Typologie hier bemisst. Geben Sie es frei, wenn der Knoten um diese Achse gelenkig ist, oder bemessen Sie den Knoten von Hand.',
   'joint.typ.check.boltShear': 'Schrauben auf Abscheren',
   'joint.typ.check.bearing': 'Lochleibung',
   'joint.typ.check.plateShear': 'Blech auf Schub',

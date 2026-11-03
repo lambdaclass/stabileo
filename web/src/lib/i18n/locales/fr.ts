@@ -13167,6 +13167,7 @@ const fr: Translations = {
   'joint.typ.unresolved.noMembers': 'Aucune barre à l\'assemblage.',
   'joint.typ.unresolved.noSection': 'La barre principale n\'a pas de section avec semelles et âme (d, bf, tf, tw).',
   'joint.typ.unresolved.limits': 'Non résolu dans les limites (Ø27, 8 rangées, platine de 50 mm, cordon de 16 mm, platine de pied de 1,20 m). Revoyez les barres ou la disposition de l\'assemblage.',
+  'joint.typ.unresolved.weakAxisMoment': 'Une barre porte un moment autour de son axe faible à ce nœud, qu’aucune typologie ici ne dimensionne. Relâchez-le si le nœud est articulé selon cet axe, ou dimensionnez le nœud à la main.',
   'joint.typ.check.boltShear': 'Boulons au cisaillement',
   'joint.typ.check.bearing': 'Pression diamétrale au trou',
   'joint.typ.check.plateShear': 'Platine au cisaillement',

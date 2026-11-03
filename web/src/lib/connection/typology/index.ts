@@ -28,7 +28,22 @@ function unresolved(kind: Typology, key: string, p: TypologyParams): TypologyDes
 }
 
 /** One evaluation of a typology with given parameters. */
+const WEAK_MOMENT_FLOOR = 0.01;
+
+/**
+ * Design one typology. The typologies carry the strong-axis moment only: when a connected member
+ * (a beam or brace, or the member the joint is designed for) has a weak-axis moment above 1 % of
+ * its strong-axis one (and 0,01 kN·m) the joint is unresolved instead of designed without it.
+ */
 export function designTypology(kind: Typology, ctx: TypologyContext, p: TypologyParams, mainId?: number): TypologyDesign {
+  const d = designStrongAxis(kind, ctx, p, mainId);
+  const main = ctx.members.find((m) => m.id === mainId) ?? ctx.members[0];
+  const base = kind === 'basePinned' || kind === 'baseFixed' ? ctx.members.find((m) => m.kind === 'column') : undefined;
+  const weak = ctx.members.some((m) => (m.kind !== 'column' || m === main || m === base) && (m.Mw ?? 0) > Math.max(WEAK_MOMENT_FLOOR, 0.01 * m.M));
+  return weak ? { ...d, state: 'unresolved', unresolvedKey: 'joint.typ.unresolved.weakAxisMoment' } : d;
+}
+
+function designStrongAxis(kind: Typology, ctx: TypologyContext, p: TypologyParams, mainId?: number): TypologyDesign {
   const main = ctx.members.find((m) => m.id === mainId) ?? ctx.members[0];
   if (!main) return unresolved(kind, 'joint.typ.unresolved.noMembers', p);
   const col = ctx.members.find((m) => m.kind === 'column' && m.id !== main.id) ?? null;

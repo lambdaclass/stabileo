@@ -13318,6 +13318,7 @@ const es: Record<string, string> = {
   'joint.typ.unresolved.noMembers': 'No hay barras en el nudo.',
   'joint.typ.unresolved.noSection': 'La barra principal no tiene una sección con alas y alma (d, bf, tf, tw).',
   'joint.typ.unresolved.limits': 'No se resuelve dentro de los límites (Ø27, 8 filas, chapa de 50 mm, filete de 16 mm, placa base de 1,20 m). Revisá las barras o el esquema del nudo.',
+  'joint.typ.unresolved.weakAxisMoment': 'Una barra lleva momento alrededor de su eje débil en este nudo, y ninguna tipología de aquí lo diseña. Libérelo si el nudo es articulado en ese eje, o diseñe el nudo a mano.',
   'joint.typ.check.boltShear': 'Bulones a corte',
   'joint.typ.check.bearing': 'Aplastamiento en el agujero',
   'joint.typ.check.plateShear': 'Chapa a corte',
