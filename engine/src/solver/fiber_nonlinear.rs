@@ -48,9 +48,28 @@ fn default_tol() -> f64 { 1e-6 }
 fn default_n_inc() -> usize { 10 }
 
 /// Per-element fiber state.
+#[derive(Clone)]
 struct ElementFiberState {
     _section_id: String,
     section_states: Vec<SectionState>, // One per integration point
+}
+
+/// Whether every load increment converged. `Stopped` results hold the state at
+/// `lastConvergedLoadFactor`, not the full load.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum FiberRunStatus {
+    Complete,
+    Stopped,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FiberIncrement<D> {
+    pub load_factor: f64,
+    pub iterations: usize,
+    pub relative_residual: f64,
+    pub displacements: Vec<D>,
 }
 
 /// Fiber nonlinear result.
@@ -60,7 +79,11 @@ pub struct FiberNonlinearResult {
     pub results: AnalysisResults,
     pub iterations: usize,
     pub converged: bool,
+    pub status: FiberRunStatus,
+    pub last_converged_load_factor: f64,
+    pub stop_reason: Option<String>,
     pub n_increments: usize,
+    pub history: Vec<FiberIncrement<Displacement>>,
     pub fiber_status: Vec<FiberElementStatus>,
 }
 
@@ -148,11 +171,17 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
     // Incremental loading
+    let mut last_lf = 0.0;
+    let mut history = Vec::new();
+    let mut stop_reason: Option<String> = None;
     for inc in 1..=input.n_increments {
         let load_factor = inc as f64 / input.n_increments as f64;
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        let u_committed = u_full.clone();
+        let mut inc_iters = 0;
+        let mut inc_residual = f64::NAN;
         // Fiber history (plastic strain, back stress, cracking) at the start of
         // the increment. Every iteration evaluates the elements from it, so a
         // trial iterate that overshoots leaves nothing behind; the state of the
@@ -168,6 +197,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
+            inc_iters += 1;
             for (id, es) in elem_states.iter_mut() {
                 es.section_states.clone_from(&committed[id]);
             }
@@ -257,6 +287,7 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
             let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
             let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
 
+            inc_residual = rel_error;
             if rel_error < input.tolerance {
                 nr_converged = true;
                 break;
@@ -290,7 +321,10 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                             None => {
                                 // Sparse factorization failed — fall back to full NR
                                 // for this increment (same semantics as dense path).
-                                solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                                match solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache) {
+                        Ok(u) => u,
+                        Err(e) => { stop_reason = Some(e); break; }
+                    }
                             }
                         }
                     }
@@ -298,7 +332,10 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                     let k_csc = tangent_free_sparse_triplets(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
-                    solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                    match solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache) {
+                        Ok(u) => u,
+                        Err(e) => { stop_reason = Some(e); break; }
+                    }
                 }
             } else if input.modified_nr {
                 if let Some((ref l, sz)) = cached_l {
@@ -322,8 +359,10 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                         // Cholesky failed — fall back to full NR
                         let mut k_work = k_s;
                         let mut f_work = r_s;
-                        lu_solve(&mut k_work, &mut f_work, ns)
-                            .ok_or("Singular tangent stiffness in fiber N-R")?
+                        match lu_solve(&mut k_work, &mut f_work, ns) {
+                            Some(u) => u,
+                            None => { stop_reason = Some("singular tangent stiffness".into()); break; }
+                        }
                     }
                 }
             } else {
@@ -340,8 +379,10 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
                     None => {
                         let mut k_work = k_s;
                         let mut f_work = r_s;
-                        lu_solve(&mut k_work, &mut f_work, ns)
-                            .ok_or("Singular tangent stiffness in fiber N-R")?
+                        match lu_solve(&mut k_work, &mut f_work, ns) {
+                            Some(u) => u,
+                            None => { stop_reason = Some("singular tangent stiffness".into()); break; }
+                        }
                     }
                 }
             };
@@ -360,8 +401,23 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
         if !nr_converged {
             converged = false;
+            stop_reason.get_or_insert_with(|| format!(
+                "no convergence in {} iterations at load factor {load_factor} (relative residual {inc_residual:.3e})",
+                input.max_iter,
+            ));
+            u_full = u_committed;
+            for (id, es) in elem_states.iter_mut() {
+                es.section_states.clone_from(&committed[id]);
+            }
             break;
         }
+        last_lf = load_factor;
+        history.push(FiberIncrement {
+            load_factor,
+            iterations: inc_iters,
+            relative_residual: inc_residual,
+            displacements: super::linear::build_displacements_2d(&dof_num, &u_full),
+        });
     }
 
     // Build results
@@ -396,6 +452,14 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         }
     }
 
+    let (reactions, balance) = fiber_reactions_and_equilibrium_2d(
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, &art, cs.as_ref(),
+    );
+    if !balance.summary.residual_ok || !balance.gate {
+        return Err(not_in_equilibrium(last_lf, &balance.summary));
+    }
+    let equilibrium = balance.summary;
+
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
         // Rebuild final tangent stiffness for constraint force computation
@@ -415,7 +479,8 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         add_springs(&input.solver, &dof_num, &u_full, &mut f_int_final, &art, &mut scatter);
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
+        let f_applied: Vec<f64> = f_total[..nf].iter().map(|&f| last_lf * f).collect();
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_applied);
         fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
@@ -424,18 +489,22 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
     Ok(FiberNonlinearResult {
         results: AnalysisResults {
             displacements,
-            reactions: vec![],
+            reactions,
             element_forces,
             constraint_forces,
             diagnostics: vec![],
             solver_diagnostics: vec![],
             structured_diagnostics: vec![],
-            equilibrium: None,
+            equilibrium: Some(equilibrium),
             result_summary: None, solver_run_meta: None,
         },
         iterations: total_iters,
         converged,
+        status: if converged { FiberRunStatus::Complete } else { FiberRunStatus::Stopped },
+        last_converged_load_factor: last_lf,
+        stop_reason,
         n_increments: input.n_increments,
+        history,
         fiber_status,
     })
 }
@@ -785,7 +854,11 @@ pub struct FiberNonlinearResult3D {
     pub results: AnalysisResults3D,
     pub iterations: usize,
     pub converged: bool,
+    pub status: FiberRunStatus,
+    pub last_converged_load_factor: f64,
+    pub stop_reason: Option<String>,
     pub n_increments: usize,
+    pub history: Vec<FiberIncrement<Displacement3D>>,
     pub fiber_status: Vec<FiberElementStatus>,
 }
 
@@ -861,11 +934,17 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
     // it ever changes). Used only when ns >= SPARSE_THRESHOLD.
     let mut sparse_sym_cache: Option<SparseSymbolicCache> = None;
 
+    let mut last_lf = 0.0;
+    let mut history = Vec::new();
+    let mut stop_reason: Option<String> = None;
     for inc in 1..=input.n_increments {
         let load_factor = inc as f64 / input.n_increments as f64;
         let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
 
         let mut nr_converged = false;
+        let u_committed = u_full.clone();
+        let mut inc_iters = 0;
+        let mut inc_residual = f64::NAN;
         // Fiber history (plastic strain, back stress, cracking) at the start of
         // the increment. Every iteration evaluates the elements from it, so a
         // trial iterate that overshoots leaves nothing behind; the state of the
@@ -881,6 +960,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
         for _iter in 0..input.max_iter {
             total_iters += 1;
+            inc_iters += 1;
             for (id, es) in elem_states.iter_mut() {
                 es.section_states.clone_from(&committed[id]);
             }
@@ -964,6 +1044,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             let f_norm: f64 = f_check.iter().map(|v| v * v).sum::<f64>().sqrt();
             let rel_error = if f_norm > 1e-30 { r_norm / f_norm } else { r_norm };
 
+            inc_residual = rel_error;
             if rel_error < input.tolerance {
                 nr_converged = true;
                 break;
@@ -996,7 +1077,10 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                             None => {
                                 // Sparse factorization failed — fall back to full NR
                                 // for this increment (same semantics as dense path).
-                                solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                                match solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache) {
+                        Ok(u) => u,
+                        Err(e) => { stop_reason = Some(e); break; }
+                    }
                             }
                         }
                     }
@@ -1004,7 +1088,10 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                     let k_csc = tangent_free_sparse_triplets(
                         &trip_rows, &trip_cols, &trip_vals, nf, &cs,
                     );
-                    solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache)?
+                    match solve_tangent_sparse(&k_csc, &r_s, &mut sparse_sym_cache) {
+                        Ok(u) => u,
+                        Err(e) => { stop_reason = Some(e); break; }
+                    }
                 }
             } else if input.modified_nr {
                 if let Some((ref l, sz)) = cached_l {
@@ -1027,8 +1114,10 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                     } else {
                         let mut k_work = k_s;
                         let mut f_work = r_s;
-                        lu_solve(&mut k_work, &mut f_work, ns)
-                            .ok_or("Singular tangent stiffness in 3D fiber N-R")?
+                        match lu_solve(&mut k_work, &mut f_work, ns) {
+                            Some(u) => u,
+                            None => { stop_reason = Some("singular tangent stiffness".into()); break; }
+                        }
                     }
                 }
             } else {
@@ -1045,8 +1134,10 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
                     None => {
                         let mut k_work = k_s;
                         let mut f_work = r_s;
-                        lu_solve(&mut k_work, &mut f_work, ns)
-                            .ok_or("Singular tangent stiffness in 3D fiber N-R")?
+                        match lu_solve(&mut k_work, &mut f_work, ns) {
+                            Some(u) => u,
+                            None => { stop_reason = Some("singular tangent stiffness".into()); break; }
+                        }
                     }
                 }
             };
@@ -1065,8 +1156,23 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
         if !nr_converged {
             converged = false;
+            stop_reason.get_or_insert_with(|| format!(
+                "no convergence in {} iterations at load factor {load_factor} (relative residual {inc_residual:.3e})",
+                input.max_iter,
+            ));
+            u_full = u_committed;
+            for (id, es) in elem_states.iter_mut() {
+                es.section_states.clone_from(&committed[id]);
+            }
             break;
         }
+        last_lf = load_factor;
+        history.push(FiberIncrement {
+            load_factor,
+            iterations: inc_iters,
+            relative_residual: inc_residual,
+            displacements: super::linear::build_displacements_3d(&dof_num, &u_full),
+        });
     }
 
     // Build results
@@ -1098,6 +1204,14 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         }
     }
 
+    let (reactions, balance) = fiber_reactions_and_equilibrium_3d(
+        input, &dof_num, &u_full, &elem_states, n_ip, &f_total, last_lf, &its, cs.as_ref(),
+    );
+    if !balance.summary.residual_ok || !balance.gate {
+        return Err(not_in_equilibrium(last_lf, &balance.summary));
+    }
+    let equilibrium = balance.summary;
+
     // Compute constraint forces if constraints are active
     let constraint_forces = if let Some(ref fcs) = cs {
         let mut f_int_final = vec![0.0; n];
@@ -1116,7 +1230,8 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
         add_springs_3d(&input.solver, &dof_num, &u_full, &mut f_int_final, &mut scatter);
         let free_idx: Vec<usize> = (0..nf).collect();
         let k_ff = extract_submatrix(&k_t_final, n, &free_idx, &free_idx);
-        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_total[..nf]);
+        let f_applied: Vec<f64> = f_total[..nf].iter().map(|&f| last_lf * f).collect();
+        let raw = fcs.compute_constraint_forces(&k_ff, &u_full[..nf], &f_applied);
         fcs.constraint_forces(&raw, &dof_num)
     } else {
         vec![]
@@ -1125,7 +1240,7 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
     Ok(FiberNonlinearResult3D {
         results: AnalysisResults3D {
             displacements,
-            reactions: vec![],
+            reactions,
             element_forces,
             plate_stresses: super::linear::compute_plate_stresses(&input.solver, &dof_num, &u_full, None),
             quad_stresses: super::linear::compute_quad_stresses(&input.solver, &dof_num, &u_full, None),
@@ -1134,13 +1249,17 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
             diagnostics: vec![],
             solver_diagnostics: vec![],
             structured_diagnostics: pre_solve_diags,
-            equilibrium: None,
+            equilibrium: Some(equilibrium),
             timings: None,
             result_summary: None, solver_run_meta: None,
         },
         iterations: total_iters,
         converged,
+        status: if converged { FiberRunStatus::Complete } else { FiberRunStatus::Stopped },
+        last_converged_load_factor: last_lf,
+        stop_reason,
         n_increments: input.n_increments,
+        history,
         fiber_status,
     })
 }
@@ -1328,6 +1447,238 @@ fn assemble_elastic_elements_3d(
             }
         }
     }
+}
+
+fn not_in_equilibrium(load_factor: f64, eq: &EquilibriumSummary) -> String {
+    format!(
+        "Fiber-nonlinear analysis: the state at load factor {load_factor} is not in equilibrium \
+         (relative residual {:.3e}, imbalance {:.3e}); no result is returned",
+        eq.relative_residual, eq.max_imbalance,
+    )
+}
+
+fn relative_free_residual<T: InclinedFrame>(
+    f_ext: &[f64],
+    f_int: &[f64],
+    its: &[T],
+    nf: usize,
+    cs: Option<&FreeConstraintSystem>,
+) -> f64 {
+    let r: Vec<f64> = f_ext.iter().zip(f_int).map(|(e, i)| e - i).collect();
+    let r_f = assembly::to_inclined_free(r, its, nf);
+    let f_f = assembly::to_inclined_free(f_ext.to_vec(), its, nf);
+    let (r_c, f_c) = match cs {
+        Some(c) => (c.reduce_vector(&r_f), c.reduce_vector(&f_f)),
+        None => (r_f, f_f),
+    };
+    let r_norm = r_c.iter().map(|v| v * v).sum::<f64>().sqrt();
+    let f_norm = f_c.iter().map(|v| v * v).sum::<f64>().sqrt();
+    if f_norm > 1e-30 { r_norm / f_norm } else { r_norm }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct NodalWrench {
+    pub r: [f64; 3],
+    pub f: [f64; 3],
+    pub m: [f64; 3],
+}
+
+fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+}
+
+/// Global force and moment balance of the applied loads against the reactions.
+/// Moments are taken about the centre of `points` and compared after dividing by
+/// the model size, so a pure-moment load is judged on the same scale as a force.
+pub(crate) fn wrench_equilibrium(
+    points: &[[f64; 3]],
+    applied: &[NodalWrench],
+    reactions: &[NodalWrench],
+    rel_residual: f64,
+    tolerance: f64,
+    n_dof: usize,
+    constraints: &[Constraint],
+) -> WrenchBalance {
+    let mut lo = [f64::INFINITY; 3];
+    let mut hi = [f64::NEG_INFINITY; 3];
+    for p in points {
+        for k in 0..3 {
+            lo[k] = lo[k].min(p[k]);
+            hi[k] = hi[k].max(p[k]);
+        }
+    }
+    let centre: [f64; 3] = std::array::from_fn(|k| if points.is_empty() { 0.0 } else { 0.5 * (lo[k] + hi[k]) });
+    let size = if points.is_empty() { 0.0 } else { (0..3).map(|k| (hi[k] - lo[k]).powi(2)).sum::<f64>().sqrt() };
+    let size = if size > 0.0 { size } else { 1.0 };
+    let total = |set: &[NodalWrench]| -> ([f64; 6], f64) {
+        let mut sum = [0.0; 6];
+        let mut scale = 0.0;
+        for w in set {
+            let arm: [f64; 3] = std::array::from_fn(|k| w.r[k] - centre[k]);
+            let moment = cross(arm, w.f);
+            for k in 0..3 {
+                sum[k] += w.f[k];
+                sum[3 + k] += w.m[k] + moment[k];
+                scale += w.f[k].abs() + w.m[k].abs() / size;
+            }
+        }
+        (sum, scale)
+    };
+    let (a, scale_a) = total(applied);
+    let (r, scale_r) = total(reactions);
+    let force = (0..3).map(|k| (a[k] + r[k]).abs()).fold(0.0f64, f64::max);
+    let moment = (3..6).map(|k| (a[k] + r[k]).abs() / size).fold(0.0f64, f64::max);
+    let allowed = 10.0 * (n_dof.max(1) as f64).sqrt() * tolerance * (scale_a + scale_r);
+    let within = |x: f64| x.is_finite() && x <= allowed;
+    let summary = EquilibriumSummary {
+        relative_residual: rel_residual,
+        residual_ok: rel_residual.is_finite() && rel_residual <= tolerance,
+        applied_force_sum: vec![],
+        reaction_force_sum: vec![],
+        max_imbalance: force.max(moment),
+        equilibrium_ok: within(force) && within(moment),
+    };
+    let gate = !constraints.is_empty() || summary.equilibrium_ok;
+    WrenchBalance { summary, applied: a, reactions: r, gate }
+}
+
+pub(crate) struct WrenchBalance {
+    pub summary: EquilibriumSummary,
+    pub applied: [f64; 6],
+    pub reactions: [f64; 6],
+    pub gate: bool,
+}
+
+/// Support reactions in global axes: on restrained DOFs the unbalanced force, on free DOFs only
+/// the support springs' force, so constraint forces on a free DOF are not taken as reactions.
+fn support_forces<T: InclinedFrame>(
+    f_int: &[f64],
+    f_ext: &[f64],
+    springs: Vec<(usize, usize, f64)>,
+    u_full: &[f64],
+    its: &[T],
+    nf: usize,
+) -> Vec<f64> {
+    let mut unbalanced: Vec<f64> = f_int.iter().zip(f_ext).map(|(i, e)| i - e).collect();
+    let mut spring = vec![0.0; f_int.len()];
+    for (i, j, k) in springs {
+        spring[i] -= k * u_full[j];
+    }
+    for it in its {
+        it.rotate(&mut unbalanced);
+        it.rotate(&mut spring);
+    }
+    let mut reaction: Vec<f64> = (0..f_int.len()).map(|d| if d >= nf { unbalanced[d] } else { spring[d] }).collect();
+    for it in its {
+        it.reverse(&mut reaction);
+    }
+    reaction
+}
+
+fn support_nodes<I: Iterator<Item = usize>>(ids: I) -> Vec<usize> {
+    let mut nodes: Vec<usize> = ids.collect();
+    nodes.sort_unstable();
+    nodes.dedup();
+    nodes
+}
+
+#[allow(clippy::too_many_arguments)]
+fn fiber_reactions_and_equilibrium_2d<T: InclinedFrame>(
+    input: &FiberNonlinearInput,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    elem_states: &HashMap<usize, ElementFiberState>,
+    n_ip: usize,
+    f_total: &[f64],
+    load_factor: f64,
+    its: &[T],
+    art: &[(usize, f64)],
+    cs: Option<&FreeConstraintSystem>,
+) -> (Vec<Reaction>, WrenchBalance) {
+    let n = dof_num.n_total;
+    let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+    let mut f_int = vec![0.0; n];
+    let mut probe = elem_states.clone();
+    let mut ignore = |_: usize, _: usize, _: f64| {};
+    assemble_fiber_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
+    assemble_elastic_elements(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
+    add_springs(&input.solver, dof_num, u_full, &mut f_int, art, &mut ignore);
+    let rel_residual = relative_free_residual(&f_ext, &f_int, its, dof_num.n_free, cs);
+    let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_2d(&input.solver, dof_num), u_full, its, dof_num.n_free);
+    let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
+    let position = |node: usize| {
+        let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
+        [nd.x, 0.0, nd.z]
+    };
+    let wrench = |node: usize, v: &[f64]| NodalWrench {
+        r: position(node),
+        f: [at(node, 0, v), 0.0, at(node, 1, v)],
+        m: [0.0, -at(node, 2, v), 0.0],
+    };
+    let reaction_nodes = support_nodes(crate::ordered::values(&input.solver.supports).map(|s| s.node_id));
+    let reactions: Vec<Reaction> = reaction_nodes
+        .iter()
+        .map(|&node| Reaction { node_id: node, rx: at(node, 0, &support_force), rz: at(node, 1, &support_force), my: at(node, 2, &support_force) })
+        .collect();
+    let node_ids: Vec<usize> = crate::ordered::values(&input.solver.nodes).map(|nd| nd.id).collect();
+    let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
+    let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
+    let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
+    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free, &input.solver.constraints);
+    let (a, r) = (balance.applied, balance.reactions);
+    balance.summary.applied_force_sum = vec![a[0], a[2], -a[4]];
+    balance.summary.reaction_force_sum = vec![r[0], r[2], -r[4]];
+    (reactions, balance)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn fiber_reactions_and_equilibrium_3d<T: InclinedFrame>(
+    input: &FiberNonlinearInput3D,
+    dof_num: &DofNumbering,
+    u_full: &[f64],
+    elem_states: &HashMap<usize, ElementFiberState>,
+    n_ip: usize,
+    f_total: &[f64],
+    load_factor: f64,
+    its: &[T],
+    cs: Option<&FreeConstraintSystem>,
+) -> (Vec<Reaction3D>, WrenchBalance) {
+    let n = dof_num.n_total;
+    let f_ext: Vec<f64> = f_total.iter().map(|&f| load_factor * f).collect();
+    let mut f_int = vec![0.0; n];
+    let mut probe = elem_states.clone();
+    let mut ignore = |_: usize, _: usize, _: f64| {};
+    assemble_fiber_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut probe, n_ip, &mut f_int, &mut ignore);
+    assemble_elastic_elements_3d(&input.solver, &input.fiber_sections, dof_num, u_full, &mut f_int, &mut ignore);
+    add_springs_3d(&input.solver, dof_num, u_full, &mut f_int, &mut ignore);
+    let rel_residual = relative_free_residual(&f_ext, &f_int, its, dof_num.n_free, cs);
+    let support_force = support_forces(&f_int, &f_ext, assembly::support_spring_entries_3d(&input.solver, dof_num), u_full, its, dof_num.n_free);
+    let at = |node: usize, k: usize, v: &[f64]| dof_num.global_dof(node, k).map_or(0.0, |d| v[d]);
+    let position = |node: usize| {
+        let nd = crate::ordered::values(&input.solver.nodes).find(|nd| nd.id == node).expect("validated node");
+        [nd.x, nd.y, nd.z]
+    };
+    let wrench = |node: usize, v: &[f64]| NodalWrench {
+        r: position(node),
+        f: [at(node, 0, v), at(node, 1, v), at(node, 2, v)],
+        m: [at(node, 3, v), at(node, 4, v), at(node, 5, v)],
+    };
+    let reaction_nodes = support_nodes(crate::ordered::values(&input.solver.supports).map(|s| s.node_id));
+    let reactions: Vec<Reaction3D> = reaction_nodes
+        .iter()
+        .map(|&node| {
+            let w = wrench(node, &support_force);
+            Reaction3D { node_id: node, fx: w.f[0], fy: w.f[1], fz: w.f[2], mx: w.m[0], my: w.m[1], mz: w.m[2], bimoment: None }
+        })
+        .collect();
+    let node_ids: Vec<usize> = crate::ordered::values(&input.solver.nodes).map(|nd| nd.id).collect();
+    let points: Vec<[f64; 3]> = node_ids.iter().map(|&id| position(id)).collect();
+    let applied: Vec<NodalWrench> = node_ids.iter().map(|&id| wrench(id, &f_ext)).collect();
+    let reacting: Vec<NodalWrench> = reaction_nodes.iter().map(|&id| wrench(id, &support_force)).collect();
+    let mut balance = wrench_equilibrium(&points, &applied, &reacting, rel_residual, input.tolerance, dof_num.n_free, &input.solver.constraints);
+    balance.summary.applied_force_sum = balance.applied.to_vec();
+    balance.summary.reaction_force_sum = balance.reactions.to_vec();
+    (reactions, balance)
 }
 
 #[cfg(test)]
@@ -1545,5 +1896,34 @@ mod tests {
         // Check that some fibers have yielded
         let any_yielded = result.fiber_status.iter().any(|s| s.yielded);
         assert!(any_yielded, "Under large load, fibers should yield");
+    }
+
+    #[test]
+    fn wrench_equilibrium_judges_a_pure_moment_on_the_model_scale() {
+        let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
+        let couple = |m: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0; 3], m: [0.0, m, 0.0] };
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-80.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        assert!(eq.equilibrium_ok && eq.max_imbalance == 0.0, "{eq:?}");
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[], 0.0, 1e-8, 6, &[]).summary;
+        assert!(!eq.equilibrium_ok, "an unreacted couple must fail: {eq:?}");
+        assert!((eq.max_imbalance - 80.0 / 4.0).abs() < 1e-12, "{eq:?}");
+        let eq = wrench_equilibrium(&points, &[couple(80.0, 4.0)], &[couple(-79.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        assert!(!eq.equilibrium_ok, "{eq:?}");
+        let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
+        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        assert!(!eq.equilibrium_ok, "forces balance but the 40 kN·m couple of the pair is unreacted: {eq:?}");
+        let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6, &[]).summary;
+        assert!(eq.equilibrium_ok, "{eq:?}");
+    }
+
+    #[test]
+    fn constraints_leave_the_balance_reported_but_ungated() {
+        let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
+        let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
+        let link = Constraint::RigidLink(RigidLinkConstraint { master_node: 1, slave_node: 2, dofs: vec![] });
+        let unconstrained = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(9.0, 0.0)], 0.0, 1e-8, 6, &[]);
+        assert!(!unconstrained.gate && !unconstrained.summary.equilibrium_ok);
+        let constrained = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(9.0, 0.0)], 0.0, 1e-8, 6, &[link]);
+        assert!(constrained.gate && !constrained.summary.equilibrium_ok);
     }
 }
