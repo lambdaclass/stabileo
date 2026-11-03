@@ -172,6 +172,8 @@ pub fn solve_modal_2d(
         None => (m_r_x, m_r_y),
     };
 
+    refuse_mechanism(&result.values)?;
+
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
     let mut cum_mry = 0.0;
@@ -282,6 +284,15 @@ pub fn solve_modal_2d(
         cumulative_mass_ratio_y: cum_mry,
         rayleigh,
     })
+}
+
+fn refuse_mechanism(eigenvalues: &[f64]) -> Result<(), String> {
+    match eigenvalues.iter().find(|v| v.is_finite() && **v <= 1e-10) {
+        Some(lambda) => Err(format!(
+            "Modal analysis: the structure is a mechanism or unstable: a mode has ω² = {lambda:.3e} rad²/s² (zero or negative frequency), so a release, hinge or missing support lets part of it move without deforming. No modes are returned."
+        )),
+        None => Ok(()),
+    }
 }
 
 /// M*v product for a submatrix (nf×nf flat array)
@@ -399,6 +410,8 @@ pub fn solve_modal_3d(
         match &cs { Some(cs) => cs.reduce_vector(&mr), None => mr }
     };
     let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
+
+    refuse_mechanism(&result.values)?;
 
     let mut modes = Vec::new();
     let mut cum_mrx = 0.0;
