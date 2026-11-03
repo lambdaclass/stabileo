@@ -1471,6 +1471,8 @@ const steelTr: Translations = {
   'c301.refuse.noShearLag': 'birleşim U vermiyor: U, tüm elemanların birleştirilmesi, kaynaklı levha veya x̄ ve L gerekir (D.3)',
   'c301.refuse.unknownShape': '“{shape}” kesit şeklinin Tablo B.4.1a\'da sınıflandırması yok',
   'c301.refuse.elementInvalid': '“{kind}” basınç elemanı Tablo B.4.1a için geçerli değil',
+  'c301.refuse.qNonPositive': 'etkin alan Qa = {Qa} ≤ 0 çıkıyor (A = {A} mm², Σ(b − be)·t = {lost} mm²): kesit alanı, basınç elemanlarının genişlik ve kalınlıklarıyla uyuşmuyor (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa: basınç dayanımı tam plastik eksenel yükü aşardı',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0.45·E/Fy = {lim}: E.7.2(c) bu boruyu kapsamıyor',
   'c301.refuse.e4NoJCw': '§E.4: kz·Lz > ky·L ve burulmalı burkulma için J veya Cw eksik',
   'c301.refuse.e4NoJ': '§E.4: eğilmeli-burulmalı burkulma için J eksik',

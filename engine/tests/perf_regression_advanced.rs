@@ -59,7 +59,8 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
     let mut mats = HashMap::new();
     mats.insert("1".to_string(), SolverMaterial { id: 1, e, nu });
 
-    // Simply-supported edges: rz on all boundary, pin corner fully
+    // Simply-supported edges: rz on all boundary, pin corner fully, and Y at the
+    // opposite X corner so the plate has no in-plane rigid rotation
     let mut supports = HashMap::new();
     let mut sid = 1;
     let mut boundary = Vec::new();
@@ -78,7 +79,7 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
             sid.to_string(),
             SolverSupport3D {
                 node_id: n,
-                rx: false, ry: false, rz: true,
+                rx: false, ry: n == grid[nx][0], rz: true,
                 rrx: false, rry: false, rrz: false,
                 kx: None, ky: None, kz: None,
                 krx: None, kry: None, krz: None,
@@ -132,6 +133,12 @@ fn make_plate_3d(nx: usize, ny: usize) -> SolverInput3D {
 
 /// Build an nx*ny simply-supported MITC4 plate AND return the node grid
 /// (needed for boundary node selection in Guyan/Craig-Bampton).
+fn held_in_plane(mut input: SolverInput3D) -> SolverInput3D {
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
+    input
+}
+
 fn make_plate_3d_with_grid(nx: usize, ny: usize) -> (SolverInput3D, Vec<Vec<usize>>) {
     let lx = 10.0;
     let ly = 10.0;
@@ -375,7 +382,7 @@ fn steel_densities() -> HashMap<String, f64> {
 /// Verifies both timing and mode count.
 #[test]
 fn modal_3d_5x5_plate_under_5s() {
-    let input = make_plate_3d(5, 5);
+    let input = held_in_plane(make_plate_3d(5, 5));
     let densities = steel_densities();
     let num_modes = 5;
 
@@ -413,7 +420,7 @@ fn modal_3d_5x5_plate_under_5s() {
 /// Gate: 3D modal analysis on a 10x10 plate (100 elements) must complete in < 10s.
 #[test]
 fn modal_3d_10x10_plate_under_10s() {
-    let input = make_plate_3d(10, 10);
+    let input = held_in_plane(make_plate_3d(10, 10));
     let densities = steel_densities();
     let num_modes = 5;
 
@@ -703,8 +710,8 @@ fn craig_bampton_3d_6x6_plate_under_5s() {
 /// 4x elements => ~8x time at O(N^1.5). We allow up to 20x to stay CI-safe.
 #[test]
 fn scale_modal_3d_sub_cubic() {
-    let small = make_plate_3d(5, 5);
-    let large = make_plate_3d(10, 10);
+    let small = held_in_plane(make_plate_3d(5, 5));
+    let large = held_in_plane(make_plate_3d(10, 10));
     let densities = steel_densities();
     let num_modes = 5;
 
@@ -754,7 +761,7 @@ fn scale_modal_3d_sub_cubic() {
 /// timing as a sanity check (modal should be comparable, not 100x slower).
 #[test]
 fn modal_3d_uses_sparse_path() {
-    let input = make_plate_3d(10, 10);
+    let input = held_in_plane(make_plate_3d(10, 10));
     let densities = steel_densities();
     let num_modes = 5;
 

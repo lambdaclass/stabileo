@@ -26,7 +26,7 @@ pub fn rayleigh_coefficients(omega1: f64, omega2: f64, xi: f64) -> (f64, f64) {
 /// eigensolve finds nothing usable, where being crude beats returning nothing.
 pub fn rayleigh_from_modes(k: &[f64], m: &[f64], n: usize, xi: f64) -> (f64, f64) {
     if let Some(result) = crate::linalg::lanczos_generalized_eigen(k, m, n, 2, 0.0) {
-        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v > 1e-10).collect();
+        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v.is_finite() && v > 1e-10).collect();
         if positive.len() >= 2 {
             return rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), xi);
         } else if positive.len() == 1 {
@@ -73,7 +73,7 @@ pub fn rayleigh_from_modes_sparse(
     xi: f64,
 ) -> (f64, f64) {
     if let Some(result) = crate::linalg::lanczos_generalized_eigen_sparse(k, m, 2, 0.0) {
-        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v > 1e-10).collect();
+        let positive: Vec<f64> = result.values.iter().copied().filter(|&v| v.is_finite() && v > 1e-10).collect();
         if positive.len() >= 2 {
             return rayleigh_coefficients(positive[0].sqrt(), positive[1].sqrt(), xi);
         } else if positive.len() == 1 {
