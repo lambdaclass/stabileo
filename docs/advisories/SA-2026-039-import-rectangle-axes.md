@@ -6,15 +6,17 @@
 | Status | Draft |
 | Issue | [#532](https://github.com/lambdaclass/stabileo/issues/532) (leftover of SA-2026-029) |
 | Fix | #1310 |
-| Affected versions | every release with the Excel importer or the IFC importer; not bisected |
+| Affected versions | every release (desktop-v0.1.0-alpha.1 to 0.4.0) and the live site until this fix: Excel `b`/`h` sections since the importer landed (2026-09-09, 8bcd39ca3); IFC sections named `HxB` or `HxBxT` and the no-profile fallback since 2026-03-04 (b93ada5b8); IFC rectangles drawn in the file since 2026-10-18 (1f8432385) |
 | Re-check registry | none: an imported model keeps the section values it was saved with |
 
 ## Affected features
 
 - **App: Excel import**, a section given by `b` and `h` instead of a catalogue name or explicit
   inertias.
-- **App: IFC import**, a rectangular profile drawn in the file, a section named like `500x200`
-  or `200x100x5`, and the fallback section used when a file names no profile.
+- **App: IFC import**, a rectangular profile drawn in the file (`IfcRectangleProfileDef`), a
+  section named like `500x200` (solid) or `200x100x5` (tube), and the fallback section used when
+  a file names no profile. Catalogue profiles named in the file (IPE, HEB…) were not affected.
+- Excel sections given by a catalogue name, or with explicit `Iy` and `Iz`, were not affected.
 
 ## What was wrong
 
