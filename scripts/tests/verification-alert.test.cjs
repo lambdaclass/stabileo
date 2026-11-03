@@ -169,6 +169,27 @@ test('two alerts that both opened an issue keep the oldest and close the other',
   assert.match(h.writes()[2].args.body, /Duplicate of #900/);
 });
 
+test('a raced duplicate hands its own report to the issue that stays open', async () => {
+  const other = 'Run 54 of Nightly verification concluded **failure**: - [e2e](https://x/jobs/2)';
+  let listed = 0;
+  const open = () => (listed++ === 0 ? [] : [{number: 899, title: 'CI failure: Nightly verification', body: 'first report'}, {number: 902, title: 'CI failure: Nightly verification', body: other}]);
+  const h = harness({jobs: [failedJob], label: true, open});
+  await h.run();
+  const toKeep = h.writes().filter((c) => c.name === 'createComment' && c.args.issue_number === 899);
+  assert.deepEqual(toKeep.map((c) => c.args.body), [other]);
+});
+
+test('a triaged label removed again does not let a green run close the issue', async () => {
+  const label = (event, h) => ({event, label: {name: 'triaged'}, created_at: at(h)});
+  const removed = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot], timeline: [label('labeled', 7), label('unlabeled', 8)]});
+  await removed.run();
+  assert.deepEqual(removed.writes().map((c) => c.name), ['createComment']);
+  assert.match(removed.writes()[0].args.body, /^Green again, but this issue is not triaged yet/);
+  const again = harness({run: {conclusion: 'success'}, open: [issue14], comments: [bot], runsByWorkflow: {7: [{id: 55, conclusion: 'success'}]}, timeline: [label('labeled', 7), label('unlabeled', 8), label('labeled', 9)]});
+  await again.run();
+  assert.deepEqual(again.writes().map((c) => c.name), ['createComment', 'update']);
+});
+
 test('an older green run replayed after a newer failure does not close the issue', async () => {
   const h = harness({run: {conclusion: 'success', id: 55}, open: [issue14], comments: [bot, human(7)],
     runsByWorkflow: {7: [{id: 60, conclusion: 'failure'}]}, env: {ALERT_ANY_EVENT: 'true'}});
