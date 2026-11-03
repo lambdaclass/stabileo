@@ -5,6 +5,7 @@ import { currentWorkbookParts, streamWorkbookZip, workbookEstimate } from '../..
 import { initSolver } from '../../engine/wasm-solver';
 import { toCsv } from '../../engine/result-tables';
 import { isStreamed, materialize, partSize } from '../workbook-cells';
+import { assertExportCurrent, captureProvenanceToken, ExportChangedError } from '../../store/result-provenance';
 
 beforeAll(async () => { await initSolver(); });
 
@@ -55,6 +56,21 @@ describe('the workbook written as it is produced', () => {
       expect(strFromU8(files[file]!)).toBe(toCsv(s.rows[0]!.map(String), s.rows.slice(1)));
     });
     expect(names.some((n) => n.endsWith('ShellCentres.csv'))).toBe(true);
+  });
+
+  it('an edit while the rows are written abandons the zip instead of mixing two states', async () => {
+    const token = captureProvenanceToken();
+    const long = { name: 'Long', header: ['n'], count: () => 50_000, body: function* () { for (let i = 0; i < 50_000; i++) yield [i]; } };
+    const section = [...modelStore.sections.keys()][0]!;
+    setTimeout(() => modelStore.updateSection(section, { a: 0.5 }), 0);
+    await expect(streamWorkbookZip([long as never], () => assertExportCurrent(token))).rejects.toBeInstanceOf(ExportChangedError);
+  });
+
+  it('an unchanged project writes the whole zip with the check on', async () => {
+    const token = captureProvenanceToken();
+    const long = { name: 'Long', header: ['n'], count: () => 50_000, body: function* () { for (let i = 0; i < 50_000; i++) yield [i]; } };
+    const files = unzipSync(new Uint8Array(await (await streamWorkbookZip([long as never], () => assertExportCurrent(token))).arrayBuffer()));
+    expect(strFromU8(files['01-Long.csv']!).split('\n')).toHaveLength(50_001);
   });
 
   it('counts the streamed sheets exactly before producing them, and the deferred ones from above', () => {
