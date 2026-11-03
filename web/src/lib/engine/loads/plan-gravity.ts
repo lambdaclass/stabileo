@@ -587,7 +587,7 @@ function notADeck(
     const low = roofed.some((h) => h > TOL && h < MIN_STOREY_HEADROOM);
     if (low && roofed.length === probes.length && Math.max(...roofed) < MIN_STOREY_HEADROOM
       && coverAbove(centroid(poly), z) < MIN_STOREY_HEADROOM) return 'lowHeadroom';
-    if (Math.min(hi[0] - lo[0], hi[1] - lo[1]) > MAX_DECK_SPAN) return 'wide';
+    if (narrowestWidth(poly) > MAX_DECK_SPAN) return 'wide';
     return low ? 'headroomUnclear' : null;
   };
   return { why, uncarried };
@@ -717,6 +717,30 @@ function openCellsToBeams(model: GravityModel, m: Mask, beamIds: number[]): {
     });
   }
   return out;
+}
+
+/** The least width of `poly` across any direction: its convex hull's, by the normals of the hull's sides. */
+function narrowestWidth(poly: Array<[number, number]>): number {
+  const pts = [...poly].sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+  const cross = (o: [number, number], p: [number, number], q: [number, number]) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+  const half = (list: Array<[number, number]>) => {
+    const h: Array<[number, number]> = [];
+    for (const p of list) {
+      while (h.length >= 2 && cross(h[h.length - 2]!, h[h.length - 1]!, p) <= 0) h.pop();
+      h.push(p);
+    }
+    return h.slice(0, -1);
+  };
+  const hull = [...half(pts), ...half([...pts].reverse())];
+  if (hull.length < 3) return 0;
+  let least = Infinity;
+  hull.forEach((p, k) => {
+    const q = hull[(k + 1) % hull.length]!;
+    const L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (L === 0) return;
+    least = Math.min(least, Math.max(...hull.map((r) => Math.abs(cross(p, q, r)) / L)));
+  });
+  return least;
 }
 
 function areaCentroid(poly: Array<[number, number]>): [number, number] {

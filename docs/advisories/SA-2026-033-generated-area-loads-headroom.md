@@ -29,11 +29,19 @@ Two more gaps came with it: truss members were not counted as roof structure, so
 a trussed roof with no purlin over them were dropped the same way; and a ring under a truss deeper
 than 2.2 m was loaded as a storey with nothing said.
 
+The same commit sized a panel by its bounding box in the plan's X and Y (#1311): a panel was
+taken as too wide for a slab when both sides of that box passed 12 m. A 3 × 20 m deck turned 45°
+in plan has a box of about 16 × 16 m, so it lost all 60 m² of its floor load, and the derivation
+said, wrongly, that no slab spans it; turned 0° or 90° it was loaded. By width, a floor beam
+under low eaves was dropped by its own segment's headroom (#1312): under a gable roof with 2 m at
+the eaves and 4 m at the ridge, the two eave-side floor beams of a 6 × 6 m floor got no floor load.
+
 ## How to tell if your results are affected
 
 A model whose loads were generated in PRO after 2026-11-03 04:37 UTC, with a panel or a beam that
 has a member less than 2.2 m above part of it (a canopy, a mezzanine edge, a sloped brace, a low
-roof beam beside a higher floor), and "panels lie within the roof's structure" in the derivation.
+roof beam beside a higher floor), and "panels lie within the roof's structure" in the derivation;
+or one with a panel not square to the plan's axes and "wider than 12 m" in the derivation.
 Generate the loads again and compare.
 
 ## Fixed in
@@ -49,10 +57,13 @@ counts as carried only when it lies wholly within one of them, so the share errs
 one cell wide along the edges of what is carried above is loaded twice. A member loaded by width
 is checked in ten stretches along its length, and the load of each cell it keeps goes on the
 part of the member that cell lies beside; a
-panel gives each cell it keeps to the nearest of its beams, over the stretch the cell projects onto,
-so the load lands on the beams that bound what is not carried. That is not conservative
+panel carries each cell it keeps as a one-way slab, from the nearest of its beams across to the
+beam opposite, split by the lever rule, so its beams' loads keep the cells' resultant and both its
+moments in plan. The band loaded twice is not conservative
 for uplift, overturning or seismic weight, so the derivation counts those panels and members and
-asks the engineer to check them. Truss members count as roof structure. A panel or member only partly under low
+asks the engineer to check them. A panel is too wide for a slab only when its narrowest width, across any direction (its convex
+hull's, by the normals of its sides), passes 12 m, so a deck takes the same load at any angle in
+plan. Truss members count as roof structure. A panel or member only partly under low
 structure keeps its load, as floor load when a floor or roof stands over its center and as roof
 load otherwise, and the derivation names how many of each. So a panel ends up dropped, kept as
 roof load, or kept as floor load, never dropped on partial evidence. A member loaded by width beside a floor panel keeps its load. The cases above are

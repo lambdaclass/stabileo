@@ -91,9 +91,43 @@ describe('a real floor under a sloped roof keeps its load', () => {
     expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.lowHeadroom')).toBe(false);
   });
 
+  it('by width, all four floor beams under the eaves keep their floor load', () => {
+    const layout = gravityLayout(atticFloor(), { mode: 'width', tributaryWidth: 3 });
+    for (const id of [3, 6, 9, 12]) expect(layout.areaOf.get(id), `beam ${id}`).toBeCloseTo(3 * 6, 9);
+    expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.membersLowHeadroom')).toBe(false);
+  });
+
   it('gives the same area as loading every panel', () => {
     const every = gravityLayout(atticFloor(), { mode: 'panels', tributaryWidth: 3, loadEveryPanel: true });
     expect(every.areaByLevel.get(3)).toBeCloseTo(36, 6);
+  });
+});
+
+describe('a deck sized in its own axes, not the plan\'s', () => {
+  function deck(degrees: number): GravityModel {
+    const r = (degrees * Math.PI) / 180;
+    const nodes = new Map<number, { id: number; x: number; y: number; z: number }>();
+    const elements = new Map<number, { id: number; nodeI: number; nodeJ: number }>();
+    const corners: Array<[number, number]> = [[0, 0], [20, 0], [20, 3], [0, 3]];
+    const top = corners.map(([x, y], i) => {
+      const p = { x: x * Math.cos(r) - y * Math.sin(r), y: x * Math.sin(r) + y * Math.cos(r) };
+      nodes.set(i + 1, { id: i + 1, x: p.x, y: p.y, z: 0 });
+      nodes.set(i + 5, { id: i + 5, x: p.x, y: p.y, z: 3 });
+      return i + 5;
+    });
+    for (let i = 0; i < 4; i++) {
+      elements.set(i + 1, { id: i + 1, nodeI: i + 1, nodeJ: top[i]! });
+      elements.set(i + 5, { id: i + 5, nodeI: top[i]!, nodeJ: top[(i + 1) % 4]! });
+    }
+    return { nodes, elements };
+  }
+
+  it('a 3 × 20 m deck takes its 60 m² turned 0°, 30°, 45° or 90°', () => {
+    for (const degrees of [0, 30, 45, 90]) {
+      const layout = gravityLayout(deck(degrees), { mode: 'panels', tributaryWidth: 3 });
+      expect(layout.areaByLevel.get(3), `${degrees}°`).toBeCloseTo(60, 6);
+      expect(layout.notes.some((n) => n.key === 'loadPlan.gravity.widePanels'), `${degrees}°`).toBe(false);
+    }
   });
 });
 

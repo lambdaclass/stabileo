@@ -11,3 +11,7 @@
   structure. Panels and members only partly under low structure keep their load, as floor load
   when a floor or roof stands over their center and as roof load otherwise, and are named in the
   derivation. Generate the loads again for models whose loads came from the generator.
+- SA-2026-033 (#1311): the generator sized a panel by its bounding box in the plan's X and Y, so a
+  3 × 20 m deck turned 45° lost all 60 m² of its floor load as "too wide for a slab". A panel is
+  now too wide only when its narrowest width across any direction passes 12 m.
+- SA-2026-033 (#1312): by width, the floor beams under low eaves keep their floor load.
