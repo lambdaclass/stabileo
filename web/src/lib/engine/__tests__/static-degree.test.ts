@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { ghReport } from '../static-degree';
 import { countIndeterminacy } from '../force-method/primary';
+import { staticClassificationBlocks } from '../steps/dsm-extras';
 import type { SolverInput } from '../types';
 
 type Sup = [number, string, Record<string, number>?];
@@ -78,6 +79,8 @@ describe('GH by the classic formula', () => {
       expect(rep.subst.text).toBe(c.subst);
       expect(rep.split).toMatchObject({ external: c.ext, internal: c.int });
       expect(countIndeterminacy(c.input).gh).toBe(c.gh);
+      const calc = staticClassificationBlocks(c.input).find((b) => b.kind === 'calc');
+      expect(calc && 'result' in calc ? calc.result : '').toContain(`GH = ${c.gh}`);
     });
   }
 
