@@ -11,7 +11,7 @@ type Model = SolverInput & { portal: boolean; length: number; height: number };
 function supportTypes(index: number, portal: boolean): [SupportType, SupportType] {
   const kind = SUPPORTS[index];
   if (kind === 'fixedFixed') return ['fixed', 'fixed'];
-  if (kind === 'fixedPinned') return ['fixed', portal ? 'pinned' : 'rollerX'];
+  if (kind === 'fixedPinned') return ['fixed', 'pinned'];
   return ['pinned', 'rollerX'];
 }
 
