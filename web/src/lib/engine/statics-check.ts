@@ -57,7 +57,7 @@ export type StaticsVerdict = 'balances' | 'partial' | 'unbalanced';
 
 /** A case balances only with every load in the sum and a finite residual: a small residual over part of them is "partial", never "balances". */
 export function staticsVerdict(r: { worstRelative: number; uncovered: readonly string[] }, balanced = 1e-6): StaticsVerdict {
-  if (!(r.worstRelative < balanced)) return 'unbalanced';
+  if (!Number.isFinite(r.worstRelative) || !(r.worstRelative < balanced)) return 'unbalanced';
   return r.uncovered.length ? 'partial' : 'balances';
 }
 
