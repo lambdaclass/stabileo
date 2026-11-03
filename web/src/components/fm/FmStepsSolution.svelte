@@ -177,14 +177,18 @@
 {:else if step === 9}
   <p class="fm-exp">{t('fm.s9.explanation')}</p>
   {#if r.verification.axialOff && !r.verification.ok}
-    {#if r.verification.rigidOk !== undefined}
-      <p class="fm-verdict" class:bad={!r.verification.rigidOk} data-testid="fm-verdict-rigid">
-        {r.verification.rigidOk ? t('course.statics.fm.s9.rigidOk') : t('fm.s9.bad').replace('{d}', num(worst, 3))}
+    {#if r.verification.rigidOk === true}
+      <p class="fm-verdict" data-testid="fm-verdict-rigid">{t('course.statics.fm.s9.rigidOk')}</p>
+      <p class="fm-verdict fm-axial-off" data-testid="fm-verdict">
+        {t('course.statics.fm.s9.axialOff').replace('{d}', num(worst, 3)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)}
+      </p>
+    {:else if r.verification.rigidOk === false}
+      <p class="fm-verdict bad" data-testid="fm-verdict">{t('fm.s9.bad').replace('{d}', num(worst, 3))}</p>
+    {:else}
+      <p class="fm-verdict bad" data-testid="fm-verdict">
+        {t('course.statics.fm.s9.axialUnverified').replace('{d}', num(worst, 3)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)}
       </p>
     {/if}
-    <p class="fm-verdict fm-axial-off" data-testid="fm-verdict">
-      {t('course.statics.fm.s9.axialOff').replace('{d}', num(worst, 3)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)}
-    </p>
   {:else}
     <p class="fm-verdict" class:bad={!r.verification.ok} data-testid="fm-verdict">
       {r.verification.ok

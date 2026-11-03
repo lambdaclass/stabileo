@@ -70,6 +70,7 @@ const words: Translations = {
   'course.statics.fm.s5.axialKept': '{list} yalnızca eksenel çalışır: satırı ve sütunu eksenel terimi korur, çünkü bu terim olmadan denklemi bir şey söylemez.',
   'course.statics.fm.s5.axialAll': 'Eksenel terimi yalnızca bazı satırlarda tutmak burada yetmez: karışık matris pozitif tanımlı olmaz, yani bir esneklik matrisi olmaz. Tüm katsayılar eksenel terimi korur.',
   'course.statics.fm.s9.axialOff': 'Eksenel şekil değiştirme olmadan yapı, bunu hesaba katan rijitlik yöntemindekinden daha rijittir. En büyük fark {d}, en büyük kuvvete oranı {pct}: dışarıda bıraktığınız eksenel terimin katkısı budur.',
+  'course.statics.fm.s9.axialUnverified': 'Rijitlik yöntemiyle en büyük fark {d}, en büyük kuvvetin {pct}\'i. Dışarıda bıraktığınız eksenel terimden gelebilir, ancak aynı varsayımla bir referans çözüm bunu doğrulayamadığından sonuç doğrulanmamıştır.',
   'course.statics.fm.s9.rigidOk': 'Eksenel olarak rijit çubuklarla çözülen rijitlik yöntemiyle, yani seçtiğiniz aynı varsayımla uyuşuyor.',
 
   // Virtüel iş

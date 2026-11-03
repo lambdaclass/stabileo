@@ -24,6 +24,7 @@ export function mdofApplies(ctx: MethodContext): Applicability {
 }
 
 const MM = 1000;
+const responseUnit = (c: MdofCase) => (c.dofs[c.at].dir === 'ry' ? { k: 1, unit: 'rad', rad: true } : { k: MM, unit: 'mm', rad: false });
 const COLORS: PlotColor[] = ['load', 'reaction', 'moment', 'diagram', 'dof', 'deformed'];
 
 function shearShape(ctx: MethodContext, c: MdofCase, phi: number[]): Sketch {
@@ -38,13 +39,14 @@ function shearShape(ctx: MethodContext, c: MdofCase, phi: number[]): Sketch {
   return { ...base, members: base.members.map((m) => ({ ...m, style: 'faint' as const })), deformed: base.members.map((m) => ({ points: [at(m.i), at(m.j)] })) };
 }
 
-/** The response at the degree of freedom that moves most: each mode's share, their sum and the direct integration, in mm. */
+/** The response at the degree of freedom that moves most: each mode's share, their sum and the direct integration, in mm, or in rad when only rotations remain. */
 export function superpositionPlotOf(c: MdofCase, label: string, shown = SHOWN_MODES): Plot {
   const j = c.at;
-  const contrib = c.sol.modes.slice(0, shown).map((m, i) => ({ points: c.times.map((tt) => [tt, m.phi[j] * c.resp.q[i](tt) * MM] as [number, number]), color: COLORS[i % COLORS.length], dashed: true, label: dt('mdof.sup.modeLabel', { i: i + 1 }) }));
-  const total = { points: c.times.map((tt, k) => [tt, c.modal[k][j] * MM] as [number, number]), color: 'accent' as PlotColor, label: dt('mdof.sup.total') };
-  const direct = { points: c.times.map((tt, k) => [tt, c.direct[k][j] * MM] as [number, number]), color: 'muted' as PlotColor, dashed: true, label: dt('mdof.sup.direct') };
-  return plotOf('t (s)', `${label} (mm)`, [...contrib, direct, total]);
+  const { k: scale, unit } = responseUnit(c);
+  const contrib = c.sol.modes.slice(0, shown).map((m, i) => ({ points: c.times.map((tt) => [tt, m.phi[j] * c.resp.q[i](tt) * scale] as [number, number]), color: COLORS[i % COLORS.length], dashed: true, label: dt('mdof.sup.modeLabel', { i: i + 1 }) }));
+  const total = { points: c.times.map((tt, k) => [tt, c.modal[k][j] * scale] as [number, number]), color: 'accent' as PlotColor, label: dt('mdof.sup.total') };
+  const direct = { points: c.times.map((tt, k) => [tt, c.direct[k][j] * scale] as [number, number]), color: 'muted' as PlotColor, dashed: true, label: dt('mdof.sup.direct') };
+  return plotOf('t (s)', `${label} (${unit})`, [...contrib, direct, total]);
 }
 
 export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDoc {
@@ -186,6 +188,7 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
   });
 
   const j = c.at;
+  const resp = responseUnit(c);
   const peak = Math.max(...c.modal.map((u) => Math.abs(u[j])), 1e-15);
   const maxDiff = Math.max(...c.modal.map((u, k) => Math.abs(u[j] - c.direct[k][j])));
   const picks = [0.1, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (c.times.length - 1)));
@@ -197,8 +200,8 @@ export function buildMdof(ctx: MethodContext, engineModal?: EngineModal): StepDo
       { kind: 'plot', plot: superpositionPlotOf(c, labels[j]), caption: dt('mdof.sup.caption', { dof: labels[j], T: numText(tEnd, 3) }) },
       p('mdof.sup.direct.lead'),
       p('mdof.sup.direct.why', undefined, true),
-      { kind: 'table', head: [{ tex: 't\\ [\\text{s}]' }, dt('mdof.sup.modalCol'), dt('mdof.sup.directCol'), dt('mdof.eig.diff')],
-        rows: picks.map((k) => [c.times[k], c.modal[k][j] * MM, c.direct[k][j] * MM, `${numText((Math.abs(c.modal[k][j] - c.direct[k][j]) / peak) * 100, 2)} %`]),
+      { kind: 'table', head: [{ tex: 't\\ [\\text{s}]' }, dt(resp.rad ? 'mdof.sup.modalColRad' : 'mdof.sup.modalCol'), dt(resp.rad ? 'mdof.sup.directColRad' : 'mdof.sup.directCol'), dt('mdof.eig.diff')],
+        rows: picks.map((k) => [c.times[k], c.modal[k][j] * resp.k, c.direct[k][j] * resp.k, `${numText((Math.abs(c.modal[k][j] - c.direct[k][j]) / peak) * 100, 2)} %`]),
         caption: dt('mdof.sup.tableCaption', { dof: labels[j] }) },
       { kind: 'note', tone: maxDiff / peak < 0.02 ? 'ok' : 'warn', text: dt('mdof.sup.agree', { pct: numText((maxDiff / peak) * 100, 2) }) },
     ],

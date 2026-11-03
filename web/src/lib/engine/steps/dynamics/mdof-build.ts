@@ -77,8 +77,8 @@ export function resolveMdof(ctx: Pick<MethodContext, 'model'>, settings: Dynamic
     ? { kind: 'free', u0: ust, v0: ust.map(() => 0) }
     : { kind: 'harmonic', F, Omega };
   const resp = modalResponse(sol, M, ms.xi, ex);
-  const moves = dofs.map((_, i) => i).filter((i) => dofs[i].dir !== 'ry');
-  if (!moves.length) return { refusal: 'mdof.err.noMass' };
+  const translations = dofs.map((_, i) => i).filter((i) => dofs[i].dir !== 'ry');
+  const moves = translations.length ? translations : dofs.map((_, i) => i);
   const at = moves.reduce((b, i) => (Math.abs(ust[i]) > Math.abs(ust[b]) ? i : b), moves[0]);
   const T1 = sol.modes[0].T;
   const Tmin = shortestPeriodShown(sol, resp, at, ex);

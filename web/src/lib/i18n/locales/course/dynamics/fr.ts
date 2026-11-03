@@ -208,6 +208,8 @@ const words: Translations = {
   'course.dynamics.mdof.sup.direct.lead': 'Pour vérifier, on intègre directement le système couplé M·ü + C·u̇ + K·u = F(t), pas à pas dans le temps, sans passer par les modes.',
   'course.dynamics.mdof.sup.direct.why': 'On utilise la méthode de l\'accélération moyenne, stable quel que soit le pas de temps. C est la matrice qui donne le même ξ dans tous les modes.',
   'course.dynamics.mdof.sup.modalCol': 'Modale (mm)',
+  'course.dynamics.mdof.sup.modalColRad': 'Modale (rad)',
+  'course.dynamics.mdof.sup.directColRad': 'Directe (rad)',
   'course.dynamics.mdof.sup.directCol': 'Directe (mm)',
   'course.dynamics.mdof.sup.tableCaption': 'Déplacement {dof} par les deux voies.',
   'course.dynamics.mdof.sup.agree': 'Le plus grand écart vaut {pct} % du maximum : les deux voies donnent la même réponse à l\'erreur de pas de temps près.',

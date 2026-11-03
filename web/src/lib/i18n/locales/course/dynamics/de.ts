@@ -208,6 +208,8 @@ const words: Translations = {
   'course.dynamics.mdof.sup.direct.lead': 'Zur Kontrolle wird das gekoppelte System M·ü + C·u̇ + K·u = F(t) direkt Schritt für Schritt in der Zeit integriert, ohne den Weg über die Eigenformen.',
   'course.dynamics.mdof.sup.direct.why': 'Verwendet wird das Verfahren der mittleren Beschleunigung, stabil für jeden Zeitschritt. C ist die Matrix, die in allen Eigenformen denselben Dämpfungsgrad ξ ergibt.',
   'course.dynamics.mdof.sup.modalCol': 'Modal überlagert (mm)',
+  'course.dynamics.mdof.sup.modalColRad': 'Modal (rad)',
+  'course.dynamics.mdof.sup.directColRad': 'Direkt (rad)',
   'course.dynamics.mdof.sup.directCol': 'Direkt (mm)',
   'course.dynamics.mdof.sup.tableCaption': 'Verschiebung {dof} auf beiden Wegen.',
   'course.dynamics.mdof.sup.agree': 'Die größte Abweichung beträgt {pct} % des Maximums: Beide Wege liefern dieselbe Antwort bis auf den Zeitschrittfehler.',

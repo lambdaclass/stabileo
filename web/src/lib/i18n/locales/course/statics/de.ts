@@ -68,6 +68,7 @@ const words: Translations = {
   'course.statics.fm.s5.axialKept': '{list} wirkt nur über die Normalkraft: Zeile und Spalte behalten den Normalkraftanteil, weil die Gleichung ohne ihn nichts aussagen würde.',
   'course.statics.fm.s5.axialAll': 'Den Normalkraftanteil nur in einigen Zeilen zu behalten reicht hier nicht: Die gemischte Matrix wäre nicht positiv definit, also keine Nachgiebigkeit. Alle Koeffizienten behalten den Normalkraftanteil.',
   'course.statics.fm.s9.axialOff': 'Ohne Normalkraftverformung ist das Tragwerk steifer als beim Weggrößenverfahren, das sie berücksichtigt. Der größte Unterschied beträgt {d}, {pct} der größten Kraft: So viel trägt der weggelassene Normalkraftanteil bei.',
+  'course.statics.fm.s9.axialUnverified': 'Die größte Abweichung vom Weggrößenverfahren beträgt {d}, {pct} der größten Kraft. Sie kann vom weggelassenen Normalkraftterm stammen, aber keine Vergleichslösung mit derselben Annahme kann das prüfen, daher ist das Ergebnis nicht verifiziert.',
   'course.statics.fm.s9.rigidOk': 'Es stimmt mit dem Weggrößenverfahren überein, gelöst mit dehnstarren Stäben, derselben Annahme, die Sie gewählt haben.',
   'course.statics.vw.choose': 'Über dem Dokument wählen Sie unter Berechnungsziel die Größe (Verschiebung, Verdrehung, Relativverschiebung oder Relativverdrehung), den Knoten oder die Knoten und die Richtung. Sie können auch vor dem Öffnen des Schritt für Schritt einen Knoten im Modell auswählen.',
   'course.statics.vw.targetParams': 'Berechnet wird, was Sie über dem Dokument unter Berechnungsziel gewählt haben.',

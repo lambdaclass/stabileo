@@ -208,6 +208,8 @@ const words: Translations = {
   'course.dynamics.mdof.sup.direct.lead': 'Doğrulamak için bağlaşık sistem M·ü + C·u̇ + K·u = F(t), modlardan geçmeden, zamanda adım adım doğrudan integre edilir.',
   'course.dynamics.mdof.sup.direct.why': 'Her zaman adımı için kararlı olan ortalama ivme yöntemi kullanılır. C, bütün modlarda aynı ξ yi veren matristir.',
   'course.dynamics.mdof.sup.modalCol': 'Modlarla (mm)',
+  'course.dynamics.mdof.sup.modalColRad': 'Modal (rad)',
+  'course.dynamics.mdof.sup.directColRad': 'Doğrudan (rad)',
   'course.dynamics.mdof.sup.directCol': 'Doğrudan (mm)',
   'course.dynamics.mdof.sup.tableCaption': 'İki yoldan {dof} yer değiştirmesi.',
   'course.dynamics.mdof.sup.agree': 'En büyük fark en büyük değerin % {pct} sidir: iki yol da zaman adımı hatası dışında aynı yanıtı verir.',
