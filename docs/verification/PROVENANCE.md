@@ -58,6 +58,18 @@ reduction gave Qa ≤ 0, or whose Fcr exceeded Fy, is held instead of passed abo
 D/t just above 0.11·E/Fy, consistent ones included, lose up to 1.2 % of compression capacity.
 Other consistent sections give the same numbers.
 
+## Dynamics: time history from a consistent start, modal refuses mechanisms (PR #1247, issues #760, #338)
+
+Results version 13, after #1246's 12, registers `time-history-massless-start`: a time-history force already on at t = 0 on a
+massless direction now enters the initial state, so the response near such a node changes
+(SA-2026-031); and `modal-mechanism-refused`: a modal analysis whose zero or negative ω² modes move mass refuses
+instead of dropping them, and reports those that move none (SA-2026-032). A time history whose
+massless directions carry no load at t = 0 gives the same numbers, unless it now refuses: a
+massless part with no stiffness, or a singular mass whose null direction mixes several DOFs (it
+used to divide by the diagonal of M). Those refusals can hit any time history, ground motion
+included, and so can #1239's Rayleigh fix, which turns runs that were not finite into numbers; the
+registry entry therefore flags every saved model with a time history (`timeHistorySpec`).
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,

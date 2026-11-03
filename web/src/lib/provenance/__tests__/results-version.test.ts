@@ -55,6 +55,7 @@ const RELEASED: Record<number, string[]> = {
   10: ['static-modal-runtime-self-checks'],
   11: ['shell-envelope-per-component'],
   12: ['cirsoc301-q-nonpositive-refused'],
+  13: ['time-history-massless-start', 'modal-mechanism-refused'],
 };
 
 describe('results versions', () => {

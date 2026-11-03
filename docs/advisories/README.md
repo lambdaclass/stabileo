@@ -43,7 +43,9 @@ section and re-check registry entry in the same way.
 | [SA-2026-030](SA-2026-030-cirsoc301-q-nonpositive.md) | CIRSOC 301 compression: a section whose area is smaller than its plates got a negative Qa and a capacity above the squash load, and passed (1 098 908 kN on a 976 kN section in #467) | High | [#467](https://github.com/lambdaclass/stabileo/issues/467) | #1246 | — | Draft |
 | [SA-2026-025](SA-2026-025-aisc-shear-without-web-area.md) | AISC 360 G2 shear passed at ratio 0, and was certified, when the web area was not given (engine/WASM only) | Medium | — (agy b2) | #1234 | — | Draft |
 | [SA-2026-026](SA-2026-026-ec3-shear-area-half-a.md) | EC3 6.2.6 took Av = 0.5·A without a shear area: Vpl,Rd 57 % high for HEB 300, and certified (engine/WASM only) | Medium | — (agy b1) | #1234 | — | Draft |
+| [SA-2026-031](SA-2026-031-time-history-massless-start.md) | Time history dropped a load at t = 0 on a massless DOF: reciprocity off by up to 33×, a two-DOF chain 24 % off its closed form | Medium | [#760](https://github.com/lambdaclass/stabileo/issues/760) | #1247 | — | Draft |
+| [SA-2026-032](SA-2026-032-modal-mechanism-dropped-mode.md) | Modal analysis dropped the zero mode of a mechanism and returned the other modes as complete (3 of 12 in #338) | Medium | [#338](https://github.com/lambdaclass/stabileo/issues/338) | #1247 | — | Draft |
 
-Other open `safety` issues (the derivation-review findings #406–#433, #338, #439) get an advisory
+Other open `safety` issues (the derivation-review findings #406–#433, #439) get an advisory
 or a recorded "no advisory needed" when they are triaged; the list is on the
 [verification dashboard](../verification/DASHBOARD.md).

@@ -21,6 +21,8 @@ pub struct ModalResult {
     pub rayleigh: Option<RayleighDamping>,
     #[serde(default)]
     pub structured_diagnostics: Vec<StructuredDiagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub null_modes: Vec<NullMode>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -36,6 +38,16 @@ pub struct ModeShape {
     pub effective_mass_y: f64,
     pub mass_ratio_x: f64,
     pub mass_ratio_y: f64,
+}
+
+/// A zero-frequency mode left out of `modes`: the structure moves there without
+/// deforming and without exciting any translational mass, so it is reported, not refused.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NullMode {
+    pub omega_sq: f64,
+    pub node_id: usize,
+    pub dof: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -178,7 +190,17 @@ pub fn solve_modal_2d(
     // forces exactly, for every constraint type.
     let (l_x, l_y) = match &cs {
         Some(cs) => (cs.reduce_vector(&m_r_x), cs.reduce_vector(&m_r_y)),
-        None => (m_r_x, m_r_y),
+        None => (m_r_x.clone(), m_r_y.clone()),
+    };
+
+    let null_modes = {
+        let m_mul = |x: &[f64]| match &m_csc_opt {
+            Some(m_csc) => m_csc.sym_mat_vec(x),
+            None => mat_vec_sub(&m_solve, x, ns),
+        };
+        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
+        let shape = |phi: &[f64]| to_global(&free(phi), n, &its);
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_z)], &[&m_r_x, &m_r_y], &free, &shape, &dof_num, &["ux", "uz", "ry"])?
     };
 
     let mut checks = super::self_checks::ModalChecks::default();
@@ -316,7 +338,76 @@ pub fn solve_modal_2d(
         cumulative_mass_ratio_y: cum_mry,
         rayleigh,
         structured_diagnostics: checks.diagnostics,
+        null_modes,
     })
+}
+
+pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
+const NULL_EIGENVALUE: f64 = 1e-10;
+const NULL_MODE_MASS_RATIO: f64 = 1e-6;
+const NEGATIVE_ROUND_OFF: f64 = 1e-9;
+const TRANSLATION_ROUND_OFF: f64 = 1e-8;
+const MASSLESS: f64 = 1e-12;
+
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+fn null_modes_or_mechanism(
+    result: &EigenResult,
+    ns: usize,
+    m_mul: &dyn Fn(&[f64]) -> Vec<f64>,
+    loads: &[(&Vec<f64>, f64)],
+    rigid: &[&Vec<f64>],
+    free: &dyn Fn(&[f64]) -> Vec<f64>,
+    shape: &dyn Fn(&[f64]) -> Vec<f64>,
+    dof_num: &DofNumbering,
+    dof_names: &[&str],
+) -> Result<Vec<NullMode>, String> {
+    let nk = result.values.len();
+    let mut dofs: Vec<(usize, usize, usize)> = dof_num.map.iter().map(|(&(node, local), &g)| (node, local, g)).collect();
+    dofs.sort_unstable();
+    let mut out = Vec::new();
+    let mut moving = None;
+    let heaviest_mass = rigid.iter().flat_map(|m| m.iter()).fold(0.0f64, |w, m| w.max(m.abs()));
+    let scale = result.values.iter().filter(|v| v.is_finite()).fold(0.0f64, |m, v| m.max(v.abs()));
+    let unstable = -(NULL_EIGENVALUE.max(NEGATIVE_ROUND_OFF * scale));
+    for (idx, &lambda) in result.values.iter().enumerate() {
+        if !(lambda.is_finite() && lambda <= NULL_EIGENVALUE) {
+            continue;
+        }
+        let phi: Vec<f64> = (0..ns).map(|i| result.vectors[i * nk + idx]).collect();
+        let pmp: f64 = phi.iter().zip(m_mul(&phi)).map(|(a, b)| a * b).sum();
+        let share = loads.iter().fold(0.0f64, |w, (l, mass)| {
+            let pl: f64 = phi.iter().zip(l.iter()).map(|(a, b)| a * b).sum();
+            if pmp.abs() > 1e-30 && *mass > 1e-20 { w.max(pl * pl / pmp / mass) } else { w }
+        });
+        let uf = free(&phi);
+        let kinetic = |&&(_, local, g): &&(usize, usize, usize)| {
+            rigid.get(local).and_then(|m| m.get(g)).zip(uf.get(g)).map_or(0.0, |(m, u)| m.abs() * u * u)
+        };
+        let heaviest = dofs.iter().filter(|d| d.1 < rigid.len()).max_by(|a, b| kinetic(a).total_cmp(&kinetic(b)));
+        let translational: f64 = dofs.iter().map(|d| kinetic(&d)).sum();
+        let u = shape(&phi);
+        let (node_id, dof) = dofs.iter().filter(|d| d.2 < u.len()).max_by(|a, b| u[a.2].abs().total_cmp(&u[b.2].abs()))
+            .map_or((0, String::new()), |&(node, local, _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
+        let reach = uf.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+        let carries = |&&(_, local, g): &&(usize, usize, usize)| rigid.get(local).and_then(|m| m.get(g)).is_some_and(|m| m.abs() > MASSLESS * heaviest_mass);
+        let swings = dofs.iter().filter(carries).any(|&(_, _, g)| uf.get(g).is_some_and(|u| u.abs() > TRANSLATION_ROUND_OFF * reach));
+        let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs() || swings;
+        if moving.is_none() && (lambda < unstable || translates) {
+            let (node, dof) = match heaviest {
+                Some(&(n, l, _)) if translates => (n, dof_names.get(l).copied().unwrap_or("").to_string()),
+                _ => (node_id, dof.clone()),
+            };
+            moving = Some((node, dof, lambda));
+        }
+        out.push(NullMode { omega_sq: lambda, node_id, dof });
+    }
+    if let Some((node, dof, lambda)) = moving {
+        return Err(format!(
+            "{MODAL_MECHANISM}: Modal analysis: the structure is a mechanism: {} mode(s) with zero or negative ω² (≤ {NULL_EIGENVALUE:e} rad²/s²); one (ω² = {lambda:.3e}) moves node {node} along {dof} with no positive stiffness against it, so a release, hinge, missing support or negative stiffness lets part of the mass move freely. No modes are returned.",
+            out.len()
+        ));
+    }
+    Ok(out)
 }
 
 /// M*v product for a submatrix (nf×nf flat array)
@@ -345,6 +436,8 @@ pub struct ModalResult3D {
     pub rayleigh: Option<RayleighDamping>,
     #[serde(default)]
     pub structured_diagnostics: Vec<StructuredDiagnostic>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub null_modes: Vec<NullMode>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -432,12 +525,20 @@ pub fn solve_modal_3d(
     // The full mass is assembled once, only if some support moves with the ground.
     let m_full_cell: std::cell::OnceCell<CscMatrix> = std::cell::OnceCell::new();
     let m_r = |local: usize| {
-        let mr = ground_influence(&dof_num, local, its, &m_sparse_ff, || {
+        ground_influence(&dof_num, local, its, &m_sparse_ff, || {
             m_full_cell.get_or_init(|| super::mass_matrix::assemble_mass_matrix_3d_sparse_block(input, &dof_num, densities, n))
-        });
-        match &cs { Some(cs) => cs.reduce_vector(&mr), None => mr }
+        })
     };
-    let (l_x, l_y, l_z) = (m_r(0), m_r(1), m_r(2));
+    let rigid = [m_r(0), m_r(1), m_r(2)];
+    let reduce = |mr: &Vec<f64>| match &cs { Some(cs) => cs.reduce_vector(mr), None => mr.clone() };
+    let (l_x, l_y, l_z) = (reduce(&rigid[0]), reduce(&rigid[1]), reduce(&rigid[2]));
+
+    let null_modes = {
+        let m_mul = |x: &[f64]| m_solve.sym_mat_vec(x);
+        let free = |phi: &[f64]| cs.as_ref().map_or_else(|| phi.to_vec(), |cs| cs.expand_solution(phi))[..nf].to_vec();
+        let shape = |phi: &[f64]| to_global(&free(phi), n, its);
+        null_modes_or_mechanism(&result, ns, &m_mul, &[(&l_x, mass_x), (&l_y, mass_y), (&l_z, mass_z)], &[&rigid[0], &rigid[1], &rigid[2]], &free, &shape, &dof_num, &["ux", "uy", "uz", "rx", "ry", "rz", "warping"])?
+    };
 
     let mut checks = super::self_checks::ModalChecks::default();
     checks.scales = super::self_checks::energy_scale(&k_solve.diagonal());
@@ -538,6 +639,7 @@ pub fn solve_modal_3d(
         cumulative_mass_ratio_z: cum_mrz,
         rayleigh,
         structured_diagnostics: checks.diagnostics,
+        null_modes,
     })
 }
 

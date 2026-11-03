@@ -162,6 +162,26 @@ describe('which registered changes concern a model', () => {
     }
   });
 
+  it('tells models with a time history or modal analysis about the dynamics fixes of SA-2026-031 and SA-2026-032', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const linearOnly = { resultsVersion: 12, analyses: ['linear'] } as SolveStamp;
+    expect(ids(frame, linearOnly)).not.toContain('time-history-massless-start');
+    const forced = model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [{ nodeId: 2, dir: 'x', kind: 'step', amplitude: 1 }] } } });
+    expect(ids(forced, linearOnly)).toContain('time-history-massless-start');
+    expect(ids(model({ elements: [member(1, 1, 'frame')], dynamics: { timeHistory: { forces: [] } } }), linearOnly)).toContain('time-history-massless-start');
+    expect(ids(forced, { resultsVersion: 13, analyses: ['linear'] } as SolveStamp)).not.toContain('time-history-massless-start');
+    expect(ids(frame, linearOnly)).not.toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 12, analyses: ['modal'] } as SolveStamp)).toContain('modal-mechanism-refused');
+    expect(ids(frame, { resultsVersion: 13, analyses: ['modal'] } as SolveStamp)).not.toContain('modal-mechanism-refused');
+    for (const change of ['time-history-massless-start', 'modal-mechanism-refused']) {
+      const entry = RESULT_CHANGES.changes.find((c) => c.id === change) as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+      for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+        expect(entry.title[locale]?.trim(), `${change} title.${locale}`).toBeTruthy();
+        expect(entry.explanation[locale]?.trim(), `${change} explanation.${locale}`).toBeTruthy();
+      }
+    }
+  });
+
   it('an empty model is concerned by nothing', () => {
     expect(ids(model({ supports: [], loadCases: [] }))).toEqual([]);
   });

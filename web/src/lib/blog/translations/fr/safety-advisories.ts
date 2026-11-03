@@ -79,6 +79,18 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-031",
+          "Analyse temporelle : une charge appliquée à t = 0 sur un degré de liberté sans masse était perdue au premier pas (réciprocité fausse jusqu'à 33 fois, une chaîne à deux degrés de liberté écartée de 24 % de sa solution exacte)",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
+          "SA-2026-032",
+          "Analyse modale : le mode à fréquence nulle d'un mécanisme était écarté et les autres modes rendus comme complets",
+          "Moyenne",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",
