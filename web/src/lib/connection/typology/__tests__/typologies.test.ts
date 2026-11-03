@@ -116,11 +116,11 @@ describe('weak-axis moment (#532)', () => {
     const d = designTypology('baseFixed', ctx([M({ id: 1, kind: 'column', section: HEB240, dir: { x: 0, y: 0, z: 1 }, inclination: 90, N: -800, V: 30, M: 50, Mw: 20 })], 'fixed'), { ...P, plateT: 20 }, 1);
     expect(d.unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
   });
-  it('a column running past the joint, and weak moments within 1 % of the strong one, leave it designed', () => {
+  it('a column running past the joint leaves it designed; any weak moment beyond round-off does not', () => {
     const tab = designTypology('shearTab', ctx([M({ id: 1, kind: 'beam', V: 100, released: true }), col]), P, 1);
     expect(tab.state).toBe('designed');
-    const plate = designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50, Mw: 0.9 }), col]), { ...P, plateT: 20, rows: 1, weldLeg: 8 }, 1);
-    expect(plate.unresolvedKey).not.toBe('joint.typ.unresolved.weakAxisMoment');
-    expect(plate.state).toBe('exceeded');
+    const plate = (Mw: number) => designTypology('endPlate', ctx([M({ id: 1, kind: 'beam', M: 100, V: 50, Mw }), col]), { ...P, plateT: 20, rows: 1, weldLeg: 8 }, 1);
+    expect(plate(0.009).state).toBe('exceeded');
+    expect(plate(0.9).unresolvedKey).toBe('joint.typ.unresolved.weakAxisMoment');
   });
 });

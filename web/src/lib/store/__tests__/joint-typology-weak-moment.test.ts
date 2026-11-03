@@ -64,6 +64,6 @@ describe('joint typology with a weak-axis moment', () => {
     expect(b.M).toBeCloseTo(40, 6);
     expect(b.Mw).toBeCloseTo(0, 6);
     const d = proposeAndSize(ctx);
-    expect('unresolvedKey' in d ? d.unresolvedKey : undefined).not.toBe('joint.typ.unresolved.weakAxisMoment');
+    expect('state' in d && d.state).toBe('designed');
   });
 });
