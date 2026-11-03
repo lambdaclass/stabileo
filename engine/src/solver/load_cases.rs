@@ -187,7 +187,7 @@ pub fn solve_multi_case_2d(input: &MultiCaseInput) -> Result<MultiCaseResult, St
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
-        for (case_name, &factor) in &combo.factors {
+        for (case_name, &factor) in crate::ordered::entries(&combo.factors) {
             if let Some(&idx) = case_map.get(case_name) {
                 combo_factors.push(CombinationFactor {
                     case_id: idx,
@@ -287,7 +287,7 @@ pub fn solve_multi_case_3d(input: &MultiCaseInput3D) -> Result<MultiCaseResult3D
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
-        for (case_name, &factor) in &combo.factors {
+        for (case_name, &factor) in crate::ordered::entries(&combo.factors) {
             if let Some(&idx) = case_map.get(case_name) {
                 combo_factors.push(CombinationFactor {
                     case_id: idx,
@@ -386,7 +386,7 @@ fn solve_multi_case_3d_per_case(input: &MultiCaseInput3D) -> Result<MultiCaseRes
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
-        for (case_name, &factor) in &combo.factors {
+        for (case_name, &factor) in crate::ordered::entries(&combo.factors) {
             if let Some(&idx) = case_map.get(case_name) {
                 combo_factors.push(CombinationFactor {
                     case_id: idx,
@@ -478,7 +478,7 @@ fn solve_multi_case_2d_per_case(input: &MultiCaseInput) -> Result<MultiCaseResul
 
     for combo in &input.combinations {
         let mut combo_factors = Vec::new();
-        for (case_name, &factor) in &combo.factors {
+        for (case_name, &factor) in crate::ordered::entries(&combo.factors) {
             if let Some(&idx) = case_map.get(case_name) {
                 combo_factors.push(CombinationFactor {
                     case_id: idx,
@@ -553,6 +553,29 @@ mod tests {
             "supports": {"1": {"nodeId":1,"rx":true,"ry":true,"rz":true,"rrx":true,"rry":true,"rrz":true}},
             "loads": [{"type":"nodal","data":{"nodeId":2,"fx":0,"fy":0,"fz":-1,"mx":0,"my":0,"mz":0}}]
         })).unwrap()
+    }
+
+    #[test]
+    fn a_combination_sums_its_cases_in_the_same_order_every_solve() {
+        let loads = [-1.1, -2.3, 0.7, -3.9, 5.3, -0.37];
+        let factors = [1.2, 1.6, 0.5, 1.0, 1.6, 0.9];
+        let combined = || {
+            let input = MultiCaseInput3D {
+                solver: cantilever(),
+                load_cases: loads.iter().enumerate().map(|(i, &fz)| LoadCase3D {
+                    name: format!("L{i}"),
+                    loads: vec![serde_json::from_value(serde_json::json!({"type":"nodal","data":{"nodeId":2,"fx":fz / 3.0,"fy":fz / 7.0,"fz":fz,"mx":0,"my":0,"mz":0}})).unwrap()],
+                }).collect(),
+                combinations: vec![CombinationDef { name: "C".into(), factors: factors.iter().enumerate().map(|(i, &f)| (format!("L{i}"), f)).collect() }],
+            };
+            let result = solve_multi_case_3d(&input).unwrap();
+            let d = &result.combination_results[0].results.displacements[1];
+            [d.ux, d.uy, d.uz, d.ry, d.rz].map(f64::to_bits)
+        };
+        let first = combined();
+        for _ in 0..32 {
+            assert_eq!(combined(), first);
+        }
     }
 
     #[test]
