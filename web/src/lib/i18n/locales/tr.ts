@@ -14294,6 +14294,7 @@ const tr: Translations = {
   'storeys.took': "{levels} katta {n} nesne daha alındı",
   'storeys.skipped': "{levels} üzerinde çizilmedi: altında kat yok.",
   'storeys.resized': "{levels} üzerinde çubuğun boyu farklı: desteksiz boy ve yanal destekler kopyalanmadı.",
+  'storeys.existing': "{levels} üzerinde orada zaten bir eleman var: olduğu gibi bırakıldı.",
   'storeys.unmatched': "{n} karşılıksız",
   'storeys.similarTo': "Benzediği",
   'storeys.similarToOf': "{name} hangi katı tekrarlıyor",

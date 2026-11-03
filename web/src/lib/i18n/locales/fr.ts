@@ -14294,6 +14294,7 @@ const fr: Translations = {
   'storeys.took': "{n} objets de plus pris sur {levels} étages",
   'storeys.skipped': "Non dessinée sur {levels} : il n'y a pas de niveau en dessous.",
   'storeys.resized': "Sur {levels} la barre a une autre longueur : la longueur non maintenue et les maintiens n'ont pas été copiés.",
+  'storeys.existing': "Sur {levels}, un élément existe déjà à cet endroit : il est resté tel quel.",
   'storeys.unmatched': "{n} sans équivalent",
   'storeys.similarTo': "Similaire à",
   'storeys.similarToOf': "Quel étage {name} répète",

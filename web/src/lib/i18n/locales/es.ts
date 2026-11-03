@@ -14444,6 +14444,7 @@ const es: Record<string, string> = {
   'storeys.took': "Tomó {n} objetos más en {levels} plantas",
   'storeys.skipped': "No se dibujó en {levels}: no hay un nivel debajo.",
   'storeys.resized': "En {levels} la barra tiene otro largo: no se copiaron la longitud no arriostrada ni los arriostramientos.",
+  'storeys.existing': "En {levels} ya hay un miembro ahí: se dejó como estaba.",
   'storeys.unmatched': "{n} sin par",
   'storeys.similarTo': "Similar a",
   'storeys.similarToOf': "A qué planta repite {name}",

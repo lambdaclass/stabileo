@@ -14294,6 +14294,7 @@ const de: Translations = {
   'storeys.took': "{n} weitere Objekte auf {levels} Geschossen übernommen",
   'storeys.skipped': "Nicht gezeichnet auf {levels}: darunter liegt keine Ebene.",
   'storeys.resized': "Auf {levels} hat der Stab eine andere Länge: die ungestützte Länge und die Aussteifungen wurden nicht übernommen.",
+  'storeys.existing': "Auf {levels} gibt es dort bereits ein Bauteil: Es blieb unverändert.",
   'storeys.unmatched': "{n} ohne Gegenstück",
   'storeys.similarTo': "Ähnlich wie",
   'storeys.similarToOf': "Welches Geschoss {name} wiederholt",

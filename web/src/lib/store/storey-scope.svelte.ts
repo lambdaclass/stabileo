@@ -10,7 +10,7 @@ import type { Element } from './model.svelte';
 import { expandToStoreys, placeMemberOn, elementLevel, scopeLevels, STOREY_TOL, type StoreyExpansion, type StoreyScope } from '../model/similar-storeys';
 
 type Selection = { nodes: Set<number>; elements: Set<number>; shells: Set<string> };
-export interface Replication { copies: number[]; skipped: string[]; resized: string[] }
+export interface Replication { copies: number[]; skipped: string[]; resized: string[]; existing: string[] }
 
 let scope = $state<StoreyScope>('this');
 let last = $state<StoreyExpansion | null>(null);
@@ -65,13 +65,14 @@ export const storeyScope = {
     if (!a || !b) return [];
     const props = Object.fromEntries(Object.entries($state.snapshot(e)).filter(([k]) => !NOT_COPIED.has(k))) as Partial<Element>;
     const length = dist(a, b);
-    const out: Replication = { copies: [], skipped: [], resized: [] };
+    const out: Replication = { copies: [], skipped: [], resized: [], existing: [] };
     for (const other of scopeLevels(levels(), lv.id, scope)) {
       if (other.id === lv.id) continue;
       const ends = placeMemberOn(a, b, lv, other, levels());
       if (!ends) { out.skipped.push(other.id); continue; }
       const [i, j] = ends.map(nodeAt) as [number, number];
-      if (i === j || joined(i, j)) continue;
+      if (i === j) continue;
+      if (joined(i, j)) { out.existing.push(other.id); continue; }
       const patch: Partial<Element> = structuredClone(props);
       if (Math.abs(dist(ends[0], ends[1]) - length) > STOREY_TOL && LENGTH_STATED.some((k) => patch[k] !== undefined)) {
         for (const k of LENGTH_STATED) delete patch[k];

@@ -40,10 +40,11 @@
           · <span class="ss-warn" title={[...new Set(last.unmatched.map((u) => levelName(u.level)))].join(', ')}>{tp('storeys.unmatched', { n: last.unmatched.length })}</span>{/if}
       </span>
     {/if}
-    {#if copied && (copied.skipped.length > 0 || copied.resized.length > 0)}
+    {#if copied && (copied.skipped.length > 0 || copied.resized.length > 0 || copied.existing.length > 0)}
       <span class="ss-note ss-warn" role="status" data-testid="storey-scope-copied">
         {#if copied.skipped.length}<span data-testid="storey-scope-skipped">{tp('storeys.skipped', { levels: names(copied.skipped) })}</span>{/if}
         {#if copied.resized.length}<span data-testid="storey-scope-resized">{tp('storeys.resized', { levels: names(copied.resized) })}</span>{/if}
+        {#if copied.existing.length}<span data-testid="storey-scope-existing">{tp('storeys.existing', { levels: names(copied.existing) })}</span>{/if}
       </span>
     {/if}
   </div>
