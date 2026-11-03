@@ -142,6 +142,16 @@ if n == 0:
         self.assertEqual(result.returncode, 124)
         self.assertEqual(result.stderr.count('Download stalled for 1s'), 3)
 
+    def test_a_command_killed_without_the_watchdog_is_not_retried(self):
+        for status in (124, 137):
+            with tempfile.TemporaryDirectory() as directory:
+                count = Path(directory) / 'count'
+                result = subprocess.run([str(WRAPPER), 'bash', '-c', f'echo x >> {count}; exit {status}'],
+                                        env={**os.environ, 'RETRY_INFRA_DELAY_SECONDS': '0'},
+                                        capture_output=True, text=True)
+                self.assertEqual((result.returncode, count.read_text().count('x')), (status, 1))
+                self.assertNotIn('Download stalled', result.stderr)
+
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 

@@ -17,7 +17,7 @@ limit=${RETRY_INFRA_TIMEOUT_SECONDS:-900}
 for attempt in 1 2 3; do
   # A daemon the command starts (sccache) inherits its output; through a pipe, tee would wait for that daemon to exit.
   : > "$log"
-  timeout --kill-after=30 "$limit" "$@" >> "$log" 2>&1 &
+  timeout --verbose --kill-after=30 "$limit" "$@" >> "$log" 2>&1 &
   pid=$!
   tail -n +1 -f --pid="$pid" "$log" &
   follow=$!
@@ -25,7 +25,7 @@ for attempt in 1 2 3; do
   status=$?
   wait "$follow"
   if (( status == 0 )); then exit 0; fi
-  if (( status == 124 || status == 137 )); then
+  if (( status == 124 || status == 137 )) && grep -q "^timeout: sending signal " "$log"; then
     echo "Download stalled for ${limit}s" >&2
     stalled=1
   else
