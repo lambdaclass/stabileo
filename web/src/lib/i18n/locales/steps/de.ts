@@ -920,6 +920,9 @@ const stepsDe: Translations = {
   'steps.cuts.dia.N': 'Normalkraft N [kN], Zug positiv.',
   'steps.cuts.dia.V': 'Querkraft V [kN].',
   'steps.cuts.dia.M': 'Biegemoment M [kN·m], auf der Seite der gezogenen Faser.',
+  'course.statics.vw.p.title': 'Berechnungsziel',
+  'course.statics.vw.p.nodeAuto': 'Automatisch oder der ausgewählte',
+  'course.statics.vw.p.help': 'Die virtuelle Last hängt von der gesuchten Größe ab: eine Einheitskraft für eine Verschiebung, ein Einheitsmoment für eine Verdrehung, zwei entgegengesetzte Kräfte für eine Relativverschiebung zwischen zwei Knoten und zwei entgegengesetzte Momente für eine Relativverdrehung. Die Option Automatisch nimmt den im Modell ausgewählten Knoten oder den, der sich am meisten bewegt; bei einer relativen Größe ist die automatische Richtung die Verbindungslinie der beiden Knoten.',
 };
 
 export default stepsDe;

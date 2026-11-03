@@ -920,6 +920,9 @@ const stepsTr: Translations = {
   'steps.cuts.dia.N': 'Eksenel kuvvet N [kN], çekme pozitif.',
   'steps.cuts.dia.V': 'Kesme kuvveti V [kN].',
   'steps.cuts.dia.M': 'Eğilme momenti M [kN·m], çekmedeki lifin tarafında.',
+  'course.statics.vw.p.title': 'Ne hesaplanacak',
+  'course.statics.vw.p.nodeAuto': 'Otomatik veya seçili olan',
+  'course.statics.vw.p.help': 'Virtüel yük aradığınız büyüklüğe bağlıdır: yer değiştirme için birim kuvvet, dönme için birim moment, iki düğüm arasındaki göreli yer değiştirme için zıt iki kuvvet ve göreli dönme için zıt iki moment. Otomatik seçenek, modelde seçili düğümü veya en çok hareket eden düğümü alır; göreli bir büyüklükte otomatik doğrultu, iki düğümü birleştiren doğrudur.',
 };
 
 export default stepsTr;
