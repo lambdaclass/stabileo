@@ -143,10 +143,10 @@ fn a_spin_that_moves_no_translational_mass_is_reported_as_a_null_mode() {
 #[test]
 fn a_twist_against_a_negative_spring_is_refused_though_it_moves_no_translational_mass() {
     let e = refusal(freqs_3d(&spinning_column(Some(-10.0)), 4), "twist on a negative torsional spring", MECHANISM);
-    assert!(e.contains("moves node 2 along r"), "{e}");
+    assert!(e.contains("(ω² = -9.9") && e.contains("moves node 2 along"), "{e}");
 }
 
-fn seesaw(arm: f64, far: f64) -> SolverInput {
+fn seesaw(arm: f64, far: f64, pivot_inertia: f64) -> SolverInput {
     serde_json::from_value(json!({
         "nodes": {
             "1": {"id": 1, "x": -arm, "z": 0.0},
@@ -164,14 +164,15 @@ fn seesaw(arm: f64, far: f64) -> SolverInput {
         },
         "supports": {"1": {"id": 1, "nodeId": 2, "type": "pinned"}, "2": {"id": 2, "nodeId": 4, "type": "fixed"}},
         "loads": [],
+        "masses": {"nodal": [{"nodeId": 2, "mass": 0.0, "iy": pivot_inertia}]},
     }))
     .unwrap()
 }
 
 #[test]
 fn a_seesaw_whose_ends_move_opposite_ways_is_refused_though_no_rigid_translation_excites_it() {
-    for (arm, far) in [(2.0, 10.0), (0.01, 1e5)] {
-        let e = refusal(freqs_2d(&seesaw(arm, far), 4), &format!("seesaw of arm {arm} m beside a column {far} m away"), MECHANISM);
-        assert!(e.contains("moves node 3 along uz"), "{e}");
+    for (arm, far, pivot_inertia) in [(2.0, 10.0, 0.0), (0.01, 1e5, 0.0), (2.0, 10.0, 1e9)] {
+        let e = refusal(freqs_2d(&seesaw(arm, far, pivot_inertia), 4), &format!("seesaw of arm {arm} m beside a column {far} m away, {pivot_inertia} t·m² at the pivot"), MECHANISM);
+        assert!(e.contains("moves node 1 along uz") || e.contains("moves node 3 along uz"), "{e}");
     }
 }

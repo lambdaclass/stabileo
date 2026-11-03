@@ -311,6 +311,8 @@ pub const MODAL_MECHANISM: &str = "MODAL-MECHANISM";
 const NULL_EIGENVALUE: f64 = 1e-10;
 const NULL_MODE_MASS_RATIO: f64 = 1e-6;
 const NEGATIVE_ROUND_OFF: f64 = 1e-9;
+const TRANSLATION_ROUND_OFF: f64 = 1e-8;
+const MASSLESS: f64 = 1e-12;
 
 #[allow(clippy::type_complexity, clippy::too_many_arguments)]
 fn null_modes_or_mechanism(
@@ -329,6 +331,7 @@ fn null_modes_or_mechanism(
     dofs.sort_unstable();
     let mut out = Vec::new();
     let mut moving = None;
+    let heaviest_mass = rigid.iter().flat_map(|m| m.iter()).fold(0.0f64, |w, m| w.max(m.abs()));
     let scale = result.values.iter().filter(|v| v.is_finite()).fold(0.0f64, |m, v| m.max(v.abs()));
     let unstable = -(NULL_EIGENVALUE.max(NEGATIVE_ROUND_OFF * scale));
     for (idx, &lambda) in result.values.iter().enumerate() {
@@ -350,7 +353,10 @@ fn null_modes_or_mechanism(
         let u = shape(&phi);
         let (node_id, dof) = dofs.iter().filter(|d| d.2 < u.len()).max_by(|a, b| u[a.2].abs().total_cmp(&u[b.2].abs()))
             .map_or((0, String::new()), |&(node, local, _)| (node, dof_names.get(local).copied().unwrap_or("").to_string()));
-        let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs();
+        let reach = uf.iter().fold(0.0f64, |m, x| m.max(x.abs()));
+        let carries = |&&(_, local, g): &&(usize, usize, usize)| rigid.get(local).and_then(|m| m.get(g)).is_some_and(|m| m.abs() > MASSLESS * heaviest_mass);
+        let swings = dofs.iter().filter(carries).any(|&(_, _, g)| uf.get(g).is_some_and(|u| u.abs() > TRANSLATION_ROUND_OFF * reach));
+        let translates = share > NULL_MODE_MASS_RATIO || translational > NULL_MODE_MASS_RATIO * pmp.abs() || swings;
         if moving.is_none() && (lambda < unstable || translates) {
             let (node, dof) = match heaviest {
                 Some(&(n, l, _)) if translates => (n, dof_names.get(l).copied().unwrap_or("").to_string()),
