@@ -490,6 +490,7 @@ function notADeck(
     };
     const xs = area.map((p) => p[0]), ys = area.map((p) => p[1]);
     const x0 = Math.min(...xs), y0 = Math.min(...ys), dx = (Math.max(...xs) - x0) / 20, dy = (Math.max(...ys) - y0) / 20;
+    if (!(dx > 0 && dy > 0)) return false;
     for (let i = 0; i < 20; i++) for (let j = 0; j < 20; j++) {
       const box = { x0: x0 + i * dx, y0: y0 + j * dy, x1: x0 + (i + 1) * dx, y1: y0 + (j + 1) * dy };
       const cell: Array<[number, number]> = [[box.x0, box.y0], [box.x1, box.y0], [box.x1, box.y1], [box.x0, box.y1]];

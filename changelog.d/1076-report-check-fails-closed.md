@@ -9,5 +9,6 @@
 - A report of a case, combination or envelope that is not in the results is refused instead of
   printing what is on screen under that name.
 - The report dialog keeps the result set you chose when the model is solved again while it is open.
-- The seismic weight reports a member or shell with a node on no level as skipped instead of
-  leaving out part of its weight (no model is known to reach this).
+- The seismic weight puts the whole weight of a member or shell with a node on no level on the
+  levels its other nodes are on, instead of leaving out that node's share, and reports it as
+  skipped only when no node is on a level. Every node is on a level today, so no result changes.

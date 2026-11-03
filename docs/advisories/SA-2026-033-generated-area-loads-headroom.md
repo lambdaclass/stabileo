@@ -42,12 +42,14 @@ PR #1253. A panel is left out as roof structure only when roof structure lies ov
 (straight over it, or between roof members on both sides within the panel), all of it less than
 2.2 m above, a deck or beam less than 2.2 m above its center, and the loads already kept less than
 2.2 m above carry all of it: loaded panels, the tributary strips of members loaded by width, and
-shells, checked top-down on a grid whose every cell must lie wholly within one of them. Otherwise
-the panel keeps its whole area load as roof load, and what both carry is counted twice. That is
+(by panels) shells, checked top-down on a grid whose every cell must lie wholly within one of
+them. Otherwise that panel keeps its whole area load as roof load, and what both carry is counted
+twice. That is
 not conservative for uplift, overturning or seismic weight, so the derivation counts those panels
 and members and asks the engineer to check them. Truss members count as roof structure. A panel or member only partly under low
-structure keeps its load, and the derivation names how many under a floor or roof ("loaded as
-floors"). A member loaded by width beside a floor panel keeps its load. The cases above are
+structure keeps its load, as floor load when a floor or roof stands over its center and as roof
+load otherwise, and the derivation names how many of each. So a panel ends up dropped, kept as
+roof load, or kept as floor load, never dropped on partial evidence. A member loaded by width beside a floor panel keeps its load. The cases above are
 regression tests in `web/src/lib/engine/loads/__tests__/plan-gravity-headroom-coverage.test.ts`
 (all red before the fix but the two that guard against over-correction); the shed, hall,
 stadium and pipe-rack cases of `plan-gravity-low-headroom.test.ts` are unchanged.
