@@ -5,7 +5,7 @@
 | Severity | Medium |
 | Status | Draft |
 | Issue | [#532](https://github.com/lambdaclass/stabileo/issues/532) (leftover of SA-2026-029) |
-| Fix | this PR |
+| Fix | #1310 |
 | Affected versions | every release with the Excel importer or the IFC importer; not bisected |
 | Re-check registry | none: an imported model keeps the section values it was saved with |
 
