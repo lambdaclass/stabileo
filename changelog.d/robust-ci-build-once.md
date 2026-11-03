@@ -14,3 +14,7 @@ cold PR runs 5 engine WASM builds (the shared WASM job, Docker's source build an
 three research validation jobs), 2 research WASM sets and 6 site builds, excluding
 builds spawned by tests; a research source-cache hit reduces the research WASM
 sets to 1 while leaving the other counts unchanged.
+
+Every hosted job that fetches the Nix shell now does it first through the same retry, including
+the hosted Timing Budgets job, the Andreassen and Fairclough research validations and the Lean
+and Kani proofs, and a test fails if a job reaches `nix develop` or `make` before it.
