@@ -179,6 +179,7 @@ pub fn solve_modal_2d(
         (result, ns, m_solve)
     };
 
+    let requested = num_modes;
     let num_modes = num_modes.min(ns);
 
     // The inertial load of a unit ground acceleration, M·r, reduced to the
@@ -339,7 +340,7 @@ pub fn solve_modal_2d(
     };
 
     Ok(ModalResult {
-        finite_spectrum_diagnostic: finite_spectrum_diagnostic(num_modes, modes.len()),
+        finite_spectrum_diagnostic: finite_spectrum_diagnostic(requested, modes.len()),
         modes,
         n_dof: nf,
         total_mass,
@@ -571,6 +572,7 @@ pub fn solve_modal_3d(
     let result = lanczos_generalized_eigen_sparse(k_solve, m_solve, num_modes, 0.0)
         .ok_or_else(|| crate::linalg::lanczos::eigen_failure_message(k_solve.n))?;
 
+    let requested = num_modes;
     let num_modes = num_modes.min(ns);
 
     // L = Cᵀ(M·r)_f, the reduced inertial load of a unit rigid translation
@@ -690,7 +692,7 @@ pub fn solve_modal_3d(
     } else { None };
 
     Ok(ModalResult3D {
-        finite_spectrum_diagnostic: finite_spectrum_diagnostic(num_modes, modes.len()),
+        finite_spectrum_diagnostic: finite_spectrum_diagnostic(requested, modes.len()),
         modes, n_dof: nf, total_mass,
         cumulative_mass_ratio_x: cum_mrx,
         cumulative_mass_ratio_y: cum_mry,

@@ -332,3 +332,28 @@ fn modal_3d_massless_directions_return_finite_modes_with_diagnostic() {
     let serialized = serde_json::to_value(&result).unwrap();
     assert_eq!(serialized["finiteSpectrumDiagnostic"], *diagnostic);
 }
+
+#[test]
+fn modal_requests_beyond_the_dofs_keep_the_requested_count_in_the_diagnostic() {
+    let input = make_input(
+        vec![(1, 0.0, 0.0), (2, L, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, A, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1, false, false)],
+        vec![(1, 1, "fixed")], vec![],
+    );
+    let result = modal::solve_modal_2d(&input, &make_densities(), 10).unwrap();
+    assert_eq!(result.modes.len(), 3);
+    let diagnostic = result.finite_spectrum_diagnostic.as_ref().expect("10 modes asked of 3 DOFs with no diagnostic");
+    assert!(diagnostic.contains("Requested 10 modes") && diagnostic.contains("all 3 finite modes"), "{diagnostic}");
+
+    let input = make_3d_input(
+        vec![(1, 0.0, 0.0, 0.0), (2, L, 0.0, 0.0)],
+        vec![(1, E, 0.3)], vec![(1, A, IZ, IZ, IZ)],
+        vec![(1, "frame", 1, 2, 1, 1)],
+        vec![(1, vec![true;6])], vec![],
+    );
+    let result = modal::solve_modal_3d(&input, &make_densities(), 20).unwrap();
+    assert_eq!(result.modes.len(), 6);
+    let diagnostic = result.finite_spectrum_diagnostic.as_ref().expect("20 modes asked of 6 DOFs with no diagnostic");
+    assert!(diagnostic.contains("Requested 20 modes") && diagnostic.contains("all 6 finite modes"), "{diagnostic}");
+}
