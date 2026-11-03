@@ -61,7 +61,7 @@ class CiRunners(unittest.TestCase):
     def test_routing(self):
         ci = jobs('ci.yml')
         hosted = {name for name, job in ci.items() if job.get('runs-on') == 'ubuntu-24.04'}
-        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'ci-ok'})
+        self.assertEqual(hosted, {'changes', 'docker-smoke', 'determinism', 'timing-budgets', 'e2e', 'e2e-flaky', 'ci-ok'})
         for name in ['test-engine-gates', 'web-unit']:
             self.assertEqual(labels(ci[name]['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
@@ -91,7 +91,7 @@ class CiRunners(unittest.TestCase):
     def test_browser_jobs_can_be_capped_to_the_e2e_pool(self):
         ci = jobs('ci.yml')
         browser = {name for name, job in ci.items() if 'stabileo-e2e' in labels(job.get('runs-on', ''))}
-        self.assertEqual(browser, {'e2e', 'site-e2e', 'e2e-flaky'})
+        self.assertEqual(browser, {'site-e2e'})
         for name in browser:
             runs_on = ci[name]['runs-on']
             self.assertIn("(vars.STABILEO_E2E_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-e2e\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
