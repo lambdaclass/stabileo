@@ -1,5 +1,8 @@
 import type { Translations } from '../types';
 const pt: Translations = {
+  'steps.catalog.button': 'Passo a passo explicado',
+  'steps.catalog.title': 'Passo a passo explicado',
+  'steps.catalog.intro': 'Escolha um método para ver a sua estrutura resolvida passo a passo. Cada um diz o que o modelo precisa atender e traz um exemplo que atende.',
   "landing.navTools": "Ferramentas",
 
   // Shared scalar-field viewer

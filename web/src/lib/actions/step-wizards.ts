@@ -9,10 +9,7 @@
 import { t } from '../i18n';
 import { uiStore, modelStore, dsmStepsStore, fmStepsStore } from '../store';
 import { explainedSteps } from '../store/explained-steps.svelte';
-import { solveDetailed } from '../engine/solver-detailed';
-import { solveDetailed3D } from '../engine/solver-detailed-3d';
-import { solveForceMethod, ForceMethodError, FM_MAX_GH } from '../engine/force-method/solve';
-import { solveForceMethod3D } from '../engine/force-method/solve-3d';
+import { loadCourse } from '../course/load-course';
 import { blocked, refused } from './wizard-guard';
 
 function inputFor(threeD: boolean) {
@@ -42,13 +39,14 @@ function showPanel() {
 }
 
 /** Open the stiffness wizard on the current model; false (with a toast) when it cannot. */
-export function openStiffnessWizard(): boolean {
+export async function openStiffnessWizard(): Promise<boolean> {
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
   try {
+    const { solveDetailed, solveDetailed3D } = await loadCourse();
     const data = threeD ? solveDetailed3D(input as never) : solveDetailed(input as never);
     fmStepsStore.close();
     explainedSteps.leaveForWizard();
@@ -63,12 +61,20 @@ export function openStiffnessWizard(): boolean {
 }
 
 /** Open the flexibility wizard on the current model; false (with a toast) when it cannot. */
-export function openFlexibilityWizard(): boolean {
+export async function openFlexibilityWizard(): Promise<boolean> {
   if (blocked()) return false;
   const threeD = uiStore.is3DWorkspace;
   const input = inputFor(threeD);
   if (!input) { uiStore.toast(t('advanced.emptyModel'), 'error'); return false; }
   if (refused(input, threeD)) return false;
+  let course: Awaited<ReturnType<typeof loadCourse>>;
+  try {
+    course = await loadCourse();
+  } catch (e: unknown) {
+    uiStore.toast(errText(e, 'fm.err.unstable'), 'error');
+    return false;
+  }
+  const { solveForceMethod, solveForceMethod3D, ForceMethodError, FM_MAX_GH } = course;
   try {
     const result = threeD ? solveForceMethod3D(input as never) : solveForceMethod(input as never);
     dsmStepsStore.close();

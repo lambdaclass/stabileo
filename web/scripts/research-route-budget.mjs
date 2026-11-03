@@ -16,9 +16,10 @@ export function compareRouteSizes(baseline, measured, researchIsolation = proces
 
 
 export const BLOG_ROUTE_BOUNDARY = 'src/components/blog/BlogPage.svelte';
+export const COURSE_ROUTE_BOUNDARY = 'src/lib/course/course-route.ts';
 
 export function isLazyRouteBoundary(key) {
-  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY;
+  return /components\/research\//.test(key) || /components\/tools\//.test(key) || key === BLOG_ROUTE_BOUNDARY || key === COURSE_ROUTE_BOUNDARY;
 }
 
 export function routeChunkFiles(manifest, roots, check = () => {}) {
