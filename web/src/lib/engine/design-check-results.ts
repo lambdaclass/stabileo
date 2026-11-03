@@ -19,6 +19,7 @@ export interface CheckDetail {
   unit: string;           // "kN" or "kN·m"
   status: CheckStatus;
   comboName?: string;     // governing combination if known
+  notice?: 'RC-NM-PAIRING';
 }
 
 /** Unified per-member design check summary */
@@ -110,6 +111,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         unit: 'kN',
         status: mixed && status === 'ok' ? 'warn' : status,
         comboName: pairedName,
+        ...(mixed ? { notice: 'RC-NM-PAIRING' as const } : {}),
       });
     }
 
@@ -134,6 +136,7 @@ export function normalizeCirsoc201(verifs: ElementVerification[], sectionNames: 
         unit: 'kN·m',
         status: mixed && v.biaxial.status === 'ok' ? 'warn' : v.biaxial.status as CheckStatus,
         comboName: pairedName,
+        ...(mixed ? { notice: 'RC-NM-PAIRING' as const } : {}),
       });
     }
 
