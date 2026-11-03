@@ -372,7 +372,7 @@ fn superposition(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdi
     let mut ab = la.clone();
     ab.extend(lb.iter().cloned());
     let k = -2.5;
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     let r = (|| -> Result<(Flat, Flat, Flat, Flat, Flat), String> {
         let ra = run(a, &c.with_loads(la.clone()))?.without_stress().flat();
         let rb = run(a, &c.with_loads(lb.clone()))?.without_stress().flat();
@@ -407,7 +407,7 @@ fn superposition(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdi
 /// Load factors: loads × k ⇒ factor / k (k > 0).
 fn inverse_law(a: &Ana2, c: &Case2, base: &Resp, cond: &Conditioning) -> Verdict {
     let k = 3.7;
-    let rel = rel_for(a.name, a.iter_tol, cond);
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond);
     // The whole action scales: loads and prescribed displacements.
     let mut ck = c.with_loads(scale_loads_2d(&c.s.loads, k));
     for sp in ck.s.supports.values_mut() {
@@ -491,7 +491,7 @@ fn reciprocity(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdi
     if pairs.is_empty() {
         return Verdict::NotApplicable;
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -599,7 +599,7 @@ fn energy(a: &Ana2, c: &Case2, cond: &Conditioning, rng: &mut Rng) -> Verdict {
         e2 += t;
         eabs += t.abs();
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }

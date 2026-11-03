@@ -60,11 +60,11 @@ impl Conditioning {
     pub fn rel(&self) -> f64 {
         4.0 * (self.n as f64 + 24.0) * f64::EPSILON * self.kappa.max(1.0) * self.geom
     }
-    /// Combine the conditioning of the two models being compared. The
-    /// stiffness floors are dimensioned, so they come from `o`, the model in
-    /// whose units the comparison is made.
+    /// Combine the conditioning of the two models being compared. The length
+    /// and stiffness scales are dimensioned, so they come from `o`, the model
+    /// in whose units the comparison is made.
     pub fn worst(&self, o: &Conditioning) -> Conditioning {
-        Conditioning { n: self.n.max(o.n), kappa: self.kappa.max(o.kappa), geom: self.geom.max(o.geom), lchar: self.lchar.max(o.lchar), kmax: o.kmax, kmax_r: o.kmax_r, eig: self.eig.max(o.eig) }
+        Conditioning { n: self.n.max(o.n), kappa: self.kappa.max(o.kappa), geom: self.geom.max(o.geom), lchar: o.lchar, kmax: o.kmax, kmax_r: o.kmax_r, eig: self.eig.max(o.eig) }
     }
     /// Smallest displacement per unit force (and rotation per unit moment) a
     /// loaded DOF can have: for SPD `K`, `(K⁻¹)ᵢᵢ ≥ 1/Kᵢᵢ ≥ 1/kmax`. 0 when unknown.

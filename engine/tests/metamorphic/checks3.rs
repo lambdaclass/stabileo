@@ -238,7 +238,7 @@ pub fn check_case(ctx: &Ctx, c: &Case3, anas: &[Ana3], invariants: &[&str]) {
 fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdict {
     if a.law == Law::Inverse {
         let k = 3.7;
-        let rel = rel_for(a.name, a.iter_tol, cond);
+        let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond);
         // The whole action scales: loads and prescribed displacements.
         let mut ck = c.with_loads(scale_loads_3d(&c.s.loads, k));
         for sp in ck.s.supports.values_mut() {
@@ -271,7 +271,7 @@ fn superposition(a: &Ana3, c: &Case3, base: &Resp, cond: &Conditioning) -> Verdi
     let mut ab = la.clone();
     ab.extend(lb.iter().cloned());
     let k = -2.5;
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     let r = (|| -> Result<(Flat, Flat, Flat, Flat, Flat), String> {
         let ra = run(a, &c.with_loads(la.clone()))?.without_stress().flat();
         let rb = run(a, &c.with_loads(lb.clone()))?.without_stress().flat();
@@ -362,7 +362,7 @@ fn reciprocity(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdi
     if pairs.is_empty() {
         return Verdict::NotApplicable;
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }
@@ -463,7 +463,7 @@ fn energy(a: &Ana3, c: &Case3, cond: &Conditioning, rng: &mut Rng) -> Verdict {
             eabs += t.abs();
         }
     }
-    let rel = rel_for(a.name, a.iter_tol, cond) * 4.0;
+    let rel = crate::checks2::rel_without_eigen(a.name, a.iter_tol, cond) * 4.0;
     if rel > INCONCLUSIVE {
         return Verdict::Inconclusive(rel);
     }

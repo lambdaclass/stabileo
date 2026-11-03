@@ -294,6 +294,7 @@ fn compliance_floors_follow_the_compared_units() {
         let both = base.worst(&other).compliance();
         assert!(other.compliance()[0] > 0.0 && (other.compliance()[0] - base.compliance()[0]).abs() > 1e-3 * other.compliance()[0]);
         assert_eq!(both, other.compliance());
+        assert_eq!(base.worst(&other).lchar, other.lchar);
     }
 }
 
@@ -311,4 +312,14 @@ fn total_mass_keeps_its_tolerance_when_the_eigen_budget_is_inconclusive() {
     let mut slightly = r.clone();
     nudge(&mut slightly, "total_mass", None, 0, 1e-4);
     assert!(matches!(crate::checks2::judge_split(&slightly, &r, 2e-4, base, cmp), Verdict::Fail(_)));
+}
+
+#[test]
+fn same_model_checks_carry_no_eigen_budget() {
+    let Model::D3(c) = model(1283) else { panic!("3D") };
+    let cond = crate::checks3::with_eigen_3d(conditioning::of_3d(&c.s).unwrap(), &c);
+    let a = ana3("time history");
+    assert!(cond.eig > 0.0);
+    let (with, without) = (crate::checks2::rel_for(a.name, a.iter_tol, &cond), crate::checks2::rel_without_eigen(a.name, a.iter_tol, &cond));
+    assert!((with - without - 2.0 * cond.eig).abs() <= 1e-12 * with, "{with} {without} {}", cond.eig);
 }
