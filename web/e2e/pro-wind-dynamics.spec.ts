@@ -61,9 +61,14 @@ test.describe('@smoke the wind of a flexible building, and the dialog reading ba
     await page.getByTestId('wind-n1-typed').check();
     await page.getByTestId('wind-n1-x').fill('0.4');
     await page.getByTestId('wind-n1-y').fill('0.4');
+    // A shed has no floors to take the roof's dead load from: it is stated.
+    await alSection(page, 'roof');
+    await page.getByTestId('al-roof-dead').fill('0.25');
+    await page.getByTestId('al-roof-dead').press('Tab');
     await page.getByTestId('al-preview-btn').click();
     await expect(page.getByTestId('al-delta')).toBeVisible();
     await page.getByTestId('al-back').click();
+    await alSection(page, 'wind');
     await expect(page.getByTestId('wind-gust-y')).toContainText('n₁ = 0.400 Hz < 1 Hz → flexible');
   });
 

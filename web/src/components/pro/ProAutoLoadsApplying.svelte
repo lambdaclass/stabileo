@@ -12,10 +12,11 @@
     slab: 'twoWay' | 'oneWay';
     spanAxis: 'x' | 'y';
     tributaryWidth: number;
+    loadEveryPanel: boolean;
     clearExisting: boolean;
     onClearChange: (next: boolean) => void;
   }
-  let { mode = $bindable(), slab = $bindable(), spanAxis = $bindable(), tributaryWidth = $bindable(), clearExisting, onClearChange }: Props = $props();
+  let { mode = $bindable(), slab = $bindable(), spanAxis = $bindable(), tributaryWidth = $bindable(), loadEveryPanel = $bindable(), clearExisting, onClearChange }: Props = $props();
 </script>
 
 <div class="al-pane-body" data-testid="al-applying-section">
@@ -49,6 +50,8 @@
     <label class="al-field al-field-narrow"><span class="al-label">{t(mode === 'panels' ? 'autoLoad.gravity.fallbackWidth' : 'autoLoad.tributaryWidth')}</span>
       <QuantityInput bind:value={tributaryWidth} quantity="length" min={0.1} testid="al-trib" wrap="al-unit-field" />
     </label>
+    <label class="al-check"><input type="checkbox" bind:checked={loadEveryPanel} data-testid="al-load-every-panel" /> {t('autoLoad.gravity.loadEveryPanel')}</label>
+    <p class="al-hint">{t('autoLoad.gravity.loadEveryPanelHint')}</p>
   </div>
   <div class="al-sub">
     <span class="al-sub-title">{t('autoLoad.applying.existingTitle')}</span>

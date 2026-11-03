@@ -103,6 +103,8 @@ export interface CurrentLoadState {
    * whatever "replace" says, since the definition writes them again, and the plan adds to them.
    */
   defined?: { byType: Record<string, { distributed: number; nodal: number; other?: number }> };
+  /** The untouched cases and combinations of a new project, which apply removes. */
+  defaults?: { cases: Array<{ name: string; type: string }>; combinations: number };
 }
 
 /**
@@ -119,9 +121,13 @@ export function describePlanDelta(
   const replace = options.replaceExisting;
   const alsoUnmarked = !!options.alsoUnmarked;
   const afterTypes = [...new Set(plan.cases.map((c) => String(c.type)))].sort();
+  const defaultCases = current.defaults?.cases ?? [];
+  const defaultCombos = current.defaults?.combinations ?? 0;
   const beforeTypes = [...new Set(current.caseTypes)].sort();
+  const goneTypes = new Set(beforeTypes.filter((t) =>
+    current.caseTypes.filter((x) => x === t).length === defaultCases.filter((c) => c.type === t).length));
   const added = afterTypes.filter((t) => !beforeTypes.includes(t));
-  const removed = beforeTypes.filter((t) => !afterTypes.includes(t));
+  const removed = beforeTypes.filter((t) => !afterTypes.includes(t) && !goneTypes.has(t));
 
   // A per-action replace (the model says what the generator wrote) leaves the other actions' cases as they are.
   const g = current.generated;
@@ -170,8 +176,8 @@ export function describePlanDelta(
     ? {
         distributed: current.distributed - gone.distributed + plan.distributed.length,
         nodal: current.nodal - gone.nodal + plan.nodal.length,
-        combinations: current.combinations - g.combinations - (takenUnmarked?.combinations ?? 0) + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
-        cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
+        combinations: current.combinations - g.combinations - defaultCombos - (takenUnmarked?.combinations ?? 0) + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
+        cases: [...new Set([...beforeTypes.filter((t) => !goneTypes.has(t)), ...afterTypes])].sort(),
       }
     : replace
     ? {
@@ -181,11 +187,16 @@ export function describePlanDelta(
     : {
         distributed: current.distributed + plan.distributed.length,
         nodal: current.nodal + plan.nodal.length,
-        combinations: current.combinations + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
-        cases: [...new Set([...beforeTypes, ...afterTypes])].sort(),
+        combinations: current.combinations - defaultCombos + plannedCombinationCount(plan, options.bothSenses, options.patternsInCompanions),
+        cases: [...new Set([...beforeTypes.filter((t) => !goneTypes.has(t)), ...afterTypes])].sort(),
       };
 
   const warnings: EngineMessage[] = [];
+  if (defaultCases.length > 0 || defaultCombos > 0) {
+    warnings.push(msg('loadPlan.warning.defaultsRemoved', {
+      cases: defaultCases.map((c) => c.name).join(', ') || '—', combinations: defaultCombos,
+    }));
+  }
   for (const t of removed) {
     // The load case is one thing; its participation in the combinations is another, and
     // that participation ends either way. That is the part users were not being told.
