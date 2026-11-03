@@ -51,10 +51,7 @@ export type Block =
    * we do not publish.
    */
   | { k: 'ext'; href: string; label: string; t: string }
-  /**
-   * A screenshot of the app or a plot, served by Shot.svelte from /screenshots/<base>-{800,1600}.{avif,webp}.
-   * `w`/`h` are the 1600 file's pixels; the content test reads them from the file.
-   */
+  /** `base` must exist under /screenshots as -800/-1600 .avif and .webp; `w`/`h` are the 1600 file's pixels. */
   | { k: 'img'; base: string; w: number; h: number; alt: string; caption: string };
 
 export type Localized<T> = Record<'en' | 'es' | 'pt', T> & Partial<Record<PublicLocale, T>>;
