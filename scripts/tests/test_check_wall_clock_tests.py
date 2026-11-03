@@ -97,6 +97,32 @@ class WallClockTests(unittest.TestCase):
 '''
         self.assertEqual(len(violations({'engine/src/b.rs': source})), 1)
 
+    def test_timing_returned_from_a_block_is_caught(self):
+        source = """
+    #[test]
+    fn block() {
+        let dt = {
+            let t = Instant::now();
+            work();
+            t.elapsed()
+        };
+        assert!(dt.as_secs() < 1);
+    }
+"""
+        self.assertEqual(len(violations({'engine/src/d.rs': source})), 1)
+
+    def test_timing_only_in_an_assertion_message_passes(self):
+        source = """
+    #[test]
+    fn message() {
+        let start = Instant::now();
+        let r = solve();
+        assert_eq!(r, 3, "took {:?}", start.elapsed());
+        assert!(r > 0, "after {:?}", start.elapsed());
+    }
+"""
+        self.assertEqual(violations({'engine/src/e.rs': source}), [])
+
     def test_logged_timings_and_counted_work_pass(self):
         source = '''
     #[test]

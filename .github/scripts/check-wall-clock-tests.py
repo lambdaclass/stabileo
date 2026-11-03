@@ -84,12 +84,36 @@ def macro_calls(text, name):
             i += 1
 
 
+def balanced(text, start):
+    depth = 0
+    for i in range(start, len(text)):
+        depth += {'(': 1, '{': 1, '[': 1, ')': -1, '}': -1, ']': -1}.get(text[i], 0)
+        if depth == 0:
+            return text[start:i + 1]
+    return text[start:]
+
+
+def checked_args(call):
+    inner = call[call.index('(') + 1:-1]
+    args, depth, current = [], 0, ''
+    for ch in inner:
+        depth += {'(': 1, '{': 1, '[': 1, ')': -1, '}': -1, ']': -1}.get(ch, 0)
+        if ch == ',' and depth == 0:
+            args.append(current)
+            current = ''
+        else:
+            current += ch
+    args.append(current)
+    return args[:2] if re.match(r'(debug_)?assert_(eq|ne)!', call) else args[:1]
+
+
 def asserts_on_time(body):
     text = '\n'.join(body)
     if not TIMING.search(text):
         return []
     statements = text.split(';')
-    tainted = set()
+    tainted = {m[1] for m in re.finditer(r'\blet\s+(?:mut\s+)?(\w+)[^=;]*=\s*(?=\{)', text)
+               if uses(balanced(text, m.end()), set())}
     changed = True
     while changed:
         changed = False
@@ -107,7 +131,8 @@ def asserts_on_time(body):
                 changed = True
     hits = []
     for name in ('assert', 'assert_eq', 'assert_ne', 'debug_assert', 'debug_assert_eq', 'debug_assert_ne'):
-        hits += [' '.join(call.split()) for call in macro_calls(text, name) if uses(call, tainted)]
+        hits += [' '.join(call.split()) for call in macro_calls(text, name)
+                 if any(uses(arg, tainted) for arg in checked_args(call))]
     return hits
 
 
