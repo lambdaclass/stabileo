@@ -54,7 +54,9 @@ those of #462–#475, which entered with the design switch (#624) in one merge.
 Results version 12 (provisional: the merge captain renumbers it to main's next free version at
 landing) registers `cirsoc301-q-nonpositive-refused`: a CIRSOC 301 compression member whose §E.7
 reduction gave Qa ≤ 0, or whose Fcr exceeded Fy, is held instead of passed above its squash load
-(SA-2026-030). Only such members change; consistent sections give the same numbers.
+(SA-2026-030). The same entry covers the CHS Q of E.7.2(c), now capped at 1: round tubes with
+D/t just above 0.11·E/Fy, consistent ones included, lose up to 1.2 % of compression capacity.
+Other consistent sections give the same numbers.
 
 ## Solid-shell local stress axes (PR #814, issue #757)
 

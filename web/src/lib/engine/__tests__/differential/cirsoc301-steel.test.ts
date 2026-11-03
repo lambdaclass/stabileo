@@ -171,11 +171,6 @@ describe('CIRSOC 301: engine against the independent TypeScript statement', () =
         if (!c) continue;
         cover(c.notEvaluated ? `refused ${c.notEvaluated.key}` : `${c.clause} ${c.pass ? 'pass' : 'fail'}`);
       }
-      if ((v.compression?.Q ?? 0) > 1) {
-        const k = 'oracle: CHS Q above 1 just past D/t = 0,11·E/Fy';
-        tally.set(k, (tally.get(k) ?? 0) + 1);
-        return;
-      }
       for (const pr of pairs(v, e)) {
         const c = classify(pr, f);
         if (c) {

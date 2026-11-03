@@ -40,12 +40,15 @@ The case in #467, a 521 × 521 mm box with 2 mm walls, A = 4 154 mm² (the walls
 
 No real section reaches this: it needs an area smaller than the plates the section is made of,
 which happens when a custom box or tube is typed with an area that does not match its
-dimensions, or with compression elements that do not belong to it. Sections from the catalogue
-are consistent and were never affected.
+dimensions, or with compression elements that do not belong to it. Catalogue sections are
+consistent and never reached Qa ≤ 0; round tubes in the range below are affected by the Q cap.
 
 A related case on the same path: for a round tube just past D/t = 0.11·E/Fy, E.7.2(c),
 Q = 0.038·E/(Fy·D/t) + 2/3, gives Q above 1 (1.012 at the limit), so Fcr exceeded Fy by up to
-1.2 % on short tubes. Q is a reduction factor and is now capped at 1.
+1.2 % on short tubes; for every tube in that range, consistent catalogue tubes included, the
+capacity was up to 1.2 % high. Q is a reduction factor and is now capped at 1, so those tubes'
+capacities drop by up to 1.2 %: re-check round tubes with D/t just above 0.11·E/Fy (about 94
+for Fy = 235 MPa) that pass with little margin.
 
 ## How to tell if your results are affected
 
