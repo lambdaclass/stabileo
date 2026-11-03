@@ -86,6 +86,13 @@ class CiRunners(unittest.TestCase):
             for name, job in jobs(workflow).items():
                 self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)
 
+    def test_nightly_mutants_prefer_the_nightly_pool(self):
+        mutants = jobs('nightly.yml')['mutants']['runs-on']
+        self.assertEqual(labels(mutants), {'stabileo-nightly', 'stabileo'})
+        self.assertIn("vars.STABILEO_NIGHTLY_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-nightly\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]')", mutants)
+        self.assertIn("github.ref == 'refs/heads/main'", mutants)
+        self.assertTrue(mutants.endswith("|| 'ubuntu-24.04' }}"))
+
     def test_superseded_runs_cancel_but_main_never_does(self):
         for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)

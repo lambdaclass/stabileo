@@ -44,9 +44,13 @@ exhausting a budget before completing them fails visibly. All jobs have wall-clo
 limits; report reduction has its own 15-minute step cap. Artifacts upload with
 `always()`; abrupt runner loss or hard cancellation can still prevent an upload.
 
-Mutation shards rotate by UTC day, four each night: a complete 512-shard pass
-requires 128 nights. Override `mutants_total` and `mutants_shards` for focused
-runs. This trades rotation frequency for a bounded nightly machine budget.
+Mutation shards rotate by UTC day, 32 each night, on the nightly runner pool
+(`stabileo-nightly`, or the `stabileo` pool when it is off): a complete 512-shard
+pass takes 16 nights, the roadmap's promise. A shard that runs to its verdict
+uploads `mutants-done-<k>-of-<n>`; the weekly verification dashboard fails when
+any shard has none from the last 16 days
+(`scripts/verification-metrics.py --check-mutants-rotation`). Override
+`mutants_total` and `mutants_shards` for focused runs.
 
 ## Random models and findings
 
