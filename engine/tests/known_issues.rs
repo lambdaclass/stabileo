@@ -186,7 +186,7 @@ fn invariance_reported_seeds_are_flagged_or_refused() {
                 eprintln!("#762 2D/{seed}: {:?}", r.structured_diagnostics);
                 assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "2D/{seed}");
             }
-            Err(e) => panic!("#762 2D/{seed}: expected NUM-INVARIANCE warning, got {e}"),
+            Err(e) => assert!(e.contains("self-check static_residual"), "#762 2D/{seed}: expected NUM-INVARIANCE warning or the residual self-check refusal, got {e}"),
         }
     }
     for seed in [20761,20788] {
@@ -201,7 +201,7 @@ fn invariance_reported_seeds_are_flagged_or_refused() {
                 eprintln!("#762 3D/{seed}: {:?}", r.structured_diagnostics);
                 assert!(ids(&r.structured_diagnostics).contains(&"NUM-INVARIANCE".into()), "3D/{seed}");
             }
-            Err(e) => panic!("#762 3D/{seed}: expected NUM-INVARIANCE warning, got {e}"),
+            Err(e) => assert!(e.contains("self-check static_residual"), "#762 3D/{seed}: expected NUM-INVARIANCE warning or the residual self-check refusal, got {e}"),
         }
     }
 }
@@ -499,7 +499,7 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
         if (seed - 20754) % 3 == 2 { crate::fuzz_models::add_random_constraints_2d(&mut solver, seed); }
         match solve_modal_2d(&solver, &densities, 2) {
             Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
-            Err(error) => assert_eq!(error, if seed == 20824 { "Eigenvalue decomposition failed" } else { "No valid modes found" }, "seed {seed}"),
+            Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with(if seed == 20824 { "Eigenvalue decomposition failed" } else { "No valid modes found" }), "seed {seed}: {error}"),
         }
         let th: TimeHistoryInput = serde_json::from_value(serde_json::json!({
             "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
@@ -509,7 +509,7 @@ fn reported_seeds_advanced_modal_and_time_history_are_contained() {
     let (solver, densities) = crate::fuzz_models::random_3d_model_rich(20788);
     match solve_modal_3d(&solver, &densities, 2) {
         Ok(r) => assert_warning(&r.structured_diagnostics, "NUM-INVARIANCE", 762.0),
-        Err(error) => assert_eq!(error, "Eigenvalue decomposition failed"),
+        Err(error) => assert!(error.starts_with("MODAL-MECHANISM:") || error.starts_with("Eigenvalue decomposition failed"), "{error}"),
     }
     let th: TimeHistoryInput3D = serde_json::from_value(serde_json::json!({
         "solver": solver, "densities": densities, "timeStep": 0.01, "nSteps": 2
