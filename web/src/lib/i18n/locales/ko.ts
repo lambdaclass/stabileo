@@ -3032,7 +3032,6 @@ const ko: Translations = {
   'pro.constraintForcesCount': '구속력',
   'pro.selfWeightLabel': '자중',
   'pro.rigidDiaphragm': '강체 다이어프램',
-  'pro.advancedWip': '개발 중 — 고급 기능이 완전하지 않을 수 있습니다',
   'pro.pdeltaDesc': '2차 효과',
   'pro.converged': '수렴',
   'pro.notConverged': '미수렴',

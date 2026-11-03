@@ -3046,7 +3046,6 @@ const it: Translations = {
   'pro.constraintForcesCount': 'forze di vincolo',
   'pro.selfWeightLabel': 'Peso proprio',
   'pro.rigidDiaphragm': 'Diaframma rigido',
-  'pro.advancedWip': 'In sviluppo — le funzioni avanzate potrebbero non essere complete',
   'pro.pdeltaDesc': 'Effetti del secondo ordine',
   'pro.converged': 'Convergente',
   'pro.notConverged': 'Non convergente',

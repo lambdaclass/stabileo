@@ -2995,7 +2995,6 @@ const hi: Translations = {
   'pro.constraintForcesCount': 'प्रतिबंध बल',
   'pro.selfWeightLabel': 'स्वभार',
   'pro.rigidDiaphragm': 'कठोर डायफ्राम',
-  'pro.advancedWip': 'विकास में — उन्नत सुविधाएँ पूरी तरह कार्यात्मक नहीं हो सकतीं',
   'pro.pdeltaDesc': 'द्वितीय-क्रम प्रभाव',
   'pro.converged': 'अभिसरित',
   'pro.notConverged': 'अभिसरित नहीं',

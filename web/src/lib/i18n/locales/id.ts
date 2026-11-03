@@ -3031,7 +3031,6 @@ const id: Translations = {
   'pro.constraintForcesCount': 'gaya constraint',
   'pro.selfWeightLabel': 'Berat sendiri',
   'pro.rigidDiaphragm': 'Diafragma kaku',
-  'pro.advancedWip': 'Dalam pengembangan — fitur lanjutan mungkin belum sepenuhnya berfungsi',
   'pro.pdeltaDesc': 'Efek orde kedua',
   'pro.converged': 'Konvergen',
   'pro.notConverged': 'Tidak konvergen',
