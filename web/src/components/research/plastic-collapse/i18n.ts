@@ -1,9 +1,8 @@
-import { reviewLabel } from '../reviews';
 import { researchLocale } from '../i18n';
 export const strings = {
   en: {
     publisher: 'Elsevier',
-    title: 'Classic plastic collapse', stage: `First version · ${reviewLabel('horne-1979', 'en')}`,
+    title: 'Classic plastic collapse',
     lead: 'One fixed-base portal, three hand-calculated mechanisms, and the production 3D plastic-collapse solver.',
     model: 'Span L = 4 m, height h = 3 m, uniform Mp = 100 kN·m. Both bases are fixed. The roof carries λH = λ × 1 kN to the right at the left corner and λV = λ × 2 kN down at midspan. The beam is split at the load. The frame lies in the XZ plane; no out-of-plane load is applied.',
     method: 'Virtual work with rigid members and small rotations gives the three upper bounds below. The combined mechanism cancels one roof hinge: internal work is 6Mpθ, external work is λ(Hh + VL/2)θ. Its minimum governs. Axial deformation is elastic; axial and shear yielding, hardening and geometric instability are outside this hand calculation.',
@@ -18,7 +17,7 @@ export const strings = {
   },
   es: {
     publisher: 'Elsevier',
-    title: 'Colapso plástico clásico', stage: `Primera versión · ${reviewLabel('horne-1979', 'es')}`,
+    title: 'Colapso plástico clásico',
     lead: 'Un pórtico empotrado, tres mecanismos calculados a mano y el solver plástico 3D de producción.',
     model: 'Luz L = 4 m, altura h = 3 m, Mp uniforme = 100 kN·m. Ambas bases están empotradas. Actúan λH = λ × 1 kN hacia la derecha en la esquina superior izquierda y λV = λ × 2 kN hacia abajo en el centro de la viga. La viga se divide allí. El pórtico está en XZ, sin cargas fuera del plano.',
     method: 'El trabajo virtual con barras rígidas y giros pequeños da las tres cotas superiores. El mecanismo combinado cancela una rótula superior: trabajo interno 6Mpθ y externo λ(Hh + VL/2)θ. Gobierna el mínimo. La deformación axial es elástica; el cálculo manual excluye plastificación axial y por corte, endurecimiento e inestabilidad geométrica.',
@@ -33,7 +32,7 @@ export const strings = {
   },
   pt: {
     publisher: 'Elsevier',
-    title: 'Colapso plástico clássico', stage: `Primeira versão · ${reviewLabel('horne-1979', 'pt')}`,
+    title: 'Colapso plástico clássico',
     lead: 'Um pórtico engastado, três mecanismos calculados à mão e o solver plástico 3D de produção.',
     model: 'Vão L = 4 m, altura h = 3 m, Mp uniforme = 100 kN·m. Ambas as bases são engastadas. Atuam λH = λ × 1 kN para a direita no canto superior esquerdo e λV = λ × 2 kN para baixo no meio da viga. A viga é dividida nesse ponto. O pórtico está no plano XZ, sem carga fora do plano.',
     method: 'O trabalho virtual com barras rígidas e pequenas rotações fornece três limites superiores. O mecanismo combinado cancela uma rótula superior: trabalho interno 6Mpθ e externo λ(Hh + VL/2)θ. O mínimo governa. A deformação axial é elástica; o cálculo manual exclui plastificação axial e por corte, endurecimento e instabilidade geométrica.',

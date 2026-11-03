@@ -1,8 +1,7 @@
-import { reviewLabel } from '../reviews';
 import { researchLocale } from '../i18n';
 
 const en = {
-  title: 'Newmark average acceleration', stage: `First version · ${reviewLabel('newmark-1959', 'en')}`,
+  title: 'Newmark average acceleration',
   lead: 'One undamped degree of freedom under a sudden constant force. Increase the time step to see the numerical period grow.',
   model: 'The example',
   description: 'A 1 m axial frame member, fixed at the left, with only axial translation free at the right. E = 10 MPa, A = 0.01 m², synthetic density = 300000 kg/m³. The consistent axial mass gives m = ρAL/3 = 1 t and k = EA/L = 100 kN/m. A 1 kN step acts from t = 0; initial displacement and velocity are zero. This is an exact SDOF finite-element benchmark, not a continuum bar solution.',
@@ -22,7 +21,7 @@ const en = {
 };
 type Strings = { [K in keyof typeof en]: (typeof en)[K] };
 const es: Strings = {
-  title: 'Aceleración media de Newmark', stage: `Primera versión · ${reviewLabel('newmark-1959', 'es')}`,
+  title: 'Aceleración media de Newmark',
   lead: 'Un grado de libertad sin amortiguamiento bajo una fuerza constante aplicada de golpe. Aumentá el paso temporal para ver cómo crece el período numérico.',
   model: 'El ejemplo',
   description: 'Una barra de pórtico axial de 1 m, fija a la izquierda y con solo la traslación axial libre a la derecha. E = 10 MPa, A = 0,01 m², densidad sintética = 300000 kg/m³. La masa axial consistente da m = ρAL/3 = 1 t y k = EA/L = 100 kN/m. Un escalón de 1 kN actúa desde t = 0; desplazamiento y velocidad iniciales nulos. Es un ensayo exacto de un grado de libertad de elementos finitos, no la solución de una barra continua.',
@@ -36,7 +35,7 @@ const es: Strings = {
   paper: 'El artículo describe un procedimiento de integración temporal para dinámica estructural. Aquí probamos su especialización de aceleración media en un ensayo lineal pequeño; no afirmamos reproducir una figura del artículo.', alt: 'Historia de desplazamiento axial de nuestra ejecución de Newmark de producción',
 };
 const pt: Strings = {
-  title: 'Aceleração média de Newmark', stage: `Primeira versão · ${reviewLabel('newmark-1959', 'pt')}`,
+  title: 'Aceleração média de Newmark',
   lead: 'Um grau de liberdade sem amortecimento sob uma força constante aplicada subitamente. Aumente o passo de tempo para ver o período numérico crescer.',
   model: 'O exemplo', description: 'Uma barra de pórtico axial de 1 m, fixa à esquerda e com apenas a translação axial livre à direita. E = 10 MPa, A = 0,01 m², densidade sintética = 300000 kg/m³. A massa axial consistente fornece m = ρAL/3 = 1 t e k = EA/L = 100 kN/m. Um degrau de 1 kN atua desde t = 0; deslocamento e velocidade iniciais nulos. É um ensaio exato de um grau de liberdade de elementos finitos, não a solução de uma barra contínua.',
   method: 'O solver de histórico temporal 3D de produção é executado pelo wrapper WASM existente, com β = ¼, γ = ½ e sem amortecimento. A reprodução vem de uma execução nativa do mesmo solver Rust. Nenhum integrador novo é usado.', reference: 'Referência exata', difference: 'Diferença', measured: 'Stabileo',
