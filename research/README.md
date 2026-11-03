@@ -90,8 +90,9 @@ Static research imports fail for both product and research changes.
 
 The script measures uncompressed dependency bytes for `/en/`, `/es/`, `/pt/` and every `/app/*`
 mode. Landing routes count the entry's static closure; app routes also count App's static and
-lazy product dependencies. Explicit lazy research routes are excluded; static research imports
-fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
+lazy product dependencies. Explicit lazy route boundaries are excluded: research, tools, and the
+blog page (`BLOG_ROUTE_BOUNDARY`, `components/blog/BlogPage.svelte`, loaded only on a blog
+address). Modules the blog shares with App still count. Static research imports fail. HTML, bundled JS/CSS, manifest assets and statically referenced public files count once.
 Runtime-generated asset URLs and the engine binary are outside this gate; a fixed engine stub
 makes the measurements independent of locally built WASM.
 
