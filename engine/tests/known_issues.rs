@@ -944,6 +944,23 @@ fn a_moment_on_a_connector_only_node_without_moment_stiffness_warns() {
 }
 
 #[test]
+fn buckling_2d_with_axial_span_loads_warns_1323() {
+    use dedaliano_engine::solver::buckling::solve_buckling_2d;
+    let tip = SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: -100.0, fz: 0.0, my: 0.0 });
+    let span = SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 25.0, q_j: 25.0, a: None, b: None });
+    for (loads, warns) in [(vec![tip.clone()], false), (vec![tip, span], true)] {
+        let input = make_beam(1, 4.0, E, 0.01, 1e-4, "fixed", None, loads);
+        let result = solve_buckling_2d(&input, 1).unwrap();
+        assert!(result.modes[0].load_factor.is_finite() && result.modes[0].load_factor > 0.0);
+        assert_eq!(ids(&result.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns, "{:?}", ids(&result.structured_diagnostics));
+        let certified = dedaliano_engine::certify::buckling::certify_buckling_2d(&input, 1);
+        if let Ok(out) = certified {
+            assert_eq!(ids(&out.results.structured_diagnostics).contains(&"BU-SPAN-AXIAL-2D".into()), warns);
+        }
+    }
+}
+
+#[test]
 fn kinematic_classification_is_not_refused_by_a_result_known_issue() {
     use dedaliano_engine::solver::kinematic::analyze_kinematics_3d;
     let mut input = beam3d();

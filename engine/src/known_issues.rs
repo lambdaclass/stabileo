@@ -46,6 +46,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry { id: "NUM-INVARIANCE", issue: 762, mode: Mode::Warn, message: "Near-singular models can change accuracy or mechanism classification with units and orientation. Existing conditioning or stability diagnostics indicate a near-singular solve; independently verify stability before design" },
     Entry { id: "CERT-MECHANISM", issue: 458, mode: Mode::Warn, message: "An assembled-level certificate can certify an artificial or unstiffened rotation. Verify mechanisms independently; a small algebraic error bound does not establish structural stability" },
     Entry { id: "BU-SPAN-COMPRESSION", issue: 456, mode: Mode::Warn, message: "3D buckling can miss compression between member ends under span loads. Independently check the axial-force distribution and buckling factor" },
+    Entry { id: "BU-SPAN-AXIAL-2D", issue: 1323, mode: Mode::Warn, message: "2D buckling builds each member's geometric stiffness from its mean axial force, so compression that varies along a member under axial span loads can overstate the buckling factor. Subdivide the loaded members and check that the factor converges" },
     Entry { id: "AC-PLANE-MAPPING", issue: 466, mode: Mode::Warn, message: "2D constraints assume the original model lies in the X-Z plane. Constraints converted from another plane may be wrong; use the 3D solve or independently verify the mapping" },
 
     Entry { id: "NL-5", issue: 428, mode: Mode::Warn, message: NL_MATERIAL },
@@ -470,6 +471,13 @@ pub fn for_2d_loads(input: &SolverInput, loads: &[SolverLoad], analysis: Analysi
     let mut out = for_analysis(analysis);
 
     if !input.constraints.is_empty() { out.push(diagnostic("AC-PLANE-MAPPING")); }
+    if analysis == Analysis::Buckling && loads.iter().any(|l| match l {
+        SolverLoad::AxialDistributed(q) => q.q_i != 0.0 || q.q_j != 0.0,
+        SolverLoad::PointOnElement(p) => p.px.is_some_and(|px| px != 0.0),
+        _ => false,
+    }) {
+        out.push(diagnostic("BU-SPAN-AXIAL-2D"));
+    }
     if all_hinged_demand_2d(input, loads) {
         out.push(diagnostic("CERT-MECHANISM"));
     }
@@ -666,6 +674,17 @@ mod tests {
         space.loads.push(serde_json::from_value(serde_json::json!({"type":"distributed","data":{"elementId":1,"qYI":0,"qYJ":0,"qZI":-1,"qZJ":-1}})).unwrap());
         assert!(has(&for_3d(&space, Analysis::Buckling), "BU-SPAN-COMPRESSION"));
         assert!(!has(&for_3d(&space, Analysis::Linear), "BU-SPAN-COMPRESSION"));
+        let mut column = input2();
+        assert!(!has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"));
+        column.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: 0.0, q_j: 0.0, a: None, b: None }));
+        column.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 1.0, p: -1.0, px: Some(0.0), my: None }));
+        assert!(!has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"), "zero axial span loads");
+        column.loads.push(SolverLoad::AxialDistributed(SolverAxialDistributedLoad { element_id: 1, q_i: -25.0, q_j: -25.0, a: None, b: None }));
+        assert!(has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"));
+        assert!(!has(&for_2d(&column, Analysis::Linear), "BU-SPAN-AXIAL-2D"));
+        column.loads.retain(|l| !matches!(l, SolverLoad::AxialDistributed(_)));
+        column.loads.push(SolverLoad::PointOnElement(SolverPointLoadOnElement { element_id: 1, a: 1.0, p: 0.0, px: Some(-50.0), my: None }));
+        assert!(has(&for_2d(&column, Analysis::Buckling), "BU-SPAN-AXIAL-2D"));
     }
 
     #[test]
