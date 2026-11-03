@@ -8,10 +8,10 @@
   panel is now left out only when roof structure covers all of it under 2.2 m and a deck or
   beam under 2.2 m stands over its center, and the panels, members and shells loaded above carry
   all of it; otherwise the part they do not carry stays on it as roof load. Trusses count as roof
-  structure. Panels and members only partly under low structure keep their load, as floor load
-  when a floor or roof stands over their center and otherwise as roof load, less what the low
-  structure over them already carries, and are named in the
-  derivation. Generate the loads again for models whose loads came from the generator.
+  structure. Panels and members only partly under low structure keep their load, all of it as
+  floor load when a floor or roof stands over their center (so where a low member over such a
+  floor also carries its strip, that strip is loaded twice), and otherwise as roof load, less what
+  the low structure over them already carries; both are named in the derivation. Generate the loads again for models whose loads came from the generator.
 - SA-2026-033 (#1311): the generator sized a panel by its bounding box in the plan's X and Y, so a
   3 × 20 m deck turned 45° lost all 60 m² of its floor load as "too wide for a slab". A panel is
   now too wide only when its narrowest width across any direction passes 12 m.

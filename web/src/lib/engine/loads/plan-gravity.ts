@@ -276,7 +276,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   const dropped = new Set<object>();
   const fringeShare = new Map<object, number>();
   const fringeKept = new Map<object, Region>();
-  const droppedMembers = new Set<number>();
+  const droppedMembers = new Set<number>(), droppedUnclear = new Set<number>();
   const panelLoadedAt = new Map<number, Set<number>>();
   for (const [z, { beams, res }] of levels) {
     const loaded = new Set<number>();
@@ -333,7 +333,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
           if (last && Math.abs(last.t1 - t0) < 1e-12 && Math.abs(last.width - width) <= 1e-9 * width) last.t1 = t1;
           else spans.push({ t0, t1, width });
         });
-        if (spans.length === 0) { droppedMembers.add(e.id); continue; }
+        if (spans.length === 0) { droppedMembers.add(e.id); if (why !== 'lowHeadroom') droppedUnclear.add(e.id); continue; }
         fringeRoof.set(e.id, spans);
         held.kept.push({ region: kept, z });
         if (why === 'lowHeadroom') fringes++;
@@ -371,7 +371,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
       const cover = shellCover(panel.polygon, z);
       if (cover >= 0.98) continue;
       const why = cover <= 0.02 ? deckless(panel.polygon, z) : null;
-      if (dropped.has(panel)) { lowPanels++; continue; }
+      if (dropped.has(panel)) { if (why === 'lowHeadroom') lowPanels++; else unclearRoof++; continue; }
       if (why === 'lowHeadroom') fringes++;
       if (why === 'wide') { widePanels++; continue; }
       if (why === 'headroomUnclear') { if (covered(centroid(panel.polygon), z)) unclear++; else unclearRoof++; }
@@ -425,7 +425,7 @@ export function gravityLayout(model: GravityModel, opts: GravityOptions): Gravit
   }
 
   // A horizontal member within the roof's structure is a chord or an eave beam: no floor loads it.
-  const beforeDepth = out.widthMembers.length;
+  const beforeDepth = out.widthMembers.filter((m) => !droppedUnclear.has(m.elementId)).length;
   out.widthMembers = out.widthMembers.filter((m) => !droppedMembers.has(m.elementId));
   for (const m of out.widthMembers) {
     const spans = fringeRoof.get(m.elementId);
@@ -556,10 +556,12 @@ function notADeck(
       cover.push([[closeRing(tributaryStrip(at(range[0]), at(range[1]), tributaryWidth))]]);
     }
     if (cover.length === 0) return { share: 1, kept: whole };
+    const o = area[0]!;
     for (const step of [1e-9, 1e-6, 1e-4]) {
       try {
-        const rest = polygonClipping.difference(snap(whole, step) as never, ...(cover.map((c) => snap(c, step)) as never[])) as unknown as Region;
-        const kept = rest.filter((poly) => regionArea([poly]) > 1e-9 * total);
+        const local = (r: Region) => snap(shift(r, -o[0], -o[1]), step);
+        const rest = polygonClipping.difference(local(whole) as never, ...(cover.map(local) as never[])) as unknown as Region;
+        const kept = shift(rest.filter((poly) => regionArea([poly]) > 1e-9 * total), o[0], o[1]);
         return { share: Math.min(1, Math.max(0, regionArea(kept) / total)), kept };
       } catch {
         continue;
@@ -641,8 +643,13 @@ type Held = { panels: Array<{ poly: Array<[number, number]>; z: number }>; membe
 type Axis = { p: [number, number]; u: [number, number]; L: number };
 
 function signedArea(ring: Array<[number, number]>): number {
+  const o = ring[0];
+  if (!o) return 0;
   let s = 0;
-  ring.forEach((a, k) => { const b = ring[(k + 1) % ring.length]!; s += a[0] * b[1] - b[0] * a[1]; });
+  ring.forEach((a, k) => {
+    const b = ring[(k + 1) % ring.length]!;
+    s += (a[0] - o[0]) * (b[1] - o[1]) - (b[0] - o[0]) * (a[1] - o[1]);
+  });
   return s / 2;
 }
 
@@ -654,6 +661,10 @@ function closeRing(poly: Array<[number, number]>): Array<[number, number]> {
 function openRing(ring: Array<[number, number]>): Array<[number, number]> {
   const n = ring.length;
   return n > 1 && ring[0]![0] === ring[n - 1]![0] && ring[0]![1] === ring[n - 1]![1] ? ring.slice(0, -1) : ring;
+}
+
+function shift(r: Region, dx: number, dy: number): Region {
+  return r.map((poly) => poly.map((ring) => ring.map(([x, y]) => [x + dx, y + dy] as [number, number])));
 }
 
 /** A region with its coordinates rounded to `step`, which polygon-clipping needs to close rings whose edges nearly coincide. */
@@ -826,13 +837,16 @@ function narrowestWidth(poly: Array<[number, number]>): number {
 }
 
 function areaCentroid(poly: Array<[number, number]>): [number, number] {
+  const o = poly[0];
+  if (!o) return [0, 0];
   let a = 0, x = 0, y = 0;
-  poly.forEach((p, k) => {
-    const q = poly[(k + 1) % poly.length]!;
-    const cross = p[0] * q[1] - q[0] * p[1];
-    a += cross; x += (p[0] + q[0]) * cross; y += (p[1] + q[1]) * cross;
+  poly.forEach((p0, k) => {
+    const q0 = poly[(k + 1) % poly.length]!;
+    const p = [p0[0] - o[0], p0[1] - o[1]], q = [q0[0] - o[0], q0[1] - o[1]];
+    const cross = p[0]! * q[1]! - q[0]! * p[1]!;
+    a += cross; x += (p[0]! + q[0]!) * cross; y += (p[1]! + q[1]!) * cross;
   });
-  return Math.abs(a) > 1e-15 ? [x / (3 * a), y / (3 * a)] : centroid(poly);
+  return Math.abs(a) > 1e-15 ? [o[0] + x / (3 * a), o[1] + y / (3 * a)] : centroid(poly);
 }
 
 type Box = { x0: number; y0: number; x1: number; y1: number };

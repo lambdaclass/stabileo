@@ -127,6 +127,19 @@ describe('roof structure that does not carry all of a panel', () => {
     expect(sum(layout.roofAreaOf)).toBeCloseTo(4 * 3 * 6 + 0.5 * 6, 6);
   });
 
+  it('beams whose strips reach over a ring with nothing over its centre do not make it confirmed roof structure', () => {
+    const b = builder();
+    const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
+    const ring = corners.map(([x, y]) => b.node(x, y, 3));
+    corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
+    ring.forEach((id, i) => b.bar(id, ring[(i + 1) % 4]!));
+    for (const y of [1, 5]) b.bar(b.node(0, y, 4), b.node(6, y, 4));
+    const layout = gravityLayout(b.model(), { mode: 'panels', tributaryWidth: 4 });
+    expect(keys(layout)).not.toContain('loadPlan.gravity.lowHeadroom');
+    expect(keys(layout)).toContain('loadPlan.gravity.headroomUnclearRoof');
+    expect(sum(layout.roofAreaOf) + sum(layout.areaOf)).toBeCloseTo(2 * 4 * 6, 6);
+  });
+
   it('a ring whose whole area the low beams above carry is the roof\'s structure', () => {
     const m = clusteredBeams();
     const b = [...m.nodes.values()].length + 1;
@@ -143,8 +156,9 @@ describe('roof structure that does not carry all of a panel', () => {
 });
 
 describe('a narrow gap between the strips of the beams above', () => {
-  it('stays on the ring as roof load: the 0.05 × 6 m gap alone, where it lies', () => {
-    const b = builder();
+  it.each([[0, 0], [500000, 6000000]])('stays on the ring as roof load: the 0.05 × 6 m gap alone, where it lies, at (%s, %s)', (x0, y0) => {
+    const raw = builder();
+    const b = { ...raw, node: (x: number, y: number, z: number) => raw.node(x0 + x, y0 + y, z) };
     const corners: Array<[number, number]> = [[0, 0], [6, 0], [6, 6], [0, 6]];
     const ring = corners.map(([x, y]) => b.node(x, y, 3));
     corners.forEach(([x, y], i) => b.bar(b.node(x, y, 0), ring[i]!));
@@ -153,7 +167,7 @@ describe('a narrow gap between the strips of the beams above', () => {
     const model = b.model();
     const layout = gravityLayout(model, { mode: 'panels', tributaryWidth: 3 });
     expect(keys(layout)).toContain('loadPlan.gravity.roofFringe');
-    expect(layout.areaByLevel.get(3)).toBeCloseTo(0.05 * 6, 9);
+    expect(layout.areaByLevel.get(3)).toBeCloseTo(0.05 * 6, 6);
     expect(sum(layout.areaOf)).toBe(0);
     let force = 0, mx = 0, my = 0;
     for (const p of layout.pieces.filter((q) => ringIds.has(q.elementId))) {
@@ -166,9 +180,9 @@ describe('a narrow gap between the strips of the beams above', () => {
       const n = model.nodes.get(p.nodeId)!;
       force += p.w; mx += p.w * n.x; my += p.w * n.y;
     }
-    expect(force).toBeCloseTo(0.3, 9);
-    expect(mx / force).toBeCloseTo(3, 6);
-    expect(my / force).toBeCloseTo(4.525, 6);
+    expect(force).toBeCloseTo(0.3, 6);
+    expect(mx / force - x0).toBeCloseTo(3, 6);
+    expect(my / force - y0).toBeCloseTo(4.525, 6);
   });
 });
 
