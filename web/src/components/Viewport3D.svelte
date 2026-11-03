@@ -1485,7 +1485,7 @@
     void viewCategories.hiddenKey;
     untrack(() => {
       syncNodes(); syncElements(); syncSupports(); syncLoads(); syncShells();
-      syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions();
+      syncLocalAxes(); syncDiagrams3D(); syncDeformed(); syncLabels3D(); syncReactions(); syncColorMap3D();
     });
     invalidate();
   });
