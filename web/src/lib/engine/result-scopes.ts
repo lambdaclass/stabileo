@@ -24,7 +24,7 @@ import { computeEnvelope3D } from './wasm-solver';
 import { envelopeShellStresses } from './shell-combos';
 import { reexpandVariableResults, collapseVariableEnvelope } from './variable-members';
 import { t } from '../i18n';
-import type { AnalysisResults3D, FullEnvelope3D } from './types-3d';
+import type { AnalysisResults3D, FullEnvelope3D, ShellEnvelopeSource } from './types-3d';
 
 export type EnvelopePurpose = 'strength' | 'service' | 'other';
 
@@ -141,10 +141,12 @@ export function envelopeOver(
   perCombo: ReadonlyMap<number, AnalysisResults3D>, ids: readonly number[],
   perCase?: ReadonlyMap<number, AnalysisResults3D>, caseIds: readonly number[] = [],
 ): FullEnvelope3D | null {
-  const results = [
-    ...ids.map((id) => perCombo.get(id)),
-    ...(perCase ? caseIds.map((id) => perCase.get(id)) : []),
-  ].filter((r): r is AnalysisResults3D => !!r && !isMagnitudeResult(r));
+  const candidates: Array<{ source: ShellEnvelopeSource; results: AnalysisResults3D | undefined }> = [
+    ...ids.map((id) => ({ source: { kind: 'combination' as const, id }, results: perCombo.get(id) })),
+    ...(perCase ? caseIds.map((id) => ({ source: { kind: 'case' as const, id }, results: perCase.get(id) })) : []),
+  ];
+  const sets = candidates.flatMap((s) => (s.results && !isMagnitudeResult(s.results) ? [{ source: s.source, results: s.results }] : []));
+  const results = sets.map((s) => s.results);
   if (results.length === 0) return null;
   // Members of variable section piece by piece, as the solve took its own envelope
   // (`variable-members.ts`): the engine's envelope of the members alone drops their pieces.
@@ -155,7 +157,7 @@ export function envelopeOver(
   const envelope = collapseVariableEnvelope(raw, exp);
   // The engine's envelope drops shell stresses; they are recombined from the combinations'.
   if (envelope.maxAbsResults3D && results.some((r) => (r.plateStresses?.length ?? 0) > 0 || (r.quadStresses?.length ?? 0) > 0)) {
-    const env = envelopeShellStresses(results);
+    const env = envelopeShellStresses(sets);
     envelope.maxAbsResults3D.plateStresses = env.plateStresses;
     envelope.maxAbsResults3D.quadStresses = env.quadStresses;
   }

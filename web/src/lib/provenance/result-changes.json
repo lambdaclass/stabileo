@@ -1,8 +1,27 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 10,
+  "currentResultsVersion": 11,
   "changes": [
+    {
+      "id": "shell-envelope-per-component",
+      "resultsVersion": 11,
+      "date": "2026-11-02",
+      "prs": [1237],
+      "area": "analysis",
+      "when": { "allOf": [["shells"], ["combinations"]] },
+      "title": {
+        "en": "The shell envelope holds each component's own extremes",
+        "es": "La envolvente de las cáscaras toma los extremos de cada componente",
+        "pt": "A envoltória das cascas toma os extremos de cada componente"
+      },
+      "explanation": {
+        "en": "The envelope of plates and quads (the envelope view, its contours, the PRO report and the workbook) kept, for each element, the whole result of the combination with the largest Von Mises. Every other component (σxx, σyy, τxy, mx, my, mxy, qx, qy) was that combination's, not its own extreme: in a mat foundation in pure bending, where Von Mises is zero in every combination, mx read 77.94 kN·m/m where another combination gives 90.93 (14 % low). Each component now shows its own largest magnitude, with the largest and smallest values and the combination of each; principal stresses and required steel are the extremes over the combinations. Slab and wall design read the combinations one by one and are unchanged. Re-check any value read from the shell envelope (SA-2026-027).",
+        "es": "La envolvente de placas y cuadriláteros (la vista de envolvente, sus contornos, el informe PRO y el libro de resultados) tomaba, para cada elemento, el resultado entero de la combinación con mayor Von Mises. Todas las demás componentes (σxx, σyy, τxy, mx, my, mxy, qx, qy) eran las de esa combinación, no su propio extremo: en una platea en flexión pura, donde Von Mises es cero en todas las combinaciones, mx figuraba 77,94 kN·m/m donde otra combinación da 90,93 (14 % menos). Ahora cada componente muestra su propio mayor valor absoluto, con el máximo y el mínimo y la combinación de cada uno; las tensiones principales y la armadura necesaria son los extremos sobre las combinaciones. El diseño de losas y muros lee las combinaciones una por una y no cambia. Revisá cualquier valor leído de la envolvente de las cáscaras (SA-2026-027).",
+        "pt": "A envoltória de placas e quadriláteros (a vista de envoltória, seus contornos, o relatório PRO e a planilha) tomava, para cada elemento, o resultado inteiro da combinação com maior Von Mises. Todas as demais componentes (σxx, σyy, τxy, mx, my, mxy, qx, qy) eram as dessa combinação, não o seu próprio extremo: num radier em flexão pura, onde Von Mises é zero em todas as combinações, mx aparecia 77,94 kN·m/m onde outra combinação dá 90,93 (14 % a menos). Agora cada componente mostra o seu próprio maior valor absoluto, com o máximo e o mínimo e a combinação de cada um; as tensões principais e a armadura necessária são os extremos sobre as combinações. O dimensionamento de lajes e paredes lê as combinações uma a uma e não muda. Revise qualquer valor lido da envoltória das cascas (SA-2026-027)."
+      },
+      "changelog": { "file": "docs/advisories/SA-2026-027-shell-envelope-von-mises-record.md", "heading": "SA-2026-027: the shell envelope kept the combination with the largest Von Mises, not each component's extreme" }
+    },
     {
       "id": "static-modal-runtime-self-checks",
       "resultsVersion": 10,
