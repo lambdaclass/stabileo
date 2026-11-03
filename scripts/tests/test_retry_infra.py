@@ -52,8 +52,12 @@ class RetryInfra(unittest.TestCase):
             'Attempt 1 of 5 failed with error: Failed request: (429) Too Many Requests: rate limit exceeded. Retrying request in 3000 ms...',
             "error: unable to download 'http://127.0.0.1:37515/0123.narinfo': HTTP error 418",
             "error: unable to download 'https://cache.nixos.org/nar/0123.nar.xz': Error in the HTTP2 framing layer (16) Send failure: Connection reset by peer",
+            'error downloading wasm: HTTP 503: 503 Egress is over the account limit. (https://productionresultssa9.blob.core.windows.net/actions-results/d0f12eed/workflow-job-run-92e98ce9/artifacts/abc.zip)',
+            'error downloading research-wasm: HTTP 502: Bad Gateway (https://productionresultssa9.blob.core.windows.net/x.zip)',
         ]
         genuine = [
+            'error downloading wasm: HTTP 404: Not Found (https://api.github.com/repos/lambdaclass/stabileo/actions/artifacts/1/zip)',
+            'AssertionError: expected HTTP 503 to equal 200',
             'error[E0308]: mismatched types',
             'error: could not compile `dedaliano-engine` (lib) due to 1 previous error',
             'AssertionError: expected 418 to equal 200',
