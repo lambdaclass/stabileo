@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { modelStore, historyStore, uiStore } from '../../../../store';
 import { isSolverReady } from '../../../wasm-solver';
 import { methodContext } from '../../../../store/explained-steps.svelte';
+import '../../../../course/course-route';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
 import { resolveMdof } from '../mdof-build';
 import { buildMdof, superpositionPlotOf } from '../mdof-doc';

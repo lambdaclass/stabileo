@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { modelStore, historyStore, uiStore } from '../../../../store';
 import { isSolverReady } from '../../../wasm-solver';
 import { methodContext } from '../../../../store/explained-steps.svelte';
+import '../../../../course/course-route';
 import { methodById } from '../../methods';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
 import { resolveMdof, MIN_HARMONIC_RATIO, MAX_HARMONIC_RATIO, MAX_SAMPLES } from '../mdof-build';

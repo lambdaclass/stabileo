@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { modelStore, historyStore, uiStore } from '../../../../store';
 import { methodContext } from '../../../../store/explained-steps.svelte';
+import '../../../../course/course-route';
 import { setDynamicsSettings, resetDynamicsSettings } from '../../../dynamics/course/settings';
 
 const shift = vi.hoisted(() => ({ first: 0, own: 0 }));
