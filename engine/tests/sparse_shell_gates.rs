@@ -918,10 +918,20 @@ fn fill_ratio_regression() {
     }
 }
 
+#[test]
+fn modal_refuses_the_plate_whose_in_plane_rotation_only_drilling_stiffness_holds() {
+    let mut densities = HashMap::new();
+    densities.insert("1".to_string(), 7850.0);
+    let e = modal::solve_modal_3d(&make_ss_plate(8, 8), &densities, 5).unwrap_err();
+    assert!(e.starts_with("MODAL-MECHANISM: "), "{e}");
+}
+
 /// Gate 5d: Sparse modal eigenvalues match dense Lanczos eigenvalues.
 #[test]
 fn sparse_modal_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let num_modes = 5;
 
     // Both paths need densities
@@ -2399,7 +2409,11 @@ fn assert_modal_mass_parity(input: &SolverInput3D, densities: &HashMap<String, f
 /// 8×8 MITC4 plate.
 #[test]
 fn sparse_modal_mass_parity() {
-    let input = make_ss_plate(8, 8);
+    let mut input = make_ss_plate(8, 8);
+    // One pinned corner leaves in-plane rigid rotation about that corner.
+    // Restrain Y at the opposite X corner: no bending DOF is changed.
+    let corner = input.nodes.values().find(|n| n.x == 10.0 && n.y == 0.0).unwrap().id;
+    input.supports.values_mut().find(|s| s.node_id == corner).unwrap().ry = true;
     let mut densities = HashMap::new();
     densities.insert("1".to_string(), 7850.0);
     // 7 modes: the 6th mode (~28.2 Hz) belongs to a degenerate pair; retaining

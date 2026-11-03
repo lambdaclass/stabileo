@@ -630,15 +630,10 @@ function dominantDof(mode: { displacements?: Array<Record<string, number>> }): {
 }
 
 /**
- * A frequency under this is none: no structure in this app sways once in 20 minutes.
- *
- * Each mode is judged by its own value, never against the largest one found: one spurious or very
- * stiff mode in the batch (a load factor of 1e12 from a bar with almost no axial force, a
- * 20 000 Hz local mode) raised a relative cut above the structure's real modes and threw them
- * away as mechanisms — the real λcr = 3,5 went, and 1e12 was shown as the critical factor.
+ * A load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. Each mode
+ * is judged by its own value, never against the largest one found: a relative cut once threw away
+ * the real λcr = 3,5 next to a spurious 1e12.
  */
-const NULL_FREQUENCY_HZ = 1e-3;
-/** And a load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. */
 const NULL_LOAD_FACTOR = 1e-6;
 
 export interface DiscardedMode { value: number; nodeId: number; dof: string }
@@ -675,7 +670,7 @@ function mechanismOnly(): never {
 
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
 export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, Number.MIN_VALUE);
   const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { omegaSq: number; nodeId: number; dof: string }) => ({ value: Math.sign(m.omegaSq) * Math.sqrt(Math.abs(m.omegaSq)) / (2 * Math.PI), nodeId: m.nodeId, dof: m.dof }));
   const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
