@@ -5726,6 +5726,8 @@ const es: Record<string, string> = {
   'pro.th.recordSummary': '{points} puntos, {duration} s, PGA {pga} g',
   'pro.th.fitSteps': 'Correr el registro completo',
   'pro.th.stale': 'El modelo cambió después de esta corrida: volvé a correrla para recorrer la respuesta.',
+  'pro.th.refusal.nonFinite': 'la respuesta no es finita (NaN o infinita) desde el paso {step} (t = {time} s), así que no se muestra ningún resultado. Revisá el modelo por una barra o un apoyo que deje un movimiento sin rigidez, y la escala de las cargas',
+  'pro.th.refusal.nonFiniteReactions': 'las reacciones en la respuesta máxima no son finitas (NaN o infinitas), así que no se muestra ningún resultado. Revisá el modelo por una barra o un apoyo que deje un movimiento sin rigidez, y la escala de las cargas',
   'pro.th.showInModel': 'Ver en el modelo',
   'pro.th.play': 'Reproducir',
   'pro.th.pause': 'Pausa',
