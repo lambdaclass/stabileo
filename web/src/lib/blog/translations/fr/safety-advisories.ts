@@ -56,8 +56,8 @@ const body: PostBody = {
         ],
         [
           "SA-2026-039",
-          "Import Excel et IFC : rectangles et tubes recevaient l’inertie de l’axe faible pour la flexion sur leur hauteur (une console de 20 × 40 quatre fois trop souple)",
-          "Moyenne",
+          "Import Excel et IFC : Iy et Iz des rectangles et des tubes étaient inversés (une console de 20 × 40 quatre fois trop souple, une de 40 × 20 quatre fois trop rigide)",
+          "Élevée",
           "Corrigé dans la prochaine version"
         ],
         [

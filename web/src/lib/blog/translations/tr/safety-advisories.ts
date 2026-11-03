@@ -56,8 +56,8 @@ const body: PostBody = {
         ],
         [
           "SA-2026-039",
-          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitler yükseklik doğrultusundaki eğilme için zayıf eksen ataletini alıyordu (20 × 40 bir konsol 4 kat fazla esnek)",
-          "Orta",
+          "Excel ve IFC içe aktarma: dikdörtgen ve boru kesitlerde Iy ile Iz yer değiştirmişti (20 × 40 bir konsol 4 kat fazla esnek, 40 × 20 bir konsol 4 kat fazla rijit)",
+          "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],
         [

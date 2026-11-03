@@ -53,12 +53,12 @@ describe('an Excel import in PRO', () => {
 });
 
 describe('a rectangle described by b and h (#532)', () => {
-  it('bends about its depth: a 20×40 cantilever deflects PL³/(3E·bh³/12)', () => {
+  it.each([[0.2, 0.4], [0.4, 0.2]])('bends about its depth: a %s × %s cantilever deflects PL³/(3E·bh³/12)', (b, h) => {
     uiStore.analysisMode = 'basic';
     const out = applyWorkbook({
       Nodes: aoa(['id', 'x [m]', 'y [m]', 'z [m]'], [1, 0, '', 0], [2, 3, '', 0]),
       Materials: aoa(['id', 'name', 'E [MPa]', 'nu'], [1, 'H-25', 25000, 0.2]),
-      Sections: aoa(['id', 'name', 'b [m]', 'h [m]'], [1, 'V 20x40', 0.2, 0.4]),
+      Sections: aoa(['id', 'name', 'b [m]', 'h [m]'], [1, 'V', b, h]),
       Members: aoa(['id', 'type', 'nodeI', 'nodeJ', 'material', 'section'], [1, 'frame', 1, 2, 1, 1]),
       Supports: aoa(['node', 'type'], [1, 'fixed']),
     });
@@ -68,7 +68,7 @@ describe('a rectangle described by b and h (#532)', () => {
     const r = modelStore.solve(false);
     if (typeof r === 'string' || !r) throw new Error(String(r));
     const d = r.displacements.find((x) => x.nodeId === tip.id)!;
-    const ei = 25000e3 * (0.2 * 0.4 ** 3) / 12;
+    const ei = 25000e3 * (b * h ** 3) / 12;
     expect(Math.abs(d.uz)).toBeCloseTo((10 * 3 ** 3) / (3 * ei), 9);
   });
 });

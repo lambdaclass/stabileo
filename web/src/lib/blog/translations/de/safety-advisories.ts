@@ -56,8 +56,8 @@ const body: PostBody = {
         ],
         [
           "SA-2026-039",
-          "Excel- und IFC-Import: Rechtecke und Rohre erhielten für die Biegung über ihre Höhe das Trägheitsmoment der schwachen Achse (ein Kragträger 20 × 40 viermal zu weich)",
-          "Mittel",
+          "Excel- und IFC-Import: Iy und Iz von Rechtecken und Rohren vertauscht (ein Kragträger 20 × 40 viermal zu weich, einer 40 × 20 viermal zu steif)",
+          "Hoch",
           "Behoben in der nächsten Version"
         ],
         [
