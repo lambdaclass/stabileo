@@ -70,6 +70,7 @@ const body: PostBody = {
           "SA-2026-029",
           "3D : les poteaux CIRSOC 201 de l'application étaient dimensionnés avec Mz sur la hauteur de la section (36 % d'armatures en moins dans un exemple) ; les vérifications certifiées 3D du moteur lisaient l'effort tranchant latéral Vy comme celui de l'âme",
           "Critique",
+          "Corrigé dans la prochaine version"
         ],
         [
           "SA-2026-030",
