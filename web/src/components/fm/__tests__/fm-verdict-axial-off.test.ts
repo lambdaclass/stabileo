@@ -13,12 +13,12 @@ const portal = (): SolverInput => ({
   loads: [{ type: 'nodal', data: { nodeId: 2, fx: 15, fz: 0, my: 0 } }, { type: 'distributed', data: { elementId: 2, qI: -20, qJ: -20 } }],
 } as unknown as SolverInput);
 
-async function verdicts(rigidOk: boolean | undefined) {
+async function verdicts(rigidOk: boolean | undefined, ok = false) {
   setLocale('en');
   const base = solveForceMethod(portal(), { axial: false });
   expect(base.verification.axialOff).toBe(true);
   expect(base.verification.ok).toBe(false);
-  const r = { ...base, verification: { ...base.verification, rigidOk } };
+  const r = { ...base, verification: { ...base.verification, rigidOk, ok } };
   const { default: Solution } = await import('../FmStepsSolution.svelte');
   const body = render(Solution, { props: { r, step: 9 } }).body;
   const verdict = /<p class="([^"]*)" data-testid="fm-verdict">([\s\S]*?)<\/p>/.exec(body);
@@ -39,6 +39,14 @@ describe('step 9 with the axial term left out', () => {
     expect(v.rigid).toBe(false);
     expect(v.cls).toContain('bad');
     expect(v.cls).not.toContain('fm-axial-off');
+  });
+
+  it('contradicted by the axially rigid reference while the flexible one agrees: still a failed verdict, never green', async () => {
+    const v = await verdicts(false, true);
+    expect(v.rigid).toBe(false);
+    expect(v.cls).toContain('bad');
+    expect(v.cls).not.toContain('fm-axial-off');
+    expect(v.text).toContain('not verified');
   });
 
   it('with no reference to compare: not verified, never a silent pass', async () => {

@@ -3,7 +3,8 @@ import { modelStore } from '../../../store/model.svelte';
 import { planeModel } from '../plane-model';
 import { solveReference } from '../reference';
 import type { MethodContext } from '../registry';
-import { fromSelection, chosenInput, setInfluenceDocInput } from '../methods/influence';
+import { fromSelection, chosenInput, setInfluenceDocInput, methods } from '../methods/influence';
+import type { Block } from '../doc';
 import { supportReaction } from '../../influence/quantities';
 
 beforeEach(() => { modelStore.clear(); });
@@ -81,5 +82,27 @@ describe('the line handed over from the tool holds for the structure it was draw
     expect(again.input.quantity).toBe('M');
     expect(again.input.target).toEqual({ kind: 'section', elementId: f, t: 0.5 });
     setInfluenceDocInput(null);
+  });
+});
+
+describe('the note on a target chosen for the user names the quantity it chose', () => {
+  const noteOf = () => {
+    const input = modelStore.buildSolverInput(false)!;
+    const ctx = { input, pm: planeModel(input), ref: solveReference(input), selection: { members: [], nodes: [] }, options: {} } as MethodContext;
+    const doc = methods[0].build!(ctx);
+    return (doc.intro.find((b) => b.kind === 'note') as Extract<Block, { kind: 'note' }>).text.key;
+  };
+
+  it('a frame: the moment; a truss: the axial force', () => {
+    setInfluenceDocInput(null);
+    const a = modelStore.addNode(0, 0), b = modelStore.addNode(6, 0);
+    modelStore.addElement(a, b);
+    modelStore.addSupport(a, 'pinned'); modelStore.addSupport(b, 'rollerX');
+    expect(noteOf()).toBe('course.influence.doc.defaulted');
+    modelStore.clear();
+    const c = modelStore.addNode(0, 0), d = modelStore.addNode(4, 0), e = modelStore.addNode(2, 2);
+    modelStore.addElement(c, d, 'truss'); modelStore.addElement(c, e, 'truss'); modelStore.addElement(e, d, 'truss');
+    modelStore.addSupport(c, 'pinned'); modelStore.addSupport(d, 'rollerX');
+    expect(noteOf()).toBe('course.influence.doc.defaultedN');
   });
 });

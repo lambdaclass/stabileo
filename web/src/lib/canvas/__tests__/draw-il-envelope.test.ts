@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { drawIlEnvelope } from '../draw-il-envelope';
 import type { AlongEnvelope } from '../../engine/influence/envelope-along';
+import { uiStore } from '../../store';
+import { fmtQ, unitQ } from '../../store/display-units.svelte';
 
 function drawnPoints(env: AlongEnvelope, nodeI: number, nodeJ: number, nodes: Record<number, { x: number; y: number }>): string[] {
   const pts: string[] = [];
@@ -39,5 +41,29 @@ describe('the influence-line envelope band', () => {
     const ys = pts.map((p) => Number(p.split(',')[1]));
     expect(Math.max(...ys)).toBeCloseTo(160, 6);
     expect(Math.min(...ys)).toBeCloseTo(100, 6);
+  });
+});
+
+describe('the envelope labels', () => {
+  const texts = (e: AlongEnvelope) => {
+    const out: string[] = [];
+    const ctx = new Proxy({}, { get: (_, k) => (k === 'fillText' ? (s: string) => out.push(s) : () => {}), set: () => true }) as unknown as CanvasRenderingContext2D;
+    drawIlEnvelope(e, { ctx, worldToScreen: (x, y) => ({ x: 100 + 10 * x, y: 100 - 10 * y }), getNode: (id) => ({ 1: { x: 0, y: 0 }, 2: { x: 8, y: 0 } })[id], getElement: () => ({ nodeI: 1, nodeJ: 2 }) });
+    return out;
+  };
+
+  it('are in the display units with their unit, like the panel', () => {
+    const before = uiStore.unitSystem;
+    try {
+      for (const sys of ['SI', 'MKS', 'Imperial'] as const) {
+        uiStore.unitSystem = sys;
+        expect(texts(env('M', [0, 0, 80, 0, 0], [0, 0, -20, 0, 0]))).toEqual([`${fmtQ(80, 'moment')} ${unitQ('moment')}`, `${fmtQ(-20, 'moment')} ${unitQ('moment')}`]);
+        expect(texts(env('V', [0, 0, 80, 0, 0], [0, 0, -20, 0, 0]))).toEqual([`${fmtQ(80, 'force')} ${unitQ('force')}`, `${fmtQ(-20, 'force')} ${unitQ('force')}`]);
+      }
+      uiStore.unitSystem = 'Imperial';
+      const label = texts(env('M', [0, 0, 80, 0, 0], [0, 0, 0, 0, 0]))[0];
+      expect(label).not.toMatch(/^80\b/);
+      expect(label).not.toContain('kN·m');
+    } finally { uiStore.unitSystem = before; }
   });
 });
