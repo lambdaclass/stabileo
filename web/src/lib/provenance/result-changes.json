@@ -1184,7 +1184,7 @@
       },
       "changelog": {
         "file": "changelog.d/532-aluminium-weak-axis-shear.md",
-        "heading": "Aluminium checks shear along the weak axis"
+        "heading": "Aluminium checks shear along the weak axis (2026-11-03)"
       }
     }
   ]
