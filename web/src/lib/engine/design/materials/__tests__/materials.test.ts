@@ -108,6 +108,16 @@ describe('aluminium', () => {
     expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')).toBeUndefined();
   });
 
+  it('a solid rectangle checks the resultant of its two shears: two components at 0.8·VRd fail together', () => {
+    const s = { kind: 'rect' as const, b: 0.05, h: 0.1, a: 0.005, iy: 4.17e-6, iz: 1.04e-6, j: 1.2e-6 };
+    const vRd = ((2 * s.a) / 3 * 240) / (Math.sqrt(3) * 1.1) * 1000;
+    const rows = aluminiumCheckRows(s, { fo: 240, fu: 260, designation: '6061-T6' }, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0.8 * vRd, vWeak: 0.8 * vRd, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    const shear = rows.find((r) => r.titleKey === 'check.alu.shear')!;
+    expect(shear.demand).toBeCloseTo(Math.hypot(0.8, 0.8) * vRd, 2);
+    expect(shear.status).toBe('fail');
+    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')).toBeUndefined();
+  });
+
   it('a slender I section is class 4 and is not evaluated, a stocky one is', () => {
     const slender = { kind: 'I' as const, b: 0.2, h: 0.3, tw: 0.002, tf: 0.004, a: 0.002, iy: 1e-5, iz: 1e-6, j: 1e-9 };
     expect(sectionClass(slender, 240, 'A').compression).toBe(4);

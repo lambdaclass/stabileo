@@ -132,7 +132,7 @@ export function aluminiumCheckRows(
     if (Nc > 0) keep(row('buckling', 'Flexural buckling', '6.3.1', 'NEd ≤ χ·A·fo/γM1', Nc, NbRd, 'kN', [inp('λ̄y', lamY), inp('λ̄z', lamZ), inp('χ', chiMin), inp('NRd', NcRd, 'kN')], dm));
     if (My > 0) keep(row('bendingStrong', 'Bending, strong axis', '6.3.2', 'MEd ≤ χLT·α·W·fo/γM1', My, MbRd, 'kN·m', [inp('W', wy * 1e6, 'cm³'), inp('χLT', chiLT), ...(Number.isFinite(mcr) ? [inp('Mcr', mcr, 'kN·m')] : [])], dm));
     if (Mz > 0) keep(row('bendingWeak', 'Bending, weak axis', '6.2.5', 'MEd ≤ W·fo/γM1', Mz, MzRd, 'kN·m', [inp('W', wz * 1e6, 'cm³')], dm));
-    const round = s.kind === 'CHS';
+    const round = !((s.kind === 'I' && s.tw && s.tf) || (s.kind === 'RHS' && s.t));
     const V = round ? Math.hypot(dm.vStrong, dm.vWeak) : Math.abs(dm.vStrong);
     if (V > 0) keep(row('shear', 'Shear', '6.2.6', 'VEd ≤ Av·fo/(√3·γM1)', V, VRd, 'kN', [inp('Av', av * 1e4, 'cm²')], dm));
     const Vw = round ? 0 : Math.abs(dm.vWeak);
