@@ -270,7 +270,7 @@ async function publicPaths(): Promise<string[]> {
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
 async function newCapturePage(browser: Browser, stars: number | null) {
-  const page = await newPrerenderPage(() => browser.newPage());
+  const page = await newPrerenderPage(() => browser.newPage({ reducedMotion: 'reduce' }));
   await serveStarCount(page, stars);
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.

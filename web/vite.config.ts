@@ -115,6 +115,7 @@ const PRODUCTION_BUILD_TESTS = [
   // its own for the same reason as the one above: reading a checked-out dist/ let it
   // skip itself into a green on any machine where nobody had built.
   'src/lib/i18n/__tests__/published-urls-resolve.test.ts',
+  'src/lib/utils/__tests__/prerender-reproducible.test.ts',
 ];
 
 
