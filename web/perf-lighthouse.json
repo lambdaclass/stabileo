@@ -15,19 +15,19 @@
   "scores": {
     "mobile": {
       "/es/": {
-        "performance": 93,
-        "accessibility": 95,
-        "best-practices": 100,
-        "seo": 100
-      },
-      "/en/": {
         "performance": 94,
         "accessibility": 95,
         "best-practices": 100,
         "seo": 100
       },
-      "/en/blog/how-stabileo-checks-its-results/": {
+      "/en/": {
         "performance": 95,
+        "accessibility": 95,
+        "best-practices": 100,
+        "seo": 100
+      },
+      "/en/blog/how-stabileo-checks-its-results/": {
+        "performance": 96,
         "accessibility": 89,
         "best-practices": 100,
         "seo": 100
@@ -47,31 +47,31 @@
     },
     "desktop": {
       "/es/": {
-        "performance": 94,
+        "performance": 96,
         "accessibility": 95,
         "best-practices": 100,
         "seo": 100
       },
       "/en/": {
-        "performance": 94,
+        "performance": 96,
         "accessibility": 95,
         "best-practices": 100,
         "seo": 100
       },
       "/en/blog/how-stabileo-checks-its-results/": {
-        "performance": 92,
+        "performance": 94,
         "accessibility": 93,
         "best-practices": 100,
         "seo": 100
       },
       "/app/basic": {
-        "performance": 37,
+        "performance": 38,
         "accessibility": 75,
         "best-practices": 100,
         "seo": 66
       },
       "/app/pro": {
-        "performance": 37,
+        "performance": 38,
         "accessibility": 77,
         "best-practices": 100,
         "seo": 66

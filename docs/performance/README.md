@@ -42,11 +42,13 @@ and preset each, 150 reports in all):
 - Single runs of the performance score have outliers: 78 and 88 among 98s on `/es/` mobile.
   The median of five removed both.
 - The medians of the three runs were never more than 2 points apart (mobile `/app/basic` 60, 59,
-  58; desktop 60, 62, 61). The performance margin is 4 points, twice that.
+  58; desktop 60, 62, 61). On 2026-11-04 they were up to 4 apart (desktop `/en/` 94, 98, 98),
+  so a baseline at the middle of the observed range is never more than 2 from a run. The
+  performance margin is 4 points, twice that.
 - Accessibility, best practices and SEO gave the same median in all three runs on every URL and
   preset. Their margin is 0: any change is a change to the site.
 
-The baseline is the lowest median of the three runs. A median more than the margin below it fails
+The baseline is the middle of the three runs' medians (rounded down). A median more than the margin below it fails
 (`FAIL`, a regression); one more than the margin above it fails too (`RAISE`), so an improvement is
 recorded with `--write` (which only raises) instead of leaving room to slide back unnoticed.
 
@@ -60,5 +62,5 @@ was the first paint (about 2.2 s on mobile); now it is the application header's 
 field, which is larger than anything painted before the application mounts, so LCP now measures
 when the editor appears (about 23 s on simulated mobile). The new number is the honest one for an
 application page. The first of the three runs also had a slower server response (206 against
-123 ms) and gave public-page medians up to 5 points lower than the other two. The baseline is again
-the lowest median of the three runs.
+123 ms) and gave public-page medians up to 4 points lower than the other two. Each baseline is the
+middle of its three medians, so every observed median is within 2 points of it.
