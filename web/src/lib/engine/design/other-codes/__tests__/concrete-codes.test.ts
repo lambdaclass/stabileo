@@ -35,9 +35,9 @@ const BOTH_FACES: ProvidedReinforcement = {
   stirrups: { diameter: 8, legs: 2, spacing: 0.15 },
 };
 
-function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number; pull?: number; fc?: number } = {}) {
+function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number; pull?: number; fc?: number; rho?: number } = {}) {
   modelStore.clear();
-  const mat = modelStore.addMaterial({ name: 'H-25', e: 25_000, nu: 0.2, rho: 25, fy: FC, ...(opts.fc ? { fc: opts.fc } : {}) } as never);
+  const mat = modelStore.addMaterial({ name: 'H-25', e: 25_000, nu: 0.2, rho: opts.rho ?? 25, fy: FC, ...(opts.fc ? { fc: opts.fc } : {}) } as never);
   const sec = modelStore.addSection({ name: '30x50', shape: 'rect', b: B, h: H, a: B * H, iy: B * H ** 3 / 12, iz: H * B ** 3 / 12 } as never);
   const a = modelStore.addNode(0, 0, 0);
   const b = opts.column ? modelStore.addNode(0, 0, 3) : modelStore.addNode(L, 0, 0);
@@ -180,6 +180,15 @@ describe('torsion, which neither checker designs for (#1314)', () => {
 
   it('aci318: under axial tension the threshold falls, so a torque below the unloaded one is not neglected', () => {
     const row = runOtherCode(ACI318, frame({ cantilever: true, torque: 0.9 * neglectable, pull: 100, bars: BOTH_FACES })).rows[0]!;
+    expect(row.status).toBe('checked');
+    if (row.status === 'checked') {
+      expect(row.reading.unevaluated).toContain('otherCodes.check.torsion');
+      expect(row.reading.pass).toBe(false);
+    }
+  });
+
+  it('aci318: a lightweight concrete (λ = 0.75, 19.2.4) neglects only three quarters of the normal-weight torque', () => {
+    const row = runOtherCode(ACI318, frame({ cantilever: true, torque: 0.9 * neglectable, rho: 18, bars: BOTH_FACES })).rows[0]!;
     expect(row.status).toBe('checked');
     if (row.status === 'checked') {
       expect(row.reading.unevaluated).toContain('otherCodes.check.torsion');
