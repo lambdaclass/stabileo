@@ -1,8 +1,51 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 15,
+  "currentResultsVersion": 25,
   "changes": [
+    {
+      "id": "governing-envelope-true-peak",
+      "resultsVersion": 25,
+      "date": "2026-11-04",
+      "prs": [],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "frameMembers"
+          ],
+          [
+            "combinations"
+          ],
+          [
+            "memberLoads"
+          ]
+        ]
+      },
+      "title": {
+        "en": "A member's governing value and the 2D envelope read the diagram's true peak, not the nearest station",
+        "es": "El valor determinante de una barra y la envolvente 2D toman el pico real del diagrama, no la estación más cercana",
+        "pt": "O valor determinante de uma barra e a envoltória 2D tomam o pico real do diagrama, não a estação mais próxima",
+        "de": "Der maßgebende Wert eines Stabs und die 2D-Umhüllende lesen die wahre Spitze des Verlaufs, nicht die nächste Station",
+        "fr": "La valeur déterminante d'une barre et l'enveloppe 2D lisent le vrai pic du diagramme, pas la station la plus proche",
+        "tr": "Bir çubuğun belirleyici değeri ve 2B zarf, diyagramın en yakın istasyonunu değil gerçek tepe değerini okuyor"
+      },
+      "explanation": {
+        "en": "In plane models with combinations and loads along members, the governing moment, shear or axial force of a member and the envelope were read at 21 stations along it. A peak between two stations was read low: by 0.23 % under a triangular load and by 1.05 % under a short partial load, and a combination that peaked between stations could lose the governing title to one that did not. Both now take the true peak: both sides of every point load and the stationary points of the diagram between load discontinuities. Governing values and envelope peaks can rise; they never fall.",
+        "es": "En modelos planos con combinaciones y cargas sobre las barras, el momento, el corte o el axil determinante de una barra y la envolvente se leían en 21 estaciones a lo largo de ella. Un pico entre dos estaciones se leía bajo: un 0,23 % con una carga triangular y un 1,05 % con una carga parcial corta, y una combinación cuyo pico caía entre estaciones podía perder el carácter de determinante frente a otra. Ahora ambos toman el pico real: los dos lados de cada carga puntual y los puntos estacionarios del diagrama entre discontinuidades de carga. Los valores determinantes y los picos de la envolvente pueden subir; nunca bajan.",
+        "pt": "Em modelos planos com combinações e cargas ao longo das barras, o momento, o cortante ou o esforço normal determinante de uma barra e a envoltória eram lidos em 21 estações ao longo dela. Um pico entre duas estações era lido abaixo: 0,23 % com uma carga triangular e 1,05 % com uma carga parcial curta, e uma combinação cujo pico caía entre estações podia perder o posto de determinante para outra. Agora ambos tomam o pico real: os dois lados de cada carga pontual e os pontos estacionários do diagrama entre descontinuidades de carga. Os valores determinantes e os picos da envoltória podem subir; nunca descem.",
+        "de": "In ebenen Modellen mit Kombinationen und Lasten auf den Stäben wurden das maßgebende Moment, die Querkraft oder die Normalkraft eines Stabs und die Umhüllende an 21 Stationen entlang des Stabs gelesen. Eine Spitze zwischen zwei Stationen wurde zu niedrig gelesen: um 0,23 % unter einer Dreieckslast und um 1,05 % unter einer kurzen Teillast, und eine Kombination mit ihrer Spitze zwischen Stationen konnte die Maßgeblichkeit an eine andere verlieren. Beide nehmen jetzt die wahre Spitze: beide Seiten jeder Einzellast und die stationären Punkte des Verlaufs zwischen Lastsprüngen. Maßgebende Werte und Spitzen der Umhüllenden können steigen, nie fallen.",
+        "fr": "Dans les modèles plans avec combinaisons et charges sur les barres, le moment, l'effort tranchant ou l'effort normal déterminant d'une barre et l'enveloppe étaient lus en 21 stations le long de la barre. Un pic entre deux stations était lu trop bas : de 0,23 % sous une charge triangulaire et de 1,05 % sous une charge partielle courte, et une combinaison dont le pic tombait entre deux stations pouvait perdre le statut de déterminante au profit d'une autre. Les deux prennent maintenant le vrai pic : les deux côtés de chaque charge ponctuelle et les points stationnaires du diagramme entre les discontinuités de charge. Les valeurs déterminantes et les pics de l'enveloppe peuvent augmenter ; ils ne baissent jamais.",
+        "tr": "Kombinasyonlu ve çubuk üzerinde yük bulunan düzlem modellerde, bir çubuğun belirleyici momenti, kesme kuvveti veya eksenel kuvveti ile zarf, çubuk boyunca 21 istasyonda okunuyordu. İki istasyon arasındaki bir tepe düşük okunuyordu: üçgen yükte %0,23, kısa bir kısmi yükte %1,05; tepesi istasyonlar arasına düşen bir kombinasyon belirleyici olma niteliğini başka birine kaptırabiliyordu. Artık ikisi de gerçek tepeyi alıyor: her tekil yükün iki yanı ve yük süreksizlikleri arasındaki diyagramın durağan noktaları. Belirleyici değerler ve zarf tepeleri artabilir, asla azalmaz."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-governing-true-peak.md",
+        "heading": "Governing value and 2D envelope at the true peak"
+      }
+    },
     {
       "id": "basic-plastic-unloading-hinges-withdrawn",
       "resultsVersion": 15,
