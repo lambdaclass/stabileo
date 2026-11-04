@@ -54,7 +54,7 @@ export const termsPage: StandingPage = {
       faq: [],
     },
     en: {
-      title: 'Stabileo Terms of Use',
+      title: 'The Stabileo Terms of Use',
       description: 'The conditions for using Stabileo: who provides the service, professional responsibility for results, your account and your projects.',
       eyebrow: 'Legal',
       lead: 'These terms govern the use of Stabileo, the structural analysis application that Stabileo SAS provides at stabileo.com. They apply from October 27, 2026. You accept them when you create an account, and if they change we ask you to accept them again before you keep using it.',
