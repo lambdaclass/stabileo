@@ -2,7 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildStamp, envStamp } from '../../../../scripts/build-stamp.mjs';
+import { buildStamp, envStamp, sealOf } from '../../../../scripts/build-stamp.mjs';
 import { sharedBuild } from './shared-build';
 
 const VARIABLE = 'STABILEO_SHARED_BUILD_UNDER_TEST';
@@ -19,15 +19,29 @@ it('is null when no shared build is named, so the test builds its own', () => {
 });
 
 it('returns a build stamped from this exact tree', () => {
-  writeFileSync(`${dir}.source-stamp`, `${buildStamp()}\n`);
+  writeFileSync(join(dir, 'index.html'), '<p>production</p>');
+  writeFileSync(`${dir}.source-stamp`, `${sealOf(dir, buildStamp())}\n`);
   process.env[VARIABLE] = dir;
+  expect(sharedBuild(VARIABLE)).toBe(dir);
+});
+
+it('refuses a build whose files changed after it was stamped, such as a rebuild over it', () => {
+  writeFileSync(join(dir, 'index.html'), '<p>production</p>');
+  writeFileSync(`${dir}.source-stamp`, `${sealOf(dir, buildStamp())}\n`);
+  writeFileSync(join(dir, 'index.html'), '<p>e2e</p>');
+  process.env[VARIABLE] = dir;
+  expect(() => sharedBuild(VARIABLE)).toThrow(/changed since/);
+  writeFileSync(join(dir, 'index.html'), '<p>production</p>');
+  writeFileSync(join(dir, 'extra.js'), '');
+  expect(() => sharedBuild(VARIABLE)).toThrow(/changed since/);
+  rmSync(join(dir, 'extra.js'));
   expect(sharedBuild(VARIABLE)).toBe(dir);
 });
 
 it('refuses a build made from other sources instead of testing it', () => {
   writeFileSync(`${dir}.source-stamp`, `${'0'.repeat(64)}\n`);
   process.env[VARIABLE] = dir;
-  expect(() => sharedBuild(VARIABLE)).toThrow(/built from other sources/);
+  expect(() => sharedBuild(VARIABLE)).toThrow(/built from other sources or changed since/);
 });
 
 it('refuses a named build that is missing or has no stamp', () => {

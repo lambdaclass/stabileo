@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -46,4 +46,22 @@ export function buildStamp(env = process.env) {
   return `sources=${sourceStamp()} env=${env.STABILEO_BUILD_ENV_STAMP ?? envStamp(env)}`;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) console.log(process.argv[2] === '--env' ? envStamp() : buildStamp());
+export function outputDigest(dir) {
+  const hash = createHash('sha256');
+  for (const path of walk(dir).map((file) => join(REPO_ROOT, file)).sort()) {
+    hash.update(`${relative(dir, path)}\0${createHash('sha256').update(readFileSync(path)).digest('hex')}\0`);
+  }
+  return hash.digest('hex');
+}
+
+/** What a build directory's `.source-stamp` must hold: the sources it was built from and the files it holds now. */
+export function sealOf(dir, stamp) {
+  return `${stamp} output=${outputDigest(dir)}`;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [mode, dir, stamp] = process.argv.slice(2);
+  if (mode === '--env') console.log(envStamp());
+  else if (mode === '--seal') writeFileSync(`${resolve(dir)}.source-stamp`, `${sealOf(resolve(dir), stamp)}\n`);
+  else console.log(buildStamp());
+}
