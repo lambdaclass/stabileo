@@ -326,6 +326,30 @@ describe('a floor beam holds a column top only when its far end is held up', () 
     expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5, izz: 1 }], false)).toBe('turningFloor');
     expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], true)).toBe('turningFloor');
   });
+  it('an overhang hung from a column top released to it turns all the same: its loads and vertical masses are refused', () => {
+    const rel = { my: false, mz: true, t: false };
+    const hung = (extra: (beam: number, tip: number) => void) => build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3), c = modelStore.addNode(2, 3);
+      modelStore.updateElement(modelStore.addElement(a, b), { releaseJ: rel } as never);
+      const beam = modelStore.addElement(b, c);
+      modelStore.addSupport(a, 'fixed');
+      extra(beam, c);
+    });
+    hung(() => {});
+    expect(typeof shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('object');
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], true)).toBe('turningFloor');
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 3, m: 1 }], false)).toBe('turningFloor');
+    hung((beam) => { modelStore.addDistributedLoad(beam, -10, -10); });
+    expect(shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }], false)).toBe('turningFloor');
+  });
+  it('rotary inertia at a fixed base cannot move, and is not refused', () => {
+    build(() => {
+      const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3);
+      modelStore.addElement(a, b);
+      modelStore.addSupport(a, 'fixed');
+    });
+    expect(typeof shearBuilding(modelStore.model, [{ nodeId: 2, m: 5 }, { nodeId: 1, m: 0, izz: 3 }], false)).toBe('object');
+  });
   it('a free-standing column takes no couple or rotary inertia at its top', () => {
     build(() => {
       const a = modelStore.addNode(0, 0), b = modelStore.addNode(0, 3);
