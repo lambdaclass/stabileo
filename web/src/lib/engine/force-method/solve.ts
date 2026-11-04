@@ -1,200 +1,59 @@
 /**
  * The force (flexibility) method, step by step, for 2D frames and trusses.
  *
- * ── What it computes, in the order a student writes it ─────────────
- *
- *   1. GH, by counting unknowns against equations
- *   2. GH redundants X₁…Xₙ, and the primary structure they leave
+ *   1. GH, the classic count (static-degree.ts)
+ *   2. GH redundants X₁…Xₙ, chosen by the method or by the reader, and the
+ *      primary structure they leave
  *   3. state 0: the primary under the real loads → M₀, N₀, reactions
  *   4. state i: the primary under Xᵢ = 1 alone → mᵢ, nᵢ, reactions
- *   5. δᵢⱼ = Σ ∫ mᵢ·mⱼ/EI + nᵢ·nⱼ/EA dx (+ springs, + a removed bar's own L/EA)
- *   6. δᵢ₀ = Σ ∫ mᵢ·M₀/EI + nᵢ·N₀/EA dx (+ temperature, + settlements)
+ *   5. δᵢⱼ = Σ ∫ mᵢ·mⱼ/EI + nᵢ·nⱼ/EA dx + Σ R̄ᵢ·R̄ⱼ/k (+ a removed biela's own L/EA, a released spring's 1/k)
+ *   6. δᵢ₀ = Σ ∫ mᵢ·M₀/EI + nᵢ·N₀/EA dx + Σ R̄ᵢ·R₀/k (+ temperature, − settlements)
  *   7. compatibility [δ]{X} = {Δ} − {δ₀}, solved for X
  *   8. superposition: M = M₀ + Σ Xᵢ·mᵢ, and the same for N and reactions
  *   9. the answer against the stiffness method's
  *
- * ── Two independent routes to every flexibility coefficient ────────
- *
- * Steps 5 and 6 are done the textbook way, by Mohr's integrals over the
- * diagrams. The primary structure is ALSO solved for its displacements, and
- * δᵢⱼ is by definition the displacement at redundant i under Xⱼ = 1 — so each
- * coefficient is computed twice, by different arithmetic, and the two must
- * agree. `deltaCheck` carries the second route, and the tests hold them
- * together. Step 9 then checks the whole answer against the stiffness method
- * on the original structure.
- *
- * Each state is solved with `solveDetailed`, the wizard's own stiffness solver,
- * which is pinned against the analysis solver by differential tests. Nothing
- * here touches the analysis solver.
+ * Every coefficient is computed twice: by Mohr's integrals, and as the
+ * displacement of the primary at redundant i (`deltaCheck`). The two must
+ * agree; the tests hold them together.
  */
-import type { SolverInput, SolverLoad } from '../types';
-import { solveDetailed, type DSMStepData } from '../solver-detailed';
-import { loadAlpha, loadDepth } from '../thermal-alpha';
-import {
-  countIndeterminacy, candidates, buildPrimary, restrainedComponents, removedBarEnds,
-  type Redundant,
-} from './primary';
-import {
-  barLoadsOf, axialLoadsOnly, internalAt, breakpoints, integrate, sampleDiagram, NO_LOADS, solveSystem, type BarLoads,
-} from './internal';
-import type { BarState, StateResult, TermRow, Geometry, ForceMethodResult } from './result-types';
+import type { SolverInput } from '../types';
+import { solveDetailed } from '../solver-detailed';
+import { countIndeterminacy, candidates, buildPrimary, removedBarEnds, type Redundant } from './primary';
+import { barLoadsOf, axialLoadsOnly, NO_LOADS, solveSystem } from './internal';
+import type { BarState, StateResult, TermRow, ForceMethodResult } from './result-types';
 import { chooseRedundants, restraintCarries, fallbackBudget, FM_MAX_GH } from './redundants';
+import { ForceMethodError } from './errors';
+import { redundantsFromKeys, checkCount, checkOrphans, orphanRotations, isBiela, releaseOptions } from './releases';
+import { unitPattern, patternLoads, generalised, type PatternItem } from './patterns';
+import { solveState, stateOf, barState, geometryOf, lenOf, movingNodes, type Solved } from './state';
+import { mohr, selfTerm, loadExtras, type Bar } from './coefficients';
+import { axialKept, undetermined } from './terms';
+import { ghReport } from '../static-degree';
 
 export type { Redundant, IndeterminacyCount } from './primary';
 export type { BarState, StateResult, TermRow, Geometry, ForceMethodResult } from './result-types';
 export { numbered, chooseRedundants, restraintCarries, FM_MAX_GH, fallbackBudget } from './redundants';
 export { solveSystem } from './internal';
+export { ForceMethodError } from './errors';
 
-// ─── Small helpers ──────────────────────────────────────────────
-
-function geometryOf(input: SolverInput): Geometry {
-  return {
-    nodes: [...input.nodes.values()].map((n) => ({ id: n.id, x: n.x, z: n.z })),
-    elements: [...input.elements.values()].map((e) => ({
-      id: e.id, nodeI: e.nodeI, nodeJ: e.nodeJ, type: e.type, hingeStart: !!e.hingeStart, hingeEnd: !!e.hingeEnd,
-    })),
-    supports: [...input.supports.values()].map((s) => ({
-      nodeId: s.nodeId, restrained: restrainedComponents(s), spring: s.type === 'spring',
-      angle: s.type === 'inclinedRoller' ? s.angle ?? 0 : undefined,
-    })),
-  };
+export interface ForceMethodOptions {
+  /** The releases the reader chose, as keys (`releases.ts`); absent, the method chooses them. */
+  releases?: string[];
+  /** Frame members' axial term in the coefficients; bielas keep theirs. Default on. */
+  axial?: boolean;
 }
-
-const lenOf = (input: SolverInput, nodeI: number, nodeJ: number) => {
-  const a = input.nodes.get(nodeI)!;
-  const b = input.nodes.get(nodeJ)!;
-  return Math.hypot(b.x - a.x, b.z - a.z);
-};
-const dirOf = (input: SolverInput, nodeI: number, nodeJ: number) => {
-  const a = input.nodes.get(nodeI)!;
-  const b = input.nodes.get(nodeJ)!;
-  const L = Math.hypot(b.x - a.x, b.z - a.z);
-  return { c: (b.x - a.x) / L, s: (b.z - a.z) / L };
-};
-
-/** A solved state of the primary, with what the method needs from it. */
-interface Solved {
-  data: DSMStepData;
-  input: SolverInput;
-  /** Global displacement (ux, uz, θ) of a node. */
-  disp: (nodeId: number) => [number, number, number];
-  /** Local end forces [Ni, Vi, Mi, Nj, Vj, Mj] of a bar (trusses padded). */
-  forces: (elementId: number) => number[] | null;
-  reactions: Array<{ nodeId: number; component: number; value: number }>;
-}
-
-function solveState(input: SolverInput): Solved {
-  const data = solveDetailed(input);
-  /*
-   * The force method needs a structure that stands on its own: a mechanism
-   * the loads happen not to excite is still a mechanism, and a primary
-   * structure with one is not a primary structure.
-   */
-  if (data.nullModes.length > 0) throw new ForceMethodError('unstable', data.nullModes);
-  const frames = new Map(data.nodeFrames.map((f) => [f.nodeId, f.angle]));
-  const dof = new Map<string, number>();
-  for (const d of data.dofNumbering.dofs) dof.set(`${d.nodeId}:${d.localDof}`, d.globalIndex);
-  const val = (nodeId: number, ld: number) => {
-    const g = dof.get(`${nodeId}:${ld}`);
-    return g === undefined ? 0 : data.uAll[g];
-  };
-  const disp = (nodeId: number): [number, number, number] => {
-    const a = val(nodeId, 0);
-    const b = val(nodeId, 1);
-    const ang = frames.get(nodeId);
-    if (ang === undefined) return [a, b, val(nodeId, 2)];
-    const c = Math.cos(ang), s = Math.sin(ang);
-    return [c * a - s * b, s * a + c * b, val(nodeId, 2)];
-  };
-  const byElem = new Map(data.elementForces.map((f) => [f.elementId, f.fLocalFinal]));
-  const forces = (elementId: number) => {
-    const f = byElem.get(elementId);
-    if (!f) return null;
-    return f.length === 6 ? f : [f[0], 0, 0, f[2], 0, 0];
-  };
-  const reactions = data.dofNumbering.dofs
-    .filter((d) => !d.isFree)
-    .map((d) => ({ nodeId: d.nodeId, component: d.localDof, value: data.reactionsRaw[d.globalIndex - data.dofNumbering.nFree] }));
-  return { data, input, disp, forces, reactions };
-}
-
-// ─── Unit loads and the displacement each redundant "sees" ──────
-
-/** The load pattern of Xᵢ = 1, and the direction it measures displacement in. */
-function unitPattern(
-  original: SolverInput, primary: SolverInput, r: Redundant, cutNode: Map<number, number>,
-): Array<{ nodeId: number; fx: number; fz: number; my: number }> {
-  if (r.kind === 'reaction') {
-    const sup = [...original.supports.values()].find((s) => s.nodeId === r.nodeId)!;
-    if (sup.type === 'inclinedRoller' && r.component === 1) {
-      /* The analysis solver's normal: (sin α, cos α). */
-      const a = sup.angle ?? 0;
-      return [{ nodeId: r.nodeId, fx: Math.sin(a), fz: Math.cos(a), my: 0 }];
-    }
-    return [{
-      nodeId: r.nodeId, fx: r.component === 0 ? 1 : 0, fz: r.component === 1 ? 1 : 0, my: r.component === 2 ? 1 : 0,
-    }];
-  }
-  if (r.kind === 'barForce') {
-    const e = original.elements.get(r.elementId!)!;
-    const { c, s } = dirOf(original, e.nodeI, e.nodeJ);
-    /* Tension pulls each end toward the other. */
-    return [
-      { nodeId: e.nodeI, fx: c, fz: s, my: 0 },
-      { nodeId: e.nodeJ, fx: -c, fz: -s, my: 0 },
-    ];
-  }
-  /*
-   * A cut: equal and opposite on the two faces. On the member's face the pair
-   * is the internal force it stands for, in the app's convention —
-   * at end J the member feels (N, −V, −M), at end I (−N, V, M).
-   */
-  const e = original.elements.get(r.elementId!)!;
-  const { c, s } = dirOf(original, e.nodeI, e.nodeJ);
-  const sign = r.end === 'J' ? 1 : -1;
-  const px = r.kind === 'cutN' ? sign : 0;
-  const py = r.kind === 'cutV' ? -sign : 0;
-  const pm = r.kind === 'cutM' ? -sign : 0;
-  const fx = px * c - py * s;
-  const fz = px * s + py * c;
-  const member = cutNode.get(e.id)!;
-  void primary;
-  return [
-    { nodeId: member, fx, fz, my: pm },
-    { nodeId: r.nodeId, fx: -fx, fz: -fz, my: -pm },
-  ];
-}
-
-/** Work-conjugate displacement of a load pattern: Σ P·u. */
-function generalised(state: Solved, pattern: Array<{ nodeId: number; fx: number; fz: number; my: number }>): number {
-  let s = 0;
-  for (const p of pattern) {
-    const [u, w, th] = state.disp(p.nodeId);
-    s += p.fx * u + p.fz * w + p.my * th;
-  }
-  return s;
-}
-
-// ─── Choosing the redundants ────────────────────────────────────
 
 /*
- * ── Released one at a time, as it is done by hand ─────────────────
- *
- * Each candidate, in order of preference, is released only if the structure
- * is still stable without it — so the structure stays solvable at every
- * step, and the choice ends when GH forces are out. That is the procedure a
- * student follows, and it is linear in the number of candidates.
- *
- * Checking only complete sets instead, as the first version did, explored
- * combinations of supports that had already let the structure float: on the
- * three-bay, two-storey example (GH = 18) it ran out of attempts without an
- * answer. An exhaustive search remains as the fallback for the rare case the
- * greedy order paints itself into a corner (a count it cannot land on
- * exactly).
+ * Released one at a time with a stability check at each, as it is done by
+ * hand, with an exhaustive search behind it for the rare case the greedy order
+ * cannot land on exactly GH. A release that leaves a node's rotation held by
+ * nothing does not show as unstable (the solver gives that rotation a
+ * vanishing spring), so it is checked apart.
  */
-function isStable(input: SolverInput, rs: Redundant[]): boolean {
+function isStable(input: SolverInput, rs: Redundant[], orphansBefore: Set<number>): boolean {
   try {
     const { input: p } = buildPrimary(input, rs, input.loads, { keepPrescribed: true, keepThermal: true });
+    for (const n of orphanRotations(p)) if (!orphansBefore.has(n) && input.nodes.has(n)) return false;
     const d = solveDetailed(p);
     return d.nullModes.length === 0 && d.uAll.every(Number.isFinite);
   } catch { return false; }
@@ -208,27 +67,37 @@ function choose(input: SolverInput, gh: number): Redundant[] | null {
     carries = restraintCarries(d);
     nFree = d.dofNumbering.nFree;
   } catch { /* the stability checks will say */ }
-  return chooseRedundants(candidates(input, carries), gh, (rs) => isStable(input, rs), fallbackBudget(nFree));
+  const before = orphanRotations(input);
+  return chooseRedundants(candidates(input, carries), gh, (rs) => isStable(input, rs, before), fallbackBudget(nFree));
 }
 
-// ─── The method ─────────────────────────────────────────────────
-
-export class ForceMethodError extends Error {
-  /** `dofs`: for an unstable structure, the DOFs its mechanism moves; `gh` when it is too hyperstatic. */
-  constructor(
-    public key: 'hypostatic' | 'noRedundants' | 'unstable' | 'tooHyperstatic',
-    public dofs: string[] = [], public gh = 0,
-  ) { super(key); }
+/** The reader's releases, checked before anything is solved on them. */
+function chosen(input: SolverInput, keys: string[], gh: number): Redundant[] {
+  const rs = redundantsFromKeys(input, keys);
+  checkCount(rs, gh);
+  const { input: p } = buildPrimary(input, rs, [], { keepPrescribed: false, keepThermal: false });
+  checkOrphans(input, p);
+  const d = solveDetailed(p);
+  if (d.nullModes.length > 0) {
+    const ids = new Set(input.nodes.keys());
+    throw new ForceMethodError('unstable', d.nullModes, gh, { nodes: movingNodes(d).filter((n) => ids.has(n)) });
+  }
+  return rs;
 }
 
-export function solveForceMethod(input: SolverInput): ForceMethodResult {
+const sum = (rows: TermRow[]) => rows.reduce((s, r) => s + r.value, 0);
+
+export function solveForceMethod(input: SolverInput, opts: ForceMethodOptions = {}): ForceMethodResult {
   const count = countIndeterminacy(input);
+  const withAxial = opts.axial ?? true;
+  const manual = opts.releases !== undefined;
   if (count.gh < 0) throw new ForceMethodError('hypostatic');
   if (count.gh > FM_MAX_GH) throw new ForceMethodError('tooHyperstatic', [], count.gh);
 
   const original = geometryOf(input);
+  const gh = ghReport(input, 0, { split: true });
   if (count.gh === 0) {
-    /* Isostatic: there is nothing to release, and equilibrium alone answers. */
+    if (manual && opts.releases!.length > 0) throw new ForceMethodError('count', [], 0, { chosen: opts.releases!.length });
     let s0: Solved;
     try { s0 = solveState(input); } catch (e) {
       throw e instanceof ForceMethodError ? e : new ForceMethodError('unstable');
@@ -239,173 +108,69 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
       states: [st], delta: [], delta0: [], prescribed: [], deltaTerms: [], delta0Terms: [],
       deltaCheck: [], delta0Check: [], X: [], final: st,
       verification: { maxForceDiff: 0, maxReactionDiff: 0, scale: 1, ok: true },
-      stiffness: st,
+      stiffness: st, axial: withAxial, axialKept: [], choice: manual ? 'manual' : 'auto', gh, releaseOptions: releaseOptions(input),
     };
   }
 
-  const redundants = choose(input, count.gh);
+  const redundants = manual ? chosen(input, opts.releases!, count.gh) : choose(input, count.gh);
   if (!redundants) throw new ForceMethodError('noRedundants');
-  const n = redundants.length;
 
-  /* State 0: the real loads, settlements of the supports still there, temperature. */
   const p0 = buildPrimary(input, redundants, input.loads, { keepPrescribed: true, keepThermal: true });
   const s0 = solveState(p0.input);
 
-  /* States 1…n: Xᵢ = 1 alone. */
-  const patterns = redundants.map((r) => unitPattern(input, p0.input, r, p0.cutNode));
+  const patterns: PatternItem[][] = redundants.map((r) => unitPattern(input, r, p0.cutNode));
   const unit = patterns.map((pat) => {
-    const loads: SolverLoad[] = pat.map((p) => ({ type: 'nodal', data: { nodeId: p.nodeId, fx: p.fx, fz: p.fz, my: p.my } }));
-    return solveState(buildPrimary(input, redundants, loads, { keepPrescribed: false, keepThermal: false }).input);
+    const prim = buildPrimary(input, redundants, [], { keepPrescribed: false, keepThermal: false }).input;
+    return solveState({ ...prim, loads: patternLoads(prim, pat) }, pat);
   });
 
-  /* The bars that exist in the primary, with their stiffnesses and loads. */
-  const bars = [...p0.input.elements.values()].map((e) => {
+  const bars: Bar[] = [...p0.input.elements.values()].map((e) => {
     const mat = input.materials.get(e.materialId)!;
     const sec = input.sections.get(e.sectionId)!;
     const L = lenOf(p0.input, e.nodeI, e.nodeJ);
     return {
-      e, L, EI: mat.e * 1000 * sec.iz, EA: mat.e * 1000 * sec.a, sec, mat,
+      e, L, EI: mat.e * 1000 * sec.iz, EA: mat.e * 1000 * sec.a, biela: isBiela(input, e.id),
       loads: e.type === 'frame' ? barLoadsOf(p0.input, e.id, L) : axialLoadsOnly(barLoadsOf(p0.input, e.id, L)),
     };
   });
-  const endAt = (f: number[]) => ({ N: f[0], V: f[1], M: f[2] });
-
-  /** Σ ∫ over the bars of the product of two states' diagrams. */
-  const mohr = (a: Solved, la: (id: number) => BarLoads, b: Solved, lb: (id: number) => BarLoads): TermRow[] => {
-    const rows: TermRow[] = [];
-    for (const bar of bars) {
-      const fa = a.forces(bar.e.id);
-      const fb = b.forces(bar.e.id);
-      if (!fa || !fb) continue;
-      const A = la(bar.e.id);
-      const B = lb(bar.e.id);
-      const pts = breakpoints(bar.L, A, B);
-      const ia = (x: number) => internalAt(endAt(fa), A, x);
-      const ib = (x: number) => internalAt(endAt(fb), B, x);
-      if (bar.e.type === 'truss') {
-        /* Constant along the bar unless a load acts along it. */
-        rows.push({ elementId: bar.e.id, source: 'axial', value: integrate(pts, (x) => ia(x).n * ib(x).n) / bar.EA });
-        continue;
-      }
-      rows.push({ elementId: bar.e.id, source: 'bending', value: integrate(pts, (x) => ia(x).m * ib(x).m) / bar.EI });
-      rows.push({ elementId: bar.e.id, source: 'axial', value: integrate(pts, (x) => ia(x).n * ib(x).n) / bar.EA });
-    }
-    /* Springs store energy too: uᵢᵀ·K·uⱼ at each spring. */
-    for (const sup of p0.input.supports.values()) {
-      if (sup.type !== 'spring') continue;
-      const [ua, wa, ta] = a.disp(sup.nodeId);
-      const [ub, wb, tb] = b.disp(sup.nodeId);
-      const ang = sup.angle ?? 0;
-      const c = Math.cos(ang), s = Math.sin(ang);
-      const kx = sup.kx ?? 0, ky = sup.ky ?? 0;
-      const kxx = kx * c * c + ky * s * s;
-      const kzz = kx * s * s + ky * c * c;
-      const kxz = (kx - ky) * c * s;
-      const v = ua * (kxx * ub + kxz * wb) + wa * (kxz * ub + kzz * wb) + (sup.kz ?? 0) * ta * tb;
-      rows.push({ elementId: null, source: 'spring', value: v });
-    }
-    return rows;
-  };
   const none = () => NO_LOADS;
   const realLoads = (id: number) => bars.find((b) => b.e.id === id)?.loads ?? NO_LOADS;
-  const sum = (rows: TermRow[]) => rows.reduce((s, r) => s + r.value, 0);
+  const biela = new Set(bars.filter((b) => b.biela).map((b) => b.e.id));
+  const droppable = (row: TermRow) => row.source === 'axial' && row.elementId !== null && !biela.has(row.elementId);
 
-  const deltaTerms: TermRow[][][] = [];
-  const delta: number[][] = [];
-  for (let i = 0; i < n; i++) {
-    deltaTerms.push([]);
-    delta.push([]);
-    for (let j = 0; j < n; j++) {
-      const rows = mohr(unit[i], none, unit[j], none);
-      const ri = redundants[i];
-      if (i === j && ri.kind === 'barForce') {
-        /* The removed bar stretches under its own unit force: L/EA. */
-        const e = input.elements.get(ri.elementId!)!;
-        const sec = input.sections.get(e.sectionId)!;
-        const mat = input.materials.get(e.materialId)!;
-        rows.push({ elementId: e.id, source: 'bar', value: lenOf(input, e.nodeI, e.nodeJ) / (mat.e * 1000 * sec.a) });
-      }
-      deltaTerms[i].push(rows);
-      delta[i].push(sum(rows));
-    }
-  }
+  const fullTerms: TermRow[][][] = redundants.map((ri, i) => redundants.map((_, j) => {
+    const rows = mohr(bars, p0.input, unit[i], none, unit[j], none);
+    const own = i === j ? selfTerm(input, ri) : null;
+    return own ? [...rows, own] : rows;
+  }));
+  const full = fullTerms.map((r) => r.map(sum));
+  const full0Terms = redundants.map((r, i) => [...mohr(bars, p0.input, unit[i], none, s0, realLoads), ...loadExtras(input, p0.input, bars, unit[i], r)]);
 
-  /* The free thermal strain α·ΔT and curvature α·ΔTg/h of a bar, each load with its own α and
-     depth as the analysis reads them (`thermal-alpha.ts`). */
-  const thermalOf = (elementId: number) => {
-    let epsU = 0, kapG = 0;
-    const e = input.elements.get(elementId);
-    const sec = e && input.sections.get(e.sectionId);
-    for (const l of input.loads) {
-      if (l.type === 'thermal' && l.data.elementId === elementId) {
-        const alpha = loadAlpha(l.data);
-        epsU += alpha * l.data.dtUniform;
-        if (l.data.dtGradient && sec) kapG += (alpha * l.data.dtGradient) / loadDepth(l.data.depth, sec.a, sec.iz);
-      }
-    }
-    return { epsU, kapG };
-  };
+  const kept = withAxial ? new Set<number>() : axialKept(fullTerms, full, droppable);
+  const keep = (i: number, j?: number) => withAxial || kept.has(i) || (j !== undefined && kept.has(j));
+  const deltaTerms = fullTerms.map((r, i) => r.map((rows, j) => (keep(i, j) ? rows : rows.filter((q) => !droppable(q)))));
+  const delta0Terms = full0Terms.map((rows, i) => (keep(i) ? rows : rows.filter((q) => !droppable(q))));
+  const delta = deltaTerms.map((r) => r.map(sum));
+  const delta0 = delta0Terms.map(sum);
 
-  const delta0Terms: TermRow[][] = [];
-  const delta0: number[] = [];
-  for (let i = 0; i < n; i++) {
-    const rows = mohr(unit[i], none, s0, realLoads);
-    /* Temperature: the unit state's forces working through the free thermal strains. */
-    for (const bar of bars) {
-      const { epsU, kapG } = thermalOf(bar.e.id);
-      if (!epsU && !kapG) continue;
-      const f = unit[i].forces(bar.e.id)!;
-      let v = 0;
-      if (epsU) v += (-f[0]) * epsU * bar.L;
-      if (kapG && bar.e.type === 'frame') {
-        /* A hotter top face curves the bar so that, in the diagrams' sign, it
-           works against a positive m — hence the minus. Pinned by the test
-           that reads δᵢ₀ both ways on a heated fixed-fixed beam. */
-        const kappa = -kapG;
-        v += integrate([0, bar.L], (x) => internalAt(endAt(f), NO_LOADS, x).m) * kappa;
-      }
-      rows.push({ elementId: bar.e.id, source: 'thermal', value: v });
-    }
-    const ri = redundants[i];
-    if (ri.kind === 'barForce') {
-      const { epsU } = thermalOf(ri.elementId!);
-      if (epsU) {
-        const e = input.elements.get(ri.elementId!)!;
-        rows.push({ elementId: e.id, source: 'thermal', value: epsU * lenOf(input, e.nodeI, e.nodeJ) });
-      }
-    }
-    /* Settlements of the supports that stayed: −Σ Rₖ⁽ⁱ⁾·Δₖ. */
-    let settle = 0;
-    for (const sup of p0.input.supports.values()) {
-      if (sup.type === 'spring') continue;
-      const presc = [sup.dx, sup.dz, sup.dry];
-      presc.forEach((d, c) => {
-        if (!d) return;
-        const R = unit[i].reactions.find((r) => r.nodeId === sup.nodeId && r.component === c);
-        if (R) settle -= R.value * d;
-      });
-    }
-    if (settle) rows.push({ elementId: null, source: 'settlement', value: settle });
-    delta0Terms.push(rows);
-    delta0.push(sum(rows));
-  }
+  const free = undetermined(delta);
+  if (free.length > 0) throw new ForceMethodError('singular', [], count.gh, { which: free.map((k) => k + 1).sort((a, b) => a - b) });
 
-  /* The second route: displacements of the primary. */
-  const deltaCheck = redundants.map((ri, i) => redundants.map((_, j) => {
-    let v = generalised(unit[j], patterns[i]);
-    if (i === j && ri.kind === 'barForce') v += delta[i][j] - sum(deltaTerms[i][j].filter((r) => r.source !== 'bar'));
-    return v;
+  /* The second route: displacements of the primary, less what the option leaves out. */
+  const deltaCheck = redundants.map((_, i) => redundants.map((_, j) => {
+    let v = generalised(unit[j].input, unit[j].data, unit[j].disp, patterns[i]);
+    if (i === j) v += sum(fullTerms[i][j].filter((q) => q.source === 'bar' || q.detail?.released));
+    return v - (full[i][j] - delta[i][j]);
   }));
   const delta0Check = redundants.map((ri, i) => {
-    let v = generalised(s0, patterns[i]);
+    let v = generalised(s0.input, s0.data, s0.disp, patterns[i]);
     if (ri.kind === 'barForce') v += sum(delta0Terms[i].filter((r) => r.source === 'thermal' && r.elementId === ri.elementId));
-    return v;
+    return v - (sum(full0Terms[i]) - delta0[i]);
   });
 
   const prescribed = redundants.map((r) => r.prescribed ?? 0);
   const X = solveSystem(delta, prescribed.map((d, i) => d - delta0[i]));
 
-  // ─── Superposition ─────────────────────────────────────────────
   const finalBars: BarState[] = [];
   for (const bar of bars) {
     const f = [...s0.forces(bar.e.id)!];
@@ -416,7 +181,8 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
     if (r.kind !== 'barForce') return;
     const e = input.elements.get(r.elementId!)!;
     const L = lenOf(input, e.nodeI, e.nodeJ);
-    finalBars.push(barState(e.id, L, removedBarEnds(input, e.id, X[i]), axialLoadsOnly(barLoadsOf(input, e.id, L))));
+    const bl = barLoadsOf(input, e.id, L);
+    finalBars.push(barState(e.id, L, removedBarEnds(input, e.id, X[i]), e.type === 'frame' ? bl : axialLoadsOnly(bl)));
   });
   const finalReactions = s0.reactions.map((r) => {
     let v = r.value;
@@ -435,20 +201,26 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
   finalBars.sort((a, b) => a.elementId - b.elementId);
   const final: StateResult = { bars: finalBars, reactions: finalReactions };
 
-  // ─── Against the stiffness method ─────────────────────────────
-  const dsm = solveState(input);
-  const dsmState = stateOf(dsm, input.loads);
-  /*
-   * The floor is what counts as no force at all, 1 mN. A load that stresses
-   * nothing — a temperature on the hinged span of a Gerber beam — leaves every
-   * force at round-off on both sides, and against a 1e-9 floor that round-off
-   * read as a failed check.
-   */
+  const dsmState = stateOf(solveState(input), input.loads);
+  return {
+    count, isostatic: false, redundants, original, primary: geometryOf(p0.input),
+    states: [stateOf(s0, p0.input.loads), ...unit.map((u) => stateOf(u, []))],
+    delta, delta0, prescribed, deltaTerms, delta0Terms, deltaCheck, delta0Check, X, final,
+    verification: { ...verify(input, final, dsmState), ...(withAxial ? {} : { axialOff: true }) },
+    stiffness: dsmState, axial: withAxial, axialKept: [...kept].sort((a, b) => a - b), choice: manual ? 'manual' : 'auto', gh, releaseOptions: releaseOptions(input),
+  };
+}
+
+/*
+ * The floor is what counts as no force at all, 1 mN: a load that stresses
+ * nothing leaves every force at round-off on both sides.
+ */
+function verify(input: SolverInput, final: StateResult, dsm: StateResult): ForceMethodResult['verification'] {
   let scale = 1e-6;
-  for (const b of dsmState.bars) for (const v of Object.values(b.ends)) scale = Math.max(scale, Math.abs(v ?? 0));
-  for (const r of dsmState.reactions) scale = Math.max(scale, Math.abs(r.value));
+  for (const b of dsm.bars) for (const v of Object.values(b.ends)) scale = Math.max(scale, Math.abs(v ?? 0));
+  for (const r of dsm.reactions) scale = Math.max(scale, Math.abs(r.value));
   let maxForceDiff = 0;
-  for (const b of dsmState.bars) {
+  for (const b of dsm.bars) {
     const mine = final.bars.find((q) => q.elementId === b.elementId);
     if (!mine) continue;
     const isTruss = input.elements.get(b.elementId)!.type === 'truss';
@@ -458,39 +230,10 @@ export function solveForceMethod(input: SolverInput): ForceMethodResult {
     }
   }
   let maxReactionDiff = 0;
-  for (const r of dsmState.reactions) {
+  for (const r of dsm.reactions) {
     const mine = final.reactions.find((q) => q.nodeId === r.nodeId && q.component === r.component);
     maxReactionDiff = Math.max(maxReactionDiff, Math.abs((mine?.value ?? 0) - r.value));
   }
-
-  return {
-    count, isostatic: false, redundants, original, primary: geometryOf(p0.input),
-    states: [stateOf(s0, p0.input.loads), ...unit.map((u) => stateOf(u, []))],
-    delta, delta0, prescribed, deltaTerms, delta0Terms, deltaCheck, delta0Check, X, final,
-    verification: {
-      maxForceDiff, maxReactionDiff, scale,
-      ok: Math.max(maxForceDiff, maxReactionDiff) / scale < 1e-6,
-    },
-    stiffness: dsmState,
-  };
+  return { maxForceDiff, maxReactionDiff, scale, ok: Math.max(maxForceDiff, maxReactionDiff) / scale < 1e-6 };
 }
 
-function barState(elementId: number, L: number, f: number[], loads: BarLoads): BarState {
-  return {
-    elementId, L,
-    ends: { nStart: -f[0], vStart: f[1], mStart: f[2], nEnd: f[3], vEnd: -f[4], mEnd: -f[5] },
-    samples: sampleDiagram({ N: f[0], V: f[1], M: f[2] }, loads, L),
-  };
-}
-
-function stateOf(s: Solved, loads: SolverLoad[]): StateResult {
-  const withLoads = { ...s.input, loads };
-  return {
-    bars: [...s.input.elements.values()].map((e) => {
-      const L = lenOf(s.input, e.nodeI, e.nodeJ);
-      const loads = barLoadsOf(withLoads, e.id, L);
-      return barState(e.id, L, s.forces(e.id)!, e.type === 'frame' ? loads : axialLoadsOnly(loads));
-    }),
-    reactions: s.reactions,
-  };
-}

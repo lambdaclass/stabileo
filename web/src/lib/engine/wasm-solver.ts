@@ -3,7 +3,7 @@ import { registerColumnCapacityKernel } from './column-capacity-kernel';
 import { noteEngineBuild } from '../provenance/build-identity';
 import { registerCirsoc201BeamKernel } from './codes/argentina/cirsoc201-beam-kernel';
 import { registerCirsoc301Kernel } from './codes/argentina/cirsoc301-kernel';
-import { packedShellCombinationKernel, registerShellCombinationKernel } from './shell-combination-kernel';
+import { packedShellCombinationKernel, packedShellEnvelopeKernel, registerShellCombinationKernel, registerShellEnvelopeKernel } from './shell-combination-kernel';
 import { registerCirsoc201Engine } from './codes/argentina/cirsoc201-engine';
 import { registerCollisionKernel } from './detailing/collision-kernel';
 /**
@@ -27,6 +27,7 @@ import { plainDeepCopy, findUncloneablePath } from '../utils/plain-deep-copy';
 import { errorText } from '../utils/error-text';
 import { EngineUnavailableError, EngineCheckError } from './engine-unavailable';
 import { tagCertifyJob } from './certify-tags';
+import { modalMechanismRefusal } from './dynamics/time-history-refusal';
 
 let wasmReady = false;
 let wasmInitPromise: Promise<void> | null = null;
@@ -242,6 +243,7 @@ export async function initSolver(): Promise<void> {
     loadSession2D = wasm.LoadSession2D ?? null;
     loadSession3D = wasm.LoadSession3D ?? null;
     registerShellCombinationKernel(wasm.combine_shell_stresses ? packedShellCombinationKernel(wasm.combine_shell_stresses) : null);
+    registerShellEnvelopeKernel(wasm.envelope_shell_stresses ? packedShellEnvelopeKernel(wasm.envelope_shell_stresses) : null);
     wasmSolve2d = wasm.solve_2d;
     wasmSolve3d = wasm.solve_3d;
     wasmSolvePdelta2d = wasm.solve_pdelta_2d;
@@ -479,6 +481,7 @@ export function input2DToWireObject(input: SolverInput): Record<string, any> & {
     loads: input.loads,
     constraints: plainDeepCopy(input.constraints ?? []),
     connectors: input.connectors ? mapToPlainObj(input.connectors) : {},
+    ...(input.masses?.nodal?.length ? { masses: plainDeepCopy(input.masses) } : {}),
   };
 }
 
@@ -592,6 +595,11 @@ function refuse(msg: string | null | undefined): void {
 
 const NO_FREE_DOFS = /^No free DOFs/;
 
+function translateModalMechanism(e: unknown): void {
+  const m = guards ? modalMechanismRefusal(thrownText(e)) : null;
+  if (m) throw new Error(guards!.text(m.key, m.params as Record<string, string | number>));
+}
+
 /** Largest nodal translation or rotation of a result. */
 function maxDisplacement(r: { displacements?: Array<Record<string, number>> } | undefined): number {
   let m = 0;
@@ -628,15 +636,10 @@ function dominantDof(mode: { displacements?: Array<Record<string, number>> }): {
 }
 
 /**
- * A frequency under this is none: no structure in this app sways once in 20 minutes.
- *
- * Each mode is judged by its own value, never against the largest one found: one spurious or very
- * stiff mode in the batch (a load factor of 1e12 from a bar with almost no axial force, a
- * 20 000 Hz local mode) raised a relative cut above the structure's real modes and threw them
- * away as mechanisms — the real λcr = 3,5 went, and 1e12 was shown as the critical factor.
+ * A load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. Each mode
+ * is judged by its own value, never against the largest one found: a relative cut once threw away
+ * the real λcr = 3,5 next to a spurious 1e12.
  */
-const NULL_FREQUENCY_HZ = 1e-3;
-/** And a load factor under this is none: the mechanism's zero, 1e-12 as the engine returns it. */
 const NULL_LOAD_FACTOR = 1e-6;
 
 export interface DiscardedMode { value: number; nodeId: number; dof: string }
@@ -673,9 +676,12 @@ function mechanismOnly(): never {
 
 /** A modal result without its null modes, the mass sums and Rayleigh damping taken over what is kept. */
 export function filterModal<R extends { modes: any[]; rayleigh?: any; [k: string]: any }>(result: R, dirs: string[]): R & { discardedModes: DiscardedMode[] } {
-  const { kept, discarded } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, NULL_FREQUENCY_HZ);
+  const { kept, discarded: below } = withoutNullModes(result.modes ?? [], (m: any) => m.frequency, Number.MIN_VALUE);
+  const engineNull: DiscardedMode[] = (result.nullModes ?? []).map((m: { omegaSq: number; nodeId: number; dof: string }) => ({ value: Math.sign(m.omegaSq) * Math.sqrt(Math.abs(m.omegaSq)) / (2 * Math.PI), nodeId: m.nodeId, dof: m.dof }));
+  const discarded = [...engineNull, ...below];
   if (!discarded.length) return { ...result, discardedModes: [] };
-  if (!kept.length) mechanismOnly();
+  if (!kept.length && below.length) mechanismOnly();
+  if (!below.length) return { ...result, discardedModes: discarded };
   const out: any = { ...result, modes: kept, discardedModes: discarded };
   for (const d of dirs) out[`cumulativeMassRatio${d}`] = kept.reduce((a: number, m: any) => a + (m[`massRatio${d}`] ?? 0), 0);
   if (result.rayleigh && Array.isArray(result.rayleigh.dampingRatios)) {
@@ -1137,6 +1143,7 @@ export function solveModal(
     result = JSON.parse(wasmSolveModal2d(payload, numModes));
   } catch (e) {
     if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   return tagCertifyJob(filterModal(result, ['X', 'Y']), { name: 'certify_modal_2d', args: [payload, numModes] });
@@ -1271,6 +1278,7 @@ export function solveModal3D(input: SolverInput3D, densities: Map<number, number
     }), numModes)));
   } catch (e) {
     if (NO_FREE_DOFS.test(thrownText(e))) noFreeDofs('modal');
+    translateModalMechanism(e);
     throw e;
   }
   const out = filterModal(run.result, ['X', 'Y', 'Z']);
@@ -1371,26 +1379,25 @@ export function solveCorotational2D(input: SolverInput, maxIter = 50, tolerance 
 export function solveTimeHistory2D(config: {
   solver: SolverInput;
   densities: Map<number, number>;
-  accelerogram: { dt: number; values: number[] };
-  direction: 'X' | 'Y';
-  damping?: number;
-  method?: 'Newmark' | 'Wilson';
+  timeStep: number;
+  nSteps: number;
+  /** Ground acceleration, m/s², one value per step from t = 0. */
+  groundAccel?: number[];
+  groundDirection?: 'X' | 'Y';
+  /** Nodal forces at given times, interpolated linearly between records. */
+  forceHistory?: Array<{ time: number; loads: Array<{ nodeId: number; fx: number; fz: number; my: number }> }>;
+  /** Rayleigh damping with this ratio on the first two modes; none when absent or 0. */
+  dampingXi?: number;
 }) {
   if (!wasmReady || !wasmSolveTimeHistory2d) throw new Error('WASM Time History solver not available.');
   const payload = JSON.stringify({
-    solver: {
-      nodes: mapToObj(config.solver.nodes),
-      materials: mapToObj(config.solver.materials),
-      sections: mapToObj(config.solver.sections),
-      elements: mapToObj(config.solver.elements),
-      supports: mapToObj(config.solver.supports),
-      loads: config.solver.loads,
-    },
+    solver: input2DToWireObject(config.solver),
     densities: mapToObj(config.densities),
-    accelerogram: config.accelerogram,
-    direction: config.direction,
-    damping: config.damping,
-    method: config.method,
+    timeStep: config.timeStep,
+    nSteps: config.nSteps,
+    ...(config.groundAccel ? { groundAccel: config.groundAccel, groundDirection: config.groundDirection ?? 'X' } : {}),
+    ...(config.forceHistory ? { forceHistory: config.forceHistory } : {}),
+    ...(config.dampingXi ? { dampingXi: config.dampingXi } : {}),
   });
   const resultJson = wasmSolveTimeHistory2d(payload);
   return tagCertifyJob(JSON.parse(resultJson), { name: 'certify_time_history_2d', args: [payload] });

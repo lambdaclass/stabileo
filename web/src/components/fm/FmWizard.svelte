@@ -12,6 +12,7 @@
   import FmStepsStructure from './FmStepsStructure.svelte';
   import FmStepsSolution from './FmStepsSolution.svelte';
   import FmMatrixView from './FmMatrixView.svelte';
+  import FmOptions from './FmOptions.svelte';
   import StepsHeader from '../steps/StepsHeader.svelte';
   import StepFrame from '../steps/StepFrame.svelte';
   import { explainedSteps } from '../../lib/store/explained-steps.svelte';
@@ -44,6 +45,7 @@
     step={fmStepsStore.currentStep} {last} onGo={(k) => fmStepsStore.goToStep(k)} showNav={!(fmStepsStore.showMatrix && r)}
     stepTitle={t('fm.step' + fmStepsStore.currentStep + 'Name')} tabTitle={(k) => `${k}. ${t('fm.step' + k + 'Name')}`}
     tabTestid={(k) => `fm-dot-${k}`} headingTestid="fm-step-name" prevTestid="fm-prev" nextTestid="fm-next">
+    {#snippet top()}<FmOptions />{/snippet}
     {#snippet tabsEnd()}
       <button class="sf-toggle" class:on={fmStepsStore.showMatrix} data-testid="fm-view-matrix" disabled={!r || r.isostatic}
         title={r?.isostatic ? t('fm.matrixNone') : t('fm.matrixTitle')}

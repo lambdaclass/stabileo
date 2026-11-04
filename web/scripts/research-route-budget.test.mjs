@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { compareRouteSizes, routeChunkFiles, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
 
 test('unchanged routes and small build noise pass', () => {
@@ -17,24 +18,29 @@ test('missing and non-finite measurements fail', () => {
   assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': NaN }), /grew/);
 });
 
-for (const [route, budget] of Object.entries({
-  '/en/': 128, '/es/': 128, '/pt/': 128,
-  '/app/basic': 128, '/app/education': 128, '/app/pro': 128,
-})) {
+const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
+test('the landing routes have a 128 byte budget and the app routes the one-time course and blog acceptance', () => {
+  assert.deepEqual(shippedBudgets, {
+    '/en/': 128, '/es/': 128, '/pt/': 128,
+    '/app/basic': 1226624, '/app/education': 1226624, '/app/pro': 1226624,
+  });
+});
+for (const [route, budget] of Object.entries(shippedBudgets)) {
   test(`${route} product growth passes at the budget and fails one byte over`, () => {
     compareRouteSizes({ [route]: 1000 }, { [route]: 1000 + budget }, false);
-    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false), /grew/);
+    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1001 + budget }, false),
+      new RegExp(`${budget} byte tolerance, product budget from web/scripts/product-route-growth-budgets\\.json`));
     compareRouteSizes({ [route]: 1000 }, { [route]: 1128 }, true);
-    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1129 }, true), /128 byte tolerance/);
+    assert.throws(() => compareRouteSizes({ [route]: 1000 }, { [route]: 1129 }, true), /128 byte tolerance, research isolation/);
   });
 }
 
 test('isolation caps a larger product budget at 128 bytes; product mode uses the budget', () => {
   const budgets = { '/en/': 512 };
   compareRouteSizes({ '/en/': 1000 }, { '/en/': 1512 }, false, budgets);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1513 }, false, budgets), /512 byte tolerance/);
+  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1513 }, false, budgets), /512 byte tolerance, product budget/);
   compareRouteSizes({ '/en/': 1000 }, { '/en/': 1128 }, true, budgets);
-  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1129 }, true, budgets), /128 byte tolerance/);
+  assert.throws(() => compareRouteSizes({ '/en/': 1000 }, { '/en/': 1129 }, true, budgets), /128 byte tolerance, research isolation/);
 });
 test('environment selects product budgets only when isolation is explicitly false', () => {
   for (const [mode, growth, status] of [
@@ -50,7 +56,7 @@ test('environment selects product budgets only when isolation is explicitly fals
       compareRouteSizes({ '/en/': 1000 }, { '/en/': ${1000 + growth} }, undefined, { '/en/': 512 });
     `], { env, encoding: 'utf8' });
     assert.equal(result.status, status, result.stderr);
-    if (status) assert.match(result.stderr, /grew/);
+    if (status) assert.match(result.stderr, mode === 'false' ? /product budget/ : /research isolation/);
   }
 });
 

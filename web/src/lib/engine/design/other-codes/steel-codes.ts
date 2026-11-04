@@ -39,7 +39,7 @@ const shearBound = (sb: StationBound3D, p?: { Aw: number; AwWeak: number }) =>
   upScaled(Math.max(sb.shearZ, upScaled(sb.shearY, p && p.AwWeak > 0 ? p.Aw / p.AwWeak : 1)), N);
 /** The bound on every steel checker's force row: N, My, Mz and the web shear, in N and N·m. */
 const steelBound = (ctx: MemberContext, sb: StationBound3D) =>
-  ({ n: upScaled(sb.axial, N), my: upScaled(sb.momentY, N), mz: upScaled(sb.momentZ, N), vy: shearBound(sb, areasOf(ctx)) });
+  ({ n: upScaled(sb.axial, N), my: upScaled(sb.momentY, N), mz: upScaled(sb.momentZ, N), vStrong: shearBound(sb, areasOf(ctx)) });
 /**
  * The two shear areas of each member being checked, once per member: `shear` reads them once per
  * demand, and running the section engine (steelProps) there is what `ec3WebSlenderness` below
@@ -151,7 +151,7 @@ export const AISC360: OtherCode = {
     return { data: rest, unevaluated: flags };
   },
   forces(ctx, d) {
-    return { elementId: ctx.elementId, n: d.forces.n * N, my: d.forces.my * N, mz: d.forces.mz * N, vy: shear(d, areasOf(ctx)) };
+    return { elementId: ctx.elementId, n: d.forces.n * N, my: d.forces.my * N, mz: d.forces.mz * N, vStrong: shear(d, areasOf(ctx)) };
   },
   run: (input) => checkSteelMembers(input),
   certify: { name: 'certify_steel_members', bound: (ctx, _d, _data, sb) => steelBound(ctx, sb) },
@@ -252,7 +252,7 @@ export const EC3: OtherCode = {
     const flags: string[] = [];
     const fy = ctx.material.fy!;
     const vpl = ((data.av as number) * fy * 1e3) / Math.sqrt(3); // kN
-    if (bends(d) && shear(d, areasOf(ctx)) / N > 0.5 * vpl) flags.push('otherCodes.check.ec3ShearBending');
+    if (bends(d) && sheared(d) && !(shear(d, areasOf(ctx)) / N <= 0.5 * vpl)) flags.push('otherCodes.check.ec3ShearBending');
     const slender = ec3WebSlenderness.get(ctx);
     // 72ε/η with η = 1,2 (steels up to S460), the lower of the two the code allows.
     if (slender != null && sheared(d) && slender > (72 * Math.sqrt(235 / fy)) / 1.2) flags.push('otherCodes.check.ec3ShearBuckling');

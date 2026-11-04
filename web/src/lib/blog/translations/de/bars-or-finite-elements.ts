@@ -300,7 +300,7 @@ const body: PostBody = {
       "k": "embed",
       "query": "example=deep-beam-shell",
       "mode": "pro",
-      "label": "Derselbe Balken im PRO-Modus, modelliert als Schale mit 192 MITC4-Elementen zu 25 cm. Unter Berechnung → Verschiebungen zeigt Knoten 113 (Feldmitte, auf halber Höhe) „-5.19e-5“ m, also 0,0519 mm. Die Tabelle oben verwendet ein feineres Netz und ergibt 0,0521 mm. PRO ist in der Beta-Phase."
+      "label": "Derselbe Balken im PRO-Modus, modelliert als Schale mit 192 MITC4-Elementen zu 25 cm. Unter Berechnung → Verschiebungen zeigt Knoten 113 (Feldmitte, auf halber Höhe) „-5.19e-5“ m, also 0,0519 mm. Die Tabelle oben verwendet ein feineres Netz und ergibt 0,0521 mm."
     },
     {
       "k": "link",

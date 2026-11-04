@@ -1,7 +1,7 @@
 {
   "case": "2d-portal-frame",
   "covers": "2D frame, sway",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "",
