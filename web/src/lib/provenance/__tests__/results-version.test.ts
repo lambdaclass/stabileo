@@ -56,12 +56,15 @@ const RELEASED: Record<number, string[]> = {
   11: ['shell-envelope-per-component'],
   12: ['cirsoc301-q-nonpositive-refused'],
   13: ['time-history-massless-start', 'modal-mechanism-refused'],
-  // #871: Basic's course units; provisional until merge, like any version not yet on main.
   14: [
     'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
     'basic-influence-line-moment-sign',
   ],
-  20: ['joint-weak-axis-moment'],
+  15: [
+    'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
+    'basic-influence-line-moment-sign-withdrawn',
+  ],
+  17: ['joint-weak-axis-moment'],
 };
 
 describe('results versions', () => {
