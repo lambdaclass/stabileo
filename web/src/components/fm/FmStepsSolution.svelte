@@ -17,6 +17,8 @@
   import FmSketch from './FmSketch.svelte';
   import FmDiagramPicker from './FmDiagramPicker.svelte';
   import { xName, num, componentName, sub, redundantText, redundantUnit } from './fm-text';
+  import FmClassTerms from './FmClassTerms.svelte';
+  import { deltaTex, delta0Tex } from './fm-formulas';
 
   let { r, step }: { r: ForceMethodResult; step: number } = $props();
 
@@ -51,8 +53,9 @@
 
   const eqDelta = $derived(is3D
     ? '\\delta_{ij} = \\sum \\int \\Big(\\frac{m_{z,i}m_{z,j}}{EI_z} + \\frac{m_{y,i}m_{y,j}}{EI_y} + \\frac{t_i t_j}{GJ} + \\frac{n_i n_j}{EA}\\Big)dx'
-    : '\\delta_{ij} = \\sum \\int \\frac{m_i\\,m_j}{EI}\\,dx + \\sum \\int \\frac{n_i\\,n_j}{EA}\\,dx');
-  const eqDelta0 = '\\delta_{i0} = \\sum \\int \\frac{m_i\\,M_0}{EI}\\,dx + \\sum \\int \\frac{n_i\\,N_0}{EA}\\,dx';
+    : deltaTex(r));
+  const eqDelta0 = $derived(is3D ? '\\delta_{i0} = \\sum \\int \\frac{m_i\\,M_0}{EI}\\,dx + \\sum \\int \\frac{n_i\\,N_0}{EA}\\,dx' : delta0Tex(r));
+  const keptNames = $derived((r.axialKept ?? []).map((k) => xName(r.redundants[k].index)).join(', '));
   const eqCompat = '[\\delta]\\,\\{X\\} = \\{\\Delta\\} - \\{\\delta_0\\}';
   const eqSuper = 'M = M_0 + \\sum_i X_i\\, m_i';
   const hasExtras = $derived(r.delta0Terms.some((rows) => rows.some((x) => x.source === 'thermal' || x.source === 'settlement')));
@@ -83,6 +86,10 @@
   <div class="fm-eq"><FitMath tex={eqDelta} narrow /></div>
   <MatrixDisplay matrix={r.delta} rowLabels={labels} colLabels={labels} precision={4} title="[δ]  (m/kN, rad/kN·m…)" />
   <p class="fm-note">{t('fm.s5.symmetry')}</p>
+  {#if r.axial === false && !is3D}
+    <p class="fm-note fm-iso" data-testid="fm-s5-axial-off">{t('course.statics.fm.s5.axialOff')}</p>
+    {#if keptNames}<p class="fm-note fm-iso">{t('course.statics.fm.s5.axialKept').replace('{list}', keptNames)}</p>{/if}
+  {/if}
   {#if r.original.elements.some((e) => e.type === 'frame' && (e.hingeStart || e.hingeEnd))}
     <p class="fm-note fm-iso" data-testid="fm-s5-hinges">{t('fm.mx.hinges')}</p>
   {/if}
@@ -103,6 +110,7 @@
   </div>
   <h5 class="fm-h">{t('fm.s5.breakdown')} — δ{sub(i + 1)}{sub(j + 1)}</h5>
   {@render breakdown(r.deltaTerms[i][j], r.deltaCheck[i][j], 'fm-delta-terms')}
+  <FmClassTerms rows={r.deltaTerms[i][j]} i={i + 1} j={j + 1} />
 {:else if step === 6}
   <p class="fm-exp">{t('fm.s6.explanation')}</p>
   <div class="fm-eq"><FitMath tex={eqDelta0} narrow /></div>
@@ -116,6 +124,7 @@
   </div>
   <h5 class="fm-h">{t('fm.s5.breakdown')} — δ{sub(i + 1)}{sub(0)}</h5>
   {@render breakdown(r.delta0Terms[i], r.delta0Check[i], 'fm-delta0-terms')}
+  <FmClassTerms rows={r.delta0Terms[i]} i={i + 1} j={0} />
 {:else if step === 7}
   <p class="fm-exp">{t('fm.s7.explanation')}</p>
   <div class="fm-eq"><FitMath tex={eqCompat} narrow /></div>
@@ -166,11 +175,17 @@
   </table>
 {:else if step === 9}
   <p class="fm-exp">{t('fm.s9.explanation')}</p>
-  <p class="fm-verdict" class:bad={!r.verification.ok} data-testid="fm-verdict">
-    {r.verification.ok
-      ? t('fm.s9.ok').replace('{d}', num(worst, 2)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)
-      : t('fm.s9.bad').replace('{d}', num(worst, 3))}
-  </p>
+  {#if r.verification.axialOff && !r.verification.ok}
+    <p class="fm-verdict fm-axial-off" data-testid="fm-verdict">
+      {t('course.statics.fm.s9.axialOff').replace('{d}', num(worst, 3)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)}
+    </p>
+  {:else}
+    <p class="fm-verdict" class:bad={!r.verification.ok} data-testid="fm-verdict">
+      {r.verification.ok
+        ? t('fm.s9.ok').replace('{d}', num(worst, 2)).replace('{pct}', `${num((worst / r.verification.scale) * 100, 2)} %`)
+        : t('fm.s9.bad').replace('{d}', num(worst, 3))}
+    </p>
+  {/if}
   <table class="fm-table" data-testid="fm-compare">
     <thead><tr><th>{t('fm.s3.node')}</th><th></th><th>{t('fm.s9.flex')}</th><th>{t('fm.s9.stiff')}</th></tr></thead>
     <tbody>
@@ -215,4 +230,5 @@
   .fm-row { white-space: nowrap; }
   .fm-verdict { font-size: 0.74rem; color: var(--st-ok); margin: 4px 0 8px; }
   .fm-verdict.bad { color: var(--st-danger); }
+  .fm-verdict.fm-axial-off { color: var(--st-text-2); border-left: 2px solid var(--st-accent); padding-left: 6px; }
 </style>

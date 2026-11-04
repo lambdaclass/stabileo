@@ -27,7 +27,8 @@ class Selection(unittest.TestCase):
             with self.subTest(scope=scope):
                 result = selection.select('pull_request', paths)
                 self.assertEqual(result['scope'], scope)
-                self.assertEqual({k for k, v in result.items() if v == 'true'}, enabled)
+                self.assertEqual(result['retest'], 'true')
+                self.assertEqual({k for k, v in result.items() if v == 'true'} - {'retest'}, enabled)
                 self.assertEqual(json.loads(result['e2e_shards']), [1])
                 self.assertEqual(json.loads(result['e2e_specs']), selection.SPECS.get(scope, []))
 
@@ -83,7 +84,7 @@ class Selection(unittest.TestCase):
         self.assertEqual(result['scope'], 'full')
         self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
         self.assertEqual(result['unit_area'], '')
-        for key in ['engine', 'web', 'research', 'docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky', 'determinism', 'results']:
+        for key in ['engine', 'web', 'research', 'docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky', 'determinism', 'results', 'retest']:
             self.assertEqual(result[key], 'true', key)
 
     def test_trusted_events_and_label_are_always_full(self):
@@ -166,6 +167,22 @@ class Selection(unittest.TestCase):
             self.assertEqual(selection.select('pull_request', [path])['web'], 'true')
         self.assertEqual(selection.select('pull_request', ['docs/a.md'])['web'], 'false')
         self.assertEqual(selection.select('merge_group', [])['web'], 'true')
+
+    def test_main_push_of_a_tree_the_queue_tested_runs_only_the_post_merge_additions(self):
+        result = selection.select('push', None, tested=True)
+        for key in ['backend', 'ci_scripts', 'ai_backend', 'engine', 'results', 'retest']:
+            self.assertEqual(result[key], 'false', key)
+        for key in ['web', 'web_build', 'docker', 'determinism', 'flaky', 'slow_e2e', 'research']:
+            self.assertEqual(result[key], 'true', key)
+        self.assertEqual(result['research_route_only'], 'false')
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+
+    def test_every_other_main_push_or_event_runs_everything(self):
+        self.assert_full(selection.select('push', None))
+        for event in ['merge_group', 'pull_request', 'schedule', 'workflow_dispatch']:
+            with self.subTest(event=event):
+                self.assertEqual(selection.select(event, None, tested=True)['retest'], 'true')
+                self.assertEqual(selection.select(event, None, tested=True)['engine'], 'true')
 
     def test_workflow_wiring(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()

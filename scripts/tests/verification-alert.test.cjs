@@ -269,12 +269,14 @@ test('the staleness check reports missing, disabled and stale workflows, and lea
     {id: 3, name: 'Verify', state: 'disabled_manually', path: '.github/workflows/verify.yml'},
     {id: 4, name: 'Mutation testing (TypeScript engine logic)', state: 'active', path: '.github/workflows/mutation-ts.yml'},
     {id: 6, name: 'Verification dashboard', state: 'active', path: '.github/workflows/verification-dashboard.yml'},
+    {id: 7, name: 'Runner pools', state: 'active', path: '.github/workflows/runner-pools.yml'},
   ];
   const runsByWorkflow = {
     1: [{id: 101, html_url: 'u1', conclusion: 'failure', updated_at: at(2)}],
     2: [{id: 102, html_url: 'u2', conclusion: 'success', updated_at: at(40)}],
     3: [{id: 103, html_url: 'u3', conclusion: 'success', updated_at: at(1)}],
     6: [{id: 106, html_url: 'u6', conclusion: 'success', updated_at: at(150)}],
+    7: [{id: 107, html_url: 'u7', conclusion: 'failure', updated_at: at(20)}],
   };
   const h = harness({workflows, runsByWorkflow, label: true, env: {ALERT_MODE: 'stale'}});
   await h.run();
