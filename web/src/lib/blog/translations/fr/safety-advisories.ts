@@ -101,6 +101,8 @@ const body: PostBody = {
           "Confiné dans la prochaine version"
           "SA-2026-041",
           "Poteaux en béton armé : le moment maximal n'était vérifié qu'avec la compression maximale",
+          "SA-2026-033",
+          "Générateur de charges : un plancher avec une seule barre basse au-dessus d'une partie perdait toute sa charge surfacique (36 m² d'un plancher de 6 × 6 m dans un exemple) ; les fermes ne comptaient pas comme structure de toiture",
           "Élevée",
           "Corrigé dans la prochaine version"
         ],

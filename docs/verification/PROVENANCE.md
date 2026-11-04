@@ -72,6 +72,15 @@ used to divide by the diagonal of M). Those refusals can hit any time history, g
 included, and so can #1239's Rayleigh fix, which turns runs that were not finite into numbers; the
 registry entry therefore flags every saved model with a time history (`timeHistorySpec`).
 
+## Generated area loads under low roof structure (PR #1253, after #1076)
+
+Results version 20 (the next free version when this was marked ready: 15 is #1372's, 16–19 are
+held by #1326, #1328, #1319 and #1321) registers
+`generated-area-loads-headroom`: the load generator no longer leaves out a panel's area loads when
+low roof structure stands over only part of it, and counts trusses as roof structure
+(SA-2026-033). It concerns models whose loads came from the generator (`generatedLoads`); saved
+loads change only when generated again.
+
 ## Solid-shell local stress axes (PR #814, issue #757)
 
 Results version 5 registers `solid-shell-local-stress-axes`. The frame definition,
@@ -211,6 +220,14 @@ If there are any:
 
 Acknowledgement is per stamp and per session: reopening the file in a new session asks again.
 A project solved with a newer version than the build opening it is flagged as `newer`.
+
+A change whose condition names `generatedLoads` concerns a project until its loads are generated
+again, not until it is solved again: solving does not change saved loads. Applying a load plan
+records the results version in `designData.loadBasis.resultsVersion`. A project whose load basis
+lacks it counts as generated with version 0, and a load basis alone makes a model `generatedLoads`,
+so a plan that wrote no loads is still covered. Loads tagged by the load plan with no load basis also
+count as generated with version 0. Loads from the stair and architecture generators (`stair:`, `arch:`)
+are not `generatedLoads`.
 
 ## Provenance of results and reports
 

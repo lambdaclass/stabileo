@@ -68,6 +68,7 @@ const RELEASED: Record<number, string[]> = {
   17: ['joint-weak-axis-moment'],
   18: ['rc-other-codes-torsion-unchecked'],
   19: ['rc-column-least-compression'],
+  20: ['generated-area-loads-headroom'],
 };
 
 describe('results versions', () => {

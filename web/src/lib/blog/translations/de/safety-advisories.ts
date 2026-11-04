@@ -103,6 +103,10 @@ const body: PostBody = {
           "Stahlbetonstützen: das größte Moment wurde nur mit der größten Druckkraft nachgewiesen",
           "Hoch",
           "In der nächsten Version behoben"
+          "SA-2026-033",
+          "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
+          "Hoch",
+          "Behoben in der nächsten Version"
         ],
         [
           "SA-2026-013",

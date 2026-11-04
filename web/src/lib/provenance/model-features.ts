@@ -40,7 +40,7 @@ export const FEATURE_IDS = [
   'shells', 'curvedShells', 'shellEdgeLoads', 'eccentricities',
   'constraints', 'constraintOnSupportedNode', 'inclinedSupports', 'springs', 'multipleSupportsOnNode', 'settlements',
   'connectors', 'connectorsWithShear',
-  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads',
+  'memberLoads', 'pointOrPartialMemberLoads', 'memberThermalLoads', 'areaDeadLoads', 'generatedLoads',
   'combinations', 'cirsocCombinations', 'seismic', 'snow', 'wind', 'timeHistorySpec',
   ...ANALYSIS_KINDS.map((k) => `analysis:${k}` as const),
 ] as const;
@@ -85,6 +85,7 @@ export interface FeatureSnapshot {
   regulations?: { roles?: Record<string, { adapterId?: string | null } | undefined> };
   dynamics?: { timeHistory?: unknown; spectra?: unknown[] };
   massSource?: unknown;
+  designData?: { loadBasis?: { resultsVersion?: unknown } };
 }
 
 export interface FeatureContext {
@@ -127,6 +128,14 @@ function slaveNodes(c: Record<string, unknown>): number[] {
   if (Array.isArray(c.nodes)) for (const n of c.nodes) if (typeof n === 'number') out.push(n);
   if (Array.isArray(c.terms)) for (const t of c.terms as Array<{ nodeId?: unknown }>) if (typeof t?.nodeId === 'number') out.push(t.nodeId);
   return out;
+}
+
+export const fromLoadPlan = (by: unknown): boolean => typeof by === 'string' && !!by && !/^(stair|arch):/.test(by);
+
+export function loadsGeneratedWith(s: FeatureSnapshot): number {
+  const basis = s.designData?.loadBasis;
+  if (basis) return Number.isInteger(basis.resultsVersion) ? (basis.resultsVersion as number) : 0;
+  return (Array.isArray(s.loads) ? s.loads : []).some((l) => fromLoadPlan(l.data?.generatedBy)) ? 0 : Infinity;
 }
 
 /** The features of one saved model. */
@@ -211,7 +220,9 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if (/edge/i.test(t)) f.add('shellEdgeLoads');
     const dead = caseType.get(d.caseId as number) === 'D' || d.caseId === undefined;
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
+    if (fromLoadPlan(d.generatedBy)) f.add('generatedLoads');
   }
+  if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
 
   const types = new Set(cases.map((c) => c.type));

@@ -101,6 +101,8 @@ const body: PostBody = {
           "Bir sonraki sürümde sınırlandırıldı"
           "SA-2026-041",
           "Betonarme kolonlar: en büyük moment yalnızca en büyük basınçla kontrol ediliyordu",
+          "SA-2026-033",
+          "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],

@@ -135,6 +135,33 @@ describe('which registered changes concern a model', () => {
     }
   });
 
+  it('tells models with generated loads about SA-2026-033, and no other model', () => {
+    const frame = model({ elements: [member(1, 1, 'frame')] });
+    const generated = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'cirsoc-101' } }] });
+    const v19 = { resultsVersion: 19, analyses: ['linear'] } as SolveStamp;
+    expect(ids(generated, v19)).toContain('generated-area-loads-headroom');
+    expect(ids(frame, v19)).not.toContain('generated-area-loads-headroom');
+    const v20 = { resultsVersion: 20, analyses: ['linear'] } as SolveStamp;
+    const basis = (resultsVersion?: number) => ({ designData: { loadBasis: resultsVersion === undefined ? {} : { resultsVersion } } });
+    expect(ids({ ...generated, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...generated, ...basis() }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...generated, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids(generated, v20)).toContain('generated-area-loads-headroom');
+    const stair = model({ elements: [member(1, 1, 'frame')], loads: [{ type: 'distributed3d', data: { caseId: 1, generatedBy: 'stair:1' } }] });
+    expect(ids(stair, v19)).not.toContain('generated-area-loads-headroom');
+    expect(ids(stair, v20)).not.toContain('generated-area-loads-headroom');
+    const plane = { ...generated, analysisMode: '2d', ...basis() };
+    expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
+    expect(ids(plane, v20)).toEqual(['generated-area-loads-headroom']);
+    const entry = RESULT_CHANGES.changes.find((c) => c.id === 'generated-area-loads-headroom') as unknown as { title: Record<string, string>; explanation: Record<string, string> };
+    for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+      expect(entry.title[locale]?.trim(), `title.${locale}`).toBeTruthy();
+      expect(entry.explanation[locale]?.trim(), `explanation.${locale}`).toBeTruthy();
+    }
+  });
+
   it('tells prior buckling runs about certificate refusals in both dimensions and on shells', () => {
     const change = 'buckling-certificate-rejects-outside-factor';
     for (const analysisMode of ['2d', '3d', 'pro']) {

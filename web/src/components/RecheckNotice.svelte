@@ -2,7 +2,7 @@
   import { saveWorkspaceToLocalStorage, saveSession } from '../lib/store/file';
   import { recheckStore } from '../lib/store/recheck.svelte';
   import { rerunAnalysisAndDesign, recheckKey } from '../lib/actions/recheck';
-  import { changelogUrl, type Locale3 } from '../lib/provenance/registry';
+  import { changelogUrl, concernsGeneratedLoads, type Locale3 } from '../lib/provenance/registry';
   import { cycleTabWithin } from '../lib/utils/dialog-focus';
   import { t, tp, i18n } from '../lib/i18n';
 
@@ -24,6 +24,8 @@
 
   const a = $derived(recheckStore.assessment);
   const open = $derived(recheckStore.noticeOpen || reviewing);
+  const regenerate = $derived(!!a?.changes.some((c) => concernsGeneratedLoads(c.when)));
+  const resolve = $derived(!a || !a.changes.length || a.changes.some((c) => !concernsGeneratedLoads(c.when)));
   const loc = $derived<Locale3>((['en', 'es', 'pt'] as const).includes(i18n.locale as Locale3) ? (i18n.locale as Locale3) : 'en');
 
   // A new notice (another project) starts unticked.
@@ -82,7 +84,9 @@
     >
       <h3 class="rc-title" id="rc-title">{t('recheck.title')}</h3>
       <p class="rc-intro" id="rc-intro">
-        {a.solvedVersion > 0
+        {a.solvedVersion >= a.currentVersion
+          ? tp('recheck.introLoads', { to: a.currentVersion })
+          : a.solvedVersion > 0
           ? tp('recheck.intro', { from: a.solvedVersion, to: a.currentVersion })
           : t('recheck.introUnknown')}
       </p>
@@ -109,7 +113,8 @@
         {/each}
       </ul>
       <footer class="rc-footer">
-        <p class="rc-stale">{t('recheck.staleWarning')}</p>
+        {#if regenerate}<p class="rc-stale" data-testid="recheck-regenerate">{tp('recheck.regenerateLoads', { button: t('autoLoad.autoGenBtn') })}</p>{/if}
+        {#if resolve}<p class="rc-stale">{t('recheck.staleWarning')}</p>{/if}
         {#if recheckStore.noticeOpen}
           <label class="rc-ack">
             <input type="checkbox" disabled={!details} bind:checked={readIt} data-testid="recheck-ack" />
@@ -122,7 +127,9 @@
           {:else}
             <button class="rc-btn" onclick={() => (reviewing = false)} data-testid="recheck-close">{t('provenance.reproduce.close')}</button>
           {/if}
-          <button class="rc-btn rc-primary" disabled={!details || (recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
+          {#if resolve}
+            <button class="rc-btn rc-primary" disabled={!details || (recheckStore.noticeOpen && !readIt) || busy} onclick={rerun} data-testid="recheck-rerun">{t(recheckKey('recheck.rerun'))}</button>
+          {/if}
         </div>
       </footer>
     </div>
@@ -133,7 +140,7 @@
   <div class="rc-banner" role="status" data-testid="recheck-stale-banner">
     <span>{tp('recheck.banner', { n: a.changes.length })}</span>
     <button class="rc-banner-btn" onclick={() => (reviewing = true)} data-testid="recheck-banner-details">{t('recheck.bannerDetails')}</button>
-    <button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>
+    {#if resolve}<button class="rc-banner-btn rc-primary" disabled={busy} onclick={rerun} data-testid="recheck-banner-rerun">{t('recheck.bannerRerun')}</button>{/if}
   </div>
 {/if}
 

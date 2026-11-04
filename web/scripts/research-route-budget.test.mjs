@@ -19,10 +19,10 @@ test('missing and non-finite measurements fail', () => {
 });
 
 const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
-test('the landing routes have a 128 byte budget and the app routes the one-time safety batch acceptance', () => {
+test('the landing routes have a 128 byte budget and the app routes the one-time safety batch and #1253 acceptance', () => {
   assert.deepEqual(shippedBudgets, {
     '/en/': 128, '/es/': 128, '/pt/': 128,
-    '/app/basic': 20480, '/app/education': 20480, '/app/pro': 20480,
+    '/app/basic': 30720, '/app/education': 30720, '/app/pro': 30720,
   });
 });
 for (const [route, budget] of Object.entries(shippedBudgets)) {
