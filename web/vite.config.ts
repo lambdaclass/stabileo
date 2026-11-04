@@ -301,8 +301,8 @@ export default defineConfig({
           // parallel rollup/esbuild job: it does not occupy one worker slot, it occupies
           // the machine. Measured at 58.9 s of a 60.3 s run — it set the wall-clock floor
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
-          fileParallelism: false,
-          maxWorkers: 1,
+          // Vitest 3 reads fileParallelism and maxWorkers from the root config only, so inside a project they are ignored.
+          poolOptions: { forks: { singleFork: true } },
           // Every file here spawns a process; on a hosted runner `npm ls --all` alone took 64 s.
           testTimeout: 120_000,
         },

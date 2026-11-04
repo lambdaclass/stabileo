@@ -33,7 +33,10 @@ trap 'rm -rf "$logs"' EXIT
 declare -A pid
 for name in "$@"; do
   target=${CARGO_TARGET_DIR:+$CARGO_TARGET_DIR/research-$name}
-  ${BUILD_PREFIX:-nix develop --command} env RUSTC_WRAPPER= SCCACHE_DISABLE=1 ${target:+CARGO_TARGET_DIR=$target} "${script[$name]}" > "$logs/$name.log" 2>&1 &
+  (
+    ${BUILD_PREFIX:-nix develop --command} env RUSTC_WRAPPER= SCCACHE_DISABLE=1 ${target:+CARGO_TARGET_DIR=$target} "${script[$name]}" > "$logs/$name.log" 2>&1 || exit
+    [[ -z ${GITHUB_OUTPUT:-} ]] || echo "$name=ok" >> "$GITHUB_OUTPUT"
+  ) &
   pid[$name]=$!
 done
 status=0
