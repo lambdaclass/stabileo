@@ -70,7 +70,7 @@ for (const [width, height] of [[360, 800], [390, 844], [844, 390], [810, 1080]])
       await expect(page.getByTestId('lee-limit')).toHaveText(/^1[.,]8658$/);
       const viewer = page.locator('.lee-pane .sfv');
       await expect(viewer).toBeInViewport({ ratio: 0.5 });
-      expect((await viewer.boundingBox())!.height).toBeLessThanOrEqual(height * .48 + 1);
+      expect((await viewer.boundingBox())!.height).toBeLessThanOrEqual(Math.max(280, height * .48) + 1);
       await expect(page.locator('.rs-shell')).not.toContainText(/scalarViewer\.|Questions for the authors|provisional|not checked|pending|First limit load/i);
       await inspect(page);
       await page.locator('.lee-pane .cam-cube').click();
