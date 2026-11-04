@@ -73,7 +73,6 @@
 
 <section class="navier wrap">
   <h1>{s.title}</h1>
-  <p><strong>{s.stage}</strong></p>
   <p>{s.lead}</p>
   <p><strong>{s.notDesign}</strong></p>
   <div class="panes">

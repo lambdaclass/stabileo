@@ -176,46 +176,104 @@ fn design_strengths<T: Real>(m: &Ec2MemberData) -> (T, T, T) {
     (fcd, fyd, fck_mpa)
 }
 
-/// Flexural resistance. Generic over `Real` so the certified check
-/// (`certify::design`) evaluates the same formula in interval arithmetic.
-pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
+struct Ec2Block<T> {
+    k: T,
+    lambda: T,
+    ecu_es: T,
+    fyd: T,
+}
+
+fn ec2_block<T: Real>(m: &Ec2MemberData) -> Ec2Block<T> {
     let (fcd, fyd, fck_mpa) = design_strengths::<T>(m);
-    let es = T::exact(m.es.unwrap_or(200e9));
     let (one, fifty) = (T::exact(1.0), T::exact(50.0));
-    let (as_t, b, d) = (T::exact(m.as_tension), T::exact(m.b), T::exact(m.d));
+    let normal = T::exact(m.fck).le(T::exact(50e6));
+    let lambda = branch(normal, || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
+    let eta = branch(normal, || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
+    let ecu3 = branch(
+        normal,
+        || T::lit(0.0035),
+        || {
+            let r = (T::exact(90.0) - fck_mpa).dv(T::exact(100.0));
+            (T::lit(2.6) + T::exact(35.0) * r * r * r * r).dv(T::exact(1000.0))
+        },
+    );
+    Ec2Block { k: eta * fcd, lambda, ecu_es: ecu3 * T::exact(m.es.unwrap_or(200e9)), fyd }
+}
 
-    // Using simplified rectangular stress block (EC2 3.1.7)
-    // lambda = 0.8 for fck <= 50 MPa, eta = 1.0
-    let lambda = branch(fck_mpa.le(fifty), || T::lit(0.8), || T::lit(0.8) - (fck_mpa - fifty).dv(T::exact(400.0)));
-    let eta = branch(fck_mpa.le(fifty), || one, || one - (fck_mpa - fifty).dv(T::exact(200.0)));
+fn compression_steel(m: &Ec2MemberData) -> Option<(f64, f64)> {
+    match (m.as_compression, m.d_prime) {
+        (Some(a), Some(d_p)) if a > 0.0 && d_p > 0.0 && d_p < m.d => Some((a, d_p)),
+        _ => None,
+    }
+}
 
-    // Singly reinforced: force equilibrium
-    // C = eta * fcd * lambda * x * b
-    // T = As * fyd
-    // C = T => x = As * fyd / (eta * fcd * lambda * b)
-    let x_na = (as_t * fyd).dv(eta * fcd * lambda * b);
-
-    // Check compression steel contribution
-    let (m_rd, z) = if let (Some(as_c), Some(d_p)) = (m.as_compression, m.d_prime) {
-        let (as_c, d_p) = (T::exact(as_c), T::exact(d_p));
-        // Doubly reinforced
-        // Check if compression steel yields
-        let epsilon_cu = T::lit(0.0035); // EC2 3.1.7
-        let epsilon_sc = epsilon_cu * (one - d_p.dv(x_na));
-        let fsc = branch(fyd.le(epsilon_sc * es), || fyd, || epsilon_sc * es);
-
-        // Recompute x with compression steel
-        let x = (as_t * fyd - as_c * fsc).dv(eta * fcd * lambda * b);
-        let z_val = d - (lambda * x).dv(T::exact(2.0));
-        let m_c = eta * fcd * lambda * x * b * z_val;
-        let m_s = as_c * fsc * (d - d_p);
-        (m_c + m_s, z_val)
-    } else {
-        // Singly reinforced
-        let z_val = d - (lambda * x_na).dv(T::exact(2.0));
-        let m_rd_val = as_t * fyd * z_val;
-        (m_rd_val, z_val)
+/// (force residual C − T, moment about the tension steel) at neutral axis depth `x`, with the
+/// top bars taken net of the concrete they displace (`in_block`, d' ≤ λx) or not (d' > λx).
+/// Either way the residual is continuous and strictly increasing in x, so each root is unique.
+fn flexure_at<T: Real>(m: &Ec2MemberData, k: &Ec2Block<T>, x: T, in_block: bool) -> (T, T) {
+    let (one, zero) = (T::exact(1.0), T::exact(0.0));
+    let (b, d) = (T::exact(m.b), T::exact(m.d));
+    let sigma = |eps_es: T| eps_es.max(-k.fyd).min(k.fyd);
+    let cc = k.k * k.lambda * x * b;
+    let mc = cc * (d - (k.lambda * x).dv(T::exact(2.0)));
+    let (cs, ms) = match compression_steel(m) {
+        Some((a, d_p)) => {
+            let displaced = if in_block { k.k } else { zero };
+            let cs = T::exact(a) * (sigma(k.ecu_es * (one - T::exact(d_p).dv(x))) - displaced).max(zero);
+            (cs, cs * (d - T::exact(d_p)))
+        }
+        None => (zero, zero),
     };
+    let t = T::exact(m.as_tension) * sigma(k.ecu_es * (d.dv(x) - one));
+    (cc + cs - t, mc + ms)
+}
+
+fn flexure_state<T: Real>(m: &Ec2MemberData, k64: &Ec2Block<f64>, k: &Ec2Block<T>, in_block: bool) -> (T, T) {
+    let x = T::increasing_root(
+        |x| flexure_at(m, k64, x, in_block).0,
+        |x| flexure_at(m, k, x, in_block).0,
+        1e-12 * m.d,
+        m.d,
+    );
+    (x, flexure_at(m, k, x, in_block).1)
+}
+
+/// Flexural resistance by strain compatibility. Generic over `Real` so the certified check
+/// (`certify::design`) evaluates the same formula in interval arithmetic. NaN when the inputs
+/// describe no section or the root is not certified; zero with no tension steel.
+///
+/// With top bars the displaced concrete makes the force balance jump down where λx reaches d', so
+/// it is solved on both sides: the root below d'/λ without the deduction and the root above it
+/// with it. Where both are consistent the smaller moment governs.
+pub(crate) fn ec2_flexure<T: Real>(m: &Ec2MemberData) -> Ec2Flexure<T> {
+    if m.as_tension == 0.0 {
+        let zero = T::exact(0.0);
+        return Ec2Flexure { m_rd: zero, z: T::exact(m.d), x_na: zero };
+    }
+    let factors = [m.es.unwrap_or(200e9), m.gamma_c.unwrap_or(1.5), m.gamma_s.unwrap_or(1.15), m.alpha_cc.unwrap_or(1.0)];
+    let valid = [m.fck, m.fyk, m.b, m.h, m.d, m.as_tension].iter().chain(&factors).all(|v| v.is_finite() && *v > 0.0)
+        && m.d <= m.h;
+    if !valid {
+        let nan = T::exact(f64::NAN);
+        return Ec2Flexure { m_rd: nan, z: nan, x_na: nan };
+    }
+    let (k64, k) = (ec2_block::<f64>(m), ec2_block::<T>(m));
+    let (x_na, m_rd) = match compression_steel(m) {
+        None => flexure_state(m, &k64, &k, true),
+        Some((_, d_p)) => {
+            let d_p = T::exact(d_p);
+            let outside = flexure_state(m, &k64, &k, false);
+            let inside = flexure_state(m, &k64, &k, true);
+            let outside_holds = (k.lambda * outside.0).lt(d_p);
+            let inside_holds = d_p.le(k.lambda * inside.0);
+            let pick = |f: fn((T, T)) -> T, both: &dyn Fn() -> T| {
+                branch(outside_holds, || branch(inside_holds, both, || f(outside)), || f(inside))
+            };
+            let x = pick(|s| s.0, &|| branch(outside.1.le(inside.1), || outside.0, || inside.0));
+            (x, pick(|s| s.1, &|| outside.1.min(inside.1)))
+        }
+    };
+    let z = T::exact(m.d) - (k.lambda * x_na).dv(T::exact(2.0));
     Ec2Flexure { m_rd, z, x_na }
 }
 

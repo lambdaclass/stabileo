@@ -7,7 +7,7 @@ import { getShellCombinationKernel, registerShellCombinationKernel } from '../sh
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
 import { combineShellStresses, envelopeShellStresses, enrichComboShellStresses } from '../shell-combos';
-import { combineShellStressesOracle, enrichComboShellStressesOracle } from './differential/shell-combos-oracle';
+import { combineShellStressesOracle, enrichComboShellStressesOracle, envelopeShellStressesOracle } from './differential/shell-combos-oracle';
 import { EngineUnavailableError } from '../engine-unavailable';
 import type { AnalysisResults3D, QuadStress } from '../types-3d';
 
@@ -49,11 +49,43 @@ describe('combineShellStresses', () => {
 });
 
 describe('envelopeShellStresses', () => {
-  it('picks the governing (max Von Mises) combo per element', () => {
-    const combos = [emptyResult([q(7, 80), q(8, 30)]), emptyResult([q(7, 120), q(8, 10)])];
-    const { quadStresses } = envelopeShellStresses(combos);
-    expect(quadStresses.find(x => x.elementId === 7)!.vonMises).toBe(120);
-    expect(quadStresses.find(x => x.elementId === 8)!.vonMises).toBe(30);
+  const sets = (...lists: QuadStress[][]) => lists.map((l, i) => ({ source: { kind: 'combination' as const, id: 10 * (i + 1) }, results: emptyResult(l) }));
+
+  it('holds each component\'s own extremes, each with the combination it comes from', () => {
+    const { quadStresses } = envelopeShellStresses(sets([q(7, 80), q(8, 30)], [q(7, 120), q(8, -40)]));
+    const e7 = quadStresses.find(x => x.elementId === 7)!, e8 = quadStresses.find(x => x.elementId === 8)!;
+    expect(e7.vonMises).toBe(120);
+    expect(e8.sigmaXx).toBe(-40);
+    expect(e8.envelope!.sigmaXx).toEqual({ max: 30, maxSource: { kind: 'combination', id: 10 }, min: -40, minSource: { kind: 'combination', id: 20 } });
+  });
+
+  it('every enveloped component bounds each combination\'s value and is reached by the one it names', () => {
+    const value = fc.double({ min: -1e3, max: 1e3, noNaN: true });
+    const row = fc.record({ id: fc.integer({ min: 1, max: 4 }), s: fc.array(value, { minLength: 6, maxLength: 6 }), q: fc.option(fc.tuple(value, value), { nil: undefined }) });
+    fc.assert(fc.property(fc.array(fc.array(row, { maxLength: 6 }), { minLength: 1, maxLength: 5 }), (lists) => {
+      const input = lists.map((rows, i) => {
+        const byId = new Map(rows.map((r) => [r.id, r]));
+        const quads: QuadStress[] = [...byId.values()].map((r) => ({ elementId: r.id, sigmaXx: r.s[0]!, sigmaYy: r.s[1]!, tauXy: r.s[2]!, mx: r.s[3]!, my: r.s[4]!, mxy: r.s[5]!, vonMises: Math.hypot(r.s[0]!, r.s[1]!), ...(r.q ? { qx: r.q[0], qy: r.q[1] } : {}) }));
+        return { source: { kind: 'combination' as const, id: i + 1 }, results: emptyResult(quads) };
+      });
+      const env = envelopeShellStresses(input);
+      expect(env).toEqual(envelopeShellStressesOracle(input));
+      for (const e of env.quadStresses) {
+        for (const [key, x] of Object.entries(e.envelope!)) {
+          const values = input.flatMap((set) => {
+            const s = set.results.quadStresses!.find((r) => r.elementId === e.elementId);
+            if (!s) return [];
+            const v = key in s ? (s as unknown as Record<string, number>)[key] : undefined;
+            return v === undefined ? [] : [{ id: set.source.id, v }];
+          });
+          for (const { v } of values) { expect(x!.max).toBeGreaterThanOrEqual(v); expect(x!.min).toBeLessThanOrEqual(v); }
+          if (values.length) {
+            expect(values.some(({ id, v }) => id === x!.maxSource.id && v === x!.max)).toBe(true);
+            expect(values.some(({ id, v }) => id === x!.minSource.id && v === x!.min)).toBe(true);
+          }
+        }
+      }
+    }), { numRuns: 300, seed: 11 });
   });
 });
 
@@ -168,11 +200,11 @@ it('combineShellStresses through the kernel equals the TypeScript oracle on rand
   ), { numRuns: 500, seed: 7 });
 });
 
-it('keeps first-wins ties, retained nodal fields, and rejects nonfinite shell inputs', () => {
+it('envelopes a retained combination from its own record, and rejects nonfinite shell inputs', () => {
   const kernel = getShellCombinationKernel()!;
-  const retained = { ...q(7, 100), nodalVonMises: [99, 100, 101, 102], qx: 1, qy: 2 };
+  const retained = { ...q(7, 300), nodalVonMises: [99, 100, 101, 102], qx: 1, qy: 2 };
   const input = {
-    cases: [{ id: 1, plateStresses: [], quadStresses: [q(7, 100)] }],
+    cases: [{ id: 1, plateStresses: [], quadStresses: [{ ...q(7, 100), qx: 5, qy: -6 }] }],
     combinations: [{ id: 10, factors: [{ caseId: 1, factor: 1 }] }],
     thicknesses: [],
     envelopeOrder: [
@@ -180,12 +212,17 @@ it('keeps first-wins ties, retained nodal fields, and rejects nonfinite shell in
       { id: 10, plateStresses: [], quadStresses: [] },
     ],
   };
-  expect(kernel(input).envelope.quadStresses[0]).toBe(retained);
+  const row = kernel(input).envelope.quads[0]!;
+  expect(row.extremes.sigmaXx).toEqual({ max: 300, maxSource: 0, min: 100, minSource: 1 });
+  expect(row.extremes.qy).toEqual({ max: 2, maxSource: 0, min: -6, minSource: 1 });
   for (const field of ['sigmaXx', 'mx', 'qx'] as const) {
     const invalid = structuredClone(input);
     invalid.cases[0].quadStresses[0][field] = NaN;
     expect(() => kernel(invalid)).toThrow();
   }
+  const badRetained = structuredClone(input);
+  badRetained.envelopeOrder[0].quadStresses[0].mx = Infinity;
+  expect(() => kernel(badRetained)).toThrow();
 });
 
 it('does not turn overflowing Von Mises arithmetic into a zero stress', () => {

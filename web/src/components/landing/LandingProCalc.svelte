@@ -27,7 +27,7 @@
 
     <div class="mode-head">
       <h2 id="pro-calc-title" class="display">{t('landing.proCalcH')}</h2>
-      <span class="badge badge-dev">{t('landing.badgeDevFree')}</span>
+      <span class="badge badge-today">{t('landing.badgeFreeAlways')}</span>
     </div>
     <p class="lead">{t('landing.proCalcP')}</p>
 

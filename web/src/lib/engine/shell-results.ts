@@ -20,7 +20,7 @@
  *
  * Pure.
  */
-import type { AnalysisResults3D } from './types-3d';
+import type { AnalysisResults3D, ShellEnvelope } from './types-3d';
 import { faceStresses, principalStresses, trescaPlane, vonMisesPlane, type PlaneStress } from './shell-stress';
 
 type Vec = [number, number, number];
@@ -48,9 +48,12 @@ export interface ShellCentreRow {
   mx?: number; my?: number; mxy?: number;
   /** Transverse shears, kN/m, local: MITC4 quads only. */
   qx?: number; qy?: number;
-  membrane: FaceResult;
+  /** Absent for an envelope, whose components need not come from one set, as are the faces and the global axes. */
+  membrane?: FaceResult;
   /** Faces need recovered moments and a valid thickness; unavailable is never membrane-only. */
   top?: FaceResult; bottom?: FaceResult;
+  /** An envelope's extremes, as its record holds them. */
+  envelope?: ShellEnvelope;
   /** Global axes; absent where the element's local axes are not known here (a curved quad). */
   global?: { stress: Tensor6; moment: Tensor6; shear?: Vec };
 }
@@ -95,16 +98,16 @@ export function shellCentreRows(r: AnalysisResults3D, m: ShellModel): ShellCentr
       const e = el?.get(s.elementId);
       const t = e?.thickness ?? 0;
       const curved = e?.curved ?? false;
-      const faces = !curved && Number.isFinite(t) && t > 0 ? faceStresses(s, t) : null;
-      const membrane = face({ sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy });
+      const single = !s.envelope;
+      const faces = single && !curved && Number.isFinite(t) && t > 0 ? faceStresses(s, t) : null;
       const pts = e ? e.nodes.map((n) => m.nodes.get(n)).filter((p): p is Pt => !!p) : [];
-      const axes = e && !curved && pts.length === e.nodes.length ? shellLocalAxes(kind, pts) : null;
+      const axes = single && e && !curved && pts.length === e.nodes.length ? shellLocalAxes(kind, pts) : null;
       const q = 'qx' in s && s.qx !== undefined && s.qy !== undefined ? { qx: s.qx, qy: s.qy } : {};
       out.push({
         kind, id: s.elementId, thickness: t,
         sigmaXx: s.sigmaXx, sigmaYy: s.sigmaYy, tauXy: s.tauXy,
         ...(!curved ? { mx: s.mx, my: s.my, mxy: s.mxy } : {}), ...q,
-        membrane,
+        ...(single ? { membrane: face({ sxx: s.sigmaXx, syy: s.sigmaYy, txy: s.tauXy }) } : { envelope: s.envelope }),
         ...(faces ? { top: face(faces.top), bottom: face(faces.bottom) } : {}),
         ...(axes ? {
           global: {
