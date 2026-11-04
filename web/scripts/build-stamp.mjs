@@ -16,7 +16,15 @@ function walk(dir) {
   });
 }
 
-export function buildStamp(env = process.env) {
+export function envStamp(env = process.env) {
+  const hash = createHash('sha256');
+  for (const name of Object.keys(env).filter((key) => key.startsWith('VITE_') || ['BASE_PATH', 'GITHUB_SHA'].includes(key)).sort()) {
+    hash.update(`${name}=${env[name]}\0`);
+  }
+  return hash.digest('hex');
+}
+
+export function sourceStamp() {
   const git = (...args) => execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   const list = (...args) => git('ls-files', '-z', ...args).split('\0').filter(Boolean);
   const tracked = [...list('-c', '--', 'web', 'research'), ...list('-o', '--exclude-standard', '--', 'web/src', 'web/public', 'research')];
@@ -24,9 +32,6 @@ export function buildStamp(env = process.env) {
   const files = [...new Set([...tracked, ...envFiles, ...IGNORED_INPUTS.flatMap((dir) => walk(join(REPO_ROOT, dir)))])].sort();
   const hash = createHash('sha256');
   hash.update(`HEAD ${git('rev-parse', 'HEAD').trim()}\0`);
-  for (const name of Object.keys(env).filter((key) => key.startsWith('VITE_') || ['BASE_PATH', 'GITHUB_SHA'].includes(key)).sort()) {
-    hash.update(`env ${name}=${env[name]}\0`);
-  }
   for (const file of files) {
     const path = join(REPO_ROOT, file);
     const content = existsSync(path) && statSync(path).isFile() ? createHash('sha256').update(readFileSync(path)).digest('hex') : 'absent';
@@ -35,4 +40,10 @@ export function buildStamp(env = process.env) {
   return hash.digest('hex');
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) console.log(buildStamp());
+// Vitest copies VITE_* values from web/.env files into process.env, so a test compares the environment
+// make recorded before starting Vitest (STABILEO_BUILD_ENV_STAMP), never its own process.env.
+export function buildStamp(env = process.env) {
+  return `sources=${sourceStamp()} env=${env.STABILEO_BUILD_ENV_STAMP ?? envStamp(env)}`;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) console.log(process.argv[2] === '--env' ? envStamp() : buildStamp());

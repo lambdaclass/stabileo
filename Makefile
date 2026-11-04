@@ -272,7 +272,7 @@ web.build.tested:
 	$(NIX_RUN) bash -c 'cd web && $(PLAYWRIGHT_INSTALL) chromium && stamp=$$(node scripts/build-stamp.mjs) && rm -f dist.source-stamp .dist-shared.source-stamp && npm run build && npx vite build --manifest --outDir .dist-shared --emptyOutDir --logLevel error && echo "$$stamp" > dist.source-stamp && echo "$$stamp" > .dist-shared.source-stamp'
 
 test.web.build.shared:
-	$(NIX_RUN) bash -c "cd web && STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
+	$(NIX_RUN) bash -c 'cd web && STABILEO_BUILD_ENV_STAMP=$$(node scripts/build-stamp.mjs --env) STABILEO_SHARED_BUILD=.dist-shared STABILEO_SHARED_PRERENDERED_BUILD=dist NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build'
 
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"

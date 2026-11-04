@@ -2,7 +2,7 @@ import { afterEach, expect, it } from 'vitest';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildStamp } from '../../../../scripts/build-stamp.mjs';
+import { buildStamp, envStamp } from '../../../../scripts/build-stamp.mjs';
 import { sharedBuild } from './shared-build';
 
 const VARIABLE = 'STABILEO_SHARED_BUILD_UNDER_TEST';
@@ -57,4 +57,10 @@ it('changes the stamp when a source file, a build variable or a Vite env file ch
   } finally {
     rmSync(envFile, { force: true });
   }
+});
+
+it('compares the environment make recorded, not variables Vitest copied in from web/.env files', () => {
+  const recorded = { STABILEO_BUILD_ENV_STAMP: envStamp({ BASE_PATH: '/' }) };
+  expect(buildStamp({ ...recorded, VITE_FROM_DOTENV: '1' })).toBe(buildStamp({ BASE_PATH: '/' }));
+  expect(buildStamp(recorded)).not.toBe(buildStamp({ BASE_PATH: '/x/' }));
 });
