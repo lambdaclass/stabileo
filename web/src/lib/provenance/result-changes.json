@@ -1,8 +1,47 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 14,
+  "currentResultsVersion": 23,
   "changes": [
+    {
+      "id": "hidden-mechanism-2d-refused",
+      "resultsVersion": 23,
+      "date": "2026-11-04",
+      "prs": [
+        1298
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "constraints"
+          ]
+        ]
+      },
+      "title": {
+        "en": "2D: a mechanism behind a rigid link or diaphragm is refused",
+        "es": "2D: un mecanismo detrás de un vínculo rígido o diafragma se rechaza",
+        "pt": "2D: um mecanismo atrás de um vínculo rígido ou diafragma é recusado",
+        "de": "2D: ein Mechanismus hinter einer starren Kopplung oder Scheibe wird abgelehnt",
+        "fr": "2D : un mécanisme derrière une liaison rigide ou un diaphragme est refusé",
+        "tr": "2D: rijit bağ veya diyafram arkasındaki bir mekanizma reddediliyor"
+      },
+      "explanation": {
+        "en": "A plane model where a rigid link or diaphragm ties a truss end to a node whose members are all hinged is a mechanism, but the solver held it with an artificial spring and returned meaningless displacements, which the certificate could certify (#458). It is now refused as a mechanism. Re-run plane models with rigid links or diaphragms.",
+        "es": "Un modelo plano en el que un vínculo rígido o un diafragma une el extremo de una barra de reticulado a un nudo con todas sus barras articuladas es un mecanismo, pero el solver lo sostenía con un resorte artificial y devolvía desplazamientos sin sentido, que el certificado podía certificar (#458). Ahora se rechaza como mecanismo. Vuelva a calcular los modelos planos con vínculos rígidos o diafragmas.",
+        "pt": "Um modelo plano em que um vínculo rígido ou um diafragma liga a extremidade de uma barra de treliça a um nó com todas as barras articuladas é um mecanismo, mas o solver o segurava com uma mola artificial e devolvia deslocamentos sem sentido, que o certificado podia certificar (#458). Agora é recusado como mecanismo. Recalcule os modelos planos com vínculos rígidos ou diafragmas.",
+        "de": "Ein ebenes Modell, in dem eine starre Kopplung oder Scheibe ein Fachwerkstabende an einen Knoten mit lauter gelenkig angeschlossenen Stäben bindet, ist ein Mechanismus; der Löser hielt es mit einer künstlichen Feder und lieferte sinnlose Verschiebungen, die das Zertifikat bestätigen konnte (#458). Es wird jetzt als Mechanismus abgelehnt. Rechnen Sie ebene Modelle mit starren Kopplungen oder Scheiben neu.",
+        "fr": "Un modèle plan où une liaison rigide ou un diaphragme relie une extrémité de barre de treillis à un nœud dont toutes les barres sont articulées est un mécanisme, mais le solveur le retenait par un ressort artificiel et renvoyait des déplacements sans signification, que le certificat pouvait certifier (#458). Il est maintenant refusé comme mécanisme. Relancez les modèles plans avec liaisons rigides ou diaphragmes.",
+        "tr": "Rijit bağ veya diyaframın bir kafes çubuğu ucunu tüm çubukları mafsallı bir düğüme bağladığı düzlem model bir mekanizmadır; çözücü onu yapay bir yayla tutup anlamsız yer değiştirmeler veriyordu ve sertifika bunları onaylayabiliyordu (#458). Artık mekanizma olarak reddediliyor. Rijit bağlı veya diyaframlı düzlem modelleri yeniden çözün."
+      },
+      "changelog": {
+        "file": "changelog.d/458-hidden-mechanism-2d.md",
+        "heading": "2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)"
+      }
+    },
     {
       "id": "basic-plastic-closes-unloading-hinges",
       "resultsVersion": 14,
