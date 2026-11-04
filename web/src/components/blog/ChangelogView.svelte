@@ -4,8 +4,10 @@
     CHANGELOG,
     CHANGELOG_AREAS,
     AREA_LABELS,
+    changeCount as countChanges,
     changeStamp,
     changelogByMonth,
+    changesPerArea,
     formatChangeMonth,
     itemsByArea,
     type ChangelogArea,
@@ -21,8 +23,8 @@
 
   const visible = $derived(area ? CHANGELOG.filter((e) => e.areas.includes(area!)) : CHANGELOG);
   const months = $derived(changelogByMonth(visible));
-  const changeCount = $derived(visible.reduce((n, e) => n + (area ? e.areas.filter((a) => a === area).length : e.areas.length), 0));
-  const perArea = Object.fromEntries(CHANGELOG_AREAS.map((a) => [a, CHANGELOG.filter((e) => e.areas.includes(a)).length])) as Record<ChangelogArea, number>;
+  const changeCount = $derived(countChanges(visible, area));
+  const perArea = changesPerArea(CHANGELOG);
 
   function count(n: number, many: string, one: string) {
     return n === 1 ? t(one) : tp(many, { n });

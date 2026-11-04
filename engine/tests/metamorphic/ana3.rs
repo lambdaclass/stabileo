@@ -71,7 +71,7 @@ pub fn modal_resp_3d(r: &modal::ModalResult3D) -> Resp {
         }
         if r.modes.get(k + 1).is_some_and(|n| crate::response::modal_gap(m.frequency, n.frequency)) {
             o.push(None, None, &format!("meff{k:02}"), Kind::T3(Dim::MASS), cum.to_vec());
-            o.set_floor(&format!("meff{k:02}"), r.total_mass);
+            o.set_floor(&format!("meff{k:02}"), r.total_mass * crate::response::eigen_gap_factor(m.frequency, r.modes[k + 1].frequency));
         }
     }
     o
@@ -344,7 +344,7 @@ pub fn rows() -> Vec<Ana3> {
             name: "time history",
             law: Law::Linear,
             motion: Motion::Any,
-            iter_tol: 0.0,
+            iter_tol: 1e-10,
             full_static: false,
             run: |c| {
                 let loads = nodal_loads_3d(&c.s);
@@ -368,7 +368,7 @@ pub fn rows() -> Vec<Ana3> {
             name: "time history (ground motion)",
             law: Law::Indep,
             motion: Motion::Any,
-            iter_tol: 0.0,
+            iter_tol: 1e-10,
             full_static: false,
             run: |c| {
                 // Three-component record a(t) = c.p.ground; rotates as a vector.
@@ -431,6 +431,7 @@ pub fn rows() -> Vec<Ana3> {
                 }
                 o.set_floor("u", sd);
                 o.scalar("base_shear", Dim::FORCE, r.base_shear);
+                o.set_floor("base_shear", md.total_mass * pts.iter().fold(0.0f64, |m, p| m.max(p.1)) * 9.81);
                 Ok(o)
             },
         },
@@ -483,6 +484,9 @@ pub fn rows() -> Vec<Ana3> {
                 let r = plastic::solve_plastic_3d(&PlasticInput3D { solver: c.s.clone(), sections, materials, max_hinges: None, mp_overrides: None })?;
                 let mut o = Resp::default();
                 o.scalar("collapse_factor", Dim::NONE, r.collapse_factor);
+                if !r.is_mechanism {
+                    o.scalar(crate::response::LOWER_BOUND, Dim::NONE, 1.0);
+                }
                 Ok(o)
             },
         },

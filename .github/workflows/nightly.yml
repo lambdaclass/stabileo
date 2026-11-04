@@ -119,7 +119,7 @@ jobs:
   certify-large:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' certify-large ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -160,7 +160,7 @@ jobs:
   metamorphic-nightly:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' metamorphic-nightly ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -239,7 +239,7 @@ jobs:
   opensees-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' opensees-diff ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -304,7 +304,7 @@ jobs:
   codeaster-diff:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' codeaster-diff ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 60
     defaults:
       run:
@@ -327,6 +327,8 @@ jobs:
           create-args: -c conda-forge code-aster=18.1.10 python=3.12
           cache-environment: true
           init-shell: bash
+          micromamba-binary-path: ${{ runner.temp }}/micromamba-bin/micromamba
+          micromamba-root-path: ${{ runner.temp }}/micromamba-root
       - name: Build solver CLI
         run: cargo build --release --example solve_json
       - name: Translator unit tests
@@ -460,7 +462,7 @@ jobs:
   mutants:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' mutants ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && (vars.STABILEO_NIGHTLY_POOL == 'true' && fromJSON('["self-hosted","stabileo-nightly"]') || fromJSON('["self-hosted","stabileo"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     strategy:
       fail-fast: false
@@ -543,7 +545,7 @@ jobs:
   bench:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' bench ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -588,7 +590,7 @@ jobs:
   random-models:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' random-models ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -625,7 +627,7 @@ jobs:
   properties:
     needs: plan
     if: contains(needs.plan.outputs.jobs, ' properties ')
-    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    runs-on: ${{ (vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo-nightly"]') || 'ubuntu-24.04' }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

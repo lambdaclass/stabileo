@@ -223,6 +223,7 @@ SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_d
 NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:
+	python3 -B -I .github/scripts/check-wall-clock-tests.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
 # The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
@@ -367,8 +368,10 @@ test.nightly-scripts:
 
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
+	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
 	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
@@ -376,8 +379,9 @@ test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_post_merge_revert.py
 	python3 -B -I scripts/tests/test_required_checks.py
 	python3 -B -I scripts/tests/test_wall_clock.py
+	python3 -B -I scripts/tests/test_infra_retry.py
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
-	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml
+	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
 
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"
