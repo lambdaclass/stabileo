@@ -34,7 +34,7 @@ class Selection(unittest.TestCase):
 
     def test_every_web_scope_runs_typechecking(self):
         for path in ['docs/a.md', 'research/a.rs', 'web/src/components/tools/a.svelte',
-                     'engine/src/lib.rs', 'web/src/App.svelte']:
+                     'engine/src/lib.rs', 'web/src/App.svelte', 'research/fracture/shauer-2025/NOTES.md']:
             result = selection.select('pull_request', [path])
             self.assertEqual(result['web_build'], result['web'])
             self.assertEqual(result['docker'], result['web'])
@@ -71,14 +71,64 @@ class Selection(unittest.TestCase):
         self.assertNotIn('--product-budget', workflow)
 
     def test_unsure_is_full(self):
-        for paths in [None, [], {}, [None], ['../docs/x'], ['web/src/App.svelte'],
-                      ['web/src/lib/a.ts'], ['package.json'], ['flake.lock'],
+        for paths in [None, [], {}, [None], ['../docs/x'], ['package.json'], ['flake.lock'],
                       ['.github/workflows/ci.yml'], ['.github/scripts/select-ci.py'],
                       ['research/x', 'engine/x'], ['research/x', 'web/src/components/tools/x'],
-                      ['web/e2e/fixtures.ts'], ['web/package-lock.json'],
-                      ['web/e2e/research/nested.spec.ts'], ['web/e2e/tools/nested.spec.ts']]:
+                      ['web/package-lock.json'], ['web/package.json'], ['web/src/lib/wasm/stabileo_engine.js'],
+                      ['web/public/research-wasm/x.wasm'], ['web/vite.research-viewer.config.ts'],
+                      ['web/src/App.svelte', 'engine/src/lib.rs'], ['web/src/App.svelte', 'research/a.rs'],
+                      ['backend/mix.exs', 'docs/a.md']]:
             with self.subTest(paths=paths):
                 self.assert_full(selection.select('pull_request', paths))
+
+    SITE_SKIPS = ['engine', 'ai_backend', 'backend', 'ci_scripts']
+    SITE_RUNS = ['web', 'web_build', 'research', 'research_route_only', 'results', 'retest']
+
+    def assert_site(self, result, queue=False):
+        self.assertEqual(result['scope'], 'site')
+        for key in self.SITE_SKIPS:
+            self.assertEqual(result[key], 'false', key)
+        for key in self.SITE_RUNS:
+            self.assertEqual(result[key], 'true', key)
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+        self.assertEqual(result['unit_area'], '')
+        for key in ['docker', 'determinism', 'flaky']:
+            self.assertEqual(result[key], 'false' if queue else 'true', key)
+
+    def assert_docs(self, result, research='false'):
+        self.assertEqual(result['research'], research)
+        for key in ['engine', 'web', 'web_build', 'docker', 'ai_backend', 'backend', 'ci_scripts', 'results', 'determinism', 'flaky']:
+            self.assertEqual(result[key], 'false', key)
+
+    # PR #1250 (copy/pro-finished, merged 196621a64): locale strings, blog posts and two components.
+    PR_1250 = ['README.md', 'changelog.d/pro-mode-no-longer-in-development.md', 'web/e2e/prerender.spec.ts',
+               'web/src/App.svelte', 'web/src/components/landing/LandingProCalc.svelte',
+               'web/src/components/pro/ProAdvancedTab.svelte', 'web/src/lib/blog/pages/cirsoc.ts',
+               'web/src/lib/blog/posts/bars-or-finite-elements.ts',
+               'web/src/lib/blog/translations/de/page-cirsoc.ts', 'web/src/lib/i18n/__tests__/pro-copy.test.ts',
+               'web/src/lib/i18n/locales/en.ts', 'web/src/lib/i18n/locales/es.ts', 'web/src/lib/i18n/pro-copy.ts']
+    # PR #1344's docs-only companion shape: roadmap and changelog fragments only (docs/roadmap-2026-11-03).
+    DOCS_ONLY = ['docs/roadmap/PRODUCT_ROADMAP.md', 'changelog.d/ci-infra-auto-retry.md', 'CONTRIBUTING.md']
+
+    def test_site_changes_skip_only_the_engine_side(self):
+        for paths in [self.PR_1250, ['web/src/lib/i18n/locales/fr.ts'], ['web/src/lib/blog/posts/x.ts'],
+                      ['web/e2e/fixtures.ts'], ['web/scripts/prerender.ts', 'docs/a.md'],
+                      ['web/scripts/product-route-growth-budgets.json']]:
+            with self.subTest(paths=paths[:2]):
+                self.assert_site(selection.select('pull_request', paths))
+
+    def test_docs_and_research_prose_skip_every_build(self):
+        self.assertEqual(selection.select('pull_request', self.DOCS_ONLY)['scope'], 'docs')
+        self.assert_docs(selection.select('pull_request', self.DOCS_ONLY))
+        prose = ['research/fracture/shauer-2025/README.md', 'research/DESIGN.md', 'changelog.d/a.md']
+        self.assertEqual(selection.select('pull_request', prose)['scope'], 'prose')
+        self.assert_docs(selection.select('pull_request', prose), research='true')
+        self.assertEqual(selection.select('pull_request', ['research/papers.yaml', 'research/DESIGN.md'])['scope'], 'research')
+
+    def test_site_scope_runs_the_whole_smoke_suite(self):
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn("if: needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site'", workflow)
+        self.assertIn("if: needs.changes.outputs.scope != 'full' && needs.changes.outputs.scope != 'site'", workflow)
 
     def assert_full(self, result):
         self.assertEqual(result['scope'], 'full')
@@ -136,7 +186,7 @@ class Selection(unittest.TestCase):
                     self.assertIn('@engine @smoke', file.read_text())
 
     def test_rename_and_missing_history_cannot_narrow(self):
-        for diff in ['docs/moved.md\0web/src/App.svelte\0', None]:
+        for diff in ['docs/moved.md\0Makefile\0', None]:
             with tempfile.TemporaryDirectory() as tmp:
                 output = Path(tmp) / 'outputs'
                 env = {'GITHUB_EVENT_NAME': 'pull_request', 'CHANGED_FILES': '["docs/moved.md"]',

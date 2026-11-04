@@ -9,12 +9,14 @@
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Research WASM keeps the 60-minute budget for the expanded research crate set.
 # PR selection (docs/changelog may accompany any single area):
-# docs/**, root *.md, changelog.d/**: repository lint/changelog only.
+# docs/**, root *.md, changelog.d/**: repository lint/changelog only; research/**/*.md (not tools): plus research.
 # research/**, web/src/components/research/**, web/e2e/research*.spec.ts:
 # research validation/WASM, research unit + E2E, route budgets, shared WASM/site.
 # web/src/components/tools/** (+ tools*.spec.ts): tools unit + E2E, route budgets;
 # missing area tests conservatively select full CI.
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
+# Other web/** (site, blog, locales, e2e; not package manifests or WASM): everything but the engine,
+# AI-backend, backend and CI-script jobs, with the full E2E smoke suite.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
 # adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
@@ -1281,7 +1283,7 @@ jobs:
       # `browser.newContext`; run `npx playwright test --grep @landing` locally.
       # `@flaky` tests are quarantined (web/e2e/README.md): left out here, run by `e2e-flaky`.
       - name: Area E2E smoke suite
-        if: needs.changes.outputs.scope != 'full'
+        if: needs.changes.outputs.scope != 'full' && needs.changes.outputs.scope != 'site'
         env:
           E2E_SPECS: ${{ needs.changes.outputs.e2e_specs }}
           CI_SCOPE: ${{ needs.changes.outputs.scope }}
@@ -1292,7 +1294,7 @@ jobs:
             nix develop --command bash -c 'cd web && python3 ../.github/scripts/run-area-e2e.py'
           fi
       - name: E2E smoke suite (shard ${{ matrix.shard }}/10)
-        if: needs.changes.outputs.scope == 'full'
+        if: needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site'
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
             nix develop .#e2e -c make e2e.web.smoke SHARD=${{ matrix.shard }}/10 NIX_RUN=
