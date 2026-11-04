@@ -1471,6 +1471,8 @@ const steelFr: Translations = {
   'c301.refuse.noShearLag': 'l\'assemblage ne donne pas de U : il faut U, tous les éléments assemblés, un plat soudé ou x̄ et L (D.3)',
   'c301.refuse.unknownShape': 'la forme de section « {shape} » n\'a pas de classification dans le tableau B.4.1a',
   'c301.refuse.elementInvalid': 'paroi comprimée « {kind} » non valide pour le tableau B.4.1a',
+  'c301.refuse.qNonPositive': 'l\'aire efficace donne Qa = {Qa} ≤ 0 (A = {A} mm², Σ(b − be)·t = {lost} mm²) : l\'aire de la section ne concorde pas avec les largeurs et épaisseurs de ses parois comprimées (§E.7)',
+  'c301.refuse.fcrAboveFy': 'Fcr = {Fcr} MPa > Fy = {Fy} MPa : la résistance en compression dépasserait l\'effort normal plastique',
   'c301.refuse.chsTooSlender': 'D/t = {Dt} > 0.45·E/Fy = {lim} : E.7.2(c) ne couvre pas ce tube',
   'c301.refuse.e4NoJCw': '§E.4 : kz·Lz > ky·L et J ou Cw manque pour le flambement par torsion',
   'c301.refuse.e4NoJ': '§E.4 : J manque pour le flambement par flexion-torsion',

@@ -1,9 +1,8 @@
-import { reviewLabel } from '../reviews';
 export const strings = {
   en: {
     chapterCitation: 'Ventsel & Krauthammer (2001), Rectangular Plates',
     exampleCitation: 'Terje Haukaas, Navier’s Solution for Uniform Load (2018), pp. 1–3',
-    title: 'Navier plate: mesh convergence', stage: `First version · ${reviewLabel('navier-plate', 'en')}`,
+    title: 'Navier plate: mesh convergence',
     lead: 'One simply supported rectangular plate, uniform pressure, two production elements and a double Fourier series.',
     model: 'Model and reference',
     method: 'A 3 × 5 m plate, 0.1 m thick; E = 63,000 MPa, ν = 0.2; downward pressure 10 kN/m². All edges restrain vertical translation; rotations remain free. Three in-plane restraints remove rigid motion. Constant pressure is integrated as nodal forces over each cell.',
@@ -19,7 +18,7 @@ export const strings = {
   es: {
     chapterCitation: 'Ventsel & Krauthammer (2001), Rectangular Plates',
     exampleCitation: 'Terje Haukaas, Navier’s Solution for Uniform Load (2018), pp. 1–3',
-    title: 'Placa de Navier: convergencia de malla', stage: `Primera versión · ${reviewLabel('navier-plate', 'es')}`,
+    title: 'Placa de Navier: convergencia de malla',
     lead: 'Una placa rectangular simplemente apoyada, presión uniforme, dos elementos de producción y una serie doble de Fourier.',
     model: 'Modelo y referencia',
     method: 'Placa de 3 × 5 m y espesor 0,1 m; E = 63.000 MPa, ν = 0,2; presión descendente de 10 kN/m². Los bordes restringen el desplazamiento vertical y dejan libres las rotaciones. Tres restricciones en el plano eliminan el movimiento rígido. La presión constante se integra como fuerzas nodales en cada celda.',
@@ -35,7 +34,7 @@ export const strings = {
   pt: {
     chapterCitation: 'Ventsel & Krauthammer (2001), Rectangular Plates',
     exampleCitation: 'Terje Haukaas, Navier’s Solution for Uniform Load (2018), pp. 1–3',
-    title: 'Placa de Navier: convergência da malha', stage: `Primeira versão · ${reviewLabel('navier-plate', 'pt')}`,
+    title: 'Placa de Navier: convergência da malha',
     lead: 'Uma placa retangular simplesmente apoiada, pressão uniforme, dois elementos de produção e uma série dupla de Fourier.',
     model: 'Modelo e referência',
     method: 'Placa de 3 × 5 m e espessura de 0,1 m; E = 63.000 MPa, ν = 0,2; pressão descendente de 10 kN/m². As bordas restringem a translação vertical e deixam as rotações livres. Três restrições no plano eliminam o movimento rígido. A pressão constante é integrada como forças nodais em cada célula.',
