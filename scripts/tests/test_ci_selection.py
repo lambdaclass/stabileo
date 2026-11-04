@@ -7,6 +7,7 @@ import runpy
 from unittest.mock import patch
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -178,12 +179,71 @@ class Selection(unittest.TestCase):
                 output = Path(tmp) / 'outputs'
                 env = {'GITHUB_EVENT_NAME': 'merge_group', 'BASE_SHA': 'base', 'HEAD_SHA': 'head',
                        'GITHUB_OUTPUT': str(output)}
-                replies = ['base', diff] if diff is not None else subprocess.CalledProcessError(128, 'git')
+                replies = ['base', 'head base\n', diff] if diff is not None else subprocess.CalledProcessError(128, 'git')
                 with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=replies) as git:
                     runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
                 self.assertIn(f'scope={expected}\n', output.read_text())
                 if diff is not None:
-                    self.assertEqual(git.call_args_list[1].args[0][-2:], ['base', 'head'])
+                    self.assertEqual(git.call_args_list[2].args[0][-2:], ['base', 'head'])
+
+    def queue(self, entries):
+        with tempfile.TemporaryDirectory() as tmp:
+            git = lambda *args: subprocess.run(['git', '-C', tmp, '-c', 'user.name=t', '-c', 'user.email=t@t', *args],
+                                               check=True, capture_output=True, text=True).stdout.strip()
+            git('init', '-q', '-b', 'main')
+            Path(tmp, 'README.md').write_text('x')
+            git('add', '-A')
+            git('commit', '-qm', 'main')
+            main = git('rev-parse', 'HEAD')
+            group, scopes = main, []
+            for number, paths in enumerate(entries):
+                git('checkout', '-q', '-b', f'pr{number}', main)
+                for path in paths:
+                    Path(tmp, path).parent.mkdir(parents=True, exist_ok=True)
+                    Path(tmp, path).write_text(str(number))
+                git('add', '-A')
+                git('commit', '-qm', f'pr{number}')
+                git('checkout', '-q', '--detach', group)
+                git('merge', '-q', '--no-ff', '--no-edit', f'pr{number}')
+                group = git('rev-parse', 'HEAD')
+                output = Path(tmp, '.git', 'outputs')
+                output.write_text('')
+                env = {'GITHUB_EVENT_NAME': 'merge_group', 'BASE_SHA': main, 'HEAD_SHA': group, 'GITHUB_OUTPUT': str(output),
+                       'PATH': os.environ['PATH'], 'HOME': tmp}
+                result = subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/select-ci.py')], cwd=tmp, env=env,
+                                        capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                scopes.append(dict(line.split('=', 1) for line in output.read_text().splitlines())['scope'])
+            return scopes
+
+    def test_each_merge_queue_entry_is_scoped_by_its_own_change(self):
+        self.assertEqual(self.queue([['engine/src/lib.rs'], ['docs/a.md'], ['web/src/routes/a.svelte'], ['changelog.d/b.md']]),
+                         ['full', 'docs', 'site', 'docs'])
+        self.assertEqual(self.queue([['docs/a.md'], ['engine/src/solver.rs'], ['docs/b.md']]), ['docs', 'full', 'docs'])
+
+    def test_a_queue_head_without_two_parents_falls_back_to_the_whole_group(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            git = lambda *args: subprocess.run(['git', '-C', tmp, '-c', 'user.name=t', '-c', 'user.email=t@t', *args],
+                                               check=True, capture_output=True, text=True).stdout.strip()
+            git('init', '-q', '-b', 'main')
+            Path(tmp, 'README.md').write_text('x')
+            git('add', '-A')
+            git('commit', '-qm', 'main')
+            main = git('rev-parse', 'HEAD')
+            Path(tmp, 'engine/src').mkdir(parents=True)
+            Path(tmp, 'engine/src/lib.rs').write_text('x')
+            git('add', '-A')
+            git('commit', '-qm', 'engine')
+            Path(tmp, 'docs').mkdir()
+            Path(tmp, 'docs/a.md').write_text('x')
+            git('add', '-A')
+            git('commit', '-qm', 'docs')
+            output = Path(tmp, 'outputs')
+            env = {'GITHUB_EVENT_NAME': 'merge_group', 'BASE_SHA': main, 'HEAD_SHA': git('rev-parse', 'HEAD'),
+                   'GITHUB_OUTPUT': str(output), 'PATH': os.environ['PATH'], 'HOME': tmp}
+            subprocess.run([sys.executable, '-I', str(ROOT / '.github/scripts/select-ci.py')], cwd=tmp, env=env, check=True,
+                           capture_output=True)
+            self.assertIn('scope=full\n', output.read_text())
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}', workflow)
         self.assertIn('HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}', workflow)

@@ -97,12 +97,19 @@ if __name__ == '__main__':
         paths = None
     # Include both sides of renames: an app file moved into docs is still an
     # app deletion. Diff the PR's merge base, so stacked PRs stay relative to
-    # their actual base. Any missing history fails open to the full pipeline.
+    # their actual base. A merge-queue entry diffs against the entry ahead of it (its merge
+    # commit's first parent), which ALLGREEN requires to pass before this one merges.
+    # Any missing history fails open to the full pipeline.
     event = os.environ.get('GITHUB_EVENT_NAME')
     if event in ('pull_request', 'merge_group'):
         try:
             base = subprocess.check_output(['git', 'merge-base', os.environ['BASE_SHA'],
                                             os.environ['HEAD_SHA']], text=True).strip()
+            if event == 'merge_group':
+                parents = subprocess.check_output(['git', 'rev-list', '--parents', '-n', '1',
+                                                   os.environ['HEAD_SHA']], text=True).split()[1:]
+                if len(parents) == 2:
+                    base = parents[0]
             names = subprocess.check_output(['git', 'diff', '--no-renames', '--name-only',
                                              '-z', base, os.environ['HEAD_SHA']], text=True)
             if event == 'merge_group':
