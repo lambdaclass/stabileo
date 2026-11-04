@@ -71,6 +71,7 @@ const RELEASED: Record<number, string[]> = {
   20: ['generated-area-loads-headroom'],
   21: ['shell-figures-paint-the-screen-field'],
   22: ['hidden-mechanism-2d-refused'],
+  23: ['buckling-2d-varying-axial-force'],
 };
 
 describe('results versions', () => {

@@ -107,6 +107,9 @@ const body: PostBody = {
           "SA-2026-034",
           "La vérification d'équilibre déclarait charges et réactions concordantes pour des cas dont la vérification laissait des charges de côté ; les modifications d'étages similaires atteignaient des barres de l'autre type et les copies perdaient leurs relâchements",
           "Moyenne",
+          "SA-2026-042",
+          "Flambement 2D : le facteur des barres dont la compression croît le long de la barre sous des charges dans son axe était trop élevé (+43 % à +68 % pour une barre)",
+          "Élevée",
           "Corrigé dans la prochaine version"
         ],
         [

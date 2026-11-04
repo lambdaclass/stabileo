@@ -1,7 +1,7 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 22,
+  "currentResultsVersion": 23,
   "changes": [
     {
       "id": "aluminium-weak-axis-shear",
@@ -1802,6 +1802,48 @@
       "changelog": {
         "file": "changelog.d/458-hidden-mechanism-2d.md",
         "heading": "2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)"
+      }
+    },
+    {
+      "id": "buckling-2d-varying-axial-force",
+      "resultsVersion": 23,
+      "date": "2026-11-03",
+      "prs": [
+        1324
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "analysis:buckling"
+          ],
+          [
+            "memberLoads"
+          ],
+          [
+            "plane2D"
+          ]
+        ]
+      },
+      "title": {
+        "en": "2D buckling: members whose axial force varies along them",
+        "es": "Pandeo 2D: barras cuyo esfuerzo axial varía a lo largo",
+        "pt": "Flambagem 2D: barras cujo esforço axial varia ao longo delas",
+        "de": "2D-Knicken: Stäbe mit veränderlicher Normalkraft",
+        "fr": "Flambement 2D : barres dont l’effort normal varie le long de la barre",
+        "tr": "2B burkulma: eksenel kuvveti boyunca değişen çubuklar"
+      },
+      "explanation": {
+        "en": "Each member's buckling stiffness used its mean axial force. Under loads along a member, where compression grows toward the end that rotates most, the factor came out too high: +43 % for a one-member cantilever whose compression rises to its tip, +68 % with an axial point load at mid-span (SA-2026-042). It concerns 2D buckling with loads along members.",
+        "es": "La rigidez de pandeo de cada barra usaba su esfuerzo axial medio. Con cargas a lo largo de una barra, donde la compresión crece hacia el extremo que más gira, el factor salía demasiado alto: +43 % en una ménsula de una barra cuya compresión crece hacia la punta, +68 % con una carga axial puntual en el centro (SA-2026-042). Afecta al pandeo 2D con cargas a lo largo de las barras.",
+        "pt": "A rigidez de flambagem de cada barra usava seu esforço axial médio. Com cargas ao longo de uma barra, onde a compressão cresce para a extremidade que mais gira, o fator saía alto demais: +43 % num balanço de uma barra cuja compressão cresce até a ponta, +68 % com uma carga axial pontual no meio (SA-2026-042). Afeta a flambagem 2D com cargas ao longo das barras.",
+        "de": "Die Knicksteifigkeit jedes Stabs verwendete seine mittlere Normalkraft. Bei Lasten entlang eines Stabs, wo der Druck zum stärker verdrehten Ende hin wächst, kam der Faktor zu hoch heraus: +43 % bei einem Kragarm aus einem Stab, dessen Druck zur Spitze wächst, +68 % mit einer axialen Einzellast in Feldmitte (SA-2026-042). Betrifft 2D-Knicken mit Lasten entlang der Stäbe.",
+        "fr": "La rigidité de flambement de chaque barre utilisait son effort normal moyen. Avec des charges le long d’une barre, là où la compression croît vers l’extrémité qui tourne le plus, le facteur était trop élevé : +43 % pour une console d’une barre dont la compression croît vers la pointe, +68 % avec une charge axiale ponctuelle à mi-portée (SA-2026-042). Concerne le flambement 2D avec des charges le long des barres.",
+        "tr": "Her çubuğun burkulma rijitliği ortalama eksenel kuvvetini kullanıyordu. Çubuk boyunca yüklerde, basıncın en çok dönen uca doğru arttığı yerde katsayı fazla yüksek çıkıyordu: basıncı uca doğru artan tek çubuklu bir konsolda +%43, açıklık ortasında eksenel tekil yükle +%68 (SA-2026-042). Çubuklar boyunca yük içeren 2B burkulmayı etkiler."
+      },
+      "changelog": {
+        "file": "docs/advisories/SA-2026-042-buckling-2d-varying-axial-force.md",
+        "heading": "SA-2026-042: 2D buckling overstated the factor of members whose compression grows along them under axial span loads"
       }
     }
   ]

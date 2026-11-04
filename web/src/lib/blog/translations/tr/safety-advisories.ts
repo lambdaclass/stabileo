@@ -107,6 +107,9 @@ const body: PostBody = {
           "SA-2026-034",
           "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
           "Orta",
+          "SA-2026-042",
+          "2B burkulma: ekseni boyunca yük altında basıncı boyunca artan çubukların katsayısı yüksek çıkıyordu (tek çubukta +%43 ile +%68)",
+          "Yüksek",
           "Bir sonraki sürümde düzeltildi"
         ],
         [
