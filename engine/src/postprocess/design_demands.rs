@@ -6,6 +6,7 @@
 //! demands per member and packages them in the format each design check expects.
 
 use super::beam_stations::*;
+use super::design_axes::AxisDemand;
 use super::rc_check::RCDesignForces;
 use super::steel_check::ElementDesignForces;
 
@@ -28,21 +29,22 @@ pub enum DemandStrategy {
 
 /// Extract governing steel design demands from 3D grouped station results.
 ///
-/// For each member, scans all stations and combos to find the governing
-/// demand set according to the chosen strategy, then packages it as
-/// `ElementDesignForces` ready for `check_steel_members()`.
+/// N and the moments come from the station/combo the strategy picks; each
+/// shear is its peak over every station and combo, since the shear check does
+/// not interact with them.
 pub fn extract_steel_demands_3d(
     grouped: &GroupedBeamStationResult3D,
     strategy: DemandStrategy,
 ) -> Vec<ElementDesignForces> {
     grouped.members.iter().map(|member| {
-        let (n, my, mz, vy) = pick_governing_3d(&member.stations, strategy);
+        let g = pick_governing_3d(&member.stations, strategy);
         ElementDesignForces {
             element_id: member.member_id,
-            n,
-            my,
-            mz: Some(mz),
-            vy: Some(vy),
+            n: g.at.n,
+            my: g.at.m_strong,
+            mz: Some(g.at.m_weak),
+            v_strong: Some(g.peak.v_strong),
+            v_weak: Some(g.peak.v_weak),
         }
     }).collect()
 }
@@ -53,13 +55,14 @@ pub fn extract_steel_demands_2d(
     strategy: DemandStrategy,
 ) -> Vec<ElementDesignForces> {
     grouped.members.iter().map(|member| {
-        let (n, m, v) = pick_governing_2d(&member.stations, strategy);
+        let g = pick_governing_2d(&member.stations, strategy);
         ElementDesignForces {
             element_id: member.member_id,
-            n,
-            my: m,
+            n: g.at.n,
+            my: g.at.m_strong,
             mz: None,
-            vy: Some(v),
+            v_strong: Some(g.peak.v_strong),
+            v_weak: None,
         }
     }).collect()
 }
@@ -70,95 +73,95 @@ pub fn extract_rc_demands_2d(
     strategy: DemandStrategy,
 ) -> Vec<RCDesignForces> {
     grouped.members.iter().map(|member| {
-        let (n, m, v) = pick_governing_2d(&member.stations, strategy);
+        let g = pick_governing_2d(&member.stations, strategy);
         RCDesignForces {
             element_id: member.member_id,
-            mu: m,
-            vu: Some(v),
-            nu: Some(n),
+            mu: g.at.m_strong,
+            vu: Some(g.peak.v_strong),
+            nu: Some(g.at.n),
         }
     }).collect()
 }
 
 /// Extract governing RC design demands from 3D grouped station results.
-/// Uses moment_z (major axis bending) as the governing moment for RC.
+///
+/// The RC check covers the strong axis (My, Vz) only, so a member with any
+/// weak-axis moment or shear is an Err rather than checked without it.
 pub fn extract_rc_demands_3d(
     grouped: &GroupedBeamStationResult3D,
     strategy: DemandStrategy,
-) -> Vec<RCDesignForces> {
+) -> Result<Vec<RCDesignForces>, String> {
     grouped.members.iter().map(|member| {
-        let (n, _my, mz, vy) = pick_governing_3d(&member.stations, strategy);
-        RCDesignForces {
-            element_id: member.member_id,
-            mu: mz,
-            vu: Some(vy),
-            nu: Some(n),
+        let g = pick_governing_3d(&member.stations, strategy);
+        if g.peak.m_weak != 0.0 || g.peak.v_weak != 0.0 {
+            return Err(format!(
+                "member {}: weak-axis Mz = {} / Vy = {} not checked by the RC check (strong axis only)",
+                member.member_id, g.peak.m_weak, g.peak.v_weak
+            ));
         }
+        Ok(RCDesignForces {
+            element_id: member.member_id,
+            mu: g.at.m_strong,
+            vu: Some(g.peak.v_strong),
+            nu: Some(g.at.n),
+        })
     }).collect()
 }
 
-// ==================== Internal: pick governing from stations ====================
-
-/// Scan all stations and combos for a 2D member, return (n, m, v) at the
-/// governing point according to the strategy.
-fn pick_governing_2d(
-    stations: &[BeamStation],
-    strategy: DemandStrategy,
-) -> (f64, f64, f64) {
-    let mut best_score = f64::NEG_INFINITY;
-    let mut best = (0.0, 0.0, 0.0);
-
-    for s in stations {
-        for cf in &s.combo_forces {
-            let score = match strategy {
-                DemandStrategy::MaxAbsMoment => cf.m.abs(),
-                DemandStrategy::MaxAbsAxial => cf.n.abs(),
-                DemandStrategy::MaxInteraction { n_ref, m_ref } => {
-                    let nr = if n_ref.abs() > 1e-30 { (cf.n / n_ref).abs() } else { 0.0 };
-                    let mr = if m_ref.abs() > 1e-30 { (cf.m / m_ref).abs() } else { 0.0 };
-                    nr + mr
-                }
-            };
-            if score > best_score {
-                best_score = score;
-                best = (cf.n, cf.m, cf.v);
-            }
-        }
-    }
-    best
+struct Governing {
+    at: AxisDemand,
+    peak: AxisDemand,
 }
 
-/// Scan all stations and combos for a 3D member, return (n, my, mz, vy) at the
-/// governing point according to the strategy.
-fn pick_governing_3d(
-    stations: &[BeamStation3D],
-    strategy: DemandStrategy,
-) -> (f64, f64, f64, f64) {
-    let mut best_score = f64::NEG_INFINITY;
-    let mut best = (0.0, 0.0, 0.0, 0.0);
-
-    for s in stations {
-        for cf in &s.combo_forces {
-            let score = match strategy {
-                DemandStrategy::MaxAbsMoment => {
-                    // For 3D, use SRSS of both moments as the scoring metric
-                    (cf.my * cf.my + cf.mz * cf.mz).sqrt()
-                }
-                DemandStrategy::MaxAbsAxial => cf.n.abs(),
-                DemandStrategy::MaxInteraction { n_ref, m_ref } => {
-                    let nr = if n_ref.abs() > 1e-30 { (cf.n / n_ref).abs() } else { 0.0 };
-                    let m_srss = (cf.my * cf.my + cf.mz * cf.mz).sqrt();
-                    let mr = if m_ref.abs() > 1e-30 { m_srss / m_ref } else { 0.0 };
-                    nr + mr
-                }
-            };
-            if score > best_score {
-                best_score = score;
-                best = (cf.n, cf.my, cf.mz, cf.vy);
-            }
-        }
+fn signed_peak(a: f64, b: f64) -> f64 {
+    if a.is_nan() || b.is_nan() {
+        f64::NAN
+    } else if b.abs() > a.abs() {
+        b
+    } else {
+        a
     }
-    best
+}
+
+fn pick_governing(demands: impl Iterator<Item = AxisDemand>, strategy: DemandStrategy) -> Governing {
+    let mut best_score = f64::NEG_INFINITY;
+    let mut g = Governing { at: AxisDemand::default(), peak: AxisDemand::default() };
+    for d in demands {
+        let m = d.m_strong.hypot(d.m_weak);
+        let score = match strategy {
+            DemandStrategy::MaxAbsMoment => m,
+            DemandStrategy::MaxAbsAxial => d.n.abs(),
+            DemandStrategy::MaxInteraction { n_ref, m_ref } => {
+                let nr = if n_ref.abs() > 1e-30 { (d.n / n_ref).abs() } else { 0.0 };
+                let mr = if m_ref.abs() > 1e-30 { m / m_ref.abs() } else { 0.0 };
+                nr + mr
+            }
+        };
+        let invalid = [d.n, d.m_strong, d.v_strong, d.m_weak, d.v_weak].iter().any(|x| x.is_nan());
+        if invalid || score > best_score {
+            best_score = if invalid { f64::INFINITY } else { score };
+            g.at = d;
+        }
+        g.peak = AxisDemand {
+            n: signed_peak(g.peak.n, d.n),
+            m_strong: signed_peak(g.peak.m_strong, d.m_strong),
+            v_strong: signed_peak(g.peak.v_strong, d.v_strong),
+            m_weak: signed_peak(g.peak.m_weak, d.m_weak),
+            v_weak: signed_peak(g.peak.v_weak, d.v_weak),
+        };
+    }
+    g
+}
+
+fn pick_governing_2d(stations: &[BeamStation], strategy: DemandStrategy) -> Governing {
+    pick_governing(
+        stations.iter().flat_map(|s| s.combo_forces.iter().map(|cf| AxisDemand::plane_2d(cf.n, cf.m, cf.v))),
+        strategy,
+    )
+}
+
+fn pick_governing_3d(stations: &[BeamStation3D], strategy: DemandStrategy) -> Governing {
+    pick_governing(stations.iter().flat_map(|s| s.combo_forces.iter().map(AxisDemand::station_3d)), strategy)
 }
 
 #[cfg(test)]
@@ -211,11 +214,10 @@ mod tests {
             make_station_2d(1, 1, 0.5, vec![(1, 0.0, 5.0, -120.0), (2, 0.0, 8.0, -90.0)]),
             make_station_2d(1, 2, 1.0, vec![(1, 0.0, 0.0, 0.0), (2, 0.0, 0.0, 0.0)]),
         ];
-        let (n, m, v) = pick_governing_2d(&stations, DemandStrategy::MaxAbsMoment);
-        // Station 1, combo 1 has |m| = 120 (largest)
-        assert!((m - (-120.0)).abs() < 1e-10);
-        assert!((v - 5.0).abs() < 1e-10);
-        assert!(n.abs() < 1e-10);
+        let g = pick_governing_2d(&stations, DemandStrategy::MaxAbsMoment);
+        assert!((g.at.m_strong - (-120.0)).abs() < 1e-10);
+        assert!((g.peak.v_strong - 15.0).abs() < 1e-10);
+        assert!(g.at.n.abs() < 1e-10);
     }
 
     #[test]
@@ -224,9 +226,44 @@ mod tests {
             make_station_2d(1, 0, 0.0, vec![(1, -200.0, 10.0, -50.0)]),
             make_station_2d(1, 1, 0.5, vec![(1, -100.0, 5.0, -120.0)]),
         ];
-        let (n, m, _v) = pick_governing_2d(&stations, DemandStrategy::MaxAbsAxial);
-        assert!((n - (-200.0)).abs() < 1e-10);
-        assert!((m - (-50.0)).abs() < 1e-10);
+        let g = pick_governing_2d(&stations, DemandStrategy::MaxAbsAxial);
+        assert!((g.at.n - (-200.0)).abs() < 1e-10);
+        assert!((g.at.m_strong - (-50.0)).abs() < 1e-10);
+    }
+
+    #[test]
+    fn max_interaction_with_negative_references_picks_the_largest_demand() {
+        let stations = vec![
+            make_station_2d(1, 0, 0.0, vec![(1, -10.0, 1.0, -20.0)]),
+            make_station_2d(1, 1, 0.5, vec![(1, -10.0, 1.0, -120.0)]),
+        ];
+        for (n_ref, m_ref) in [(100.0, 200.0), (-100.0, -200.0)] {
+            let g = pick_governing_2d(&stations, DemandStrategy::MaxInteraction { n_ref, m_ref });
+            assert_eq!(g.at.m_strong, -120.0);
+        }
+    }
+
+    #[test]
+    fn a_nan_component_reaches_the_demand_instead_of_vanishing() {
+        let stations = vec![
+            make_station_3d(1, 0, 0.0, vec![(1, 0.0, 0.0, f64::NAN, -30.0, 0.0, 0.0)]),
+            make_station_3d(1, 1, 0.5, vec![(1, 0.0, 0.0, 3.0, -60.0, 0.0, 0.0)]),
+        ];
+        let g = pick_governing_3d(&stations, DemandStrategy::MaxAbsMoment);
+        assert!(g.peak.v_strong.is_nan() && g.at.v_strong.is_nan());
+        let weak = vec![make_station_3d(1, 0, 0.0, vec![(1, 0.0, f64::NAN, 3.0, -60.0, 0.0, 0.0)])];
+        assert!(pick_governing_3d(&weak, DemandStrategy::MaxAbsMoment).peak.v_weak.is_nan());
+        let moment = vec![
+            make_station_2d(1, 0, 0.0, vec![(1, 0.0, 1.0, f64::NAN)]),
+            make_station_2d(1, 1, 0.5, vec![(1, 0.0, 1.0, -120.0)]),
+        ];
+        assert!(pick_governing_2d(&moment, DemandStrategy::MaxAbsMoment).at.m_strong.is_nan());
+    }
+
+    #[test]
+    fn extract_rc_demands_3d_refuses_a_nan_weak_component() {
+        let f = (1, -50.0, f64::NAN, 5.0, -10.0, 0.0, 1.0);
+        assert!(extract_rc_demands_3d(&grouped_3d(vec![f]), DemandStrategy::MaxAbsMoment).is_err());
     }
 
     #[test]
@@ -235,12 +272,12 @@ mod tests {
             make_station_3d(1, 0, 0.0, vec![(1, 0.0, 10.0, 5.0, -30.0, -40.0, 2.0)]),
             make_station_3d(1, 1, 0.5, vec![(1, 0.0, 8.0, 3.0, -60.0, -80.0, 1.0)]),
         ];
-        let (n, my, mz, vy) = pick_governing_3d(&stations, DemandStrategy::MaxAbsMoment);
-        // Station 1: SRSS = sqrt(60^2 + 80^2) = 100  vs station 0: sqrt(30^2 + 40^2) = 50
-        assert!((my - (-60.0)).abs() < 1e-10);
-        assert!((mz - (-80.0)).abs() < 1e-10);
-        assert!((vy - 8.0).abs() < 1e-10);
-        assert!(n.abs() < 1e-10);
+        let g = pick_governing_3d(&stations, DemandStrategy::MaxAbsMoment);
+        assert!((g.at.m_strong - (-60.0)).abs() < 1e-10);
+        assert!((g.at.m_weak - (-80.0)).abs() < 1e-10);
+        assert!((g.peak.v_strong - 5.0).abs() < 1e-10);
+        assert!((g.peak.v_weak - 10.0).abs() < 1e-10);
+        assert!(g.at.n.abs() < 1e-10);
     }
 
     #[test]
@@ -275,9 +312,8 @@ mod tests {
         assert!(demands[0].mz.is_none()); // 2D: no minor-axis moment
     }
 
-    #[test]
-    fn extract_rc_demands_3d_uses_mz_as_mu() {
-        let grouped = GroupedBeamStationResult3D {
+    fn grouped_3d(forces: Vec<(usize, f64, f64, f64, f64, f64, f64)>) -> GroupedBeamStationResult3D {
+        GroupedBeamStationResult3D {
             schema_version: 1,
             members: vec![MemberStationGroup3D {
                 member_id: 1,
@@ -285,9 +321,7 @@ mod tests {
                 section_id: 1,
                 material_id: 1,
                 length: 6.0,
-                stations: vec![
-                    make_station_3d(1, 0, 0.0, vec![(1, -50.0, 25.0, 5.0, -10.0, -150.0, 1.0)]),
-                ],
+                stations: vec![make_station_3d(1, 0, 0.0, forces)],
                 member_governing: MemberGoverning3D {
                     axial: None, shear_y: None, shear_z: None,
                     moment_y: None, moment_z: None, torsion: None,
@@ -301,13 +335,28 @@ mod tests {
                 moment_y: String::new(), moment_z: String::new(), torsion: String::new(),
                 station_x: String::new(),
             },
-        };
+        }
+    }
 
-        let demands = extract_rc_demands_3d(&grouped, DemandStrategy::MaxAbsMoment);
-        assert_eq!(demands.len(), 1);
-        // RC uses mz (major axis) as mu
-        assert!((demands[0].mu - (-150.0)).abs() < 1e-10);
+    #[test]
+    fn extract_rc_demands_3d_uses_my_and_vz() {
+        let demands = extract_rc_demands_3d(&grouped_3d(vec![(1, -50.0, 0.0, 5.0, -10.0, 0.0, 1.0)]), DemandStrategy::MaxAbsMoment)
+            .unwrap();
+        assert!((demands[0].mu - (-10.0)).abs() < 1e-10);
+        assert!((demands[0].vu.unwrap() - 5.0).abs() < 1e-10);
         assert!((demands[0].nu.unwrap() - (-50.0)).abs() < 1e-10);
-        assert!((demands[0].vu.unwrap() - 25.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn extract_rc_demands_3d_refuses_weak_axis_demands() {
+        for f in [(1, -50.0, 25.0, 5.0, -10.0, 0.0, 1.0), (1, -50.0, 0.0, 5.0, -10.0, -150.0, 1.0)] {
+            assert!(extract_rc_demands_3d(&grouped_3d(vec![f]), DemandStrategy::MaxAbsMoment).is_err());
+        }
+    }
+
+    #[test]
+    fn extract_steel_demands_3d_maps_strong_and_weak_axes() {
+        let d = &extract_steel_demands_3d(&grouped_3d(vec![(1, -50.0, 25.0, 5.0, -10.0, -150.0, 1.0)]), DemandStrategy::MaxAbsMoment)[0];
+        assert_eq!((d.my, d.mz, d.v_strong, d.v_weak), (-10.0, Some(-150.0), Some(5.0), Some(25.0)));
     }
 }

@@ -49,6 +49,21 @@ const RELEASED: Record<number, string[]> = {
   ],
   5: ['solid-shell-local-stress-axes'],
   6: ['buckling-certificate-rejects-outside-factor'],
+  7: ['cirsoc201-column-design-axes'],
+  8: ['ec2-flexure-strain-compatibility'],
+  9: ['modal-repeated-eigenspace-completeness'],
+  10: ['static-modal-runtime-self-checks'],
+  11: ['shell-envelope-per-component'],
+  12: ['cirsoc301-q-nonpositive-refused'],
+  13: ['time-history-massless-start', 'modal-mechanism-refused'],
+  14: [
+    'basic-plastic-closes-unloading-hinges', 'basic-second-order-split-members',
+    'basic-influence-line-moment-sign',
+  ],
+  15: [
+    'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
+    'basic-influence-line-moment-sign-withdrawn',
+  ],
 };
 
 describe('results versions', () => {
@@ -58,6 +73,21 @@ describe('results versions', () => {
     const sorted = (r: Record<number, string[]>) => Object.fromEntries(Object.entries(r).map(([v, ids]) => [v, [...ids].sort()]));
     expect(sorted(byVersion)).toEqual(sorted(RELEASED));
     expect(RESULT_CHANGES.currentResultsVersion).toBe(Math.max(...Object.keys(RELEASED).map(Number)));
+  });
+
+  it('tells a modal frame about modal completeness up to version 8, self-checks up to 9 and the mechanism refusal up to 12, until it is re-solved', () => {
+    const frame: FeatureSnapshot = {
+      analysisMode: 'pro',
+      elements: [[1, { id: 1, type: 'frame', nodeI: 1, nodeJ: 2, materialId: 1 }]],
+    };
+    const stamp = { resultsVersion: 4, analyses: ['modal'] } as unknown as SolveStamp;
+    const ids = (resultsVersion: number) => assessProject(frame, { ...stamp, resultsVersion }, 'pro').changes.map((c) => c.id).sort();
+    for (const version of [4, 5, 6, 7, 8]) {
+      expect(ids(version)).toEqual(['modal-mechanism-refused', 'modal-repeated-eigenspace-completeness', 'static-modal-runtime-self-checks']);
+    }
+    expect(ids(9)).toEqual(['modal-mechanism-refused', 'static-modal-runtime-self-checks']);
+    for (const version of [10, 11, 12]) expect(ids(version)).toEqual(['modal-mechanism-refused']);
+    expect(ids(13)).toEqual([]);
   });
 
   it('stamps the committed project fixture with the current version', () => {

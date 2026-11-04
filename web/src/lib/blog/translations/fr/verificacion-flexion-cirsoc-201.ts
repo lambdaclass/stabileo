@@ -212,7 +212,7 @@ const body: PostBody = {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "La poutre dans Stabileo, dans le flux de dimensionnement de PRO. Si le dimensionnement est désactivé, cliquez sur « Activer le dimensionnement pour cette visite » dans l'avis. Trois boutons, dans cet ordre : « Calculer les sollicitations », « Calculer l'acier requis » et « Dimensionner… ». Seul le troisième choisit les barres, et tant qu'il n'y a pas de barres, il n'y a rien à vérifier : le tableau indique « sans armatures ». La portée de 5 m est modélisée en deux éléments ; les deux aboutissent à S/R = 0,90, avec l'effort tranchant en travée comme critère déterminant : la flexion et l'ancrage des barres restent en dessous. Modifiez la charge et relancez le calcul. PRO est en développement ; le module béton est la partie implémentée et testée."
+      "label": "La poutre dans Stabileo, dans le flux de dimensionnement de PRO. Si le dimensionnement est désactivé, cliquez sur « Activer le dimensionnement pour cette visite » dans l'avis. Trois boutons, dans cet ordre : « Calculer les sollicitations », « Calculer l'acier requis » et « Dimensionner… ». Seul le troisième choisit les barres, et tant qu'il n'y a pas de barres, il n'y a rien à vérifier : le tableau indique « sans armatures ». La portée de 5 m est modélisée en deux éléments ; les deux aboutissent à S/R = 0,90, avec l'effort tranchant en travée comme critère déterminant : la flexion et l'ancrage des barres restent en dessous. Modifiez la charge et relancez le calcul. Le dimensionnement réglementaire dans PRO est encore en développement ; le module béton est la partie implémentée et testée."
     },
     {
       "k": "h",

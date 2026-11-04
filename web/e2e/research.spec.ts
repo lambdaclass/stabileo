@@ -4,6 +4,19 @@ import { EXPERIMENTS } from '../src/components/research/experiments';
 import catalog from '../../research/papers.json' with { type: 'json' };
 import type { StabileoTestActions, StabileoTestHooks } from '../src/lib/utils/e2e-hooks';
 
+const REVIEW_NOTE = /First version|Primera versión|Primeira versão|Erste Version|Première version|İlk sürüm|review rounds?\b|rondas? de revisión|rodadas? de revisão|Prüfrunden?|cycles? de revue|inceleme turu/;
+
+for (const locale of ['en', 'es', 'pt', 'de', 'fr', 'tr']) {
+  test(`@smoke no research page shows a first-version or review-round note in ${locale}`, async ({ page }) => {
+    for (const path of ['/research', ...EXPERIMENTS.map((e) => e.path)]) {
+      await page.goto(`/${locale}${path}/`);
+      await expect(page.locator('h1').first()).toBeVisible();
+      await expect(page.locator('.rs-review, .rs-g-first')).toHaveCount(0);
+      await expect(page.locator('body'), `${locale}${path}`).not.toContainText(REVIEW_NOTE);
+    }
+  });
+}
+
 /**
  * Stabileo Research: the gallery, and the phase-field page running its real simulation (the
  * research WASM, in a worker) for a few load steps on the coarse mesh.
@@ -37,8 +50,9 @@ test.describe('@smoke research', () => {
       const title = (await heading.innerText()).trim();
       expect(title.length).toBeGreaterThan(0);
       const paper = catalog.papers.find((p) => p.id === experiment.paperId)!;
-      const rounds = new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size;
-      await expect(card.getByText(`First version · ${rounds} review round${rounds === 1 ? '' : 's'}`, { exact: true })).toBeVisible();
+      expect(new Set((paper.reviews ?? []).flatMap((r) => ('round' in r ? [r.round] : []))).size).toBeGreaterThan(0);
+      await expect(card.locator('.rs-g-first')).toHaveCount(0);
+      await expect(card).not.toContainText(REVIEW_NOTE);
       // Every runnable experiment shows its build-time thumbnail, never the field icon.
       await expect(card.locator('.rs-g-thumb-icon')).toHaveCount(0);
       await expect(card.locator('a.rs-g-thumb')).toHaveAttribute('href', path);
@@ -50,6 +64,8 @@ test.describe('@smoke research', () => {
       await link.click();
       await expect(page).toHaveURL(new URL(path, page.url()).href);
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await expect(page.locator('.rs-review')).toHaveCount(0);
+      await expect(page.locator('body')).not.toContainText(REVIEW_NOTE);
       await page.goto('/en/research/');
     }
   });

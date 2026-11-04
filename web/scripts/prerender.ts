@@ -43,7 +43,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { prerenderConcurrency, routePool } from './prerender-pool';
+import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { paperStructuredData } from './paper-structured-data';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
@@ -207,7 +207,7 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
     <h1>${esc(post.title)}</h1>
     <div class="foot"><span class="logo">S</span><span class="name">Stabileo</span><span class="dot">&middot;</span><span>${esc(date)}</span><span class="dot">&middot;</span><span>stabileo.com</span></div>
   </div>`;
-  const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
+  const page = await newPrerenderPage(() => browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 }));
   try {
     // Same origin as the fonts: a card set on about:blank cannot load them from the build server,
     // and falls back to the system faces.
@@ -269,7 +269,7 @@ async function publicPaths(): Promise<string[]> {
 const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
 
 async function newCapturePage(browser: Browser) {
-  const page = await browser.newPage();
+  const page = await newPrerenderPage(() => browser.newPage());
   // Read the current route on every navigation: reused pages must not accumulate
   // locale-specific init scripts or inherit the previous route's preferences.
   await page.addInitScript(() => {

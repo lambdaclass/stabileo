@@ -314,6 +314,8 @@ export default defineConfig({
           // for the whole suite by itself, and it peaked at 1.75 GB RSS / 78 % CPU.
           fileParallelism: false,
           maxWorkers: 1,
+          // Every file here spawns a process; on a hosted runner `npm ls --all` alone took 64 s.
+          testTimeout: 120_000,
         },
       },
       {
