@@ -1054,7 +1054,7 @@ export type { AnalysisResults3D };
 
 // ─── Influence Line Types ───────────────────────────────────────
 
-export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M' | 'N' | 'ux' | 'uz' | 'ry';
+export type InfluenceQuantity = 'Rz' | 'Ry' | 'Rx' | 'My' | 'Mz' | 'V' | 'M';
 
 export interface InfluenceLineResult {
   /** What quantity is being tracked */

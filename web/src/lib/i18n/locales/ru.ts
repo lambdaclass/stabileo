@@ -288,6 +288,7 @@ const ru: Translations = {
   'advanced.mechanism': 'Механизм',
   'advanced.noCollapse': 'Без разрушения',
   'advanced.calculateFirst': 'Сначала рассчитайте',
+  'advanced.calculateFirstF5': 'Сначала рассчитайте (Enter)',
   'advanced.emptyModel': 'Пустая модель',
   'advanced.runDynamicFirst': 'Сначала выполните динамический (модальный) анализ',
   'advanced.defineCombosFirst': 'Сначала задайте комбинации на вкладке Комбинации',
@@ -2205,6 +2206,9 @@ const ru: Translations = {
   'dsm.expectedValue': 'Ожидаемое значение',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
+  'influence.label': 'ЛВ',
+  'influence.node': 'Узел',
+  'influence.elem': 'Элем',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',
