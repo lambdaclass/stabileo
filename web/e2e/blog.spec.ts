@@ -490,6 +490,19 @@ test.describe('blog', () => {
     await expect(page.locator('meta[property="article:published_time"]')).toHaveAttribute('content', data.datePublished);
   });
 
+  test('@smoke a post served by the fallback never states the landing structured data while its code loads', async ({ page }) => {
+    await page.route(/\/assets\/BlogPage-[^/]+\.js$/, async (route) => {
+      await new Promise((r) => setTimeout(r, 2_000));
+      await route.continue();
+    });
+    await boot(page, `/es/blog/${SLUG}`, 'es');
+    const graphs = () => page.locator('script[type="application/ld+json"]').evaluateAll((els) =>
+      els.map((e) => (JSON.parse(e.textContent ?? '{}')['@graph'] ?? []).map((n: { '@type': string }) => n['@type'])));
+    expect((await graphs()).flat()).not.toContain('SoftwareApplication');
+    await expect.poll(async () => (await graphs()).flat()).toContain('BlogPosting');
+    expect((await graphs()).flat()).not.toContain('SoftwareApplication');
+  });
+
   test('@smoke the index is not an article, and the post is not the homepage', async ({ page }) => {
     // Two mistakes that look like nothing and cost the whole point of the
     // exercise: structured data on a page that is not an article, and a
