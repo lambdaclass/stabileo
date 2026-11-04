@@ -775,49 +775,10 @@ jobs:
           shared-key: research-wasm
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
-      - name: Build research WASM (shauer-2025, cache miss)
-        if: steps.research-shauer-2025.outputs.cache-hit != 'true'
+      - name: Build research WASM (cache misses, in parallel)
         env:
           RESEARCH_SKIP_VIEWER: '1'
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/Cargo.toml
-          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/fracture/shauer-2025/wasm/build.sh
-      - name: Build research WASM (andreassen-2011, cache miss)
-        if: steps.research-andreassen-2011.outputs.cache-hit != 'true'
-        env:
-          RESEARCH_SKIP_VIEWER: '1'
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
-          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimization/andreassen-2011/wasm/build.sh
-      - name: Build research WASM (biggins-2026, cache miss)
-        if: steps.research-biggins-2026.outputs.cache-hit != 'true'
-        env:
-          RESEARCH_SKIP_VIEWER: '1'
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
-          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/mechanics/biggins-2026/build.sh
-      - name: Build research WASM (grossman-2026, cache miss)
-        if: steps.research-grossman-2026.outputs.cache-hit != 'true'
-        env:
-          RESEARCH_SKIP_VIEWER: '1'
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml
-          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/metamaterials/grossman-2026/wasm/build.sh
-      - name: Build research WASM (pastrana-2026, cache miss)
-        if: steps.research-pastrana-2026.outputs.cache-hit != 'true'
-        env:
-          RESEARCH_SKIP_VIEWER: '1'
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
-          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/form-finding/pastrana-2026/wasm/build.sh
-      - name: Build research WASM (fairclough-2026, cache miss)
-        if: steps.research-fairclough-2026.outputs.cache-hit != 'true'
-        env:
-          RESEARCH_SKIP_VIEWER: '1'
-        run: |
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
-          nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimisation/fairclough-2026/wasm/build.sh
+        run: .github/scripts/build-research-wasm.sh ${{ steps.research-shauer-2025.outputs.cache-hit != 'true' && 'shauer-2025' || '' }} ${{ steps.research-andreassen-2011.outputs.cache-hit != 'true' && 'andreassen-2011' || '' }} ${{ steps.research-biggins-2026.outputs.cache-hit != 'true' && 'biggins-2026' || '' }} ${{ steps.research-grossman-2026.outputs.cache-hit != 'true' && 'grossman-2026' || '' }} ${{ steps.research-pastrana-2026.outputs.cache-hit != 'true' && 'pastrana-2026' || '' }} ${{ steps.research-fairclough-2026.outputs.cache-hit != 'true' && 'fairclough-2026' || '' }}
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
           nix develop --command bash -c 'cd web && npx --no-install vite build -c vite.research-viewer.config.ts --outDir public/research-wasm/viewer --logLevel warn'
