@@ -104,6 +104,9 @@ const body: PostBody = {
           "SA-2026-033",
           "Générateur de charges : un plancher avec une seule barre basse au-dessus d'une partie perdait toute sa charge surfacique (36 m² d'un plancher de 6 × 6 m dans un exemple) ; les fermes ne comptaient pas comme structure de toiture",
           "Élevée",
+          "SA-2026-034",
+          "La vérification d'équilibre déclarait charges et réactions concordantes pour des cas dont la vérification laissait des charges de côté ; les modifications d'étages similaires atteignaient des barres de l'autre type et les copies perdaient leurs relâchements",
+          "Moyenne",
           "Corrigé dans la prochaine version"
         ],
         [

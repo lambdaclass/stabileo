@@ -69,6 +69,7 @@ const RELEASED: Record<number, string[]> = {
   18: ['rc-other-codes-torsion-unchecked'],
   19: ['rc-column-least-compression'],
   20: ['generated-area-loads-headroom'],
+  21: ['shell-figures-paint-the-screen-field'],
 };
 
 describe('results versions', () => {

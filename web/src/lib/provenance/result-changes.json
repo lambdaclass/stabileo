@@ -1,7 +1,7 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 20,
+  "currentResultsVersion": 21,
   "changes": [
     {
       "id": "aluminium-weak-axis-shear",
@@ -1729,6 +1729,40 @@
       "changelog": {
         "file": "docs/advisories/SA-2026-033-generated-area-loads-headroom.md",
         "heading": "SA-2026-033: The load generator dropped a floor's area loads when one low member stood over part of it"
+      }
+    },
+    {
+      "id": "shell-figures-paint-the-screen-field",
+      "resultsVersion": 21,
+      "date": "2026-11-03",
+      "prs": [
+        1255
+      ],
+      "area": "analysis",
+      "when": {
+        "any": [
+          "shells"
+        ]
+      },
+      "title": {
+        "en": "Shell result figures show the field and scale of the screen",
+        "es": "Las figuras de resultados de láminas muestran el campo y la escala de la pantalla",
+        "pt": "As figuras de resultados de cascas mostram o campo e a escala da tela",
+        "de": "Ergebnisabbildungen von Schalen zeigen das Feld und die Skala des Bildschirms",
+        "fr": "Les figures de résultats des coques montrent le champ et l'échelle de l'écran",
+        "tr": "Kabuk sonuç şekilleri ekrandaki alanı ve ölçeği gösterir"
+      },
+      "explanation": {
+        "en": "An exported shell figure painted each element with its own centre value over the range those values occupied, while the screen paints the contour field (nodal averages within the chosen domain, the chosen face, a typed range and bands). The figure's colours, scale and peak label could disagree with the screen and its legend. Figures now paint the screen's field, blended across each face, with its range, bands and peak. The shell direction marks and extremes on screen also leave out hidden shells. Solver results are unchanged; re-export shell figures.",
+        "es": "Una figura de láminas exportada pintaba cada elemento con su valor en el centro sobre el rango de esos valores, mientras la pantalla pinta el campo del contorno (promedios en los nudos dentro del dominio elegido, la cara elegida, un rango escrito y bandas). Los colores, la escala y el valor máximo de la figura podían no coincidir con la pantalla ni con su leyenda. Ahora las figuras pintan el campo de la pantalla, mezclado sobre cada cara, con su rango, bandas y máximo. Las direcciones y extremos de láminas en pantalla tampoco toman las láminas ocultas. Los resultados del solver no cambian; vuelva a exportar las figuras de láminas.",
+        "pt": "Uma figura de cascas exportada pintava cada elemento com seu valor no centro sobre a faixa desses valores, enquanto a tela pinta o campo do contorno (médias nos nós dentro do domínio escolhido, a face escolhida, uma faixa digitada e bandas). As cores, a escala e o valor máximo da figura podiam não coincidir com a tela nem com sua legenda. Agora as figuras pintam o campo da tela, misturado sobre cada face, com sua faixa, bandas e máximo. As direções e extremos de cascas na tela também deixam de fora as cascas ocultas. Os resultados do solver não mudam; exporte de novo as figuras de cascas.",
+        "de": "Eine exportierte Schalenabbildung färbte jedes Element mit seinem Mittelpunktwert über den Bereich dieser Werte, während der Bildschirm das Konturfeld zeigt (Knotenmittel im gewählten Bereich, die gewählte Seite, ein eingegebener Bereich und Stufen). Farben, Skala und Höchstwert der Abbildung konnten vom Bildschirm und seiner Legende abweichen. Abbildungen zeigen jetzt das Feld des Bildschirms, über jede Fläche verlaufend, mit seinem Bereich, seinen Stufen und seinem Höchstwert. Richtungen und Extremwerte der Schalen auf dem Bildschirm lassen auch ausgeblendete Schalen aus. Die Ergebnisse des Solvers ändern sich nicht; exportieren Sie Schalenabbildungen erneut.",
+        "fr": "Une figure de coques exportée peignait chaque élément avec sa valeur au centre sur la plage de ces valeurs, alors que l'écran peint le champ des isovaleurs (moyennes aux nœuds dans le domaine choisi, la face choisie, une plage saisie et des paliers). Les couleurs, l'échelle et la valeur maximale de la figure pouvaient différer de l'écran et de sa légende. Les figures peignent désormais le champ de l'écran, fondu sur chaque face, avec sa plage, ses paliers et son maximum. Les directions et extrêmes des coques à l'écran laissent aussi de côté les coques masquées. Les résultats du solveur ne changent pas ; exportez à nouveau les figures de coques.",
+        "tr": "Dışa aktarılan bir kabuk şekli her elemanı merkez değeriyle, bu değerlerin aralığı üzerinde boyuyordu; ekran ise kontur alanını boyar (seçilen bölgede düğüm ortalamaları, seçilen yüz, girilen bir aralık ve bantlar). Şeklin renkleri, ölçeği ve en büyük değeri ekranla ve göstergesiyle uyuşmayabiliyordu. Şekiller artık ekranın alanını, her yüz boyunca harmanlanmış olarak, aralığı, bantları ve en büyük değeriyle boyar. Ekrandaki kabuk yönleri ve uç değerleri de gizli kabukları dışarıda bırakır. Çözücü sonuçları değişmez; kabuk şekillerini yeniden dışa aktarın."
+      },
+      "changelog": {
+        "file": "docs/verification/PROVENANCE.md",
+        "heading": "Shell figures paint the screen's field (PR #1255, review of #1077)"
       }
     }
   ]

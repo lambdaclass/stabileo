@@ -106,6 +106,9 @@ const body: PostBody = {
           "SA-2026-033",
           "Lastgenerator: eine Decke mit einem einzigen niedrigen Stab über einem Teil davon verlor ihre gesamte Flächenlast (36 m² einer 6 × 6 m großen Decke in einem Beispiel); Fachwerke zählten nicht als Dachtragwerk",
           "Hoch",
+          "SA-2026-034",
+          "Die Gleichgewichtsprüfung meldete Lasten und Auflagerkräfte als übereinstimmend für Lastfälle, deren Prüfung Lasten ausließ; Bearbeitungen ähnlicher Geschosse erreichten Stäbe des anderen Typs, und Kopien verloren ihre Gelenke",
+          "Mittel",
           "Behoben in der nächsten Version"
         ],
         [

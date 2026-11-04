@@ -80,6 +80,12 @@ held by #1326, #1328, #1319 and #1321) registers
 low roof structure stands over only part of it, and counts trusses as roof structure
 (SA-2026-033). It concerns models whose loads came from the generator (`generatedLoads`); saved
 loads change only when generated again.
+## Shell figures paint the screen's field (PR #1255, review of #1077)
+
+Results version 21 (the next free version when this was marked ready) registers `shell-figures-paint-the-screen-field`: exported shell result figures paint
+the contour field the screen shows (nodal averages within the chosen domain, face, typed range and
+bands) instead of one centre value per element over its own range, so their colours, scale and
+peak label change. Solver results are unchanged.
 
 ## Solid-shell local stress axes (PR #814, issue #757)
 

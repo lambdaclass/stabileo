@@ -104,6 +104,9 @@ const body: PostBody = {
           "SA-2026-033",
           "Yük üreteci: bir kısmının üstünde tek bir alçak eleman olan bir döşeme bütün alan yükünü kaybediyordu (bir örnekte 6 × 6 m'lik bir döşemenin 36 m²'si); kafes kirişler çatı taşıyıcı sistemi sayılmıyordu",
           "Yüksek",
+          "SA-2026-034",
+          "Denge kontrolü, kontrolünün yükleri dışarıda bıraktığı durumlarda yükleri ve tepkileri uyuşuyor olarak bildiriyordu; benzer katlardaki düzenlemeler diğer türdeki çubuklara ulaşıyor ve kopyalar mafsallarını kaybediyordu",
+          "Orta",
           "Bir sonraki sürümde düzeltildi"
         ],
         [

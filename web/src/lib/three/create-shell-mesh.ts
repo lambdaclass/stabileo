@@ -108,15 +108,41 @@ const FACE_SUBDIVISIONS = 6;
  * barycentric or bilinear share of every corner at that vertex, which is what
  * makes a smooth contour possible.
  */
+/** The corner weights of every vertex of a face of `n` corners as the screen subdivides it, three per triangle. */
+export function faceVertexWeights(n: number): number[][] {
+  const out: number[][] = [];
+  const N = FACE_SUBDIVISIONS;
+  if (n === 4) {
+    const w = (u: number, v: number) => [(1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v];
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N; j++) {
+        const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
+        out.push(w(u0, v0), w(u1, v0), w(u1, v1), w(u0, v0), w(u1, v1), w(u0, v1));
+      }
+    }
+  } else if (n === 3) {
+    const w = (a: number, b: number) => [1 - a - b, a, b];
+    for (let i = 0; i < N; i++) {
+      for (let j = 0; j < N - i; j++) {
+        const a0 = i / N, a1 = (i + 1) / N, b0 = j / N, b1 = (j + 1) / N;
+        out.push(w(a0, b0), w(a1, b0), w(a0, b1));
+        if (j < N - i - 1) out.push(w(a1, b0), w(a1, b1), w(a0, b1));
+      }
+    }
+  } else {
+    for (let i = 1; i < n - 1; i++) {
+      for (const k of [0, i, i + 1]) { const w = new Array(n).fill(0); w[k] = 1; out.push(w); }
+    }
+  }
+  return out;
+}
+
 function buildFlatGeometry(verts: Vec3[]): THREE.BufferGeometry {
   const n = verts.length;
   const pos: number[] = [];
   const nodeIdx: number[] = [];
   const weights: number[][] = [];
-  const N = FACE_SUBDIVISIONS;
-
-  /** Push one vertex from a set of corner weights. */
-  const push = (w: number[]) => {
+  for (const w of faceVertexWeights(n)) {
     let x = 0, y = 0, z = 0;
     for (let k = 0; k < n; k++) {
       x += w[k] * verts[k].x; y += w[k] * verts[k].y; z += w[k] * verts[k].z;
@@ -126,38 +152,6 @@ function buildFlatGeometry(verts: Vec3[]): THREE.BufferGeometry {
     let best = 0;
     for (let k = 1; k < n; k++) if (w[k] > w[best]) best = k;
     nodeIdx.push(best);
-  };
-
-  if (n === 4) {
-    // Bilinear in (u, v) over corners 0-1-2-3 taken in order round the face.
-    const w = (u: number, v: number) => [
-      (1 - u) * (1 - v), u * (1 - v), u * v, (1 - u) * v,
-    ];
-    for (let i = 0; i < N; i++) {
-      for (let j = 0; j < N; j++) {
-        const u0 = i / N, u1 = (i + 1) / N, v0 = j / N, v1 = (j + 1) / N;
-        push(w(u0, v0)); push(w(u1, v0)); push(w(u1, v1));
-        push(w(u0, v0)); push(w(u1, v1)); push(w(u0, v1));
-      }
-    }
-  } else if (n === 3) {
-    // Barycentric: the standard subdivision of a triangle into N² triangles.
-    const w = (a: number, b: number) => [1 - a - b, a, b];
-    for (let i = 0; i < N; i++) {
-      for (let j = 0; j < N - i; j++) {
-        const a0 = i / N, a1 = (i + 1) / N, b0 = j / N, b1 = (j + 1) / N;
-        push(w(a0, b0)); push(w(a1, b0)); push(w(a0, b1));
-        if (j < N - i - 1) { push(w(a1, b0)); push(w(a1, b1)); push(w(a0, b1)); }
-      }
-    }
-  } else {
-    // Anything else keeps the old fan; no shell type in the model reaches here.
-    for (let i = 1; i < n - 1; i++) {
-      for (const k of [0, i, i + 1]) {
-        const w = new Array(n).fill(0); w[k] = 1;
-        push(w);
-      }
-    }
   }
 
   const geo = new THREE.BufferGeometry();
