@@ -35,7 +35,7 @@ const BOTH_FACES: ProvidedReinforcement = {
   stirrups: { diameter: 8, legs: 2, spacing: 0.15 },
 };
 
-function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number; fc?: number } = {}) {
+function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; column?: boolean; torque?: number; pull?: number; fc?: number } = {}) {
   modelStore.clear();
   const mat = modelStore.addMaterial({ name: 'H-25', e: 25_000, nu: 0.2, rho: 25, fy: FC, ...(opts.fc ? { fc: opts.fc } : {}) } as never);
   const sec = modelStore.addSection({ name: '30x50', shape: 'rect', b: B, h: H, a: B * H, iy: B * H ** 3 / 12, iz: H * B ** 3 / 12 } as never);
@@ -55,7 +55,7 @@ function frame(opts: { cantilever?: boolean; bars?: ProvidedReinforcement; colum
   const dead = modelStore.addLoadCase('D', 'D');
   if (opts.column) modelStore.addNodalLoad3D(b, 20, 0, -400, 0, 0, 0, dead);
   else modelStore.addDistributedLoad3D(el, 0, 0, -Q, -Q, undefined, undefined, dead);
-  if (opts.torque) modelStore.addNodalLoad3D(b, 0, 0, 0, opts.torque, 0, 0, dead);
+  if (opts.torque || opts.pull) modelStore.addNodalLoad3D(b, opts.pull ?? 0, 0, 0, opts.torque ?? 0, 0, 0, dead);
   modelStore.addCombination('1.0D', [{ caseId: dead, factor: 1 }]);
   modelStore.reinforcementTransaction((tx) => tx.setReinforcement(el, opts.bars ?? BARS));
   const r = modelStore.solveCombinations3D(false, false, true);
@@ -176,6 +176,15 @@ describe('torsion, which neither checker designs for (#1314)', () => {
     const row = runOtherCode(ACI318, frame({ cantilever: true, torque: 0.5 * neglectable, bars: BOTH_FACES })).rows[0]!;
     expect(row.status).toBe('checked');
     if (row.status === 'checked') expect(row.reading.unevaluated).not.toContain('otherCodes.check.torsion');
+  });
+
+  it('aci318: under axial tension the threshold falls, so a torque below the unloaded one is not neglected', () => {
+    const row = runOtherCode(ACI318, frame({ cantilever: true, torque: 0.9 * neglectable, pull: 100, bars: BOTH_FACES })).rows[0]!;
+    expect(row.status).toBe('checked');
+    if (row.status === 'checked') {
+      expect(row.reading.unevaluated).toContain('otherCodes.check.torsion');
+      expect(row.reading.pass).toBe(false);
+    }
   });
 
   it('aci318: √f′c is capped at 8.3 MPa½ (22.5.3.1), so a 100 MPa concrete may neglect no more torque than a 69 MPa one', () => {
