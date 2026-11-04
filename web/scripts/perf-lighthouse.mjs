@@ -100,8 +100,8 @@ export function compare(baseline, preset, results) {
     const want = baseline.scores[preset]?.[path] ?? {};
     for (const c of CATEGORIES) {
       const base = want[c];
-      const m = baseline.margin[c];
-      if (!Number.isInteger(m) || m < 0) throw new Error(`margin.${c} must be a non-negative integer`);
+      const m = want.margin?.[c] ?? baseline.margin[c];
+      if (!Number.isInteger(m) || m < 0) throw new Error(`margin.${c} for ${path} must be a non-negative integer`);
       const got = result.scores[c];
       const status = base === undefined ? 'no baseline' : got < base - m ? 'FAIL' : got > base + m ? 'RAISE' : 'ok';
       if (status !== 'ok') failures.push(`${path} ${c}: ${status} (baseline ${base ?? '-'}, median ${got}, margin ${m})`);

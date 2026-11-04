@@ -64,3 +64,15 @@ when the editor appears (about 23 s on simulated mobile). The new number is the 
 application page. The first of the three runs also had a slower server response (206 against
 123 ms) and gave public-page medians up to 4 points lower than the other two. Each baseline is the
 midpoint of its lowest and highest median, so every observed median is within 2 points of it.
+
+### The mobile application pages
+
+On simulated mobile, which element is the largest contentful paint on `/app/basic` and `/app/pro`
+varies between page loads. In run 41889894395, `/app/pro` scored 59 in three of its five loads
+(LCP about 2.1 s, the first paint) and 34 in the other two (LCP about 22.9 s, the header's
+project-name field), so its median can land on either value; on 2026-11-04 the three runs had
+given 33 to 35. Their mobile performance baseline is 46, with a margin of 13 written in their own
+entry (`"margin": { "performance": 13 }`, which overrides the top-level margin for that URL and
+preset only), so both modes pass and a median below 33 still fails. Desktop and the other
+categories keep the top-level margins. Raise these two by hand, not with `--write`, which would set
+them to whichever mode the run happened to hit.

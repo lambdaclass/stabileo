@@ -33,16 +33,22 @@
         "seo": 100
       },
       "/app/basic": {
-        "performance": 34,
+        "performance": 46,
         "accessibility": 73,
         "best-practices": 100,
-        "seo": 66
+        "seo": 66,
+        "margin": {
+          "performance": 13
+        }
       },
       "/app/pro": {
-        "performance": 33,
+        "performance": 46,
         "accessibility": 73,
         "best-practices": 100,
-        "seo": 66
+        "seo": 66,
+        "margin": {
+          "performance": 13
+        }
       }
     },
     "desktop": {

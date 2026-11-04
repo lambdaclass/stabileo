@@ -62,6 +62,20 @@ describe('perf-lighthouse', () => {
     expect(() => compare({ ...baseline, margin: { performance: 3 } }, 'mobile', at(90))).toThrow(/margin\.accessibility/);
   });
 
+  it('uses a URL margin over the category margin for that URL and preset only', () => {
+    const wide = structuredClone(baseline);
+    wide.scores.mobile['/en/'] = { ...wide.scores.mobile['/en/'], performance: 46, margin: { performance: 13 } } as typeof wide.scores.mobile['/en/'];
+    const at = (perf: number) => ({ '/en/': { scores: { performance: perf, accessibility: 92, 'best-practices': 96, seo: 100 } } });
+    expect(compare(wide, 'mobile', at(33)).failures).toEqual([]);
+    expect(compare(wide, 'mobile', at(59)).failures).toEqual([]);
+    expect(compare(wide, 'mobile', at(32)).failures).toEqual(['/en/ performance: FAIL (baseline 46, median 32, margin 13)']);
+    expect(compare(wide, 'mobile', at(60)).failures).toEqual(['/en/ performance: RAISE (baseline 46, median 60, margin 13)']);
+    expect(compare(wide, 'mobile', { '/en/': { scores: { performance: 46, accessibility: 91, 'best-practices': 96, seo: 100 } } }).failures).toEqual(['/en/ accessibility: FAIL (baseline 92, median 91, margin 0)']);
+    const bad = structuredClone(wide);
+    (bad.scores.mobile['/en/'] as unknown as { margin: { performance: number } }).margin.performance = -1;
+    expect(() => compare(bad, 'mobile', at(46))).toThrow(/margin\.performance for \/en\//);
+  });
+
   it('only raises the baseline', () => {
     const { next, changed } = raised(baseline, 'mobile', { '/en/': { scores: { performance: 85, accessibility: 95, 'best-practices': 96, seo: 100 } } });
     expect(changed).toBe(true);
