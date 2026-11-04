@@ -224,7 +224,8 @@ A project solved with a newer version than the build opening it is flagged as `n
 A change whose condition names `generatedLoads` concerns a project until its loads are generated
 again, not until it is solved again: solving does not change saved loads. Applying a load plan
 records the results version in `designData.loadBasis.resultsVersion`. A project whose load basis
-lacks it counts as generated with version 0. A project with no load basis falls back to its solve
+lacks it counts as generated with version 0, and a load basis alone makes a model `generatedLoads`,
+so a plan that wrote no loads is still covered. A project with no load basis falls back to its solve
 stamp alone.
 
 ## Provenance of results and reports

@@ -147,7 +147,8 @@ describe('which registered changes concern a model', () => {
     expect(ids({ ...generated, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
     expect(ids({ ...generated, ...basis() }, v20)).toContain('generated-area-loads-headroom');
     expect(ids({ ...generated, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
-    expect(ids({ ...frame, ...basis(19) }, v20)).not.toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(19) }, v20)).toContain('generated-area-loads-headroom');
+    expect(ids({ ...frame, ...basis(20) }, v20)).not.toContain('generated-area-loads-headroom');
     const plane = { ...generated, analysisMode: '2d', ...basis() };
     expect(ids(plane, { resultsVersion: 14, analyses: ['linear'] } as SolveStamp)).toContain('basic-influence-line-moment-sign-withdrawn');
     expect(ids(plane, v20)).toEqual(['generated-area-loads-headroom']);

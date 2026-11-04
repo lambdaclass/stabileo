@@ -220,6 +220,7 @@ export function modelFeatures(s: FeatureSnapshot, ctx: FeatureContext = {}): Set
     if ((t === 'surface3d' || d.fromDef !== undefined) && dead) f.add('areaDeadLoads');
     if (typeof d.generatedBy === 'string' && d.generatedBy) f.add('generatedLoads');
   }
+  if (s.designData?.loadBasis) f.add('generatedLoads');
   if (values(s.groups).some((g) => g?.kind === 'floorLoad')) f.add('areaDeadLoads');
 
   const types = new Set(cases.map((c) => c.type));
