@@ -79,8 +79,9 @@ export function undetermined(A: number[][]): number[] {
  * row and column; the rest go without it. `droppable` marks the rows that the
  * option removes (frame members' axial terms; a biela's stays). When the mix still
  * leaves a combination of redundants undetermined (two reactions of a turned beam
- * sharing its axis) or is not positive definite, keeping single rows would invent
- * an axial reaction, and every coefficient keeps its axial term.
+ * sharing its axis), couples a kept redundant axially to one that drops the term,
+ * or is not positive definite, keeping single rows would invent an axial reaction,
+ * and every coefficient keeps its axial term.
  */
 export function axialKept(terms: TermRow[][][], full: number[][], droppable: (row: TermRow) => boolean): Set<number> {
   const n = full.length;
@@ -90,7 +91,10 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
   let D = reduced();
   for (let j = 0; j < n; j++) if (!(Math.abs(D[j][j]) > 1e-9 * Math.abs(full[j][j]))) kept.add(j);
   D = reduced();
-  if (kept.size < n && (undetermined(D).length || (kept.size && !positiveDefinite(D)))) return new Set(D.keys());
+  const axialOf = (i: number, j: number) => terms[i][j].filter(droppable).reduce((s, q) => s + q.value, 0);
+  const coupled = [...kept].some((i) => D.some((_, j) => !kept.has(j)
+    && Math.abs(axialOf(i, j)) > 1e-9 * Math.sqrt(Math.abs(full[i][i] * full[j][j]))));
+  if (kept.size < n && (coupled || undetermined(D).length || (kept.size && !positiveDefinite(D)))) return new Set(D.keys());
   return kept;
 }
 
