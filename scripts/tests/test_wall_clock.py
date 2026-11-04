@@ -60,7 +60,7 @@ class WallClockOutsideTheQueue(unittest.TestCase):
         job = workflow.split('\n  timing-budgets:\n', 1)[1].split('\n\n  ', 1)[0]
         self.assertIn('    runs-on: ubuntu-24.04\n', job)
         self.assertNotIn('self-hosted', job)
-        self.assertIn("    if: needs.changes.outputs.web == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')\n", job)
+        self.assertIn("    if: needs.changes.outputs.web == 'true' && needs.changes.outputs.retest == 'true' && (github.event_name != 'pull_request' || vars.STABILEO_PR_POOL == 'true')\n", job)
         self.assertNotIn('NO_WALL_CLOCK', job)
         self.assertIn('run: make test.web.timing\n', job + '\n')
         self.assertIn('run: make e2e.web.timing\n', job + '\n')

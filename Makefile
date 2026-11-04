@@ -364,12 +364,14 @@ test.nightly-scripts:
 	python3 -B -I tools/opensees/test_gen_models.py
 	$(NIX_RUN) node --test scripts/tests/nightly-findings.test.cjs
 	$(NIX_RUN) node --test scripts/tests/verification-alert.test.cjs
+	$(NIX_RUN) node --test scripts/tests/runner-pools.test.cjs
 
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
+	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
 	python3 -B -I scripts/tests/test_ci_events.py

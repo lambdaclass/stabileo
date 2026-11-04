@@ -1003,9 +1003,6 @@
     {/if}
   </div>
 
-  <div class="adv-wip-banner">
-    {t('pro.advancedWip')}
-  </div>
   <!-- What every analysis here loads: the unfactored sum of the cases, which none of them said. -->
   <p class="adv-hint" data-testid="adv-loads-note">{t('adv.loadsNote')}</p>
 
@@ -1814,25 +1811,6 @@
     flex: 1;
     overflow-y: auto;
     min-height: 0;
-  }
-
-  /*
-     A caveat, at the size of a caveat.
-     ─────────────────────────────────
-     It was a full-width amber strip that reappeared on every visit to the
-     panel, permanently, above whatever you came to do — an announcement for
-     something that is a footnote. It says the same thing in one quiet line.
-  */
-  .adv-wip-banner {
-    display: block;
-    margin: 0 0 0.5rem;
-    padding: 0.1rem 0 0.3rem;
-    border-bottom: 1px solid var(--st-hair);
-    background: none;
-    color: var(--st-text-3);
-    font-size: 0.66rem;
-    font-style: italic;
-    text-align: left;
   }
 
   .adv-error {

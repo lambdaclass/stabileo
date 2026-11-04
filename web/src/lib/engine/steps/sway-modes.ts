@@ -4,8 +4,10 @@
  * distribution with sway and slope-deflection (methods/frames).
  *
  * - Unknowns: the translations ux, uz of every node with members.
- * - Constraints: the translations each support holds, and every member
- *   keeping its length, (u_j − u_i)·e_ij = 0 (inclined members included).
+ * - Constraints: the translations each support holds, and every bending
+ *   member keeping its length, (u_j − u_i)·e_ij = 0 (inclined members
+ *   included). A truss member (biela) and a spring constrain nothing: they
+ *   resist a translation elastically.
  * - The sway modes are a basis of the nullspace of those constraints, found
  *   by row reduction. The basis is then re-chosen by reducing the chord
  *   rotations, so that each mode rotates its own pivot member and none of
@@ -149,14 +151,9 @@ export function frameKinematics(pm: PlaneModel): FrameKin | null {
     if (s.ux) { const r = new Array(nv).fill(0); r[2 * k] = 1; rows.push(r); nSupportCons++; }
     if (s.uz) { const r = new Array(nv).fill(0); r[2 * k + 1] = 1; rows.push(r); nSupportCons++; }
   }
-  // Each member keeps its length: (u_j − u_i)·e = 0.
-  for (const m of pm.members.values()) {
-    const r = new Array(nv).fill(0);
-    const ki = col.get(m.i)!, kj = col.get(m.j)!;
-    r[2 * ki] -= m.c; r[2 * ki + 1] -= m.s;
-    r[2 * kj] += m.c; r[2 * kj + 1] += m.s;
-    rows.push(r);
-  }
+  // Each bending member keeps its length: (u_j − u_i)·e = 0. A truss member (biela) is an axial spring instead.
+  const bending = pm.memberOrder.map((id) => pm.members.get(id)!).filter((m) => !m.truss);
+  for (const m of bending) rows.push(lengthRow(m, col, nv));
   const rank = rref(rows, nv).pivots.length;
   const basis = nullspace(rows, nv);
 
@@ -167,14 +164,25 @@ export function frameKinematics(pm: PlaneModel): FrameKin | null {
     return (-m.s * dx + m.c * dz) / m.L;
   };
   // Re-choose the basis by reducing the chord rotations [Ψᵀ | Nᵀ]: each new
-  // mode rotates its pivot member and none of the other pivot members.
-  const aug = basis.map((v) => [...mids.map((id) => psiOf(v, pm.members.get(id)!)), ...v]);
-  const red = rref(aug, mids.length);
-  // A translation that rotates no member is a mechanism the frame cannot resist by bending.
+  // mode rotates its pivot member and none of the other pivot members. The
+  // stretch of each biela and the travel of each spring come after them, so
+  // a translation that only those resist is still a mode.
+  const elastic: Array<(v: number[]) => number> = [];
+  for (const id of mids) { const m = pm.members.get(id)!; if (m.truss) elastic.push((v) => lengthRow(m, col, nv).reduce((s, a, k) => s + a * v[k], 0)); }
+  for (const s of pm.supports.values()) {
+    const k = col.get(s.node);
+    if (k === undefined || s.type !== 'spring') continue;
+    if ((s.kx ?? 0) > 0) elastic.push((v) => v[2 * k]);
+    if ((s.kz ?? 0) > 0) elastic.push((v) => v[2 * k + 1]);
+  }
+  const ncols = bending.length + elastic.length;
+  const aug = basis.map((v) => [...bending.map((m) => psiOf(v, m)), ...elastic.map((f) => f(v)), ...v]);
+  const red = rref(aug, ncols);
+  // A translation that rotates no member and stretches no biela or spring is a mechanism.
   if (red.pivots.length < basis.length) return null;
 
   const modes: Mode[] = red.R.map((r) => {
-    const v = r.slice(mids.length);
+    const v = r.slice(ncols);
     let big = 0;
     for (const x of v) big = Math.max(big, Math.abs(x));
     let idx = v.findIndex((x) => Math.abs(x) >= big * (1 - 1e-9));
@@ -202,13 +210,22 @@ export function frameKinematics(pm: PlaneModel): FrameKin | null {
   }
   const couple = new Map(nodes.map((n) => [n, nodalLoadAt(pm, n).my]));
   return {
-    pm, nodes, degree, kind, couple, modes, rank, nTrans: nv, nSupportCons, nMemberCons: pm.members.size,
+    pm, nodes, degree, kind, couple, modes, rank, nTrans: nv, nSupportCons, nMemberCons: bending.length,
     joints: nodes.filter((n) => kind.get(n) === 'joint'),
     released: nodes.filter((n) => kind.get(n) === 'released'),
     fixed: nodes.filter((n) => kind.get(n) === 'fixed'),
   };
 }
 
+
+/** The length condition of a member over the node translations: (u_j − u_i)·e. */
+export function lengthRow(m: PMember, col: Map<number, number>, nv: number): number[] {
+  const r = new Array(nv).fill(0);
+  const ki = col.get(m.i)!, kj = col.get(m.j)!;
+  r[2 * ki] -= m.c; r[2 * ki + 1] -= m.s;
+  r[2 * kj] += m.c; r[2 * kj + 1] += m.s;
+  return r;
+}
 
 /** The key of a member end in the end-moment maps: member id and side. */
 export const endKey = (id: number, e: EndSide) => `${id}${e}`;

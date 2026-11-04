@@ -69,6 +69,16 @@ class CiRunners(unittest.TestCase):
         self.assertEqual(labels(jobs('research.yml')['engine-benchmarks']['runs-on']), {'stabileo-timing'})
         self.assertEqual(labels(ci['wasm']['runs-on']), {'stabileo', 'stabileo-pr'})
 
+    def test_a_same_repo_pull_request_on_github_while_the_pool_is_on_warns(self):
+        lint = jobs('ci.yml')['wasm']
+        self.assertEqual(lint['if'], "needs.changes.outputs.web == 'true'")
+        self.assertIn('stabileo-pr', labels(lint['runs-on']))
+        first = lint['block'].split('    steps:\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn('name: Pull request pool in use', first)
+        for term in ["vars.STABILEO_PR_POOL == 'true'", "github.event_name == 'pull_request'", SAME_REPO, NOT_DEPENDABOT, "runner.environment != 'self-hosted'"]:
+            self.assertIn(term, first)
+        self.assertIn('::warning ', first)
+
     def test_pull_requests_take_the_host_only_for_their_critical_path_builds(self):
         pr = set()
         for workflow in ['ci.yml', 'research.yml']:

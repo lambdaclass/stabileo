@@ -133,6 +133,13 @@ describe('Vitest harness architecture', () => {
     expect(build![1]).toMatch(/maxWorkers: 1/);
   });
 
+  it('the build pass gives a spawned process more than the default 5 s', () => {
+    const build = CONFIG.match(/name: 'build',([\s\S]*?)\n\s{8}\}/);
+    const timeout = build![1].match(/testTimeout: ([\d_]+)/);
+    expect(timeout, 'the build project needs a testTimeout').not.toBeNull();
+    expect(Number(timeout![1].replace(/_/g, ''))).toBeGreaterThanOrEqual(60_000);
+  });
+
   it('the results pass runs the results snapshot tests, and only them', () => {
     const results = CONFIG.match(/name: 'results',([\s\S]*?)\n\s{8}\}/);
     expect(results).not.toBeNull();
