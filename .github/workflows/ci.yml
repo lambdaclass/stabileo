@@ -8,7 +8,7 @@
 # Docker tests both source and site-production paths; E2E shards share site-e2e.
 # Research cache excludes viewer: always rebuild viewer and republish asset identity.
 # Research WASM keeps the 60-minute budget for the expanded research crate set.
-# PR selection (docs/changelog may accompany any single area):
+# PR and merge-queue selection (docs/changelog may accompany any single area):
 # docs/**, root *.md, changelog.d/**: repository lint/changelog only; research/**/*.md (not tools): plus research.
 # research/**, web/src/components/research/**, web/e2e/research*.spec.ts:
 # research validation/WASM, research unit + E2E, route budgets, shared WASM/site.
@@ -17,10 +17,11 @@
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Other web/** (site, blog, locales, e2e; not package manifests or WASM): everything but the engine,
 # AI-backend, backend and CI-script jobs, with the full E2E smoke suite.
+# Merge queue: docs only, or site/research/tools only (everything web, engine jobs skipped); else full.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
 # Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
 # adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
-# ONLY pull_request job selection is narrowed by path. The merge queue skips the heavy jobs that
+# Only pull_request and merge_group selection is narrowed by path. The merge queue skips the heavy jobs that
 # combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
 # E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
 # everything, and post-merge.yml opens a revert PR when a main push fails. A push to main whose
@@ -217,8 +218,8 @@ jobs:
         id: select
         env:
           TESTED: ${{ steps.tested.outputs.tested }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
           FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py

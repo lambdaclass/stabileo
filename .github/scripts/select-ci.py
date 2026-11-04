@@ -1,6 +1,6 @@
-"""Conservative PR path -> jobs/spec globs. No paths or unknown/mixed areas mean full.
+"""Conservative PR and merge-group path -> jobs/spec globs. No paths or unknown/mixed areas mean full.
 
-The merge queue runs the full set minus the heavy jobs that combining PRs rarely breaks
+A merge group narrows only to docs or to site (no engine path); the merge queue otherwise runs the full set minus the heavy jobs that combining PRs rarely breaks
 (slow E2E, visual baselines, Docker smoke, Determinism, quarantined E2E, research validation
 beyond route budgets); pushes to main and the scheduled run add them back.
 """
@@ -54,7 +54,7 @@ def narrow(areas, queue):
 def select(event, paths, root=None, force_full=False, tested=False):
     scope = 'full'
     queue = event == 'merge_group'
-    if event == 'pull_request' and isinstance(paths, list) and paths and not force_full:
+    if event in ('pull_request', 'merge_group') and isinstance(paths, list) and paths and not force_full:
         scope = narrow({area(path) for path in paths}, queue)
     # An area without unit tests or matching specs is not safe to narrow (tools is
     # reserved for that component directory, which does not exist on every branch).
@@ -90,12 +90,14 @@ if __name__ == '__main__':
     # app deletion. Diff the PR's merge base, so stacked PRs stay relative to
     # their actual base. Any missing history fails open to the full pipeline.
     event = os.environ.get('GITHUB_EVENT_NAME')
-    if event == 'pull_request':
+    if event in ('pull_request', 'merge_group'):
         try:
             base = subprocess.check_output(['git', 'merge-base', os.environ['BASE_SHA'],
                                             os.environ['HEAD_SHA']], text=True).strip()
             names = subprocess.check_output(['git', 'diff', '--no-renames', '--name-only',
                                              '-z', base, os.environ['HEAD_SHA']], text=True)
+            if event == 'merge_group':
+                paths = []
             if not isinstance(paths, list):
                 raise ValueError('missing path-filter result')
             paths += names.rstrip('\0').split('\0') if names else []

@@ -125,6 +125,44 @@ class Selection(unittest.TestCase):
         self.assert_docs(selection.select('pull_request', prose), research='true')
         self.assertEqual(selection.select('pull_request', ['research/papers.yaml', 'research/DESIGN.md'])['scope'], 'research')
 
+    def test_merge_queue_groups_are_scoped_by_their_combined_changes(self):
+        docs = selection.select('merge_group', self.DOCS_ONLY)
+        self.assertEqual(docs['scope'], 'docs')
+        self.assert_docs(docs)
+        self.assertEqual(docs['slow_e2e'], 'false')
+        for paths in [self.PR_1250, self.PR_1250 + ['research/fracture/shauer-2025/src/lib.rs'],
+                      ['web/src/components/tools/a.svelte', 'research/papers.yaml', 'docs/a.md'],
+                      ['research/a.rs']]:
+            with self.subTest(paths=paths[-1]):
+                result = selection.select('merge_group', paths, ROOT)
+                self.assert_site(result, queue=True)
+        for paths in [self.PR_1250 + ['engine/src/lib.rs'], self.DOCS_ONLY + ['engine/src/solver/linear.rs'],
+                      ['web/src/App.svelte', 'Cargo.lock'], ['web/package-lock.json'], ['backend/mix.lock'],
+                      ['.github/workflows/ci.yml'], ['engine/src/lib.rs']]:
+            with self.subTest(paths=paths[-1]):
+                result = selection.select('merge_group', paths, ROOT)
+                self.assertEqual(result['scope'], 'full')
+                for key in ['engine', 'ai_backend', 'backend', 'ci_scripts', 'web', 'research', 'results']:
+                    self.assertEqual(result[key], 'true', key)
+                self.assertEqual(result['research_route_only'], 'true')
+
+    def test_merge_queue_reads_its_diff_and_fails_open(self):
+        for diff, expected in [('docs/a.md\0changelog.d/b.md\0', 'docs'), ('web/src/App.svelte\0', 'site'),
+                               ('web/src/App.svelte\0engine/src/lib.rs\0', 'full'), ('', 'full'), (None, 'full')]:
+            with self.subTest(diff=diff), tempfile.TemporaryDirectory() as tmp:
+                output = Path(tmp) / 'outputs'
+                env = {'GITHUB_EVENT_NAME': 'merge_group', 'BASE_SHA': 'base', 'HEAD_SHA': 'head',
+                       'GITHUB_OUTPUT': str(output)}
+                replies = ['base', diff] if diff is not None else subprocess.CalledProcessError(128, 'git')
+                with patch.dict(os.environ, env, clear=True), patch('subprocess.check_output', side_effect=replies) as git:
+                    runpy.run_path(str(ROOT / '.github/scripts/select-ci.py'), run_name='__main__')
+                self.assertIn(f'scope={expected}\n', output.read_text())
+                if diff is not None:
+                    self.assertEqual(git.call_args_list[1].args[0][-2:], ['base', 'head'])
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        self.assertIn('BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}', workflow)
+        self.assertIn('HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}', workflow)
+
     def test_site_scope_runs_the_whole_smoke_suite(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn("if: needs.changes.outputs.scope == 'full' || needs.changes.outputs.scope == 'site'", workflow)
