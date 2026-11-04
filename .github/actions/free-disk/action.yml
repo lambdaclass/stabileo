@@ -1,5 +1,5 @@
 name: "Free disk space"
-description: "Remove pre-installed software to free disk space for Nix builds, in the background while the job goes on"
+description: "Remove pre-installed software to free disk space for Nix builds, deleting in the background once at least 15 GB are free"
 
 runs:
   using: "composite"
@@ -7,6 +7,21 @@ runs:
     - name: Free up disk space
       shell: bash
       run: |
-        sudo nohup rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" \
-          /usr/local/lib/android /usr/local/share/powershell /usr/share/swift /opt/hostedtoolcache/CodeQL \
-          /usr/local/.ghcup > /dev/null 2>&1 &
+        trash=$(sudo mktemp -d /var/tmp/free-disk.XXXXXX)
+        for dir in /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" /usr/local/lib/android \
+          /usr/local/share/powershell /usr/share/swift /opt/hostedtoolcache/CodeQL /usr/local/.ghcup; do
+          [ -e "$dir" ] || continue
+          if [ "$(stat -c %d "$dir")" = "$(stat -c %d "$trash")" ]; then
+            sudo mv "$dir" "$(sudo mktemp -d "$trash/XXXXXX")/" || sudo rm -rf "$dir" || true
+          else
+            sudo rm -rf "$dir" || true
+          fi
+        done
+        sudo nohup rm -rf "$trash" > /dev/null 2>&1 &
+        cleaner=$!
+        for _ in $(seq 1 300); do
+          [ "$(df --output=avail -BG / | tail -1 | tr -dc 0-9)" -ge 15 ] && break
+          sudo kill -0 "$cleaner" 2> /dev/null || break
+          sleep 1
+        done
+        df -h /

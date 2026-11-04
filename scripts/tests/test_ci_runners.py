@@ -132,12 +132,15 @@ class CiRunners(unittest.TestCase):
         for name in ['wasm', 'research-wasm', 'site-e2e', 'web-build']:
             self.assertNotIn('stabileo-engine', labels(ci[name]['runs-on']), name)
 
-    def test_free_disk_deletes_in_the_background(self):
+    def test_free_disk_deletes_in_the_background_after_a_space_floor(self):
         action = (ROOT / '.github/actions/free-disk/action.yml').read_text()
         command = action.split('run: |\n', 1)[1]
-        self.assertTrue(command.rstrip().endswith('> /dev/null 2>&1 &'), command)
-        self.assertEqual(command.count('rm -rf'), 1)
-        for path in ['/usr/share/dotnet', '/usr/local/lib/android', '"$AGENT_TOOLSDIRECTORY"', '/opt/hostedtoolcache/CodeQL']:
+        self.assertIn('sudo nohup rm -rf "$trash" > /dev/null 2>&1 &', command)
+        self.assertIn('sudo mv "$dir"', command)
+        self.assertIn("df --output=avail -BG / | tail -1 | tr -dc 0-9)\" -ge 15 ] && break", command)
+        self.assertIn('sudo kill -0 "$cleaner"', command)
+        for path in ['/usr/share/dotnet', '/usr/local/lib/android', '"$AGENT_TOOLSDIRECTORY"', '/opt/hostedtoolcache/CodeQL',
+                     '/opt/ghc', '/usr/local/share/boost', '/usr/local/share/powershell', '/usr/share/swift', '/usr/local/.ghcup']:
             self.assertIn(path, command)
 
     def test_nightly_mutants_prefer_the_nightly_pool(self):
