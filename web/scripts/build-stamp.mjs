@@ -18,7 +18,7 @@ function walk(dir) {
 
 export function envStamp(env = process.env) {
   const hash = createHash('sha256');
-  for (const name of Object.keys(env).filter((key) => key.startsWith('VITE_') || ['BASE_PATH', 'GITHUB_SHA'].includes(key)).sort()) {
+  for (const name of Object.keys(env).filter((key) => key.startsWith('VITE_') || ['BASE_PATH', 'GITHUB_SHA', 'NODE_ENV'].includes(key)).sort()) {
     hash.update(`${name}=${env[name]}\0`);
   }
   return hash.digest('hex');

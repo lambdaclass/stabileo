@@ -38,10 +38,11 @@ it('refuses a named build that is missing or has no stamp', () => {
   expect(() => sharedBuild(VARIABLE)).toThrow(/no build or no source stamp/);
 });
 
-it('changes the stamp when a source file, a build variable or a Vite env file changes', () => {
+it('changes the stamp when a source file, a build variable, NODE_ENV or a Vite env file changes', () => {
   const before = buildStamp({});
   expect(buildStamp({ VITE_E2E: '1' })).not.toBe(before);
   expect(buildStamp({ UNRELATED: '1' })).toBe(before);
+  expect(buildStamp({ NODE_ENV: 'development' })).not.toBe(before);
   const probe = join(__dirname, `stamp-probe-${process.pid}.ts`);
   try {
     writeFileSync(probe, 'export {};\n');
