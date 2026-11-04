@@ -36,8 +36,9 @@ removes (within 0.1 % at 8 members).
 
 ## How to tell if your results are affected
 
-You ran 2D buckling on a model where some frame member carries load along its axis, and the
-buckling factor was governed by such a member.
+You ran 2D buckling on a model where some frame member carries load along its axis. The buckling
+factor is a property of the whole model, so recheck it even when another member governs. Models
+with no load along any member's axis keep their factors.
 
 ## Fixed in
 
