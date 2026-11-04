@@ -95,6 +95,10 @@ const body: PostBody = {
           "Wechsel von 3D zu 2D: Der Schnitt bog Stäbe um die falsche Querschnittsachse (ein Rahmen in der Y–Z-Ebene 13,5-mal zu steif)",
           "Hoch",
           "Behoben in der nächsten Version"
+          "SA-2026-040",
+          "ACI-318- und EN-1992-Nachweise: Stahlbetonstäbe bestanden, ohne dass ihre Torsion nachgewiesen wurde",
+          "Hoch",
+          "In der nächsten Version eingedämmt"
         ],
         [
           "SA-2026-013",

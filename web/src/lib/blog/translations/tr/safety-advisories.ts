@@ -95,6 +95,10 @@ const body: PostBody = {
           "3D'den 2D'ye geçiş: kesit, elemanları yanlış kesit ekseni etrafında eğiyordu (Y–Z düzlemindeki bir çerçeve 13,5 kat fazla rijit)",
           "Yüksek",
           "Bir sonraki sürümde düzeltildi"
+          "SA-2026-040",
+          "ACI 318 ve EN 1992 kontrolleri: betonarme çubuklar burulmaları kontrol edilmeden geçiyordu",
+          "Yüksek",
+          "Bir sonraki sürümde sınırlandırıldı"
         ],
         [
           "SA-2026-013",

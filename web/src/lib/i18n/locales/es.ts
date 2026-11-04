@@ -10940,6 +10940,7 @@ const es: Record<string, string> = {
   'otherCodes.check.ec3ShearBuckling': 'abolladura del alma por corte (6.2.6(6))',
   'otherCodes.check.ec2Axial': 'flexión con axil (6.1)',
   'otherCodes.check.aciShearTension': 'corte con axil de tracción (22.5)',
+  'otherCodes.check.torsion': 'torsión: no verificada',
   'otherCodes.check.cfsDistortional': 'pandeo distorsional',
   'otherCodes.check.cfsFlexuralTorsional': 'pandeo flexo-torsional en compresión (E2)',
   'otherCodes.check.cfsWeakAxis': 'flexión alrededor del eje débil',

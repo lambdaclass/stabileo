@@ -95,6 +95,10 @@ const body: PostBody = {
           "Passage de la 3D à la 2D : la coupe faisait fléchir des barres autour du mauvais axe de section (un portique dans le plan Y–Z 13,5 fois trop rigide)",
           "Élevée",
           "Corrigé dans la prochaine version"
+          "SA-2026-040",
+          "Vérifications ACI 318 et EN 1992 : barres en béton armé validées sans vérification de leur torsion",
+          "Élevée",
+          "Confiné dans la prochaine version"
         ],
         [
           "SA-2026-013",
