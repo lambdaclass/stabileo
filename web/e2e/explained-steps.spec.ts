@@ -266,4 +266,15 @@ test.describe('@smoke explained step by step on a phone', () => {
     }
     expect(errors).toEqual([]);
   });
+
+  test('a function opened from the bottom of the list starts at its top', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(() => window.__stabileoActions.loadExample('portal-frame'));
+    await page.getByTestId('rb-cmd-advanced').tap();
+    const body = page.locator('.bp-body');
+    await body.evaluate((el) => { el.scrollTop = el.scrollHeight; });
+    await page.getByRole('button', { name: /^Dynamic$/ }).first().tap();
+    await expect(page.getByTestId('adv-running')).toBeInViewport({ ratio: 1 });
+    expect(await body.evaluate((el) => el.scrollTop)).toBe(0);
+  });
 });

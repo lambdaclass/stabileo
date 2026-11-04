@@ -285,6 +285,18 @@
 
   const active = $derived(ADV.find(a => a.isActive()) ?? null);
 
+  let root = $state<HTMLElement>();
+  let shownKey: string | null | undefined;
+  $effect(() => {
+    const key = active?.key ?? null;
+    if (shownKey !== undefined && key !== shownKey) {
+      let el = root?.parentElement ?? null;
+      while (el && !(el.scrollHeight > el.clientHeight && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement;
+      if (el) el.scrollTop = 0;
+    }
+    shownKey = key;
+  });
+
   /**
    * Close one function, as "← Back" and the list's own toggle-off both do: its
    * teardown puts the results and the diagram back (the store keeps what the
@@ -618,7 +630,7 @@
   let { flat = false }: { flat?: boolean } = $props();
 </script>
 
-<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening}>
+<div class="toolbar-section" class:flat data-tour="advanced-section" onclickcapture={noteOpening} bind:this={root}>
   {#if !flat}<button class="section-toggle" onclick={() => showAdvanced = !showAdvanced}>
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
