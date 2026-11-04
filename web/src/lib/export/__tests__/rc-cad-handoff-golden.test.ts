@@ -57,8 +57,8 @@ const REPORTED = {
    * rebuilt from it either way.
    */
   // Moved when the fixture gained its solve stamp (`snapshot.solvedWith`), and when the stamp
-  // moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14 and 19; the model is unchanged.
-  fixtureSha256: 'a9cb66109ec24a3b930476db123c1eb9ce229980f91742e91ac55741f495bc34',
+  // moved to results versions 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 and 16; the model is unchanged.
+  fixtureSha256: '951d93b5a9a724e34d052da0c3cfa049f6434c32cb1ef4a277972d51e272c0bd',
 };
 
 const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
