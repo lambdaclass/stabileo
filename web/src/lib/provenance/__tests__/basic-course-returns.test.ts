@@ -26,6 +26,14 @@ describe('the Basic course units return with their review fixes', () => {
     expect(ids({ ...frame(), analysisMode: 'pro' }, v - 1, ['linear'], 'pro')).toEqual([]);
   });
 
+  it('tells a Basic P-Δ or buckling run solved before it that members are split at the solve again, and no linear-only run', () => {
+    const v = versionOf('basic-second-order-split-members-returns');
+    expect(v).toBeGreaterThan(versionOf('basic-influence-line-moment-sign-returns'));
+    for (const a of ['pdelta', 'buckling']) expect(ids(frame(), v - 1, ['linear', a])).toContain('basic-second-order-split-members-returns');
+    expect(ids(frame(), v - 1, ['linear'])).not.toContain('basic-second-order-split-members-returns');
+    expect(ids(frame(), v, ['linear', 'pdelta'])).not.toContain('basic-second-order-split-members-returns');
+  });
+
   it('writes each returning entry in the six languages', () => {
     for (const c of RESULT_CHANGES.changes.filter((x) => x.id.endsWith('-returns'))) {
       const e = c as unknown as { title: Record<string, string>; explanation: Record<string, string> };
