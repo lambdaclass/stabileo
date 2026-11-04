@@ -23,6 +23,7 @@ assert triggers['push']['branches'] == ['main']
 assert set(triggers['push']['paths']) == {
     'research/**', '.github/workflows/research.yml', 'engine/**', 'web/**',
     'Cargo.lock', 'Cargo.toml', 'flake.*', 'rust-toolchain*', 'Makefile',
+    'infra/caddy/**', 'infra/ansible/**', '.github/workflows/research-snapshot.yml',
 }
 assert '.github/workflows/research.yml' in filters['ci_scripts']
 assert 'actionlint .github/workflows/ci.yml .github/workflows/research.yml' in (root / 'Makefile').read_text()
@@ -157,7 +158,8 @@ assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
 triggers = research.get('on', research.get(True))
 assert set(triggers['pull_request']['paths']) == {
-    'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
+    'research/**', 'web/src/components/research/**', '.github/workflows/research.yml',
+    'infra/caddy/**', 'infra/ansible/**', '.github/workflows/research-snapshot.yml'}
 for name, job in research['jobs'].items():
     if name != 'catalog-online':
         assert "github.workflow != 'Research' || github.event_name != 'pull_request'" in job['if'], name
@@ -175,8 +177,7 @@ paths = ['infra/caddy/Caddyfile', 'infra/ansible/deploy-snapshot.yml',
 for path in paths:
     for gate in ['web', 'research']:
         assert any(fnmatch.fnmatch(path, pattern) for pattern in filters[gate] if isinstance(pattern, str)), (path, gate)
-    for event in ['push', 'pull_request']:
-        assert any(fnmatch.fnmatch(path, pattern) for pattern in research.get('on', research.get(True))[event]['paths']), (path, event)
+    assert any(fnmatch.fnmatch(path, pattern) for pattern in triggers['push']['paths']), path
 snapshot = yaml.safe_load((root / '.github/workflows/research-snapshot.yml').read_text())
 group = snapshot['jobs']['snapshot']['concurrency']['group']
 assert 'github.run_id' in group and 'github.run_attempt' in group and group.startswith('snapshot-')

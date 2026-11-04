@@ -3,6 +3,7 @@ import { render } from 'svelte/server';
 import CqcPage from '../CqcPage.svelte';
 import { publicI18n, setLocale } from '../../../../lib/i18n/store.svelte';
 import { translations } from '../strings';
+import { relationLabel } from '../../shell/citation';
 
 const original = publicI18n.locale;
 afterEach(() => setLocale(original));
@@ -15,8 +16,8 @@ it('states what the result is checked against, with the evidence count and no pe
   expect(page).toContain('Against the closed form');
   expect(page).toContain('9 of 9 checks pass');
   expect(page).toContain(translations.en.publishedNote);
-  expect(page).toContain('”, method illustration based on');
-  expect(page).not.toContain('reproduction of');
+  expect(page).toContain('Method illustration based on Wilson et al. (1981)');
+  expect(page).not.toMatch(/reproduction of/i);
   expect(page).not.toMatch(/First version|review rounds?/);
   expect(page).not.toMatch(/Not yet|pending|not compared|Questions for the authors/i);
   expect(body.match(/Research, not a design tool/g)).toHaveLength(1);
@@ -46,6 +47,6 @@ it('renders the page, shell and metadata language in all six locales', () => {
     expect(body).toMatch(new RegExp(`<h1 lang="${locale}"`));
     expect(text(body)).toContain(translations[locale].title);
     expect(text(body)).toContain(translations[locale].referenceLabel);
-    expect(text(body)).toContain(translations[locale].citation.trim());
+    expect(text(body)).toContain(relationLabel(translations[locale].citation));
   }
 });

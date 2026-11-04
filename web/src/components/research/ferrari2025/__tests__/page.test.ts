@@ -8,6 +8,8 @@ import PlotXY from '../../grossman2026/PlotXY.svelte';
 import { setLocale } from '../../../../lib/i18n/store.svelte';
 import { rs } from '../../i18n';
 
+const withoutBibtex = (html: string) => html.replace(/<pre data-testid="cite-bibtex"[^>]*>.*?<\/pre>/s, '');
+
 afterEach(() => setLocale('en'));
 for (const locale of ['en', 'es', 'pt']) {
   it(`renders the paper references and actual model in ${locale}`, () => {
@@ -37,7 +39,7 @@ for (const locale of ['en', 'es', 'pt']) {
     const paperChecks = validation.checks.filter(c => c.category === 'paper');
     const published = body.match(new RegExp(`<dt[^>]*>${rs().againstPaper}</dt>\\s*<dd[^>]*>(.*?)</dd>`, 's'))![1].replace(/<[^>]*>/g, '').replace(/\s+/g, ' ');
     expect(published).toContain(`${paperChecks.filter(c => c.passed).length} ${rs().of} ${paperChecks.length} ${rs().checksPass}`);
-    expect(body).not.toMatch(/\{\w+\}/);
+    expect(withoutBibtex(body)).not.toMatch(/\{\w+\}/);
     expect(body).not.toContain(rs().ferrariAuthors);
     expect(body).not.toMatch(/pending|pendiente|pendente|unfinished|provisional/i);
     expect(body).toContain(rs().ferrariComparison);
@@ -53,7 +55,7 @@ for (const locale of ['de', 'fr', 'tr']) {
     expect(rs().ferrariTitle).toBe(english.ferrariTitle);
     expect(body).toContain(english.ferrariComparison);
     expect(body).toContain(english.ferrariDisclaimer);
-    expect(body).not.toMatch(/\{\w+\}|undefined/);
+    expect(withoutBibtex(body)).not.toMatch(/\{\w+\}|undefined/);
     expect(body).toMatch(/<article[^>]*lang="en"/);
     expect(body).not.toMatch(/lang="(de|fr|tr)"/);
     const ref = body.match(/data-testid="ferrari-reference"[^>]*>(.*?)<\/p>/s)![1];
