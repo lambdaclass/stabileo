@@ -49,6 +49,8 @@ export interface AutoLoadsMemory {
   gravityMode: GravityMode;
   gravitySlab: 'twoWay' | 'oneWay';
   gravitySpan: 'x' | 'y';
+  /** Load also the panels `plan-gravity.ts` finds are no deck. */
+  gravityLoadEveryPanel: boolean;
   roofCfg: RoofConfig;
   livePatterns: 'none' | 'checkerboard' | 'all';
   special: SpecialLoadsConfig;
@@ -118,7 +120,7 @@ export function autoLoadsDefaults(roles?: Partial<ProjectRegulations>): AutoLoad
   return {
     genCombos: true, comboSet: 'ultimate', comboSource: 'regulation', bothSenses: true, patternsInCompanions: false,
     selectedOccupancy: 'vivienda', tributaryWidth: 3.0, applyLiveReduction: true, reductionElementKind: 'interiorBeam', floorsSupported: 1,
-    deadRows: defaultDeadRows(), partitionLive: defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x',
+    deadRows: defaultDeadRows(), partitionLive: defaultPartitionLive(), gravityMode: 'panels', gravitySlab: 'twoWay', gravitySpan: 'x', gravityLoadEveryPanel: false,
     roofCfg: defaultRoofConfig(), livePatterns: 'all', special: defaultSpecialLoads(),
     enableWind: false,
     windV: wind?.basicSpeed ?? 45, windExposure: (wind?.exposure ?? 'B') as Exposure, windEnclosure: (wind?.enclosure ?? 'enclosed') as Enclosure,
@@ -197,6 +199,7 @@ export function autoLoadsMemory(roles: ProjectRegulations, available: { wind: bo
     if (d?.gravityMode) m.gravityMode = d.gravityMode;
     if (d?.gravitySlab) m.gravitySlab = d.gravitySlab;
     if (d?.gravitySpan) m.gravitySpan = d.gravitySpan;
+    if (typeof d?.gravityLoadEveryPanel === 'boolean') m.gravityLoadEveryPanel = d.gravityLoadEveryPanel;
     if (d?.roofCfg) m.roofCfg = d.roofCfg;
     if (d?.livePatterns) m.livePatterns = d.livePatterns;
     if (d?.special) m.special = d.special;

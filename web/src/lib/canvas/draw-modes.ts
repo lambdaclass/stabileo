@@ -1,5 +1,6 @@
 // Drawing mode shapes (modal analysis) and buckling modes on the canvas
 
+import { hingeTracks, trackAt } from '../engine/plastic/tracks';
 import type { PlasticResult } from '../engine/result-types';
 import { computeDeformedShape } from '../engine/diagrams';
 
@@ -173,9 +174,12 @@ export function drawPlasticHinges(
 ): void {
   const { ctx, worldToScreen, nodes, elements } = dc;
   if (!result.steps[stepIndex]) return;
-  const upTo = result.hinges
-    .map((h, order) => ({ h, order }))
-    .filter(({ h }) => h.step <= stepIndex);
+  const lambda = result.steps[stepIndex].loadFactor;
+  const tracks = hingeTracks(result.hinges, result.steps.length - 1);
+  const upTo = tracks.members
+    .map((m, order) => ({ at: trackAt(result.hinges, m, stepIndex, lambda), order }))
+    .filter((x): x is { at: { now: number; first: number; open: boolean }; order: number } => !!x.at && x.at.open)
+    .map(({ at, order }) => ({ h: result.hinges[at.now], order }));
   for (const { h, order } of upTo) {
     const elem = elements.get(h.elementId);
     if (!elem) continue;

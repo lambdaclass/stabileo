@@ -151,9 +151,9 @@ export const es: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Trabajos virtuales (carga unitaria)',
-  'steps.m.virtualWork.help': 'Calcula un desplazamiento aplicando una carga unitaria en el punto y la dirección buscados. El desplazamiento es la suma, barra por barra, de ∫M·m/EI dx más N·n·L/EA, con M y N de las cargas reales y m y n de la carga unitaria.',
-  'steps.m.virtualWork.requires': 'una estructura plana de barras (viga, pórtico o reticulado), isostática o hiperestática, sin cargas térmicas ni apoyos especiales.',
-  'steps.m.virtualWork.what': 'Se calcula el desplazamiento de un nodo en una dirección con el principio de los trabajos virtuales: el trabajo de una carga unitaria virtual por el desplazamiento buscado es igual al trabajo interno de sus esfuerzos virtuales en las deformaciones reales.',
+  'steps.m.virtualWork.help': 'Calcula un desplazamiento, un giro, o un desplazamiento o giro relativo entre dos nodos, aplicando la carga virtual que trabaja sobre esa magnitud: una fuerza unitaria, un par unitario o un par de cargas opuestas. El resultado es la suma, barra por barra, de ∫M·m/EI dx más N·n·L/EA, más los resortes, los asentamientos y la temperatura si los hay.',
+  'steps.m.virtualWork.requires': 'una estructura plana de barras (viga, pórtico o reticulado), isostática o hiperestática; puede tener resortes, asentamientos y cargas térmicas, sin apoyos inclinados.',
+  'steps.m.virtualWork.what': 'Se calcula la magnitud elegida con el principio de los trabajos virtuales: el trabajo de una carga virtual unitaria (una fuerza, un par o un par de cargas opuestas) por el desplazamiento buscado es igual al trabajo interno de sus esfuerzos virtuales en las deformaciones reales.',
   'steps.m.virtualWork.s1': 'Punto, dirección y principio',
   'steps.m.virtualWork.principle': 'Principio de los trabajos virtuales con una carga unitaria.',
   'steps.m.virtualWork.principleWhy': 'La carga unitaria y sus esfuerzos m y n forman un sistema en equilibrio; las curvaturas M/EI y las deformaciones axiales N/EA son las reales, compatibles con los vínculos. Igualar el trabajo externo con el interno da el desplazamiento.',
@@ -168,7 +168,7 @@ export const es: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Teoremas de Castigliano',
-  'steps.m.castigliano.help': 'Trabaja con la energía de deformación U. En una estructura hiperestática, el segundo teorema (∂U/∂Xⱼ = 0) da las redundantes; en una isostática, el primero (δ = ∂U/∂P) da el desplazamiento de un punto, con una carga ficticia Q si allí no actúa ninguna.',
+  'steps.m.castigliano.help': 'Trabaja con la energía de deformación U. En una estructura hiperestática, el segundo teorema (∂U/∂Xⱼ = 0) da las redundantes; en una isostática, el primero (δ = ∂U/∂P) da el desplazamiento de un punto o, con un momento ficticio, su giro, con una carga ficticia Q si allí no actúa ninguna.',
   'steps.m.castigliano.requires': 'una viga o un pórtico plano con barras que flexionan, sin barras de reticulado, cargas térmicas ni apoyos especiales, de grado de hiperestaticidad moderado.',
   'steps.m.castigliano.whatSecond': 'Se resuelve la estructura hiperestática con el segundo teorema de Castigliano: las redundantes toman los valores que hacen estacionaria la energía de deformación, porque en su dirección el desplazamiento es nulo.',
   'steps.m.castigliano.whatFirst': 'Se calcula el desplazamiento de un nodo con el primer teorema de Castigliano: la derivada de la energía de deformación respecto de una carga es el desplazamiento de su punto de aplicación en su dirección.',
@@ -376,9 +376,9 @@ export const en: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Virtual work (unit load)',
-  'steps.m.virtualWork.help': 'Finds a displacement by applying a unit load at the point and in the direction sought. The displacement is the sum over the members of ∫M·m/EI dx plus N·n·L/EA, with M and N from the real loads and m and n from the unit load.',
-  'steps.m.virtualWork.requires': 'a plane framed structure (beam, frame or truss), statically determinate or indeterminate, without thermal loads or special supports.',
-  'steps.m.virtualWork.what': 'The displacement of a node in one direction is found with the principle of virtual work: the work of a virtual unit load through the displacement sought equals the internal work of its virtual forces through the real deformations.',
+  'steps.m.virtualWork.help': 'Finds a displacement, a rotation, or a relative displacement or rotation between two nodes, by applying the virtual load that does work on that quantity: a unit force, a unit couple or a pair of opposite loads. The result is the sum over the members of ∫M·m/EI dx plus N·n·L/EA, plus springs, settlements and temperature where there are any.',
+  'steps.m.virtualWork.requires': 'a plane framed structure (beam, frame or truss), statically determinate or indeterminate; it may have springs, settlements and thermal loads, but no inclined supports.',
+  'steps.m.virtualWork.what': 'The chosen quantity is found with the principle of virtual work: the work of a virtual unit load (a force, a couple or a pair of opposite loads) through the displacement sought equals the internal work of its virtual forces through the real deformations.',
   'steps.m.virtualWork.s1': 'Point, direction and principle',
   'steps.m.virtualWork.principle': 'Principle of virtual work with a unit load.',
   'steps.m.virtualWork.principleWhy': 'The unit load and its forces m and n form a system in equilibrium; the curvatures M/EI and axial strains N/EA are the real ones, compatible with the supports. Equating external and internal work gives the displacement.',
@@ -393,7 +393,7 @@ export const en: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Castigliano’s theorems',
-  'steps.m.castigliano.help': 'Works with the strain energy U. In a statically indeterminate structure, the second theorem (∂U/∂Xⱼ = 0) gives the redundants; in a determinate one, the first theorem (δ = ∂U/∂P) gives the displacement of a point, with a dummy load Q if none acts there.',
+  'steps.m.castigliano.help': 'Works with the strain energy U. In a statically indeterminate structure, the second theorem (∂U/∂Xⱼ = 0) gives the redundants; in a determinate one, the first (δ = ∂U/∂P) gives the displacement of a point or, with a fictitious moment, its rotation, using a fictitious load Q if none acts there.',
   'steps.m.castigliano.requires': 'a plane beam or frame of members that bend, without truss members, thermal loads or special supports, of moderate degree of indeterminacy.',
   'steps.m.castigliano.whatSecond': 'The statically indeterminate structure is solved with Castigliano’s second theorem: the redundants take the values that make the strain energy stationary, because the displacement along each of them is zero.',
   'steps.m.castigliano.whatFirst': 'The displacement of a node is found with Castigliano’s first theorem: the derivative of the strain energy with respect to a load is the displacement of its point of application in its direction.',
@@ -601,9 +601,9 @@ export const pt: Translations = {
 
   // ── Virtual work
   'steps.m.virtualWork.title': 'Trabalhos virtuais (carga unitária)',
-  'steps.m.virtualWork.help': 'Calcula um deslocamento aplicando uma carga unitária no ponto e na direção procurados. O deslocamento é a soma, barra por barra, de ∫M·m/EI dx mais N·n·L/EA, com M e N das cargas reais e m e n da carga unitária.',
-  'steps.m.virtualWork.requires': 'uma estrutura plana de barras (viga, pórtico ou treliça), isostática ou hiperestática, sem cargas térmicas nem apoios especiais.',
-  'steps.m.virtualWork.what': 'O deslocamento de um nó numa direção é calculado pelo princípio dos trabalhos virtuais: o trabalho de uma carga unitária virtual no deslocamento procurado é igual ao trabalho interno dos seus esforços virtuais nas deformações reais.',
+  'steps.m.virtualWork.help': 'Calcula um deslocamento, uma rotação, ou um deslocamento ou rotação relativa entre dois nós, aplicando a carga virtual que trabalha sobre essa grandeza: uma força unitária, um binário unitário ou um par de cargas opostas. O resultado é a soma, barra por barra, de ∫M·m/EI dx mais N·n·L/EA, mais as molas, os recalques e a temperatura, se houver.',
+  'steps.m.virtualWork.requires': 'uma estrutura plana de barras (viga, pórtico ou treliça), isostática ou hiperestática; pode ter molas, recalques e cargas térmicas, sem apoios inclinados.',
+  'steps.m.virtualWork.what': 'A grandeza escolhida é calculada pelo princípio dos trabalhos virtuais: o trabalho de uma carga virtual unitária (uma força, um binário ou um par de cargas opostas) no deslocamento procurado é igual ao trabalho interno dos seus esforços virtuais nas deformações reais.',
   'steps.m.virtualWork.s1': 'Ponto, direção e princípio',
   'steps.m.virtualWork.principle': 'Princípio dos trabalhos virtuais com uma carga unitária.',
   'steps.m.virtualWork.principleWhy': 'A carga unitária e os seus esforços m e n formam um sistema em equilíbrio; as curvaturas M/EI e as deformações axiais N/EA são as reais, compatíveis com os vínculos. Igualar o trabalho externo ao interno dá o deslocamento.',
@@ -618,7 +618,7 @@ export const pt: Translations = {
 
   // ── Castigliano
   'steps.m.castigliano.title': 'Teoremas de Castigliano',
-  'steps.m.castigliano.help': 'Trabalha com a energia de deformação U. Numa estrutura hiperestática, o segundo teorema (∂U/∂Xⱼ = 0) dá os hiperestáticos; numa isostática, o primeiro (δ = ∂U/∂P) dá o deslocamento de um ponto, com uma carga fictícia Q se nenhuma atuar ali.',
+  'steps.m.castigliano.help': 'Trabalha com a energia de deformação U. Numa estrutura hiperestática, o segundo teorema (∂U/∂Xⱼ = 0) dá os hiperestáticos; numa isostática, o primeiro (δ = ∂U/∂P) dá o deslocamento de um ponto ou, com um momento fictício, sua rotação, com uma carga fictícia Q se ali não atua nenhuma.',
   'steps.m.castigliano.requires': 'uma viga ou um pórtico plano com barras que fletem, sem barras de treliça, cargas térmicas nem apoios especiais, de grau de hiperestaticidade moderado.',
   'steps.m.castigliano.whatSecond': 'A estrutura hiperestática é resolvida pelo segundo teorema de Castigliano: os hiperestáticos assumem os valores que tornam estacionária a energia de deformação, porque na direção de cada um o deslocamento é nulo.',
   'steps.m.castigliano.whatFirst': 'O deslocamento de um nó é calculado pelo primeiro teorema de Castigliano: a derivada da energia de deformação em relação a uma carga é o deslocamento do seu ponto de aplicação na sua direção.',

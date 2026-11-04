@@ -8,22 +8,31 @@ import type { Sketch, SketchSupport } from './sketch';
 import { solveReference } from './reference';
 import type { SolverInput } from '../types';
 import { countIndeterminacy } from '../force-method/primary';
-import { solveForceMethod, solveSystem, ForceMethodError, FM_MAX_GH, type ForceMethodResult, type Redundant, type StateResult, type TermRow } from '../force-method/solve';
+import { ghBlocks } from './gh-blocks';
+import { pickTarget, unitLoadInput, refAlong, unitSketch, targetNote, targetUnit } from './unit-target';
+import { ghReport } from '../static-degree';
+import { solveForceMethod, ForceMethodError, FM_MAX_GH, type ForceMethodOptions, type ForceMethodResult, type Redundant, type StateResult, type TermRow } from '../force-method/solve';
 import {
-  U, TOL, no, OK, p, texCell, mm, sq, baseApplies, intro, compareBlock, diagramOf, pickTarget,
-  unitLoadInput, refAlong, memberWork, axialTable, endValuesTable, unitSketch, frameIds,
+  U, TOL, no, OK, p, texCell, sq, baseApplies, intro, compareBlock, diagramOf,
+  memberWork, axialTable, endValuesTable, frameIds,
   structureSketch, bendingBlocks, axialOn, axialShareWarning,
 } from './deformation-common';
 
-const fmCache = new WeakMap<SolverInput, ForceMethodResult | ForceMethodError | Error>();
-function forceMethodOf(input: SolverInput): ForceMethodResult | ForceMethodError | Error {
-  let r = fmCache.get(input);
+const fmCache = new WeakMap<SolverInput, Map<string, ForceMethodResult | ForceMethodError | Error>>();
+function forceMethodOf(input: SolverInput, opts: ForceMethodOptions = {}): ForceMethodResult | ForceMethodError | Error {
+  const key = JSON.stringify(opts);
+  const byOpts = fmCache.get(input) ?? new Map();
+  fmCache.set(input, byOpts);
+  let r = byOpts.get(key);
   if (!r) {
-    try { r = solveForceMethod(input); } catch (e) { r = e instanceof Error ? e : new Error(String(e)); }
-    fmCache.set(input, r);
+    try { r = solveForceMethod(input, opts); } catch (e) { r = e instanceof Error ? e : new Error(String(e)); }
+    byOpts.set(key, r);
   }
   return r;
 }
+
+/** The reader's fundamental from the force-method wizard, when it was chosen on this same model. */
+const releasesOf = (ctx: MethodContext) => (ctx.fundamental?.length ? { releases: ctx.fundamental } : {});
 
 export function castiglianoApplies(ctx: MethodContext): Applicability {
   const base = baseApplies(ctx, false);
@@ -32,8 +41,8 @@ export function castiglianoApplies(ctx: MethodContext): Applicability {
   if (gh < 0) return no('fm.err.hypostatic');
   if (gh > FM_MAX_GH) return no('fm.err.tooHyperstatic', { gh, max: FM_MAX_GH });
   if (gh > 0) {
-    const r = forceMethodOf(ctx.input);
-    if (r instanceof ForceMethodError) return no(`fm.err.${r.key}`, { gh: r.gh, max: FM_MAX_GH });
+    const r = forceMethodOf(ctx.input, { ...releasesOf(ctx), axial: axialOn(ctx) });
+    if (r instanceof ForceMethodError) return no(r.key in LEGACY_ERRORS ? `fm.err.${r.key}` : `course.statics.err.${r.key}`, { gh: r.gh, max: FM_MAX_GH, chosen: r.detail.chosen ?? 0 });
     if (r instanceof Error) return no('steps.req.unstable');
   }
   return OK;
@@ -44,9 +53,11 @@ function redundantText(r: Redundant, pm: PlaneModel): Txt {
   const m = r.elementId !== undefined ? pm.members.get(r.elementId)?.name ?? String(r.elementId) : '';
   if (r.kind === 'reaction') return tx(`steps.m.castigliano.red.reaction${r.component ?? 1}`, { n });
   if (r.kind === 'barForce') return tx('steps.m.castigliano.red.bar', { m });
+  if (r.hinge) return tx('course.statics.red.hinge', { n, m });
   return tx(`steps.m.castigliano.red.${r.kind}`, { n, m });
 }
 const redundantUnit = (r: Redundant) => ((r.kind === 'reaction' && r.component === 2) || r.kind === 'cutM' ? U.kNm : U.kN);
+const LEGACY_ERRORS = { hypostatic: 1, noRedundants: 1, unstable: 1, tooHyperstatic: 1 };
 
 /** The primary structure: the released supports, the cut members, the redundants drawn on it. */
 function primarySketch(pm: PlaneModel, fm: ForceMethodResult): Sketch {
@@ -85,43 +96,10 @@ function primarySketch(pm: PlaneModel, fm: ForceMethodResult): Sketch {
   return { nodes, members, supports, hinges, forces, couples, labels, dims: 'auto' };
 }
 
-/** A state's M diagram (sagging positive) on a geometry. */
 /** What a document reads of a state: each bar's diagram samples, and the reactions. */
 interface State {
   bars: Array<{ elementId: number; L: number; samples: Array<{ x: number; m: number; n: number }> }>;
   reactions: StateResult['reactions'];
-}
-
-/**
- * M = M₀ + Σ Xⱼ·mⱼ, N and the reactions likewise, for redundants of one's own
- * choosing (the force method's final state carries its own X). Each unit state
- * has only node loads, so it is linear on every bar and its two end samples
- * give it anywhere.
- */
-function superpose(fm: ForceMethodResult, X: number[]): State {
-  const s0 = fm.states[0];
-  const lin = (st: StateResult, id: number, x: number) => {
-    const b = st.bars.find((q) => q.elementId === id);
-    if (!b || !b.samples.length) return { m: 0, n: 0 };
-    const a = b.samples[0], z = b.samples[b.samples.length - 1];
-    const u = b.L > 0 ? x / b.L : 0;
-    return { m: a.m + (z.m - a.m) * u, n: a.n + (z.n - a.n) * u };
-  };
-  const bars = s0.bars.map((b) => ({
-    elementId: b.elementId, L: b.L,
-    samples: b.samples.map((q) => {
-      let m = q.m, n = q.n;
-      X.forEach((xj, j) => { const u = lin(fm.states[j + 1], b.elementId, q.x); m += xj * u.m; n += xj * u.n; });
-      return { x: q.x, m, n };
-    }),
-  }));
-  const reactions = s0.reactions.map((r) => {
-    let v = r.value;
-    X.forEach((xj, j) => { const u = fm.states[j + 1].reactions.find((q) => q.nodeId === r.nodeId && q.component === r.component); if (u) v += xj * u.value; });
-    return { ...r, value: v };
-  });
-  fm.redundants.forEach((r, i) => { if (r.kind === 'reaction') reactions.push({ nodeId: r.nodeId, component: r.component!, value: X[i] }); });
-  return { bars, reactions };
 }
 
 function stateDiagram(st: State, color: 'moment' | 'unknown', unit: string): NonNullable<Sketch['diagram']> {
@@ -141,68 +119,6 @@ const endsOf = (st: State, id: number) => {
   return { a: clean(b.samples[0].m), b: clean(b.samples[b.samples.length - 1].m) };
 };
 
-/**
- * Which unknowns a square system cannot determine: Gaussian elimination with
- * complete pivoting, stopping where every pivot left is below 1e-9 of the
- * largest entry. The columns never pivoted are the unknowns left free.
- */
-function undetermined(A: number[][]): number[] {
-  const n = A.length;
-  const M = A.map((r) => [...r]);
-  const cols = [...Array(n).keys()];
-  let big = 0;
-  for (const r of M) for (const v of r) big = Math.max(big, Math.abs(v));
-  if (!(big > 0)) return cols;
-  for (let k = 0; k < n; k++) {
-    let pi = k, pj = k;
-    for (let i = k; i < n; i++) for (let j = k; j < n; j++) if (Math.abs(M[i][j]) > Math.abs(M[pi][pj])) { pi = i; pj = j; }
-    if (!(Math.abs(M[pi][pj]) > 1e-9 * big)) return cols.slice(k);
-    [M[k], M[pi]] = [M[pi], M[k]];
-    for (const r of M) [r[k], r[pj]] = [r[pj], r[k]];
-    [cols[k], cols[pj]] = [cols[pj], cols[k]];
-    for (let i = k + 1; i < n; i++) {
-      const f = M[i][k] / M[k][k];
-      for (let j = k; j < n; j++) M[i][j] -= f * M[k][j];
-    }
-  }
-  return [];
-}
-
-/**
- * The flexibility system of the classical solution, bending alone. A redundant
- * that works only axially (the horizontal reaction of a beam, say) has no
- * bending flexibility, so its equation would say nothing: it keeps its axial
- * term, in its row and column, and the rest stays bending only. If even then
- * the system cannot be solved, the full one is used.
- */
-function bendingOnlySystem(fm: ForceMethodResult): { D: number[][]; D0: number[]; X: number[]; kept: Set<number>; fallback: boolean } {
-  const n = fm.redundants.length;
-  const bendingOf = (rows: TermRow[]) => rows.filter((q) => q.source !== 'axial').reduce((acc, q) => acc + q.value, 0);
-  const Db = fm.deltaTerms.map((r) => r.map(bendingOf));
-  const D0b = fm.delta0Terms.map(bendingOf);
-  const maxDiag = Math.max(0, ...Db.map((r, j) => Math.abs(r[j])));
-  const kept = new Set<number>();
-  // Negligible bending self-flexibility: against the other redundants' or against its own with the axial term.
-  for (let j = 0; j < n; j++) if (!(Math.abs(Db[j][j]) > 1e-9 * Math.max(maxDiag, Math.abs(fm.delta[j][j])))) kept.add(j);
-  const mixed = () => ({
-    D: Db.map((r, j) => r.map((v, k) => (kept.has(j) || kept.has(k) ? fm.delta[j][k] : v))),
-    D0: D0b.map((v, j) => (kept.has(j) ? fm.delta0[j] : v)),
-  });
-  let sys = mixed();
-  // A combination of redundants may still move nothing in bending: keep the axial term for those too.
-  for (let pass = 0; pass < n; pass++) {
-    const free = undetermined(sys.D);
-    if (!free.length) break;
-    for (const j of free) kept.add(j);
-    sys = mixed();
-  }
-  try {
-    const X = solveSystem(sys.D, sys.D0.map((v) => -v));
-    if (X.every(Number.isFinite) && !undetermined(sys.D).length) return { ...sys, X, kept, fallback: false };
-  } catch { /* the full system below */ }
-  return { D: fm.delta, D0: fm.delta0, X: fm.X, kept: new Set(fm.redundants.map((_, j) => j)), fallback: true };
-}
-
 export function buildCastigliano(ctx: MethodContext): StepDoc {
   const gh = countIndeterminacy(ctx.input).gh;
   return gh > 0 ? buildCastiglianoSecond(ctx) : buildCastiglianoFirst(ctx);
@@ -211,31 +127,23 @@ export function buildCastigliano(ctx: MethodContext): StepDoc {
 function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
   const { pm } = ctx;
   const ref = ctx.ref!;
-  const fm = forceMethodOf(ctx.input) as ForceMethodResult;
+  const withAxial = axialOn(ctx);
+  const fm = forceMethodOf(ctx.input, { ...releasesOf(ctx), axial: withAxial }) as ForceMethodResult;
   const n = fm.redundants.length;
-  const c = fm.count;
   const steps: Step[] = [];
   const Xs = fm.redundants.map((r) => `X_{${r.index}}`);
-  // Without the axial term the coefficients keep their bending part alone, and the redundants follow from that system.
-  const withAxial = axialOn(ctx);
-  const sys = withAxial ? null : bendingOnlySystem(fm);
-  const D = sys ? sys.D : fm.delta;
-  const D0 = sys ? sys.D0 : fm.delta0;
-  const X = sys ? sys.X : fm.X;
-  const final: State = sys ? superpose(fm, X) : fm.final;
-  // Which coefficients keep their axial part: all of them with the option on, those of the kept redundants without it.
-  const full = (j: number, k?: number) => !sys || sys.kept.has(j) || (k !== undefined && sys.kept.has(k));
-  const keptNames = sys && !sys.fallback ? [...sys.kept].sort((a, b) => a - b).map((j) => `X${fm.redundants[j].index}`) : [];
-  const axialNotes: Block[] = [];
-  if (sys?.fallback) axialNotes.push({ kind: 'note', tone: 'warn', text: tx('steps.m.castigliano.axialFallback') });
-  else if (keptNames.length) axialNotes.push({ kind: 'note', tone: 'warn', text: tx('steps.m.castigliano.axialKept', { list: keptNames.join(', ') }) });
+  const D = fm.delta, D0 = fm.delta0, X = fm.X;
+  const final: State = fm.final;
+  const kept = new Set(fm.axialKept ?? []);
+  const axialNotes: Block[] = kept.size
+    ? [{ kind: 'note', tone: 'warn', text: tx('steps.m.castigliano.axialKept', { list: [...kept].map((j) => `X${fm.redundants[j].index}`).join(', ') }) }]
+    : [];
 
   steps.push({
     title: tx('steps.m.castigliano.s1'),
     blocks: [
       p('steps.m.castigliano.ghLead'),
-      { kind: 'calc', label: tx('steps.common.classification'), formula: 'GH = r + b - e',
-        subst: `GH = ${c.reactions + c.springs} + ${c.barUnknowns} - ${c.equations}`, result: `\\boxed{GH = ${c.gh}}` },
+      ...ghBlocks(ghReport(ctx.input), 'fm', (id) => pm.nodes.get(id)?.name ?? String(id)),
       p('steps.m.castigliano.ghWhy', undefined, true),
     ],
   });
@@ -244,6 +152,7 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
     title: tx('steps.m.castigliano.s2'),
     blocks: [
       p('steps.m.castigliano.redLead', { g: n }),
+      ...(fm.choice === 'manual' ? [{ kind: 'note', tone: 'info', text: tx('course.statics.castiglianoChosen') } as Block] : []),
       { kind: 'table', head: [tx('steps.m.castigliano.redundant'), tx('steps.m.castigliano.meaning')], rows: fm.redundants.map((r, i) => [texCell(Xs[i]), redundantText(r, pm)]) },
       { kind: 'fig', sketch: primarySketch(pm, fm), caption: tx('steps.m.castigliano.primaryCaption') },
       p('steps.m.castigliano.redWhy', undefined, true),
@@ -284,8 +193,7 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
   // Coefficient integrals, per member.
   const ids = pm.memberOrder;
   const perMember = ids.length <= 6;
-  const rowsOf = (label: string, all: TermRow[], total: number, check: number, whole: boolean): Cell[] => {
-    const terms = all.filter((q) => whole || q.source !== 'axial');
+  const rowsOf = (label: string, terms: TermRow[], total: number, check: number): Cell[] => {
     const vals: number[] = [];
     if (perMember) for (const id of ids) vals.push(terms.filter((q) => q.elementId === id).reduce((s, q) => s + q.value, 0));
     // The primary's displacements include the axial strain, so they check the coefficients only when it is counted.
@@ -296,8 +204,8 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
     return [texCell(label), ...vals.map((v) => (Math.abs(v) <= 1e-10 * big ? 0 : v))];
   };
   const coefRows: Cell[][] = [];
-  for (let j = 0; j < n; j++) for (let k = j; k < n; k++) coefRows.push(rowsOf(`\\delta_{${j + 1}${k + 1}}`, fm.deltaTerms[j][k], D[j][k], fm.deltaCheck[j][k], full(j, k)));
-  for (let j = 0; j < n; j++) coefRows.push(rowsOf(`\\delta_{${j + 1}0}`, fm.delta0Terms[j], D0[j], fm.delta0Check[j], full(j)));
+  for (let j = 0; j < n; j++) for (let k = j; k < n; k++) coefRows.push(rowsOf(`\\delta_{${j + 1}${k + 1}}`, fm.deltaTerms[j][k], D[j][k], fm.deltaCheck[j][k]));
+  for (let j = 0; j < n; j++) coefRows.push(rowsOf(`\\delta_{${j + 1}0}`, fm.delta0Terms[j], D0[j], fm.delta0Check[j]));
   const head: Cell[] = [tx('steps.m.castigliano.coefficient')];
   if (perMember) for (const id of ids) head.push(pm.members.get(id)!.name);
   if (withAxial) head.push(tx('steps.m.castigliano.sumBending'), tx('steps.m.castigliano.sumAxial'), texCell('\\Sigma'), tx('steps.m.castigliano.primaryDisp'));
@@ -381,6 +289,7 @@ function buildCastiglianoSecond(ctx: MethodContext): StepDoc {
     method: 'castigliano',
     title: tx('steps.m.castigliano.title'),
     subtitle: tx('steps.m.castigliano.subtitleSecond', { g: n }),
+    noParams: true,
     intro: intro(ctx, tx('steps.m.castigliano.whatSecond'), 'steps.deformation.signs.frame', [], withAxial),
     steps,
   };
@@ -397,20 +306,24 @@ function buildCastiglianoFirst(ctx: MethodContext): StepDoc {
   const ax = works.reduce((s, w) => s + w.axial, 0);
   const withAxial = axialOn(ctx);
   const delta = bend + (withAxial ? ax : 0);
-  const dirKey = tg.dir === 'x' ? 'steps.deformation.dir.x' : 'steps.deformation.dir.z';
-  // A load already acting at the point, along the chosen direction and sense.
-  const at = pm.nodalLoads.filter((l) => l.node === tg.node).reduce((s, l) => s + (tg.dir === 'x' ? l.fx : -l.fz), 0);
+  const S = tg.sym;
+  const u = targetUnit(tg);
+  // A load already acting at the point, along the chosen direction and sense (a pair is always fictitious).
+  const one = tg.loads.length === 1 ? tg.loads[0] : null;
+  const at = one ? pm.nodalLoads.filter((l) => l.node === one.node).reduce((s, l) => s + one.fx * l.fx + one.fz * l.fz + one.my * l.my, 0) : 0;
   const real = Math.abs(at) > 1e-12;
+  const loadKey = tg.quantity === 'disp' ? (real ? 'steps.m.castigliano.realLoad' : 'steps.m.castigliano.dummy')
+    : tg.quantity === 'rot' ? (real ? 'course.statics.cast.realCouple' : 'course.statics.cast.dummyCouple') : 'course.statics.cast.dummyPair';
   const P = real ? 'P' : 'Q';
   const steps: Step[] = [];
 
   steps.push({
     title: tx('steps.m.castigliano.f1'),
     blocks: [
-      p(tg.chosen ? 'steps.deformation.targetSelected' : 'steps.deformation.targetAuto', { n: tg.name }),
-      { kind: 'note', tone: 'info', text: tx(dirKey, { n: tg.name }) },
-      p('steps.deformation.targetHow', undefined, true),
-      p(real ? 'steps.m.castigliano.realLoad' : 'steps.m.castigliano.dummy', { n: tg.name, P: numText(at) }),
+      p(tg.quantity !== 'disp' ? 'course.statics.vw.targetParams' : tg.chosen ? 'steps.deformation.targetSelected' : 'steps.deformation.targetAuto', { n: tg.name }),
+      { kind: 'note', tone: 'info', text: targetNote(tg) },
+      p('course.statics.vw.choose', undefined, true),
+      p(loadKey, { n: tg.name, m: tg.name2, P: numText(at) }),
       p('steps.m.castigliano.dummyWhy', undefined, true),
     ],
   });
@@ -420,7 +333,7 @@ function buildCastiglianoFirst(ctx: MethodContext): StepDoc {
     blocks: [
       p('steps.m.castigliano.energyFirst'),
       { kind: 'eq', tex: `U = \\sum \\int_0^{L} \\frac{M^2}{2EI}\\,dx${withAxial ? ' + \\sum \\int_0^{L} \\frac{N^2}{2EA}\\,dx' : ''}` },
-      { kind: 'eq', tex: `\\delta_{${tg.name}} = \\frac{\\partial U}{\\partial ${P}} = \\sum \\int \\frac{M}{EI}\\,\\frac{\\partial M}{\\partial ${P}}\\,dx${withAxial ? ` + \\sum \\int \\frac{N}{EA}\\,\\frac{\\partial N}{\\partial ${P}}\\,dx` : ''}${real ? '' : `\\;\\Big|_{Q = 0}`}` },
+      { kind: 'eq', tex: `${S} = \\frac{\\partial U}{\\partial ${P}} = \\sum \\int \\frac{M}{EI}\\,\\frac{\\partial M}{\\partial ${P}}\\,dx${withAxial ? ` + \\sum \\int \\frac{N}{EA}\\,\\frac{\\partial N}{\\partial ${P}}\\,dx` : ''}${real ? '' : `\\;\\Big|_{Q = 0}`}` },
       ...(withAxial ? [] : [{ kind: 'note', tone: 'info', text: tx('steps.deformation.axialOff') } as Block]),
       p(real ? 'steps.m.castigliano.linearReal' : 'steps.m.castigliano.linearDummy'),
       { kind: 'eq', tex: `M = ${real ? "M_0' + P\\,m" : 'M_0 + Q\\,m'}, \\qquad \\frac{\\partial M}{\\partial ${P}} = m${withAxial ? `, \\qquad \\frac{\\partial N}{\\partial ${P}} = n` : ''}` },
@@ -446,13 +359,14 @@ function buildCastiglianoFirst(ctx: MethodContext): StepDoc {
       ] : []),
       { kind: 'calc', label: tx('steps.deformation.total'),
         formula: withAxial
-          ? `\\delta_{${tg.name}} = \\frac{\\partial U}{\\partial ${P}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx + \\sum \\frac{N\\,n\\,L}{EA}`
-          : `\\delta_{${tg.name}} = \\frac{\\partial U}{\\partial ${P}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx`,
-        subst: withAxial ? `\\delta_{${tg.name}} = ${par(bend)} + ${par(ax)} = ${num(delta)}\\ ${U.m}` : `\\delta_{${tg.name}} = ${num(delta)}\\ ${U.m}`,
-        result: `\\boxed{\\delta_{${tg.name}} = ${num(mm(delta))}\\ ${U.mm}}` },
-      p(delta >= 0 ? 'steps.deformation.senseSame' : 'steps.deformation.senseOpposite'),
+          ? `${S} = \\frac{\\partial U}{\\partial ${P}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx + \\sum \\frac{N\\,n\\,L}{EA}`
+          : `${S} = \\frac{\\partial U}{\\partial ${P}} = \\sum \\int \\frac{M\\,m}{EI}\\,dx`,
+        subst: withAxial ? `${S} = ${par(bend)} + ${par(ax)} = ${num(delta)}\\ ${u.base}` : `${S} = ${num(delta)}\\ ${u.base}`,
+        result: `\\boxed{${S} = ${num(delta * u.k)}\\ ${u.tex}}` },
+      p(tg.quantity === 'disp' ? (delta >= 0 ? 'steps.deformation.senseSame' : 'steps.deformation.senseOpposite')
+        : `course.statics.vw.sense.${tg.quantity}${delta >= 0 ? 'Pos' : 'Neg'}`, { n: tg.name, m: tg.name2 }),
       ...(withAxial ? [] : axialShareWarning(bend, ax)),
-      ...compareBlock([{ label: `\\delta_{${tg.name}}`, method: mm(delta), matrix: mm(refAlong(ref, tg)), unit: 'mm' }],
+      ...compareBlock([{ label: S, method: delta * u.k, matrix: refAlong(ref, tg) * u.k, unit: u.unit }],
         tx(withAxial ? 'steps.deformation.exactNote' : 'steps.deformation.axialOffNote')),
     ],
   });

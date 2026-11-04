@@ -358,5 +358,5 @@ fn validation_symmetric_portal_reactions() {
     let r4 = results.reactions.iter().find(|r| r.node_id == 4).unwrap();
     assert_close(r1.rz, r4.rz, 0.001, "symmetric Ry");
     // Moments should be equal in magnitude (same sign due to symmetry)
-    assert_close(r1.my.abs(), r4.my.abs(), 0.001, "symmetric Mz");
+    assert_close_abs(r1.my.abs(), r4.my.abs(), 0.001, 1e-6, "symmetric Mz");
 }

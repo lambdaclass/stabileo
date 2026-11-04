@@ -57,6 +57,7 @@ import { promisify } from 'node:util';
 import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { searchMetadataSuite } from './search-metadata';
 import catalog from '../../../../../research/papers.json';
 import { EXPERIMENTS } from '../../../components/research/experiments';
 import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../../../components/research/locales';
@@ -146,6 +147,8 @@ describe('every published URL is served, not redirected', () => {
   }, 660_000);
 
   afterAll(() => rmSync(DIST, { recursive: true, force: true }));
+
+  searchMetadataSuite(DIST);
 
   it('the build produced a sitemap with URLs in it', () => {
     // Without this the three assertions below would pass vacuously on an empty

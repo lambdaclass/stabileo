@@ -212,7 +212,7 @@ const body: PostBody = {
       "k": "embed",
       "mode": "pro",
       "query": "example=rc-beam-flexure&proTab=design",
-      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de açıklıktaki kesme kuvvetinin belirleyici olduğu D/C = 0,90 ile kapanır: eğilme ve donatı ankrajı bunun altında kalır. Yükü değiştirip yeniden çalıştırın. PRO geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
+      "label": "Stabileo'daki kiriş, PRO'nun tasarım akışında. Tasarım kapalıysa bildirimdeki “Bu ziyaret için tasarımı aç” düğmesine basın. Bu sırayla üç düğme: “İstemleri hesapla”, “Gerekli donatıyı hesapla” ve “Boyutlandır…”. Çubukları yalnızca üçüncüsü seçer ve çubuk olmadan kontrol edilecek bir şey yoktur: tablo “donatısız” yazar. 5 m'lik açıklık iki eleman olarak modellenmiştir; ikisi de açıklıktaki kesme kuvvetinin belirleyici olduğu D/C = 0,90 ile kapanır: eğilme ve donatı ankrajı bunun altında kalır. Yükü değiştirip yeniden çalıştırın. PRO'daki yönetmeliğe göre tasarım hâlâ geliştirme aşamasındadır; betonarme modülü, uygulanmış ve test edilmiş olan kısımdır."
     },
     {
       "k": "h",

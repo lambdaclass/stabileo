@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The review of a recognition before it is applied.
    *
@@ -109,7 +110,7 @@
         {/each}
       </ul>
     {/if}
-    <p class="pk-hint">{t('physical.review.undo')}</p>
+    <Hint text={t('physical.review.undo')} />
     <div class="pk-row">
       <button class="pk-btn pk-btn-primary" disabled={count === 0 && plan.removals.length === 0} onclick={apply} data-testid="recognition-apply">{tp('physical.review.apply', { n: count })}</button>
       <button class="pk-btn" onclick={() => onDone(null)} data-testid="recognition-cancel">{t('physical.review.cancel')}</button>

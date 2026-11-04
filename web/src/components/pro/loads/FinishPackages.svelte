@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Packages of finishes (`model/use-zones.ts FinishPackage`): each one's layers with thickness and
    * unit weight, or a load stated directly, and its total. Given to zones in the zones table, they
@@ -22,7 +23,7 @@
 
 <details class="fp" data-testid="finish-packages">
   <summary>{tp('finishes.title', { n: packages.length })}</summary>
-  <p class="fp-hint">{t('finishes.hint')}</p>
+  <Hint text={t('finishes.hint')} />
   {#each packages as g (g.id)}
     {@const pkg = (g.data as unknown as FinishPackage) ?? { layers: [] }}
     <div class="fp-pkg" data-testid="finish-package-{g.name}">
@@ -52,7 +53,6 @@
 
 <style>
   .fp summary { cursor: pointer; font-weight: 600; color: var(--st-text); }
-  .fp-hint { margin: 2px 0; font-size: 0.62rem; color: var(--st-text-3); }
   .fp-pkg { padding: 4px; border: 1px solid var(--st-hair); border-radius: var(--st-radius); margin: 4px 0; }
   .fp-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .fp-dim { color: var(--st-text-3); }

@@ -166,7 +166,7 @@ fn validation_ext_superposition_scaling() {
         let db = res_base.displacements.iter().find(|d| d.node_id == ds.node_id).unwrap();
         assert_close(ds.uz, alpha * db.uz, 1e-10,
             &format!("Scaling uy node {}: {}*δ", ds.node_id, alpha));
-        assert_close(ds.ry, alpha * db.ry, 1e-10,
+        assert_close_abs(ds.ry, alpha * db.ry, 1e-10, 1e-6,
             &format!("Scaling rz node {}: {}*θ", ds.node_id, alpha));
     }
 
@@ -254,9 +254,9 @@ fn validation_ext_global_equilibrium_portal() {
     let ry_sum: f64 = results.reactions.iter().map(|r| r.rz).sum();
 
     // Force equilibrium: applied + reactions = 0
-    assert_close(rx_sum + fx_applied, 0.0, 0.01,
+    assert_close_abs(rx_sum + fx_applied, 0.0, 0.01, 1e-6,
         "Global equilibrium ΣFx = 0");
-    assert_close(ry_sum + fy_applied, 0.0, 0.01,
+    assert_close_abs(ry_sum + fy_applied, 0.0, 0.01, 1e-6,
         "Global equilibrium ΣFy = 0");
 
     // Element-level equilibrium: for unloaded elements (no distributed load),

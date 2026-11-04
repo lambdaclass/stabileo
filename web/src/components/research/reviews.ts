@@ -6,7 +6,3 @@ export function reviewCount(id: string): number {
   const entry = catalog.papers.find(p => p.id === id) ?? tools.batches.find(b => b.id === id);
   return new Set((entry?.reviews ?? []).flatMap(r => 'round' in r ? [r.round] : [])).size;
 }
-export function finalReview(id: string): boolean {
-  const entry = catalog.papers.find(p => p.id === id) ?? tools.batches.find(b => b.id === id);
-  return Boolean(entry && 'final_review' in entry && entry.final_review === true);
-}

@@ -25,6 +25,46 @@ to match. Inputs, signed references and the accuracy threshold are in `macneal_h
 specified mesh's accuracy, not proof of a new implementation defect. Existing solid-shell
 regression floors document related distortion sensitivity and remain unchanged.
 
+## MH-TWISTED-BEAM-MITC4 and MH-TWISTED-BEAM-MITC9
+
+The MacNeal–Harder twisted beam (L = 12, w = 1.1, t = 0.32, 90° linear twist, E = 29·10⁶,
+ν = 0.22, unit tip load) used to enter E = 29·10⁶ into the MPa field, so every shell family
+was 1000× too stiff and the ~0.1 % ratios were read as "flat-faceted locking". With E entered
+as 29·10³ MPa (consistent units), MITC4 converges to a wrong, too-flexible answer, MITC9 stays
+too flexible without converging (load A still rising), and no warning is attached to the result:
+
+| Family | Load | 6×2 (Q9 3×1) | 12×4 (Q9 6×2) | 24×8 (Q9 12×4) | 48×16 |
+|---|---|---:|---:|---:|---:|
+| MITC4 | A (Pz, 0.005424) | 1.2751 | 1.3047 | 1.3180 | 1.3237 |
+| MITC4 | B (Py, 0.001754) | 1.2838 | 1.2653 | 1.2617 | 1.2611 |
+| MITC9 | A | 1.6979 | 2.1416 | 2.4142 | |
+| MITC9 | B | 2.3611 | 2.3250 | 2.3229 | |
+| Curved shell | A | 0.9927 | 0.9938 | 0.9968 | |
+| Curved shell | B | 0.8140 | 0.9234 | 0.9755 | |
+| SHB8-ANS | B | 4×1: 0.8995 | 8×1: 0.9715 | | |
+
+References: MacNeal & Harder (1985) 0.005424 / 0.001754; Euler–Bernoulli bending of the
+twisted strip (`twisted_beam_beam_theory` in `shell_benchmark.rs`) 0.0054259 / 0.0017462.
+Altair OptiStruct verification OS-V 0700 reports 0.992 / 0.988 for its QUAD4 on this problem.
+
+The model is not the cause: the curved shell and SHB8-ANS converge to the references on the
+same geometry, supports and load, a tip load spread over all tip nodes changes MITC4 by
+< 0.03 %, and with zero twist MITC4 and MITC9 match beam theory (A 0.006592 vs 0.006612,
+B 5.62·10⁻⁴ vs 5.60·10⁻⁴ plus shear). The error grows with the twist and does not vanish
+as the warp per element goes to zero (24×8 → 48×16): MITC4 A is +0.6 % at 15°, +8 % at 45°,
++32 % at 90°; MITC9 A is +5 % at 15°, +45 % at 45°, +141 % at 90° (Q9 12×4, the table's
+24×8 column), and MITC9 A is still rising with refinement (1.70 → 2.14 → 2.41). An element
+that is consistent on smooth twisted geometry would converge, so this points at the
+warped-element treatment (warp offsets / local frame) of `element/quad.rs` and
+`element/quad9.rs`, not at locking. Over-flexibility is the conservative direction for
+deflection but distributes forces wrongly in a statically indeterminate shell structure.
+
+Tests: `benchmark_twisted_beam_load_{a,b}` and `benchmark_q9_twisted_beam_load_{a,b}` pin the
+present ratios (±0.001) so any change fails; `benchmark_twisted_beam_mitc4_accuracy` and
+`benchmark_q9_twisted_beam_accuracy` are the ignored strict 2 % checks
+(`cargo test --test validation twisted -- --ignored`). Needs solver-owner triage, a runtime
+`known_issues.rs` entry or a warping warning, and a GitHub issue.
+
 ## MH-REFERENCE-PROVENANCE
 
 Geometry of the straight cantilever is Fig. 4, p. 7; patch geometry is Fig. 2, p. 5, and

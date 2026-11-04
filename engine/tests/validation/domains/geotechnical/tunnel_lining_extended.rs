@@ -96,7 +96,7 @@ fn tunnel_overburden_pressure_on_box_section() {
 
     // Horizontal reactions should be zero (no lateral load applied)
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
-    assert_close(sum_rx, 0.0, 0.01, "horizontal equilibrium no lateral load");
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6, "horizontal equilibrium no lateral load");
 }
 
 // ================================================================

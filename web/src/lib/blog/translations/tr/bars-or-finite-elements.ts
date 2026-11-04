@@ -299,7 +299,7 @@ const body: PostBody = {
       "k": "embed",
       "query": "example=deep-beam-shell",
       "mode": "pro",
-      "label": "Aynı kiriş PRO modda, 25 cm'lik 192 MITC4 elemanlı bir kabuk olarak modellenmiş. Analiz → Yer değiştirmeler altında 113 numaralı düğüm (açıklık ortasında, yüksekliğin ortasında) “-5.19e-5” m, yani 0,0519 mm gösterir. Yukarıdaki tablo daha sık bir ağ kullanır ve 0,0521 mm verir. PRO beta aşamasındadır."
+      "label": "Aynı kiriş PRO modda, 25 cm'lik 192 MITC4 elemanlı bir kabuk olarak modellenmiş. Analiz → Yer değiştirmeler altında 113 numaralı düğüm (açıklık ortasında, yüksekliğin ortasında) “-5.19e-5” m, yani 0,0519 mm gösterir. Yukarıdaki tablo daha sık bir ağ kullanır ve 0,0521 mm verir."
     },
     {
       "k": "link",

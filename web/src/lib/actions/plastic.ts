@@ -13,6 +13,7 @@ import { t } from '../i18n';
 import { input2DToWireObject } from '../engine/wasm-solver';
 import { tagCertifyJob } from '../engine/certify-tags';
 import type { SolverInput } from '../engine/types';
+import { plasticCourse } from '../store/plastic-course.svelte';
 
 export interface PlasticRun {
   result: PlasticCollapseResult;
@@ -43,7 +44,14 @@ export function runPlasticCollapse(): PlasticRun | null {
   });
   if (result.unloaded) throw new Error(t('advanced.plasticNoLoads'));
   tagPlasticCertificate(result, input, mpOfSection);
+  plasticCourse.remember(input, memberPlasticMoments(input, mpOfSection), result);
   return { result, mps };
+}
+
+/** Mp of every frame member of `input`, kN·m (Infinity where its section has none). */
+export function memberPlasticMoments(input: SolverInput, mpOfSection?: Map<number, number>): Map<number, number> {
+  const bySection = mpOfSection ?? new Map(plasticMoments(modelStore.sections, modelStore.materials, modelStore.elements).map((m) => [m.sectionId, m.mp]));
+  return new Map([...input.elements.values()].map((e) => [e.id, bySection.get(e.sectionId) ?? Infinity]));
 }
 
 /**

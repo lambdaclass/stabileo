@@ -339,7 +339,7 @@ fn validation_ext_portal_frame_lateral_load() {
 
     // Vertical equilibrium: no net vertical load, so sum Ry = 0
     let sum_ry = r_1.rz + r_4.rz;
-    assert_close(sum_ry, 0.0, 0.02,
+    assert_close_abs(sum_ry, 0.0, 0.02, 1e-6,
         "Portal lateral: Ry1 + Ry4 = 0 (no vertical load)");
 
     // Both base moments should be nonzero (fixed supports develop moments)
@@ -406,7 +406,7 @@ fn validation_ext_fixed_fixed_applied_moment() {
         "Fixed-fixed moment: R_B_y = -3M0/(2L)");
 
     // Vertical equilibrium: R_A + R_B = 0 (no transverse load)
-    assert_close(r_a.rz + r_b.rz, 0.0, 0.02,
+    assert_close_abs(r_a.rz + r_b.rz, 0.0, 0.02, 1e-6,
         "Fixed-fixed moment: R_A + R_B = 0");
 
     // Moment reactions: both M_A and M_B = M0/4
@@ -425,6 +425,6 @@ fn validation_ext_fixed_fixed_applied_moment() {
     // Global moment equilibrium about A:
     // M_A + M_B + M0 + R_B*L = 0
     let moment_sum = r_a.my + r_b.my + m0 + r_b.rz * l;
-    assert_close(moment_sum, 0.0, 0.05,
+    assert_close_abs(moment_sum, 0.0, 0.05, 1e-6,
         "Fixed-fixed moment: global moment equilibrium about A");
 }

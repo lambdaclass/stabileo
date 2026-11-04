@@ -549,16 +549,16 @@ fn validation_corot_ext_global_equilibrium() {
     let sum_ry: f64 = result.results.reactions.iter().map(|r| r.rz).sum();
 
     // Equilibrium: reactions + applied = 0
-    assert_close(
+    assert_close_abs(
         sum_rx + applied_fx,
         0.0,
-        0.05,
+        0.05, 1e-6,
         "Horizontal equilibrium (Σrx + Σfx)",
     );
-    assert_close(
+    assert_close_abs(
         sum_ry + applied_fz,
         0.0,
-        0.05,
+        0.05, 1e-6,
         "Vertical equilibrium (Σry + Σfy)",
     );
 }
@@ -660,10 +660,10 @@ fn validation_corot_ext_cantilever_distributed_load() {
         .unwrap()
         .rz;
 
-    assert_close(
+    assert_close_abs(
         reaction_ry + total_load,
         0.0,
-        0.05,
+        0.05, 1e-6,
         "Vertical equilibrium: Ry + qL = 0",
     );
 }
