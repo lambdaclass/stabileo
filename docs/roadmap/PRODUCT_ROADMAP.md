@@ -29,7 +29,7 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
 | Issue | Defect | On main today | Containment | Fix |
 |---|---|---|---|---|
 | [#532](https://github.com/lambdaclass/stabileo/issues/532) (P0) | 3D design demands on the lateral axis (Vy/Mz instead of Vz/My); the live CIRSOC 201 column design checked Mz over the depth, up to 36% short of steel | fixed on main by wave B (715279c26, 2026-11-03) | — | fixed in [#1233](https://github.com/lambdaclass/stabileo/pull/1233) via [#1285](https://github.com/lambdaclass/stabileo/pull/1285) (results version 7, SA-2026-029); issue to close |
-| [#534](https://github.com/lambdaclass/stabileo/issues/534) (P0) | EC2 flexure assumes the tension steel yields: M_Rd up to 17% high, certified | fixed on main by wave B (715279c26, 2026-11-03) | — | fixed in [#1236](https://github.com/lambdaclass/stabileo/pull/1236) via [#1285](https://github.com/lambdaclass/stabileo/pull/1285) (results version 8, SA-2026-028); issue to close |
+| [#534](https://github.com/lambdaclass/stabileo/issues/534) (P0) | EC2 flexure assumes the tension steel yields: M_Rd up to 21% high on singly reinforced beams and 22% with top bars, certified | fixed on main by wave B (715279c26, 2026-11-03) | — | fixed in [#1236](https://github.com/lambdaclass/stabileo/pull/1236) via [#1285](https://github.com/lambdaclass/stabileo/pull/1285) (results version 8, SA-2026-028); issue to close |
 | [#532](https://github.com/lambdaclass/stabileo/issues/532) leftover | Excel and IFC imports swap Iy and Iz of rectangles and tubes | uncontained | — | fix in [#1310](https://github.com/lambdaclass/stabileo/pull/1310) (draft; SA-2026-039, High; no results version; its push and base change wait on the user) |
 | [#1314](https://github.com/lambdaclass/stabileo/issues/1314) | RC design (ACI 318, EN 1992) ignores member torsion, with no warning | uncontained | contained by [#1319](https://github.com/lambdaclass/stabileo/pull/1319) (draft): torsion above the ACI 22.7.1.1 threshold is marked not checked (SA-2026-040) | torsion design not started |
 | [#1315](https://github.com/lambdaclass/stabileo/issues/1315) | modal mechanism detection can miss a mechanism at an inclined support (high-effort review of wave B) | uncontained | — | fix in [#1325](https://github.com/lambdaclass/stabileo/pull/1325) (draft): inclined-support DOFs weighed by their mass |
@@ -1020,14 +1020,14 @@ all of it.
 
 Bugs a visitor sees on stabileo.com today. Each has a test that fails before the fix; all are Codex
 clean. The Ubuntu 24.04 pin (#1079) has landed; they ship together through the live-site integration
-PR [#1227](https://github.com/lambdaclass/stabileo/pull/1227), with #1224 stacked on #988.
+PR [#1227](https://github.com/lambdaclass/stabileo/pull/1227), with #1224 stacked on #988; the changelog counts fix ships in [#1384](https://github.com/lambdaclass/stabileo/pull/1384) instead.
 
 | Bug | PR | State |
 |---|---|---|
 | **Soft 404:** unknown URLs return the landing page with HTTP 200, so search engines index junk | [#1059](https://github.com/lambdaclass/stabileo/pull/1059) | prerendered 404 per locale with status 404; conflicts with #988 resolved on the integration branch |
 | **Pages without a language prefix** (`/research`, `/tools`, `/changelog`) serve the landing's HTML and canonical until the client redirects | [#1224](https://github.com/lambdaclass/stabileo/pull/1224) | 301 to the English page, query kept; stacked on #988 |
 | **Landing blank below the hero until scrolled** (sections stayed transparent until an IntersectionObserver fired) | [#1223](https://github.com/lambdaclass/stabileo/pull/1223) | every section visible without scrolling or JavaScript |
-| **Changelog counts:** the header says 98 changes, the area filters add up to 56 (they counted weekly entries, not items) | [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | filters count items and add up to the total |
+| **Changelog counts:** the header says 98 changes, the area filters add up to 56 (they counted weekly entries, not items) | [#1222](https://github.com/lambdaclass/stabileo/pull/1222) | filters count items and add up to the total; in [#1384](https://github.com/lambdaclass/stabileo/pull/1384) |
 
 ### Growth: shared models, tools and research (2026-10-29)
 
