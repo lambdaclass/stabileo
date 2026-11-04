@@ -116,6 +116,19 @@ describe('the storey scope', () => {
     expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5']);
   });
 
+  it('narrowing after adding to an expanded selection keeps only what was picked on the storey', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    const column = [...modelStore.elements.values()].find((e) => e.id !== beamOn(1) && levelOf(e.id) === 'N1' && e.id !== beamOn(2))!.id;
+    uiStore.setSelection(new Set(), new Set([...uiStore.selectedElements, column]));
+    storeyScope.expandSelection();
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N1', 'N2', 'N2', 'N3', 'N3', 'N4', 'N4', 'N5', 'N5']);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements].sort((a, b) => a - b)).toEqual([beamOn(1), column].sort((a, b) => a - b));
+  });
+
   it('a selection changed after the expansion is the one the scope starts from', () => {
     const { beamOn } = thirteen();
     storeyScope.scope = 'similar';

@@ -15,8 +15,8 @@ export interface Replication { copies: number[]; skipped: string[]; resized: str
 let scope = $state<StoreyScope>('this');
 let last = $state<StoreyExpansion | null>(null);
 let lastReplication = $state<Replication | null>(null);
-let produced = '';
-let origin: Selection | null = null;
+let produced: Selection | null = null;
+let added: Selection | null = null;
 
 const LENGTH_STATED = ['unbracedLength', 'bracing'] as const;
 const NOT_COPIED = new Set(['id', 'nodeI', 'nodeJ', 'name', 'arc', 'keptOver']);
@@ -27,9 +27,9 @@ const levels = () => modelStore.grid?.levels ?? [];
 export const storeyScope = {
   get scope() { return scope; },
   set scope(v: StoreyScope) {
-    const back = origin && produced && currentKey() === produced ? origin : null;
-    scope = v; last = null; lastReplication = null; produced = ''; origin = null;
-    if (back) uiStore.setSelection(new Set(back.nodes), new Set(back.elements), false, new Set(back.shells));
+    const back = added ? minus(current(), added) : null;
+    scope = v; last = null; lastReplication = null; produced = null; added = null;
+    if (back && selectionKey(back) !== selectionKey(current())) uiStore.setSelection(back.nodes, back.elements, false, back.shells);
     if (v !== 'this') this.expandSelection();
   },
   /** What the last expansion took: how many objects, on which storeys, and what had no counterpart. */
@@ -40,14 +40,16 @@ export const storeyScope = {
   /** Take the selection to the storeys in scope. Returns how many objects it added. */
   expandSelection(): number {
     if (!this.active) return 0;
-    const sel = { elements: uiStore.selectedElements, nodes: uiStore.selectedNodes, shells: uiStore.selectedShells };
-    if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; produced = ''; origin = null; return 0; }
-    if (selectionKey(sel.nodes, sel.elements, sel.shells) === produced) return 0;
-    origin = { nodes: new Set(sel.nodes), elements: new Set(sel.elements), shells: new Set(sel.shells) };
-    const x = expandToStoreys(model(), levels(), sel, scope);
+    const sel = current();
+    if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; produced = null; added = null; return 0; }
+    if (produced && selectionKey(sel) === selectionKey(produced)) return 0;
+    const own = added && produced && contains(sel, produced) ? minus(sel, added) : sel;
+    const x = expandToStoreys(model(), levels(), own, scope);
     last = x;
-    produced = selectionKey(x.nodes, x.elements, x.shells);
-    if (x.added > 0) uiStore.setSelection(new Set(x.nodes), new Set(x.elements), false, new Set(x.shells));
+    const reached: Selection = { nodes: new Set(x.nodes), elements: new Set(x.elements), shells: new Set(x.shells) };
+    produced = reached;
+    added = minus(reached, own);
+    if (selectionKey(reached) !== selectionKey(sel)) uiStore.setSelection(new Set(reached.nodes), new Set(reached.elements), false, new Set(reached.shells));
     return x.added;
   },
   /**
@@ -89,11 +91,23 @@ export const storeyScope = {
 
 const dist = (p: { x: number; y: number; z?: number }, q: { x: number; y: number; z?: number }) => Math.hypot(q.x - p.x, q.y - p.y, (q.z ?? 0) - (p.z ?? 0));
 
-const currentKey = () => selectionKey(uiStore.selectedNodes, uiStore.selectedElements, uiStore.selectedShells);
+const current = (): Selection => ({ nodes: new Set(uiStore.selectedNodes), elements: new Set(uiStore.selectedElements), shells: new Set(uiStore.selectedShells) });
 
-function selectionKey(nodes: Iterable<number>, elements: Iterable<number>, shells: Iterable<string | number>): string {
-  const ids = (s: Iterable<string | number>) => [...s].map(String).sort().join(',');
-  return `${ids(nodes)}|${ids(elements)}|${ids(shells)}`;
+function selectionKey(s: Selection): string {
+  const ids = (x: Iterable<string | number>) => [...x].map(String).sort().join(',');
+  return `${ids(s.nodes)}|${ids(s.elements)}|${ids(s.shells)}`;
+}
+
+function minus(a: Selection, b: Selection): Selection {
+  return {
+    nodes: new Set([...a.nodes].filter((v) => !b.nodes.has(v))),
+    elements: new Set([...a.elements].filter((v) => !b.elements.has(v))),
+    shells: new Set([...a.shells].filter((v) => !b.shells.has(v))),
+  };
+}
+
+function contains(a: Selection, b: Selection): boolean {
+  return [...b.nodes].every((v) => a.nodes.has(v)) && [...b.elements].every((v) => a.elements.has(v)) && [...b.shells].every((v) => a.shells.has(v));
 }
 
 /** Whether a member already joins nodes `i` and `j`, either way round. */
