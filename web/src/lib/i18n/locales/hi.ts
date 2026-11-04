@@ -287,7 +287,6 @@ const hi: Translations = {
   'advanced.mechanism': 'मैकेनिज्म',
   'advanced.noCollapse': 'कोई पतन नहीं',
   'advanced.calculateFirst': 'पहले हल करें',
-  'advanced.calculateFirstF5': 'पहले हल करें (Enter)',
   'advanced.emptyModel': 'खाली मॉडल',
   'advanced.runDynamicFirst': 'पहले गतिशील विश्लेषण (मोडल) चलाएँ',
   'advanced.defineCombosFirst': 'पहले संयोजन टैब में संयोजन परिभाषित करें',
@@ -2209,9 +2208,6 @@ const hi: Translations = {
   'dsm.expectedValue': 'अपेक्षित मान',
   // ─── Influence line labels ───
   'influence.unitLoad': 'P=1',
-  'influence.label': 'प्रभ.रे.',
-  'influence.node': 'नोड',
-  'influence.elem': 'एलिम',
   'lang.es': 'Español',
   'lang.en': 'English',
   'lang.pt': 'Português',
