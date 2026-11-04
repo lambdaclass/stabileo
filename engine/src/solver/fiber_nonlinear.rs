@@ -425,7 +425,8 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
 
     // Build results
     let displacements = super::linear::build_displacements_2d(&dof_num, &u_full);
-    let mut element_forces = super::linear::compute_internal_forces_2d(&input.solver, &dof_num, &u_full);
+    let carried = loads_at_2d(&input.solver, last_lf);
+    let mut element_forces = super::linear::compute_internal_forces_2d(&carried, &dof_num, &u_full);
     fiber_member_forces_2d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut element_forces);
 
     // Collect fiber status
@@ -510,6 +511,65 @@ pub fn solve_fiber_nonlinear_2d(input: &FiberNonlinearInput) -> Result<FiberNonl
         history,
         fiber_status,
     })
+}
+
+/// The model under `factor` times every load it carries.
+fn loads_at_2d(solver: &SolverInput, factor: f64) -> SolverInput {
+    let mut m = solver.clone();
+    for l in m.loads.iter_mut() {
+        match l {
+            SolverLoad::Nodal(n) => { n.fx *= factor; n.fz *= factor; n.my *= factor; }
+            SolverLoad::Distributed(d) => { d.q_i *= factor; d.q_j *= factor; }
+            SolverLoad::AxialDistributed(d) => { d.q_i *= factor; d.q_j *= factor; }
+            SolverLoad::PointOnElement(p) => {
+                p.p *= factor;
+                p.px = p.px.map(|v| v * factor);
+                p.my = p.my.map(|v| v * factor);
+            }
+            SolverLoad::Thermal(t) => { t.dt_uniform *= factor; t.dt_gradient *= factor; }
+        }
+    }
+    m
+}
+
+/// 3D twin of [`loads_at_2d`].
+fn loads_at_3d(solver: &SolverInput3D, factor: f64) -> SolverInput3D {
+    let mut m = solver.clone();
+    for l in m.loads.iter_mut() {
+        match l {
+            SolverLoad3D::Nodal(n) => {
+                for v in [&mut n.fx, &mut n.fy, &mut n.fz, &mut n.mx, &mut n.my, &mut n.mz] {
+                    *v *= factor;
+                }
+                n.bw = n.bw.map(|v| v * factor);
+            }
+            SolverLoad3D::Distributed(d) => {
+                for v in [&mut d.q_xi, &mut d.q_xj, &mut d.q_yi, &mut d.q_yj, &mut d.q_zi, &mut d.q_zj] {
+                    *v *= factor;
+                }
+            }
+            SolverLoad3D::PointOnElement(p) => { p.py *= factor; p.pz *= factor; }
+            SolverLoad3D::Thermal(t) => {
+                for v in [&mut t.dt_uniform, &mut t.dt_gradient_y, &mut t.dt_gradient_z] {
+                    *v *= factor;
+                }
+            }
+            SolverLoad3D::Bimoment(b) => b.bimoment *= factor,
+            SolverLoad3D::Pressure(p) | SolverLoad3D::QuadPressure(p) | SolverLoad3D::Quad9Pressure(p)
+            | SolverLoad3D::SolidShellPressure(p) | SolverLoad3D::CurvedShellPressure(p) => p.pressure *= factor,
+            SolverLoad3D::PlateThermal(t) | SolverLoad3D::QuadThermal(t) | SolverLoad3D::Quad9Thermal(t)
+            | SolverLoad3D::CurvedShellThermal(t) => { t.dt_uniform *= factor; t.dt_gradient *= factor; }
+            SolverLoad3D::QuadEdge(e) | SolverLoad3D::Quad9Edge(e) | SolverLoad3D::CurvedShellEdge(e) => {
+                e.qn *= factor;
+                e.qt *= factor;
+            }
+            SolverLoad3D::QuadSelfWeight(w) | SolverLoad3D::Quad9SelfWeight(w) | SolverLoad3D::CurvedShellSelfWeight(w) => {
+                w.density *= factor;
+            }
+            SolverLoad3D::SolidShellSelfWeight(w) => w.density *= factor,
+        }
+    }
+    m
 }
 
 /// Member end forces of the fiber members from their fiber section resultants.
@@ -1183,7 +1243,8 @@ pub fn solve_fiber_nonlinear_3d(input: &FiberNonlinearInput3D) -> Result<FiberNo
 
     // Build results
     let displacements = super::linear::build_displacements_3d(&dof_num, &u_full);
-    let mut element_forces = super::linear::compute_internal_forces_3d(&input.solver, &dof_num, &u_full);
+    let carried = loads_at_3d(&input.solver, last_lf);
+    let mut element_forces = super::linear::compute_internal_forces_3d(&carried, &dof_num, &u_full);
     fiber_member_forces_3d(&input.solver, &input.fiber_sections, &dof_num, &u_full, &elem_states, n_ip, &mut element_forces);
 
     let mut fiber_status = Vec::new();
@@ -1534,13 +1595,15 @@ pub(crate) fn wrench_equilibrium(
     let force = (0..3).map(|k| (a[k] + r[k]).abs()).fold(0.0f64, f64::max);
     let moment = (3..6).map(|k| (a[k] + r[k]).abs() / size).fold(0.0f64, f64::max);
     let allowed = 10.0 * (n_dof.max(1) as f64).sqrt() * tolerance * (scale_a + scale_r);
-    let within = |x: f64| x.is_finite() && x <= allowed;
+    let finite = a.iter().chain(&r).chain(&[scale_a, scale_r, allowed]).all(|v| v.is_finite());
+    let within = |x: f64| finite && x.is_finite() && x <= allowed;
     let summary = EquilibriumSummary {
+        applied_force_components: applied.iter().flat_map(|w| w.f).collect(),
         relative_residual: rel_residual,
         residual_ok: rel_residual.is_finite() && rel_residual <= tolerance,
         applied_force_sum: vec![],
         reaction_force_sum: vec![],
-        max_imbalance: force.max(moment),
+        max_imbalance: if finite { force.max(moment) } else { f64::INFINITY },
         equilibrium_ok: within(force) && within(moment),
     };
     let gate = summary.equilibrium_ok;
@@ -1921,5 +1984,15 @@ mod tests {
         assert!(!eq.equilibrium_ok, "forces balance but the 40 kN·m couple of the pair is unreacted: {eq:?}");
         let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6).summary;
         assert!(eq.equilibrium_ok, "{eq:?}");
+    }
+
+    #[test]
+    fn wrench_equilibrium_fails_closed_when_a_total_overflows() {
+        let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
+        let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
+        let applied = [force(1e308, 2.0), force(-1e308, 2.0), force(-5.0, 2.0)];
+        let eq = wrench_equilibrium(&points, &applied, &[], 0.0, 1e-8, 6).summary;
+        assert!(!eq.equilibrium_ok, "an overflowed total must not pass: {eq:?}");
+        assert!(eq.max_imbalance.is_infinite(), "{eq:?}");
     }
 }

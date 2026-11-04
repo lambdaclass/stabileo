@@ -255,3 +255,64 @@ fn a_settled_support_with_a_spring_is_refused_before_the_reactions_are_built() {
     }
     assert!(solve_fiber_nonlinear_3d(&input).err().is_some_and(|e| e.contains("would not be applied")));
 }
+
+fn udl_2d(q: f64) -> Vec<SolverLoad> {
+    (1..=N_EL).map(|id| SolverLoad::Distributed(SolverDistributedLoad { element_id: id, q_i: -q, q_j: -q, a: None, b: None })).collect()
+}
+
+fn root_moment_2d(r: &AnalysisResults) -> f64 {
+    r.element_forces.iter().find(|f| f.element_id == 1).unwrap().m_start
+}
+
+#[test]
+fn a_stopped_run_under_a_distributed_load_reports_member_forces_at_the_carried_load() {
+    let qu = 2.0 * plastic_moment() / (L * L);
+    let q_ref = 1.2 * qu;
+    let r = solve_fiber_nonlinear_2d(&cantilever_2d(steel(), udl_2d(q_ref), 48)).unwrap();
+    assert_eq!(r.status, FiberRunStatus::Stopped);
+    let carried = r.last_converged_load_factor * q_ref;
+    assert!(carried > 0.0 && carried < q_ref);
+    assert_close(root_moment_2d(&r.results).abs(), carried * L * L / 2.0, 1e-6, "root moment = q·L²/2 at the carried q");
+    for f in &r.results.element_forces {
+        assert_close(f.q_i, -carried, 1e-12, "the member's load is the carried one");
+    }
+    let replay = solve_fiber_nonlinear_2d(&cantilever_2d(steel(), udl_2d(carried), r.history.len())).unwrap();
+    assert_eq!(replay.status, FiberRunStatus::Complete);
+    let scale = carried * L * L / 2.0;
+    for (a, b) in r.results.element_forces.iter().zip(&replay.results.element_forces) {
+        for (x, y) in [(a.m_start, b.m_start), (a.m_end, b.m_end), (a.v_start * L, b.v_start * L), (a.v_end * L, b.v_end * L)] {
+            assert!((x - y).abs() < 1e-9 * scale, "member {}: {x} against a run to the carried load {y}", a.element_id);
+        }
+    }
+}
+
+#[test]
+fn a_first_increment_failure_under_a_distributed_load_carries_no_member_force() {
+    let qu = 2.0 * plastic_moment() / (L * L);
+    let r = solve_fiber_nonlinear_2d(&cantilever_2d(steel(), udl_2d(2.0 * qu), 1)).unwrap();
+    assert_eq!(r.last_converged_load_factor, 0.0);
+    for f in &r.results.element_forces {
+        assert!([f.n_start, f.n_end, f.v_start, f.v_end, f.m_start, f.m_end, f.q_i, f.q_j].iter().all(|v| v.abs() < 1e-12), "{f:?}");
+    }
+}
+
+#[test]
+fn a_stopped_3d_run_under_a_distributed_load_reports_member_forces_at_the_carried_load() {
+    let qu = 2.0 * plastic_moment() / (L * L);
+    let q_ref = 1.2 * qu;
+    let mut input = cantilever_3d(steel(), 0.0, 0.0, 48);
+    input.solver.loads = (1..=N_EL).map(|id| SolverLoad3D::Distributed(SolverDistributedLoad3D {
+        element_id: id, q_xi: 0.0, q_xj: 0.0, q_yi: q_ref, q_yj: q_ref, q_zi: 0.0, q_zj: 0.0, a: None, b: None,
+    })).collect();
+    let r = solve_fiber_nonlinear_3d(&input).unwrap();
+    assert_eq!(r.status, FiberRunStatus::Stopped);
+    let carried = r.last_converged_load_factor * q_ref;
+    assert!(carried > 0.0 && carried < q_ref);
+    let first = r.results.element_forces.iter().find(|f| f.element_id == 1).unwrap();
+    assert_close(first.mz_start.abs(), carried * L * L / 2.0, 1e-6, "root moment = q·L²/2 at the carried q");
+    for f in &r.results.element_forces {
+        assert_close(f.q_yi, carried, 1e-12, "the member's load is the carried one");
+    }
+    let reaction = r.results.reactions.iter().find(|x| x.node_id == 1).unwrap();
+    assert_close(-reaction.fy, carried * L, 1e-9, "reaction equals the carried load");
+}
