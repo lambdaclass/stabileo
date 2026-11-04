@@ -109,6 +109,18 @@ describe('Euler columns (P = 100 kN, L = 5 m)', () => {
     }
   });
 
+  it('the engine path calls P-Δ unstable when the second-order forces, not the first-order ones, pass a column\'s held-ends load', () => {
+    const h = 4, b = 6, Pe = (Math.PI ** 2 * EI) / (h * h);
+    const input = portal(h, b, 0.8 * Pe, (2.7 * Pe * b) / h, { A: 1, Ib: 1000 * I });
+    const r = runPDelta2D(input, { ...DEFAULT_SETTINGS, method: 'consistent', n: 1 });
+    if (!r.ok) throw new Error(r.reason.key);
+    const most = (f: ElementForces[]) => Math.max(...f.map((x) => -Math.min(x.nStart, x.nEnd)));
+    expect(most(r.result.linearResults.elementForces)).toBeLessThan(4 * Pe);
+    expect(most(r.result.results.elementForces)).toBeGreaterThan(4 * Pe);
+    expect(r.result.secondOrder.lambda1 ?? Infinity).toBeGreaterThan(1);
+    expect(r.result.isStable).toBe(false);
+  });
+
   it('a fixed-fixed column of one element: φ gives its higher modes, each internal, with no nodal shape drawn', () => {
     const b = teachingBuckling(clampedColumn(L, P), { method: 'phi', axialRigid: false }, 3);
     if (!b.ok) throw new Error(b.reason.key);

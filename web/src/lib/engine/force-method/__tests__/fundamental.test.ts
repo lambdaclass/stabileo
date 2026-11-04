@@ -261,6 +261,17 @@ describe('the axial term, on and off', () => {
     for (const c of [0, 1]) expect(reaction(off, 2, c)).toBeCloseTo(reaction(on, 2, c), 6);
   });
 
+  it('off, a kept axial redundant coupled axially to an omitted one keeps the axial term everywhere: a load a support takes stays there', () => {
+    const frame = () => model({
+      nodes: [[1, 0, 0], [2, 4, 0], [3, 4, 3]], elements: [[1, 1, 2, 'frame'], [2, 2, 3, 'frame']],
+      supports: [[1, 'fixed'], [2, 'rollerZ'], [3, 'rollerZ']], loads: [nodal(2, 10, 0)],
+    });
+    const on = solveForceMethod(frame(), { releases: ['r:2:0', 'r:3:0'] });
+    const off = solveForceMethod(frame(), { axial: false, releases: ['r:2:0', 'r:3:0'] });
+    expect(reaction(on, 2, 0)).toBeCloseTo(-10, 6);
+    for (const [node, c] of [[1, 0], [1, 1], [1, 2], [2, 0], [3, 0]] as const) expect(reaction(off, node, c), `${node}:${c}`).toBeCloseTo(reaction(on, node, c), 6);
+  });
+
   it('off, with an axial row kept the rigid reference is not defined, so no verdict is drawn from it', () => {
     const beam = model({ nodes: [[1, 0, 0], [2, 6, 0]], elements: [[1, 1, 2, 'frame']], supports: [[1, 'fixed'], [2, 'fixed']], loads: [q(1, -10)] });
     const r = solveForceMethod(beam, { axial: false, releases: ['r:2:0', 'r:2:1', 'r:2:2'] });
