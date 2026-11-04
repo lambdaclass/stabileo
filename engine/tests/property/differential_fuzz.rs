@@ -481,7 +481,7 @@ fn test_fuzz_portal_envelope() {
         combo_results.push(combine_results(&CombinationInput { factors, cases }).unwrap());
     }
 
-    let actual = compute_envelope(&combo_results).expect("Rust compute_envelope returned None");
+    let actual = compute_envelope(&combo_results).expect("Rust compute_envelope failed");
 
     // Compare globalMax for each diagram kind
     assert_close(
@@ -888,7 +888,7 @@ fn run_multicase_2d_parity(prefix: &str) {
         }
 
         let actual = compute_envelope(&rust_combo_results)
-            .unwrap_or_else(|| panic!("Rust compute_envelope returned None for {}", prefix));
+            .unwrap_or_else(|e| panic!("Rust compute_envelope failed for {}: {}", prefix, e));
 
         assert_close(
             actual.moment.global_max,
