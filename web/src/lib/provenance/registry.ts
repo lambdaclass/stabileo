@@ -13,8 +13,13 @@
  */
 import metadata from 'virtual:result-change-metadata';
 
-export type Locale3 = 'en' | 'es' | 'pt';
-export type Localised = Record<Locale3, string>;
+export const REGISTRY_LOCALES = ['en', 'es', 'pt', 'de', 'fr', 'tr'] as const;
+export type RegistryLocale = (typeof REGISTRY_LOCALES)[number];
+export type Localised = Record<RegistryLocale, string>;
+
+export function registryLocale(locale: string): RegistryLocale {
+  return (REGISTRY_LOCALES as readonly string[]).includes(locale) ? (locale as RegistryLocale) : 'en';
+}
 
 /**
  * When an entry applies, in feature ids (`model-features.ts`). Every listed group must hold; a
@@ -102,7 +107,7 @@ export function validateRegistry(r: ResultChangeRegistry, knownFeatures: Readonl
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(c.date)) problems.push(`${where}: date must be YYYY-MM-DD`);
     if (!['analysis', 'design', 'loads'].includes(c.area)) problems.push(`${where}: unknown area ${c.area}`);
-    for (const loc of ['en', 'es', 'pt'] as const) {
+    for (const loc of REGISTRY_LOCALES) {
       if (!c.title?.[loc]?.trim()) problems.push(`${where}: missing title.${loc}`);
       if (!c.explanation?.[loc]?.trim()) problems.push(`${where}: missing explanation.${loc}`);
     }
