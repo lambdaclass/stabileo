@@ -1928,8 +1928,9 @@ fn rotation_matrix(theta: [f64; 3]) -> Mat3 {
 type Axes3 = ([f64; 3], [f64; 3], [f64; 3]);
 
 /// The nodal rotation DOFs hold total rotation vectors ψ, so they must go through exp(ψ) before
-/// being compared: differencing them is wrong for non-coaxial rotations. The last value is the
-/// angle the chord turns away from the mean end frame; at π the frame built here is a reflection.
+/// being compared: differencing them is wrong for non-coaxial rotations. The last value bounds
+/// either end's turn against the chord frame (chord from the mean end frame, plus half the turn
+/// between the ends): below π the natural rotations are on their principal branch.
 fn natural_rotations_3d(
     ex_n: [f64; 3],
     (ex_0, ey_0, ez_0): (&[f64; 3], &[f64; 3], &[f64; 3]),
@@ -1951,7 +1952,8 @@ fn natural_rotations_3d(
     let r_n_t = transposed(&columns(&ex_n, &ey_n, &ez_n));
     let r_0 = columns(ex_0, ey_0, ez_0);
     let natural = |r: &Mat3| rotation_vector(&mat_mul(&mat_mul(&r_n_t, r), &r_0));
-    ((ex_n, ey_n, ez_n), natural(&r_i), natural(&r_j), angle)
+    let half_turn = (half[0] * half[0] + half[1] * half[1] + half[2] * half[2]).sqrt();
+    ((ex_n, ey_n, ez_n), natural(&r_i), natural(&r_j), angle + half_turn)
 }
 
 /// Each frame member's largest natural rotation and the turn of its chord away from its mean end frame.
@@ -2464,6 +2466,29 @@ mod tests {
         assert!(state([0.0, 0.0, 1.0], [0.0, 0.0, 1.0 + 0.95 * std::f64::consts::PI]).is_some());
         assert!(state([0.3, -0.2, 2.5], [0.4, -0.1, 2.9]).is_none());
         assert!(state([0.0; 3], [0.8 * std::f64::consts::PI, 0.0, 0.0]).is_none());
+    }
+
+    #[test]
+    fn an_end_bent_past_half_a_turn_against_its_chord_is_refused_not_wrapped() {
+        let input: SolverInput3D = serde_json::from_value(serde_json::json!({
+            "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": 2.0, "y": 0.0, "z": 0.0}},
+            "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+            "materials": {"1": {"id": 1, "e": 1.0e4, "nu": 0.0}},
+            "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0 / 12.0, "iz": 1.0 / 12.0, "j": 1.0 / 6.0}},
+            "supports": {}, "loads": []
+        })).unwrap();
+        let dof_num = DofNumbering::build_3d(&input);
+        let bent = |chord: f64, rz_i: f64, rz_j: f64| {
+            let mut u = vec![0.0; dof_num.n_total];
+            u[dof_num.global_dof(2, 0).unwrap()] = 2.0 * chord.cos() - 2.0;
+            u[dof_num.global_dof(2, 1).unwrap()] = 2.0 * chord.sin();
+            u[dof_num.global_dof(1, 5).unwrap()] = rz_i;
+            u[dof_num.global_dof(2, 5).unwrap()] = rz_j;
+            member_deformations_3d(&input, &dof_num, &u, false)[0].2
+        };
+        assert!(bent(2.6, -1.3, 1.3) > MAX_RELATIVE_END_ROTATION);
+        assert!(bent(2.6, 1.3, 1.3) < MAX_RELATIVE_END_ROTATION);
+        assert!((bent(0.5, -0.4, 0.4) - 0.9).abs() < 1e-12);
     }
 
     #[test]
