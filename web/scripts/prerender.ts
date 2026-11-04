@@ -43,7 +43,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, dirname, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
+import { newPrerenderPage, prerenderConcurrency, routePool, waitForRenderedApp, MIN_CAPTURE_CHARS } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { buildStarCount, serveStarCount } from './build-stars';
 import { paperStructuredData } from './paper-structured-data';
@@ -230,6 +230,8 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
   await page.goto(base + href, { waitUntil: 'networkidle' });
+  // Network idle is not rendered: a page whose next chunk is requested only after a long main-thread task looks idle in between.
+  await waitForRenderedApp(page);
   const { head, body } = await page.evaluate(() => ({
     head: document.head.innerHTML,
     body: document.querySelector('#app')?.innerHTML ?? '',
@@ -302,7 +304,7 @@ async function main() {
       async (p, { locale, path }) => {
         const result = await capture(p, base, locale, path);
         const { head, body, lang, href } = result;
-        if (body.length < 500) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
+        if (body.length < MIN_CAPTURE_CHARS) throw new Error(`prerender: ${href} came back nearly empty (${body.length} chars)`);
         const out = join(DIST, href.slice(1), 'index.html');
         await mkdir(dirname(out), { recursive: true });
         await writeFile(out, page(path === '/paper' ? head + paperStructuredData(ORIGIN, locale) : head, body, lang));
