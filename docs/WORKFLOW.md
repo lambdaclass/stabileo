@@ -38,7 +38,8 @@ never silently wrong and verification never silently stops working.
   - An LLM review (Codex at high reasoning effort) of that exact commit has no unresolved blockers.
     Any new commit needs a new review.
 - **Review rounds.** After about three review rounds on the same PR, fix only the blockers that
-  can produce a wrong result, defer the rest with the evidence in the PR body, and merge once green.
+  can produce a wrong result and defer the rest with the evidence in the PR body; a finding deferred
+  that way counts as resolved for the merge rule above.
 - **Bugs first.** Bug and safety fixes merge before features.
 - **Results versions.** A PR that changes results takes the next results version
   ([verification/PROVENANCE.md](verification/PROVENANCE.md)), assigned in the order PRs become
