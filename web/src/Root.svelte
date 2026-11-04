@@ -18,7 +18,6 @@
   import { publicI18n, setLocale, ensureLocale, i18n } from './lib/i18n/store.svelte';
   import { routeKind } from './lib/public-route';
   import { modeToPath } from './lib/app-mode';
-  import { dropStructuredDataOfAnotherPage } from './lib/page-meta';
 
   function adoptLocaleFromPath() {
     const { locale } = parsePublicPath(location.pathname);
@@ -27,7 +26,8 @@
   adoptLocaleFromPath();
 
   let current = $state(routeKind());
-  if (current.kind !== 'landing' && current.kind !== 'app') dropStructuredDataOfAnotherPage();
+  // A page served by the fallback carries the landing's head, whose structured data would describe the landing until this page's chunk states its own.
+  if (!document.querySelector(`link[href*="${location.pathname}"]`)) document.querySelector('script[data-page-meta]')?.remove();
   /** Once loaded, the application owns the page. */
   let app = $state<typeof import('./App.svelte').default | null>(null);
   let loading: Promise<void> | null = null;

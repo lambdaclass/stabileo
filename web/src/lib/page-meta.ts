@@ -376,27 +376,6 @@ export function applyPageMeta(meta: {
 	setStructuredData(meta.article, meta.graph, meta.locale);
 }
 
-export function headDescribes(hrefs: readonly string[], pathname: string): boolean {
-	const bare = (p: string) => p.replace(/\/+$/, '') || '/';
-	return hrefs.some((href) => {
-		try {
-			return bare(new URL(href, 'https://stabileo.com').pathname) === bare(pathname);
-		} catch {
-			return false;
-		}
-	});
-}
-
-/**
- * A public page served by the fallback carries the head of the page the fallback is (the landing),
- * and its structured data would describe that page until this one's code arrives and states its own.
- */
-export function dropStructuredDataOfAnotherPage() {
-	const hrefs = [...document.querySelectorAll('link[rel="canonical"], link[rel="alternate"][hreflang]')]
-		.map((el) => el.getAttribute('href') ?? '');
-	if (!headDescribes(hrefs, location.pathname)) document.querySelector(JSONLD)?.remove();
-}
-
 export function restorePageMeta() {
 	if (!original) return;
 	document.title = original.title;
