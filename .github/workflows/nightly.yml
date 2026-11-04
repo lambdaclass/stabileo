@@ -327,6 +327,8 @@ jobs:
           create-args: -c conda-forge code-aster=18.1.10 python=3.12
           cache-environment: true
           init-shell: bash
+          micromamba-binary-path: ${{ runner.temp }}/micromamba-bin/micromamba
+          micromamba-root-path: ${{ runner.temp }}/micromamba-root
       - name: Build solver CLI
         run: cargo build --release --example solve_json
       - name: Translator unit tests
