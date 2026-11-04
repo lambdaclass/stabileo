@@ -30,19 +30,18 @@ for name in "$@"; do
 done
 logs=$(mktemp -d)
 trap 'rm -rf "$logs"' EXIT
-declare -A pid name_of
+declare -A pid
 for name in "$@"; do
   target=${CARGO_TARGET_DIR:+$CARGO_TARGET_DIR/research-$name}
-  ${BUILD_PREFIX:-nix develop --command} env RUSTC_WRAPPER= SCCACHE_DISABLE=1 ${target:+CARGO_TARGET_DIR=$target} "${script[$name]}" > "$logs/$name.log" 2>&1 &
+  (
+    ${BUILD_PREFIX:-nix develop --command} env RUSTC_WRAPPER= SCCACHE_DISABLE=1 ${target:+CARGO_TARGET_DIR=$target} "${script[$name]}" > "$logs/$name.log" 2>&1 || exit
+    [[ -z ${GITHUB_OUTPUT:-} ]] || echo "$name=ok" >> "$GITHUB_OUTPUT"
+  ) &
   pid[$name]=$!
-  name_of[$!]=$name
 done
 status=0
-while (( ${#pid[@]} )); do
-  if wait -n -p finished "${pid[@]}"; then result=ok; else result=FAILED; status=1; fi
-  name=${name_of[$finished]}
-  unset "pid[$name]"
-  [[ $result == ok && -n ${GITHUB_OUTPUT:-} ]] && echo "$name=ok" >> "$GITHUB_OUTPUT"
+for name in "$@"; do
+  if wait "${pid[$name]}"; then result=ok; else result=FAILED; status=1; fi
   echo "::group::$name ($result)"
   cat "$logs/$name.log"
   echo "::endgroup::"
