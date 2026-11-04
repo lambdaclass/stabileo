@@ -197,8 +197,11 @@ caches = {step['id'].removeprefix('research-'): step for step in steps if step.g
 assert set(caches) == {'shauer-2025', 'andreassen-2011', 'biggins-2026', 'grossman-2026', 'pastrana-2026', 'fairclough-2026'}, sorted(caches)
 for name, cache in caches.items():
     assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
-    builds = [step for step in steps if step.get('name') == f'Build research WASM ({name}, cache miss)']
-    assert len(builds) == 1 and builds[0].get('if') == f"steps.research-{name}.outputs.cache-hit != 'true'", name
+build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
+assert 'if' not in build
+assert re.findall(r"steps\.research-([\w-]+)\.outputs\.cache-hit != 'true' && '([\w-]+)'", build['run']) == [(name, name) for name in caches], build['run']
+listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
+assert sorted(line.split()[0] for line in listed if line) == sorted(caches)
 print('ok each research bundle is cached on its own and rebuilt only on its own miss')
 
 def patterns_of(cache):
