@@ -50,6 +50,14 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_HTTP_MULTIPLEXING: false
   MIX_ENV: test
+  CARGO_BUILD_JOBS: 4
+  RUST_TEST_THREADS: 4
+  NEXTEST_TEST_THREADS: 4
+  RAYON_NUM_THREADS: 4
+  VITEST_MAX_THREADS: 3
+  VITEST_MAX_FORKS: 3
+  BINARYEN_CORES: 4
+  GOMAXPROCS: 4
 
 # Every job installs the toolchain from flake.nix and runs a make target, so a
 # job that passes here passes on a developer's machine with the same command.

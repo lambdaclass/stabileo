@@ -19,8 +19,11 @@ test('missing and non-finite measurements fail', () => {
 });
 
 const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-budgets.json', import.meta.url), 'utf8'));
-test('every landing and app route has a budget', () => {
-  assert.deepEqual(Object.keys(shippedBudgets).sort(), ['/app/basic', '/app/education', '/app/pro', '/en/', '/es/', '/pt/']);
+test('every landing and app route has a 128 byte budget', () => {
+  assert.deepEqual(shippedBudgets, {
+    '/en/': 128, '/es/': 128, '/pt/': 128,
+    '/app/basic': 128, '/app/education': 128, '/app/pro': 128,
+  });
 });
 for (const [route, budget] of Object.entries(shippedBudgets)) {
   test(`${route} product growth passes at the budget and fails one byte over`, () => {

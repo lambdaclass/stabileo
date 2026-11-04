@@ -77,6 +77,20 @@ class CiRunners(unittest.TestCase):
                     pr.add(f'{workflow}:{name}')
         self.assertEqual(pr, {'ci.yml:wasm', 'ci.yml:research-wasm', 'ci.yml:site-e2e'})
 
+    def test_jobs_use_a_github_runners_threads_wherever_they_run(self):
+        caps = {'CARGO_BUILD_JOBS': '4', 'RUST_TEST_THREADS': '4', 'NEXTEST_TEST_THREADS': '4', 'RAYON_NUM_THREADS': '4',
+                'VITEST_MAX_THREADS': '3', 'VITEST_MAX_FORKS': '3', 'BINARYEN_CORES': '4', 'GOMAXPROCS': '4'}
+        for workflow in ['ci.yml', 'research.yml']:
+            text = (WORKFLOWS / workflow).read_text()
+            block = text.split('\nenv:\n', 1)[1].split('\n\n', 1)[0]
+            env = dict((k, v.strip()) for k, v in re.findall(r'^  ([A-Z_]+):(.*)$', block, re.M))
+            for key, value in caps.items():
+                with self.subTest(workflow=workflow, key=key):
+                    self.assertEqual(env.get(key), value)
+            for name, job in parse(text).items():
+                with self.subTest(workflow=workflow, job=name):
+                    self.assertIsNone(re.search(r'^\s+(%s):' % '|'.join(caps), job['block'], re.M))
+
     def test_nightly_fuzz_never_takes_a_ci_runner(self):
         fuzz = jobs('nightly.yml')['fuzz']['runs-on']
         self.assertEqual(labels(fuzz), {'stabileo-nightly'})

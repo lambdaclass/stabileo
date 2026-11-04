@@ -26,6 +26,7 @@ fn steel_member(fy: f64) -> SteelMemberData {
         fu: None,
         aw: None,
         cv1: None,
+        aw_weak: None,
         an: None,
         u_factor: None,
         lby: 3.0,
@@ -60,7 +61,7 @@ fn steel_member(fy: f64) -> SteelMemberData {
 fn steel_zero_capacity_is_reported_as_unevaluated() {
     let r = check_steel_members(&SteelCheckInput {
         members: vec![steel_member(0.0)],
-        forces: vec![ElementDesignForces { element_id: 1, n: 500e3, my: 80e3, mz: None, vy: None }],
+        forces: vec![ElementDesignForces { element_id: 1, n: 500e3, my: 80e3, mz: None, v_weak: None, v_strong: None }],
     })
     .remove(0);
 
@@ -81,7 +82,7 @@ fn steel_nan_demand_does_not_panic() {
     let r = check_steel_members(&SteelCheckInput {
         members: vec![steel_member(345e6)],
         forces: vec![ElementDesignForces {
-            element_id: 1, n: f64::NAN, my: 80e3, mz: None, vy: None,
+            element_id: 1, n: f64::NAN, my: 80e3, mz: None, v_weak: None, v_strong: None,
         }],
     })
     .remove(0);
@@ -95,7 +96,7 @@ fn steel_nan_demand_does_not_panic() {
 fn steel_healthy_member_reports_nothing_unevaluated() {
     let r = check_steel_members(&SteelCheckInput {
         members: vec![steel_member(345e6)],
-        forces: vec![ElementDesignForces { element_id: 1, n: 500e3, my: 80e3, mz: None, vy: None }],
+        forces: vec![ElementDesignForces { element_id: 1, n: 500e3, my: 80e3, mz: None, v_weak: None, v_strong: None }],
     })
     .remove(0);
 
