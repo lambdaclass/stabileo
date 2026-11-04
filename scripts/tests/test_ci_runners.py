@@ -127,6 +127,28 @@ class CiRunners(unittest.TestCase):
         self.assertIn("github.ref == 'refs/heads/main'", mutants)
         self.assertTrue(mutants.endswith("|| 'ubuntu-24.04' }}"))
 
+    def test_pull_requests_never_write_nix_store_paths_to_the_actions_cache(self):
+        found = 0
+        for path in sorted(WORKFLOWS.glob('*.yml')):
+            text = path.read_text()
+            if not re.search(r'^  (pull_request|workflow_call):', text, re.M):
+                continue
+            lines = text.split('\n')
+            for index, line in enumerate(lines):
+                if 'magic-nix-cache-action' not in line:
+                    continue
+                found += 1
+                start = index
+                while not lines[start].lstrip().startswith('- '):
+                    start -= 1
+                step = '\n'.join(lines[start:index + 1])
+                with self.subTest(workflow=path.name, line=index + 1):
+                    condition = re.search(r'(?:- )?if: (.*)', step)
+                    self.assertIsNotNone(condition)
+                    self.assertIn("github.event_name != 'pull_request'", condition.group(1))
+                    self.assertNotIn('||', condition.group(1))
+        self.assertGreater(found, 20)
+
     def test_superseded_runs_cancel_but_main_never_does(self):
         for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)
