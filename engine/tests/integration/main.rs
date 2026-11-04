@@ -14,6 +14,7 @@ mod design_check_limit_states;
 mod design_check_quantities;
 mod eccentric_connections;
 mod ec2_check;
+mod ec2_strain_compatibility;
 mod ec3_check;
 mod foundation_check;
 mod isolated_footing;

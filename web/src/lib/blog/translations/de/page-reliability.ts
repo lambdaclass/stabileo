@@ -65,7 +65,7 @@ const body: StandingPage['i18n']['en'] = {
         "Eine Fehlerschranke begrenzt den numerischen Fehler; sie beweist nicht, dass das Modell richtig ist, und sie begrenzt nicht den Diskretisierungsfehler des Netzes.",
         "Eine unabhängige Prüfung durch einen zugelassenen Tragwerksplaner hat es noch nicht gegeben, und die Stahlergebnisse nach CIRSOC 301 sind weiterhin als experimentell gekennzeichnet.",
         "Die materiell nichtlineare Berechnung ist ein Sekantenmodell über den ganzen Stab.",
-        "Das PRO-Modul, einschließlich der normgemäßen Bemessung, ist noch in Entwicklung.",
+        "Die normgemäße Bemessung im PRO (Bewehrung, Bewehrungsführung und Anschlüsse) ist noch in Entwicklung und standardmäßig ausgeschaltet.",
         "Offene Sicherheitsprobleme sind auf GitHub öffentlich einsehbar, und der Verifikationsstand jeder Berechnungsart, jedes Elements und jeder Norm steht in der Reifegradmatrix."
       ]
     },
@@ -89,7 +89,7 @@ const body: StandingPage['i18n']['en'] = {
   "faq": [
     {
       "q": "Ist Stabileo für echte Tragwerksplanung zuverlässig?",
-      "a": "Seine Ergebnisse werden auf fünf unabhängigen Wegen geprüft, darunter der Vergleich mit sieben anderen Finite-Elemente-Programmen und in Lean bewiesene Fehlerschranken, und Fehler, die bereits verwendete Ergebnisse beeinflusst haben könnten, werden veröffentlicht; die noch in Bewertung befindlichen sind auf GitHub öffentlich. Eine unabhängige Prüfung durch einen zugelassenen Ingenieur gab es noch nicht, und das PRO-Modul ist in Entwicklung. Wie bei jedem Programm prüft daher der Ingenieur das Modell und die maßgebenden Ergebnisse."
+      "a": "Seine Ergebnisse werden auf fünf unabhängigen Wegen geprüft, darunter der Vergleich mit sieben anderen Finite-Elemente-Programmen und in Lean bewiesene Fehlerschranken, und Fehler, die bereits verwendete Ergebnisse beeinflusst haben könnten, werden veröffentlicht; die noch in Bewertung befindlichen sind auf GitHub öffentlich. Eine unabhängige Prüfung durch einen zugelassenen Ingenieur gab es noch nicht, und die normgemäße Bemessung ist noch in Entwicklung. Wie bei jedem Programm prüft daher der Ingenieur das Modell und die maßgebenden Ergebnisse."
     },
     {
       "q": "Warum veröffentlicht Stabileo Sicherheitshinweise?",

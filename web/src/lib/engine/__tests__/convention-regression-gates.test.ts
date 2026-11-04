@@ -163,9 +163,10 @@ describe('SEAM 2: Permitted analysis modes and PRO handling', () => {
 describe('SEAM 3: My/Mz axis identity preservation', () => {
   it('auto-verify.ts preserves column Mz/My identity and never magnitude-sorts moments', () => {
     const src = readSource('../auto-verify.ts');
-    // Columns: strong axis stays Mz (Mu), weak axis stays My (Muy) — identity intact.
-    expect(src, 'column Mu = Mz').toContain('MuMax = MzMax;');
-    expect(src, 'Muy = My').toContain('const MuyMax = MyMax;');
+    expect(src, 'one axis choice, shared with resolveDesignAxes').toContain('primaryAxis(elemType, section, MyMax, MzMax)');
+    expect(src, 'My pairs with Vz').toContain('const VuMax = onMy ? VzMax : VyAbs;');
+    expect(src, 'the section turns with the axis').toContain('const hFlex = onMy ? section.h : section.b;');
+    expect(src).not.toContain('MuMax = MzMax;');
     // Beams are axis-aware (My vs Mz chosen by stress proxy), but moments must
     // NEVER be collapsed by magnitude-sorting into a single Mu.
     expect(src).not.toContain('Math.max(MzMax, MyMax)');

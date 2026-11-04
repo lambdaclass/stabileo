@@ -7,6 +7,7 @@
 // UI keeps shell results consistent without any solver change.
 
 import { woodArmer } from './wood-armer';
+import type { ShellEnvelope } from './types-3d';
 
 /** The membrane/bending fields shared by PlateStress and QuadStress. */
 export interface ShellStressLike {
@@ -19,6 +20,7 @@ export interface ShellStressLike {
   vonMises: number;
   /** For the required-steel components: the effective depth, m, and the bars' fy, MPa. */
   steelBasis?: { d: number; fy: number };
+  envelope?: ShellEnvelope;
   /** Thickness, m: the forces per unit length and the faces read it. */
   t?: number;
   /** Transverse shears, kN/m, local: MITC4 quads only. */
@@ -165,9 +167,22 @@ export const SHELL_COMPONENT_GROUP_LABELS: Record<ShellComponentGroup, string> =
  */
 export function requiredSteel(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
   if (!s.steelBasis || !(s.steelBasis.d > 0) || !(s.steelBasis.fy > 0)) return 0;
-  const w = woodArmer(s.mx, s.my, s.mxy);
-  const m = key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+  const m = designMoment(s, key);
   return (m * 1000) / (0.9 * 0.9 * s.steelBasis.d * s.steelBasis.fy * 1e6) * 1e4;
+}
+
+const ENVELOPE_DESIGN_MOMENT = { asBotX: 'woodArmerBottomX', asBotY: 'woodArmerBottomY', asTopX: 'woodArmerTopX', asTopY: 'woodArmerTopY' } as const;
+
+function designMoment(s: ShellStressLike, key: 'asBotX' | 'asBotY' | 'asTopX' | 'asTopY'): number {
+  if (s.envelope) return s.envelope[ENVELOPE_DESIGN_MOMENT[key]]?.max ?? NaN;
+  const w = woodArmer(s.mx, s.my, s.mxy);
+  return key === 'asBotX' ? w.bottomX : key === 'asBotY' ? w.bottomY : key === 'asTopX' ? w.topX : w.topY;
+}
+
+/** The membrane principals of a shell: of an envelope, the largest σ1 and the smallest σ2 of its sets. */
+export function membranePrincipals(s: ShellStressLike): { sigma1: number; sigma2: number } {
+  if (s.envelope) return { sigma1: s.envelope.sigma1?.max ?? NaN, sigma2: s.envelope.sigma2?.min ?? NaN };
+  return principalStresses(s.sigmaXx, s.sigmaYy, s.tauXy);
 }
 
 /** i18n keys for a component's and a group's name; `label` above stays as the symbol fallback. */
@@ -212,6 +227,7 @@ function planeOn(s: ShellStressLike, face: Exclude<ShellFace, 'auto'>): PlaneStr
  */
 export function shellComponentValue(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'auto'): number {
   const read = faceRead(key, face);
+  if (s.envelope) return envelopeComponentValue(s, s.envelope, key, read);
   if (key === 'vonMises' && read === 'worst') return s.vonMises;
   const f = planeOn(s, read);
   if (!f) return NaN;
@@ -239,11 +255,34 @@ export function shellComponentValue(s: ShellStressLike, key: ShellContourCompone
   }
 }
 
+function envelopeComponentValue(s: ShellStressLike, e: ShellEnvelope, key: ShellContourComponent, read: Exclude<ShellFace, 'auto'>): number {
+  const peak = (k: keyof ShellEnvelope) => {
+    const x = e[k];
+    return !x ? NaN : Math.abs(x.max) >= Math.abs(x.min) ? x.max : x.min;
+  };
+  const force = (v: number) => (s.t && s.t > 0 ? v * s.t : NaN);
+  switch (key) {
+    case 'vonMises': return read === 'worst' ? e.vonMises?.max ?? NaN : NaN;
+    case 'sigma1': return read === 'mid' ? e.sigma1?.max ?? NaN : read === 'worst' ? e.faceSigma1?.max ?? NaN : NaN;
+    case 'sigma2': return read === 'mid' ? e.sigma2?.min ?? NaN : read === 'worst' ? e.faceSigma2?.min ?? NaN : NaN;
+    case 'sigmaXx': case 'sigmaYy': case 'tauXy': return read === 'mid' ? peak(key) : NaN;
+    case 'mx': case 'my': case 'mxy': return peak(key);
+    case 'nx': return force(peak('sigmaXx'));
+    case 'ny': return force(peak('sigmaYy'));
+    case 'nxy': return force(peak('tauXy'));
+    case 'vx': return peak('qx');
+    case 'vy': return peak('qy');
+    case 'asBotX': case 'asBotY': case 'asTopX': case 'asTopY': return requiredSteel(s, key);
+    default: return NaN;
+  }
+}
+
 /**
  * The direction a principal component acts along, degrees from the element's local x; null for a
  * component without one.
  */
 export function shellComponentAngle(s: ShellStressLike, key: ShellContourComponent, face: ShellFace = 'auto'): number | null {
+  if (s.envelope) return null;
   if (key === 'mmax' || key === 'mmin') {
     const a = principalMoments(s.mx, s.my, s.mxy).angleDeg;
     return key === 'mmax' ? a : a + 90;

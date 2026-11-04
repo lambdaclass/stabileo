@@ -54,6 +54,7 @@ fn rc_force(id: usize) -> RCDesignForces {
 ///
 /// Quadratic: 1.6e9 comparisons (~31 s in debug). Indexed: 40,000 hash lookups.
 #[test]
+#[ignore = "wall clock: runs alone in Engine Gates (make test.engine.gates)"]
 fn rc_check_scales_linearly_in_member_count() {
     const N: usize = 40_000;
 
