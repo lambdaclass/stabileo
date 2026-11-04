@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * PRO's "Exportar imagen": Basic's figures (`lib/export/view-figure.ts`), with what a PRO model
    * adds: its shells, as faces and as a result in colour; a fixed view (plan, the two elevations,
@@ -6,7 +7,7 @@
    * JPG besides SVG and PNG. The frame and the folded sections are Basic's export dialog's.
    */
   import { t } from '../../../lib/i18n';
-  import { uiStore } from '../../../lib/store';
+  import { modelStore, uiStore } from '../../../lib/store';
   import ExportDialog from '../../export/ExportDialog.svelte';
   import ExportSection from '../../export/ExportSection.svelte';
   import DrawingPresets, { type Preset } from '../../export/DrawingPresets.svelte';
@@ -46,6 +47,9 @@
   let options = $state<Saved>(prefs.options);
   let sheet = $state(prefs.sheet);
   let setKey = $state('screen');
+  /** Whose loads the model figure draws: the cases shown on screen, or one case. */
+  let loadsOf = $state<'screen' | number>('screen');
+  const loadedCases = $derived(open ? modelStore.model.loadCases.filter((c) => modelStore.loads.some((l) => (l.data.caseId ?? 1) === c.id)) : []);
   let busy = $state(false);
 
   function save() {
@@ -118,7 +122,10 @@
       const set = setKey === 'screen' ? null : resultSet(setKey);
       const req = {
         format, contents: [...chosen], sheet,
-        options: { ...$state.snapshot(options), ...(set ? { results: set.results, resultsName: set.name } : {}) } as FigureOptions,
+        options: {
+          ...$state.snapshot(options), ...(set ? { results: set.results, resultsName: set.name } : {}),
+          ...(loadsOf === 'screen' ? {} : { loadCases: [loadsOf] }),
+        } as FigureOptions,
       };
       if (kind === 'copy') {
         if (await copyView(req)) { uiStore.toast(t('viewExport.copied'), 'success'); open = false; }
@@ -164,7 +171,7 @@
           {#each choices as c (c.key)}<option value={c.key}>{c.label}</option>{/each}
         </select>
       </label>
-      <p class="xs-note">{t('proExport.resultsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.resultsNote')} />
     </ExportSection>
   {/if}
 
@@ -176,6 +183,15 @@
       </select>
     </label>
     <label class="xs-check"><input type="checkbox" bind:checked={options.loads} onchange={save} />{t('viewExport.optLoadsLong')}</label>
+    {#if options.loads && chosen.includes('model') && loadedCases.length > 1}
+      <label class="xs-field">
+        <span>{t('proExport.loadsOf')}</span>
+        <select value={String(loadsOf)} onchange={(e) => { const v = e.currentTarget.value; loadsOf = v === 'screen' ? 'screen' : Number(v); }} data-testid="pro-view-export-loads-of">
+          <option value="screen">{t('proExport.loadsOfScreen')}</option>
+          {#each loadedCases as c (c.id)}<option value={String(c.id)}>{c.name}</option>{/each}
+        </select>
+      </label>
+    {/if}
     <label class="xs-check"><input type="checkbox" bind:checked={options.numbering} onchange={save} />{t('viewExport.optNumberingLong')}</label>
     <label class="xs-check"><input type="checkbox" bind:checked={options.values} onchange={save} />{t('viewExport.optValuesLong')}</label>
     <label class="xs-check"><input type="checkbox" bind:checked={options.titles} onchange={save} />{t('viewExport.optTitlesLong')}</label>

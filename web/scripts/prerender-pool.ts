@@ -1,5 +1,15 @@
 import { cpus } from 'node:os';
 
+export const PRERENDER_NAVIGATION_TIMEOUT_MS = 120_000;
+
+export async function newPrerenderPage<P extends { setDefaultNavigationTimeout(timeout: number): void }>(
+  create: () => Promise<P>,
+): Promise<P> {
+  const page = await create();
+  page.setDefaultNavigationTimeout(PRERENDER_NAVIGATION_TIMEOUT_MS);
+  return page;
+}
+
 export function prerenderConcurrency(value = process.env.PRERENDER_CONCURRENCY, cpuCount = cpus().length): number {
   const count = value === undefined ? Math.min(6, Math.max(1, cpuCount)) : Number(value);
   if (!Number.isSafeInteger(count) || count < 1) {

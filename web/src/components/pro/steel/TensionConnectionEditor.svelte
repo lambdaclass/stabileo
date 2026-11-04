@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * End connection (tension) of the selected steel members — what CIRSOC 301 D.3 needs for
    * rupture on Ae = An·U, and nothing it does not.
@@ -200,7 +201,7 @@
 
 <div class={bare ? 'tc-bare' : 'pk-card tc'} data-testid="tc-editor">
   {#if !bare}<h4 class="pk-heading">{t('steel.tc.title')}</h4>{/if}
-  <p class="pk-hint">{t('steel.tc.hint')}</p>
+  <Hint text={t('steel.tc.hint')} />
   {#if steelIds.length === 0}
     <p class="pk-hint" data-testid="tc-none">{t('steel.tc.none')}</p>
   {:else}
@@ -222,7 +223,7 @@
         {#each TENSION_PRESETS as p (p)}<option value={p}>{t(`steel.tc.preset.${p}`)}</option>{/each}
       </select>
     </div>
-    <p class="pk-hint">{t('steel.tc.presetHint')}</p>
+    <Hint text={t('steel.tc.presetHint')} />
 
     <div class="tc-seg">
       <button class="pk-btn" class:pk-btn-primary={kind === 'bolted'} onclick={() => { kind = 'bolted'; }} data-testid="tc-kind-bolted">{t('steel.tc.kind.bolted')}</button>
@@ -290,7 +291,7 @@
           </label>
         {/if}
       </div>
-      <p class="pk-hint">{t('steel.tc.weldNoHoles')}</p>
+      <Hint text={t('steel.tc.weldNoHoles')} />
     {/if}
 
     <div class="pk-row">
@@ -319,7 +320,7 @@
         {/each}
       </tbody>
     </table>
-    <p class="pk-hint">{t('steel.tc.chainNote')}</p>
+    <Hint text={t('steel.tc.chainNote')} />
   {/if}
 </div>
 

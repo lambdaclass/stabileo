@@ -497,7 +497,8 @@ test.describe('blog', () => {
     await boot(page, '/es/blog');
     // The index states itself as the blog, not as an article.
     const index = JSON.parse((await page.locator('script[type="application/ld+json"]').textContent())!)['@graph'];
-    expect(index.map((n: { '@type': string }) => n['@type'])).toEqual(['Blog']);
+    const types = index.map((n: { '@type': string }) => n['@type']).sort();
+    expect(types).toEqual(['Blog', 'BreadcrumbList', 'Organization', 'Organization', 'Organization', 'WebSite']);
     await expect(page.locator('meta[property="og:type"]')).toHaveAttribute('content', 'website');
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
       'href',
@@ -587,6 +588,36 @@ test.describe('blog', () => {
     await section.locator('.btn-primary').click();
     await expect(page).toHaveURL(/\/blog\/$/);
     await expect(page.locator('.post-card')).not.toHaveCount(0);
+  });
+
+  test('@smoke the latest post arrives on the landing without covering its way out', async ({ page }) => {
+    for (const width of [390, 820]) {
+      await page.setViewportSize({ width, height: 900 });
+      await boot(page, '/');
+      const section = page.locator('.landing section[data-section="blog"]');
+      await section.scrollIntoViewIfNeeded();
+      const latest = section.locator('.blog-latest');
+      await expect(latest).toBeVisible();
+      await expect(latest.locator('.blog-latest-title')).not.toBeEmpty();
+
+      const button = section.locator('.btn-primary');
+      const [card, link, box] = await Promise.all([latest.boundingBox(), button.boundingBox(), section.boundingBox()]);
+      expect(card!.y + card!.height, `card covers the index link at ${width}px`).toBeLessThanOrEqual(link!.y);
+      expect(link!.y + link!.height, `index link leaves its section at ${width}px`).toBeLessThanOrEqual(box!.y + box!.height);
+      const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, client: document.documentElement.clientWidth }));
+      expect(overflow.scroll, `overflows at ${width}px`).toBeLessThanOrEqual(overflow.client + 1);
+    }
+  });
+
+  test('@smoke the editor opens the blog in place', async ({ page }) => {
+    await boot(page, '/app/');
+    await page.waitForFunction(() => document.querySelector('.app-container') !== null);
+
+    await page.evaluate(() => window.dispatchEvent(new CustomEvent('stabileo-navigate', { detail: '/blog' })));
+
+    await expect(page).toHaveURL(/\/blog\/?$/);
+    await expect(page.locator('.post-card')).not.toHaveCount(0);
+    await expect(page.locator('.app-container')).toHaveClass(/hidden-behind-landing/);
   });
 
   test('@smoke the editor is one click away and leaves the blog behind', async ({ page }) => {

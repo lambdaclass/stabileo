@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * User templates: a piece of structure saved by name and placed again with the ghost.
    *
@@ -66,7 +67,7 @@
 
 <section class="tp" data-testid="templates">
   <h4>{t('templates.title')}</h4>
-  <p class="tp-hint">{t('templates.hint')}</p>
+  <Hint text={t('templates.hint')} />
   <div class="tp-row">
     <input placeholder={t('templates.namePlaceholder')} bind:value={name} data-testid="tpl-name" />
     <button type="button" disabled={selectionSize === 0} onclick={saveSelection} data-testid="tpl-save">{t('templates.saveSelection')}</button>

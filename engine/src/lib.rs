@@ -77,8 +77,8 @@ pub fn engine_reproduce_hashes(json: &str, is_3d: bool) -> Result<String, JsValu
 /// Solve 2D linear static analysis. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn solve_2d(input: JsValue) -> Result<JsValue, JsValue> {
-    let input: types::SolverInput = from_js_value(input)?;
-    let results = solver::linear::solve_2d(&input)
+    let input: types::units::ElasticInput2D = from_js_value(input)?;
+    let results = solver::linear::solve_2d_typed(&input)
         .map_err(|e| JsValue::from_str(&e))?;
     to_js_value(&results)
 }
@@ -721,20 +721,22 @@ pub fn combine_results_3d(input: JsValue) -> Result<JsValue, JsValue> {
 #[wasm_bindgen]
 pub fn compute_envelope_2d(input: JsValue) -> Result<JsValue, JsValue> {
     let results: Vec<types::AnalysisResults> = from_js_value(input)?;
-    match postprocess::combinations::compute_envelope(&results) {
-        Some(env) => to_js_value(&env),
-        None => Ok(JsValue::NULL),
+    if results.is_empty() {
+        return Ok(JsValue::NULL);
     }
+    let env = postprocess::combinations::compute_envelope(&results).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&env)
 }
 
 /// Compute 3D envelope. JsValue in → JsValue out (hot path).
 #[wasm_bindgen]
 pub fn compute_envelope_3d(input: JsValue) -> Result<JsValue, JsValue> {
     let results: Vec<types::AnalysisResults3D> = from_js_value(input)?;
-    match postprocess::combinations::compute_envelope_3d(&results) {
-        Some(env) => to_js_value(&env),
-        None => Ok(JsValue::NULL),
+    if results.is_empty() {
+        return Ok(JsValue::NULL);
     }
+    let env = postprocess::combinations::compute_envelope_3d(&results).map_err(|e| JsValue::from_str(&e))?;
+    to_js_value(&env)
 }
 
 // ==================== Influence Lines ====================

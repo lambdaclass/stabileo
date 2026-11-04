@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   import { editorActivity } from '../../../lib/utils/editor-activity';
   const editorActive = editorActivity();
   /**
@@ -94,7 +95,7 @@
       </select>
     </label>
   </div>
-  <p class="uz-hint">{t('useZones.hint')}</p>
+  <Hint text={t('useZones.hint')} />
 
   <div class="uz-row">
     {#if zoneDraw.active}
@@ -173,7 +174,7 @@
       {/each}
     </table>
     {#if overlaps.length}<p class="uz-warn" data-testid="use-zones-overlaps">{tp('useZones.overlaps', { list: overlaps.map(([a, b]) => `${modelStore.model.groups.get(a)?.name} / ${modelStore.model.groups.get(b)?.name}`).join(', ') })}</p>{/if}
-    <p class="uz-hint">{t('useZones.ref')}</p>
+    <Hint text={t('useZones.ref')} />
     <div class="uz-row">
       <button class="pk-btn pk-btn-primary" disabled={liveCaseId() === null} onclick={() => (planOpen = true)} data-testid="use-zones-plan">{t('useZones.generate')}…</button>
       {#if liveCaseId() === null}<span class="uz-warn">{t('useZones.noLiveCase')}</span>{/if}

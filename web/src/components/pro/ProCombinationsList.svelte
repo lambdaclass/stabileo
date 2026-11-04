@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The model's combinations, one row each, and the ways to make more.
    *
@@ -98,7 +99,7 @@
             </select>
           </label>
           {#if combo.method === 'srss' || combo.method === 'abs'}
-            <p class="cb-hint">{t('combos.method.hint')}</p>
+            <Hint text={t('combos.method.hint')} />
             <!-- Under P-Delta per combination its result says `magnitude.firstOrder` (`combination-methods.ts`). -->
             {#if modelStore.analysis?.perCombination === 'pdelta'}<p class="cb-hint" data-testid="combo-method-first-order">{t('combos.method.firstOrder')}</p>{/if}
           {/if}
@@ -136,7 +137,7 @@
 
   <section class="pk-card cb-gen" data-testid="combo-generate">
     <h4 class="pk-heading">{t('combos.generateTitle')}</h4>
-    <p class="pk-hint">{t('combos.generateHint')}</p>
+    <Hint text={t('combos.generateHint')} />
     <div class="pk-row">
       <button class="pk-btn pk-btn-primary" onclick={() => ongenerate('lrfd')} title={t('pro.generateLRFDHint')} data-testid="combo-gen-strength">{t('combos.genStrength')}</button>
       <button class="pk-btn" onclick={() => ongenerate('service')} title={t('pro.generateServiceHint')} data-testid="combo-gen-service">{t('combos.genService')}</button>

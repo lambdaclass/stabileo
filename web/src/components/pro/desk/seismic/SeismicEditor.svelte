@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../../Hint.svelte';
   /**
    * The seismic design of the concrete frame: the members' roles in plan, the inertia factors by
    * category written onto the members, capacity design's overstrength and strong-column ratio, the
@@ -39,7 +40,7 @@
 
   <section class="se-card">
     <h5>{t('seisDes.roles')}</h5>
-    <p class="se-hint">{t('lateral.rolesHint')}</p>
+    <Hint text={t('lateral.rolesHint')} />
     <SeismicRolesPlan />
   </section>
 
@@ -78,7 +79,7 @@
       <thead><tr><th></th>{#each KINDS as k}<th>{t(`seisDes.kind.${k}`)}</th>{/each}</tr></thead>
       <tbody>{#each (['shear', 'moment'] as const) as w}<tr><td>{t(`seisDes.factor.${w}`)}</td>{#each KINDS as k}<td><input type="number" min="1" max="5" step="0.1" value={s.softStoreys[w][k]} onchange={(e) => setSoft(w, k, +e.currentTarget.value)} aria-label={`${t(`seisDes.factor.${w}`)} ${t(`seisDes.kind.${k}`)}`} /></td>{/each}</tr>{/each}</tbody>
     </table>
-    <p class="se-hint">{t('seisDes.softHint')}</p>
+    <Hint text={t('seisDes.softHint')} />
   </section>
 
   <section class="se-card">
@@ -96,7 +97,7 @@
       </tbody></table>{/if}
       {#if badJoints.length}<table class="se-t" data-testid="seismic-joints"><thead><tr><th>{t('seisDes.joint')}</th><th>ΣMc / 1,2ΣMb</th><th>Vj / φVn</th></tr></thead><tbody>
         {#each badJoints as j (`${j.nodeId}-${j.direction}`)}<tr><td>N{j.nodeId} {j.direction}</td><td class="num" class:bad={!j.strongColumn.ok}>{j.strongColumn.roof ? t('seisDes.roof') : `${j.strongColumn.sumColumns.toFixed(0)} / ${j.strongColumn.required.toFixed(0)}`}</td><td class="num" class:bad={j.shear.utilization > 1}>{j.shear.vj.toFixed(0)} / {j.shear.phiVn.toFixed(0)} ({fmt(j.shear.utilization)})</td></tr>{/each}
-      </tbody></table><p class="se-hint">{t('seisDes.jointsHint')}</p>{/if}
+      </tbody></table><Hint text={t('seisDes.jointsHint')} />{/if}
     {/if}
   </section>
 </div>

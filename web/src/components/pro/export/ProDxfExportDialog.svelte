@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * DXF: what goes in the drawing, from which results, and how it is drawn (`lib/dxf/writer.ts`).
    * Each content goes on its own layer, so what is turned on here can still be hidden in CAD.
@@ -117,7 +118,7 @@
         notes={[t('proExport.dxfLayoutLayersNote'), t('proExport.dxfLayoutSeparateNote')]}
         onpick={(v) => { layers = v; save(); }} testid="pro-dxf-layout" />
     {:else}
-      <p class="xs-note">{t('proExport.dxfLayersNote')}</p>
+      <Hint class="xs-note" text={t('proExport.dxfLayersNote')} />
     {/if}
   </ExportSection>
 
@@ -157,7 +158,7 @@
         </select>
       </label>
     {/if}
-    <p class="xs-note">{projection === 'space' ? t('proExport.dxf3dNote') : t('proExport.dxfProjectedNote')}</p>
+    <Hint class="xs-note" text={projection === 'space' ? t('proExport.dxf3dNote') : t('proExport.dxfProjectedNote')} />
   </ExportSection>
 
   {#snippet actions()}

@@ -1,10 +1,9 @@
-import { reviewLabel } from '../reviews';
 export const strings = {
   en: {
     livePath: 'Live path', shortPath: 'Short path · 20 steps (before the peak)', fullPath: 'Full benchmark · 400 steps',
     inspect: 'Inspect the arch near its peak (step 260)',
     title: 'DaDeppo–Schmidt: a deep arch at its limit', hook: 'A 215° arch, a crown load, and the production arc-length solver.',
-    stage: `First version · ${reviewLabel('dadeppo-arch-1975', 'en')}`, model: 'One clamped–hinged arch',
+    model: 'One clamped–hinged arch',
     description: 'A circular arch with a fixed left end and pinned right end carries a downward, fixed-direction point load at its crown. Forty straight corotational frame elements approximate the 215° opening. The asymmetric supports allow large sideways motion before the first limit point.',
     units: 'We use R = 1 m, EI = 1 kN·m² and EA = 10⁶ kN. The reference load is 1 kN, so the solver load factor equals PR²/EI. The often-quoted P = 897 uses R = 100 and EI = 10⁶: its normalized value is 8.97, not 897.',
     referenceText: 'Schmidt’s 2000 discussion, page 1308, explicitly quotes Table 1 of the 1975 paper: PR²/EI = 8.97. We have verified that quotation; we have not directly inspected the original table. This comparison uses the rounded published load, not a digitized curve.',
@@ -18,7 +17,7 @@ export const strings = {
     livePath: 'Trayectoria en vivo', shortPath: 'Trayectoria corta · 20 pasos (antes del máximo)', fullPath: 'Benchmark completo · 400 pasos',
     inspect: 'Ver el arco cerca del máximo (paso 260)',
     title: 'DaDeppo–Schmidt: un arco profundo en su límite', hook: 'Un arco de 215°, una carga en la clave y el solver de longitud de arco de producción.',
-    stage: `Primera versión · ${reviewLabel('dadeppo-arch-1975', 'es')}`, model: 'Un arco empotrado–articulado',
+    model: 'Un arco empotrado–articulado',
     description: 'Un arco circular con extremo izquierdo empotrado y derecho articulado recibe una carga puntual vertical descendente de dirección fija en la clave. Cuarenta elementos rectos de pórtico corrotacional aproximan la abertura de 215°. Los apoyos asimétricos permiten grandes desplazamientos laterales antes del primer punto límite.',
     units: 'Usamos R = 1 m, EI = 1 kN·m² y EA = 10⁶ kN. La carga de referencia es 1 kN, por lo que el factor de carga equivale a PR²/EI. El valor habitual P = 897 usa R = 100 y EI = 10⁶: su valor normalizado es 8,97, no 897.',
     referenceText: 'La discusión de Schmidt de 2000, página 1308, cita explícitamente la Tabla 1 del artículo de 1975: PR²/EI = 8,97. Verificamos esa cita; no inspeccionamos directamente la tabla original. Comparamos con la carga publicada redondeada, no con una curva digitalizada.',
@@ -32,7 +31,7 @@ export const strings = {
     livePath: 'Trajetória ao vivo', shortPath: 'Trajetória curta · 20 passos (antes do máximo)', fullPath: 'Benchmark completo · 400 passos',
     inspect: 'Ver o arco perto do máximo (passo 260)',
     title: 'DaDeppo–Schmidt: um arco profundo no seu limite', hook: 'Um arco de 215°, uma carga no topo e o solver de comprimento de arco de produção.',
-    stage: `Primeira versão · ${reviewLabel('dadeppo-arch-1975', 'pt')}`, model: 'Um arco engastado–articulado',
+    model: 'Um arco engastado–articulado',
     description: 'Um arco circular com a extremidade esquerda engastada e a direita articulada recebe uma carga pontual vertical descendente de direção fixa no topo. Quarenta elementos retos de pórtico corrotacional aproximam a abertura de 215°. Os apoios assimétricos permitem grandes deslocamentos laterais antes do primeiro ponto limite.',
     units: 'Usamos R = 1 m, EI = 1 kN·m² e EA = 10⁶ kN. A carga de referência é 1 kN, portanto o fator de carga equivale a PR²/EI. O valor habitual P = 897 usa R = 100 e EI = 10⁶: seu valor normalizado é 8,97, não 897.',
     referenceText: 'A discussão de Schmidt de 2000, página 1308, cita explicitamente a Tabela 1 do artigo de 1975: PR²/EI = 8,97. Verificamos essa citação; não inspecionamos diretamente a tabela original. Comparamos com a carga publicada arredondada, não com uma curva digitalizada.',

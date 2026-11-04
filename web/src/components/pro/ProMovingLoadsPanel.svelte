@@ -1,5 +1,6 @@
 <script lang="ts">
   import { accountGate } from '../../lib/store/account-gate.svelte';
+  import Hint from './Hint.svelte';
   import { downloadResultText } from '../../lib/export/provenance-attach';
   import { captureAnalysisProvenance } from '../../lib/store/result-provenance';
   import type { ResultProvenance } from '../../lib/provenance/result-provenance';
@@ -200,7 +201,7 @@
 </script>
 
 <div class="ml" data-testid="moving-panel">
-  <p class="ml-hint">{t('moving.hint')}</p>
+  <Hint text={t('moving.hint')} />
   <div class="ml-row">
     <label>{t('moving.train')}
       <select value={preset} onchange={(e) => usePreset(Number(e.currentTarget.value))} data-testid="moving-preset">
@@ -240,7 +241,7 @@
     <button class="pk-btn" onclick={saveFile} data-testid="moving-save">{t('moving.saveVehicle')}</button>
     <label class="pk-btn">{t('moving.openVehicle')} <input type="file" accept="application/json,.json" onchange={accountGate.files('import', openFile)} hidden data-testid="moving-open" /></label>
   </div>
-  <p class="ml-hint">{t('moving.vehicleHint')}</p>
+  <Hint text={t('moving.vehicleHint')} />
   <div class="ml-row">
     <button class="pk-btn" disabled={pathIds.length === 0} onclick={() => (path2Ids = [...pathIds])} data-testid="moving-path2">{t('moving.useAsLine2')}</button>
     {#if path2Ids.length}<span class="ml-hint" data-testid="moving-path2-n">{tp('moving.line2', { n: path2Ids.length })}</span>
@@ -294,7 +295,7 @@
         </tbody>
       </table>
     </div>
-    <p class="ml-hint">{t('moving.note')}</p>
+    <Hint text={t('moving.note')} />
   {/if}
 </div>
 
