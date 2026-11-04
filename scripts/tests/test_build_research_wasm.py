@@ -58,6 +58,31 @@ echo "built $1"
         self.assertEqual(result.returncode, 1)
         self.assertEqual(sorted(self.outputs), sorted(f'{name}=ok' for name in ALL if name != 'grossman-2026'))
 
+    def test_a_bundle_is_marked_for_saving_while_a_slow_one_still_builds(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fake = pathlib.Path(directory) / 'fake'
+            fake.write_text('''#!/usr/bin/env bash
+[[ $1 == cargo ]] && exit 0
+shift
+while [[ $1 == *=* ]]; do shift; done
+[[ $1 == *grossman-2026* ]] && sleep 60
+exit 0
+''')
+            fake.chmod(0o755)
+            outputs = pathlib.Path(directory) / 'outputs'
+            env = {**os.environ, 'BUILD_PREFIX': str(fake), 'RETRY_INFRA_DELAY_SECONDS': '0', 'GITHUB_OUTPUT': str(outputs)}
+            env.pop('CARGO_TARGET_DIR', None)
+            process = subprocess.Popen([str(SCRIPT), 'pastrana-2026', 'grossman-2026', 'shauer-2025'], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            try:
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline and len(outputs.read_text().splitlines() if outputs.exists() else []) < 2:
+                    time.sleep(0.2)
+                self.assertIsNone(process.poll())
+                self.assertEqual(sorted(outputs.read_text().splitlines()), ['pastrana-2026=ok', 'shauer-2025=ok'])
+            finally:
+                os.killpg(process.pid, 9)
+                process.wait()
+
     def test_only_the_named_bundles_build(self):
         result, _, record = self.run_script(['pastrana-2026'])
         self.assertEqual(result.returncode, 0)

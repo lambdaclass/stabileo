@@ -3,5 +3,6 @@
 
 The research WASM job saved its cached bundles only when the whole job succeeded, so a job that hit
 its time limit on a loaded runner threw away every bundle it had built, and the rerun built them
-all again. Each bundle is now saved as soon as it builds, a cache lookup that GitHub rate-limits is
-tried a second time instead of counting as a miss, and the job has 90 minutes instead of 60.
+all again. The bundles build in parallel and each one is marked for saving the moment it finishes;
+the build step stops at 75 minutes so the finished bundles are still saved within the job's 90
+(was 60). A cache lookup that GitHub rate-limits is tried a second time instead of counting as a miss.

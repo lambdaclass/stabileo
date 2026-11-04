@@ -199,6 +199,7 @@ for name, cache in caches.items():
     assert cache['with']['path'] == f'web/public/research-wasm/{name}', name
 build = next(step for step in steps if step.get('name') == 'Build research WASM (cache misses, in parallel)')
 assert 'if' not in build and build['id'] == 'build-research'
+assert build['timeout-minutes'] + 10 <= jobs['research-wasm']['timeout-minutes'], 'the build step must stop early enough for the saves to run'
 assert re.findall(r"steps\.research-([\w-]+)\.outputs\.cache-hit != 'true' && steps\.retry-([\w-]+)\.outputs\.cache-hit != 'true' && '([\w-]+)'", build['run']) == [(name, name, name) for name in caches], build['run']
 listed = subprocess.run(['.github/scripts/build-research-wasm.sh', '--list'], capture_output=True, text=True, check=True).stdout.split('\n')
 assert sorted(line.split()[0] for line in listed if line) == sorted(caches)

@@ -825,6 +825,7 @@ jobs:
         run: .github/scripts/retry-infra.sh make web.deps
       - name: Build research WASM (cache misses, in parallel)
         id: build-research
+        timeout-minutes: 75
         env:
           RESEARCH_SKIP_VIEWER: '1'
         run: .github/scripts/build-research-wasm.sh ${{ steps.research-shauer-2025.outputs.cache-hit != 'true' && steps.retry-shauer-2025.outputs.cache-hit != 'true' && 'shauer-2025' || '' }} ${{ steps.research-andreassen-2011.outputs.cache-hit != 'true' && steps.retry-andreassen-2011.outputs.cache-hit != 'true' && 'andreassen-2011' || '' }} ${{ steps.research-biggins-2026.outputs.cache-hit != 'true' && steps.retry-biggins-2026.outputs.cache-hit != 'true' && 'biggins-2026' || '' }} ${{ steps.research-grossman-2026.outputs.cache-hit != 'true' && steps.retry-grossman-2026.outputs.cache-hit != 'true' && 'grossman-2026' || '' }} ${{ steps.research-pastrana-2026.outputs.cache-hit != 'true' && steps.retry-pastrana-2026.outputs.cache-hit != 'true' && 'pastrana-2026' || '' }} ${{ steps.research-fairclough-2026.outputs.cache-hit != 'true' && steps.retry-fairclough-2026.outputs.cache-hit != 'true' && 'fairclough-2026' || '' }}
