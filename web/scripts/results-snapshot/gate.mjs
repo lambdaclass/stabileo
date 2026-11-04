@@ -12,15 +12,19 @@
  *     not have), and
  *   - adds or edits a `changelog.d/` fragment filed under `### BREAKING (results)`.
  *
- * A new case, or a new quantity recorded in a case, is not a result change: only values that
- * moved beyond the tolerance, or that are no longer produced, and snapshots deleted.
+ * A new snapshot file (a new corpus case) is coverage, not a result change. In an existing one,
+ * every value that moved beyond the tolerance, is no longer produced or is newly produced is a
+ * change, and so is a deleted snapshot (`coverage.test.ts` makes removing a case delete its
+ * snapshot). Only a bump of the snapshot format (`compare.mjs` FORMAT, the harness recording more)
+ * lets values be added without registration, and only the paths that format declares it began
+ * recording (FORMAT_ADDITIONS).
  *
  * `decide` is pure, so the negative case (#451) is a unit test: a deliberate change without a
  * registry entry fails (`scripts/__tests__/results-snapshot-gate.test.ts`). `main` is the CLI
  * CI runs: `node scripts/results-snapshot/gate.mjs --base <sha>`.
  */
 import { pathToFileURL } from 'node:url';
-import { compareValues, formatCaseReport, parseSnapshot } from './compare.mjs';
+import { compareValues, formatCaseReport, parseSnapshot, FORMAT, FORMAT_ADDITIONS } from './compare.mjs';
 
 export const SNAPSHOT_DIR = 'web/results-snapshots';
 export const REGISTRY = 'web/src/lib/provenance/result-changes.json';
@@ -46,7 +50,18 @@ export function newRegistryEntries(baseRegistry, headRegistry) {
  * side's parsed JSON or null (added: base null; deleted: head null).
  * `fragments`: the changelog fragments it added or edited, `{ file, text }`.
  */
-export function decide({ snapshots, baseRegistry, headRegistry, fragments }) {
+/**
+ * Whether an added path is what a snapshot format bump began recording (`compare.mjs` FORMAT and
+ * FORMAT_ADDITIONS): the head must be at the harness's current format, every format it skips must
+ * be declared, and the path must be one of theirs. Anything else added is a result change.
+ */
+export function newlyRecorded(path, baseFormat, headFormat, format = FORMAT, formatAdditions = FORMAT_ADDITIONS) {
+  if (headFormat !== format || !(headFormat > baseFormat)) return false;
+  for (let v = baseFormat + 1; v <= headFormat; v++) if (formatAdditions[v]?.test(path)) return true;
+  return false;
+}
+
+export function decide({ snapshots, baseRegistry, headRegistry, fragments, format = FORMAT, formatAdditions = FORMAT_ADDITIONS }) {
   const changed = [];
   const entries = newRegistryEntries(baseRegistry, headRegistry);
   const releasedVersion = baseRegistry?.currentResultsVersion ?? 0;
@@ -66,7 +81,11 @@ export function decide({ snapshots, baseRegistry, headRegistry, fragments }) {
     if (s.base === null) continue; // a new case: coverage, not a change
     if (s.head === null) { changed.push({ file: s.file, report: `✗ ${s.file}: snapshot deleted` }); continue; }
     const diff = compareValues(s.base.values ?? {}, s.head.values ?? {});
-    if (diff.differs) changed.push({ file: s.file, report: formatCaseReport(s.file, diff) });
+    const added = diff.added.filter((path) => !newlyRecorded(path, s.base.format ?? 1, s.head.format ?? 1, format, formatAdditions));
+    const counted = { ...diff, added };
+    if (counted.changed.length || counted.removed.length || counted.added.length) {
+      changed.push({ file: s.file, report: formatCaseReport(s.file, counted) });
+    }
   }
   if (changed.length === 0) {
     return { ok: true, changed, report: `Results snapshot gate: no committed result changed (${snapshots.length} snapshot file(s) touched).` };
