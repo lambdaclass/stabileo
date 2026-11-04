@@ -48,9 +48,9 @@ class JobSelectionPerEvent(unittest.TestCase):
         self.assertIn("FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}", changes)
         self.assertIn("run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}", changes)
 
-    def test_ci_ok_reports_on_every_run_and_counts_skipped_jobs_as_passing(self):
+    def test_ci_ok_reports_unless_a_newer_run_replaces_it_and_counts_skipped_jobs_as_passing(self):
         ok = job('ci-ok')
-        self.assertIn("    if: ${{ always() && (github.event_name != 'pull_request' || !cancelled()) }}\n", ok)
+        self.assertIn("    if: ${{ always() && needs.superseded.outputs.newer != 'true' }}\n", ok)
         self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
     def test_pull_requests_keep_their_path_selection(self):
@@ -84,17 +84,35 @@ class JobSelectionPerEvent(unittest.TestCase):
         ci_ok = job('ci-ok')
         for name in ['changes', 'docker-smoke', 'determinism', 'e2e', 'research', 'web-unit', 'test-engine-gates']:
             self.assertIn(f'      - {name}\n', ci_ok)
-        self.assertIn("if: ${{ always() && (github.event_name != 'pull_request' || !cancelled()) }}", ci_ok)
+        self.assertIn("if: ${{ always() && needs.superseded.outputs.newer != 'true' }}", ci_ok)
         self.assertIn('success|skipped', ci_ok)
 
-    def test_a_cancelled_run_skips_ci_ok_only_on_a_pull_request(self):
-        condition = job('ci-ok').split('    if: ${{ ', 1)[1].split(' }}', 1)[0]
+    def condition(self, name):
+        return job(name).split('    if: ${{ ', 1)[1].split(' }}', 1)[0]
+
+    def evaluate(self, expression, values):
+        for key, value in values.items():
+            expression = expression.replace(key, repr(value))
+        expression = expression.replace('&&', ' and ').replace('||', ' or ').replace('!cancelled()', 'not cancelled()')
+        return eval(expression, {'__builtins__': {}, 'always': lambda: True, 'cancelled': lambda: values['cancelled()']}, {})
+
+    def test_ci_ok_skips_only_when_a_newer_run_on_the_same_head_replaces_a_cancelled_pull_request_run(self):
         for event in ['pull_request', 'merge_group', 'push', 'schedule', 'workflow_dispatch']:
             for cancelled in [False, True]:
-                expression = (condition.replace('always()', 'True').replace('!cancelled()', str(not cancelled))
-                              .replace('github.event_name', repr(event)).replace('&&', ' and ').replace('||', ' or '))
-                runs = eval(expression, {'__builtins__': {}}, {})
-                self.assertEqual(runs, not (cancelled and event == 'pull_request'), (event, cancelled))
+                checks = self.evaluate(self.condition('superseded'), {'github.event_name': event, 'cancelled()': cancelled})
+                self.assertEqual(checks, event == 'pull_request' and cancelled, (event, cancelled))
+                for newer in (['true', 'false', ''] if checks else ['']):
+                    runs = self.evaluate(self.condition('ci-ok'), {'needs.superseded.outputs.newer': newer, 'cancelled()': cancelled})
+                    self.assertEqual(runs, newer != 'true', (event, cancelled, newer))
+
+    def test_the_supersession_check_waits_for_every_job_and_looks_only_at_newer_runs_on_this_head(self):
+        superseded = job('superseded')
+        ci_ok = job('ci-ok')
+        needs = lambda block: re.findall(r'^      - ([\w-]+)$', re.match(r'(?:      - [\w-]+\n)+', block.split('    needs:\n', 1)[1]).group(0), re.M)
+        self.assertEqual(sorted(needs(superseded) + ['superseded']), sorted(needs(ci_ok)))
+        self.assertIn('SHA: ${{ github.event.pull_request.head.sha }}', superseded)
+        self.assertIn('actions/runs?event=pull_request&head_sha=$SHA', superseded)
+        self.assertIn('select(.name == \\"$GITHUB_WORKFLOW\\" and .id > $RUN_ID)', superseded)
 
 
 if __name__ == '__main__':
