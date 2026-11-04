@@ -1,8 +1,42 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 14,
+  "currentResultsVersion": 21,
   "changes": [
+    {
+      "id": "rc-other-codes-torsion-unchecked",
+      "resultsVersion": 21,
+      "date": "2026-11-04",
+      "prs": [
+        1319
+      ],
+      "area": "design",
+      "when": {
+        "any": [
+          "concreteMembers"
+        ]
+      },
+      "title": {
+        "en": "ACI 318 and EN 1992: concrete members with torsion are marked not checked",
+        "es": "ACI 318 y EN 1992: las barras de hormigón con torsión se marcan como no verificadas",
+        "pt": "ACI 318 e EN 1992: barras de concreto com torção são marcadas como não verificadas",
+        "de": "ACI 318 und EN 1992: Betonstäbe mit Torsion werden als nicht nachgewiesen markiert",
+        "fr": "ACI 318 et EN 1992 : les barres en béton avec torsion sont marquées non vérifiées",
+        "tr": "ACI 318 ve EN 1992: burulmalı beton çubuklar kontrol edilmedi olarak işaretleniyor"
+      },
+      "explanation": {
+        "en": "The ACI 318 and EN 1992-1-1 checks under PRO other codes read flexure, shear and axial force only, so a reinforced concrete member with large torsion could pass (SA-2026-040). Such a member is now marked torsion not checked and does not pass: for ACI 318 above the 22.7.1.1 threshold φ·0.083·√f'c·Acp²/pcp, for EN 1992 whenever it carries torsion. Re-run those checks on concrete members with torsion.",
+        "es": "Las verificaciones ACI 318 y EN 1992-1-1 de otras normas en PRO leían flexión, corte y esfuerzo axial solamente, así que una barra de hormigón armado con torsión grande podía verificar (SA-2026-040). Ahora esa barra se marca con torsión no verificada y no verifica: en ACI 318 por encima del umbral de 22.7.1.1, φ·0,083·√f'c·Acp²/pcp, y en EN 1992 siempre que tenga torsión. Vuelva a correr esas verificaciones en barras de hormigón con torsión.",
+        "pt": "As verificações ACI 318 e EN 1992-1-1 de outras normas no PRO liam só flexão, cortante e esforço axial, então uma barra de concreto armado com torção grande podia passar (SA-2026-040). Agora essa barra é marcada com torção não verificada e não passa: na ACI 318 acima do limite de 22.7.1.1, φ·0,083·√f'c·Acp²/pcp, e na EN 1992 sempre que tiver torção. Refaça essas verificações em barras de concreto com torção.",
+        "de": "Die Nachweise nach ACI 318 und EN 1992-1-1 unter anderen Normen in PRO lasen nur Biegung, Querkraft und Normalkraft, sodass ein Stahlbetonstab mit großer Torsion bestehen konnte (SA-2026-040). Ein solcher Stab wird jetzt als Torsion nicht nachgewiesen markiert und besteht nicht: nach ACI 318 oberhalb der Schwelle aus 22.7.1.1, φ·0,083·√f'c·Acp²/pcp, nach EN 1992 bei jeder Torsion. Führen Sie diese Nachweise für Betonstäbe mit Torsion erneut aus.",
+        "fr": "Les vérifications ACI 318 et EN 1992-1-1 des autres normes en PRO ne lisaient que la flexion, l’effort tranchant et l’effort normal, donc une barre en béton armé avec une forte torsion pouvait passer (SA-2026-040). Une telle barre est maintenant marquée torsion non vérifiée et ne passe pas : pour l’ACI 318 au-delà du seuil de 22.7.1.1, φ·0,083·√f'c·Acp²/pcp, pour l’EN 1992 dès qu’elle porte de la torsion. Relancez ces vérifications sur les barres en béton avec torsion.",
+        "tr": "PRO diğer yönetmeliklerdeki ACI 318 ve EN 1992-1-1 kontrolleri yalnızca eğilme, kesme ve eksenel kuvveti okuyordu; bu yüzden büyük burulmalı bir betonarme çubuk geçebiliyordu (SA-2026-040). Böyle bir çubuk artık burulma kontrol edilmedi olarak işaretleniyor ve geçmiyor: ACI 318'de 22.7.1.1 eşiği φ·0,083·√f'c·Acp²/pcp üzerinde, EN 1992'de burulma taşıdığı her durumda. Burulmalı beton çubuklarda bu kontrolleri yeniden çalıştırın."
+      },
+      "changelog": {
+        "file": "changelog.d/1314-rc-other-codes-torsion.md",
+        "heading": "ACI 318 and EN 1992 checks no longer pass a concrete member whose torsion they did not check (2026-11-03)"
+      }
+    },
     {
       "id": "basic-plastic-closes-unloading-hinges",
       "resultsVersion": 14,

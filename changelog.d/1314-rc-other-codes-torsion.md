@@ -1,4 +1,4 @@
-### Fixed
+### BREAKING (results)
 
 #### ACI 318 and EN 1992 checks no longer pass a concrete member whose torsion they did not check (2026-11-03)
 
