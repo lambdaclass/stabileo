@@ -47,10 +47,11 @@ const MAX_PANELS = 4096;
 /**
  * Gauss points and weights over [a, b] for integrands built from e^{±k·x} (`decaying`, tension) or sin/cos of k·x.
  * Decaying kernels peak at the interval ends, so the panels grow geometrically away from both ends and their number
- * only grows with log(k·(b − a)). Null when an oscillating integrand needs more than MAX_PANELS panels.
+ * only grows with log(k·(b − a)). Null when an oscillating integrand needs more than MAX_PANELS panels, or k is not finite.
  */
 export function quadrature(a: number, b: number, k: number, decaying: boolean): Array<[number, number]> | null {
   if (!(b > a)) return [];
+  if (!(k >= 0 && Number.isFinite(k))) return null;
   const edges: number[] = [];
   if (decaying) {
     const half = (b - a) / 2;
