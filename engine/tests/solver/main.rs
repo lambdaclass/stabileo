@@ -22,6 +22,8 @@ mod constraints_inclined_supports;
 mod diaphragm_rotation;
 #[path = "../duplicate_support_reactions.rs"]
 mod duplicate_support_reactions;
+#[path = "../fiber_nonlinear_gate.rs"]
+mod fiber_nonlinear_gate;
 #[path = "../inclined_reporting_gates.rs"]
 mod inclined_reporting_gates;
 #[path = "../inclined_support_analyses.rs"]

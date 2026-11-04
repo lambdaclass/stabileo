@@ -24,7 +24,7 @@ class JobSelectionPerEvent(unittest.TestCase):
         for key in HEAVY:
             self.assertEqual(out[key], 'false', key)
         self.assertEqual(out['research_route_only'], 'true')
-        self.assertEqual(out['e2e_shards'], str(list(range(1, 11))))
+        self.assertEqual(out['e2e_shards'], str(list(range(1, selection.E2E_SHARDS + 1))))
         self.assertEqual(out['scope'], 'full')
 
     def test_main_pushes_and_the_schedule_run_everything(self):
@@ -54,7 +54,7 @@ class JobSelectionPerEvent(unittest.TestCase):
         self.assertIn('case "$r" in success|skipped) ;; *) exit 1 ;; esac', ok)
 
     def test_pull_requests_keep_their_path_selection(self):
-        full = selection.select('pull_request', ['web/src/App.svelte'])
+        full = selection.select('pull_request', ['Makefile'])
         self.assertEqual([full[k] for k in HEAVY], ['false', 'true', 'true', 'true'])
         self.assertEqual(full['research_route_only'], 'false')
         engine = selection.select('pull_request', ['engine/src/lib.rs'])

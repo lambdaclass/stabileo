@@ -114,3 +114,21 @@ fn uniform_stiffness_scaling_preserves_network_response() {
         }
     }
 }
+
+#[test]
+fn disorder_preserves_complete_clamp_rows() {
+    use springs_grossman_2026::experiment::{run_strip, StripSpec};
+    let mut spec: StripSpec = serde_json::from_str(r#"{"network":{"lattice":{"kind":"triangular","phi":1,"psi":1}},"width":13,"height":52,"strain":0.01}"#).unwrap();
+    let baseline = run_strip(&spec).unwrap();
+    assert_eq!(baseline.nodes.len(), 824);
+    assert_eq!(baseline.held.iter().filter(|&&h| h).count(), 28);
+    for eta in [0.05, 0.1, 0.2, 0.3, 0.4, 0.5] {
+        for seed in 0..10 {
+            spec.network.eta = eta;
+            spec.network.seed = seed;
+            let result = run_strip(&spec).unwrap();
+            assert_eq!(result.held, baseline.held);
+            assert_eq!(result.prescribed, baseline.prescribed);
+        }
+    }
+}

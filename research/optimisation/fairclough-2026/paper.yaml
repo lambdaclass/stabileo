@@ -8,6 +8,7 @@ supports: All translations restrained at corners; centre free
 load: Unit downward point load at centre
 ground_structure: All ten pairs; no member adding or position search
 formulation:
+  equations: Convex relaxation (19)-(20), SOC representation (29); not nonconvex equality (18)
   objective: Sum(qA + qB) / rho_g
   equilibrium: Centre horizontal forces balance; sum of centre end forces = -1
   cone: norm([sin(k*l)*(qA-qB), 2*s]) <= sin(k*l)*(qA+qB) + 2*cos(k*l)*s
@@ -35,4 +36,4 @@ engine_check:
   modulus_MPa: 1000
   poisson: 0.3
   loads: Explicit lumped endpoint weights from chord length and average area; automatic self-weight disabled
-  claim: Linear static solve and force balance of a frame surrogate, not buckling or catenary validation
+  claim: Reaction/load bookkeeping of a linear frame surrogate, not compression-curve physics, buckling or catenary validation

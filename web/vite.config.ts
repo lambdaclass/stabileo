@@ -6,6 +6,7 @@ import { resolve } from 'path';
 import { PUBLIC_KEY_PREFIXES } from './src/lib/i18n/public-prefixes';
 import { isComplete } from './src/lib/i18n/offered';
 import { resultChangeMetadataPlugin } from './scripts/result-change-metadata.mjs';
+import { blogTranslations } from './scripts/blog-translations';
 
 /**
  * Stub out the WASM glue module when it hasn't been built yet.
@@ -213,6 +214,7 @@ export default defineConfig({
     __STABILEO_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_APP_VERSION__: JSON.stringify(appVersion()),
     __STABILEO_DEV_API_URL__: JSON.stringify(DEV_API_URL),
+    __BLOG_TRANSLATIONS__: JSON.stringify(blogTranslations(__dirname)),
   },
   base: process.env.BASE_PATH || '/',
   server: {
