@@ -4,6 +4,7 @@
    * ours on top as a thin line, so agreement reads as a line inside a halo. A legend and a data table
    * sit below the plot; a crosshair tooltip reads every series at the nearest x.
    */
+  import { tick } from 'svelte';
   import { chartReadout } from './chart-readout';
   import { chartStrings } from '../shell/chart-strings';
   import type { Series } from './protocol';
@@ -60,6 +61,16 @@
     if (p) hoverY = sy(p[1]);
   }
   const M = { l: 48, r: 28, t: 22, b: 36 };
+
+  function inside(node: SVGTextElement, _layout: unknown) {
+    const fit = () => {
+      node.setAttribute('dx', '0');
+      const box = node.getBBox();
+      node.setAttribute('dx', String(box.x < 0 ? -box.x : Math.min(0, width - box.x - box.width)));
+    };
+    tick().then(fit);
+    return { update: () => tick().then(fit) };
+  }
 
   function niceTicks(lo: number, hi: number, n = 5): { ticks: number[]; step: number } {
     if (!(hi > lo)) return { ticks: [lo, lo + 1], step: 1 };
@@ -163,7 +174,7 @@
       <text x={sx(marker)} y={M.t - 6} class="tick" text-anchor="middle">{markerLabel}</text>
     {/if}
     {#each labels as l (l.text)}
-      <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'}>{l.text}</text>
+      <text x={sx(l.x)} y={sy(l.y) + (l.dy ?? -8)} class="dlabel" text-anchor={l.anchor ?? 'start'} use:inside={[l.text, l.x, l.y, width]}>{l.text}</text>
     {/each}
   </svg>
   {#if dataTable}
