@@ -55,7 +55,7 @@ recorded with `--write` (which only raises) instead of leaving room to slide bac
 ### Re-baseline of 2026-11-04
 
 Three runs of the workflow against production (run 41880093953, attempts 1 to 3) gave `/app/basic`
-and `/app/pro` performance medians of 34 to 40, against 58 to 60 on 2026-11-02. The bytes those
+and `/app/pro` performance medians of 33 to 40, against 58 to 60 on 2026-11-02. The bytes those
 pages download fell (7.45 to 7.36 MB) and their total blocking time did not change (1.7 to 2.3 s
 desktop, 7.4 to 9.1 s mobile, in both); what moved is the largest contentful paint. On 2026-11-02 it
 was the first paint (about 2.2 s on mobile); now it is the application header's project-name
