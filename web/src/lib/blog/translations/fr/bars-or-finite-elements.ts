@@ -299,7 +299,7 @@ const body: PostBody = {
       "k": "embed",
       "query": "example=deep-beam-shell",
       "mode": "pro",
-      "label": "La même poutre en mode PRO, modélisée comme une coque de 192 éléments MITC4 de 25 cm. Sous Analyse → Déplacements, le nœud 113 (à mi-portée, à mi-hauteur) indique « -5.19e-5 » m, soit 0,0519 mm. Le tableau ci-dessus utilise un maillage plus fin et donne 0,0521 mm. PRO est en version bêta."
+      "label": "La même poutre en mode PRO, modélisée comme une coque de 192 éléments MITC4 de 25 cm. Sous Analyse → Déplacements, le nœud 113 (à mi-portée, à mi-hauteur) indique « -5.19e-5 » m, soit 0,0519 mm. Le tableau ci-dessus utilise un maillage plus fin et donne 0,0521 mm."
     },
     {
       "k": "link",

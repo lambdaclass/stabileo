@@ -108,8 +108,8 @@ export interface FixtureLoader {
  * Replays all the creation calls in the correct order:
  * materials → sections → nodes → elements → supports → loads → shells → constraints
  */
-export function loadFixture(json: JSONModel, api: FixtureLoader): void {
-  const { loadCases, combinations, rebuilt } = fixtureLoadCases(json, api.model);
+export function loadFixture(json: JSONModel, api: FixtureLoader, opts: { keepCombinations?: boolean } = {}): void {
+  const { loadCases, combinations, rebuilt } = opts.keepCombinations ? keptLoadCases(json, api.model) : fixtureLoadCases(json, api.model);
   api.model.name = json.name;
 
   // ID remapping: fixture IDs may not match the auto-increment IDs from the API
@@ -336,6 +336,21 @@ type CodeCombination = { id: number; name: string; factors: Array<{ caseId: numb
 function codeCombinations(cases: ReadonlyArray<FixtureCase>): CodeCombination[] {
   const specs = generateCombinations({ present: presentSymbols(cases) }).map((c) => withOrigin(c, CIRSOC101_BASIS));
   return expandCombinations(specs, cases).map((c, i) => ({ id: i + 1, name: c.name, factors: c.factors, ...(c.origin ? { origin: c.origin } : {}) }));
+}
+
+/**
+ * The fixture's cases and combinations as releases up to v0.4.0 loaded them: its own, else the
+ * ones in place, unchecked. Only for opening a fixture as such a release did (the legacy corpus).
+ */
+function keptLoadCases<C extends FixtureCombination>(
+  json: Pick<JSONModel, 'loadCases' | 'combinations'>,
+  current: { loadCases: ReadonlyArray<FixtureCase>; combinations: readonly C[] },
+): { loadCases: ReadonlyArray<FixtureCase>; combinations: ReadonlyArray<C | JSONModel['combinations'][number]>; rebuilt: false } {
+  return {
+    loadCases: json.loadCases.length > 0 ? json.loadCases : current.loadCases,
+    combinations: json.combinations.length > 0 ? json.combinations : current.combinations,
+    rebuilt: false,
+  };
 }
 
 /**
