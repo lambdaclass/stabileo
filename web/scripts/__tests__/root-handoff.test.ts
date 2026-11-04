@@ -22,6 +22,7 @@ const FALLBACK = 'en';
 function handoff(
   languages: string[],
   { pathname = '/', search = '', hash = '' }: { pathname?: string; search?: string; hash?: string } = {},
+  prefix = '',
 ): string | null {
   let replaced: string | null = null;
   const context = vm.createContext({
@@ -29,7 +30,7 @@ function handoff(
     location: { pathname, search, hash, replace: (url: string) => (replaced = url) },
     navigator: { languages, language: languages[0] },
   });
-  vm.runInContext(rootHandoffScript(OFFERED, FALLBACK), context);
+  vm.runInContext(rootHandoffScript(OFFERED, FALLBACK, prefix), context);
   return replaced;
 }
 
@@ -97,4 +98,16 @@ describe('the root language handoff', () => {
     vm.runInContext(rootHandoffScript([...OFFERED, 'fr'], FALLBACK), context);
     expect(replaced).toBe('/fr/');
   });
+});
+
+it.each(['es-AR', 'pt-BR'])('keeps %s root handoffs inside the snapshot', language => {
+  const prefix = '/@abcdef0';
+  expect(handoff([language], { pathname: prefix + '/', search: '?a=1', hash: '#top' }, prefix))
+    .toBe(`${prefix}/${language.slice(0, 2)}/?a=1#top`);
+  for (const pathname of ['/', `${prefix}/es/`, `${prefix}/app/basic`]) {
+    expect(handoff([language], { pathname }, prefix)).toBeNull();
+  }
+  for (const search of ['?route=%2Fapp%2Fbasic', '?embed']) {
+    expect(handoff([language], { pathname: prefix + '/', search }, prefix)).toBeNull();
+  }
 });

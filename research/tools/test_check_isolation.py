@@ -10,13 +10,16 @@ spec.loader.exec_module(isolation)
 
 
 class Isolation(unittest.TestCase):
+    def test_repository(self):
+        self.assertEqual(isolation.check(pathlib.Path(__file__).resolve().parents[2]), [])
+
     def test_allowlist(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             (root / "Cargo.toml").write_text("[workspace]\n")
             (root / "web/src").mkdir(parents=True)
             source = root / "web/src/example.ts"
-            for data in ["metamaterials/grossman-2026/results/stabileo_results.json", "papers.json", "fracture/paper/VALIDATION.json", "fracture/paper/reference-results/steps.csv"]:
+            for data in ["metamaterials/grossman-2026/results/stabileo_results.json", "papers.json", "fracture/paper/versions.json", "fracture/paper/VALIDATION.json", "fracture/paper/reference-results/steps.csv"]:
                 source.write_text(f"import data from '../../research/{data}?raw';")
                 self.assertEqual(isolation.check(root), [])
             for code in ["fracture/paper/src/lib.rs", "tools/catalog.py", "metamaterials/grossman-2026/results/solver.ts", "metamaterials/grossman-2026/results/private.json", "papers.yaml", "fracture/paper/reference-results/run.ts"]:
@@ -25,6 +28,10 @@ class Isolation(unittest.TestCase):
             for code in ["fracture/paper/src/lib.rs", "${field}/${paper}/solver.js", "fracture/paper/reference-results/${name}.json"]:
                 source.write_text(f"const module = import(`../../research/{code}`);")
                 self.assertTrue(isolation.check(root), code)
+            source.write_text('/** `../../research/private.js` */\n// "../../research/private.js"\nimport.meta.glob("../../research/*/*/versions.json");')
+            self.assertEqual(isolation.check(root), [])
+            source.write_text('import.meta.glob("../../research/*/*/src/*.ts");')
+            self.assertTrue(isolation.check(root))
             source.unlink()
             (root / "engine").mkdir()
             (root / "engine/lib.rs").write_text('include_str!("../research/papers.json");')

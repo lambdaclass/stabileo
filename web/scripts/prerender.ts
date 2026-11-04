@@ -46,10 +46,8 @@ import { fileURLToPath } from 'node:url';
 import { newPrerenderPage, prerenderConcurrency, routePool } from './prerender-pool';
 import { rootHandoffScript } from './root-handoff';
 import { paperStructuredData } from './paper-structured-data';
+import { POST_DATE, POST_LASTMOD, publicPaths, writtenIn } from './public-paths';
 import { PUBLIC_LOCALES, type Locale } from '../src/lib/i18n/offered';
-import { TOOL_IDS } from '../src/components/tools/calculators';
-import { BATCH_IDS } from '../src/components/tools/batch';
-import toolReviews from '../../research/tools/batches/VALIDATION.json';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 /**
@@ -66,6 +64,13 @@ const DIST = process.env.PRERENDER_OUT
   ? resolve(process.env.PRERENDER_OUT)
   : join(ROOT, 'dist');
 const ORIGIN = 'https://stabileo.com';
+/**
+ * A snapshot build (`BASE_PATH=/@<commit>/`, scripts/snapshot.ts) is served under its prefix: the
+ * capture visits the pages there, and the files land at the same paths inside `dist/`. Empty for the
+ * normal build. A snapshot carries no sitemap, robots.txt, feeds or social cards: those belong to
+ * the latest site, which the snapshot's canonical links name.
+ */
+const PREFIX = (process.env.BASE_PATH ?? '/').replace(/\/$/, '');
 const LOCALES = PUBLIC_LOCALES;
 /**
  * The language a browser we do not speak is sent to, and the one the root
@@ -100,7 +105,8 @@ function serveDist(port: number) {
   return new Promise<{ server: import('node:http').Server; port: number }>((resolve) => {
     const server = createServer(async (req, res) => {
       const url = new URL(req.url ?? '/', 'http://localhost');
-      let file = join(DIST, decodeURIComponent(url.pathname));
+      const path = PREFIX && url.pathname.startsWith(`${PREFIX}/`) ? url.pathname.slice(PREFIX.length) : url.pathname;
+      let file = join(DIST, decodeURIComponent(path));
       if (!extname(file) || !existsSync(file)) file = join(DIST, 'index.html');
       try {
         const body = await readFile(file);
@@ -117,29 +123,8 @@ function serveDist(port: number) {
   });
 }
 
-/**
- * A post's last change, for its sitemap entry: `updated` when the post states one, else its
- * publication date. The build day said every post changed on every deploy, which teaches a
- * crawler to ignore lastmod.
- */
-const POST_LASTMOD = new Map<string, string>();
 /** The blog index's description in each language, for its feed. */
 const BLOG_LEAD = new Map<string, string>();
-
-/** A post's publication day, for its feed entry and its card. */
-const POST_DATE = new Map<string, string>();
-
-/** The languages always written; the others count for a post or standing page only once its translation file exists. */
-const BASE_LOCALES: readonly Locale[] = ['en', 'es', 'pt'];
-
-/** The languages a public path is written in, which are the only ones the sitemap and the feeds publish it under. */
-function writtenIn(path: string): Locale[] {
-  if (path === '/' || path === '/blog' || path === '/tools' || path.startsWith('/tools/')) return [...LOCALES];
-  const id = path.startsWith('/blog/') ? path.slice('/blog/'.length) : `page-${path.slice(1)}`;
-  return LOCALES.filter(
-    (l) => BASE_LOCALES.includes(l) || existsSync(join(ROOT, `src/lib/blog/translations/${l}/${id}.ts`)),
-  );
-}
 
 /** What a captured post says about itself, read back from its own <head>: the feed and the card use it. */
 type PostHead = { path: string; locale: Locale; title: string; description: string };
@@ -221,52 +206,13 @@ async function renderPostCard(browser: Browser, base: string, post: PostHead, ou
   }
 }
 
-/** Every public route, without its language prefix. Posts are read from the bundle. */
-async function publicPaths(): Promise<string[]> {
-  const source = await readFile(join(ROOT, 'src/lib/blog/index.ts'), 'utf8');
-  const imports = [...source.matchAll(/from '\.\/posts\/([\w-]+)'/g)].map((m) => m[1]);
-  const slugs: string[] = [];
-  for (const file of imports) {
-    const post = await readFile(join(ROOT, `src/lib/blog/posts/${file}.ts`), 'utf8');
-    const slug = post.match(/slug:\s*'([^']+)'/)?.[1];
-    if (slug) {
-      slugs.push(slug);
-      const published = post.match(/\bdate:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-      const day = post.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1] ?? published;
-      if (day) POST_LASTMOD.set(`/blog/${slug}`, day);
-      if (published) POST_DATE.set(`/blog/${slug}`, published);
-    }
-  }
-  if (slugs.length === 0) throw new Error('prerender: found no blog posts — the scan is broken');
-  POST_LASTMOD.set('/blog', [...POST_LASTMOD.values()].sort().at(-1)!);
-  const reviewed = (batch: string) => toolReviews.batches.find((b) => b.id === batch)!.reviews.map((r) => r.date).sort().at(-1)!;
-  for (const id of TOOL_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-1'));
-  for (const id of BATCH_IDS) POST_LASTMOD.set(`/tools/${id}`, reviewed('tools-batch-2'));
-  POST_LASTMOD.set('/tools', [reviewed('tools-batch-1'), reviewed('tools-batch-2')].sort().at(-1)!);
-  // Standing pages, read from their own files, with their last edit for the sitemap.
-  const pageIndex = await readFile(join(ROOT, 'src/lib/blog/pages/index.ts'), 'utf8');
-  const pageFiles = [...pageIndex.matchAll(/from '\.\/([\w-]+)'/g)].map((m) => m[1]);
-  const pages: string[] = [];
-  for (const file of pageFiles) {
-    const src = await readFile(join(ROOT, `src/lib/blog/pages/${file}.ts`), 'utf8');
-    const pagePath = src.match(/\bpath:\s*'(\/[\w-]+)'/)?.[1];
-    if (!pagePath) continue;
-    pages.push(pagePath);
-    const day = src.match(/\bupdated:\s*'(\d{4}-\d{2}-\d{2})'/)?.[1];
-    if (day) POST_LASTMOD.set(pagePath, day);
-  }
-  // Stabileo Research: the gallery and each runnable paper (web/src/components/research).
-  const research = ['/research/benchmarks/shell-obstacle-course', '/research', '/research/fracture/shauer-2025', '/research/metamaterials/grossman-2026', '/research/stability/ferrari-sigmund-2025', '/research/optimization/andreassen-2011', '/research/form-finding/pastrana-2026', '/research/mechanics/biggins-2026', '/research/optimisation/fairclough-2026', '/research/benchmarks/macneal-harder-1985', '/research/benchmarks/mattiasson-elastica', '/research/benchmarks/newmark-1959', '/research/benchmarks/cqc-1981', '/research/benchmarks/navier-plate', '/research/benchmarks/plastic-collapse', '/research/benchmarks/lee-frame-1968', '/research/benchmarks/dadeppo-arch-1975', '/research/benchmarks/riks-crisfield'];
-  return ['/', ...pages, '/blog', ...slugs.map((s) => `/blog/${s}`), '/paper', ...research, '/tools', '/tools/simply-supported-beam', '/tools/cantilever-beam', '/tools/column-buckling', '/tools/continuous-beam', '/tools/portal-frame', '/tools/truss-2d', '/tools/influence-line', '/tools/beam-natural-frequency'];
-}
-
 /**
  * The script the bare root carries, to hand a reader on to their language.
  *
  * Built by `scripts/root-handoff.ts`, which is where the reasoning and the
  * tests for it live. The LIST comes from `LOCALES` above, which is the application's own.
  */
-const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE);
+const ROOT_REDIRECT = rootHandoffScript(LOCALES, DEFAULT_LOCALE, PREFIX);
 
 async function newCapturePage(browser: Browser) {
   const page = await newPrerenderPage(() => browser.newPage());
@@ -289,7 +235,7 @@ async function capture(page: Page, base: string, locale: Locale, path: string) {
   // Visited in the same slashed form the site publishes, so the capture
   // happens on the address a reader actually lands on.
   const href = path === '/' ? `/${locale}/` : `/${locale}${path}/`;
-  await page.goto(base + href, { waitUntil: 'networkidle' });
+  await page.goto(base + PREFIX + href, { waitUntil: 'networkidle' });
   // The landing reveals sections on scroll; a capture of the top of the page
   // would ship most of the copy inside elements that are still transparent.
   await page.evaluate(() => {
@@ -332,7 +278,7 @@ function page(head: string, body: string, lang: string, extraScript = '') {
 <html lang="${lang}">
 <head>
 ${head.trim()}
-${extraScript ? `<script>${extraScript}</script>` : ''}
+${extraScript ? (PREFIX ? `<script src="${PREFIX}/snapshot-redirect.js"></script>` : `<script>${extraScript}</script>`) : ''}
 </head>
 <body>
 <div id="prerender">${body}</div>
@@ -365,7 +311,7 @@ async function main() {
   const posts: PostHead[] = [];
 
   try {
-    const routes = LOCALES.flatMap(locale => paths.map(path => ({
+    const routes = LOCALES.flatMap(locale => paths.filter(path => writtenIn(path).includes(locale)).map(path => ({
       locale, path, href: path === '/' ? `/${locale}/` : `/${locale}${path}/`,
     })));
     const captures = await routePool(routes, concurrency,
@@ -403,8 +349,20 @@ async function main() {
       () => newCapturePage(browser), p => p.close(),
       (p) => capture(p, base, DEFAULT_LOCALE, '/'),
     );
+    if (PREFIX) await writeFile(join(DIST, 'snapshot-redirect.js'), ROOT_REDIRECT);
     await writeFile(join(DIST, 'index.html'), page(head, body, lang, ROOT_REDIRECT));
     written.push('/');
+
+    if (PREFIX) {
+      // The research pages this snapshot holds, for the host's index (/@/): a permanent link to an
+      // experiment names the newest snapshot that has its page.
+      const meta = join(DIST, 'SNAPSHOT.json');
+      const snapshot = JSON.parse(await readFile(meta, 'utf8'));
+      snapshot.research = paths.filter((p) => p.startsWith('/research/'));
+      await writeFile(meta, JSON.stringify(snapshot, null, 2) + '\n');
+      console.log(`✅ prerendered ${written.length} pages under ${PREFIX}/`);
+      return;
+    }
 
     await writeFile(
       join(DIST, 'sitemap.xml'),

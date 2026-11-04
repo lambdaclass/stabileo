@@ -23,6 +23,7 @@ assert triggers['push']['branches'] == ['main']
 assert set(triggers['push']['paths']) == {
     'research/**', '.github/workflows/research.yml', 'engine/**', 'web/**',
     'Cargo.lock', 'Cargo.toml', 'flake.*', 'rust-toolchain*', 'Makefile',
+    'infra/caddy/**', 'infra/ansible/**', '.github/workflows/research-snapshot.yml',
 }
 assert '.github/workflows/research.yml' in filters['ci_scripts']
 assert 'actionlint .github/workflows/ci.yml .github/workflows/research.yml' in (root / 'Makefile').read_text()
@@ -157,7 +158,8 @@ assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
 triggers = research.get('on', research.get(True))
 assert set(triggers['pull_request']['paths']) == {
-    'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
+    'research/**', 'web/src/components/research/**', '.github/workflows/research.yml',
+    'infra/caddy/**', 'infra/ansible/**', '.github/workflows/research-snapshot.yml'}
 for name, job in research['jobs'].items():
     if name != 'catalog-online':
         assert "github.workflow != 'Research' || github.event_name != 'pull_request'" in job['if'], name
@@ -167,11 +169,40 @@ for result, expected in [('success', 0), ('skipped', 0), ('failure', 1), ('cance
     assert run.returncode == expected, (result, run.stdout)
 print('ok required research CI propagates failures and accepts skipped jobs')
 
+import fnmatch
+
+paths = ['infra/caddy/Caddyfile', 'infra/ansible/deploy-snapshot.yml',
+         'infra/ansible/scripts/snapshot_store.py', '.github/workflows/research-snapshot.yml',
+         'research/tools/snapshot_trigger.py', 'web/scripts/snapshot.ts']
+for path in paths:
+    for gate in ['web', 'research']:
+        assert any(fnmatch.fnmatch(path, pattern) for pattern in filters[gate] if isinstance(pattern, str)), (path, gate)
+    assert any(fnmatch.fnmatch(path, pattern) for pattern in triggers['push']['paths']), path
+snapshot = yaml.safe_load((root / '.github/workflows/research-snapshot.yml').read_text())
+group = snapshot['jobs']['snapshot']['concurrency']['group']
+assert 'github.run_id' in group and 'github.run_attempt' in group and group.startswith('snapshot-')
+assert snapshot['jobs']['snapshot']['concurrency']['cancel-in-progress'] is False
+playbook = yaml.safe_load((root / 'infra/ansible/deploy-snapshot.yml').read_text())
+install = playbook[0]['tasks'][2]['block'][-1]['script']
+assert install['executable'].startswith('flock ') and '.publish.lock' in install['executable']
+print('snapshot infrastructure paths trigger tests; workflow runs cannot replace pending snapshots')
 koiter = research["jobs"]["koiter"]
 assert koiter["runs-on"].endswith("|| 'ubuntu-24.04' }}") and koiter["if"] == "${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}"
 assert any("cargo test --release --locked" in step.get("run", "") for step in koiter["steps"])
 
-assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml'}
+installs = 0
+for config in [research, snapshot]:
+    for job in config['jobs'].values():
+        for step in job.get('steps', []):
+            for line in step.get('run', '').splitlines():
+                if re.search(r'pip3?"?\s+install', line):
+                    installs += 1
+                    assert '--require-hashes -r research/tools/requirements.txt' in line, line
+assert any(re.search(r'replay-venv/bin/pip"?\s+install', step.get('run', '')) for step in research['jobs']['replay']['steps'])
+assert installs >= 3, installs
+print('research workflow Python dependencies retain hash verification')
+
+assert set(triggers['pull_request']['paths']) == {'research/**', 'web/src/components/research/**', '.github/workflows/research.yml', 'infra/caddy/**', 'infra/ansible/**', '.github/workflows/research-snapshot.yml'}
 for caller, event, route_only, expected in [
     ('Research', 'pull_request', False, {'catalog-online'}),
     ('CI', 'pull_request', False, set(research['jobs']) - {'catalog-online'}),

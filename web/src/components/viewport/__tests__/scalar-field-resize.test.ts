@@ -13,4 +13,5 @@ it('refreshes the displayed zoom after resize and fit change the projection', ()
 it('displays the new pixel scale after the viewport height doubles', () => {
   expect(scalarFieldScale(400, 10, 90)).toBe('20.0 px/unit');
   expect(scalarFieldScale(800, 10, 90)).toBe('40.0 px/unit');
+  expect(scalarFieldScale(400, 10, 90, 'm')).toBe('20.0 px/m');
 });

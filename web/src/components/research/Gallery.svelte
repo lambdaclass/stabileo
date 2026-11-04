@@ -15,12 +15,18 @@
   import { researchLocale } from './i18n';
   const navier = $derived(navierStrings(researchLocale()));
   import { strings as leeStrings } from './lee1968/i18n';
-  import { strings as dadeppoStrings } from './dadeppo1975/i18n';
+  import { archStrings as archStringsFor } from './dadeppo1975/i18n';
   import catalog from '../../../../research/papers.json';
   import PublicLink from '../landing/PublicLink.svelte';
+  import ResearchLink from './ResearchLink.svelte';
   import { isHttpUrl } from './urls';
+  import { cardTitle } from './card-title';
+  import { englishOnlyCard } from './english-only-cards';
+  import { articleStrings as riksStrings } from './riksCrisfield/article';
+  import { summaryIn } from './summaries';
   import FieldIcon from './FieldIcon.svelte';
   import { EXPERIMENTS, COMING_NEXT, SHOW_COMING_NEXT } from './experiments';
+  import LatestPermalink from './shell/LatestPermalink.svelte';
   import { rs, fieldName, statusName } from './i18n';
   import { strings as mattiassonStrings } from './mattiasson1981/i18n';
   import { strings as macnealStrings } from './macneal1985/i18n';
@@ -47,20 +53,25 @@
   const arches = $derived(archStrings());
   const f = $derived(fs());
   function experimentText(e: Experiment) {
+    const translated = englishOnlyCard(e.paperId, publicI18n.locale);
+    if (translated) return translated;
     if (e.paperId === 'mattiasson-elastica' || e.paperId === 'macneal-harder-1985') {
       const dictionary = e.paperId === 'mattiasson-elastica' ? mattiassonStrings : macnealStrings;
       return dictionary[publicI18n.locale as keyof typeof dictionary] ?? dictionary.en;
     }
     if (e.paperId === 'shell-obstacle-course') return { title: shellStrings(publicI18n.locale).shellObstacleCourseBelytschkoEtAl, hook: e.hook };
-    if (e.paperId === 'riks-1979') return { title: e.name, hook: e.hook };
+    if (e.paperId === 'riks-1979') {
+      const riks = riksStrings(publicI18n.locale);
+      return { title: riks.arcLengthSnapThroughRiksAndCrisfield, hook: publicI18n.locale === 'en' ? e.hook : riks.lead };
+    }
     if (e.paperId === 'ferrari-2025') return { title: s.ferrariTitle, hook: s.ferrariLead };
     return e.paperId === 'grossman-2026' ? { title: s.springsTitle, hook: s.springsHook } : { title: s.shauerTitle, hook: s.shauerHook };
   }
   const nm = $derived(newmarkStrings());
   const cqc = $derived(cqcStrings());
   const plastic = $derived(ps());
-  const lee = $derived(leeStrings[researchLocale() as keyof typeof leeStrings] ?? leeStrings.en);
-  const arch = $derived(dadeppoStrings[researchLocale() as keyof typeof dadeppoStrings] ?? dadeppoStrings.en);
+  const lee = $derived(leeStrings[publicI18n.locale as keyof typeof leeStrings] ?? leeStrings.en);
+  const arch = $derived(archStringsFor(publicI18n.locale));
 </script>
 
 <section class="sec sec--ink rs-g">
@@ -77,24 +88,25 @@
     <ul class="rs-g-run">
       {#each run as { e, p } (e.paperId)}
         <li class="rs-g-runcard">
-          <PublicLink to={e.path} class="rs-g-thumb" aria-label={e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}>
+          <ResearchLink to={e.path} class="rs-g-thumb" aria-label={cardTitle(e)}>
             {#if e.thumbnail && !thumbFailed[e.paperId]}
-              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt={e.thumbnailAlt} onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
+              <img src="{base}{e.thumbnail}" width="640" height="400" loading="lazy" decoding="async" alt="" onerror={() => (thumbFailed = { ...thumbFailed, [e.paperId]: true })} />
             {:else}
               <span class="rs-g-thumb-icon"><FieldIcon field={p.area} size={96} /></span>
             {/if}
-          </PublicLink>
+          </ResearchLink>
           <div class="rs-g-runbody">
             <div class="rs-g-meta"><span>{fieldName(p.area)}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
-            <h3><PublicLink to={e.path}>{e.paperId === "dadeppo-arch-1975" ? arch.title : e.paperId === "lee-frame-1968" ? lee.title : e.paperId === "navier-plate" ? navier.title : e.paperId === "horne-1979" ? plastic.title : e.paperId === "cqc-1981" ? cqc.title : e.paperId === "newmark-1959" ? nm.title : e.paperId === "fairclough-2026" ? f.title : e.paperId === 'zmyslony-2026' ? arches.title : e.paperId === "andreassen-2011" ? topopt.title : e.paperId === "pastrana-2026" ? s.formTitle : e.paperId === "grossman-2026" ? s.springsTitle : experimentText(e).title}</PublicLink></h3>
+            <h3><ResearchLink to={e.path}>{cardTitle(e)}</ResearchLink></h3>
             <p class="rs-g-hook">{e.paperId === "dadeppo-arch-1975" ? arch.hook : e.paperId === "lee-frame-1968" ? lee.lead : e.paperId === "navier-plate" ? navier.lead : e.paperId === "horne-1979" ? plastic.lead : e.paperId === "cqc-1981" ? cqc.lead : e.paperId === "newmark-1959" ? nm.lead : e.paperId === "fairclough-2026" ? f.lead : e.paperId === 'zmyslony-2026' ? arches.lead : e.paperId === "andreassen-2011" ? topopt.hook : e.paperId === "pastrana-2026" ? s.formLead : e.paperId === "grossman-2026" ? s.springsHook : experimentText(e).hook}</p>
-            <p class="rs-g-by">{p.crossref.title}. {citation(p)}.</p>
+            <p class="rs-g-by" lang="en">{p.crossref.title}. {citation(p)}.</p>
             <div class="rs-g-actions">
-              <PublicLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</PublicLink>
+              <ResearchLink to={e.path} class="btn btn-primary btn-sm">{s.readRun}</ResearchLink>
               <a class="btn btn-ghost btn-sm" href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{s.paper} ↗</a>
               {#if isHttpUrl(e.code)}<a class="btn btn-ghost btn-sm" href={e.code} rel="noreferrer" target="_blank">{s.code} ↗</a>{/if}
-              {#if e.editor}<PublicLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</PublicLink>{/if}
+              {#if e.editor}<ResearchLink to="{e.path}#edit" class="btn btn-ghost btn-sm">{s.editInStabileo}</ResearchLink>{/if}
             </div>
+            <LatestPermalink path={e.path} />
           </div>
         </li>
       {/each}
@@ -130,10 +142,10 @@
           <FieldIcon field={p.area} size={28} />
           <div>
             <div class="rs-g-meta"><span>{fieldName(p.area)} · {p.crossref.year}</span><span class="rs-g-status rs-g-{p.status}">{statusName(p.status)}</span></div>
-            <h3>{p.crossref.title}</h3>
-            <p class="rs-g-by">{citation(p)} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
+            <h3 lang="en">{p.crossref.title}</h3>
+            <p class="rs-g-by" lang="en">{citation(p)} · <a href="https://doi.org/{p.doi}" rel="noreferrer" target="_blank">{"doi:"}{p.doi}</a></p>
             {#if p.summary && p.summary_source}
-              <p class="rs-g-sum">{p.summary}</p>
+              <p class="rs-g-sum">{summaryIn(p, publicI18n.locale)}</p>
               <p class="rs-g-by">{s.summaryIntro} {s.sourceLabel[p.summary_source as keyof typeof s.sourceLabel] ?? ''}.</p>
             {/if}
             {#if p.id === 'ferrari-2025'}

@@ -766,6 +766,11 @@ function buildShareMeta(includeViewport: boolean): ShareMeta {
  * Generate a share URL with the current model compressed in the hash fragment.
  * Returns { url, length } or null if model is empty.
  */
+/** The page's own address; `globalThis` keeps a snapshot build's `/@<sha>/` prefix, which bare `location` loses there. */
+export function pageAddress(): string {
+  return globalThis.location.origin + globalThis.location.pathname;
+}
+
 export function generateShareURL(): { url: string; length: number } | null {
   const snapshot = modelStore.snapshot();
   if (snapshot.nodes.length === 0) return null;
@@ -775,11 +780,11 @@ export function generateShareURL(): { url: string; length: number } | null {
   // A model the compact format would change (every PRO addition: behaviours, sections' own
   // properties, supports that lift, the analysis rules, the grid…) is shared as its code, which
   // carries all of it. The feedback widget attaches this link to every report, PRO ones included.
-  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, `${location.origin}${location.pathname}`);
+  if (mode === 'pro' || compactLoses(snapshot)) return codeShareUrl(snapshot, pageAddress());
   const meta = buildShareMeta(true);
 
   const compressed = compressV2(snapshot, meta);
-  const url = `${location.origin}${location.pathname}#data=${compressed}`;
+  const url = `${pageAddress()}#data=${compressed}`;
   // The whole link, as PRO's is measured: the ceiling is about what a reader pastes.
   return { url, length: url.length };
 }
@@ -842,7 +847,7 @@ export function generateEmbedURL(): { url: string; length: number } | null {
   const meta = buildShareMeta(false);
 
   const compressed = compressV2(snapshot, meta);
-  const url = `${location.origin}${location.pathname}#embed=${compressed}`;
+  const url = `${pageAddress()}#embed=${compressed}`;
   return { url, length: compressed.length };
 }
 

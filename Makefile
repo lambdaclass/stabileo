@@ -1,10 +1,10 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
-       web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
-       test.ci-scripts test.nightly-scripts \
+       web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky e2e.web.snapshot \
+       test.ci-scripts test.nightly-scripts test.infra.caddy.redirects check.web.translations \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
-       wasm web.setup web.run web.build admin.run admin.build \
+       wasm web.setup web.run web.build web.build.snapshot admin.run admin.build \
        ai-backend.run ai-backend.build \
        db.setup db.reset db.migrate db.rollback db.gen.migration db.psql \
        migrations.check migrations.check.file migrations.check.all \
@@ -175,7 +175,7 @@ routes:
 
 test: test.engine test.backend test.web
 
-.PHONY: audit.810 audit.810.run test.engine.targeted
+.PHONY: audit.810 audit.810.run test.engine.targeted research.newmark.replay
 
 audit.810:
 	$(NIX_RUN) python3 docs/audits/810-reproduce.py $(MODES)
@@ -185,6 +185,11 @@ audit.810.run:
 
 test.engine.targeted:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test $(TEST) $(FILTER) -- --nocapture
+
+NEWMARK_DIR = $(CURDIR)/research/benchmarks/newmark-1959
+research.newmark.replay:
+	NEWMARK_REPLAY_OUT=$(NEWMARK_DIR)/results/stabileo_results.json NEWMARK_VALIDATION_OUT=$(NEWMARK_DIR)/VALIDATION.json \
+		$(MAKE) test.engine.targeted TEST=integration FILTER=newmark_1959
 
 test.engine.benchmark-protocol:
 	$(NIX_RUN) cargo test -p dedaliano-engine --test validation $(or $(FILTER),benchmark_protocol) -- --nocapture --test-threads=2
@@ -265,10 +270,15 @@ test.web.unit:
 
 # The build prerenders the public pages in Chromium, so it needs the browser.
 test.web.build:
-	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
+	$(NIX_RUN) bash -c "cd web && $(PLAYWRIGHT_INSTALL) chromium && npm run build && npx tsx scripts/translation-gate.ts dist && NO_WALL_CLOCK=$(NO_WALL_CLOCK) npx vitest run --project build"
 
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
+
+# Every non-English page of a built site (DIST, default web/dist) must be translated, and the
+# sitemap, the hreflang sets and the built files must agree (web/scripts/translation-gate.ts).
+check.web.translations:
+	$(NIX_RUN) bash -c "cd web && npx tsx scripts/translation-gate.ts $(abspath $(or $(DIST),web/dist))"
 
 # The results snapshot gate (#716, docs/verification/PROVENANCE.md): the reference corpus solved
 # through the app's path and compared with web/results-snapshots/. Needs make wasm and web.deps.
@@ -312,6 +322,11 @@ e2e.web.timing:
 # --pass-with-no-tests: an empty quarantine is the goal, not an error.
 e2e.web.flaky:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep @flaky --retries=2 --pass-with-no-tests'
+
+# The snapshot build (make web.build.snapshot) under vite preview at its prefix: the research page
+# and the application load everything from under /@<commit>/ and stay there.
+e2e.web.snapshot:
+	$(NIX_RUN) bash -c 'cd web && npx playwright test -c snapshot-e2e/playwright.config.ts'
 
 e2e.web.visual:
 	$(NIX_RUN) bash -c 'cd web && npx playwright test --grep "visual baselines" $(if $(UPDATE_SNAPSHOTS),--update-snapshots)'
@@ -383,6 +398,9 @@ test.ci-scripts: test.nightly-scripts
 	$(NIX_RUN) bash -c 'shellcheck -S warning .github/scripts/*.sh'
 	$(NIX_RUN) actionlint .github/workflows/ci.yml .github/workflows/research.yml .github/workflows/merge-queue-supersede.yml .github/workflows/post-merge.yml .github/workflows/infra-retry.yml
 
+test.infra.caddy.redirects:
+	nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command bash infra/caddy/test-language-redirects.sh
+
 lint.backend:
 	$(NIX_RUN) bash -c "cd backend && mix format --check-formatted"
 	$(NIX_RUN) bash -c "cd backend && mix credo"
@@ -426,6 +444,11 @@ paper.pdf: web.deps
 # Builds from the installed dependencies (make web.deps), so CI never resolves away from the lockfile.
 web.build: wasm research.wasm
 	$(NIX_RUN) bash -c "cd web && npm run build"
+
+## The site kept under its commit, /@<first 7 of the commit>/ (docs/DEPLOY.md "Snapshots"), in
+## web/dist-snapshot/. Same inputs as web.build; the normal build is not touched.
+web.build.snapshot: wasm research.wasm
+	$(NIX_RUN) web/scripts/build-snapshot.sh
 
 admin.run:
 	$(NIX_RUN) bash -c "cd web && VITE_APP_TYPE=admin VITE_API_URL=http://localhost:$(BACKEND_PORT) npx vite --port $(ADMIN_PORT)"
@@ -622,3 +645,17 @@ check:
 clean:
 	$(NIX_RUN) cargo clean
 	rm -rf web/dist web/node_modules/.vite backend/_build backend/deps .mix .hex
+
+.PHONY: test.research.biggins evidence.research.biggins wasm.research.biggins
+test.research.biggins:
+	$(NIX_RUN) cargo test --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate
+	$(NIX_RUN) cargo test --locked -p dedaliano-engine --test validation research_benchmarks::arches::
+
+evidence.research.biggins:
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin replay > research/mechanics/biggins-2026/reference-results/replay.json
+	$(NIX_RUN) cargo run --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml --bin validate -- --write
+	$(NIX_RUN) python3 -c 'import hashlib,json,pathlib; p=pathlib.Path("research/mechanics/biggins-2026/reference-results/MANIFEST.json"); d=json.loads(p.read_text()); d["files_sha256"]={n: hashlib.sha256(p.with_name(n).read_bytes()).hexdigest() for n in d["files_sha256"]}; p.write_text(json.dumps(d,indent=2)+"\n")'
+
+wasm.research.biggins:
+	$(NIX_RUN) research/mechanics/biggins-2026/build.sh

@@ -8,12 +8,13 @@
   import { editorHash, validateLayout, viewerData, type Layout } from './model';
   import result from '../../../../../research/optimisation/fairclough-2026/results/stabileo_results.json';
   import reference from '../../../../../research/optimisation/fairclough-2026/reference-results/five-node.json';
+  import published from '../../../../../research/optimisation/fairclough-2026/reference-results/published_comparison.json';
   import validation from '../../../../../research/optimisation/fairclough-2026/VALIDATION.json';
 
   const text = $derived(fs());
   const common = $derived(rs());
   const playback = new Playback();
-  const publishedChecks = validation.checks.filter(c => c.name === 'Table 1 printed volume absolute error');
+  const publishedChecks = published.checks;
   let layout = $state<Layout>(result.layout);
   let plan = $state(false);
   let author = $state(false);
@@ -22,6 +23,7 @@
   let hasLive = false;
   let failed = $state(false);
   let editor = $state('');
+  let exportFailed = $state(false);
   let worker: Worker | undefined;
   let host: HTMLDivElement;
   const referenceCurves = reference.curves.map(c => c[0].map((_,i) => [c[0][i],c[1][i],c[2][i],Math.PI*c[3][i]**2]));
@@ -51,13 +53,13 @@
   $effect(() => {
     const label = `${common.notDesign} · ${text.title}`;
     let cancelled = false;
-    editorHash(result.engine_input,label).then(hash => { if (!cancelled) editor = `${import.meta.env.BASE_URL}app/basic${location.search.includes('e2e=1') ? '?e2e=1' : ''}${hash}`; }).catch(() => { failed = true; });
+    editorHash(result.engine_input,label).then(hash => { if (!cancelled) editor = `${import.meta.env.BASE_URL}app/basic${location.search.includes('e2e=1') ? '?e2e=1' : ''}${hash}`; }).catch(() => { exportFailed = true; });
     return () => { cancelled = true; };
   });
 </script>
 
 <div class="fairclough">
-<ExperimentShell paperId="fairclough-2026" name={text.title} lead={text.lead}
+<ExperimentShell paperId="fairclough-2026" name={text.title} lead={text.lead} introInArticle compactHeader
   sourcePath="research/optimisation/fairclough-2026"
   checks={{passed:validation.checks.filter(c=>c.passed).length,total:validation.checks.length}}
   verification={{reference:{kind:'checks',passed:validation.checks.filter(c=>c.passed).length,total:validation.checks.length},published:{kind:'checks',passed:publishedChecks.filter(c=>c.passed).length,total:publishedChecks.length}}}
@@ -65,18 +67,22 @@
   {#snippet article()}
     <h2>{text.model}</h2><p>{text.method}</p>
     <h2>{text.comparison}</h2>
-    <dl><dt>{text.published}</dt><dd>{format(13.8394)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(layout.volume)}</dd></dl>
+    <dl><dt>{text.published}</dt><dd>{format(published.checks[0].reference)}</dd><dt>{text.reference}</dt><dd>{format(reference.volume)}</dd><dt>{text.rust}</dt><dd data-testid="volume">{format(layout.volume)}</dd></dl>
     <p>{text.source}</p><p><a href="https://doi.org/10.15131/shef.data.29046755.v1">{text.reference}</a></p>
     <h2 id="checks">{text.scope}</h2><p>{text.agreement}</p>
     <h2>{text.engine}</h2><p>{text.engineText}</p>
-    <p>{text.balance}: {format(result.engine.relative_balance_error)}</p>
+    <p>{text.balance}: {new Intl.NumberFormat(researchLocale(), {maximumSignificantDigits:3}).format(result.engine.relative_balance_error)}</p>
     <h2>{text.limitations}</h2><p>{text.missing}</p>
-    <h2>{text.authors}</h2><p>{text.questions}</p>
   {/snippet}
   {#snippet app()}
     <div bind:this={host} class="experiment">
-      <p class="notice">{common.notDesign}.</p>
-      <p aria-live="polite" data-testid="source">{author ? text.reference : text[source]}</p>
+      <div class="status">
+        <p class="notice">{common.notDesign}.</p>
+        <p aria-live="polite" data-testid="source">{author ? text.reference : text[source]}</p>
+      </div>
+      <StabileoViewer {...view} cellSize={2} title={text.area} unit="F/σ" height="clamp(10rem, 45dvh, 23rem)" lineWidth={5}
+        showMesh={false} oninteract={stop} editorButton={false} ariaLabel={`${author ? text.author : text.own} · ${text.alt}`}/>
+      <p>{text.volume}: <strong data-testid="selected-volume">{format(author ? reference.volume : layout.volume)}</strong> · {text.height}: <span data-testid="selected-height">{format(author ? reference.elevations[4] : layout.nodes[4][2])}</span></p>
       <div class="controls">
         <button onclick={run} disabled={busy}>{text.run}</button>
         <button onclick={stop}>{text.stop}</button>
@@ -85,12 +91,11 @@
       <div class="controls">
         <button aria-pressed={!plan} onclick={()=>{stop();plan=false;}}>{text.section}</button>
         <button aria-pressed={plan} onclick={()=>{stop();plan=true;}}>{text.plan}</button>
-        <button aria-pressed={author} onclick={()=>{stop();author=!author;}}>{author?text.author:text.own}</button>
+        <button aria-pressed={!author} onclick={()=>{stop();author=false;}}>{text.own}</button>
+        <button aria-pressed={author} onclick={()=>{stop();author=true;}}>{text.author}</button>
       </div>
-      <StabileoViewer {...view} cellSize={2} title={text.area} unit="F/σ" height="23rem" lineWidth={5}
-        showMesh={false} oninteract={stop} editorButton={false} ariaLabel={text.alt}/>
-      <p>{text.volume}: <strong>{format(layout.volume)}</strong> · {text.height}: {format(layout.nodes[4][2])}</p>
-      <a id="edit" class="editor" href={editor || undefined} onclick={stop}>{text.open}</a>
+      {#if editor}<a id="edit" class="editor" href={editor} onclick={stop}>{text.open} · {text.own}</a>{/if}
+      {#if exportFailed}<p role="alert">{text.exportFailed}</p>{/if}
       {#if failed}<p role="alert">{text.failed}</p>{/if}
     </div>
   {/snippet}
@@ -106,15 +111,25 @@
   .experiment :global(button) {min-height:44px;min-width:44px;font-size:max(12px,0.875rem);}
   .experiment :global(small), .experiment :global(.cam-group-title), .experiment :global(.vc-status) {font-size:12px;}
   .experiment :global(.sfv-mark), .experiment :global(.shell-legend), .experiment :global(.legend-unit-inline), .experiment :global(.status-value) {font-size:12px;}
-  .notice {font-weight:700;}
+  .notice {font-weight:700;margin:0.25rem 0;}
   dl {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0.5rem;font-size:0.9rem;}
   dd {margin:0;}
   .fairclough :global(.rs-shell-app) {height:auto;overflow:visible;}
   .fairclough :global(.rs-shell-grid) {min-width:0;}
   @media(max-width:900px) {
+    .fairclough :global(.rs-shell) {padding-top:4rem;}
+    .fairclough :global(.rs-shell-head) {margin-bottom:0.5rem;}
+    .fairclough :global(.rs-crumb) {margin:0;}
     .fairclough :global(.rs-shell-app) {grid-row:1;position:static;}
     .fairclough :global(.rs-shell-grid) {display:grid;grid-template-columns:minmax(0,1fr);}
     .fairclough :global(.rs-shell-head .rs-cite) {display:none;}
-    .fairclough :global(.rs-shell-head h1) {font-size:1.7rem;}
+    .fairclough :global(.rs-shell-head h1) {font-size:1.25rem;}
+  }
+  @media(max-width:900px) and (max-height:500px) {
+    .fairclough :global(.rs-shell) {padding-top:0.5rem;}
+    .fairclough :global(.rs-shell-head) {display:flex;flex-wrap:wrap;align-items:baseline;column-gap:1rem;margin-bottom:0.25rem;}
+    .fairclough :global(.rs-shell-head h1) {margin:0;flex:1 1 20rem;min-width:0;max-width:none;}
+    .status {display:flex;flex-wrap:wrap;align-items:baseline;column-gap:1rem;}
+    .status p {margin:0.25rem 0;}
   }
 </style>

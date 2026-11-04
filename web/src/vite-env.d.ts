@@ -10,6 +10,12 @@ declare module 'virtual:public-i18n' {
   export const tr: Record<string, string>;
 }
 
+/** SHA-256 of the WASM binaries this build ships, for research citations (scripts/research-build.ts). */
+declare module 'virtual:research-build' {
+  export const engineWasmSha256: string | null;
+  export const researchWasmSha256: Record<string, string>;
+}
+
 declare module 'virtual:result-change-metadata' {
   const registry: { currentResultsVersion: number };
   export default registry;

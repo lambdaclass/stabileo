@@ -9,12 +9,18 @@ on:
   pull_request:
     paths:
       - 'research/**'
+      - 'infra/caddy/**'
+      - 'infra/ansible/**'
+      - '.github/workflows/research-snapshot.yml'
       - 'web/src/components/research/**'
       - '.github/workflows/research.yml'
   push:
     branches: [main]
     paths:
       - 'research/**'
+      - 'infra/caddy/**'
+      - 'infra/ansible/**'
+      - '.github/workflows/research-snapshot.yml'
       - '.github/workflows/research.yml'
       - 'engine/**'
       - 'web/**'
@@ -148,6 +154,8 @@ jobs:
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_pastrana_catalog.py
       - run: |
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_fairclough_catalog.py
+      - run: |
+          "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_dadeppo_catalog.py
       - name: Checker rejects bad entries
         run: |
           "$RUNNER_TEMP/catalog-venv/bin/python" -I research/tools/test_catalog.py
@@ -212,6 +220,47 @@ jobs:
           print(len(m["files_sha256"]), "reference files match MANIFEST.json")
           PY
 
+  # Every paper's validation against its reference outputs, replayed whenever research/, the engine
+  # or the viewer changes (research/DESIGN.md §3). A failure names the paper and the quantity that
+  # moved, with the value now, the tolerance and the committed value (research/tools/replay.py).
+  replay:
+    if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
+    name: Research replay (every paper's reference checks)
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || (github.ref == 'refs/heads/main' && github.event_name != 'schedule')) && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          clean: true
+          persist-credentials: false
+      - if: runner.environment == 'github-hosted'
+        uses: DeterminateSystems/nix-installer-action@c5a866b6ab867e88becbed4467b93592bce69f8a
+        continue-on-error: true
+      - if: runner.environment == 'github-hosted' && github.event_name != 'pull_request'
+        uses: DeterminateSystems/magic-nix-cache-action@565684385bcd71bad329742eefe8d12f2e765b39
+        continue-on-error: true
+        with:
+          use-flakehub: false
+      - name: Prepare Nix shell (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+      - name: Replay evidence regression tests
+        run: nix develop -c python3 -I research/tools/test_replay.py
+      - name: Replay
+        run: nix develop -c python3 -I research/tools/replay.py
+      - name: Install the pinned checker dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/replay-venv"
+          "$RUNNER_TEMP/replay-venv/bin/pip" install --require-hashes -r research/tools/requirements.txt
+      - name: Snapshot store and release triggers
+        run: |
+          "$RUNNER_TEMP/replay-venv/bin/python" -I research/tools/test_snapshot_trigger.py
+          "$RUNNER_TEMP/replay-venv/bin/python" -I research/tools/test_snapshot_validated.py
+          "$RUNNER_TEMP/replay-venv/bin/python" -I infra/ansible/scripts/test_snapshot_store.py
+          "$RUNNER_TEMP/replay-venv/bin/python" -I infra/ansible/scripts/test_snapshot_dns.py
+      - name: Snapshot pruning never offers a released or still-linked snapshot
+        run: |
+          "$RUNNER_TEMP/replay-venv/bin/python" -I research/tools/test_snapshots.py
   topopt:
     if: ${{ !inputs.route_only && (github.workflow != 'Research' || github.event_name != 'pull_request') }}
     name: Topology optimization (Andreassen 2011)
@@ -254,6 +303,8 @@ jobs:
           .github/scripts/retry-infra.sh nix develop --command true
       - run: .github/scripts/retry-infra.sh nix develop -c sh -c 'cd web && npm ci'
       - run: make wasm
+      - name: CQC 1981 shared constants match the independent closed form
+        run: python3 research/benchmarks/cqc-1981/reference.py
       - name: Compute native results from the engine-owned cases
         run: |
           MACNEAL_HARDER_RESULTS="$RUNNER_TEMP/macneal-native.json" nix develop -c cargo test --locked --manifest-path engine/Cargo.toml --test shells macneal_harder::browser_cases

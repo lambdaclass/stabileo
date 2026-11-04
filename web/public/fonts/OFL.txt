@@ -1,4 +1,6 @@
-Fonts bundled with the Stabileo landing page
+Fonts bundled with Stabileo
+
+Noto Sans Math (noto-sans-math-subset.woff2): see OFL-NotoSansMath.txt.
 
 All families below are licensed under the SIL Open Font License, Version 1.1.
 The full licence text follows each copyright notice.
