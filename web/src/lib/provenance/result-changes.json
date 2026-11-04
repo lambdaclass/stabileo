@@ -1,11 +1,11 @@
 {
   "$comment": "Registry of result-affecting changes. Read by web/scripts/result-change-metadata.mjs for build metadata and decoded by web/src/lib/provenance/full-registry.ts; schema and rules in docs/verification/PROVENANCE.md. Add an entry whenever a change makes the same saved model give different numbers, at currentResultsVersion + 1, and bump currentResultsVersion: a version on main is deployed, and an entry added to it later is never shown to the projects it stamped (results-version.test.ts). Feature ids are defined in web/src/lib/provenance/model-features.ts.",
   "schema": 1,
-  "currentResultsVersion": 23,
+  "currentResultsVersion": 20,
   "changes": [
     {
       "id": "hidden-mechanism-2d-refused",
-      "resultsVersion": 23,
+      "resultsVersion": 20,
       "date": "2026-11-04",
       "prs": [
         1298
@@ -40,6 +40,106 @@
       "changelog": {
         "file": "changelog.d/458-hidden-mechanism-2d.md",
         "heading": "2D: a mechanism hidden behind a rigid link or diaphragm is refused, not solved and certified (2026-11-03)"
+      }
+    },
+    {
+      "id": "basic-plastic-unloading-hinges-withdrawn",
+      "resultsVersion": 15,
+      "date": "2026-11-04",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "analysis:plastic"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Plane plastic collapse in Basic is back to its results before version 14",
+        "es": "El colapso plástico plano del Básico vuelve a sus resultados anteriores a la versión 14",
+        "pt": "O colapso plástico plano do Básico volta aos seus resultados anteriores à versão 14"
+      },
+      "explanation": {
+        "en": "The Basic course units of version 14 (#871) were withdrawn because their review fixes had not reached main with them. The step-by-step plastic collapse of plane models again stops at the first mechanism, as in version 13: under distributed loads it can give a lower collapse factor (the portal frame of the version 14 note gives 64.06 again instead of 71.30). Re-run plastic collapse of plane frames solved with version 14.",
+        "es": "Las unidades del curso del Básico de la versión 14 (#871) se retiraron porque sus correcciones de revisión no llegaron a main con ellas. El colapso plástico paso a paso de modelos planos vuelve a detenerse en el primer mecanismo, como en la versión 13: con cargas distribuidas puede dar un factor de colapso menor (el pórtico de la nota de la versión 14 vuelve a dar 64,06 en lugar de 71,30). Vuelva a calcular el colapso plástico de pórticos planos resueltos con la versión 14.",
+        "pt": "As unidades do curso do Básico da versão 14 (#871) foram retiradas porque suas correções de revisão não chegaram a main com elas. O colapso plástico passo a passo de modelos planos volta a parar no primeiro mecanismo, como na versão 13: com cargas distribuídas pode dar um fator de colapso menor (o pórtico da nota da versão 14 volta a dar 64,06 em vez de 71,30). Recalcule o colapso plástico de pórticos planos resolvidos com a versão 14."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-withdrawn.md",
+        "heading": "Plastic collapse"
+      }
+    },
+    {
+      "id": "basic-second-order-split-members-withdrawn",
+      "resultsVersion": 15,
+      "date": "2026-11-04",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "analysis:pdelta",
+            "analysis:buckling"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Basic P-Δ and critical load are back to their results before version 14",
+        "es": "El P-Δ y la carga crítica del Básico vuelven a sus resultados anteriores a la versión 14",
+        "pt": "O P-Δ e a carga crítica do Básico voltam aos seus resultados anteriores à versão 14"
+      },
+      "explanation": {
+        "en": "The Basic course units of version 14 (#871) were withdrawn because their review fixes had not reached main with them. Basic's P-Δ and critical-load analyses no longer split each member into elements at the solve, and B₂ is computed as in version 13. Displacements, forces, B₂ and λcr return to their version 13 values. Re-run second-order and buckling analyses of plane models solved with version 14.",
+        "es": "Las unidades del curso del Básico de la versión 14 (#871) se retiraron porque sus correcciones de revisión no llegaron a main con ellas. El P-Δ y la carga crítica del Básico ya no dividen cada barra en elementos al calcular, y B₂ se calcula como en la versión 13. Desplazamientos, esfuerzos, B₂ y λcr vuelven a sus valores de la versión 13. Vuelva a calcular los análisis de segundo orden y de pandeo de modelos planos resueltos con la versión 14.",
+        "pt": "As unidades do curso do Básico da versão 14 (#871) foram retiradas porque suas correções de revisão não chegaram a main com elas. O P-Δ e a carga crítica do Básico já não dividem cada barra em elementos no cálculo, e B₂ é calculado como na versão 13. Deslocamentos, esforços, B₂ e λcr voltam aos seus valores da versão 13. Recalcule as análises de segunda ordem e de flambagem de modelos planos resolvidos com a versão 14."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-withdrawn.md",
+        "heading": "P-Δ and critical load"
+      }
+    },
+    {
+      "id": "basic-influence-line-moment-sign-withdrawn",
+      "resultsVersion": 15,
+      "date": "2026-11-04",
+      "prs": [
+        871
+      ],
+      "area": "analysis",
+      "when": {
+        "allOf": [
+          [
+            "plane2D"
+          ],
+          [
+            "frameMembers"
+          ]
+        ]
+      },
+      "title": {
+        "en": "Influence lines of the bending moment are back to their sign before version 14",
+        "es": "Las líneas de influencia del momento vuelven a su signo anterior a la versión 14",
+        "pt": "As linhas de influência do momento voltam ao seu sinal anterior à versão 14"
+      },
+      "explanation": {
+        "en": "The Basic course units of version 14 (#871) were withdrawn because their review fixes had not reached main with them. The influence line of M at a section takes M with the sign it had in version 13, the opposite of version 14: ordinates of moment influence lines change sign again; their magnitudes do not.",
+        "es": "Las unidades del curso del Básico de la versión 14 (#871) se retiraron porque sus correcciones de revisión no llegaron a main con ellas. La línea de influencia de M en una sección toma M con el signo que tenía en la versión 13, el opuesto al de la versión 14: las ordenadas de las líneas de influencia de momento vuelven a cambiar de signo; sus valores absolutos no.",
+        "pt": "As unidades do curso do Básico da versão 14 (#871) foram retiradas porque suas correções de revisão não chegaram a main com elas. A linha de influência de M em uma seção toma M com o sinal que tinha na versão 13, o oposto do da versão 14: as ordenadas das linhas de influência de momento mudam de sinal de novo; seus valores absolutos não."
+      },
+      "changelog": {
+        "file": "docs/results-changes/2026-11-basic-course-withdrawn.md",
+        "heading": "Influence line of the bending moment"
       }
     },
     {
