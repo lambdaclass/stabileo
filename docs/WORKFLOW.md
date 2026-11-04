@@ -34,6 +34,14 @@ never silently wrong and verification never silently stops working.
   [#355](https://github.com/lambdaclass/stabileo/issues/355)). A red scheduled verification run
   opens (or updates) one `ci-failure` issue per workflow, closed by the next green run once triaged; each real
   finding behind it is triaged into its own `bug` issue ([verification/NIGHTLY.md](verification/NIGHTLY.md)).
+- **Infrastructure retry.** A pull request run of CI, Research or Supply chain whose every failed
+  job shows infrastructure evidence (a job timeout, a lost runner, exit 137, or a cache, artifact
+  or network error in a download step) has its failed jobs rerun once, automatically
+  (`.github/workflows/infra-retry.yml`); the decision and its evidence are in that run's summary.
+  Anything else, including a test failure next to an infrastructure warning, is never retried.
+  Merge-queue runs are not retried: a red required check has already dequeued the PR, so a rerun
+  reports to a group that no longer exists; re-enqueue instead. Pushes to `main` are handled by
+  `post-merge.yml`.
 - **Never force-push** a shared branch without explicit authorization. Before deleting a branch,
   prove its work exists elsewhere.
 - QA and evidence branches are pushed but get no PR.
