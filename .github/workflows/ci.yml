@@ -64,19 +64,22 @@ env:
 # job that passes here passes on a developer's machine with the same command.
 #
 # Self-hosted runners on stabileo-ci-1 (dotfiles servers/runners-stabileo.sh). With
-# STABILEO_SELF_HOSTED 'true', every job that builds or tests runs on `[self-hosted, stabileo]`
-# for merge_group and pushes to main and, with STABILEO_PR_POOL 'true' too, on
-# `[self-hosted, stabileo-pr]` for pull requests from this repository's own branches; only part of
-# the pool carries `stabileo-pr`, so pull requests never take every runner from the merge queue.
+# STABILEO_SELF_HOSTED 'true', the jobs that build or test run on `[self-hosted, stabileo]` for
+# merge_group and pushes to main. Pull requests from this repository's own branches take the host
+# (`[self-hosted, stabileo-pr]`, with STABILEO_PR_POOL 'true') only for the cache-heavy builds on
+# their critical path: WASM, Research WASM and the e2e site. Every other pull request job runs on
+# GitHub, where thirty start at once, instead of queueing for the few `stabileo-pr` runners.
 # Fork and Dependabot pull requests stay on GitHub: the repo is public, and their code must never
 # reach a persistent runner. Engine Gates, Web Unit and the research engine benchmarks time
 # themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
 # to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
-# On GitHub always: Detect Changes and CI OK (no build work; a full host
-# must not delay them), the E2E shards (ten browsers at once start there in seconds and run in
-# about 11 min against 18 on the shared host; they only download the wasm and site artifacts), Determinism (Nix WebKit does not start on the host) and Docker build
-# smoke (no Docker for runner users). Self-hosted jobs skip the Nix installer, rust-cache,
-# magic-nix-cache and free-disk; each runner keeps its own CARGO_TARGET_DIR.
+# On GitHub always: Detect Changes and CI OK (no build work; a full host must not delay them),
+# the checks that take a minute or less (CI scripts, backend lint, migrations, results snapshot,
+# research catalog and isolation), the E2E shards (ten start at once there and run in about
+# 11 min against 18 on the shared host; they only download the wasm and site artifacts),
+# Determinism (Nix WebKit does not start on the host) and Docker build smoke (no Docker for runner
+# users). Self-hosted jobs skip the Nix installer, rust-cache, magic-nix-cache and free-disk; each
+# runner keeps its own CARGO_TARGET_DIR.
 jobs:
   changes:
     name: Detect Changes
@@ -233,7 +236,7 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -264,7 +267,7 @@ jobs:
 
   test-ci-scripts:
     name: Test CI Scripts
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.ci_scripts == 'true'
@@ -294,7 +297,7 @@ jobs:
 
   lint-engine:
     name: Lint Engine
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -364,7 +367,7 @@ jobs:
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/4)
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -405,7 +408,7 @@ jobs:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -440,7 +443,7 @@ jobs:
 
   test-ai-backend:
     name: Test AI Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.ai_backend == 'true'
@@ -473,7 +476,7 @@ jobs:
 
   lint-backend:
     name: Lint Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
@@ -511,7 +514,7 @@ jobs:
 
   test-backend:
     name: Test Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
@@ -557,7 +560,7 @@ jobs:
 
   check-migrations-immutable:
     name: Check Migrations Immutable
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [changes]
     if: needs.changes.outputs.backend == 'true' && github.event_name == 'pull_request'
@@ -571,7 +574,7 @@ jobs:
 
   check-migrations:
     name: Check Migration Safety
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.backend == 'true' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
@@ -897,7 +900,7 @@ jobs:
 
   web-build:
     name: Web Build
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web_build == 'true'
@@ -1006,7 +1009,7 @@ jobs:
   # result-changes.json and a "BREAKING (results)" changelog fragment).
   results-snapshot:
     name: Results Snapshot
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes, wasm]
     if: needs.changes.outputs.results == 'true'
