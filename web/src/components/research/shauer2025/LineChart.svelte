@@ -68,7 +68,8 @@
   const sx = (x: number) => M.l + ((x - x0) / (x1 - x0 || 1)) * (width - M.l - M.r);
   const sy = (y: number) => M.t + (1 - (ty(y) - y0) / (y1 - y0 || 1)) * (height - M.t - M.b);
   const syRaw = (v: number) => M.t + (1 - (v - y0) / (y1 - y0 || 1)) * (height - M.t - M.b);
-  const clipId = `clip-${Math.random().toString(36).slice(2)}`;
+  const uid = $props.id();
+  const clipId = `clip-${uid}`;
 
   function path(points: [number, number][]) {
     return points
