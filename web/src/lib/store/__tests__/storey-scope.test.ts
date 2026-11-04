@@ -73,6 +73,18 @@ describe('the storey scope', () => {
     expect([...uiStore.selectedElements]).toEqual([beamOn(2)]);
   });
 
+  it('a new pick of a copy and another member keeps both, each taken to its storeys', () => {
+    const { beamOn } = thirteen();
+    storeyScope.scope = 'similar';
+    uiStore.setSelection(new Set(), new Set([beamOn(1)]));
+    storeyScope.expandSelection();
+    uiStore.setSelection(new Set(), new Set([beamOn(2), beamOn(7)]));
+    storeyScope.expandSelection();
+    expect([...uiStore.selectedElements].map(levelOf).sort()).toEqual(['N1', 'N2', 'N3', 'N4', 'N5', 'N6', 'N7', 'N8', 'N9']);
+    storeyScope.scope = 'this';
+    expect([...uiStore.selectedElements].sort((a, b) => a - b)).toEqual([beamOn(2), beamOn(7)]);
+  });
+
   it('an edit of the selection reaches them all, and is undone in one step', () => {
     const { beamOn } = thirteen();
     storeyScope.scope = 'similar';

@@ -43,7 +43,7 @@ export const storeyScope = {
     const sel = current();
     if (sel.elements.size + sel.nodes.size + sel.shells.size === 0) { last = null; produced = null; added = null; return 0; }
     if (produced && selectionKey(sel) === selectionKey(produced)) return 0;
-    const kept = added && produced ? minus(sel, added) : sel;
+    const kept = added && produced && (contains(sel, produced) || contains(produced, sel)) ? minus(sel, added) : sel;
     const own = size(kept) ? kept : sel;
     const x = expandToStoreys(model(), levels(), own, scope);
     last = x;
@@ -97,6 +97,10 @@ const current = (): Selection => ({ nodes: new Set(uiStore.selectedNodes), eleme
 function selectionKey(s: Selection): string {
   const ids = (x: Iterable<string | number>) => [...x].map(String).sort().join(',');
   return `${ids(s.nodes)}|${ids(s.elements)}|${ids(s.shells)}`;
+}
+
+function contains(a: Selection, b: Selection): boolean {
+  return [...b.nodes].every((v) => a.nodes.has(v)) && [...b.elements].every((v) => a.elements.has(v)) && [...b.shells].every((v) => a.shells.has(v));
 }
 
 const size = (s: Selection) => s.nodes.size + s.elements.size + s.shells.size;
