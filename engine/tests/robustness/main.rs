@@ -18,6 +18,8 @@ mod determinism;
 mod differential_regressions;
 #[path = "../entry_point_validation.rs"]
 mod entry_point_validation;
+#[path = "../envelope_nonfinite.rs"]
+mod envelope_nonfinite;
 #[path = "../feature_matrix.rs"]
 mod feature_matrix;
 #[path = "../feature_matrix_regressions.rs"]
