@@ -66,6 +66,8 @@ playwright-report/
 # Throwaway build outputs used by the E2E hook-gating test
 web/.dist-hookgate-off/
 web/.dist-hookgate-on/
+web/.dist-shared/
+web/*.source-stamp
 
 # Official CIRSOC / INPRES-CIRSOC PDFs. The structured Markdown conversion under
 # docs/codes/CIRSOC/markdown/ IS tracked; the ~56 MB of source PDFs are not, so the

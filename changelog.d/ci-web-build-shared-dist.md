@@ -1,0 +1,10 @@
+### Changed
+#### Web Build's production-build tests reuse the build CI just made (2026-11-04)
+
+`make test.web.build` builds the site once and builds a second copy with a Vite manifest. It stamps
+both with a hash of the sources they were built from: the commit, web/ and research/, the engine and
+research WASM, and the build variables. The production-build tests then read those two builds instead
+of making four more. A test refuses a shared build whose stamp differs from the tree it runs in, so a
+stale build fails and is never tested in place of the current one. The VITE_E2E build in the
+hook-gating test is still its own, and run on their own, outside `make test.web.build`, the tests still
+build what they need.
