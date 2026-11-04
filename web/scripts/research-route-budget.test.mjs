@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { checkResearchIsolation, growthTable, overCeilings, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
+import { spawnSync } from 'node:child_process';
+import { checkResearchIsolation, growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth, BLOG_ROUTE_BOUNDARY } from './research-route-budget.mjs';
 
 const baseline = { '/en/': 1000, '/app/basic': 2000 };
 
@@ -15,6 +16,22 @@ test('a change touching research may grow a route by 128 bytes and no more', () 
     checkResearchIsolation(routeGrowth(baseline, { ...baseline, [route]: baseline[route] + 128 }));
     assert.throws(() => checkResearchIsolation(routeGrowth(baseline, { ...baseline, [route]: baseline[route] + 129 })), /128 byte tolerance, research isolation/);
   }
+});
+test('RESEARCH_ISOLATION enforces 128 bytes unless it is exactly false', () => {
+  for (const [mode, growth, status] of [
+    ['false', 90000, 0], ['true', 128, 0], ['true', 129, 1], [undefined, 129, 1], ['', 129, 1],
+  ]) {
+    const env = { ...process.env };
+    delete env.RESEARCH_ISOLATION;
+    if (mode !== undefined) env.RESEARCH_ISOLATION = mode;
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      import { reviewRouteGrowth } from ${JSON.stringify(new URL('./research-route-budget.mjs', import.meta.url).href)};
+      reviewRouteGrowth({ '/en/': 1000 }, { '/en/': ${1000 + growth} });
+    `], { env, encoding: 'utf8' });
+    assert.equal(result.status, status, `${mode} ${growth}: ${result.stderr}`);
+    if (status) assert.match(result.stderr, /research isolation/);
+  }
+  assert.equal(reviewRouteGrowth({ '/en/': 1000 }, { '/en/': 5000 }, 'false')[0].growth, 4000);
 });
 test('missing and non-finite measurements fail', () => {
   assert.throws(() => routeGrowth({ '/en/': 1000 }, {}), /coverage/);

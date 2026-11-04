@@ -8,7 +8,7 @@ import { build } from 'vite';
 import { readFileSync, writeFileSync, appendFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { checkResearchIsolation, growthTable, overCeilings, routeChunkFiles, routeGrowth } from './research-route-budget.mjs';
+import { growthTable, overCeilings, reviewRouteGrowth, routeChunkFiles, routeGrowth } from './research-route-budget.mjs';
 
 const arg = (name) => (process.argv.includes(name) ? process.argv[process.argv.indexOf(name) + 1] : undefined);
 const baselinePath = arg('--baseline');
@@ -83,12 +83,12 @@ try {
     writeFileSync(baselinePath, JSON.stringify({ routes: measured }, null, 2) + '\n');
     console.log(`Updated ${baselinePath}.`);
   } else {
-    const rows = routeGrowth(JSON.parse(readFileSync(baselinePath, 'utf8')).routes, measured);
-    const table = growthTable(rows);
+    const baseline = JSON.parse(readFileSync(baselinePath, 'utf8')).routes;
+    const table = growthTable(routeGrowth(baseline, measured));
     console.log(table);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Route size against main\n\n${table}\n`);
-    for (const r of rows) if (r.growth > 0) console.log(`::notice title=Route size::${r.route} grew by ${r.growth} bytes against main`);
-    if (process.env.RESEARCH_ISOLATION !== 'false') checkResearchIsolation(rows);
+    for (const r of routeGrowth(baseline, measured)) if (r.growth > 0) console.log(`::notice title=Route size::${r.route} grew by ${r.growth} bytes against main`);
+    reviewRouteGrowth(baseline, measured);
   }
 } finally {
   rmSync(outDir, { recursive: true, force: true });

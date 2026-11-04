@@ -15,6 +15,12 @@ export function checkResearchIsolation(rows) {
   }
 }
 
+export function reviewRouteGrowth(baseline, measured, isolation = process.env.RESEARCH_ISOLATION) {
+  const rows = routeGrowth(baseline, measured);
+  if (isolation !== 'false') checkResearchIsolation(rows);
+  return rows;
+}
+
 export function overCeilings(measured, ceilings) {
   return Object.entries(measured).map(([route, bytes]) => {
     const ceiling = ceilings[route];
