@@ -262,13 +262,20 @@ fn assert_diagnostics_contract(diags: &[StructuredDiagnostic], eq: Option<&Equil
             "[{}] solver-path severity should be Info", label);
     }
 
-    // 2. Exactly one residual diagnostic
+    // 2. One solve residual plus distinct runtime residual and balance phases
     let res_codes: Vec<_> = diags.iter()
-        .filter(|d| matches!(d.code, DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh))
+        .filter(|d| matches!(d.code, DiagnosticCode::ResidualOk | DiagnosticCode::ResidualHigh)
+            && !d.phase.as_deref().unwrap_or("").starts_with("self_check:"))
         .collect();
     assert_eq!(res_codes.len(), 1,
         "[{}] expected exactly 1 residual diagnostic, got {}", label, res_codes.len());
 
+    for phase in ["self_check:static_residual", "self_check:static_balance"] {
+        let checks: Vec<_> = diags.iter().filter(|d| d.phase.as_deref() == Some(phase)).collect();
+        assert_eq!(checks.len(), 1, "{label}: {phase}");
+        assert!(checks[0].value.unwrap() < 1e-3);
+        assert_eq!(checks[0].threshold, Some(1e-6));
+    }
     let rd = res_codes[0];
     assert!(rd.phase.is_some(), "[{}] residual diagnostic missing phase", label);
     assert!(rd.value.is_some(), "[{}] residual diagnostic missing value", label);
@@ -1255,4 +1262,61 @@ fn result_summary_3d_cantilever() {
 
     // Rotation is None for 3D (complex multi-component)
     assert!(summary.rotation.is_none(), "rotation is None for 3D");
+}
+
+/// Scaling stiffness and opposing loads together must preserve displacements
+/// and the balance verdict, even though the net applied force is zero.
+#[test]
+fn self_checks_self_equilibrated_load_scales() {
+    for scale in [1e-6, 1.0, 1e6, 1e15] {
+        let input = make_input(
+            vec![(1, 0.0, 0.0), (2, 1.3, 0.0), (3, 3.7, 0.0)],
+            vec![(1, 200e3 * scale, 0.3)], vec![(1, 0.01, 1e-4)],
+            vec![(1, "frame", 1, 2, 1, 1, false, false), (2, "frame", 2, 3, 1, 1, false, false)],
+            vec![(1, 1, "fixed")],
+            vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0 * scale, fz: 0.0, my: 0.0 }),
+                 SolverLoad::Nodal(SolverNodalLoad { node_id: 3, fx: -10.0 * scale, fz: 0.0, my: 0.0 })],
+        );
+        let result = solve_2d(&input).unwrap_or_else(|e| panic!("scale {scale}: {e}"));
+        let tip = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        // E is MPa, converted to kN/m² by the solver.
+        assert!((tip.ux - (-10.0 * 2.4 / (200e3 * 1000.0 * 0.01))).abs() < 1e-12, "scale {scale}: {}", tip.ux);
+        let check = result.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("self_check:static_balance")).unwrap();
+        assert_eq!(check.severity, Severity::Info, "scale {scale}: {check:?}");
+    }
+}
+
+#[test]
+fn self_checks_portal_mechanism_keeps_actionable_refusal() {
+    let mut input: SolverInput3D = serde_json::from_str(include_str!("../fixtures/ex-3d-portal-frame-input.json")).unwrap();
+    for support in input.supports.values_mut() {
+        support.rx = false;
+        support.ry = false;
+        support.rz = true;
+        support.rrx = false;
+        support.rry = false;
+        support.rrz = false;
+    }
+    let error = solve_3d(&input).unwrap_err();
+    assert!(error.contains("mechanism"), "{error}");
+    assert!(error.starts_with("REFUSE: self-check static_residual"), "{error}");
+}
+
+#[test]
+fn self_checks_self_equilibrated_load_scales_3d() {
+    for scale in [1e-6, 1.0, 1e6, 1e15] {
+        let input = make_3d_input(
+            vec![(1, 0.0, 0.0, 0.0), (2, 1.3, 0.0, 0.0), (3, 3.7, 0.0, 0.0)],
+            vec![(1, 200e3 * scale, 0.3)], vec![(1, 0.01, 1e-4, 1e-4, 2e-4)],
+            vec![(1, "frame", 1, 2, 1, 1), (2, "frame", 2, 3, 1, 1)],
+            vec![(1, vec![true; 6])],
+            vec![SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 2, fx: 10.0 * scale, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None }),
+                 SolverLoad3D::Nodal(SolverNodalLoad3D { node_id: 3, fx: -10.0 * scale, fy: 0.0, fz: 0.0, mx: 0.0, my: 0.0, mz: 0.0, bw: None })],
+        );
+        let result = solve_3d(&input).unwrap_or_else(|e| panic!("scale {scale}: {e}"));
+        let tip = result.displacements.iter().find(|d| d.node_id == 3).unwrap();
+        assert!((tip.ux - (-10.0 * 2.4 / (200e3 * 1000.0 * 0.01))).abs() < 1e-12, "scale {scale}: {}", tip.ux);
+        let check = result.structured_diagnostics.iter().find(|d| d.phase.as_deref() == Some("self_check:static_balance")).unwrap();
+        assert_eq!(check.severity, Severity::Info, "scale {scale}: {check:?}");
+    }
 }

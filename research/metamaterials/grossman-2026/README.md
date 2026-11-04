@@ -15,9 +15,9 @@ Page: `/research/metamaterials/grossman-2026` (web/src/components/research/gross
 
 | Paper | What we compare | Result |
 |---|---|---|
-| Sec. II C 2, Fig. 5, text p. 6: foam-like disorder makes the triangular lattice auxetic | Mean Poisson's ratio of periodic networks (10 samples of 26 x 26 cells per eta) | Crosses zero at eta = 0.446 (paper: ~0.46); nu(0.5) = -0.148 (paper: -0.1); cross-protocol agreement with Fig. 5 clamped-strip error bars for eta <= 0.45, not validation of the strip implementation |
+| Sec. II C 2, Fig. 5, text p. 6: foam-like disorder makes the triangular lattice auxetic | Mean Poisson's ratio of periodic networks (10 samples of 26 x 26 cells per eta) | Crosses zero at eta = 0.447 (paper: ~0.46); nu(0.5) = -0.146 (paper: -0.1); cross-protocol agreement with Fig. 5 clamped-strip error bars for eta <= 0.45, not validation of the strip implementation |
 | Eq. (23), Fig. 6: honeycomb Poisson's ratio, triangulated with soft centre springs | Periodic network, l = 0.05 ... 0.95 | Max difference 3.4e-3 with the paper's k_radial = 1e-3, 3.4e-6 with 1e-6 (the error is O(k_radial)) |
-| Supplemental Eq. (9), Fig. 4: ordered lattices | Exact (Cauchy-Born) moduli of the periodic lattice | Equal to 6.7e-15 for spring constants k ∝ 1/l^2 (see Questions) |
+| Supplemental Eq. (9), Fig. 4: ordered lattices | Exact (Cauchy-Born) moduli of the periodic lattice | Equal to 7.1e-15 for spring constants k ∝ 1/l^2 (see Open questions) |
 | Fig. 7: Young's modulus of the (3, 2) lattice against orientation | Same, times the area of one triangle | Max difference 6.0e-4 over the 741 points of the line (vector data) |
 | Fig. 9 at eta = 0 | B = sqrt(3)/2, G = sqrt(3)/4 | 2.7e-3 (reading precision of the figure) |
 
@@ -39,8 +39,8 @@ tension) acting on the change of its bond vector.
   G = (C11 + C22 - 2 C12)/8 + C33/8 (C33 for tensor shear), nu = (B - G)/(B + G); directional
   Young's modulus and Poisson's ratio from the compliance.
 - **Nonaffinity** sum_i |u_i|^2 / (N lbar^2 |e|^2) for the fluctuation u per unit strain.
-- **Strip (the paper's protocol, Sec. V A).** Nodes of the (rotated) lattice in
-  0 <= x <= 13, 0 <= y <= 52; nodes within 0.5 of the bottom and top held; the top moved up by
+- **Linear strip (comparison with Sec. V A).** Nodes of the (rotated) lattice in
+  0 <= x <= 13, 0 <= y <= 52; nodes within 0.5 of the unperturbed bottom and top held, selected before disorder; the top moved up by
   strain x 52; nu = -(width change between the edge nodes nearest (0, 26) and (13, 26)) / strain.
 - **Networks.** Triangular lattice v1 = (1, 0), v2 = (phi/2, psi sqrt 3 / 2), bonds v1, v2,
   v1 - v2 (Eq. 25, Supplemental App. C). Foam: every node moved by eta in a uniformly random
@@ -65,7 +65,7 @@ two-dimensional, central forces only, unit lattice spacing and k = 1 unless stat
 
 ## Validation
 
-`cargo test --release` runs `tests/validation.rs`: 29 named checks, each with a stated tolerance,
+`cargo test --release` runs `tests/validation.rs`: 31 named checks, each with a stated tolerance,
 written to `target/VALIDATION.json` and compared with the committed `VALIDATION.json`.
 The paper checks also generate `target/PUBLISHED_COMPARISON.json`, including source links;
 the same test checks the committed comparison for freshness in CI.
@@ -73,7 +73,7 @@ The nonlinear-energy curvature check uses central differences at strains 0.01 an
 with Richardson extrapolation removing the leading step-size error. This avoids amplifying
 prestress-energy cancellation at a 1e-4 step; freshness tolerances remain unchanged.
 To refresh the evidence after an intentional change, run `cargo test --release --locked`,
-inspect all 29 checks (a stale-record assertion may fail), then copy `target/VALIDATION.json`
+inspect all 31 checks (a stale-record assertion may fail), then copy `target/VALIDATION.json`
 to `VALIDATION.json` and rerun. Computed observations allow absolute roundoff of 1e-12 plus
 relative roundoff of 1e-8; categories, names, metrics, declared tolerances and pass/fail flags
 must match exactly. Non-finite observations are always rejected.
@@ -93,7 +93,7 @@ Independent of the paper:
 - rigidity: random dilution to z = 3 gives G < 1e-6 k in all 5 samples (observed 1e-16), z = 5.4
   gives G >= 0.1 k in all 5 samples (Maxwell counting, z = 4);
 - the strip solved by the production engine's 2D truss analysis (`solve_2d`, through
-  `src/engine_model.rs`) gives the same displacements and bar forces (1e-8; observed 2e-14);
+  `src/engine_model.rs`) gives the same displacements and bar forces (1e-8; observed 8.9e-14);
 - the strip protocol's finite-size bias: 0.038 for the 13 x 52 strip of the perfect lattice;
   Richardson extrapolation of 26 x 104 and 52 x 208 strips gives 1/3 within 2.7e-3.
 
@@ -119,7 +119,7 @@ The PDFs themselves are not committed; their SHA-256 sums are in the manifest.
 
 ```sh
 cd research/metamaterials/grossman-2026
-cargo test --release -- --nocapture          # the 29 checks
+cargo test --release -- --nocapture          # the 31 checks
 cargo run --release --bin reproduce           # regenerate results/stabileo_results.json
 wasm/build.sh                                 # browser bundle -> web/public/research-wasm/grossman-2026
 ```
@@ -130,13 +130,13 @@ wasm/build.sh                                 # browser bundle -> web/public/res
   data and a digitisation of Fig. 5.
 - The paper's own semi-analytical method (the nonaffine tensors W of its Eq. 20, mean-field
   approximation, Supplemental App. A and B) is not implemented; we compare with its results.
-- Linear response only. At the paper's 1 % strain the nonlinear correction is of order 1 %.
+- Linear response only; the paper minimizes nonlinear energy at 1 % strain. No quantitative nonlinear-error bound is claimed.
 - The strip's free edges bias nu by O(1/width). The paper's Fig. 5 shows 0.331 for the perfect
   lattice where our strip reads 0.371; we could not identify the difference in protocol.
-- Ensembles of 10 samples: the mean is known to about +-0.005 (eta <= 0.3) and +-0.01 near 0.5.
+- Ensembles of 10 samples: the page computes two standard errors as 2 × sample SD / sqrt(10); the plot band is one sample SD. These are distinct statistics.
 - Prestress is an addition of ours, checked by energy and the square-lattice identity only.
 
-## Questions for the authors
+## Open questions
 
 Drafted here for a maintainer to send (contact: the corresponding author's address on the paper).
 
@@ -149,23 +149,62 @@ Drafted here for a maintainer to send (contact: the corresponding author's addre
 3. For the strip of the perfect lattice (eta = 0) Fig. 5 shows nu = 0.331. Our implementation of
    the protocol of Sec. V A gives 0.371, the excess being a free-edge effect that vanishes as
    1/width. Which nodes were held and which nodes measured the width?
-4. Would you share the simulation and computation code, or the data behind Figs. 4 to 9, so the
+4. Fig. 5 reports 676 vertices, while clipping the stated unit triangular lattice
+   to 13 × 52 gives 824. What density, triangulation or clipping convention was used?
+5. Would you share the simulation and computation code, or the data behind Figs. 4 to 9, so the
    comparison can be made exactly?
 
-## Periodic ensemble regression and browser follow-up
+## Periodic ensemble regression
 
-At eta = 0.5 the periodic ensemble has recorded mean -0.14760823298376496 and
-sample standard deviation 0.017861567077351207 (10 seeds). The two-sided
-regression tolerance is 0.017, rounded from three standard errors
-(3 × 0.017861567 / sqrt(10) = 0.016945). This is a conservative regression
-bound on our ensemble, not agreement with the paper's -0.1 strip value or a
-statistical confidence claim about the paper. It is independent evidence.
-The Fig. 5 error-bar and zero-crossing checks compare different boundary
-conditions; the strip's free edges and clamped ends introduce finite-size bias.
-Our perfect strip gives 0.371 versus the paper's 0.331; that discrepancy remains
-unresolved and periodic agreement cannot validate clipping or clamping.
+The existing isotropic regression centre -0.14760823298376496 and tolerance 0.017
+are retained unchanged as a historical bound. Directional y response now gives
+-0.146198376 (10 seeds); the difference from that centre remains within 0.017.
+Every plotted series and all 26 replay frames are regenerated by
+`tests/published_series.rs` and compared with the committed values, allowing only
+1e-12 absolute plus 1e-8 relative roundoff.
 
-Live solves and the automatic sweep still block the main thread. The deferred
-worker, cancellation and precomputed replay work is tracked in
-[FOLLOW_UPS.md](FOLLOW_UPS.md); this page does not yet meet the precomputed-replay
-and responsive-cancellation requirements of research/CLAUDE.md.
+## Review round 2 — 2026-10-30 (Kimi, Codex, Claude)
+
+The paper PDF was rechecked: Fig. 5 on p. 6 says 10 realizations of 676 vertices;
+Sec. V A spans pp. 9–10. Our clipped triangular lattice has 824 nodes and 28 held
+end-row nodes. The test holds the same complete rows for all disorder amplitudes
+and seeds. Our linear boundary condition is an increment ε × 52, whereas the
+paper describes setting the top vertices to y = 52(1 + ε). We explicitly compare
+these different prescriptions instead of calling ours the paper's protocol.
+
+`reference-results/published_comparison.json` records all ten upward Fig. 5 markers, retaining the
+published error bars and 0.003 digitisation allowance. Four comparisons fail:
+eta = 0, 0.05, 0.1 and 0.2. The page displays those failures alongside the
+cross-protocol periodic comparisons; periodic agreement is not strip validation.
+Widths 26 and 52 now have separate checks for the displayed 0.354 and 0.345.
+
+Browser computations run in a research-only module worker. Stop, superseding
+inputs and teardown terminate the worker; late results cannot publish. Autoplay
+uses `reference-results/replay.json`, generated by `cargo run --release --bin replay` with
+the same native solver. The WASM check compares Poisson ratios, every displacement,
+force and prescribed displacement at eta = 0, 0.3 and 0.5 against those frames.
+Published web inputs are `VALIDATION.json`, `reference-results/published_comparison.json`,
+`results/stabileo_results.json`, `reference-results/replay.json`, and the reference data.
+
+Responsive, keyboard-camera and real-worker Playwright regressions
+(`web/e2e/research-springs.spec.ts`) cover 360 × 780, 390 × 844, 844 × 390 and 810 × 1080:
+no horizontal overflow, 44 px targets, 12 px text and the viewer above the fold.
+
+The 1% finite-strain comparison is recorded separately in `NONLINEAR_COMPARISON.json`:
+for seed 11, the perfect strip gives linear/nonlinear ν = 0.371283/0.368853;
+at eta = 0.3 it gives 0.243508/0.245408. The absolute differences are 0.002429
+and 0.001900. These two cases do not justify a universal 1% error bound.
+The dilution series regression brackets the sampled onset: all samples are
+floppy at mean z = 3.6221, mixed at 3.8177, and all rigid at 4.0168.
+
+## Verification in the review worktree
+
+- Research Rust suite: 22 tests pass, including 31 named validation checks,
+  direct strip comparisons, nonlinear comparisons, clamp rows and full series/replay freshness.
+- Built research WASM: native displacement/force/Poisson parity passes (`wasm/check.mjs`).
+- Web unit tests for `src/components/research`, `src/components/viewport` and the
+  hardcoded-text guard: 229 tests pass in 46 files.
+- Playwright smoke: `research-springs.spec.ts` and `research.spec.ts`, 46 tests pass.
+- Typecheck: 247 errors, equal to the baseline.
+- Catalogue check and research isolation check pass. No tolerance was changed.
+- No production engine source or numerics were changed.

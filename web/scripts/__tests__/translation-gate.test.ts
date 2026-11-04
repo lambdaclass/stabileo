@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { checkTranslations, formatFailures, segments } from '../translation-gate';
@@ -82,6 +82,23 @@ describe('translation gate', () => {
     expect(failures[0].rule).toMatch(/^1\/21 text blocks \(4\.8%, \d+\.\d% of characters\)/);
   });
 
+  it('fails a block whose translated lead is followed by the English text', () => {
+    const es = { ...ES, blocks: [...ES.blocks.slice(0, 3), `Una introducción traducida. ${EN.blocks[3]} ${EN.blocks[2]}`] };
+    const failures = gate(site({ '/en/': EN, '/es/': es }));
+    expect(failures.map((f) => f.offending)).toEqual([[es.blocks[3]]]);
+    const prefixed = { ...ES, blocks: ES.blocks.map((b, i) => (i === 0 ? `Nota: ${EN.blocks[0]}` : b)) };
+    expect(gate(site({ '/en/': EN, '/es/': prefixed })).map((f) => f.offending)).toEqual([[prefixed.blocks[0]]]);
+    const repeated = { ...ES, blocks: [...ES.blocks.slice(0, 3), `${ES.blocks[3]} ${Array(30).fill(EN.blocks[3]).join(' ')}`] };
+    const repeatedFailures = gate(site({ '/en/': EN, '/es/': repeated }));
+    expect(repeatedFailures.map((f) => f.offending)).toEqual([[repeated.blocks[3]]]);
+    expect(repeatedFailures[0].rule).toMatch(/^1\/4 text blocks \(25\.0%, [5-9]\d\.\d% of characters\)/);
+    const mixed = { ...ES, blocks: ES.blocks.map((b, i) => `${b} ${b} ${EN.blocks[i]}`) };
+    const mixedFailures = gate(site({ '/en/': EN, '/es/': mixed }));
+    expect(mixedFailures).toHaveLength(1);
+    expect(mixedFailures[0].rule).toMatch(/^0\/4 text blocks \(0\.0%, [1-9]\d\.\d% of characters\)/);
+    expect(mixedFailures[0].offending).toEqual(mixed.blocks);
+  });
+
   it('fails an English title on a Spanish page, naming the string', () => {
     const failures = gate(site({ '/en/': EN, '/es/': { ...ES, title: EN.title } }));
     expect(failures).toEqual([
@@ -107,6 +124,22 @@ describe('translation gate', () => {
   it('fails an hreflang alternate for a language the page was not built in', () => {
     const failures = gate(site({ '/en/blog/x/': EN }));
     expect(failures.map((f) => f.rule)).toContain('page hreflang set is not the set of languages the page was built in');
+  });
+
+  it('fails an x-default that is missing, repeated or not this page in English', () => {
+    const DEFAULT = `<link rel="alternate" hreflang="x-default" href="${ORIGIN}/en/">`;
+    for (const [replacement, declared] of [
+      ['', '(none)'],
+      [DEFAULT + DEFAULT, `x-default ${ORIGIN}/en/, x-default ${ORIGIN}/en/`],
+      [`<link rel="alternate" hreflang="x-default" href="${ORIGIN}/en/blog/">`, `x-default ${ORIGIN}/en/blog/`],
+    ]) {
+      const d = site({ '/en/': EN, '/es/': ES });
+      const file = join(d, 'es', 'index.html');
+      writeFileSync(file, readFileSync(file, 'utf8').replace(DEFAULT, replacement));
+      const failures = gate(d).filter((f) => f.rule === 'x-default is not the single English version of this page');
+      expect(failures).toEqual([{ page: '/es/', locale: 'es', rule: 'x-default is not the single English version of this page', offending: [`declared: ${declared}`, `expected: x-default ${ORIGIN}/en/`] }]);
+      rmSync(d, { recursive: true, force: true });
+    }
   });
 
   it('fails a site with no English pages at all instead of passing on nothing', () => {

@@ -6,9 +6,10 @@
  * example is shown standing on X–Z, and an imported one now is too. The constraints reach the
  * store in the engine's shape, so the solve can read them.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll } from 'vitest';
 import { applyWorkbook } from '../apply';
 import { modelStore, uiStore } from '../../store';
+import { initSolver } from '../../engine/wasm-solver';
 
 const aoa = (header: string[], ...rows: Array<Array<unknown>>) => [header, ...rows];
 
@@ -49,5 +50,34 @@ describe('an Excel import in PRO', () => {
     applyWorkbook(b);
     const [c] = modelStore.constraints;
     expect(c).toMatchObject({ type: 'diaphragm', slaveNodes: [expect.any(Number)] });
+  });
+});
+
+describe('an Excel import whose load cases the combinations cannot all take', () => {
+  beforeAll(async () => { await initSolver(); });
+  afterEach(() => { modelStore.clear(); });
+
+  it('loads nothing, keeps the open model and says why on the LoadCases sheet', () => {
+    uiStore.analysisMode = 'pro';
+    applyWorkbook(portal());
+    const nodes = modelStore.nodes.size;
+    const b = portal();
+    b.LoadCases = aoa(['id', 'name', 'type'], [1, 'Dead', 'D'], [2, 'Crane', 'X']);
+    b.Loads = aoa(['type', 'case', 'node', 'fz [kN]'], ['nodal3d', 1, 3, -1], ['nodal3d', 2, 3, -1]);
+    const out = applyWorkbook(b);
+    expect(out.loaded.nodes).toBe(0);
+    expect(out.problems).toContainEqual(expect.objectContaining({ sheet: 'LoadCases', message: expect.stringMatching(/takes case 2/) }));
+    expect(modelStore.nodes.size).toBe(nodes);
+  });
+
+  it('gets the CIRSOC 101-2025 combinations of D, Lr and W, wind among them', () => {
+    uiStore.analysisMode = 'pro';
+    const b = portal();
+    b.LoadCases = aoa(['id', 'name', 'type'], [1, 'Dead', 'D'], [2, 'Roof', 'Lr'], [3, 'Wind', 'W']);
+    b.Loads = aoa(['type', 'case', 'node', 'fz [kN]'], ['nodal3d', 1, 3, -1], ['nodal3d', 2, 3, -1], ['nodal3d', 3, 4, -1]);
+    const out = applyWorkbook(b);
+    expect(out.problems).toEqual([]);
+    expect(modelStore.model.combinations.map((c) => c.name)).toContain('0.9 D + 1.0 W');
+    expect(modelStore.model.combinations.every((c) => c.factors.every((f) => [1, 2, 3].includes(f.caseId)))).toBe(true);
   });
 });

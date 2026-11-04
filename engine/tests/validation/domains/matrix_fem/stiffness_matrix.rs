@@ -180,19 +180,16 @@ fn validation_stiffness_3ei_l() {
     let m = 10.0;
     let e_eff = E * 1000.0;
 
-    // Propped cantilever: fixed at left, roller at right
-    // Apply moment at right end (roller allows rotation)
     let loads = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: n + 1, fx: 0.0, fz: 0.0, my: m,
     })];
-    let input = make_beam(n, l, E, A, IZ, "fixed", Some("rollerX"), loads);
+    let input = make_beam(n, l, E, A, IZ, "pinned", Some("rollerX"), loads);
     let results = linear::solve_2d(&input).unwrap();
 
     let d_end = results.displacements.iter().find(|d| d.node_id == n + 1).unwrap();
 
-    // θ = M × L / (3EI) for far-end-fixed stiffness (seen from roller end)
     let theta_exact = m * l / (3.0 * e_eff * IZ);
-    assert_close(d_end.ry.abs(), theta_exact, 0.05,
+    assert_close(d_end.ry.abs(), theta_exact, 1e-9,
         "Stiffness 3EI/L: θ = ML/(3EI)");
 }
 

@@ -10,7 +10,7 @@ self-weight loading*, Computers & Structures 320, 107997 (2026),
 Metadata checked with the catalogue's Crossref lookup.
 [Accepted manuscript](https://eprints.whiterose.ac.uk/id/eprint/236639/) is CC BY 4.0.
 
-Page: `/research/optimisation/fairclough-2026`, translated into English, Spanish and Portuguese.
+Page: `/research/optimisation/fairclough-2026`, translated into English, Spanish, Portuguese, German, French and Turkish.
 
 ## Exactly what is reproduced
 
@@ -22,7 +22,7 @@ smallest published example, has a precise printed volume, and isolates conic sel
 optimization from member addition and the outer geometry search.
 
 The isolated Rust crate assembles the fixed-ground-structure SOCP from the paper's equations
-(12)–(18), using Clarabel.rs 0.11.1 (Apache-2.0). It recovers elevations from the vertical
+(19)–(20), with cone (29), using Clarabel.rs 0.11.1 (Apache-2.0). It recovers elevations from the vertical
 equilibrium dual and integrates the equal-stress curve slope. It is an independent
 implementation of published mathematics: no GPL source has been copied or adapted.
 `paper.yaml` records normalization, equations, solver settings and engine assumptions.
@@ -37,7 +37,7 @@ implementation of published mathematics: no GPL source has been copied or adapte
 | Apex elevation difference / L | 1.43616e-09 | Same |
 | Maximum force component difference / F | 3.62828e-06 | Same |
 | Independent cone feasibility violation | 3.09264e-12 | Same |
-| Production engine vertical force balance, relative | 1.37741e-11 | Same |
+| Reaction/load bookkeeping, relative | 1.37741e-11 | Same |
 
 Four active curved members connect the centre to the corners. Layout comparisons include
 all ten force triples and 33 sampled points on each active curve, not just volume.
@@ -109,7 +109,7 @@ The test also writes `target/stabileo_results.json` and reports the JSON path an
 values on a numerical mismatch. CI needs only the committed outputs; the external
 GPL script is never needed by `cargo test`.
 To intentionally refresh: set `UPDATE_FAIRCLOUGH=1`, run the test, inspect the evidence,
-and rerun without that variable. `PUBLISHED_COMPARISON.json` names the exact table/page
+and rerun without that variable. `reference-results/published_comparison.json` names the exact table/page
 and uses a 0.00005 rounding tolerance. Catalogue status remains `numerically-validated`,
 limited to this example even though a browser solver exists.
 
@@ -119,16 +119,48 @@ share round-trip. `web/e2e/research-fairclough.spec.ts` exercises the page at 36
 844×390 and 810 px, live WASM, replay, viewport and editor handoff. Maintainer runs Chromium.
 The CI research job runs the Rust validation; the research WASM build includes this crate.
 
-## Not reproduced and author questions
+## Scope limits
 
 Not reproduced: other Table 1 rows, 11×11 grid, optimized 13-node layouts, member addition,
 position search, counterweights, holes, larger examples, or the full general catenary layout
 formulation. This first version is not a general layout optimizer. No experimental or
 stability validation is claimed. No paper figure is copied.
 
-Questions for the authors (not sent):
+## Open questions
+
+Questions for the authors (not sent; not shown on the live page):
 
 - Can you confirm the canonical Table 1 input decks and solver tolerances?
 - Which open-solver configuration do you recommend for reproducing the larger examples?
 - What are the preferred centreline and section export conventions for independent stability analysis?
 - What member-addition stopping rule should be used when extending beyond this fixed ground structure?
+
+## Review round 2 — 2026-10-30
+
+Kimi, Codex and Claude reviewed this example; fixes follow Claude's verified consolidated
+findings. The rejected diagonal-projection finding remains rejected. The test model remains
+the unit square with four pinned corners and a downward central unit load, as recorded in
+Table 1 and the unchanged author-reference runner. No production engine numerics changed.
+The page now cites the convex relaxation (19)–(20), cone (29), rather than the nonconvex
+constraint (18). The author questions are documentation only; the live page has no pending comparisons.
+
+The frame readout is explicitly **reaction/load bookkeeping**. It does not establish that
+frame axial forces equal σA or that bending stress is negligible. Those physics claims are
+not made. The existing 0.2% chord-volume budget is supported by a committed 32/64/128
+segment refinement test with approximately second-order convergence.
+
+All 132 section areas are checked against the author's πr² with absolute tolerance 1e-4
+in normalized F/σ units, the same cross-solver recovery budget as the force comparison
+(observed difference about 1.9e-5). An independent geometric-distance evaluation of
+s/cos(φ) is checked at 1e-12. No existing tolerance was enlarged. Validation evidence now
+records a metric and rationale for every check. Relative errors remain dimensionless;
+coordinate and height errors use L, force errors F, and area errors F/σ. Zero tolerance
+on the active-member count requires exactly four. The 1e-6 reference-volume and 1e-5
+height bounds allow cross-solver recovery differences; the same-solver full-result
+regression remains 1e-8 relative with a unit absolute floor.
+
+Source selection updates the viewer volume, apex and accessible description. The editor
+always opens the explicitly labelled Stabileo frame. Full decoded sections, connectivity,
+materials, pins and nodal loads are tested, and the browser handoff compares vertical
+reactions to the recorded native engine result. Browser tests cover all public locales and
+four viewport sizes, including the canvas position, 44 px controls and 12 px text.

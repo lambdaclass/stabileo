@@ -20,6 +20,7 @@
   import MattiassonPage from './mattiasson1981/MattiassonPage.svelte';
   import ShellPage from './shell1985/ShellPage.svelte';
   import MacnealPage from './macneal1985/MacnealPage.svelte';
+  import '../viewport/scalar-viewer-i18n';
   import ShauerPage from './shauer2025/ShauerPage.svelte';
   import FerrariPage from './ferrari2025/FerrariPage.svelte';
   import FormPage from './pastrana2026/FormPage.svelte';
@@ -115,7 +116,7 @@
   }
   .research :global(sub),
   .research :global(sup) {
-    font-size: 0.75em;
+    font-size: max(12px, 0.75em);
     line-height: 0;
   }
 </style>

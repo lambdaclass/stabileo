@@ -20,13 +20,15 @@ it('publishes every paper page, in English at least and never in a language with
     const locales = researchLocales(path);
     expect(locales).toContain('en');
     for (const locale of ['de', 'fr', 'tr'] as PublicLocale[]) {
-      expect(publishedLocales(path)).not.toContain(locale);
-      expect(publishedLocale(path, locale)).toBe('en');
+      expect(publishedLocales(path).includes(locale)).toBe(locales.includes(locale));
+      expect(publishedLocale(path, locale)).toBe(locales.includes(locale) ? locale : 'en');
     }
   }
-  expect(researchLocales('/research/benchmarks/riks-crisfield')).toEqual(['en']);
-  expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt']);
-  expect(publishedLocale('/research/benchmarks/riks-crisfield', 'es')).toBe('en');
+  expect(researchLocales('/research/benchmarks/shell-obstacle-course')).toEqual(['en']);
+  expect(researchLocales('/research/stability/ferrari-sigmund-2025')).toEqual(['en', 'es', 'pt']);
+  expect(researchLocales('/research/benchmarks/lee-frame-1968')).toEqual(['en', 'es', 'pt', 'de', 'fr', 'tr']);
+  expect(publishedLocale('/research/benchmarks/shell-obstacle-course', 'es')).toBe('en');
+  expect(publishedLocale('/research/stability/ferrari-sigmund-2025', 'de')).toBe('en');
   expect(publishedLocale('/research/benchmarks/lee-frame-1968#edit', 'es')).toBe('es');
 });
 
@@ -100,7 +102,8 @@ it('lists every paper in the gallery graph at the URL it is published under', ()
   const graph = galleryGraph('es', labels);
   const items = (graph[0] as { mainEntity: { itemListElement: { url: string }[] } }).mainEntity.itemListElement.map((i) => i.url);
   expect(items).toContain('https://stabileo.com/es/research/benchmarks/lee-frame-1968/');
-  expect(items).toContain('https://stabileo.com/en/research/benchmarks/riks-crisfield/');
+  expect(items).toContain('https://stabileo.com/en/research/benchmarks/shell-obstacle-course/');
+  expect(items).toContain('https://stabileo.com/es/research/benchmarks/riks-crisfield/');
   expect(items).toHaveLength(EXPERIMENTS.length);
 });
 

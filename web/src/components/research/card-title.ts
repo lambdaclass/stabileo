@@ -10,6 +10,7 @@ import { strings as leeStrings } from './lee1968/i18n';
 import { strings as dadeppoStrings } from './dadeppo1975/i18n';
 import { strings as mattiassonStrings } from './mattiasson1981/i18n';
 import { strings as macnealStrings } from './macneal1985/i18n';
+import { articleStrings as riksStrings } from './riksCrisfield/article';
 import { researchLocale, rs } from './i18n';
 import { englishOnlyCard } from './english-only-cards';
 import type { Experiment } from './experiments';
@@ -35,7 +36,7 @@ export function cardTitle(e: Experiment): string {
     case 'mattiasson-elastica': return (mattiassonStrings[locale as keyof typeof mattiassonStrings] ?? mattiassonStrings.en).title;
     case 'macneal-harder-1985': return (macnealStrings[locale as keyof typeof macnealStrings] ?? macnealStrings.en).title;
     case 'shell-obstacle-course': return shellStrings(locale).shellObstacleCourseBelytschkoEtAl;
-    case 'riks-1979': return e.name;
+    case 'riks-1979': return riksStrings(locale).arcLengthSnapThroughRiksAndCrisfield;
     case 'ferrari-2025': return s.ferrariTitle;
     case 'shauer-2025': return s.shauerTitle;
     default: return e.name;

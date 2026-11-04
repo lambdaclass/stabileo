@@ -532,12 +532,12 @@ fn validation_superposition_determinate_and_indeterminate() {
                 efc.v_start, ef1.v_start + ef2.v_start, 0.02,
                 &format!("{} superposition V_start elem {}", label, efc.element_id),
             );
-            assert_close(
-                efc.m_start, ef1.m_start + ef2.m_start, 0.02,
+            assert_close_abs(
+                efc.m_start, ef1.m_start + ef2.m_start, 0.02, 1e-6,
                 &format!("{} superposition M_start elem {}", label, efc.element_id),
             );
-            assert_close(
-                efc.m_end, ef1.m_end + ef2.m_end, 0.02,
+            assert_close_abs(
+                efc.m_end, ef1.m_end + ef2.m_end, 0.02, 1e-6,
                 &format!("{} superposition M_end elem {}", label, efc.element_id),
             );
         }

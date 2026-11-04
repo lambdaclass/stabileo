@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Weights for the mass alone, apart from the load cases (`engine/dynamics/mass-weights.ts`): kN/m
    * on members, kN/m² on slabs, or kN/m² on a floor carried to its beams, each on a part of the
@@ -34,7 +35,7 @@
     <div class="mw-row"><ProActionRegion region={w.region} testid="mw-region-{i}" onchange={(r) => set(i, { region: r })} /></div>
   {/each}
   <button class="pk-btn" onclick={() => save([...weights, { on: 'members', region: { kind: 'all' }, w: 1 }])} data-testid="mw-add">+ {t('massWeights.add')}</button>
-  <p class="mw-hint">{t('massWeights.hint')}</p>
+  <Hint text={t('massWeights.hint')} />
 </div>
 
 <style>
@@ -43,5 +44,4 @@
   .mw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
   .mw :global(.mw-num) { width: 56px; font-family: var(--st-mono); }
   .mw-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
-  .mw-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
 </style>

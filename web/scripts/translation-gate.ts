@@ -87,6 +87,20 @@ export function segments(html: string, locale = 'en'): string[] {
     .filter((s) => (s.match(/\p{L}{2,}/gu) ?? []).length >= MIN_WORDS);
 }
 
+function occurrences(text: string, phrase: string): number[] {
+  const found: number[] = [];
+  for (let at = text.indexOf(phrase); at >= 0; at = text.indexOf(phrase, at + 1)) {
+    const before = text[at - 1], after = text[at + phrase.length];
+    if (!(before && /[\p{L}\p{N}]/u.test(before)) && !(after && /[\p{L}\p{N}]/u.test(after))) found.push(at);
+  }
+  return found;
+}
+
+/** A block's sentences of at least four words, so a translated lead cannot hide English after it. */
+function sentences(block: string): string[] {
+  return block.split(/(?<=[.!?])\s+/).filter((s) => (s.match(/\p{L}{2,}/gu) ?? []).length >= MIN_WORDS);
+}
+
 function allowedSegment(s: string): boolean {
   return ALLOWED_SEGMENTS.has(s) || ALLOWED_SEGMENT_PATTERNS.some((re) => re.test(s));
 }
@@ -107,17 +121,25 @@ export function compareWithEnglish(page: string, locale: string, html: string, e
     failures.push({ page, locale, rule: 'no visible text to check', offending: [] });
     return failures;
   }
-  const englishSet = new Set(segments(english));
-  const same = ownSegments.filter((s) => englishSet.has(s));
+  const englishSegments = segments(english);
+  const englishSet = new Set(englishSegments);
+  const englishSentences = new Set(englishSegments.flatMap(sentences));
   const chars = (xs: string[]) => xs.reduce((n, s) => n + s.length, 0);
+  const englishChars = (s: string) => {
+    if (englishSet.has(s)) return s.length;
+    const covered = new Uint8Array(s.length);
+    for (const x of englishSentences) for (const at of occurrences(s, x)) covered.fill(1, at, at + x.length);
+    return covered.reduce((n, c) => n + c, 0);
+  };
+  const same = ownSegments.filter((s) => 2 * englishChars(s) > s.length);
   const countShare = same.length / ownSegments.length;
-  const charShare = chars(same) / chars(ownSegments);
+  const charShare = ownSegments.reduce((n, s) => n + englishChars(s), 0) / chars(ownSegments);
   if (countShare > MAX_ENGLISH_SHARE || charShare > MAX_ENGLISH_SHARE) {
     failures.push({
       page,
       locale,
       rule: `${same.length}/${ownSegments.length} text blocks (${(100 * countShare).toFixed(1)}%, ${(100 * charShare).toFixed(1)}% of characters) are the English page's text; at most ${100 * MAX_ENGLISH_SHARE}% may be`,
-      offending: same,
+      offending: ownSegments.filter((s) => englishChars(s) > 0),
     });
   }
   return failures;
@@ -194,6 +216,11 @@ export function checkTranslations(distDir: string, origin = 'https://stabileo.co
     const declaredLocales = declared.filter((l) => !l.startsWith('x-default '));
     if (declaredLocales.join('\n') !== expected.join('\n')) {
       failures.push({ page: path, locale, rule: 'page hreflang set is not the set of languages the page was built in', offending: [`declared: ${declaredLocales.join(', ') || '(none)'}`, `built:    ${expected.join(', ')}`] });
+    }
+    const xDefault = declared.filter((l) => l.startsWith('x-default '));
+    const expectedDefault = builtIn(rest(path)).includes('en') ? [`x-default ${origin}/en${rest(path)}`] : [];
+    if (xDefault.join('\n') !== expectedDefault.join('\n')) {
+      failures.push({ page: path, locale, rule: 'x-default is not the single English version of this page', offending: [`declared: ${xDefault.join(', ') || '(none)'}`, `expected: ${expectedDefault.join(', ') || '(none)'}`] });
     }
     const entry = entries.get(path);
     if (entry !== undefined && hreflangs(entry).join('\n') !== declared.join('\n')) {

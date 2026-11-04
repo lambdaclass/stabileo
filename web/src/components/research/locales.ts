@@ -1,10 +1,14 @@
 import { EXPERIMENTS } from './experiments';
 import catalog from '../../../../research/papers.json';
-import { RESEARCH_GALLERY } from '../../lib/i18n/research-routes';
+import { RESEARCH_GALLERY, isResearchRoute, researchLocales } from '../../lib/i18n/research-routes';
 
 export { RESEARCH_GALLERY, isResearchRoute, researchLocales } from '../../lib/i18n/research-routes';
 
 export const RESEARCH_PAPER_PATHS: readonly string[] = EXPERIMENTS.map((e) => e.path);
+
+export function supportsResearchRoute(path: string, locale: string): boolean {
+  return !isResearchRoute(path) || researchLocales(path).includes(locale);
+}
 
 function reviewDay(paperId: string): string | undefined {
   const reviews = catalog.papers.find((p) => p.id === paperId)?.reviews ?? [];

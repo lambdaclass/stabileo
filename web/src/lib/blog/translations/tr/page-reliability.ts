@@ -65,7 +65,7 @@ const body: StandingPage['i18n']['en'] = {
         "Bir hata sınırı sayısal hatayı sınırlar; modelin doğru olduğunu kanıtlamaz ve ağın ayrıklaştırma hatasını sınırlamaz.",
         "Henüz yetkili bir yapı mühendisi tarafından bağımsız bir inceleme yapılmadı ve CIRSOC 301 çelik sonuçları hâlâ deneysel olarak işaretli.",
         "Malzeme bakımından doğrusal olmayan analiz, çubuğun tamamı için sekant bir modeldir.",
-        "Yönetmeliğe göre tasarım dahil PRO modülü hâlâ geliştirme aşamasındadır.",
+        "PRO içindeki yönetmeliğe göre tasarım (donatı, donatı detaylandırma ve birleşimler) hâlâ geliştirme aşamasındadır ve varsayılan olarak kapalıdır.",
         "Açık güvenlik sorunları GitHub'da herkese açıktır; her analizin, elemanın ve yönetmeliğin doğrulama düzeyi olgunluk matrisinde yer alır."
       ]
     },
@@ -89,7 +89,7 @@ const body: StandingPage['i18n']['en'] = {
   "faq": [
     {
       "q": "Stabileo gerçek yapı tasarımı çalışmaları için güvenilir mi?",
-      "a": "Sonuçları, diğer yedi sonlu eleman programıyla karşılaştırma ve Lean'de kanıtlanmış hata sınırları dahil, birbirinden bağımsız beş yolla kontrol edilir; hâlihazırda kullanılan sonuçları etkilemiş olabilecek kusurlar yayımlanır, sınıflandırılması sürenler de GitHub'da herkese açıktır. Henüz yetkili bir mühendis tarafından bağımsız olarak incelenmedi ve PRO modülü geliştirme aşamasında; bu nedenle her programda olduğu gibi modeli ve belirleyici sonuçları mühendis inceler."
+      "a": "Sonuçları, diğer yedi sonlu eleman programıyla karşılaştırma ve Lean'de kanıtlanmış hata sınırları dahil, birbirinden bağımsız beş yolla kontrol edilir; hâlihazırda kullanılan sonuçları etkilemiş olabilecek kusurlar yayımlanır, sınıflandırılması sürenler de GitHub'da herkese açıktır. Henüz yetkili bir mühendis tarafından bağımsız olarak incelenmedi ve yönetmeliğe göre tasarım hâlâ geliştirme aşamasında; bu nedenle her programda olduğu gibi modeli ve belirleyici sonuçları mühendis inceler."
     },
     {
       "q": "Stabileo neden güvenlik uyarıları yayımlıyor?",

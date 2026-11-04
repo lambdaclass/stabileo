@@ -7,6 +7,7 @@ import { isMagnitudeCombination } from './result-scopes';
 import { collapseVariableResults, collapseVariableEnvelope, variableExpansionFor, isVariableMember } from './variable-members';
 import { nodesOnMembers } from './nodes-on-members';
 import { localizeEngineText } from '../i18n/engine-text';
+import { errorText } from '../utils/error-text';
 import { createSectionWeight } from '../section/weight';
 import { expandSemiRigid3D, SemiRigidError } from './expand-semi-rigid-3d';
 import { solvableModel, applyStiffnessModifiers, hasNonlinearBehaviour, solveNonlinear3D, withZeroRows } from './member-behaviour';
@@ -1060,7 +1061,7 @@ export function validateAndSolve2D(
     return certifiable(finalizeSolve2DResults(results, prep), '2d', () => input2DToWireObject(prep.input));
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', err.message);
+    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -1162,7 +1163,7 @@ export async function validateAndSolve2DAsync(
     return finalResults;
   } catch (err: any) {
     console.error('Solver error:', err);
-    return t('svc.solverError').replace('{n}', err.message);
+    return t('svc.solverError').replace('{n}', localizeEngineText(errorText(err, String(err))));
   }
 }
 
@@ -2839,7 +2840,7 @@ function solveCombinations3DPDelta(
   const envelope = computeEnvelope3D([...perCombo.values()]);
   if (!envelope) return t('svc.envelopeError3d');
   // The engine's envelope drops shells; each combination here carries its own second-order ones.
-  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo.values()]));
+  if (hasShells && envelope.maxAbsResults3D) Object.assign(envelope.maxAbsResults3D, envelopeShellStresses([...perCombo].map(([id, results]) => ({ source: { kind: 'combination' as const, id }, results }))));
   return { ...pruneComboBundle3D({ perCase: linear.perCase, perCombo, envelope }, model), unstable };
 }
 

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * The project's own response spectra (`engine/spectral-case.ts` `UserSpectrum`): a table of Sa or
    * Sd against period, pasted or typed one row per line, read linearly or on log axes. Kept with the
@@ -85,7 +86,7 @@
           <button class="pk-btn" onclick={() => apply(s.id)} data-testid="us-apply">{t('userSpectrum.apply')}</button>
           {#if error}<span class="us-err" role="alert">{error}</span>{/if}
         </div>
-        <p class="us-hint">{t('userSpectrum.hint')}</p>
+        <Hint text={t('userSpectrum.hint')} />
         <svg viewBox="0 0 {W} {H}" class="us-plot" role="img" aria-label={s.name}><path d={path(s)} class="us-line" /></svg>
       </div>
     {/if}
@@ -100,7 +101,6 @@
   .us-name { width: 150px; }
   .us-edit { display: flex; flex-direction: column; gap: 4px; padding: 4px 0 6px 10px; }
   .us-edit textarea { width: 100%; font-family: var(--st-mono); font-size: 0.68rem; background: var(--st-surface-3); color: var(--st-text); border: 1px solid var(--st-hair); border-radius: 3px; }
-  .us-hint { margin: 0; font-size: 0.6rem; color: var(--st-text-3); }
   .us-err { color: var(--st-danger); }
   .us-x { background: none; border: none; color: var(--st-text-3); cursor: pointer; }
   .us-plot { width: 100%; max-width: 260px; background: var(--st-surface-3); border-radius: var(--st-radius); }
