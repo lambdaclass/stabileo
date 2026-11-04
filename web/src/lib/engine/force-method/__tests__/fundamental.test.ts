@@ -250,6 +250,17 @@ describe('the axial term, on and off', () => {
     expect(r.verification.rigidOk).toBe(true);
   });
 
+  it('off, a turned beam whose two released reactions share the axial direction keeps the axial term everywhere: no axial reaction from a transverse load', () => {
+    const turned = () => model({ nodes: [[1, 0, 0], [2, 4, 4]], elements: [[1, 1, 2, 'frame']], supports: [[1, 'fixed'], [2, 'pinned']], loads: [q(1, -10)] });
+    const on = solveForceMethod(turned(), { releases: ['r:2:0', 'r:2:1'] });
+    const off = solveForceMethod(turned(), { axial: false, releases: ['r:2:0', 'r:2:1'] });
+    const along = (r: ForceMethodResult) => (reaction(r, 2, 0) + reaction(r, 2, 1)) / Math.SQRT2;
+    expect(along(on)).toBeCloseTo(0, 6);
+    expect(along(off)).toBeCloseTo(0, 6);
+    expect(off.axialKept).toEqual([0, 1]);
+    for (const c of [0, 1]) expect(reaction(off, 2, c)).toBeCloseTo(reaction(on, 2, c), 6);
+  });
+
   it('off, with an axial row kept the rigid reference is not defined, so no verdict is drawn from it', () => {
     const beam = model({ nodes: [[1, 0, 0], [2, 6, 0]], elements: [[1, 1, 2, 'frame']], supports: [[1, 'fixed'], [2, 'fixed']], loads: [q(1, -10)] });
     const r = solveForceMethod(beam, { axial: false, releases: ['r:2:0', 'r:2:1', 'r:2:2'] });

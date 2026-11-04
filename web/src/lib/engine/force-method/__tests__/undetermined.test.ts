@@ -30,6 +30,11 @@ describe('which redundants keep their axial term', () => {
     expect([...kept].sort()).toEqual([0, 1]);
   });
 
+  it('a bending matrix singular only in a combination of redundants keeps the axial term everywhere', () => {
+    const b = [[1, 1], [1, 1]], a = [[1, -1], [-1, 1]];
+    expect([...axialKept(rows(b, a), full(b, a), droppable)].sort()).toEqual([0, 1]);
+  });
+
   it('a row whose bending term is small but not negligible against its own axial term keeps no axial term, whatever the other rows', () => {
     const b = [[1, 0], [0, 1e-10]], a = [[0, 0], [0, 1e-6]];
     expect([...axialKept(rows(b, a), full(b, a), droppable)]).toEqual([]);

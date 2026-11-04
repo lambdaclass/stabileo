@@ -77,8 +77,10 @@ export function undetermined(A: number[][]): number[] {
  * horizontal reaction of a beam) would have no flexibility at all and its
  * equation would say nothing. Such redundants keep the axial term in their
  * row and column; the rest go without it. `droppable` marks the rows that the
- * option removes (frame members' axial terms; a biela's stays). When that mix is
- * not positive definite it is no flexibility, and every coefficient keeps its axial term.
+ * option removes (frame members' axial terms; a biela's stays). When the mix still
+ * leaves a combination of redundants undetermined (two reactions of a turned beam
+ * sharing its axis) or is not positive definite, keeping single rows would invent
+ * an axial reaction, and every coefficient keeps its axial term.
  */
 export function axialKept(terms: TermRow[][][], full: number[][], droppable: (row: TermRow) => boolean): Set<number> {
   const n = full.length;
@@ -88,13 +90,7 @@ export function axialKept(terms: TermRow[][][], full: number[][], droppable: (ro
   let D = reduced();
   for (let j = 0; j < n; j++) if (!(Math.abs(D[j][j]) > 1e-9 * Math.abs(full[j][j]))) kept.add(j);
   D = reduced();
-  for (let pass = 0; pass < n; pass++) {
-    const free = undetermined(D);
-    if (!free.length || free.every((j) => kept.has(j))) break;
-    for (const j of free) kept.add(j);
-    D = reduced();
-  }
-  if (kept.size && kept.size < n && !positiveDefinite(D)) return new Set(D.keys());
+  if (kept.size < n && (undetermined(D).length || (kept.size && !positiveDefinite(D)))) return new Set(D.keys());
   return kept;
 }
 
