@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { cirsocPage } from '../pages/cirsoc';
 import { STANDING_PAGES } from '../pages';
+import { STANDING_PAGE_PATHS, isStandingPagePath } from '../pages/paths';
 import { findPost } from '..';
 
 const LOCALES = (Object.keys(cirsocPage.i18n) as (keyof typeof cirsocPage.i18n)[]).filter((l) => cirsocPage.i18n[l]);
@@ -58,4 +59,16 @@ describe('every standing page', () => {
       }
     });
   }
+});
+
+describe('the standing page paths', () => {
+  it('name exactly the standing pages, so the public router needs no page content', () => {
+    expect([...STANDING_PAGE_PATHS]).toEqual(STANDING_PAGES.map((p) => p.path));
+  });
+
+  it('match with or without a trailing slash, and nothing else', () => {
+    expect(isStandingPagePath('/cirsoc/')).toBe(true);
+    expect(isStandingPagePath('/changelog')).toBe(true);
+    expect(isStandingPagePath('/cirsoc/extra')).toBe(false);
+  });
 });
