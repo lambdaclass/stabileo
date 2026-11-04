@@ -621,7 +621,7 @@
     {showAdvanced ? '▾' : '▸'} {t('advanced.title')}
   </button>
   {/if}
-  {#if (flat || showAdvanced) && courseReady}
+  {#if flat || showAdvanced}
   {#snippet helpPanel(key: string)}
     {#if advHelpKey === key && ADV_HELP[key]}
       <div class="adv-help-panel" style="grid-column: span 2">
@@ -652,6 +652,7 @@
     </div>
   {/if}
 
+  {#if courseReady}
   <div class="advanced-grid">
     {#if !(flat && active) && (shown('kinematic') || shown('despiece') || shown('stress'))}
     <!-- How the structure holds together, member by member, and what a section carries. -->
@@ -978,6 +979,7 @@
       {/if}
     {/if}
   </div>
+  {/if}
   {@const pdR = is3D ? resultsStore.pdeltaResult3D : resultsStore.pdeltaResult}
   {@const moR = is3D ? resultsStore.modalResult3D : resultsStore.modalResult}
   {@const buR = is3D ? resultsStore.bucklingResult3D : resultsStore.bucklingResult}
