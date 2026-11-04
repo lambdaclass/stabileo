@@ -220,3 +220,46 @@ fn members_whose_ends_turn_past_0_02_rad_against_their_chord_carry_nl3() {
     let r = solve_corotational_3d(&gentle, 100, 1e-9, 4, false).unwrap();
     assert!(r.converged && !has_nl3(&r), "{:?}", r.results.structured_diagnostics);
 }
+
+fn bent_in_double_curvature(end_turn: f64) -> SolverInput3D {
+    let (l, ei) = (2.0f64, 1.0e7 / 12.0);
+    let moment = 6.0 * ei * end_turn / l;
+    serde_json::from_value(serde_json::json!({
+        "nodes": {"1": {"id": 1, "x": 0.0, "y": 0.0, "z": 0.0}, "2": {"id": 2, "x": l, "y": 0.0, "z": 0.0}},
+        "elements": {"1": {"id": 1, "type": "frame", "nodeI": 1, "nodeJ": 2, "materialId": 1, "sectionId": 1}},
+        "materials": {"1": {"id": 1, "e": 1.0e4, "nu": 0.0}},
+        "sections": {"1": {"id": 1, "a": 1.0, "iy": 1.0 / 12.0, "iz": 1.0 / 12.0, "j": 1.0 / 6.0}},
+        "supports": {
+            "1": {"nodeId": 1, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": false},
+            "2": {"nodeId": 2, "rx": true, "ry": true, "rz": true, "rrx": true, "rry": true, "rrz": false}
+        },
+        "loads": [
+            {"type": "nodal", "data": {"nodeId": 1, "fx": 0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": moment}},
+            {"type": "nodal", "data": {"nodeId": 2, "fx": 0, "fy": 0, "fz": 0, "mx": 0, "my": 0, "mz": moment}}
+        ]
+    })).unwrap()
+}
+
+#[test]
+fn both_ends_bent_the_same_way_past_half_a_turn_are_never_reported_converged() {
+    for turns in [0.5, 0.8] {
+        let turn = turns * std::f64::consts::PI;
+        let r = solve_corotational_3d(&bent_in_double_curvature(turn), 100, 1e-10, 40, false).unwrap();
+        assert!(r.converged, "{turns}π");
+        for d in &r.results.displacements {
+            assert!((d.rz / turn - 1.0).abs() < 1e-8, "{turns}π: {d:?}");
+        }
+    }
+    for end_turn in [1.5 * std::f64::consts::PI, 2.0 * std::f64::consts::PI, 2.0 * std::f64::consts::PI + 0.01] {
+        for increments in [1, 10, 100] {
+            match solve_corotational_3d(&bent_in_double_curvature(end_turn), increments, 1e-10, 40, false) {
+                Err(e) => assert!(e.contains("member 1"), "{end_turn}: {e}"),
+                Ok(r) => {
+                    assert!(!r.converged && r.load_factor < 1.0, "{end_turn} rad in {increments}: reported converged");
+                    let turn = r.results.displacements.iter().map(|d| d.rz.abs()).fold(0.0, f64::max);
+                    assert!(turn <= 0.9 * std::f64::consts::PI, "{end_turn} rad in {increments}: ends at {turn}");
+                }
+            }
+        }
+    }
+}
