@@ -92,16 +92,14 @@ class Selection(unittest.TestCase):
                 self.assert_full(selection.select(event, paths))
         self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
 
-    def test_applying_run_e2e_label_schedules_full_ci(self):
+    def test_run_e2e_label_read_at_run_start_schedules_full_ci(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
         trigger = re.search(r'^  pull_request:\n    types: \[(.*?)\]', workflow, re.MULTILINE)
         self.assertIsNotNone(trigger)
         self.assertEqual({value.strip() for value in trigger[1].split(',')},
-                         {'opened', 'synchronize', 'reopened', 'labeled'})
-        self.assertIn("FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}", workflow)
-        event = {'action': 'labeled', 'label': {'name': 'run-e2e'},
-                 'pull_request': {'labels': [{'name': 'run-e2e'}]}}
-        self.assertIn(event['action'], trigger[1])
+                         {'opened', 'synchronize', 'reopened'})
+        self.assertIn("FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}", workflow)
+        event = {'pull_request': {'labels': [{'name': 'run-e2e'}]}}
         for labels, expected in [([], 'docs'), (event['pull_request']['labels'], 'full')]:
             with self.subTest(labels=labels), tempfile.TemporaryDirectory() as tmp:
                 output = Path(tmp) / 'outputs'
@@ -173,7 +171,7 @@ class Selection(unittest.TestCase):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}', text)
         self.assertIn('CHANGED_FILES: ${{ steps.filter.outputs.all_files }}', text)
-        self.assertIn("if: needs.changes.outputs.slow_e2e == 'true' || contains", text)
+        self.assertIn("if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'", text)
         for key in selection.select('push', []):
             self.assertIn('${{ steps.select.outputs.' + key + ' }}', text)
         self.assertNotIn('\n  rust:', text)
