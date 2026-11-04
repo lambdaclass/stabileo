@@ -1631,6 +1631,7 @@ jobs:
       - lint-repo
       - test-ci-scripts
       - docker-smoke
+      - caddy-routing
       - caddy-redirects
       - lint-engine
       - test-engine-gates
