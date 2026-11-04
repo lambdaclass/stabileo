@@ -210,6 +210,19 @@ if [ "$n" = 0 ]; then {first}; else {second}; fi
         self.assertEqual((result.returncode, count), (0, 1), result.stderr)
         self.assertNotIn('stalled', result.stderr)
 
+    def test_a_lock_that_outlives_the_wait_stops_the_retries(self):
+        result, count, _ = self.stalled_then('setsid flock LOCK sleep 30 & echo started; sleep 300', 'echo retried',
+                                             {'RETRY_INFRA_LOCK_SECONDS': '2'})
+        self.assertEqual((result.returncode, count), (124, 1), result.stderr)
+        self.assertIn('lock is still held; not retrying', result.stderr)
+
+    def test_an_attempt_printing_forever_is_stopped_by_the_wall_limit(self):
+        result, count, elapsed = self.stalled_then('while :; do echo "Connection reset by peer"; sleep 1; done', 'echo retried',
+                                                   {'RETRY_INFRA_WALL_SECONDS': '3'})
+        self.assertEqual((result.returncode, count), (0, 2), result.stderr)
+        self.assertIn('Attempt still running after 3s', result.stderr)
+        self.assertLess(elapsed, 60)
+
     def test_previous_infra_output_does_not_trigger_retry(self):
         self.assertEqual(self.run_attempts(['HTTP error 418', 'AssertionError'])[:2], (7, 2))
 

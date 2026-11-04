@@ -14,6 +14,7 @@ fi
 log=$(mktemp)
 trap 'rm -f "$log"' EXIT
 limit=${RETRY_INFRA_TIMEOUT_SECONDS:-900}
+wall=${RETRY_INFRA_WALL_SECONDS:-2400}
 locks=${RETRY_INFRA_LOCKS-/var/lib/dpkg/lock-frontend /var/lib/dpkg/lock}
 
 lock_held() {
@@ -37,6 +38,7 @@ reap() {
     sleep 1
     waited=$((waited + 1))
   done
+  ! lock_held
 }
 
 for attempt in 1 2 3; do
@@ -48,6 +50,7 @@ for attempt in 1 2 3; do
   follow=$!
   stalled=0
   idle=0
+  elapsed=0
   size=-1
   while kill -0 "$pid" 2> /dev/null; do
     now=$(stat -c %s "$log")
@@ -56,19 +59,28 @@ for attempt in 1 2 3; do
       idle=0
     elif (( idle >= limit )); then
       stalled=1
+      echo "Download stalled for ${limit}s" >&2
+      break
+    fi
+    if (( elapsed >= wall )); then
+      stalled=1
+      echo "Attempt still running after ${wall}s" >&2
       break
     fi
     sleep 1
     idle=$((idle + 1))
+    elapsed=$((elapsed + 1))
   done
-  if (( stalled )); then
-    echo "Download stalled for ${limit}s" >&2
-    reap "$pid"
-  fi
+  released=1
+  if (( stalled )); then reap "$pid" || released=0; fi
   wait "$pid"
   status=$?
   wait "$follow"
   if (( stalled )); then status=124; fi
+  if (( ! released )); then
+    echo "The stalled attempt's lock is still held; not retrying" >&2
+    exit "$status"
+  fi
   if (( status == 0 )); then exit 0; fi
   if (( attempt == 3 )) || { (( ! stalled )) && ! is_infra "$log"; }; then exit "$status"; fi
   echo "Known infrastructure failure; retry $attempt/2" >&2
