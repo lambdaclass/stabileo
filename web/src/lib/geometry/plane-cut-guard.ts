@@ -49,20 +49,33 @@ export function constraintsMisreadOn(
   return constraints.filter((c) => constraintNodes(c).some((n) => kept.has(n)) && !readAlike(c, plane));
 }
 
+const QUARTER_TURN_SHAPES = new Set([undefined, 'I', 'H', 'RHS', 'CHS', 'rect']);
+
+function turnsSafely(s: Section): boolean {
+  return QUARTER_TURN_SHAPES.has(s.shape) && !s.polygon && !s.drawn && !s.composition;
+}
+
+export interface PlaneBending {
+  /** Members whose plane bending the plane solver cannot represent: they couple in-plane and out-of-plane bending, or would need a section turned that is not doubly symmetric. */
+  offAxis: number[];
+  /** The sections of each member that the plane model must turn to `rotation` (0 or 90) for it to bend with its space inertia. */
+  turns: Map<number, { rotation: 0 | 90; sections: number[] }>;
+}
+
 /**
- * The frame members of a plane model cut on `plane` that the space model bends in that plane with
- * another inertia than the plane solver will, or couples that bending with bending out of the
- * plane, which the plane solver cannot (#1238).
+ * How each frame member of a plane model cut on `plane` bends in that plane in the space model,
+ * against the inertia the plane solver reads from its section's rotation (#1238).
  */
-export function membersBentOffAxis(
+export function planeBending(
   plane: DrawPlane,
   memberIds: Iterable<number>,
   elements: ReadonlyMap<number, Element>,
   nodes: ReadonlyMap<number, Node>,
   sections: ReadonlyMap<number, Section>,
-): number[] {
+): PlaneBending {
   const n = NORMAL[plane];
-  const out: number[] = [];
+  const offAxis: number[] = [];
+  const turns = new Map<number, { rotation: 0 | 90; sections: number[] }>();
   for (const id of memberIds) {
     const e = elements.get(id);
     if (!e || e.type !== 'frame') continue;
@@ -83,20 +96,38 @@ export function membersBentOffAxis(
     if (len < 1e-9) continue;
     const cy = (p[0] * axes.ey[0] + p[1] * axes.ey[1] + p[2] * axes.ey[2]) / len;
     const cz = (p[0] * axes.ez[0] + p[1] * axes.ez[1] + p[2] * axes.ez[2]) / len;
+    const rotation: 0 | 90 = cz * cz > cy * cy ? 90 : 0;
     const sectionIds = [e.sectionId, ...(e.variableSection ? [e.variableSection.sectionJ] : [])];
-    const off = sectionIds.some((sid) => {
+    let off = false;
+    const turned: number[] = [];
+    for (const sid of sectionIds) {
       const s = sections.get(sid);
-      if (!s) return false;
+      if (!s) continue;
       const props = solverProperties(s);
       const { iy, iz } = spaceBendingInertias(s, props);
       const held = iy * cy * cy + iz * cz * cz;
       const across = iy * cz * cz + iz * cy * cy;
       const free = across > 0 ? (iy * iz) / across : held;
+      const differs = (value: number, flat: number) => Math.abs(value - flat) > 1e-6 * Math.abs(flat);
       const flat = effectiveBendingInertia(s, props);
-      const differs = (value: number) => Math.abs(value - flat) > 1e-6 * Math.abs(flat);
-      return differs(held) || differs(free);
-    });
-    if (off) out.push(id);
+      if (!differs(held, flat) && !differs(free, flat)) continue;
+      const planeFlat = effectiveBendingInertia({ ...s, rotation }, props);
+      if (differs(held, planeFlat) || differs(free, planeFlat) || !turnsSafely(s)) off = true;
+      else turned.push(sid);
+    }
+    if (off) offAxis.push(id);
+    else if (turned.length > 0) turns.set(id, { rotation, sections: turned });
   }
-  return out.sort((x, y) => x - y);
+  return { offAxis: offAxis.sort((x, y) => x - y), turns };
+}
+
+/** The members of `planeBending` that a plane model of the cut cannot bend as the space model does. */
+export function membersBentOffAxis(
+  plane: DrawPlane,
+  memberIds: Iterable<number>,
+  elements: ReadonlyMap<number, Element>,
+  nodes: ReadonlyMap<number, Node>,
+  sections: ReadonlyMap<number, Section>,
+): number[] {
+  return planeBending(plane, memberIds, elements, nodes, sections).offAxis;
 }

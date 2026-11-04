@@ -37,7 +37,8 @@ import {
   buildSimplified2DModel, countCollapsedElements, type DrawPlane,
 } from '../geometry/plane-projection';
 import { sliceModelAtPlane, planeOffsets, type PlaneOffset, SLICE_TOL } from '../geometry/plane-slice';
-import { constraintsMisreadOn, membersBentOffAxis } from '../geometry/plane-cut-guard';
+import { constraintsMisreadOn, planeBending, type PlaneBending } from '../geometry/plane-cut-guard';
+import type { Section } from './model.svelte';
 
 /**
  * The geometry modules describe a support structurally, with an index
@@ -123,6 +124,7 @@ let backup: {
   elements: Map<number, unknown>;
   supports: Map<number, unknown>;
   loads: unknown[];
+  turnedSections: number[];
 } | null = null;
 
 export function hasBackup(): boolean {
@@ -139,6 +141,7 @@ function takeBackup() {
     elements: new Map(modelStore.elements),
     supports: new Map(modelStore.supports),
     loads: [...modelStore.loads],
+    turnedSections: [],
   };
 }
 
@@ -167,13 +170,48 @@ export interface SwitchStats {
 
 export type SwitchOutcome = { ok: true; stats: SwitchStats } | { ok: false; error: string };
 
+function turnSections(
+  elements: Map<number, { sectionId: number; variableSection?: { sectionJ: number } }>,
+  turns: PlaneBending['turns'],
+): { sections: Map<number, Section>; added: number[] } | null {
+  if (turns.size === 0) return null;
+  const sections = new Map(modelStore.sections);
+  const added: number[] = [];
+  const derived = new Map<string, number>();
+  let next = Math.max(0, ...sections.keys()) + 1;
+  const turnedId = (sid: number, rotation: number) => {
+    const key = `${sid}:${rotation}`;
+    let id = derived.get(key);
+    if (id === undefined) {
+      id = next++;
+      derived.set(key, id);
+      sections.set(id, { ...sections.get(sid)!, id, rotation });
+      added.push(id);
+    }
+    return id;
+  };
+  for (const [memberId, { rotation, sections: sids }] of turns) {
+    const e = elements.get(memberId);
+    if (!e) continue;
+    const turned = { ...e };
+    if (sids.includes(e.sectionId)) turned.sectionId = turnedId(e.sectionId, rotation);
+    if (e.variableSection && sids.includes(e.variableSection.sectionJ)) {
+      turned.variableSection = { ...e.variableSection, sectionJ: turnedId(e.variableSection.sectionJ, rotation) };
+    }
+    elements.set(memberId, turned);
+  }
+  return { sections, added };
+}
+
 function land(m: {
   nodes: Map<number, { id: number; x: number; y: number }>;
   elements: Map<number, unknown>;
   supports: Map<number, unknown>;
   loads: unknown[];
-}) {
-  modelStore.replaceModelData(m.nodes as never, m.elements as never, m.supports as never, m.loads as never);
+}, turns: PlaneBending['turns']) {
+  const turned = turnSections(m.elements as Map<number, never>, turns);
+  if (turned && backup) backup.turnedSections.push(...turned.added);
+  modelStore.replaceModelData(m.nodes as never, m.elements as never, m.supports as never, m.loads as never, turned?.sections);
   /*
    * The builder has already rewritten the coordinates into the 2D convention,
    * so the viewport and the solver must NOT remap them a second time — which
@@ -185,11 +223,12 @@ function land(m: {
   resultsStore.clear();
 }
 
-/** Why a plane model of this cut would not be the space model's, as a `slice.*` key; null when it would. */
-function cutRefusal(plane: DrawPlane, kept: Iterable<number>, members: Iterable<number>): string | null {
-  if (constraintsMisreadOn(plane, modelStore.constraints, new Set(kept)).length > 0) return 'slice.constraintsPlane';
-  if (membersBentOffAxis(plane, members, modelStore.elements, modelStore.nodes, modelStore.sections).length > 0) return 'slice.sectionAxis';
-  return null;
+/** The plane model of this cut, as the space model bends it, or why there is none, as a `slice.*` key. */
+function cutBending(plane: DrawPlane, kept: Iterable<number>, members: Iterable<number>): { error: string } | { turns: PlaneBending['turns'] } {
+  if (constraintsMisreadOn(plane, modelStore.constraints, new Set(kept)).length > 0) return { error: 'slice.constraintsPlane' };
+  const bending = planeBending(plane, members, modelStore.elements, modelStore.nodes, modelStore.sections);
+  if (bending.offAxis.length > 0) return { error: 'slice.sectionAxis' };
+  return { turns: bending.turns };
 }
 
 /** Flatten the whole structure onto a plane. */
@@ -204,11 +243,11 @@ export function projectOnto(plane: DrawPlane): SwitchOutcome {
     modelStore.sections,
   );
   if (!result.ok) return { ok: false, error: result.error };
-  const refusal = cutRefusal(plane, modelStore.nodes.keys(), result.model.elements.keys());
-  if (refusal) return { ok: false, error: refusal };
+  const bending = cutBending(plane, modelStore.nodes.keys(), result.model.elements.keys());
+  if ('error' in bending) return { ok: false, error: bending.error };
 
   takeBackup();
-  land(result.model);
+  land(result.model, bending.turns);
   const stats: SwitchStats = { ...result.model.stats, plane };
   uiStore.simplified2DStats = stats;
   return { ok: true, stats };
@@ -228,11 +267,11 @@ export function sliceAt(plane: DrawPlane, offset: number, tol = SLICE_TOL): Swit
     tol,
   );
   if (!result.ok) return { ok: false, error: result.error };
-  const refusal = cutRefusal(plane, result.model.nodes.keys(), result.model.elements.keys());
-  if (refusal) return { ok: false, error: refusal };
+  const bending = cutBending(plane, result.model.nodes.keys(), result.model.elements.keys());
+  if ('error' in bending) return { ok: false, error: bending.error };
 
   takeBackup();
-  land(result.model);
+  land(result.model, bending.turns);
   const stats: SwitchStats = {
     ...result.model.stats,
     droppedCrossing: result.slice.crossingElements,
@@ -262,6 +301,12 @@ export function switchPlain(): void {
   uiStore.analysisMode = '2d';
 }
 
+function withoutSections(ids: number[]): Map<number, Section> {
+  const sections = new Map(modelStore.sections);
+  for (const id of ids) sections.delete(id);
+  return sections;
+}
+
 /** Put the original 3D model back. */
 export function restore3D(): void {
   if (backup) {
@@ -270,6 +315,7 @@ export function restore3D(): void {
       backup.elements as never,
       backup.supports as never,
       backup.loads as never,
+      backup.turnedSections.length > 0 ? withoutSections(backup.turnedSections) : undefined,
     );
     backup = null;
   }

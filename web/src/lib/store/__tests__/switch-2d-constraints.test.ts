@@ -3,7 +3,8 @@ import { modelStore } from '../model.svelte';
 import { uiStore } from '../ui.svelte';
 import '../index';
 import { initSolver } from '../../engine/wasm-solver';
-import { projectOnto, resetSwitchBackup, sliceAt } from '../switch-2d';
+import { projectOnto, resetSwitchBackup, restore3D, sliceAt } from '../switch-2d';
+import { effectiveBendingInertia, spaceBendingInertias } from '../../engine/solver-service';
 import { constraintsMisreadOn, membersBentOffAxis } from '../../geometry/plane-cut-guard';
 import type { Constraint3D } from '../../engine/types-3d';
 
@@ -131,15 +132,77 @@ describe('a cut bends each member about the axis the space model bends it about 
     return { b, d, columns, beam: modelStore.addElement(b, d, 'frame') };
   }
 
-  it('an I portal standing in Y–Z, its columns bending about the weak axis, is refused, not solved 13× too stiff', () => {
-    const { b, d, columns } = portalInYZ(0);
-    const [sway3] = swayOfBothHeads3D(b, d);
-    expect(sway3).toBeGreaterThan(0.012);
-    expect(membersBentOffAxis('yz', modelStore.elements.keys(), modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual(columns);
+  it('an I portal standing in Y–Z, its columns bending about the weak axis, is cut with the weak-axis inertia and agrees with 3D', () => {
     for (const take of [() => sliceAt('yz', 0), () => projectOnto('yz')]) {
-      expect(take()).toEqual({ ok: false, error: 'slice.sectionAxis' });
-      expect(uiStore.simplified2DMode).toBe(false);
+      modelStore.clear();
+      resetSwitchBackup();
+      uiStore.analysisMode = '3d';
+      const { b, d, columns } = portalInYZ(0);
+      const sectionsBefore = [...modelStore.sections.keys()];
+      const [ub3, ud3] = swayOfBothHeads3D(b, d);
+      expect(ub3).toBeGreaterThan(0.012);
+      expect(membersBentOffAxis('yz', modelStore.elements.keys(), modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual([]);
+      expect(take().ok).toBe(true);
+      for (const id of columns) {
+        const s = modelStore.sections.get(modelStore.elements.get(id)!.sectionId)!;
+        expect(s.rotation).toBe(90);
+        expect(effectiveBendingInertia(s)).toBeCloseTo(spaceBendingInertias(s).iz, 15);
+      }
+      const [ub2, ud2] = swayOfBothHeads2D(b, d);
+      expect(ub2).toBeCloseTo(ub3, 9);
+      expect(ud2).toBeCloseTo(ud3, 9);
+      restore3D();
+      expect([...modelStore.sections.keys()]).toEqual(sectionsBefore);
+      for (const id of columns) expect(modelStore.elements.get(id)!.sectionId).toBe(sectionsBefore[0]);
     }
+  });
+
+  it('horizontal I members cut along X–Y bend about their weak axis there, as in 3D', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(3, 0, 0);
+    const c = modelStore.addNode(0, 4, 0), d = modelStore.addNode(3, 4, 0);
+    modelStore.addElement(a, b, 'frame');
+    modelStore.addElement(c, d, 'frame');
+    modelStore.addElement(b, d, 'frame');
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addSupport(c, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 0, 10, 0, 0, 0, 0);
+    const r3 = modelStore.solve3D(false, false, true);
+    if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
+    const uy3 = r3.displacements.find((x) => x.nodeId === b)!.uy;
+    expect(Math.abs(uy3)).toBeGreaterThan(1e-3);
+    expect(sliceAt('xy', 0).ok).toBe(true);
+    uiStore.analysisMode = '2d';
+    const r2 = modelStore.solve(false);
+    if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
+    expect(r2.displacements.find((x) => x.nodeId === b)!.uz).toBeCloseTo(uy3, 9);
+  });
+
+  it('a rolled column in an X–Z cut bends about its weak axis there, as in 3D', () => {
+    const a = modelStore.addNode(0, 0, 0), b = modelStore.addNode(0, 0, 3);
+    const column = modelStore.addElement(a, b, 'frame');
+    modelStore.elements.get(column)!.rollAngle = 90;
+    modelStore.addSupport(a, 'fixed3d');
+    modelStore.addNodalLoad3D(b, 10, 0, 0, 0, 0, 0);
+    const r3 = modelStore.solve3D(false, false, true);
+    if (!r3 || typeof r3 === 'string') throw new Error(`3D: ${String(r3)}`);
+    const ux3 = r3.displacements.find((x) => x.nodeId === b)!.ux;
+    const s = modelStore.sections.get(modelStore.elements.get(column)!.sectionId)!;
+    const { iz } = spaceBendingInertias(s);
+    const e = modelStore.materials.get(modelStore.elements.get(column)!.materialId)!.e * 1000;
+    expect(ux3).toBeCloseTo((10 * 27) / (3 * e * iz), 6);
+    expect(sliceAt('xz', 0).ok).toBe(true);
+    uiStore.analysisMode = '2d';
+    const r2 = modelStore.solve(false);
+    if (!r2 || typeof r2 === 'string') throw new Error(`2D: ${String(r2)}`);
+    expect(r2.displacements.find((x) => x.nodeId === b)!.ux).toBeCloseTo(ux3, 9);
+  });
+
+  it('a channel that would have to be turned in the plane model is refused, its sign of turn being unknown there', () => {
+    const { columns } = portalInYZ(0);
+    const sid = modelStore.addSection({ name: 'UPN 200', shape: 'U', a: 0.00322, iy: 1.91e-5, iz: 1.48e-6, j: 1.1e-7, b: 0.075, h: 0.2, tw: 0.0085, tf: 0.0115 } as never);
+    for (const id of columns) modelStore.elements.get(id)!.sectionId = sid;
+    expect(membersBentOffAxis('yz', columns, modelStore.elements, modelStore.nodes, modelStore.sections)).toEqual(columns);
+    expect(sliceAt('yz', 0)).toEqual({ ok: false, error: 'slice.sectionAxis' });
   });
 
   it('the same portal with its columns turned to bend about the strong axis is cut, and agrees with 3D', () => {
