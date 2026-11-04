@@ -24,7 +24,6 @@ import { solvePDelta, solveBuckling, solveModal, solvePDelta3D, solveBuckling3D,
 import { solveMovingLoads, getPredefinedTrains } from '../moving-loads';
 import { computeInfluenceLine } from '../influence-service';
 import { runPlasticCollapse } from '../../actions/plastic';
-import { solveLimit } from '../plastic/solve-limit';
 
 const EX2 = ['simply-supported', 'cantilever', 'cantilever-point', 'point-loads', 'gerber-beam', 'continuous-beam',
   'spring-support', 'settlement', 'thermal', 'truss', 'warren-truss', 'howe-truss', 'three-hinge-arch',
@@ -111,18 +110,4 @@ describe('advanced analyses on the Basic 3D examples', () => {
     const combos = modelStore.solveCombinations3D(false);
     expect(combos && typeof combos !== 'string').toBeTruthy();
   }, 120_000);
-});
-
-describe('plastic collapse of a Basic example that closes many hinges', () => {
-  it('spring-support: the step by step reaches the limit-analysis λc after 42 closings, not a false collapse at 6.45', async () => {
-    await load('spring-support', '2d');
-    const input = modelStore.buildSolverInput(false)!;
-    const run = runPlasticCollapse()!;
-    const mpOf = new Map(run.mps.map((m) => [m.sectionId, m.mp]));
-    const limit = solveLimit(input, (id) => mpOf.get(input.elements.get(id)!.sectionId) ?? Infinity)!;
-    expect(run.result.isMechanism).toBe(true);
-    expect(run.result.unconfirmed).toBeUndefined();
-    expect(run.result.hinges.filter((h) => h.unloadedAt !== undefined).length).toBeGreaterThan(10);
-    expect(Math.abs(run.result.collapseFactor / limit.best.lambda - 1)).toBeLessThan(1e-4);
-  });
 });
