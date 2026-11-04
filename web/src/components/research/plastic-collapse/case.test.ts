@@ -100,6 +100,10 @@ describe('the recorded replay', () => {
     expect(checks(flipped).find(c => c.id === 'hinges')!.passed).toBe(false);
     const overYield = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === 2 ? { ...f, myStart: f.myStart - 200 } : f)) } } : s)) };
     expect(checks(overYield).find(c => c.id === 'yield')!.passed).toBe(false);
+    const last = replay.steps.length - 1;
+    const lateHinge = replay.steps[last].hingesFormed![0];
+    const overYieldThenDetached = { ...overYield, steps: overYield.steps.map((s, i) => (i === last ? { ...s, results: { ...s.results, elementForces: s.results.elementForces!.map(f => (f.elementId === lateHinge.elementId ? { ...f, [lateHinge.end === 'start' ? 'myStart' : 'myEnd']: f[lateHinge.end === 'start' ? 'myStart' : 'myEnd'] + 50 } : f)) } } : s)) };
+    expect(checks(overYieldThenDetached).find(c => c.id === 'hinges')!.passed).toBe(false);
     expect(checks({ ...replay, warnings: ['x'] }).find(c => c.id === 'mechanism')!.passed).toBe(false);
     const moved = { ...replay, steps: replay.steps.map((s, i) => (i === 0 ? { ...s, hingesFormed: [...s.hingesFormed!, ...replay.steps[1].hingesFormed!] } : i === 1 ? { ...s, hingesFormed: [] } : s)) };
     expect(checks(moved).filter(c => !c.passed).map(c => c.id)).toEqual(['hinges']);

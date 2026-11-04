@@ -103,7 +103,8 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
   });
   const running = new Map<number, number[]>();
   let hingesCarryForces = true;
-  const yieldedOnTheWay = result.steps.some(step => {
+  let yieldedOnTheWay = false;
+  for (const step of result.steps) {
     for (const f of step.results.elementForces ?? []) {
       const [a, b] = running.get(f.elementId) ?? [0, 0];
       running.set(f.elementId, [a + f.myStart, b + f.myEnd]);
@@ -112,8 +113,8 @@ export function checks(result: Result): { id: CheckId; passed: boolean }[] {
       const m = running.get(h.elementId)?.[h.end === 'start' ? 0 : 1] ?? NaN;
       if (!(Math.abs(m - h.momentY) <= mp * yieldTolerance)) hingesCarryForces = false;
     }
-    return [...running.values()].flat().some(m => !(Math.abs(m) <= mp * (1 + yieldTolerance)));
-  });
+    if ([...running.values()].flat().some(m => !(Math.abs(m) <= mp * (1 + yieldTolerance)))) yieldedOnTheWay = true;
+  }
   const corner = moments.get(1)?.myEnd ?? NaN;
   const r = reactionsAtSupports ? residual(result) : { fx: NaN, fz: NaN, my: NaN };
   return [

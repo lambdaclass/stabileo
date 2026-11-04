@@ -63,8 +63,8 @@ fn dilution_series_brackets_sample_rigidity_onset() {
     let row = |keep:f64| rows.iter().find(|r| (r["keep"].as_f64().unwrap()-keep).abs()<1e-10).unwrap();
     assert!(row(0.61)["shear_max"].as_f64().unwrap().abs()<1e-6);
     assert!(row(0.64)["shear_min"].as_f64().unwrap().abs()<1e-6);
-    assert!(row(0.64)["shear_max"].as_f64().unwrap()>0.0);
-    assert!(row(0.67)["shear_min"].as_f64().unwrap()>0.0);
+    assert!(row(0.64)["shear_max"].as_f64().unwrap()>1e-6);
+    assert!(row(0.67)["shear_min"].as_f64().unwrap()>1e-6);
 }
 
 #[test]
