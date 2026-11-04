@@ -20,7 +20,8 @@ export function buildStamp(env = process.env) {
   const git = (...args) => execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   const list = (...args) => git('ls-files', '-z', ...args).split('\0').filter(Boolean);
   const tracked = [...list('-c', '--', 'web', 'research'), ...list('-o', '--exclude-standard', '--', 'web/src', 'web/public', 'research')];
-  const files = [...new Set([...tracked, ...IGNORED_INPUTS.flatMap((dir) => walk(join(REPO_ROOT, dir)))])].sort();
+  const envFiles = readdirSync(WEB_ROOT).filter((name) => name.startsWith('.env')).map((name) => `web/${name}`);
+  const files = [...new Set([...tracked, ...envFiles, ...IGNORED_INPUTS.flatMap((dir) => walk(join(REPO_ROOT, dir)))])].sort();
   const hash = createHash('sha256');
   hash.update(`HEAD ${git('rev-parse', 'HEAD').trim()}\0`);
   for (const name of Object.keys(env).filter((key) => key.startsWith('VITE_') || ['BASE_PATH', 'GITHUB_SHA'].includes(key)).sort()) {

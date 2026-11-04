@@ -38,7 +38,7 @@ it('refuses a named build that is missing or has no stamp', () => {
   expect(() => sharedBuild(VARIABLE)).toThrow(/no build or no source stamp/);
 });
 
-it('changes the stamp when a source file or a build variable changes', () => {
+it('changes the stamp when a source file, a build variable or a Vite env file changes', () => {
   const before = buildStamp({});
   expect(buildStamp({ VITE_E2E: '1' })).not.toBe(before);
   expect(buildStamp({ UNRELATED: '1' })).toBe(before);
@@ -50,4 +50,11 @@ it('changes the stamp when a source file or a build variable changes', () => {
     rmSync(probe, { force: true });
   }
   expect(buildStamp({})).toBe(before);
+  const envFile = join(__dirname, `../../../../.env.stamp-probe-${process.pid}`);
+  try {
+    writeFileSync(envFile, 'VITE_PROBE=1\n');
+    expect(buildStamp({})).not.toBe(before);
+  } finally {
+    rmSync(envFile, { force: true });
+  }
 });

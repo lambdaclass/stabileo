@@ -263,7 +263,8 @@ typecheck.web:
 test.web.unit:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project unit $${UNIT_AREA:+src/components/$$UNIT_AREA} $(if $(SHARD),--shard=$(SHARD))"
 
-test.web.build: web.build.tested test.web.build.shared
+test.web.build: web.build.tested
+	$(MAKE) test.web.build.shared
 
 # The build prerenders the public pages in Chromium, so it needs the browser. The stamp is taken
 # before building, so a tree edited mid-build fails the build tests instead of passing them.
