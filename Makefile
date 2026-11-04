@@ -224,6 +224,7 @@ SUITE_FILTER = all() - test(harmonic_phase_breakdown) - test(harmonic_modal_vs_d
 NEXTEST = cd engine && $(NIX_RUN) cargo nextest run --profile ci
 
 lint.engine:
+	python3 -B -I .github/scripts/check-wall-clock-tests.py
 	cd engine && $(NIX_RUN) cargo clippy --lib -- -W clippy::all -A clippy::erasing_op
 
 # The acceptance models are generated (docs/verification/ACCEPTANCE.md); a hand edit fails here.
@@ -375,8 +376,10 @@ test.nightly-scripts:
 
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
+	python3 -B -I scripts/tests/test_build_research_wasm.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
+	python3 -B -I scripts/tests/test_check_wall_clock_tests.py
 	python3 -B -I scripts/tests/test_main_tested.py
 	python3 -B -I scripts/tests/test_cancel_superseded.py
 	python3 -B -I scripts/tests/test_ci_runners.py
