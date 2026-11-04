@@ -4,7 +4,7 @@ Configuration and the reasons behind it are in `../playwright.config.ts`. Tests 
 
 | tag | runs | blocking |
 |---|---|---|
-| `@smoke` | every PR and the merge queue, 10 shards balanced by duration (`../scripts/e2e-shard.mjs`) | yes |
+| `@smoke` | every PR (5 shards) and the merge queue (10), balanced by duration (`../scripts/e2e-shard.mjs`) | yes |
 | `@slow` | the merge queue, or a PR labelled `run-e2e`, 10 shards balanced the same way | yes |
 | `@flaky` | every PR and the merge queue, in the `e2e-flaky` job, with `--retries=2` | no |
 

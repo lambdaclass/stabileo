@@ -2,7 +2,9 @@
 
 The merge queue runs the full set minus the heavy jobs that combining PRs rarely breaks
 (slow E2E, visual baselines, Docker smoke, Determinism, quarantined E2E, research validation
-beyond route budgets); pushes to main and the scheduled run add them back.
+beyond route budgets); pushes to main and the scheduled run add them back. A full pull request
+runs every E2E smoke spec in five shards instead of ten: its critical path is Web Build then
+Docker smoke, so the longer shards cost no wall time and leave hosted runners for other jobs.
 """
 import json
 import os
@@ -18,6 +20,8 @@ SPECS = {
 
 
 POST_MERGE_EVENTS = ('push', 'schedule', 'workflow_dispatch')
+PR_E2E_SHARDS = 5
+E2E_SHARDS = 10
 
 
 def area(path):
@@ -47,6 +51,7 @@ def select(event, paths, root=None, force_full=False):
             scope = 'full'
     full = scope == 'full'
     queue = event == 'merge_group'
+    shards = (PR_E2E_SHARDS if event == 'pull_request' and not force_full else E2E_SHARDS) if full else 1
     outputs = {key: full for key in ('backend', 'ci_scripts')}
     outputs.update(docker=scope != 'docs' and not queue, web_build=scope != 'docs', ai_backend=full or scope == 'engine',
                    engine=full or scope == 'engine', web=scope != 'docs',
@@ -57,8 +62,8 @@ def select(event, paths, root=None, force_full=False):
     outputs = {key: str(value).lower() for key, value in outputs.items()}
     outputs.update(scope=scope, unit_area=scope if scope in ('research', 'tools') else '',
                    e2e_specs=json.dumps(SPECS.get(scope, [])),
-                   e2e_shards=json.dumps(list(range(1, 11)) if full else [1]),
-                   e2e_total='10' if full else '1')
+                   e2e_shards=json.dumps(list(range(1, shards + 1))),
+                   e2e_total=str(shards))
     return outputs
 
 

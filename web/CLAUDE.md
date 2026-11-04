@@ -56,7 +56,7 @@ Educational tool with step-by-step solver visualization for civil/structural eng
   (`vitest run --project unit --shard=i/2`), `web-build` builds and runs the build pass. A test
   file is the unit of parallelism, so one file that runs a minute of heavy cases serially sets
   the floor for everyone — split it (see `design-families-fixture.ts`) rather than let it grow.
-- E2E in CI runs in 10 shards of whole spec files balanced by measured duration
+- E2E in CI runs in 10 shards (5 on a pull request) of whole spec files balanced by measured duration
   (`scripts/e2e-shard.mjs`, weights in `e2e/shard-timings.json` for @smoke and
   `e2e/shard-timings-slow.json` for @slow). Refresh the weights from a CI run's
   `playwright-artifacts-*/.results/<suite>.json` with

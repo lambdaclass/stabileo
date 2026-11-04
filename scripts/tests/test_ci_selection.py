@@ -79,9 +79,10 @@ class Selection(unittest.TestCase):
             with self.subTest(paths=paths):
                 self.assert_full(selection.select('pull_request', paths))
 
-    def assert_full(self, result):
+    def assert_full(self, result, shards=5):
         self.assertEqual(result['scope'], 'full')
-        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, 11)))
+        self.assertEqual(json.loads(result['e2e_shards']), list(range(1, shards + 1)))
+        self.assertEqual(result['e2e_total'], str(shards))
         self.assertEqual(result['unit_area'], '')
         for key in ['engine', 'web', 'research', 'docker', 'backend', 'ai_backend', 'ci_scripts', 'web_build', 'flaky', 'determinism', 'results']:
             self.assertEqual(result[key], 'true', key)
@@ -89,8 +90,10 @@ class Selection(unittest.TestCase):
     def test_trusted_events_and_label_are_always_full(self):
         for event in ['push', 'schedule', 'workflow_dispatch', None]:
             for paths in [[], ['docs/a'], ['research/a'], ['engine/a']]:
-                self.assert_full(selection.select(event, paths))
-        self.assert_full(selection.select('pull_request', ['research/a'], force_full=True))
+                self.assert_full(selection.select(event, paths), shards=10)
+        self.assert_full(selection.select('pull_request', ['research/a'], force_full=True), shards=10)
+        queue = selection.select('merge_group', [])
+        self.assertEqual((queue['e2e_shards'], queue['e2e_total']), (json.dumps(list(range(1, 11))), '10'))
 
     def test_applying_run_e2e_label_schedules_full_ci(self):
         workflow = (ROOT / '.github/workflows/ci.yml').read_text()
@@ -113,7 +116,7 @@ class Selection(unittest.TestCase):
                 result = dict(line.split('=', 1) for line in output.read_text().splitlines())
                 self.assertEqual(result['scope'], expected)
                 if expected == 'full':
-                    self.assert_full(result)
+                    self.assert_full(result, shards=10)
 
     def test_missing_area_tests_fall_back_to_full(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -172,6 +175,8 @@ class Selection(unittest.TestCase):
     def test_workflow_wiring(self):
         text = (ROOT / '.github/workflows/ci.yml').read_text()
         self.assertIn('shard: ${{ fromJSON(needs.changes.outputs.e2e_shards) }}', text)
+        self.assertNotIn('}}/10', text)
+        self.assertEqual(text.count('SHARD=${{ matrix.shard }}/${{ needs.changes.outputs.e2e_total }}'), 4)
         self.assertIn('CHANGED_FILES: ${{ steps.filter.outputs.all_files }}', text)
         self.assertIn("if: needs.changes.outputs.slow_e2e == 'true' || contains", text)
         for key in selection.select('push', []):
