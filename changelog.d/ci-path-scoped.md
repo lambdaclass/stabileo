@@ -7,7 +7,7 @@ One that changes only the site (components, blog, locale strings, end-to-end tes
 outside the package manifests and the compiled WASM) runs everything except the engine, AI-backend
 and backend jobs: WASM, the site build, the E2E site and every E2E shard still run.
 
-The merge queue scopes each group by its combined changes the same way: a group of docs only runs no
-build, and a group touching only the site, research or tools skips the engine jobs. Any group that
+The merge queue scopes each entry the same way, by its diff against the entry ahead of it: an entry of
+docs only runs no build, and one touching only the site, research or tools skips the engine jobs. Any entry that
 touches the engine, the toolchain or anything unrecognised runs the full queue set; pushes to main
 and the nightly run still run everything.
