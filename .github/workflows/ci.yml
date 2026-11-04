@@ -45,9 +45,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  # Only PR runs share a group: a third run in a shared group cancels the pending one, even without cancel-in-progress.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'push-main' || github.run_id }}
+  # Never share a group with merge-queue runs: a third run in a shared group cancels the pending one, even without cancel-in-progress.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
 permissions:
   contents: read
