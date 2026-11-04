@@ -43,11 +43,11 @@ export function woodArmer(mx: number, my: number, mxy: number): DesignMoments {
     if (dx < 0 && dy < 0) return [0, 0];          // no steel this face; nothing to transfer
     if (dx < 0) {
       dx = 0;
-      dy = py + (a > 0 ? (mxy * mxy) / Math.max(Math.abs(px), 1e-9) : 0);
+      dy = py + (a > 0 ? (mxy * mxy) / Math.abs(px) : 0);
       corrected = true;
     } else {
       dy = 0;
-      dx = px + (a > 0 ? (mxy * mxy) / Math.max(Math.abs(py), 1e-9) : 0);
+      dx = px + (a > 0 ? (mxy * mxy) / Math.abs(py) : 0);
       corrected = true;
     }
     return [Math.max(0, dx), Math.max(0, dy)];
