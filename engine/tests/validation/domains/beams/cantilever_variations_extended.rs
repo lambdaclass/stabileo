@@ -506,5 +506,5 @@ fn validation_cantilever_midspan_moment() {
     assert_close(r.my, -m0, 0.01, "Midspan moment: fixed end reaction moment");
 
     // No vertical reaction (pure moment, no transverse load)
-    assert_close(r.rz, 0.0, 0.001, "Midspan moment: zero vertical reaction");
+    assert_close_abs(r.rz, 0.0, 0.001, 1e-6, "Midspan moment: zero vertical reaction");
 }

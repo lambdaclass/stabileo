@@ -120,7 +120,7 @@ export interface OtherCode {
 export interface StationBound3D { elementId: number; axial: number; shearY: number; shearZ: number; torsion: number; momentY: number; momentZ: number }
 
 /** Bounds on |exact − computed| of the forces sent to a certified checker, its units. */
-export interface DemandBound { n: number; my: number; mz: number; vy: number }
+export interface DemandBound { n: number; my: number; mz: number; vStrong: number }
 
 /**
  * A member's certified utilization: the exact one lies in [lower, upper] for every governing

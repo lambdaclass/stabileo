@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   import { parseDecimal } from '../../lib/utils/numeric-input';
   /**
    * One editor for everything a support holds: which degrees of freedom are fixed, a spring on
@@ -109,7 +110,7 @@
       {/each}
     </tbody>
   </table>
-  <p class="se-hint">{t('support.curveHint')}</p>
+  <Hint text={t('support.curveHint')} />
 
   <div class="se-row">
     <span>{t('support.inclined')}:</span>
@@ -133,7 +134,6 @@
   .se-curve { width: 150px; }
   .se-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .se-mono { font-family: var(--st-mono); }
-  .se-hint { margin: 0; color: var(--st-text-3); font-size: 0.6rem; }
   button { padding: 1px 6px; font-size: 0.62rem; background: transparent; color: var(--st-text-2); border: 1px solid var(--st-hair); border-radius: 3px; cursor: pointer; }
   .se-unit { color: var(--st-text-3); font-size: 0.58rem; white-space: nowrap; }
 </style>

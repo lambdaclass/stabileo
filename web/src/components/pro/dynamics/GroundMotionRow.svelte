@@ -1,5 +1,6 @@
 <script lang="ts">
   import { accountGate } from '../../../lib/store/account-gate.svelte';
+  import Hint from '../Hint.svelte';
   import { plainNumber } from '../../../lib/utils/units';
   /**
    * The ground motion in one direction: none, a harmonic, a record (a file or typed values), or
@@ -105,7 +106,7 @@
       <label>{t('pro.th.duration')} (s) <input type="number" min="1" step="1" value={g.spectrum?.duration ?? 20} onchange={(e) => (g = { ...g, spectrum: { seed: g.spectrum?.seed ?? 1, duration: Number(e.currentTarget.value) } })} /></label>
       <label>{t('pro.th.seed')} <input type="number" min="1" step="1" value={g.spectrum?.seed ?? 1} onchange={(e) => (g = { ...g, spectrum: { duration: g.spectrum?.duration ?? 20, seed: Math.floor(Number(e.currentTarget.value)) } })} data-testid="th-seed-{dir}" /></label>
     </div>
-    <p class="gm-hint">{t('pro.th.spectrumHint')}</p>
+    <Hint text={t('pro.th.spectrumHint')} />
   {/if}
   {#if series}
     <TimeSeriesChart times={times} values={series} cursor={-1} unitLabel="m/s²" scale={1} label={tp('pro.th.groundChart', { dir: dir.toUpperCase() })} />

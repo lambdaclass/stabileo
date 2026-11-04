@@ -1,5 +1,6 @@
 <script lang="ts">
   import { accountGate } from '../../../lib/store/account-gate.svelte';
+  import Hint from '../Hint.svelte';
   /**
    * Preparing a DXF as templates (`store/underlays.ts`): its unit and layers, and the regions of
    * the drawing that may be separate plans (`model/underlay-regions.ts`), each with the level it
@@ -141,7 +142,7 @@
           <circle class="ref" cx={preview.sx(r.ref.x)} cy={preview.sy(r.ref.y)} r="3" />
         {/each}
       </svg>
-      <p class="pk-hint">{rows.length > 1 ? t('underlay.regionsHint') : t('underlay.refHint')}</p>
+      <Hint text={rows.length > 1 ? t('underlay.regionsHint') : t('underlay.refHint')} />
     {/if}
 
     <table class="ul-regions" data-testid="underlay-regions">

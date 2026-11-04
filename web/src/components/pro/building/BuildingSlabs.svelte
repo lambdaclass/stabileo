@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Slabs: the typology (drawn), the thickness, the levels, and the mesh the analysis reads them
    * with: meshed now, or kept as one shell per panel and meshed by the first solve, which keeps the
@@ -44,7 +45,7 @@
     <label><input type="radio" name="bs-mesh" value="solve" bind:group={meshWhen} data-testid="building-slab-mesh-solve" /> {t('building.slabs.meshAtSolve')}</label>
     <label><input type="radio" name="bs-mesh" value="now" bind:group={meshWhen} data-testid="building-slab-mesh-now" /> {t('building.slabs.meshNow')}</label>
   </div>
-  <p class="pk-hint">{t(meshWhen === 'solve' ? 'building.slabs.meshAtSolveHint' : 'building.slabs.meshNowHint')}</p>
+  <Hint text={t(meshWhen === 'solve' ? 'building.slabs.meshAtSolveHint' : 'building.slabs.meshNowHint')} />
   <div class="bs-levels" role="group" aria-label={t('building.atLevels')}>
     {#each levels as l (l.id)}
       <label><input type="checkbox" checked={chosen.includes(l.id)} onchange={() => toggle(l.id)} /> {l.name}</label>

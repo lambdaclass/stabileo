@@ -240,7 +240,19 @@ describe('stack compatibility', () => {
     r.wind = bindRole('wind', 'cirsoc102-2025');   // requiresConfig, adoption unstated
     const v = validateStack(r);
     expect(v.problems.some((p) => p.key === 'regulations.problem.configIncomplete')).toBe(true);
-    expect(v.problems.some((p) => p.key === 'regulations.problem.adoptionUnstated')).toBe(true);
+    expect(v.problems.some((p) => p.key.startsWith('regulations.problem.adoptionUnstated') && p.roles.includes('wind'))).toBe(true);
+  });
+
+  it('warns once about the basis of application, chosen for the whole stack', () => {
+    const r = defaultRegulations();
+    r.wind = bindRole('wind', 'cirsoc102-2025');
+    r.basis = bindRole('basis', 'cirsoc101-2025-basis');
+    r.loads = bindRole('loads', 'cirsoc101-2025-loads');
+    const v = validateStack(r).problems.filter((p) => p.key.startsWith('regulations.problem.adoptionUnstated'));
+    expect(v).toHaveLength(1);
+    expect(v[0]!.key).toBe('regulations.problem.adoptionUnstatedAll');
+    expect(v[0]!.params).toEqual({ n: v[0]!.roles.length });
+    expect(v[0]!.roles).toEqual(expect.arrayContaining(['basis', 'loads', 'wind']));
   });
 
   it('reports a role usable only when bound, supported and configured', () => {

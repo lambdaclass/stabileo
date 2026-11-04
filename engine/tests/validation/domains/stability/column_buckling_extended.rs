@@ -385,14 +385,14 @@ fn validation_col_buck_ext_ec3_chi_curves() {
         "EC3 ordering: chi_c={:.4} > chi_d={:.4}", chi_values[2], chi_values[3]);
 
     // Verify chi converges to Euler curve at high slenderness
-    // At large lambda, imperfection effect vanishes: chi → 1/lambda² (Euler)
-    let lambda_high: f64 = 5.0;
+    // chi·lambda² = 1 - alpha/lambda + O(1/lambda²), so the Euler limit is only approached like alpha/lambda.
+    let lambda_high: f64 = 50.0;
     let chi_euler: f64 = 1.0 / (lambda_high * lambda_high);
     for (curve_name, alpha) in &curves {
         let phi: f64 = 0.5 * (1.0 + alpha * (lambda_high - 0.2) + lambda_high * lambda_high);
         let disc: f64 = phi * phi - lambda_high * lambda_high;
         let chi_calc: f64 = (1.0 / (phi + disc.sqrt())).min(1.0);
-        assert_close(chi_calc, chi_euler, 0.05,
+        assert_close(chi_calc, chi_euler, alpha / lambda_high,
             &format!("EC3 curve {}: chi→1/lambda² at lambda={:.0}", curve_name, lambda_high));
     }
 }
@@ -633,8 +633,8 @@ fn validation_col_buck_ext_frame_sway_vs_nonsway() {
 //
 // Reference: Timoshenko & Gere, Section 2.15.
 //
-// We verify via solver by building two separate halves with different sections,
-// comparing deflections to a uniform column with I_avg.
+// We verify via solver by building two separate halves with different sections
+// and checking the midspan deflection under a lateral point load.
 
 #[test]
 fn validation_col_buck_ext_stepped_column_energy() {
@@ -689,14 +689,6 @@ fn validation_col_buck_ext_stepped_column_energy() {
     let d_stepped = linear::solve_2d(&input_stepped).unwrap()
         .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
 
-    // (b) Uniform column with I_avg
-    let loads_avg = vec![SolverLoad::Nodal(SolverNodalLoad {
-        node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
-    })];
-    let input_avg = make_beam(n, l, E, a, iz_avg, "pinned", Some("rollerX"), loads_avg);
-    let d_avg = linear::solve_2d(&input_avg).unwrap()
-        .displacements.iter().find(|d| d.node_id == mid).unwrap().uz.abs();
-
     // (c) Uniform column with I1 (stiffer, less deflection)
     let loads_i1 = vec![SolverLoad::Nodal(SolverNodalLoad {
         node_id: mid, fx: 0.0, fz: p_lateral, my: 0.0,
@@ -720,10 +712,10 @@ fn validation_col_buck_ext_stepped_column_energy() {
     assert!(d_stepped > d_i1,
         "Stepped deflection ({:.6e}) > uniform-I1 ({:.6e})", d_stepped, d_i1);
 
-    // The stepped column's deflection should be close to the I_avg uniform column
-    // (within 5%, since the energy method average is approximate for non-uniform columns)
-    assert_close(d_stepped, d_avg, 0.05,
-        "Stepped column ≈ uniform I_avg deflection");
+    // Unit-load method, M = P·x/2 on each half: the flexibilities 1/EI average, not the inertias.
+    let d_exact: f64 = p_lateral * l.powi(3) / 96.0 * (1.0 / (E_EFF * iz1) + 1.0 / (E_EFF * iz2));
+    assert_close(d_stepped, d_exact, 1e-6,
+        "Stepped column midspan deflection: PL³/96·(1/EI1 + 1/EI2)");
 }
 
 // ================================================================

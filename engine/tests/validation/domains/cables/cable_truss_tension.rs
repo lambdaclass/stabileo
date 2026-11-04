@@ -527,7 +527,7 @@ fn validation_cable_fan_truss() {
     let sum_ry: f64 = results.reactions.iter().map(|r| r.rz).sum();
     let sum_rx: f64 = results.reactions.iter().map(|r| r.rx).sum();
     assert_close(sum_ry, p1 + p2, 0.01, "Fan: ΣRy = P1 + P2");
-    assert_close(sum_rx, 0.0, 0.01, "Fan: ΣRx = 0");
+    assert_close_abs(sum_rx, 0.0, 0.01, 1e-6, "Fan: ΣRx = 0");
 
     // Asymmetric loading → unequal reactions
     let r1 = results.reactions.iter().find(|r| r.node_id == 1).unwrap().rz;

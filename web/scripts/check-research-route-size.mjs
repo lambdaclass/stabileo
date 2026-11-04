@@ -6,7 +6,7 @@ import { build } from 'vite';
 import { readFileSync, writeFileSync, mkdtempSync, rmSync, statSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { compareRouteSizes } from './research-route-budget.mjs';
+import { compareRouteSizes, routeChunkFiles } from './research-route-budget.mjs';
 
 const baselinePath = process.argv[process.argv.indexOf('--baseline') + 1];
 if (!process.argv.includes('--baseline') || !baselinePath) throw new Error('--baseline <file> is required');
@@ -44,30 +44,12 @@ try {
   const appEntry = Object.keys(manifest).find((key) => manifest[key].name === 'App');
   if (!appEntry) throw new Error('missing App entry');
   function footprint(app) {
-    const files = new Set(['index.html']);
-    const seen = new Set();
-    function visit(key, lazy = false) {
-      const visitKey = `${key}:${lazy}`;
-      if (seen.has(visitKey)) return;
-      seen.add(visitKey);
-      const chunk = manifest[key];
-      if (!chunk) throw new Error(`missing manifest entry ${key}`);
+    const loader = Object.keys(manifest).find(key => manifest[key].name === 'load-app');
+    const roots = [['index.html', false], ...(app ? [[appEntry, true], ...(loader ? [[loader, true]] : [])] : [])];
+    const files = routeChunkFiles(manifest, roots, (key, chunk) => {
       if (toolsChunks.has(chunk.file)) throw new Error(`product statically imports tools: ${key}`);
       if (researchChunks.has(chunk.file)) throw new Error(`product statically imports research: ${key}`);
-      files.add(chunk.file);
-      for (const file of [...(chunk.css ?? []), ...(chunk.assets ?? [])]) files.add(file);
-      for (const dep of chunk.imports ?? []) visit(dep, lazy);
-      if (lazy) for (const dep of chunk.dynamicImports ?? []) {
-        // Explicit lazy route boundaries are not product dependencies.
-        if (!/components\/research\//.test(dep) && !/components\/tools\//.test(dep)) visit(dep, true);
-      }
-    }
-    visit('index.html');
-    if (app) {
-      visit(appEntry, true);
-      const loader = Object.keys(manifest).find(key => manifest[key].name === 'load-app');
-      if (loader) visit(loader, true);
-    }
+    });
     // Public fonts/images and emitted workers referenced by the selected bundles also count.
     // Iterating a Set visits newly added assets, so CSS reached through HTML is covered too.
     for (const file of files) {

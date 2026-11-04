@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The wind's dynamics (CIRSOC 102-2025 §1.9): where each direction's fundamental frequency comes
    * from, the damping, a rigid structure's G, and what came out per direction once previewed.
@@ -83,7 +84,7 @@
       <label class="wd-row">{t('autoLoad.windDyn.beta')}
         <input type="text" class="wd-num" class:wd-invalid={betaInvalid} aria-invalid={betaInvalid} value={betaShown}
           oninput={(e) => (betaDraft = e.currentTarget.value)} onchange={(e) => setBeta(e.currentTarget.value)} data-testid="wind-beta" /> %</label>
-      <p class="wd-hint">{t('autoLoad.windDyn.betaHint')}</p>
+      <Hint text={t('autoLoad.windDyn.betaHint')} />
     {/if}
   {/if}
   <label class="wd-row">{t('autoLoad.windDyn.rigidG')}

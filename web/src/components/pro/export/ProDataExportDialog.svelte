@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from '../Hint.svelte';
   /**
    * Excel and CSV: the project's data, chosen sheet by sheet.
    *
@@ -17,7 +18,7 @@
   import ExportSection from '../../export/ExportSection.svelte';
   import { MODEL_SHEET_NAMES } from '../../../lib/export/workbook-model';
   import { RESULT_SHEET_NAMES } from '../../../lib/export/workbook-results';
-  import { downloadProjectCsv, downloadProjectWorkbook } from '../../../lib/store/project-workbook';
+  import { downloadProjectCsv, downloadProjectWorkbook, workbookEstimate, type WorkbookOptions } from '../../../lib/store/project-workbook';
   import type { StationSpec } from '../../../lib/engine/station-forces';
   import { ensureProResults, hasShells } from '../../../lib/pro/export-results';
   import { modelIsEmpty, tellIfEmpty } from '../../../lib/export/empty-model';
@@ -108,6 +109,19 @@
   const stationsSummary = $derived(t(STATIONS.find((s) => s.id === stations)!.key));
   const formatSummary = $derived(format === 'xlsx' ? t('proExport.formatXlsx') : t('proExport.formatCsv'));
 
+  function choices(results: boolean): WorkbookOptions {
+    return {
+      results, design: uiStore.designInPro,
+      sheets: new Set([...modelShown, ...(results ? resultsShown : [])].filter(on).filter((n) => uiStore.designInPro || !DESIGN_SHEETS.includes(n))),
+      sources: {
+        cases: casesOff.size ? new Set(cases.map((c) => c.id).filter((id) => !casesOff.has(id))) : undefined,
+        combinations: combosOff.size ? new Set(combos.map((c) => c.id).filter((id) => !combosOff.has(id))) : undefined,
+      },
+    };
+  }
+  /** What the chosen file will hold, counted without writing it; only once there are results to count. */
+  const estimate = $derived(open && resultsStore.results3D ? workbookEstimate(stations, choices(wantsResults)) : null);
+  const millions = (n: number) => (n / 1e6).toLocaleString(undefined, { maximumFractionDigits: n < 1e7 ? 1 : 0 });
   async function run() {
     if (busy || modelCount + resultCount === 0) return;
     busy = true;
@@ -118,14 +132,7 @@
         if (!modelIsEmpty()) uiStore.toast(t('proExport.dataNoResults'), 'info');
       }
       // Design's sheets only where design is on in PRO's settings (`uiStore.designInPro`).
-      const sheets = new Set([...modelShown, ...(results ? resultsShown : [])].filter(on).filter((n) => uiStore.designInPro || !DESIGN_SHEETS.includes(n)));
-      const opts = {
-        results, sheets, design: uiStore.designInPro,
-        sources: {
-          cases: casesOff.size ? new Set(cases.map((c) => c.id).filter((id) => !casesOff.has(id))) : undefined,
-          combinations: combosOff.size ? new Set(combos.map((c) => c.id).filter((id) => !combosOff.has(id))) : undefined,
-        },
-      };
+      const opts = choices(results);
       if (format === 'xlsx') await downloadProjectWorkbook(stations, opts);
       else await downloadProjectCsv(stations, opts);
       tellIfEmpty();
@@ -142,11 +149,17 @@
       <button type="button" class:on={format === 'xlsx'} onclick={() => (format = 'xlsx')} data-testid="pro-data-format-xlsx">Excel</button>
       <button type="button" class:on={format === 'csv'} onclick={() => (format = 'csv')} data-testid="pro-data-format-csv">CSV</button>
     </div>
-    <p class="xs-note">{format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')}</p>
+    <Hint class="xs-note" text={format === 'xlsx' ? t('proExport.formatXlsxNote') : t('proExport.formatCsvNote')} />
+    {#if estimate}
+      <p class="xs-note" class:dx-warn={format === 'xlsx' && !estimate.xlsx} data-testid="pro-data-estimate">
+        {tp(format === 'xlsx' && !estimate.xlsx ? 'proExport.estimateZip' : 'proExport.estimate', { cells: millions(estimate.cells) })}
+      </p>
+    {/if}
+    {#if busy}<p class="xs-note" role="status" data-testid="pro-data-busy">{t('proExport.writing')}</p>{/if}
   </ExportSection>
   <ExportSection title={t('viewExport.sectionContent')} summary={contentSummary} open testid="pro-data-export-content">
     <div class="dx-bar">
-      <p class="xs-note">{t('proExport.dataAlways')}</p>
+      <Hint class="xs-note" text={t('proExport.dataAlways')} />
       <span class="dx-all">
         <button type="button" onclick={() => setAll([...modelShown, ...resultsShown], true)}>{t('proExport.all')}</button>
         <button type="button" onclick={() => setAll([...modelShown, ...resultsShown], false)}>{t('proExport.none')}</button>
@@ -183,7 +196,7 @@
           on={(id) => !combosOff.has(Number(id))} toggle={(id) => flipId('combos', Number(id))}
           setAll={(v) => (combosOff = v ? new Set() : new Set(combos.map((c) => c.id)))} />
       </div>
-      <p class="xs-note">{t('proExport.setsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.setsNote')} />
     </ExportSection>
   {/if}
 
@@ -192,7 +205,7 @@
       {#each STATIONS as s (String(s.id))}
         <label class="xs-check"><input type="radio" name="pro-data-stations" checked={stations === s.id} onchange={() => { stations = s.id; save(); }} data-testid={`pro-data-stations-${s.id}`} />{t(s.key)}</label>
       {/each}
-      <p class="xs-note">{t('proExport.stationsNote')}</p>
+      <Hint class="xs-note" text={t('proExport.stationsNote')} />
     </ExportSection>
   {/if}
 
@@ -214,4 +227,5 @@
   .dx-all { display: inline-flex; gap: 8px; }
   .dx-all button { background: none; border: none; padding: 0; color: var(--st-accent); font: inherit; font-size: 0.74rem; cursor: pointer; }
   .dx-all button:hover { text-decoration: underline; }
+  .dx-warn { color: var(--st-warn); }
 </style>

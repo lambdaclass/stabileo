@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Hint from './Hint.svelte';
   /**
    * The components and cladding pressures of CIRSOC 102 Cap. 5 for a building
    * (`codes/cirsoc102/cladding.ts`), as a table for the elements' own design: Parte 1 up to 20 m,
@@ -82,7 +83,7 @@
           {/each}
         </tbody>
       </table>
-      <p class="al-hint">{t('wind.cladding.note')}</p>
+      <Hint text={t('wind.cladding.note')} />
     {/if}
   </div>
 {/if}

@@ -45,6 +45,11 @@
   import { overlayWasOpenAtKeydown } from './lib/utils/modal-overlay';
   import { cameraActions } from './lib/pro/camera-actions';
   import SheetGrab from './components/SheetGrab.svelte';
+  import ProVideosOffer from './components/pro/ProVideosOffer.svelte';
+  import ProViewer from './components/pro/ProViewer.svelte';
+  import StoreyScopeBar from './components/pro/StoreyScopeBar.svelte';
+  import ProLinkedLayer from './components/pro/ProLinkedLayer.svelte';
+  import ProSaveStatus from './components/pro/ProSaveStatus.svelte';
   import ContactMenu from './components/ContactMenu.svelte';
   import {
     loadAutosave, clearAutosave,
@@ -392,7 +397,6 @@
   import { runLiveCalc, runGlobalSolve, registerLiveCalcCanceller } from './lib/engine/live-calc';
   import LandingPage from './components/LandingPage.svelte';
   import RegisterPage from './components/register/RegisterPage.svelte';
-  import BlogPage from './components/blog/BlogPage.svelte';
   import { parsePublicPath, publicHref } from './lib/i18n/public-routes';
   import { skipNextAnalysis } from './lib/tracking/activity.svelte';
   import { routeKind, isAppPath, isDemoPath } from './lib/public-route';
@@ -610,6 +614,12 @@
     }
   });
   let showBlog = $state(typeof window !== 'undefined' && isBlogRoute(location.pathname));
+  let blogPage = $state<typeof import('./components/blog/BlogPage.svelte').default | null>(null);
+  $effect(() => {
+    if (showBlog && !blogPage) {
+      void import('./components/blog/BlogPage.svelte').then((m) => (blogPage = m.default));
+    }
+  });
   /** The address the blog reads its slug from; kept in state so it is reactive. */
   let blogPath = $state(typeof window !== 'undefined' ? parsePublicPath(location.pathname).path : '/blog');
 
@@ -809,7 +819,8 @@
     importText = '';
   }
 
-  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper);
+  // In the viewer nothing is edited from the keyboard, and the command search is the editor's.
+  const editorActive = $derived(!showLanding && !showBlog && !showExperiment && !showPaper && !uiStore.viewerMode);
   provideEditorActivity(() => editorActive);
 
   let pendingPaste = $state<{ inPlace: boolean; started: boolean } | null>(null);
@@ -977,6 +988,9 @@
     // Check for URL hash (shared model link or embed). The link is untrusted
     // input and restore() is not atomic: whatever a link still manages to break
     // must not take the app down before it starts, nor leave a half-loaded model.
+    // The public viewer reads the link's model in a tab of its own, saved only once duplicated.
+    const viewing = new URLSearchParams(location.search).has('view') && pathToMode(location.pathname) === 'pro';
+    if (viewing) { uiStore.viewerMode = true; tabManager.createTab(); }
     let hashMode: ReturnType<typeof loadFromURLHash> = null;
     try {
       hashMode = loadFromURLHash();
@@ -1095,7 +1109,7 @@
     // finishes, because losing one of those to a 30 s window is losing the run.
     autosaveInterval = setInterval(() => {
       void requestAutosave('timer');
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
     }, 30_000);
 
     // Mobile responsive: track window width
@@ -1162,7 +1176,7 @@
 
     return () => {
       stopUsageTracking();
-      saveWorkspaceToLocalStorage();
+      if (!uiStore.embedMode && !uiStore.viewerMode) saveWorkspaceToLocalStorage();
       if (autosaveInterval) clearInterval(autosaveInterval);
       window.removeEventListener('resize', onResize);
       window.removeEventListener('stabileo-export-png', handleExportPNG);
@@ -1440,7 +1454,10 @@
     <Paper />
   {/if}
 {:else if showBlog}
-  <BlogPage path={blogPath} />
+  {#if blogPage}
+    {@const Blog = blogPage}
+    <Blog path={blogPath} />
+  {/if}
 {:else if showLanding}
   {#if routeKind().kind === 'register'}<RegisterPage />{:else}<LandingPage />{/if}
 {/if}
@@ -1463,7 +1480,8 @@
       </div>
 {/snippet}
 
-<div class="app-container" class:embed-mode={uiStore.embedMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
+{#if uiStore.viewerMode}<ProViewer />{/if}
+<div class="app-container" class:embed-mode={uiStore.embedMode || uiStore.viewerMode} class:viewer-mode={uiStore.viewerMode} class:hidden-behind-landing={showLanding || showBlog || showExperiment || showPaper}>
   <header class="app-header" class:has-autosave={showAutosaveBanner}>
     <div class="logo">
       <button class="logo-home" onclick={() => { history.pushState(null, '', '/'); syncRouteState(); }} title={t('app.backHome')}>
@@ -1484,7 +1502,7 @@
       {:else if uiStore.isMobile}
         <select class="mode-select-mobile" value={uiStore.appMode} onchange={(e) => switchAppMode(e.currentTarget.value as AppMode)}>
           <option value="basico">{t('app.modeBasic')}</option>
-          <option value="pro">{t('app.modePro')} ({t('app.betaBadge')})</option>
+          <option value="pro">{t('app.modePro')}</option>
           <!--
             Educational is not offered here any more; see the toggle below.
             The option is still RENDERED when that is where you already are,
@@ -1514,7 +1532,7 @@
           <button class:active={uiStore.appMode === 'basico'} onclick={() => switchAppMode('basico')}>
             {t('app.modeBasic')}
           </button>
-          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}<span class="demo-badge">{t('app.betaBadge')}</span></button>
+          <button class:active={uiStore.appMode === 'pro'} class="pro-mode-btn" onclick={() => switchAppMode('pro')}>{t('app.modePro')}</button>
         </div>
       {/if}
     </div>
@@ -1628,6 +1646,7 @@
         assistant specifically because the two answer the same impulse, "I am
         stuck", one automatically and one with a person on the other end.
       -->
+      {#if uiStore.appMode === 'pro'}<ProSaveStatus /><ProVideosOffer />{/if}
       <ContactMenu />
 
       <!--
@@ -1743,7 +1762,7 @@
         || (uiStore.appMode === 'pro' && uiStore.rightDrawerOpen))}
   >
 
-    {#if uiStore.appMode === 'pro' && !uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && !uiStore.isMobile && !uiStore.viewerMode}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
         <ProRibbon
           onSolve={() => { uiStore.proPanelVisible = true; proPanelRef?.solve(); }}
@@ -1757,7 +1776,7 @@
         />
     {/if}
     <!-- What the next click in the model does while drawing, under the bar that started it. -->
-    {#if uiStore.appMode === 'pro'}<ProDrawBar />{/if}
+    {#if uiStore.appMode === 'pro' && !uiStore.viewerMode}<ProDrawBar />{/if}
 
     <!--
       PRO's phone bar.
@@ -1775,7 +1794,7 @@
       Same slot rules as Basic's: `flex: 1 1 0`, so the row is exactly as wide
       as the screen at every width and never scrolls.
     -->
-    {#if uiStore.appMode === 'pro' && uiStore.isMobile}
+    {#if uiStore.appMode === 'pro' && uiStore.isMobile && !uiStore.viewerMode}
       <!--
         A positioned wrapper, so the camera menu resolves against THIS bar.
         ──────────────────────────────────────────────────────────────────
@@ -1963,6 +1982,7 @@
           <Viewport3D />
         {/if}
         {#if uiStore.appMode === 'pro' || uiStore.appMode === 'basico'}<PlacementHud />{/if}
+        {#if uiStore.appMode === 'pro'}{#if !uiStore.viewerMode}<StoreyScopeBar />{/if}<ProLinkedLayer />{/if}
         <!-- Instruction for the armed-but-unanswered stress mode. Inside the
              viewport container because it points at the canvas it belongs to. -->
         <!--
@@ -2134,7 +2154,7 @@
           >×</button>
           <ProPanel bind:this={proPanelRef} />
         </aside>
-        {#if !uiStore.proPanelVisible}
+        {#if !uiStore.proPanelVisible && !uiStore.viewerMode}
           <!-- A closed panel has to be reopenable from where it closed. -->
           <!--
             A bare chevron on the canvas edge is not a clue. It says what it
@@ -2593,23 +2613,6 @@
   .mode-toggle button.pro-mode-btn.active {
     background: var(--st-accent);
     color: white;
-  }
-
-  .demo-badge {
-    font-size: 0.45rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    background: rgba(255,255,255,0.15);
-    color: rgba(255,255,255,0.7);
-    padding: 0.05rem 0.3rem;
-    border-radius: 3px;
-    margin-left: 0.3rem;
-    vertical-align: middle;
-  }
-
-  .mode-toggle button.active .demo-badge {
-    background: rgba(255,255,255,0.2);
-    color: rgba(255,255,255,0.85);
   }
 
   .pro-panel-close {
@@ -3504,6 +3507,10 @@
   .embed-mode .app-body {
     height: 100vh;
   }
+  .viewer-mode .app-body {
+    height: calc(100vh - 52px);
+    margin-top: 52px;
+  }
 
   :global(.edu-tooltip) {
     position: absolute;
@@ -4309,20 +4316,6 @@
     color: var(--st-text);
     background: none;
     border-bottom-color: var(--st-accent);
-  }
-
-  .demo-badge {
-    font-family: var(--st-mono);
-    font-size: 0.55rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--st-text-3);
-    background: none;
-    border: 1px solid var(--st-hair);
-    border-radius: var(--st-radius);
-    padding: 0.05rem 0.25rem;
-    margin-left: 0.3rem;
-    vertical-align: middle;
   }
 
   .separator { color: var(--st-hair); font-size: 1rem; }
