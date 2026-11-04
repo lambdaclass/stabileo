@@ -76,7 +76,8 @@ Release validation passed all 4763 tests. `make wasm` succeeded;
 none were regenerated. `make check.results-snapshot-gate` and
 `make check.changelog` passed. The project fixture's results stamp moved from 5 to
 6, with only its two pinned content hashes updated; the model and CAD goldens are
-unchanged. The TypeScript gate reports the existing 247 baseline errors and no new
+unchanged. Version 6 is this refusal; #1233 lands the column design axes on top of it
+as version 7 and stamps the fixture 7. The TypeScript gate reports the existing 247 baseline errors and no new
 errors; the Svelte gate reports no errors in guarded paths.
 
 The final `npx vitest run --project unit` passed 15742 tests, with 14 skipped

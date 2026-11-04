@@ -14,10 +14,12 @@
    */
   import { tPublic as t, tpPublic as tp, publicI18n } from '../../lib/i18n/store.svelte';
   import PublicLink from './PublicLink.svelte';
-  import { POSTS_NEWEST_FIRST, formatPostDate, postReadingMinutes, inLocale } from '../../lib/blog';
 
-  const latest = $derived(POSTS_NEWEST_FIRST[0]);
-  const body = $derived(latest ? inLocale(latest.i18n, publicI18n.locale) : undefined);
+  let blog = $state<typeof import('../../lib/blog') | null>(null);
+  void import('../../lib/blog').then((m) => (blog = m));
+
+  const latest = $derived(blog?.POSTS_NEWEST_FIRST[0]);
+  const body = $derived(blog && latest ? blog.inLocale(latest.i18n, publicI18n.locale) : undefined);
 </script>
 
 <section class="sec sec--ink blog-cta reveal" data-section="blog" id="blog" aria-labelledby="blog-cta-title">
@@ -30,16 +32,16 @@
       <h2 id="blog-cta-title" class="display">{t('landing.blogTitle')}</h2>
       <p class="lead">{t('landing.blogBody')}</p>
 
-      {#if latest && body}
+      {#if blog && latest && body}
         <article class="blog-latest">
           <p class="kicker">{t('landing.blogLatestKicker')}</p>
           <h3>
             <PublicLink to={`/blog/${latest.slug}`} class="blog-latest-title">{body.title}</PublicLink>
           </h3>
           <p class="blog-latest-meta">
-            {formatPostDate(latest.date, publicI18n.locale)}
+            {blog.formatPostDate(latest.date, publicI18n.locale)}
             <span aria-hidden="true">·</span>
-            {tp('blog.readingTime', { n: postReadingMinutes(latest, publicI18n.locale) })}
+            {tp('blog.readingTime', { n: blog.postReadingMinutes(latest, publicI18n.locale) })}
           </p>
           <p class="blog-latest-excerpt">{body.excerpt}</p>
           <PublicLink to={`/blog/${latest.slug}`} class="link-arrow">{t('landing.blogReadLatest')}</PublicLink>

@@ -1,7 +1,7 @@
-//! A model whose stiffness matrix is singular or indefinite still gets results
+//! A model whose stiffness matrix is singular or indefinite may still get results
 //! (dense LU, a diagonal shift, or a Cholesky with round-off pivots). Those
 //! results carry a `StiffnessNotPositiveDefinite` warning; well-posed models
-//! never do, and the warning does not change any number.
+//! never do. Failed hard self-checks refuse results instead.
 
 use crate::common;
 use crate::fuzz_models;
@@ -17,7 +17,7 @@ fn warned(d: &[StructuredDiagnostic]) -> bool {
 
 /// Fuzz models the certificate checker found non-positive-definite: 2D seed 86
 /// (Cholesky "succeeds" with a 2e-16 pivot ratio) and 3D seed 31 (Cholesky
-/// fails, dense LU returns results).
+/// fails, dense LU returns a warned, equilibrated candidate).
 #[test]
 fn non_positive_definite_fuzz_models_are_warned() {
     // The model is all trusses: its nodal moments have no rotation DOF to act
@@ -32,16 +32,24 @@ fn non_positive_definite_fuzz_models_are_warned() {
     }
     let res = solve_2d(&m86).expect("solver returns results");
     assert!(warned(&res.structured_diagnostics), "{:?}", res.structured_diagnostics);
-    let res = solve_3d(&fuzz_models::random_3d_model(100_031)).expect("solver returns results");
+}
+
+#[test]
+fn non_positive_definite_3d_fuzz_model_is_warned() {
+    let res = solve_3d(&fuzz_models::random_3d_model(100_031)).expect("unexcited mechanism returns warned equilibrium");
     assert!(warned(&res.structured_diagnostics), "{:?}", res.structured_diagnostics);
     let d = res.structured_diagnostics.iter().find(|x| x.code == DiagnosticCode::StiffnessNotPositiveDefinite).unwrap();
     assert!(d.message.contains("singular or indefinite") && d.message.contains("meaningless"), "{}", d.message);
+    let checks: Vec<_> = res.structured_diagnostics.iter()
+        .filter(|d| d.phase.as_deref().unwrap_or("").starts_with("self_check:")).collect();
+    assert_eq!(checks.len(), 2);
+    assert!(checks.iter().all(|d| d.value.unwrap() < 1e-3));
 }
 
 /// Constrained solver: pinned columns tied at the top still sway. The reduced
-/// CᵀKC is singular; whatever the solver returns must be flagged.
+/// CᵀKC is singular and the load excites its mechanism: refuse publication.
 #[test]
-fn constrained_mechanism_is_warned() {
+fn constrained_mechanism_is_refused() {
     let mut mech = make_input(
         vec![(1, 0.0, 0.0), (2, 0.0, 3.0), (3, 4.0, 0.0), (4, 4.0, 3.0)],
         vec![(1, 30_000.0, 0.2)],
@@ -51,9 +59,8 @@ fn constrained_mechanism_is_warned() {
         vec![SolverLoad::Nodal(SolverNodalLoad { node_id: 2, fx: 10.0, fz: 0.0, my: 0.0 })],
     );
     mech.constraints = vec![Constraint::EqualDOF(EqualDOFConstraint { master_node: 2, slave_node: 4, dofs: vec![0] })];
-    if let Ok(res) = solve_2d(&mech) {
-        assert!(warned(&res.structured_diagnostics), "{:?}", res.structured_diagnostics);
-    }
+    let error = solve_2d(&mech).unwrap_err();
+    assert!(error.contains("mechanism") || error.starts_with("REFUSE: self-check static_"), "{error}");
 }
 
 /// No false alarms: every fixture that solves cleanly, and the fuzz models
@@ -97,5 +104,15 @@ fn well_posed_models_are_not_warned() {
                 assert!(!warned(&res.structured_diagnostics), "3d seed {seed}: certified PD but warned");
             }
         }
+    }
+}
+
+#[test]
+fn fuzz_fixture_load_selection_is_deterministic() {
+    let first_2d = serde_json::to_value(fuzz_models::random_2d_model(86)).unwrap();
+    let first_3d = serde_json::to_value(fuzz_models::random_3d_model(100_031)).unwrap();
+    for _ in 0..16 {
+        assert_eq!(serde_json::to_value(fuzz_models::random_2d_model(86)).unwrap(), first_2d);
+        assert_eq!(serde_json::to_value(fuzz_models::random_3d_model(100_031)).unwrap(), first_3d);
     }
 }

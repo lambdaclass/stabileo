@@ -1,7 +1,7 @@
 {
   "case": "2d-simply-supported",
   "covers": "2D beam, distributed load",
-  "format": 1,
+  "format": 2,
   "values": {
     "base.allZero": false,
     "base.diagnosticCodes": "",
