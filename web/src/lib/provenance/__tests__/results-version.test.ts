@@ -64,7 +64,7 @@ const RELEASED: Record<number, string[]> = {
     'basic-plastic-unloading-hinges-withdrawn', 'basic-second-order-split-members-withdrawn',
     'basic-influence-line-moment-sign-withdrawn',
   ],
-  21: ['buckling-2d-varying-axial-force'],
+  23: ['buckling-2d-varying-axial-force'],
 };
 
 describe('results versions', () => {
