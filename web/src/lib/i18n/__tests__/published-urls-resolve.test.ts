@@ -58,6 +58,11 @@ import { readFileSync, existsSync, statSync, rmSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { searchMetadataSuite } from './search-metadata';
+import catalog from '../../../../../research/papers.json';
+import { EXPERIMENTS } from '../../../components/research/experiments';
+import { RESEARCH_GALLERY, RESEARCH_PAPER_PATHS, researchLastReview, researchLocales } from '../../../components/research/locales';
+import { PAPER_LOCALES } from '../../../components/paper/locales';
+import { PUBLIC_LOCALES } from '../offered';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '../../../..');
@@ -78,6 +83,30 @@ const execFileAsync = promisify(execFile);
  */
 function isFile(p: string): boolean {
   return existsSync(p) && statSync(p).isFile();
+}
+
+function attributes(tag: string): Record<string, string> {
+  return Object.fromEntries([...tag.matchAll(/([\w:-]+)="([^"]*)"/g)].map(([, k, v]) => [k, v]));
+}
+
+/** The hreflang set a page head or a sitemap entry declares, as sorted `<lang> <href>` lines, whatever order each tag puts its attributes in. */
+function hreflangSet(markup: string): string[] {
+  return [...markup.matchAll(/<(?:xhtml:)?link\b[^>]*>/g)]
+    .map(([tag]) => attributes(tag))
+    .filter((a) => a.rel === 'alternate' && a.hreflang !== undefined)
+    .map((a) => `${a.hreflang} ${a.href}`)
+    .sort();
+}
+
+/** Why a sitemap entry and the file it names disagree on hreflang, or null when they agree on a non-empty set. */
+function hreflangDisagreement(entry: string, page: string | null): string | null {
+  if (page === null) return 'no built file';
+  const listed = hreflangSet(entry);
+  const declared = hreflangSet(page);
+  if (listed.length === 0) return 'the sitemap lists no hreflang';
+  if (declared.length === 0) return 'the page declares no hreflang';
+  if (listed.join('\n') !== declared.join('\n')) return `sitemap: ${listed.join(', ')}\n    page:    ${declared.join(', ')}`;
+  return null;
 }
 
 /** Every <loc> in the sitemap, as an absolute URL. */
@@ -156,7 +185,7 @@ describe('every published URL is served, not redirected', () => {
       const file = fileServedWithoutRedirect(new URL(url).pathname);
       if (!file) continue;
       const html = readFileSync(file, 'utf8');
-      for (const [, href] of html.matchAll(/<link rel="alternate" hreflang="[^"]+" href="([^"]+)"/g)) {
+      for (const href of hreflangSet(html).map((line) => line.split(' ')[1])) {
         if (!href.startsWith(ORIGIN)) { broken.push(`${url} -> ${href} (foreign origin)`); continue; }
         if (fileServedWithoutRedirect(new URL(href).pathname) === null) {
           broken.push(`${url} -> ${href} (redirects)`);
@@ -164,5 +193,118 @@ describe('every published URL is served, not redirected', () => {
       }
     }
     expect(broken, `hreflang points at URLs that redirect:\n${broken.join('\n')}`).toEqual([]);
+  });
+  it('compares hreflang sets whatever the attribute order, and never passes an empty or missing side', () => {
+    const entry = '<loc>x</loc><xhtml:link rel="alternate" hreflang="en" href="https://stabileo.com/en/a/"/><xhtml:link href="https://stabileo.com/es/a/" hreflang="es" rel="alternate"/>';
+    const page = '<link hreflang="es" rel="alternate" href="https://stabileo.com/es/a/"><link rel="alternate" href="https://stabileo.com/en/a/" hreflang="en"><link rel="alternate" type="application/rss+xml" href="/feed.xml">';
+    expect(hreflangSet(entry)).toEqual(['en https://stabileo.com/en/a/', 'es https://stabileo.com/es/a/']);
+    expect(hreflangDisagreement(entry, page)).toBeNull();
+    expect(hreflangDisagreement(entry, null)).toBe('no built file');
+    expect(hreflangDisagreement('<loc>x</loc>', '<head></head>')).toBe('the sitemap lists no hreflang');
+    expect(hreflangDisagreement(entry, '<head></head>')).toBe('the page declares no hreflang');
+    expect(hreflangDisagreement(entry, '<link rel="alternate" hreflang="en" href="https://stabileo.com/en/a/">')).toMatch(/^sitemap: /);
+  });
+
+  it('the sitemap and each page declare the same, non-empty hreflang set', () => {
+    const xml = readFileSync(SITEMAP, 'utf8');
+    const differ: string[] = [];
+    for (const [, block] of xml.matchAll(/<url>([\s\S]*?)<\/url>/g)) {
+      const url = block.match(/<loc>([^<]+)<\/loc>/)![1];
+      const file = fileServedWithoutRedirect(new URL(url).pathname);
+      const why = hreflangDisagreement(block, file && readFileSync(file, 'utf8'));
+      if (why) differ.push(`${url}\n    ${why}`);
+    }
+    expect(differ, `hreflang in the sitemap disagrees with the page:\n${differ.join('\n')}`).toEqual([]);
+  });
+
+  it('publishes /paper only in the languages it is written in', () => {
+    const paper = publishedUrls().filter((u) => /^https:\/\/stabileo\.com\/[a-z]{2}\/paper\/$/.test(u));
+    expect(paper.sort()).toEqual(PAPER_LOCALES.map((l) => `${ORIGIN}/${l}/paper/`).sort());
+    const declared = hreflangSet(readFileSync(join(DIST, 'en/paper/index.html'), 'utf8')).filter((l) => !l.startsWith('x-default '));
+    expect(declared).toEqual(PAPER_LOCALES.map((l) => `${l} ${ORIGIN}/${l}/paper/`).sort());
+    const built = PUBLIC_LOCALES.filter((l) => existsSync(join(DIST, l, 'paper/index.html')));
+    expect(built).toEqual(PUBLIC_LOCALES.filter((l) => PAPER_LOCALES.includes(l)));
+  });
+
+  describe('research', () => {
+    const published = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS].flatMap((path) => researchLocales(path).map((locale) => ({ path, locale, url: `${ORIGIN}/${locale}${path}/` })));
+    const html = (url: string) => readFileSync(join(DIST, new URL(url).pathname, 'index.html'), 'utf8');
+    const prerendered = (page: string) => page.match(/<div id="prerender">([\s\S]*)<div id="app">/)?.[1] ?? '';
+    const text = (s: string) => s.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, '').replace(/<[^>]+>/g, '\n').replace(/&[a-z#0-9]+;/g, ' ');
+    const lines = (s: string) => text(s).split('\n').map((l) => l.trim()).filter((l) => l.length >= 30 && /[a-z]{3}/.test(l));
+    const title = (page: string) => page.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
+
+    it('lists every published research page in the sitemap, dated by its latest review', () => {
+      const xml = readFileSync(SITEMAP, 'utf8');
+      const missing = published.filter(({ url }) => !xml.includes(`<loc>${url}</loc>`)).map(({ url }) => url);
+      expect(missing, `research pages missing from the sitemap:\n${missing.join('\n')}`).toEqual([]);
+      for (const { path, url } of published) {
+        const lastmod = xml.match(new RegExp(`<loc>${url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}</loc>\\s*<lastmod>([^<]+)</lastmod>`))?.[1];
+        expect(lastmod, url).toBe(researchLastReview(path));
+      }
+    });
+
+    it('declares exactly the languages each research page is published in as its hreflang set', () => {
+      for (const { path, url } of published) {
+        const declared = hreflangSet(html(url)).filter((l) => !l.startsWith('x-default '));
+        expect(declared, url).toEqual(researchLocales(path).map((l) => `${l} ${ORIGIN}/${l}${path}/`).sort());
+      }
+    });
+
+    it('writes no research page in a language it is not published in', () => {
+      const stray = [RESEARCH_GALLERY, ...RESEARCH_PAPER_PATHS].flatMap((path) =>
+        ['en', 'es', 'pt', 'de', 'fr', 'tr'].filter((l) => !researchLocales(path).includes(l) && existsSync(join(DIST, l, path, 'index.html'))).map((l) => `/${l}${path}/`),
+      );
+      expect(stray).toEqual([]);
+      const unlisted = publishedUrls().filter((u) => /\/(de|fr|tr)\/research(\/|$)/.test(u)).filter((u) => {
+        const [, locale, path] = new URL(u).pathname.match(/^\/(\w+)(\/research.*?)\/?$/)!;
+        return !researchLocales(path).includes(locale);
+      });
+      expect(unlisted).toEqual([]);
+    });
+
+    it.each(RESEARCH_PAPER_PATHS)('%s ships its content, a self canonical, no noindex and a citation of the paper', (path) => {
+      const paperId = EXPERIMENTS.find((e) => e.path === path)!.paperId;
+      const doi = catalog.papers.find((p) => p.id === paperId)!.doi;
+      for (const locale of researchLocales(path)) {
+        const url = `${ORIGIN}/${locale}${path}/`;
+        const page = html(url);
+        const body = prerendered(page);
+        const h1 = body.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1].replace(/<[^>]+>/g, '').trim();
+        expect(h1, `${url} has no h1 in its prerendered HTML`).toBeTruthy();
+        expect(lines(body).length, `${url} prerendered almost no text`).toBeGreaterThan(10);
+        expect(page.match(/<link rel="canonical" href="([^"]+)"/)?.[1]).toBe(url);
+        expect(page).not.toMatch(/<meta[^>]*name="robots"[^>]*noindex/i);
+        expect(title(page)).toMatch(/— Stabileo Research$/);
+        const ld = [...page.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)].flatMap(([, j]) => JSON.parse(j)['@graph'] ?? []);
+        const article = ld.find((n: { '@id'?: string }) => n['@id'] === `${url}#article`);
+        expect(article, `${url} has no ScholarlyArticle`).toBeTruthy();
+        expect(article.citation.identifier.value).toBe(doi);
+        expect(body).toContain(`https://doi.org/${doi}`);
+      }
+    });
+
+    it.each(RESEARCH_PAPER_PATHS.filter((path) => researchLocales(path).length > 1))('%s is translated wherever it is published', (path) => {
+      const en = html(`${ORIGIN}/en${path}/`);
+      const english = lines(prerendered(en));
+      for (const locale of researchLocales(path).filter((l) => l !== 'en')) {
+        const page = html(`${ORIGIN}/${locale}${path}/`);
+        expect(title(page), `${locale}${path} keeps the English <title>`).not.toBe(title(en));
+        const ownLines = new Set(lines(prerendered(page)));
+        const same = english.filter((l) => ownLines.has(l)).reduce((n, l) => n + l.length, 0);
+        const total = english.reduce((n, l) => n + l.length, 0);
+        expect(same / total, `${locale}${path} repeats ${Math.round((100 * same) / total)}% of the English text`).toBeLessThan(0.35);
+      }
+    });
+
+    it('links every paper from the gallery with a crawlable href to a URL it is published under', () => {
+      for (const locale of researchLocales(RESEARCH_GALLERY)) {
+        const body = prerendered(html(`${ORIGIN}/${locale}${RESEARCH_GALLERY}/`));
+        for (const path of RESEARCH_PAPER_PATHS) {
+          const target = researchLocales(path).includes(locale) ? locale : 'en';
+          expect(body, `/${locale}/research/ does not link ${path}`).toContain(`href="/${target}${path}/"`);
+        }
+      }
+    });
   });
 });

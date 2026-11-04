@@ -1711,19 +1711,6 @@
   display: none;
 }
 
-/* ─── REVEAL ─────────────────────────────────────────────────────────────── */
-
-.landing .reveal {
-  opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.landing .reveal.visible {
-  opacity: 1;
-  transform: none;
-}
-
 /* ─── RESPONSIVE ─────────────────────────────────────────────────────────
    Verified at 360, 390, 768, 1024 and 1440. The nav collapses at 1140px, below
    which its longest language (Spanish, about 1,100px with the gutters) would
@@ -1846,11 +1833,6 @@
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-  }
-
-  .landing .reveal {
-    opacity: 1;
-    transform: none;
   }
 }
 

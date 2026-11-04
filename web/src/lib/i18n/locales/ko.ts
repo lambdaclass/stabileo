@@ -2043,6 +2043,8 @@ const ko: Translations = {
   'switch2d.noElements': 'There are nodes at that distance, but no members joining them — nothing to analyse.',
   'switch2d.noOffset': 'Enter a distance, or pick one of the cuts.',
   'switch2d.allCollapse': 'All members collapse or are duplicates in this projection. Use 3D mode.',
+  'switch2d.constraintsPlane': "이 모델에는 2D 솔버가 이 평면에서 다른 의미로 읽을 구속 조건이 있습니다. 솔버는 모든 구속을 골조가 X–Z 평면에 있는 것처럼 읽습니다. X–Z를 따라 자르거나 3D로 해석하십시오(알려진 문제 #466, AC-PLANE-MAPPING).",
+  'switch2d.sectionAxis': "일부 부재는 단면 축이 이 평면에 비스듬하여 휨이 평면 내외로 연성되거나, 이중 대칭이 아닌 단면의 다른 축에 대해 이 평면에서 휩니다. 2D 모델은 어느 쪽도 표현할 수 없으므로 2D 결과가 틀리게 됩니다. 3D로 해석하거나 이러한 부재의 단면 축이 정렬되는 평면으로 자르십시오.",
   'switch2d.loadsLeftBehind': 'loads left behind',
   'switch2d.sliceBanner': 'Cut from a 3D model',
   'tour.navigateDesc3DExtra': '그 아래에 더 많은 도구가 있습니다: 사전 정의 뷰(평면, 정면, 측면), 투시/정사영, 절단면, 측정.',

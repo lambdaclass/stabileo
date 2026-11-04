@@ -1,4 +1,7 @@
 import itertools
+import os
+import subprocess
+import tempfile
 import json
 import pathlib
 import re
@@ -96,7 +99,7 @@ def evaluate(expression, context):
 
 def scheduled_events(text):
     events = ['schedule'] if re.search(r'^  schedule:', text, re.M) else []
-    if 'cron: "0 5 * * *"' in text:
+    if re.search(r'^name: Nightly verification$', text, re.M):
         events.append('workflow_dispatch')
     return events
 
@@ -192,12 +195,69 @@ class CiRunners(unittest.TestCase):
             for name, job in jobs(workflow).items():
                 self.assertNotIn('stabileo-e2e', labels(job.get('runs-on', '')), name)
 
+    def test_the_engine_suite_leaves_the_queue_critical_path_runners_free(self):
+        ci = jobs('ci.yml')
+        engine = {name for name, job in ci.items() if 'stabileo-engine' in labels(job.get('runs-on', ''))}
+        self.assertEqual(engine, {'test-engine-suite', 'test-engine-metamorphic'})
+        for name in engine:
+            runs_on = ci[name]['runs-on']
+            self.assertEqual(labels(runs_on), {'stabileo-engine', 'stabileo'})
+            self.assertIn("(vars.STABILEO_ENGINE_POOL == 'true' && fromJSON('[\"self-hosted\",\"stabileo-engine\"]') || fromJSON('[\"self-hosted\",\"stabileo\"]'))", runs_on, name)
+            self.assertIn(TRUSTED, runs_on, name)
+        for name in ['wasm', 'research-wasm', 'site-e2e', 'web-build']:
+            self.assertNotIn('stabileo-engine', labels(ci[name]['runs-on']), name)
+
+    def test_free_disk_deletes_in_the_background_after_a_space_floor(self):
+        action = (ROOT / '.github/actions/free-disk/action.yml').read_text()
+        command = action.split('run: |\n', 1)[1]
+        self.assertIn('sudo nohup rm -rf "$trash" > /dev/null 2>&1 &', command)
+        self.assertIn('sudo mv "$dir"', command)
+        self.assertIn("df --output=avail -BG / | tail -1 | tr -dc 0-9)\" -ge 15 ] && break", command)
+        self.assertIn('sudo kill -0 "$cleaner"', command)
+        for path in ['/usr/share/dotnet', '/usr/local/lib/android', '"$AGENT_TOOLSDIRECTORY"', '/opt/hostedtoolcache/CodeQL',
+                     '/opt/ghc', '/usr/local/share/boost', '/usr/local/share/powershell', '/usr/share/swift', '/usr/local/.ghcup']:
+            self.assertIn(path, command)
+
     def test_nightly_self_hosted_jobs_take_only_the_nightly_pool(self):
         for name, job in jobs('nightly.yml').items():
             runs_on = job['runs-on']
             if runs_on != 'ubuntu-24.04':
                 self.assertEqual(labels(runs_on), {'stabileo-nightly'}, name)
                 self.assertTrue(runs_on.endswith("|| 'ubuntu-24.04' }}"), name)
+
+    def test_the_nightly_pool_is_taken_only_at_night(self):
+        text = (WORKFLOWS / 'nightly.yml').read_text()
+        self.assertIn('    - cron: "0 0 * * *"', text)
+        pooled = {name: job for name, job in jobs('nightly.yml').items() if 'stabileo-nightly' in job['runs-on']}
+        self.assertGreaterEqual(len(pooled), 9)
+        for name, job in pooled.items():
+            self.assertTrue(job['runs-on'].startswith("${{ (needs.plan.outputs.night == 'true' && vars.STABILEO_SELF_HOSTED == 'true' && "), name)
+            self.assertRegex(job['block'], r'(^|\n)    needs: plan\n', name)
+
+    def plan_night(self, event, hour):
+        text = (WORKFLOWS / 'nightly.yml').read_text()
+        script = re.search(r'\n        run: \|\n(.*?)\n\n', text.split('\n  plan:\n', 1)[1], re.S).group(1)
+        script = '\n'.join(line[10:] for line in script.split('\n'))
+        with tempfile.TemporaryDirectory() as directory:
+            fake = pathlib.Path(directory) / 'date'
+            fake.write_text(f'#!/bin/sh\ncase "$*" in *%H*) echo {hour:02d} ;; *) exec /bin/date "$@" ;; esac\n')
+            fake.chmod(0o755)
+            output = pathlib.Path(directory) / 'output'
+            env = {**os.environ, 'PATH': f'{directory}:{os.environ["PATH"]}', 'GITHUB_OUTPUT': str(output), 'EVENT': event,
+                   'NIGHT_END_HOUR': '7', 'ONLY': '', 'SHARDS': '', 'TOTAL': '', 'MUTANTS_TOTAL': '512', 'MUTANTS_SLOTS': '32',
+                   'FORCE_FAILURE': 'false'}
+            result = subprocess.run(['bash', '-e', '-c', script], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            values = dict(line.split('=', 1) for line in output.read_text().splitlines() if '=' in line)
+            return values['night'], result.stdout
+
+    def test_a_daytime_dispatch_runs_hosted_and_says_so(self):
+        for hour, night in [(0, 'true'), (6, 'true'), (7, 'false'), (9, 'false'), (14, 'false'), (23, 'false')]:
+            value, stdout = self.plan_night('workflow_dispatch', hour)
+            self.assertEqual(value, night, hour)
+            self.assertEqual('Daytime dispatch' in stdout, night == 'false', hour)
+        for hour in [0, 5, 9, 14]:
+            self.assertEqual(self.plan_night('schedule', hour)[0], 'true', hour)
 
     def test_scheduled_jobs_never_match_the_merge_queue_pool(self):
         checked = 0
@@ -261,12 +321,29 @@ class CiRunners(unittest.TestCase):
                     self.assertNotIn('||', condition.group(1))
         self.assertGreater(found, 20)
 
-    def test_superseded_runs_cancel_but_main_never_does(self):
-        for workflow in ['ci.yml', 'research.yml', 'supply-chain.yml']:
+    def test_superseded_runs_cancel_but_the_merge_queue_never_does(self):
+        for workflow in ['research.yml', 'supply-chain.yml']:
             group = concurrency(workflow)
             self.assertIn("github.event_name == 'pull_request' && github.ref || github.run_id", group['group'])
             self.assertEqual(group['cancel-in-progress'], "${{ github.event_name == 'pull_request' }}")
         self.assertEqual(concurrency('nightly.yml')['cancel-in-progress'], 'false')
+        ci, verify = concurrency('ci.yml'), concurrency('verify.yml')
+        self.assertEqual(ci['group'], "${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.event_name == 'push' && 'push-main' || github.run_id }}")
+        self.assertEqual(ci['cancel-in-progress'], "${{ github.event_name == 'pull_request' || github.event_name == 'push' }}")
+        self.assertEqual(verify['group'], "${{ github.workflow }}-${{ github.event_name == 'push' && 'push-main' || github.run_id }}")
+        self.assertEqual(verify['cancel-in-progress'], "${{ github.event_name == 'push' }}")
+        for name, block in [('ci.yml', ci), ('verify.yml', verify)]:
+            for event in ['merge_group', 'schedule', 'workflow_dispatch']:
+                expression = block['group'].split('-${{ ', 1)[1].rsplit(' }}', 1)[0]
+                context = {'github.event_name': event, 'github.ref': 'refs/heads/main', 'github.run_id': '7'}
+                self.assertEqual(evaluate(expression, context), '7', (name, event))
+                self.assertFalse(evaluate(block['cancel-in-progress'][4:-3], context), (name, event))
+            context = {'github.event_name': 'push', 'github.ref': 'refs/heads/main', 'github.run_id': '7'}
+            self.assertEqual(evaluate(block['group'].split('-${{ ', 1)[1].rsplit(' }}', 1)[0], context), 'push-main', name)
+        for workflow in ['ci.yml', 'verify.yml']:
+            self.assertEqual(re.findall(r'^  push:\n    branches: \[main\]$', (WORKFLOWS / workflow).read_text(), re.M), ['  push:\n    branches: [main]'], workflow)
+        for workflow in ['deploy.yml', 'post-merge.yml']:
+            self.assertNotIn('push-main', (WORKFLOWS / workflow).read_text())
 
     def test_self_hosted_backend_tests_use_a_port_of_their_own(self):
         block = jobs('ci.yml')['test-backend']['block']

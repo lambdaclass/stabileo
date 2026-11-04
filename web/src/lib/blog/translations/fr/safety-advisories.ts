@@ -91,6 +91,12 @@ const body: PostBody = {
           "Corrigé dans la prochaine version"
         ],
         [
+          "SA-2026-035",
+          "Passage de la 3D à la 2D : la coupe faisait fléchir des barres autour du mauvais axe de section (un portique dans le plan Y–Z 13,5 fois trop rigide)",
+          "Élevée",
+          "Corrigé dans la prochaine version"
+        ],
+        [
           "SA-2026-013",
           "Coques courbes : moments fléchissants affichés comme nuls ; les contraintes conservaient la déformation thermique libre",
           "Élevée",

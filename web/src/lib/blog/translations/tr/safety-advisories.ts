@@ -91,6 +91,12 @@ const body: PostBody = {
           "Bir sonraki sürümde düzeltildi"
         ],
         [
+          "SA-2026-035",
+          "3D'den 2D'ye geçiş: kesit, elemanları yanlış kesit ekseni etrafında eğiyordu (Y–Z düzlemindeki bir çerçeve 13,5 kat fazla rijit)",
+          "Yüksek",
+          "Bir sonraki sürümde düzeltildi"
+        ],
+        [
           "SA-2026-013",
           "Eğri kabuklar: eğilme momentleri sıfır olarak raporlanıyordu; gerilmeler serbest ısıl şekil değiştirmeyi içinde tutuyordu",
           "Yüksek",
