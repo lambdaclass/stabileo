@@ -26,7 +26,7 @@
   import ProViewExportDialog from './export/ProViewExportDialog.svelte';
   import type { DrawingFormat } from './export/DrawingFormatRow.svelte';
   import type { ViewFormat } from '../../lib/export/view-export';
-  import { MAX_URL_SAFE } from '../../lib/utils/url-sharing';
+  import { MAX_URL_SAFE, pageAddress } from '../../lib/utils/url-sharing';
   import { codeShareUrl } from '../../lib/model/code/share';
   import { autosaveStatus, autosaveRevisions } from '../../lib/store/autosave-db';
 
@@ -148,7 +148,7 @@
   const proLink = $derived.by(() => {
     void modelStore.modelVersion;
     if (!hasModel) return null;
-    return codeShareUrl(modelStore.snapshot(), `${location.origin}${location.pathname}`);
+    return codeShareUrl(modelStore.snapshot(), pageAddress());
   });
   const linkTooLong = $derived(!!proLink && proLink.length > MAX_URL_SAFE);
 

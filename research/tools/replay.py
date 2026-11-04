@@ -87,11 +87,15 @@ def replay(paper):
     command, env = IN_PLACE.get(name, (["cargo", "test", "--release", "--locked"], {}))
     produced = paper / "VALIDATION.json" if name in IN_PLACE else paper / "target" / "VALIDATION.json"
     kept = {f: f.read_bytes() for f in (paper / "VALIDATION.json", paper / "PUBLISHED_COMPARISON.json") if f.exists()}
-    produced.unlink(missing_ok=True)
+    if name in IN_PLACE:
+        os.utime(produced, ns=(0, 0))
+    else:
+        produced.unlink(missing_ok=True)
     print(f"::group::{name}: {' '.join(command)}", flush=True)
     try:
         run = subprocess.run(command, cwd=paper, env={**os.environ, **env})
-        now = checks(produced)
+        written = produced.exists() and produced.stat().st_mtime_ns != 0
+        now = checks(produced) if written else None
     finally:
         for f, data in kept.items():
             f.write_bytes(data)

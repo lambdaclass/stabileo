@@ -81,7 +81,7 @@ class ReplayTests(unittest.TestCase):
                 (paper / 'VALIDATION.json').write_text(committed)
 
                 def writer(*args, **kwargs):
-                    self.assertFalse((paper / 'VALIDATION.json').exists())
+                    self.assertEqual((paper / 'VALIDATION.json').read_text(), committed)
                     if produced is not None:
                         (paper / 'VALIDATION.json').write_text(json.dumps({'checks': produced}))
                     return type('Run', (), {'returncode': 0})()
