@@ -8,7 +8,7 @@
     },
     {
       "metric": "64 elements / 16 modes vs 96 elements / 24 modes: max relative threshold change",
-      "observed": 0.0003999577799946863,
+      "observed": 0.0003999577996012249,
       "passed": true,
       "tolerance": 0.001
     },

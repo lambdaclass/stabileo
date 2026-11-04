@@ -259,6 +259,10 @@ jobs:
         continue-on-error: true
         with:
           use-flakehub: false
+      - name: Prepare Nix shells (infrastructure retries)
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command true
+          .github/scripts/retry-infra.sh nix shell --inputs-from . nixpkgs#caddy nixpkgs#curl nixpkgs#python3 --command true
       - run: make test.infra.caddy.redirects
 
   # One version of each tool everywhere (rust-toolchain.toml, .nvmrc, flake.nix and the
