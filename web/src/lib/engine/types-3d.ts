@@ -475,6 +475,22 @@ export interface ElementForces3D {
 }
 
 /** Plate stress output (triangular) */
+/**
+ * The components an envelope holds the extremes of: the element's own, the membrane principals,
+ * the Wood–Armer design moments and, for a plate, the principals of its worse face.
+ */
+export type ShellEnvelopeKey =
+  | 'sigmaXx' | 'sigmaYy' | 'tauXy' | 'mx' | 'my' | 'mxy' | 'qx' | 'qy' | 'vonMises' | 'sigma1' | 'sigma2'
+  | 'woodArmerBottomX' | 'woodArmerBottomY' | 'woodArmerTopX' | 'woodArmerTopY' | 'faceSigma1' | 'faceSigma2';
+export interface ShellEnvelopeSource { kind: 'combination' | 'case'; id: number }
+export interface ShellExtreme { max: number; maxSource: ShellEnvelopeSource; min: number; minSource: ShellEnvelopeSource }
+/**
+ * An envelope element's extremes, each with the set it comes from. Its record's components are
+ * each the extreme of larger magnitude and need not come from one set, so nothing that combines
+ * components (faces, principals, design moments) may be derived from the record: read it here.
+ */
+export type ShellEnvelope = Partial<Record<ShellEnvelopeKey, ShellExtreme>>;
+
 export interface PlateStress {
   elementId: number;
   sigmaXx: number;
@@ -487,6 +503,9 @@ export interface PlateStress {
   sigma2: number;
   vonMises: number;
   nodalVonMises?: number[];
+  qx?: number;
+  qy?: number;
+  envelope?: ShellEnvelope;
 }
 
 /** Quad stress output */
@@ -507,6 +526,7 @@ export interface QuadStress {
    */
   qx?: number;
   qy?: number;
+  envelope?: ShellEnvelope;
 }
 
 export interface AnalysisResults3D {

@@ -87,6 +87,9 @@ describe('engine gate ratios', () => {
     expect(g.engineRecheck.biaxialRatio).toBeDefined();
     const beam = engineRecheckElement(verifyElement(base), { stirrupDia: 8, NuShear: 0 });
     expect(beam.engineRecheck.notRechecked).toEqual([]);
+    const sheared = engineRecheckElement(verifyElement({ ...base, elementType: 'column', b: 0.4, h: 0.4, Mu: 40, Nu: 800, VuSecondary: 60 }), { stirrupDia: 8, NuShear: 0 });
+    expect(sheared.engineRecheck.notRechecked).toContain('shear-secondary');
+    expect(g.engineRecheck.notRechecked).not.toContain('shear-secondary');
     expect(beam.diagnostics?.some((d) => d.code.startsWith('VERIF_ENGINE'))).toBeFalsy();
   });
 

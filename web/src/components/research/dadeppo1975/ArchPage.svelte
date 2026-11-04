@@ -63,9 +63,8 @@
 <ExperimentShell paperId="dadeppo-arch-1975" name={s.title} lead={s.hook}
   sourcePath="research/benchmarks/dadeppo-arch-1975"
   actions={{ goToStep: i => playback.seek(i), setParams: () => {}, showTab: () => {} }}
-  verification={{ reference: { kind: 'none', why: s.stage }, published: { kind: 'none', why: s.referenceText } }}>
+  verification={{ reference: { kind: 'none', why: '' }, published: { kind: 'none', why: s.referenceText } }}>
   {#snippet article()}
-    <p><strong>{s.stage}</strong></p>
     <p><strong>{s.disclaimer}</strong></p>
     <h2>{s.model}</h2><p>{s.description}</p><p>{s.units}</p>
     <h2>{s.comparison}</h2><p>{s.referenceText}</p>
