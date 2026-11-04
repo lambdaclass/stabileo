@@ -183,6 +183,9 @@ Decided for later, so that nothing is forgotten. Each one moves to the tables ab
 
 **Safety (wrong results first)**
 
+- **[#1341](https://github.com/lambdaclass/stabileo/pull/1341) without a results version:** summing combination cases in a fixed order can move a
+  combined force in its last digit and flip a marginal detailing decision, but no snapshot changed, so
+  nothing was registered. Decide whether it needs a results version and a re-check notice.
 - **#1255 statics verdict** (high-effort Codex): `statics-check.ts:65` reports "unbalanced" from a
   residual over incomplete load sums, so a balanced case with an omitted surface load can be flagged
   (a false alarm, never a false pass); return partial whenever loads are left out.
