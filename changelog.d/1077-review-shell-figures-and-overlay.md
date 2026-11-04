@@ -6,5 +6,5 @@
   those values occupied, while the screen paints the contour field: nodal averages within the
   chosen domain, the chosen face, a typed range and bands. They now paint the screen's field,
   cut along its band edges (or 24 steps of a smooth scale) where it crosses them inside each face,
-  with its range and peak, so the figure and its scale agree with the screen and its legend. Re-export shell figures (results version 18, provisional).
+  with its range and peak, so the figure and its scale agree with the screen and its legend. Re-export shell figures (results version 21).
 - Shell direction marks and the largest and smallest values on screen leave out hidden shells.

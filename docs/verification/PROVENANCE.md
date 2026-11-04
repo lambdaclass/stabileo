@@ -74,7 +74,7 @@ registry entry therefore flags every saved model with a time history (`timeHisto
 
 ## Shell figures paint the screen's field (PR #1255, review of #1077)
 
-Results version 18 (provisional: the next free version when this lands; renumber then) registers `shell-figures-paint-the-screen-field`: exported shell result figures paint
+Results version 21 (the next free version when this was marked ready) registers `shell-figures-paint-the-screen-field`: exported shell result figures paint
 the contour field the screen shows (nodal averages within the chosen domain, face, typed range and
 bands) instead of one centre value per element over its own range, so their colours, scale and
 peak label change. Solver results are unchanged.
