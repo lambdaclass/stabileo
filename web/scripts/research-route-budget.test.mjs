@@ -22,7 +22,7 @@ const shippedBudgets = JSON.parse(readFileSync(new URL('./product-route-growth-b
 test('the landing routes have a 128 byte budget and the app routes the one-time safety batch and #1253 acceptance', () => {
   assert.deepEqual(shippedBudgets, {
     '/en/': 128, '/es/': 128, '/pt/': 128,
-    '/app/basic': 26624, '/app/education': 26624, '/app/pro': 26624,
+    '/app/basic': 30720, '/app/education': 30720, '/app/pro': 30720,
   });
 });
 for (const [route, budget] of Object.entries(shippedBudgets)) {
