@@ -91,6 +91,12 @@ const body: PostBody = {
           "Behoben in der nächsten Version"
         ],
         [
+          "SA-2026-035",
+          "Wechsel von 3D zu 2D: Der Schnitt bog Stäbe um die falsche Querschnittsachse (ein Rahmen in der Y–Z-Ebene 13,5-mal zu steif)",
+          "Hoch",
+          "Behoben in der nächsten Version"
+        ],
+        [
           "SA-2026-013",
           "Gekrümmte Schalen: Biegemomente als null ausgegeben; Spannungen enthielten die freie Temperaturdehnung",
           "Hoch",

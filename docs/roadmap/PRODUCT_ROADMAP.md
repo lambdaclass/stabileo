@@ -91,6 +91,11 @@ own warning or refusal. The per-defect fixes come from the solver bug-fix workst
 
 ### 2. Other bugs
 
+- **Found in the review of [#1253](https://github.com/lambdaclass/stabileo/pull/1253) and [#1255](https://github.com/lambdaclass/stabileo/pull/1255) (2026-11-04):**
+  - [#1404](https://github.com/lambdaclass/stabileo/issues/1404): the re-check notice shows every registered change's title and explanation in English to German, French and Turkish users. This affects all 72 entries on main, and a safety notice the reader can't read is close to a missed notice.
+  - [#1401](https://github.com/lambdaclass/stabileo/issues/1401): edge beams under one-sided slab load get no torque and no advisory, in the panels, width and plan modes.
+  - [#1402](https://github.com/lambdaclass/stabileo/issues/1402): verification integrity. A hand-edited report can drop sections and still pass the report check.
+  - [#1403](https://github.com/lambdaclass/stabileo/issues/1403): the storey scope should track explicit picks separately from expansion copies.
 - **Route byte budgets:** all six routes are back to 128 B ([#1322](https://github.com/lambdaclass/stabileo/pull/1322), then [#1372](https://github.com/lambdaclass/stabileo/pull/1372) for the app routes), and the blog is its own
   lazy route ([#1289](https://github.com/lambdaclass/stabileo/pull/1289), [#1290](https://github.com/lambdaclass/stabileo/pull/1290)), all landed. The course stack is a lazy route boundary ([#1302](https://github.com/lambdaclass/stabileo/pull/1302)), so each module stays
   within 128 B; the blog posts of [#1338](https://github.com/lambdaclass/stabileo/pull/1338) still need a decision on their growth.

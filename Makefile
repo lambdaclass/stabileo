@@ -1,6 +1,7 @@
 .PHONY: research.wasm paper.pdf help install-nix shell setup setup.run git.setup deps backend.run console routes \
        lint.engine test.engine.units-types check.engine.acceptance-models test.engine.gates test.engine.metamorphic test.engine.suite bench.engine \
        web.deps typecheck.web test.web.unit test.web.build test.web.timing test.web.results snapshots-update check.results-snapshot-gate test.web.determinism e2e.web.setup e2e.web.build e2e.web.smoke e2e.web.slow e2e.web.timing e2e.web.visual e2e.web.flaky \
+       perf.lighthouse.deps perf.lighthouse \
        test.ci-scripts test.nightly-scripts test.infra.caddy test.infra.caddy.redirects check.web.translations \
        test test.engine test.engine.benchmark-protocol test.backend test.backend.file test.web test.ai-backend test.inventory test-changed \
        lint.backend format format.backend \
@@ -275,6 +276,13 @@ test.web.build:
 test.web.timing:
 	$(NIX_RUN) bash -c "cd web && npx vitest run --project build src/lib/engine/__tests__/scale-budget.test.ts"
 
+perf.lighthouse.deps:
+	$(NIX_RUN) bash -c "cd web/lighthouse && npm ci --no-audit --no-fund"
+
+## Lighthouse median of RUNS against web/perf-lighthouse.json; BASE, RUNS, PRESET and ARGS come from the environment
+perf.lighthouse:
+	$(NIX_RUN) bash -c 'cd web && node scripts/perf-lighthouse.mjs --base "$${BASE:-https://stabileo.com}" --runs "$${RUNS:-5}" --preset "$${PRESET:-mobile}" $$ARGS'
+
 # Every non-English page of a built site (DIST, default web/dist) must be translated, and the
 # sitemap, the hreflang sets and the built files must agree (web/scripts/translation-gate.ts).
 check.web.translations:
@@ -379,6 +387,7 @@ test.nightly-scripts:
 test.ci-scripts: test.nightly-scripts
 	python3 -B -I scripts/tests/test_retry_infra.py
 	python3 -B -I scripts/tests/test_build_research_wasm.py
+	python3 -B -I scripts/tests/test_research_host_cache.py
 	python3 -B -I scripts/tests/test_ci_aggregate.py
 	python3 -B -I scripts/tests/test_ci_selection.py
 	python3 -B -I scripts/tests/test_check_wall_clock_tests.py

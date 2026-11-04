@@ -5,6 +5,7 @@ node_modules
 
 # Build output
 web/dist/
+web/.perf/
 web/dist-admin/
 
 # IDE / OS

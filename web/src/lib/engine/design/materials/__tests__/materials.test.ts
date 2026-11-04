@@ -76,6 +76,48 @@ describe('aluminium', () => {
     expect(c.capacity).toBeCloseTo(0.13801 * 1090.909, 0);
   });
 
+  it('weak-axis shear is checked on the flanges of an I, by hand (#532)', () => {
+    const s = { kind: 'I' as const, b: 0.2, h: 0.3, tw: 0.015, tf: 0.016, a: 0.0103, iy: 1.6e-4, iz: 2.1e-5, j: 6e-7 };
+    const g = { fo: 240, fu: 260, designation: '6061-T6' };
+    const rows = aluminiumCheckRows(s, g, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0, vWeak: 900, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    const weak = rows.find((r) => r.titleKey === 'check.alu.shearWeak');
+    const vRd = (2 * 0.2 * 0.016 * 240) / (Math.sqrt(3) * 1.1) * 1000;
+    expect(vRd).toBeCloseTo(806.18, 1);
+    expect(weak?.capacity).toBeCloseTo(vRd, 2);
+    expect(weak?.status).toBe('fail');
+    expect(rows.find((r) => r.titleKey === 'check.alu.shear')).toBeUndefined();
+    const strong = aluminiumCheckRows(s, g, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 900, vWeak: 0, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    expect(strong.find((r) => r.titleKey === 'check.alu.shear')?.capacity).toBeCloseTo((0.015 * (0.3 - 0.032) * 240) / (Math.sqrt(3) * 1.1) * 1000, 2);
+    expect(strong.find((r) => r.titleKey === 'check.alu.shearWeak')).toBeUndefined();
+  });
+
+  it('weak-axis shear of a rectangular tube uses the walls along its width', () => {
+    const s = { kind: 'RHS' as const, b: 0.1, h: 0.15, t: 0.01, a: 0.0046, iy: 1.3e-5, iz: 6.6e-6, j: 1.3e-5 };
+    expect(sectionClass(s, 240, 'A').compression).toBeLessThan(4);
+    const rows = aluminiumCheckRows(s, { fo: 240, fu: 260, designation: '6061-T6' }, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0, vWeak: 100, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')?.capacity).toBeCloseTo((2 * 0.01 * 0.08 * 240) / (Math.sqrt(3) * 1.1) * 1000, 2);
+  });
+
+  it('a tube checks the resultant of its two shears: two components at 0.8·VRd fail together', () => {
+    const s = { kind: 'CHS' as const, b: 0.1, h: 0.1, t: 0.008, a: Math.PI * (0.05 ** 2 - 0.042 ** 2), iy: 2.0e-6, iz: 2.0e-6, j: 4.0e-6 };
+    const vRd = ((2 * s.a) / Math.PI * 240) / (Math.sqrt(3) * 1.1) * 1000;
+    const rows = aluminiumCheckRows(s, { fo: 240, fu: 260, designation: '6061-T6' }, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0.8 * vRd, vWeak: 0.8 * vRd, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    const shear = rows.find((r) => r.titleKey === 'check.alu.shear')!;
+    expect(shear.demand).toBeCloseTo(Math.hypot(0.8, 0.8) * vRd, 2);
+    expect(shear.status).toBe('fail');
+    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')).toBeUndefined();
+  });
+
+  it('a solid rectangle checks the resultant of its two shears: two components at 0.8·VRd fail together', () => {
+    const s = { kind: 'rect' as const, b: 0.05, h: 0.1, a: 0.005, iy: 4.17e-6, iz: 1.04e-6, j: 1.2e-6 };
+    const vRd = ((2 * s.a) / 3 * 240) / (Math.sqrt(3) * 1.1) * 1000;
+    const rows = aluminiumCheckRows(s, { fo: 240, fu: 260, designation: '6061-T6' }, { L: 2, Lb: 2 }, [{ n: 0, vStrong: 0.8 * vRd, vWeak: 0.8 * vRd, mStrong: 0, mWeak: 0, comboName: 'U', x: 0 }]);
+    const shear = rows.find((r) => r.titleKey === 'check.alu.shear')!;
+    expect(shear.demand).toBeCloseTo(Math.hypot(0.8, 0.8) * vRd, 2);
+    expect(shear.status).toBe('fail');
+    expect(rows.find((r) => r.titleKey === 'check.alu.shearWeak')).toBeUndefined();
+  });
+
   it('a slender I section is class 4 and is not evaluated, a stocky one is', () => {
     const slender = { kind: 'I' as const, b: 0.2, h: 0.3, tw: 0.002, tf: 0.004, a: 0.002, iy: 1e-5, iz: 1e-6, j: 1e-9 };
     expect(sectionClass(slender, 240, 'A').compression).toBe(4);
