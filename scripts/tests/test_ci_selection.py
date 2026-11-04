@@ -92,7 +92,8 @@ class Selection(unittest.TestCase):
                     subprocess.run(['bash', '-eu', '-c', script_with_diff], env=env, check=True, stdout=subprocess.DEVNULL)
                     self.assertEqual(output.read_text().strip(), 'research=' + expected)
         self.assertIn('RESEARCH_ISOLATION: ${{ steps.scope.outputs.research }}', workflow)
-        self.assertIn('web/scripts/product-route-growth-budgets.json route-main/web/scripts/', workflow)
+        self.assertIn('web/scripts/research-route-budget.mjs route-main/web/scripts/', workflow)
+        self.assertNotIn('product-route-growth-budgets.json', workflow)
         self.assertNotIn('--product-budget', workflow)
 
     def test_unsure_is_full(self):
@@ -138,7 +139,7 @@ class Selection(unittest.TestCase):
     def test_site_changes_skip_only_the_engine_side(self):
         for paths in [self.PR_1250, ['web/src/lib/i18n/locales/fr.ts'], ['web/src/lib/blog/posts/x.ts'],
                       ['web/e2e/fixtures.ts'], ['web/scripts/prerender.ts', 'docs/a.md'],
-                      ['web/scripts/product-route-growth-budgets.json']]:
+                      ['web/scripts/route-size-ceilings.json']]:
             with self.subTest(paths=paths[:2]):
                 self.assert_site(selection.select('pull_request', paths))
 

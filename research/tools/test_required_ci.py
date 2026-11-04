@@ -151,7 +151,7 @@ measured = [step for step in route if 'check-research-route-size.mjs' in step.ge
 assert measured and all('if' not in step for step in measured)
 assert measured[0]['env']['RESEARCH_ISOLATION'] == '${{ steps.scope.outputs.research }}'
 copy = next(line for line in measured[0]['run'].splitlines() if line.startswith('cp '))
-assert 'web/scripts/product-route-growth-budgets.json' in copy.split()
+assert 'web/scripts/product-route-growth-budgets.json' not in copy.split()
 assert copy.split()[-1] == 'route-main/web/scripts/'
 assert 'force_routes' not in jobs['research'].get('with', {})
 assert 'FORCE_ROUTES' not in scope['env']
