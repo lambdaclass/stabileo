@@ -252,7 +252,7 @@ fn both_ends_bent_the_same_way_past_half_a_turn_are_never_reported_converged() {
     }
     for end_turn in [1.5 * std::f64::consts::PI, 2.0 * std::f64::consts::PI, 2.0 * std::f64::consts::PI + 0.01] {
         for increments in [1, 10, 100] {
-            match solve_corotational_3d(&bent_in_double_curvature(end_turn), increments, 1e-10, 40, false) {
+            match solve_corotational_3d(&bent_in_double_curvature(end_turn), 100, 1e-10, increments, false) {
                 Err(e) => assert!(e.contains("member 1"), "{end_turn}: {e}"),
                 Ok(r) => {
                     assert!(!r.converged && r.load_factor < 1.0, "{end_turn} rad in {increments}: reported converged");
