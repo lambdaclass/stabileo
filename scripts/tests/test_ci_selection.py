@@ -32,6 +32,31 @@ class Selection(unittest.TestCase):
                 self.assertEqual(json.loads(result['e2e_shards']), [1])
                 self.assertEqual(json.loads(result['e2e_specs']), selection.SPECS.get(scope, []))
 
+    def test_a_pull_request_builds_docker_from_source_only_when_its_recipe_or_pins_change(self):
+        for paths in [['Dockerfile'], ['.dockerignore'], ['Cargo.lock'], ['engine/Cargo.toml'], ['rust-toolchain.toml'],
+                      ['web/package-lock.json'], ['.nvmrc'], ['engine/.cargo/config.toml'],
+                      ['research/fracture/shauer-2025/wasm/build.sh'], ['research/tools/publish_assets.py'],
+                      ['web/scripts/check-research-springs.mjs'], ['web/src/App.svelte', 'Cargo.lock']]:
+            with self.subTest(paths=paths):
+                self.assertEqual(selection.select('pull_request', paths)['docker_source'], 'true')
+        for paths in [['web/src/App.svelte'], ['engine/src/lib.rs'], ['research/fracture/shauer-2025/src/lib.rs'],
+                      ['.github/workflows/ci.yml'], ['ai-backend/src/main.rs']]:
+            with self.subTest(paths=paths):
+                result = selection.select('pull_request', paths)
+                self.assertEqual((result['docker'], result['docker_source']), ('true', 'false'))
+        self.assertEqual(selection.select('pull_request', ['docs/a.md'])['docker_source'], 'false')
+        self.assertEqual(selection.select('pull_request', ['web/src/App.svelte'], force_full=True)['docker_source'], 'true')
+        for paths in [None, [], [None]]:
+            with self.subTest(paths=paths):
+                self.assertEqual(selection.select('pull_request', paths)['docker_source'], 'true')
+        for event in ['push', 'schedule', 'workflow_dispatch']:
+            self.assertEqual(selection.select(event, ['web/src/App.svelte'])['docker_source'], 'true')
+        self.assertEqual(selection.select('merge_group', [])['docker_source'], 'false')
+        smoke = (ROOT / '.github/workflows/ci.yml').read_text().split('\n  docker-smoke:\n', 1)[1].split('\n  lint-repo:', 1)[0]
+        source = smoke.split('docker build --tag stabileo-source-smoke .', 1)[0].rsplit('      - ', 1)[1]
+        self.assertIn("if: needs.changes.outputs.docker_source == 'true'", source)
+        self.assertNotIn('if:', smoke.split('docker build --build-arg FRONTEND_STAGE=web-prebuilt', 1)[0].rsplit('      - ', 1)[1])
+
     def test_every_web_scope_runs_typechecking(self):
         for path in ['docs/a.md', 'research/a.rs', 'web/src/components/tools/a.svelte',
                      'engine/src/lib.rs', 'web/src/App.svelte', 'research/fracture/shauer-2025/NOTES.md']:
