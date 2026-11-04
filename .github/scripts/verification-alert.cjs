@@ -14,6 +14,7 @@ const WATCHED = {
   'Mutation testing (TypeScript engine logic)': 32,
   'Supply chain': 32,
   'Runner pools': 32,
+  Performance: 32,
   'Verification dashboard': 8 * 24 + 8,
 };
 
