@@ -1595,14 +1595,15 @@ pub(crate) fn wrench_equilibrium(
     let force = (0..3).map(|k| (a[k] + r[k]).abs()).fold(0.0f64, f64::max);
     let moment = (3..6).map(|k| (a[k] + r[k]).abs() / size).fold(0.0f64, f64::max);
     let allowed = 10.0 * (n_dof.max(1) as f64).sqrt() * tolerance * (scale_a + scale_r);
-    let within = |x: f64| x.is_finite() && x <= allowed;
+    let finite = a.iter().chain(&r).chain(&[scale_a, scale_r, allowed]).all(|v| v.is_finite());
+    let within = |x: f64| finite && x.is_finite() && x <= allowed;
     let summary = EquilibriumSummary {
         applied_force_components: applied.iter().flat_map(|w| w.f).collect(),
         relative_residual: rel_residual,
         residual_ok: rel_residual.is_finite() && rel_residual <= tolerance,
         applied_force_sum: vec![],
         reaction_force_sum: vec![],
-        max_imbalance: force.max(moment),
+        max_imbalance: if finite { force.max(moment) } else { f64::INFINITY },
         equilibrium_ok: within(force) && within(moment),
     };
     let gate = summary.equilibrium_ok;
@@ -1983,5 +1984,15 @@ mod tests {
         assert!(!eq.equilibrium_ok, "forces balance but the 40 kN·m couple of the pair is unreacted: {eq:?}");
         let eq = wrench_equilibrium(&points, &[force(-10.0, 4.0)], &[force(10.0, 0.0), couple(-40.0, 0.0)], 0.0, 1e-8, 6).summary;
         assert!(eq.equilibrium_ok, "{eq:?}");
+    }
+
+    #[test]
+    fn wrench_equilibrium_fails_closed_when_a_total_overflows() {
+        let points = [[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]];
+        let force = |fz: f64, x: f64| NodalWrench { r: [x, 0.0, 0.0], f: [0.0, 0.0, fz], m: [0.0; 3] };
+        let applied = [force(1e308, 2.0), force(-1e308, 2.0), force(-5.0, 2.0)];
+        let eq = wrench_equilibrium(&points, &applied, &[], 0.0, 1e-8, 6).summary;
+        assert!(!eq.equilibrium_ok, "an overflowed total must not pass: {eq:?}");
+        assert!(eq.max_imbalance.is_infinite(), "{eq:?}");
     }
 }
