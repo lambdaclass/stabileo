@@ -16,7 +16,8 @@ engine test-target registration checks. Additional work depends on changed paths
 Documentation/changelog changes may accompany one code area without broadening
 its selection. Markdown inside a code directory follows that directory's rule.
 Shared libraries, app code, dependencies, tooling, CI and unrecognized E2E specs
-always select full CI. The `run-e2e` label also forces full CI, including slow E2E.
+always select full CI. The `run-e2e` label also forces full CI, including slow E2E; adding it does not
+start a run, so push or re-run CI afterwards.
 Area selectors require unit tests and matching specs; missing coverage falls back
 to full CI. In particular, the tools directory and its `tools*.spec.ts` convention
 are reserved here and do not exist on this branch yet.

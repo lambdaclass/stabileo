@@ -16,7 +16,8 @@
 # missing area tests conservatively select full CI.
 # engine/**: engine/AI-backend/research suites, determinism/results, full web unit, @engine smoke.
 # Every web selection includes Web Build and its TypeScript/Svelte gates.
-# Other/mixed/unknown paths and run-e2e label: full pipeline.
+# Other/mixed/unknown paths and run-e2e label: full pipeline. The label is read when the run starts:
+# adding it does not start a run (any label would restart CI); push or re-run CI after adding it.
 # ONLY pull_request job selection is narrowed by path. The merge queue skips the heavy jobs that
 # combining PRs rarely breaks (slow E2E, visual baselines, Docker smoke, Determinism, quarantined
 # E2E, research validation beyond route budgets); pushes to main and the nightly schedule run
@@ -29,7 +30,7 @@ on:
     branches: [main]
   # Every base branch: PRs stacked on another PR get CI too.
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
   # The merge queue: each PR is tested on top of the ones merging before it, so two PRs that
   # are green on their own cannot break main together.
   merge_group:
@@ -63,19 +64,22 @@ env:
 # job that passes here passes on a developer's machine with the same command.
 #
 # Self-hosted runners on stabileo-ci-1 (dotfiles servers/runners-stabileo.sh). With
-# STABILEO_SELF_HOSTED 'true', every job that builds or tests runs on `[self-hosted, stabileo]`
-# for merge_group and pushes to main and, with STABILEO_PR_POOL 'true' too, on
-# `[self-hosted, stabileo-pr]` for pull requests from this repository's own branches; only part of
-# the pool carries `stabileo-pr`, so pull requests never take every runner from the merge queue.
+# STABILEO_SELF_HOSTED 'true', the jobs that build or test run on `[self-hosted, stabileo]` for
+# merge_group and pushes to main. Pull requests from this repository's own branches take the host
+# (`[self-hosted, stabileo-pr]`, with STABILEO_PR_POOL 'true') only for the cache-heavy builds on
+# their critical path: WASM, Research WASM and the e2e site. Every other pull request job runs on
+# GitHub, where thirty start at once, instead of queueing for the few `stabileo-pr` runners.
 # Fork and Dependabot pull requests stay on GitHub: the repo is public, and their code must never
 # reach a persistent runner. Engine Gates, Web Unit and the research engine benchmarks time
 # themselves, so outside pull requests they go to `[self-hosted, stabileo-timing]` (runners pinned
 # to cores no other runner uses) when STABILEO_TIMING_POOL is 'true' too, and to GitHub otherwise.
-# On GitHub always: Detect Changes and CI OK (no build work; a full host
-# must not delay them), the E2E shards (ten browsers at once start there in seconds and run in
-# about 11 min against 18 on the shared host; they only download the wasm and site artifacts), Determinism (Nix WebKit does not start on the host) and Docker build
-# smoke (no Docker for runner users). Self-hosted jobs skip the Nix installer, rust-cache,
-# magic-nix-cache and free-disk; each runner keeps its own CARGO_TARGET_DIR.
+# On GitHub always: Detect Changes and CI OK (no build work; a full host must not delay them),
+# the checks that take a minute or less (CI scripts, backend lint, migrations, results snapshot,
+# research catalog and isolation), the E2E shards (ten start at once there and run in about
+# 11 min against 18 on the shared host; they only download the wasm and site artifacts),
+# Determinism (Nix WebKit does not start on the host) and Docker build smoke (no Docker for runner
+# users). Self-hosted jobs skip the Nix installer, rust-cache, magic-nix-cache and free-disk; each
+# runner keeps its own CARGO_TARGET_DIR.
 jobs:
   changes:
     name: Detect Changes
@@ -103,6 +107,7 @@ jobs:
       flaky: ${{ steps.select.outputs.flaky }}
       determinism: ${{ steps.select.outputs.determinism }}
       results: ${{ steps.select.outputs.results }}
+      run_e2e: ${{ steps.labels.outputs.run_e2e == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -186,13 +191,23 @@ jobs:
               - 'flake.nix'
               - 'flake.lock'
               - 'web/package-lock.json'
+      - name: Labels as they are now (a re-run sees a label added after the push)
+        id: labels
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          names=$(.github/scripts/retry-infra.sh gh api "repos/$GH_REPO/pulls/$PR" --jq '.labels[].name')
+          if grep -qx run-e2e <<<"$names"; then echo "run_e2e=true"; else echo "run_e2e=false"; fi >> "$GITHUB_OUTPUT"
       - name: Select PR jobs (all jobs for trusted events)
         id: select
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CHANGED_FILES: ${{ steps.filter.outputs.all_files }}
-          FORCE_FULL: ${{ contains(github.event.pull_request.labels.*.name, 'run-e2e') }}
+          FORCE_FULL: ${{ steps.labels.outputs.run_e2e == 'true' }}
         run: python3 .github/scripts/select-ci.py
 
   docker-smoke:
@@ -221,7 +236,7 @@ jobs:
   # workflows), and changelog.d/ fragments well formed. On every run: neither has a path filter.
   lint-repo:
     name: Lint Repo
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -252,7 +267,7 @@ jobs:
 
   test-ci-scripts:
     name: Test CI Scripts
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.ci_scripts == 'true'
@@ -282,7 +297,7 @@ jobs:
 
   lint-engine:
     name: Lint Engine
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -352,7 +367,7 @@ jobs:
 
   test-engine-suite:
     name: Engine Suite (${{ matrix.shard }}/4)
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -393,7 +408,7 @@ jobs:
   # unoptimised they outlast a suite shard.
   test-engine-metamorphic:
     name: Engine Metamorphic
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 40
     needs: [changes]
     if: needs.changes.outputs.engine == 'true'
@@ -428,7 +443,7 @@ jobs:
 
   test-ai-backend:
     name: Test AI Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.ai_backend == 'true'
@@ -461,7 +476,7 @@ jobs:
 
   lint-backend:
     name: Lint Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
@@ -499,7 +514,7 @@ jobs:
 
   test-backend:
     name: Test Backend
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 30
     needs: [changes]
     if: needs.changes.outputs.backend == 'true'
@@ -545,7 +560,7 @@ jobs:
 
   check-migrations-immutable:
     name: Check Migrations Immutable
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     needs: [changes]
     if: needs.changes.outputs.backend == 'true' && github.event_name == 'pull_request'
@@ -559,7 +574,7 @@ jobs:
 
   check-migrations:
     name: Check Migration Safety
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes]
     if: needs.changes.outputs.backend == 'true' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
@@ -687,20 +702,50 @@ jobs:
       - name: Prepare Nix shell (infrastructure retries)
         run: |
           .github/scripts/retry-infra.sh nix develop --command true
-      # Cache only the expensive Rust bundles/replay. Rebuild and republish the viewer below.
-      - name: Research compiled assets
-        id: research-assets
+      # One cache per research bundle, keyed on what that bundle is built from (every bundle links
+      # the engine). The viewer is rebuilt and republished below.
+      - name: Research compiled assets (shauer-2025)
+        id: research-shauer-2025
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         continue-on-error: true
         with:
-          path: |
-            web/public/research-wasm/shauer-2025
-            web/public/research-wasm/grossman-2026
-            web/public/research-wasm/andreassen-2011
-            web/public/research-wasm/biggins-2026
-            web/public/research-wasm/pastrana-2026
-            web/public/research-wasm/fairclough-2026
-          key: research-assets-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/**') }}
+          path: web/public/research-wasm/shauer-2025
+          key: research-assets-v3-shauer-2025-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/fracture/shauer-2025/**') }}
+      - name: Research compiled assets (andreassen-2011)
+        id: research-andreassen-2011
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/andreassen-2011
+          key: research-assets-v3-andreassen-2011-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimization/andreassen-2011/**') }}
+      - name: Research compiled assets (biggins-2026)
+        id: research-biggins-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/biggins-2026
+          key: research-assets-v3-biggins-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/mechanics/biggins-2026/**', 'research/fracture/shauer-2025/wasm/trim_exports.py') }}
+      - name: Research compiled assets (grossman-2026)
+        id: research-grossman-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/grossman-2026
+          key: research-assets-v3-grossman-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/metamaterials/grossman-2026/**') }}
+      - name: Research compiled assets (pastrana-2026)
+        id: research-pastrana-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/pastrana-2026
+          key: research-assets-v3-pastrana-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/form-finding/pastrana-2026/**') }}
+      - name: Research compiled assets (fairclough-2026)
+        id: research-fairclough-2026
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        continue-on-error: true
+        with:
+          path: web/public/research-wasm/fairclough-2026
+          key: research-assets-v3-fairclough-2026-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.nix', 'flake.lock', 'rust-toolchain.toml', 'Cargo.toml', 'Cargo.lock', '.cargo/**', 'research/tools/**', 'engine/src/**', 'engine/Cargo.toml', 'engine/build.rs', 'engine/.cargo/**', 'research/optimisation/fairclough-2026/**') }}
       - if: runner.environment == 'github-hosted'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         continue-on-error: true
@@ -713,24 +758,48 @@ jobs:
           shared-key: research-wasm
       - name: Install viewer dependencies
         run: .github/scripts/retry-infra.sh make web.deps
-      - name: Build research WASM and replay (cache miss)
-        if: steps.research-assets.outputs.cache-hit != 'true'
+      - name: Build research WASM (shauer-2025, cache miss)
+        if: steps.research-shauer-2025.outputs.cache-hit != 'true'
         env:
           RESEARCH_SKIP_VIEWER: '1'
         run: |
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/wasm/Cargo.toml
           .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/fracture/shauer-2025/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
-          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
-          # Clear the flake's sccache wrapper for research toolchains on the host.
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/fracture/shauer-2025/wasm/build.sh
+      - name: Build research WASM (andreassen-2011, cache miss)
+        if: steps.research-andreassen-2011.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimization/andreassen-2011/wasm/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimization/andreassen-2011/wasm/build.sh
+      - name: Build research WASM (biggins-2026, cache miss)
+        if: steps.research-biggins-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/mechanics/biggins-2026/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/mechanics/biggins-2026/build.sh
+      - name: Build research WASM (grossman-2026, cache miss)
+        if: steps.research-grossman-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/metamaterials/grossman-2026/wasm/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/metamaterials/grossman-2026/wasm/build.sh
+      - name: Build research WASM (pastrana-2026, cache miss)
+        if: steps.research-pastrana-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/form-finding/pastrana-2026/wasm/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/form-finding/pastrana-2026/wasm/build.sh
+      - name: Build research WASM (fairclough-2026, cache miss)
+        if: steps.research-fairclough-2026.outputs.cache-hit != 'true'
+        env:
+          RESEARCH_SKIP_VIEWER: '1'
+        run: |
+          .github/scripts/retry-infra.sh nix develop --command cargo fetch --locked --manifest-path research/optimisation/fairclough-2026/Cargo.toml
           nix develop --command env RUSTC_WRAPPER= SCCACHE_DISABLE=1 research/optimisation/fairclough-2026/wasm/build.sh
       - name: Build viewer and publish matching asset identity (also on cache hits)
         run: |
@@ -885,7 +954,7 @@ jobs:
 
   web-build:
     name: Web Build
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && (github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || 'ubuntu-24.04' }}
     timeout-minutes: 45
     needs: [changes, wasm, research-wasm]
     if: needs.changes.outputs.web_build == 'true'
@@ -994,7 +1063,7 @@ jobs:
   # result-changes.json and a "BREAKING (results)" changelog fragment).
   results-snapshot:
     name: Results Snapshot
-    runs-on: ${{ vars.STABILEO_SELF_HOSTED == 'true' && ((github.event_name == 'merge_group' || github.ref == 'refs/heads/main') && fromJSON('["self-hosted","stabileo"]') || (vars.STABILEO_PR_POOL == 'true' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.login != 'dependabot[bot]') && fromJSON('["self-hosted","stabileo-pr"]')) || 'ubuntu-24.04' }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     needs: [changes, wasm]
     if: needs.changes.outputs.results == 'true'
@@ -1217,7 +1286,7 @@ jobs:
             make e2e.web.smoke SHARD=${{ matrix.shard }}/10
           fi
       - name: E2E slow suite (shard ${{ matrix.shard }}/10)
-        if: needs.changes.outputs.slow_e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'run-e2e')
+        if: needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true'
         env:
           NO_WALL_CLOCK: ${{ runner.environment == 'self-hosted' && '1' || '' }}
         run: |
@@ -1230,7 +1299,7 @@ jobs:
       # prove stable. Never pass --update-snapshots by default: it would overwrite
       # the baselines and leave the gate inert. UPDATE_SNAPSHOTS=1 refreshes them once.
       - name: E2E visual baselines (non-blocking comparison)
-        if: matrix.shard == 1 && (needs.changes.outputs.slow_e2e == 'true' || contains(github.event.pull_request.labels.*.name, 'run-e2e'))
+        if: matrix.shard == 1 && (needs.changes.outputs.slow_e2e == 'true' || needs.changes.outputs.run_e2e == 'true')
         continue-on-error: true
         run: |
           if [ "${{ runner.environment }}" = self-hosted ]; then
